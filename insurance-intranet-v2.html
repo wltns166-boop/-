@@ -330,7 +330,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <!-- 명예의 전당 3칸 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
         <div class="hc" style="min-height:0;padding:14px 16px">
-          <div class="hct" style="margin-bottom:10px;justify-content:center;font-size:15px">🏆 월납 명예의 전당</div>
+          <div class="hct" style="margin-bottom:10px;justify-content:center;font-size:15px">🏆 인정실적 명예의 전당</div>
           <div id="rank_amount"></div>
         </div>
         <div class="hc" style="min-height:0;padding:14px 16px">
@@ -425,7 +425,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_pc">
       <div class="sh"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
       <div class="sg" id="perf_stats"></div>
-      <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>금액(만원)</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
+      <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>인정실적</th><th>영수실적</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
     </div>
 
     <!-- 월간 목표 -->
@@ -449,7 +449,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <!-- 진급평가 -->
     <div class="pg" id="pg_prom">
       <div class="sh"><div class="st"><i class="ti ti-award"></i>진급평가</div><button class="bp ao" id="btn_prom"><i class="ti ti-plus"></i> 평가 추가</button></div>
-      <div class="card"><table class="dt"><thead><tr><th>이름</th><th>현재직급</th><th>목표직급</th><th>평가월</th><th>평가차수</th><th>평가실적</th><th>현재실적</th><th>달성률</th><th>달성여부</th><th>관리</th></tr></thead><tbody id="prom_tb"></tbody></table></div>
+      <div class="card"><table class="dt"><thead><tr><th>이름</th><th>현재직급</th><th>목표직급</th><th>평가월</th><th>평가차수</th><th>평가실적</th><th>현재 인정실적</th><th>달성률</th><th>달성여부</th><th>관리</th></tr></thead><tbody id="prom_tb"></tbody></table></div>
     </div>
 
     <!-- 보장분석 -->
@@ -1321,7 +1321,8 @@ function rSchedulePage(){
   <div class="fg"><div class="fl">구성원</div><select class="fs" id="mp_mem"></select></div>
   <div class="fr">
     <div class="fg"><div class="fl">건수</div><input class="fi" type="number" id="mp_cnt" placeholder="건"></div>
-    <div class="fg"><div class="fl">금액 (원)</div><input class="fi" type="number" id="mp_amt" placeholder="원"></div>
+    <div class="fg"><div class="fl">인정실적 (인정P)</div><input class="fi" type="number" id="mp_amt" placeholder="원"></div>
+    <div class="fg"><div class="fl">영수실적 (영수P)</div><input class="fi" type="number" id="mp_amt_ay" placeholder="원"></div>
   </div>
   <div class="fg"><div class="fl">날짜</div><input class="fi" type="date" id="mp_date"></div>
   <input type="hidden" id="mp_edit_name">
@@ -1333,7 +1334,7 @@ function rSchedulePage(){
   <div class="fg"><div class="fl">구성원</div><select class="fs" id="mg_mem"></select></div>
   <div class="fr">
     <div class="fg"><div class="fl">목표 건수</div><input class="fi" type="number" id="mg_cnt" placeholder="건"></div>
-    <div class="fg"><div class="fl">목표 금액 (만원)</div><input class="fi" type="number" id="mg_amt" placeholder="만원"></div>
+    <div class="fg"><div class="fl">목표 인정실적 (원)</div><input class="fi" type="number" id="mg_amt" placeholder="원"></div>
   </div>
   <div class="fg"><div class="fl">초회상담 목표 건수</div><input class="fi" type="number" id="mg_consult" placeholder="건"></div>
   <input type="hidden" id="mg_type">
@@ -1885,7 +1886,8 @@ function toggleNotice(i,el){
   const c=document.getElementById('nc_'+i);
   if(c) c.style.display=c.style.display==='none'?'block':'none';
 }
-function getAgg(){const a={};prf.forEach(p=>{if(!a[p.m])a[p.m]={c:0,a:0};a[p.m].c+=+p.c;a[p.m].a+=+p.a;});return a;}
+// a = 인정실적(인정P), ay = 영수실적(영수P)
+function getAgg(){const a={};prf.forEach(p=>{if(!a[p.m])a[p.m]={c:0,a:0,ay:0};a[p.m].c+=+p.c;a[p.m].a+=(+p.a||0);a[p.m].ay+=(+p.ay||0);});return a;}
 function rkItem(name,main,sub,i){
   const numBg=['rgba(255,215,0,.15)','rgba(180,180,180,.12)'];
   const sizes=['15px','14px','13px'];
@@ -1903,7 +1905,7 @@ function rRankAmt(){
   const s=Object.entries(a).sort(function(x,y){return y[1].a-x[1].a;});
   const top=s.slice(0,2);
   if(!top.length){el.innerHTML='<div style="font-size:14px;color:var(--color-text-secondary);text-align:center;padding:16px">실적 데이터 없음</div>';return;}
-  el.innerHTML=top.map(function(item,i){return rkItem(item[0],item[1].a.toLocaleString()+'원','',i);}).join('');
+  el.innerHTML=top.map(function(item,i){return rkItem(item[0],'인정 '+item[1].a.toLocaleString()+'원<div style="font-size:12px;color:var(--color-text-secondary);font-weight:400">영수 '+(item[1].ay||0).toLocaleString()+'원</div>','',i);}).join('');
 }
 function rRankCnt(){
   const el=g('rank_count');
@@ -2298,12 +2300,12 @@ g('btn_notice_add') && g('btn_notice_add').addEventListener('click',()=>{g('mn_t
 // PERF
 function rPerf(){
   const tb=g('perf_tb'),st=g('perf_stats');
-  if(!prf.length){tb.innerHTML='<tr><td colspan="5" class="em" style="color:#9090c0">실적 데이터가 없습니다.</td></tr>';st.innerHTML='';return;}
+  if(!prf.length){tb.innerHTML='<tr><td colspan="8" class="em" style="color:#9090c0">실적 데이터가 없습니다.</td></tr>';st.innerHTML='';return;}
   // 집계: 구성원별 건수+금액 합산
   const agg={};
   prf.forEach(p=>{
-    if(!agg[p.m])agg[p.m]={c:0,a:0};
-    agg[p.m].c+=+p.c;agg[p.m].a+=+p.a;
+    if(!agg[p.m])agg[p.m]={c:0,a:0,ay:0};
+    agg[p.m].c+=+p.c;agg[p.m].a+=(+p.a||0);agg[p.m].ay+=(+p.ay||0);
   });
   const rankMap={};
   mem.forEach(m=>{if(m.name)rankMap[m.name]=m.rank;});
@@ -2324,18 +2326,22 @@ function rPerf(){
   const directNames = allNames.filter(n=>headTeamNames.includes(n) && !branch1Names.includes(n));
 
   const tc=prf.reduce((a,b)=>a+(+b.c),0);
-  const ta=prf.reduce((a,b)=>a+(+b.a),0);
+  const ta=prf.reduce((a,b)=>a+(+b.a||0),0);
+  const tay=prf.reduce((a,b)=>a+(+b.ay||0),0);
   const ta1 = branch1Names.reduce((s,n)=>s+(agg[n]?agg[n].a:0),0);
+  const tay1 = branch1Names.reduce((s,n)=>s+(agg[n]?agg[n].ay:0),0);
   const taDirect = directNames.reduce((s,n)=>s+(agg[n]?agg[n].a:0),0);
+  const tayDirect = directNames.reduce((s,n)=>s+(agg[n]?agg[n].ay:0),0);
   const tc1 = branch1Names.reduce((s,n)=>s+(agg[n]?agg[n].c:0),0);
   const tcDirect = directNames.reduce((s,n)=>s+(agg[n]?agg[n].c:0),0);
 
-  // 통계 카드 4개: 총건수 / 총금액 / 1지점 / 직할
+  // 통계 카드: 총건수 / 총 인정실적 / 총 영수실적 / 1지점 / 직할
   st.innerHTML=`
     <div class="sc"><div class="sl">총 건수</div><div class="sv">${tc}</div><div class="su">건</div></div>
-    <div class="sc"><div class="sl">총 금액</div><div class="sv">${ta.toLocaleString()}</div><div class="su">원</div></div>
-    <div class="sc" style="border-color:rgba(60,100,220,.25)"><div class="sl">1지점 총금액</div><div class="sv">${ta1.toLocaleString()}</div><div class="su">원 · ${tc1}건</div></div>
-    <div class="sc" style="border-color:rgba(100,60,200,.25)"><div class="sl">직할 총금액</div><div class="sv">${taDirect.toLocaleString()}</div><div class="su">원 · ${tcDirect}건</div></div>`;
+    <div class="sc"><div class="sl">총 인정실적</div><div class="sv">${ta.toLocaleString()}</div><div class="su">원</div></div>
+    <div class="sc"><div class="sl">총 영수실적</div><div class="sv">${tay.toLocaleString()}</div><div class="su">원</div></div>
+    <div class="sc" style="border-color:rgba(60,100,220,.25)"><div class="sl">1지점 인정실적</div><div class="sv" style="font-size:18px">${ta1.toLocaleString()}</div><div class="su">원 · 영수 ${tay1.toLocaleString()}원 · ${tc1}건</div></div>
+    <div class="sc" style="border-color:rgba(100,60,200,.25)"><div class="sl">직할 인정실적</div><div class="sv" style="font-size:18px">${taDirect.toLocaleString()}</div><div class="su">원 · 영수 ${tayDirect.toLocaleString()}원 · ${tcDirect}건</div></div>`;
 
   // 금액 기준 내림차순 정렬
   const sorted=Object.entries(agg).sort((x,y)=>y[1].a-x[1].a);
@@ -2356,6 +2362,7 @@ function rPerf(){
       <td style="font-size:13px"><span style="padding:2px 7px;border-radius:4px;background:${grpBg};color:${grpFg}">${grpLabel}</span></td>
       <td style="font-size:16px;color:#2a2a5a">${v.c}건</td>
       <td style="font-size:16px;font-weight:700;color:#3848cc">${(v.a).toLocaleString()}원</td>
+      <td style="font-size:16px;font-weight:700;color:#1a7040">${(v.ay||0).toLocaleString()}원</td>
       <td class="ao" style="white-space:nowrap">
         <button class="be" data-en="${name}" style="margin-right:4px"><i class="ti ti-edit"></i> 수정</button>
         <button class="bd" onclick="deletePerfByName('${name.replace(/'/g,"\\'")}')" style="margin-left:2px"><i class="ti ti-trash"></i> 삭제</button>
@@ -2372,6 +2379,7 @@ function rPerf(){
     sel.disabled=true;
     g('mp_cnt').value=data.c;
     g('mp_amt').value=data.a;
+    g('mp_amt_ay').value=data.ay||0;
     g('mp_date').value=td();
     g('mp_edit_name').value=name;
     g('m_perf_t').textContent='실적 수정';
@@ -2380,7 +2388,7 @@ function rPerf(){
   // 삭제 - global 함수로 처리
   setAdmin();
 }
-g('btn_perf').addEventListener('click',()=>{fillSel('mp_mem');g('mp_cnt').value='';g('mp_amt').value='';g('mp_date').value=td();g('m_perf').classList.add('open');});
+g('btn_perf').addEventListener('click',()=>{fillSel('mp_mem');g('mp_cnt').value='';g('mp_amt').value='';g('mp_amt_ay').value='';g('mp_date').value=td();g('m_perf').classList.add('open');});
 g('m_perf_c').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf_t').textContent='실적 입력';g('mp_mem').disabled=false;g('m_perf').classList.remove('open');});
 g('m_perf_cancel').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf_t').textContent='실적 입력';g('mp_mem').disabled=false;g('m_perf').classList.remove('open');});
 g('m_perf_save').addEventListener('click',()=>{
@@ -2388,19 +2396,19 @@ g('m_perf_save').addEventListener('click',()=>{
   if(editName){
     // 수정 모드: 해당 구성원 기존 실적 전체 삭제 후 새 값으로 교체
     prf=prf.filter(p=>p.m!==editName);
-    prf.push({m:editName,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,d:g('mp_date').value});
+    prf.push({m:editName,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value});
     g('mp_edit_name').value='';
     g('m_perf_t').textContent='실적 입력';
     g('mp_mem').disabled=false;
     toast('실적이 수정되었습니다.');
   } else {
-    prf.push({m:g('mp_mem').value,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,d:g('mp_date').value});
+    prf.push({m:g('mp_mem').value,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value});
     toast('실적이 입력되었습니다.');
   }
   sv('tops_prf',prf);g('m_perf').classList.remove('open');rPerf();
 });
 
-// 실적 엑셀 일괄 업로드 — 설계사별 영수금 합산 → tops_prf 전체 교체
+// 실적 엑셀 일괄 업로드 — 설계사별 인정P(인정실적)·영수P(영수실적) 합산 → tops_prf 전체 교체
 function importPerfExcel(){
   if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
   if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
@@ -2419,20 +2427,22 @@ function importPerfExcel(){
             let hr=-1, H=null;
             for(let i=0;i<rows.length;i++){
               const r=rows[i]||[];
-              if(r.indexOf('설계사')>=0 && r.indexOf('영수금')>=0){ hr=i; H=r; break; }
+              if(r.indexOf('설계사')>=0 && (r.indexOf('인정P')>=0 || r.indexOf('영수P')>=0)){ hr=i; H=r; break; }
             }
             if(hr<0) return;
             const ci={}; H.forEach(function(h,j){ if(h!=null) ci[String(h).trim()]=j; });
-            const iName=ci['설계사'], iCd=ci['설계사CD'], iAmt=ci['영수금'];
-            if(iName==null||iAmt==null) return;
+            const iName=ci['설계사'], iCd=ci['설계사CD'], iAj=ci['인정P'], iAy=ci['영수P'];
+            if(iName==null || (iAj==null && iAy==null)) return;
+            const toNum=function(v){ return parseInt(String(v!=null?v:'0').replace(/[^0-9.-]/g,''),10)||0; };
             for(let k=hr+1;k<rows.length;k++){
               const r=rows[k]||[];
               let nm=r[iName]; if(nm==null) continue; nm=String(nm).trim();
               if(!nm || nm.indexOf('전체')===0) continue;
               const cd=(iCd!=null && r[iCd]!=null)?String(r[iCd]).trim():'';
               if(cd && nm.indexOf('*')<0) cdname[cd]=nm;
-              const amt=parseInt(String(r[iAmt]!=null?r[iAmt]:'0').replace(/[^0-9.-]/g,''),10)||0;
-              recs.push({cd:cd, nm:nm, amt:amt});
+              const aj=(iAj!=null)?toNum(r[iAj]):0;
+              const ay=(iAy!=null)?toNum(r[iAy]):0;
+              recs.push({cd:cd, nm:nm, aj:aj, ay:ay});
             }
           });
         }catch(err){ errcnt++; console.warn('xlsx parse',err); }
@@ -2444,18 +2454,19 @@ function importPerfExcel(){
   inp.click();
 }
 function finishPerfImport(recs,cdname,errcnt){
-  if(!recs.length){ toast('엑셀에서 실적을 찾지 못했습니다. (설계사·영수금 열 확인)'); return; }
+  if(!recs.length){ toast('엑셀에서 실적을 찾지 못했습니다. (설계사·인정P·영수P 열 확인)'); return; }
   const agg={};
   recs.forEach(function(x){
     const name=cdname[x.cd]||x.nm;
-    if(!agg[name]) agg[name]={c:0,a:0};
-    agg[name].c+=1; agg[name].a+=x.amt;
+    if(!agg[name]) agg[name]={c:0,a:0,ay:0};
+    agg[name].c+=1; agg[name].a+=x.aj; agg[name].ay+=x.ay;
   });
   const d=td();
-  const out=Object.keys(agg).map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,d:d}; });
+  const out=Object.keys(agg).map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,ay:agg[n].ay,d:d}; });
   const totalC=out.reduce(function(s,x){return s+x.c;},0);
-  const totalA=out.reduce(function(s,x){return s+x.a;},0);
-  if(!confirm('실적을 엑셀 데이터로 전체 교체합니다.\n설계사 '+out.length+'명 · '+totalC+'건 · 영수금 합계 '+totalA.toLocaleString()+'원\n계속하시겠습니까?')) return;
+  const totalAj=out.reduce(function(s,x){return s+x.a;},0);
+  const totalAy=out.reduce(function(s,x){return s+x.ay;},0);
+  if(!confirm('실적을 엑셀 데이터로 전체 교체합니다.\n설계사 '+out.length+'명 · '+totalC+'건\n인정실적 '+totalAj.toLocaleString()+'원 · 영수실적 '+totalAy.toLocaleString()+'원\n계속하시겠습니까?')) return;
   prf=out; sv('tops_prf',prf); rPerf();
   toast('실적이 최신화되었습니다. ('+out.length+'명 · '+totalC+'건)'+(errcnt?' · 일부 파일 오류 '+errcnt+'개':''));
 }
@@ -2469,12 +2480,13 @@ function rGoal(type){
     if(!fl.length){el.innerHTML='<div class="em">설정된 목표가 없습니다.</div>';return;}
     const agg=getAgg();
     el.innerHTML='<div style="padding:18px">'+fl.map(gl=>{
-      const cur=agg[gl.m]||{c:0,a:0};
+      const cur=agg[gl.m]||{c:0,a:0,ay:0};
       const cp=Math.min(100,gl.c>0?Math.round(cur.c/gl.c*100):0);
       const ap=Math.min(100,gl.a>0?Math.round(cur.a/gl.a*100):0);
       return `<div style="margin-bottom:16px"><div style="font-size:17px;font-weight:700;color:#2a2a5a;margin-bottom:10px">${gl.m}</div>
         <div class="pw"><div class="pm"><span style='font-size:16px'>건수 ${cur.c}/${gl.c}건</span><span style='font-size:16px'>${cp}%</span></div><div class="pb"><div class="pf" style="width:${cp}%"></div></div></div>
-        <div class="pw" style="margin-top:5px"><div class="pm"><span style='font-size:16px'>금액 ${cur.a.toLocaleString()}/${(+gl.a).toLocaleString()}원</span><span style='font-size:16px'>${ap}%</span></div><div class="pb"><div class="pf pfg" style="width:${ap}%"></div></div></div>
+        <div class="pw" style="margin-top:5px"><div class="pm"><span style='font-size:16px'>인정실적 ${cur.a.toLocaleString()}/${(+gl.a).toLocaleString()}원</span><span style='font-size:16px'>${ap}%</span></div><div class="pb"><div class="pf pfg" style="width:${ap}%"></div></div></div>
+        <div class="pw" style="margin-top:5px"><div class="pm"><span style='font-size:15px;color:#1a7040'>영수실적 ${cur.ay.toLocaleString()}원</span></div></div>
       </div><hr style="border:none;border-top:1px solid rgba(20,40,120,.1);margin-bottom:16px">`;
     }).join('')+'</div>';
     return;
@@ -2517,7 +2529,7 @@ function rGoal(type){
 
   const rows=[...allNames].map(name=>{
     const goal=goalMap[name]||{c:0,a:0,consult:0};
-    const cur=agg[name]||{c:0,a:0};
+    const cur=agg[name]||{c:0,a:0,ay:0};
     const is1j=branch1Names.includes(name);
     return {name,goal,cur,rank:rankMap[name]||'-',is1j,consult:consultMap[name]||0};
   });
@@ -2543,7 +2555,7 @@ function rGoal(type){
   el.innerHTML=`<table class="dt" style="width:100%">
     <thead><tr>
       <th>소속</th><th>이름</th><th>직급</th>
-      <th>월납 / 목표</th><th>건수 / 목표</th>
+      <th>인정실적 / 목표</th><th>영수실적</th><th>건수 / 목표</th>
       <th>초회상담 / 목표</th><th>달성률</th>
     </tr></thead>
     <tbody>
@@ -2562,6 +2574,7 @@ function rGoal(type){
           ${r.cur.a.toLocaleString()}원
           ${r.goal.a?`<span style="font-size:13px;color:#9090bb"> / ${(+r.goal.a).toLocaleString()}원</span>`:'<span style="font-size:13px;color:#ccc"> / -</span>'}
         </td>
+        <td style="font-weight:700;color:#1a7040">${r.cur.ay.toLocaleString()}원</td>
         <td style="font-weight:700;color:${rateColor(cRate)}">
           ${r.cur.c}건
           ${r.goal.c?`<span style="font-size:13px;color:#9090bb"> / ${r.goal.c}건</span>`:'<span style="font-size:13px;color:#ccc"> / -</span>'}
@@ -4026,7 +4039,7 @@ function rRankRookie(){
     <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:0.5px solid var(--color-border-tertiary)">
       <div style="width:24px;height:24px;border-radius:50%;background:rgba(96,184,255,.15);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#1a70cc;flex-shrink:0">★</div>
       <div style="flex:1;font-size:15px;color:var(--color-text-primary)">${m.name}</div>
-      <div style="font-size:14px;color:#1a70cc;font-weight:500">${agg[m.name].a.toLocaleString()}원</div>
+      <div style="text-align:right"><div style="font-size:14px;color:#1a70cc;font-weight:500">인정 ${agg[m.name].a.toLocaleString()}원</div><div style="font-size:12px;color:#1a7040">영수 ${(agg[m.name].ay||0).toLocaleString()}원</div></div>
     </div>`).join('');
 }
 
@@ -5084,8 +5097,8 @@ function rTeamPerf(){
   // 집계: 구성원별 건수+금액
   var agg={};
   prf.forEach(function(p){
-    if(!agg[p.m]) agg[p.m]={c:0,a:0};
-    agg[p.m].c+=+p.c; agg[p.m].a+=+p.a;
+    if(!agg[p.m]) agg[p.m]={c:0,a:0,ay:0};
+    agg[p.m].c+=+p.c; agg[p.m].a+=(+p.a||0); agg[p.m].ay+=(+p.ay||0);
   });
 
   // 산하 인원 재귀 수집
@@ -5120,13 +5133,13 @@ function rTeamPerf(){
     var allMembers=[leader].concat(subs);
 
     // 팀 합계
-    var teamTotal={c:0,a:0};
+    var teamTotal={c:0,a:0,ay:0};
     allMembers.forEach(function(m){
-      if(agg[m.name]){teamTotal.c+=agg[m.name].c;teamTotal.a+=agg[m.name].a;}
+      if(agg[m.name]){teamTotal.c+=agg[m.name].c;teamTotal.a+=agg[m.name].a;teamTotal.ay+=(agg[m.name].ay||0);}
     });
 
     var rows=allMembers.map(function(m, mi){
-      var perf=agg[m.name]||{c:0,a:0};
+      var perf=agg[m.name]||{c:0,a:0,ay:0};
       var isLeader=m.name===leader.name;
       return '<tr style="'+(isLeader?'background:rgba(72,88,204,.05);font-weight:700':'')+'">'
         +'<td style="padding-left:'+(isLeader?'10':'24')+'px;font-size:15px;color:#1a1a3a">'
@@ -5134,7 +5147,8 @@ function rTeamPerf(){
           +m.name+'<span style="font-size:13px;color:#8888bb;margin-left:5px">'+(m.rank||'')+'</span>'
         +'</td>'
         +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.c||0)+'건</td>'
-        +'<td style="text-align:right;font-size:15px;color:#1a7040;font-weight:'+(isLeader?'700':'500')+'">'+(perf.a||0).toLocaleString()+'원</td>'
+        +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.a||0).toLocaleString()+'원</td>'
+        +'<td style="text-align:right;font-size:15px;color:#1a7040;font-weight:'+(isLeader?'700':'500')+'">'+(perf.ay||0).toLocaleString()+'원</td>'
         +'</tr>';
     }).join('');
 
@@ -5147,10 +5161,11 @@ function rTeamPerf(){
         +'</div>'
         +'<div style="display:flex;gap:16px;font-size:14px">'
           +'<span style="color:#3848cc;font-weight:700">팀 합계: '+teamTotal.c+'건</span>'
-          +'<span style="color:#1a7040;font-weight:700">'+teamTotal.a.toLocaleString()+'원</span>'
+          +'<span style="color:#3848cc;font-weight:700">인정 '+teamTotal.a.toLocaleString()+'원</span>'
+          +'<span style="color:#1a7040;font-weight:700">영수 '+teamTotal.ay.toLocaleString()+'원</span>'
         +'</div>'
       +'</div>'
-      +'<table class="dt" style="margin:0"><thead><tr><th>구성원</th><th style="width:80px;text-align:right">건수</th><th style="width:120px;text-align:right">금액</th></tr></thead>'
+      +'<table class="dt" style="margin:0"><thead><tr><th>구성원</th><th style="width:70px;text-align:right">건수</th><th style="width:110px;text-align:right">인정실적</th><th style="width:110px;text-align:right">영수실적</th></tr></thead>'
       +'<tbody>'+rows+'</tbody></table>'
       +'</div>';
   });
