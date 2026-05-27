@@ -1277,6 +1277,7 @@ table.dt tr:last-child td{border-bottom:none;}
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script>
 // Firebase 즉시 초기화 (SDK 로드 직후)
 (function(){
@@ -1292,6 +1293,8 @@ table.dt tr:last-child td{border-bottom:none;}
     if(!firebase.apps.length) firebase.initializeApp(cfg);
     window.db = firebase.firestore();
     window.FS_DOC = window.db.collection('tops').doc('data');
+    window.auth = firebase.auth();
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
     console.log('✅ Firebase 연결 성공');
   }catch(e){ console.warn('❌ Firebase 연결 실패:', e); }
 })();
@@ -1532,13 +1535,15 @@ function rSchedulePage(){
 // DATA
 
 // ADMIN ACCOUNTS
+// 로그인 인증은 Firebase Authentication으로 처리(비밀번호는 코드에 저장하지 않음)
+const EMAIL_DOMAIN = '@team-tops.local';
 const ADMINS = [
-  {id:'0001', pw:'3399', name:'백동현',   role:'BM'},
-  {id:'0002', pw:'3399', name:'박지순',   role:'BM'},
-  {id:'0003', pw:'3399', name:'이영현 총무', role:'총무'},
+  {id:'0001', name:'백동현',   role:'BM'},
+  {id:'0002', name:'박지순',   role:'BM'},
+  {id:'0003', name:'이영현 총무', role:'총무'},
 ];
 
-const DEFAULT_TEAM = [{"lid": "3331", "lpw": "0000", "code": "3331", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3332", "lpw": "0000", "code": "3332", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3333", "lpw": "0000", "code": "3333", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3334", "lpw": "0000", "code": "3334", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3335", "lpw": "0000", "code": "3335", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3336", "lpw": "0000", "code": "3336", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3337", "lpw": "0000", "code": "3337", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3338", "lpw": "0000", "code": "3338", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3339", "lpw": "0000", "code": "3339", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3340", "lpw": "0000", "code": "3340", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3341", "lpw": "0000", "code": "3341", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3342", "lpw": "0000", "code": "3342", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3343", "lpw": "0000", "code": "3343", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3344", "lpw": "0000", "code": "3344", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3345", "lpw": "0000", "code": "3345", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3346", "lpw": "0000", "code": "3346", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3347", "lpw": "0000", "code": "3347", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3348", "lpw": "0000", "code": "3348", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3349", "lpw": "0000", "code": "3349", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3350", "lpw": "0000", "code": "3350", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3351", "lpw": "0000", "code": "3351", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3352", "lpw": "0000", "code": "3352", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3353", "lpw": "0000", "code": "3353", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3354", "lpw": "0000", "code": "3354", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3355", "lpw": "0000", "code": "3355", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3356", "lpw": "0000", "code": "3356", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3357", "lpw": "0000", "code": "3357", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3358", "lpw": "0000", "code": "3358", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3359", "lpw": "0000", "code": "3359", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3360", "lpw": "0000", "code": "3360", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3361", "lpw": "0000", "code": "3361", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3362", "lpw": "0000", "code": "3362", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3363", "lpw": "0000", "code": "3363", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3364", "lpw": "0000", "code": "3364", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3365", "lpw": "0000", "code": "3365", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3366", "lpw": "0000", "code": "3366", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3367", "lpw": "0000", "code": "3367", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3368", "lpw": "0000", "code": "3368", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3369", "lpw": "0000", "code": "3369", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3370", "lpw": "0000", "code": "3370", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3371", "lpw": "0000", "code": "3371", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3372", "lpw": "0000", "code": "3372", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3373", "lpw": "0000", "code": "3373", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3374", "lpw": "0000", "code": "3374", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3375", "lpw": "0000", "code": "3375", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3376", "lpw": "0000", "code": "3376", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3377", "lpw": "0000", "code": "3377", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3378", "lpw": "0000", "code": "3378", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3379", "lpw": "0000", "code": "3379", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3380", "lpw": "0000", "code": "3380", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3381", "lpw": "0000", "code": "3381", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3382", "lpw": "0000", "code": "3382", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3383", "lpw": "0000", "code": "3383", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3384", "lpw": "0000", "code": "3384", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3385", "lpw": "0000", "code": "3385", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3386", "lpw": "0000", "code": "3386", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3387", "lpw": "0000", "code": "3387", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3388", "lpw": "0000", "code": "3388", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3389", "lpw": "0000", "code": "3389", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3390", "lpw": "0000", "code": "3390", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3391", "lpw": "0000", "code": "3391", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3392", "lpw": "0000", "code": "3392", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3393", "lpw": "0000", "code": "3393", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3394", "lpw": "0000", "code": "3394", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3395", "lpw": "0000", "code": "3395", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3396", "lpw": "0000", "code": "3396", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3397", "lpw": "0000", "code": "3397", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3398", "lpw": "0000", "code": "3398", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3399", "lpw": "0000", "code": "3399", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}];
+const DEFAULT_TEAM = [{"lid": "3331", "code": "3331", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3332", "code": "3332", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3333", "code": "3333", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3334", "code": "3334", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3335", "code": "3335", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3336", "code": "3336", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3337", "code": "3337", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3338", "code": "3338", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3339", "code": "3339", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3340", "code": "3340", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3341", "code": "3341", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3342", "code": "3342", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3343", "code": "3343", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3344", "code": "3344", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3345", "code": "3345", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3346", "code": "3346", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3347", "code": "3347", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3348", "code": "3348", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3349", "code": "3349", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3350", "code": "3350", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3351", "code": "3351", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3352", "code": "3352", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3353", "code": "3353", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3354", "code": "3354", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3355", "code": "3355", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3356", "code": "3356", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3357", "code": "3357", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3358", "code": "3358", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3359", "code": "3359", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3360", "code": "3360", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3361", "code": "3361", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3362", "code": "3362", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3363", "code": "3363", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3364", "code": "3364", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3365", "code": "3365", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3366", "code": "3366", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3367", "code": "3367", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3368", "code": "3368", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3369", "code": "3369", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3370", "code": "3370", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3371", "code": "3371", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3372", "code": "3372", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3373", "code": "3373", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3374", "code": "3374", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3375", "code": "3375", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3376", "code": "3376", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3377", "code": "3377", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3378", "code": "3378", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3379", "code": "3379", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3380", "code": "3380", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3381", "code": "3381", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3382", "code": "3382", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3383", "code": "3383", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3384", "code": "3384", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3385", "code": "3385", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3386", "code": "3386", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3387", "code": "3387", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3388", "code": "3388", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3389", "code": "3389", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3390", "code": "3390", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3391", "code": "3391", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3392", "code": "3392", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3393", "code": "3393", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3394", "code": "3394", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3395", "code": "3395", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3396", "code": "3396", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3397", "code": "3397", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3398", "code": "3398", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}, {"lid": "3399", "code": "3399", "name": "", "rank": "", "phone": "", "joinDate": "", "address": "", "isTeam": true}];
 let cu=null;
 // 팀원 데이터 초기화 (없으면 기본 코드로 생성)
 (function initMem(){
@@ -1701,16 +1706,14 @@ function doLogin(){
   } else if(!g('sidc').checked){
     localStorage.removeItem('tops_sid');
   }
-  // 관리자 체크
-  const adm=ADMINS.find(a=>a.id===id&&a.pw===pw);
-  if(adm){cu={id,name:adm.name,role:adm.role,admin:true};saveSession();login();return;}
-  // 팀원 체크
-  const m=mem.find(x=>x.lid===id&&x.lpw===pw);
-  if(m){cu={id,name:m.name||'('+m.code+')',admin:false,code:m.code};saveSession();login();return;}
-  g('lerr').style.display='block';
-}
-function saveSession(){
-  sessionStorage.setItem('tops_session', JSON.stringify(cu));
+  if(!id||!pw){ g('lerr').textContent='아이디와 비밀번호를 입력하세요.'; g('lerr').style.display='block'; return; }
+  g('lerr').style.display='none';
+  // Firebase 인증으로 로그인 (성공 시 onAuthStateChanged에서 화면 전환)
+  firebase.auth().signInWithEmailAndPassword(id+EMAIL_DOMAIN, pw)
+    .catch(function(e){
+      g('lerr').textContent='아이디 또는 비밀번호가 올바르지 않습니다.';
+      g('lerr').style.display='block';
+    });
 }
 function login(){
   g('ls').style.display='none';
@@ -1735,8 +1738,8 @@ function login(){
   });
 }
 function logout(){
+  firebase.auth().signOut().catch(function(){});
   cu=null;
-  sessionStorage.removeItem('tops_session');
   g('ls').style.display='flex';
   g('app').style.display='none';
   g('lid').value='';g('lpw').value='';g('lerr').style.display='none';
@@ -1752,21 +1755,25 @@ function setAdmin(){
     else el.style.display='block';
   });
 }
-// 자동 로그인 — 저장된 세션 복원
+// 저장된 아이디 자동 채우기
 (function(){
   const sid=localStorage.getItem('tops_sid');
   if(sid){g('lid').value=sid;g('sidc').checked=true;}
-  const sess=sessionStorage.getItem('tops_session');
-  if(sess){
-    try{
-      cu=JSON.parse(sess);
-      const validAdm=ADMINS.find(a=>a.id===cu.id);
-      const validMem=mem.find(x=>x.lid===cu.id);
-      if(validAdm||validMem){ login(); return; }
-    }catch(e){}
-    sessionStorage.removeItem('tops_session');
-  }
 })();
+// Firebase 인증 상태에 따라 자동 로그인/로그아웃 처리
+firebase.auth().onAuthStateChanged(function(user){
+  if(user){
+    var id=(user.email||'').split('@')[0];
+    var adm=ADMINS.find(function(a){return a.id===id;});
+    var m=mem.find(function(x){return x.lid===id;});
+    cu={id:id, name:(adm&&adm.name)||(m&&m.name)||'('+id+')', role:adm&&adm.role, admin:!!adm, code:m&&m.code};
+    login();
+  }else{
+    cu=null;
+    g('ls').style.display='flex';
+    g('app').style.display='none';
+  }
+});
 
 // Events
 g('lbtn').addEventListener('click',doLogin);
@@ -1798,19 +1805,25 @@ g('fp_btn').addEventListener('click',()=>{
   const id=g('fp_i').value.trim(),n=g('fp_n').value.trim(),r=g('fp_r');
   if(!id||!n){r.textContent='아이디와 이름을 입력하세요.';r.style.color='#ff8080';r.classList.add('show');return;}
   const m=mem.find(x=>x.lid===id&&x.name===n);
-  if(m&&m.lpw){r.innerHTML='비밀번호: <strong style="color:#50ffaa">'+m.lpw+'</strong>';r.style.color='#a8b0d8';r.classList.add('show');}
+  if(m){r.textContent='보안상 비밀번호는 표시되지 않습니다. 총무(관리자)에게 초기화를 요청하세요.';r.style.color='#a8b0d8';r.classList.add('show');}
   else{r.textContent='일치하는 정보가 없습니다.';r.style.color='#ff8080';r.classList.add('show');}
 });
 g('cp_btn').addEventListener('click',()=>{
   const id=g('cp_i').value.trim(),cur=g('cp_c').value,nw=g('cp_n').value,nw2=g('cp_n2').value,r=g('cp_r');
   if(!id||!cur||!nw||!nw2){r.textContent='모든 항목을 입력하세요.';r.style.color='#ff8080';r.classList.add('show');return;}
   if(nw!==nw2){r.textContent='새 비밀번호가 일치하지 않습니다.';r.style.color='#ff8080';r.classList.add('show');return;}
-  if(nw.length<4){r.textContent='4자 이상 입력하세요.';r.style.color='#ff8080';r.classList.add('show');return;}
-  if(id===AID){r.textContent='관리자 비밀번호는 담당자에게 문의하세요.';r.style.color='#ff8080';r.classList.add('show');return;}
-  const idx=mem.findIndex(x=>x.lid===id&&x.lpw===cur);
-  if(idx===-1){r.textContent='아이디 또는 현재 비밀번호가 올바르지 않습니다.';r.style.color='#ff8080';r.classList.add('show');return;}
-  mem[idx].lpw=nw;sv('tops_mem',mem);r.textContent='변경되었습니다.';r.style.color='#50ffaa';r.classList.add('show');
-  setTimeout(()=>closeUtil('ucp'),1800);
+  if(nw.length<6){r.textContent='6자 이상 입력하세요.';r.style.color='#ff8080';r.classList.add('show');return;}
+  // 현재 비밀번호로 인증 → 새 비밀번호로 변경 (Firebase 인증)
+  firebase.auth().signInWithEmailAndPassword(id+EMAIL_DOMAIN, cur)
+    .then(function(c){ return c.user.updatePassword(nw); })
+    .then(function(){
+      r.textContent='변경되었습니다. 새 비밀번호로 로그인하세요.';r.style.color='#50ffaa';r.classList.add('show');
+      firebase.auth().signOut();
+      setTimeout(()=>closeUtil('ucp'),1800);
+    })
+    .catch(function(e){
+      r.textContent='아이디 또는 현재 비밀번호가 올바르지 않습니다.';r.style.color='#ff8080';r.classList.add('show');
+    });
 });
 
 // Modal backdrop close
@@ -2126,7 +2139,7 @@ g('m_mem_save').addEventListener('click',()=>{
   mem[idx].joinDate=g('mm_join').value;
   mem[idx].address=g('mm_addr').value;
   mem[idx].belong=g('mm_belong').value;
-  if(pw) mem[idx].lpw=pw;
+  if(pw) toast('비밀번호는 여기서 변경되지 않습니다. 비밀번호 초기화는 관리자 도구(Firebase)로 처리하세요.');
   sv('tops_mem',mem);
   g('m_mem').classList.remove('open');
   rMem();
