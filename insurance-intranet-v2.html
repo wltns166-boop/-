@@ -2408,65 +2408,102 @@ g('m_perf_save').addEventListener('click',()=>{
   sv('tops_prf',prf);g('m_perf').classList.remove('open');rPerf();
 });
 
-// 실적 엑셀 일괄 업로드 — 설계사별 인정P(인정실적)·영수P(영수실적) 합산 → tops_prf 전체 교체
+// 실적 파일 업로드(관리자 전용) — '조직별 인정 실적조회' 형식(건/인정P/영수P) 또는 평면 표 인식 → tops_prf 전체 교체
 function importPerfExcel(){
   if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
-  if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
   const inp=document.createElement('input');
-  inp.type='file'; inp.accept='.xlsx,.xls'; inp.multiple=true;
+  inp.type='file'; inp.accept='.xls,.xlsx'; inp.multiple=true;
   inp.onchange=function(){
     const files=Array.prototype.slice.call(inp.files); if(!files.length) return;
-    const cdname={}, recs=[]; let pending=files.length, errcnt=0;
+    const agg={}; let pending=files.length, errcnt=0;
     files.forEach(function(file){
-      const rd=new FileReader();
-      rd.onload=function(e){
-        try{
-          const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-          wb.SheetNames.forEach(function(sn){
-            const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
-            let hr=-1, H=null;
-            for(let i=0;i<rows.length;i++){
-              const r=rows[i]||[];
-              if(r.indexOf('설계사')>=0 && (r.indexOf('인정P')>=0 || r.indexOf('영수P')>=0)){ hr=i; H=r; break; }
-            }
-            if(hr<0) return;
-            const ci={}; H.forEach(function(h,j){ if(h!=null) ci[String(h).trim()]=j; });
-            const iName=ci['설계사'], iCd=ci['설계사CD'], iAj=ci['인정P'], iAy=ci['영수P'];
-            if(iName==null || (iAj==null && iAy==null)) return;
-            const toNum=function(v){ return parseInt(String(v!=null?v:'0').replace(/[^0-9.-]/g,''),10)||0; };
-            for(let k=hr+1;k<rows.length;k++){
-              const r=rows[k]||[];
-              let nm=r[iName]; if(nm==null) continue; nm=String(nm).trim();
-              if(!nm || nm.indexOf('전체')===0) continue;
-              const cd=(iCd!=null && r[iCd]!=null)?String(r[iCd]).trim():'';
-              if(cd && nm.indexOf('*')<0) cdname[cd]=nm;
-              const aj=(iAj!=null)?toNum(r[iAj]):0;
-              const ay=(iAy!=null)?toNum(r[iAy]):0;
-              recs.push({cd:cd, nm:nm, aj:aj, ay:ay});
-            }
-          });
-        }catch(err){ errcnt++; console.warn('xlsx parse',err); }
-        if(--pending===0) finishPerfImport(recs,cdname,errcnt);
-      };
-      rd.readAsArrayBuffer(file);
+      perfReadRows(file,function(rows){
+        try{ if(rows&&rows.length) perfAccumulate(rows,agg); else errcnt++; }
+        catch(err){ errcnt++; console.warn('perf parse',err); }
+        if(--pending===0) finishPerfImport(agg,errcnt);
+      });
     });
   };
   inp.click();
 }
-function finishPerfImport(recs,cdname,errcnt){
-  if(!recs.length){ toast('엑셀에서 실적을 찾지 못했습니다. (설계사·인정P·영수P 열 확인)'); return; }
-  const agg={};
-  recs.forEach(function(x){
-    const name=cdname[x.cd]||x.nm;
-    if(!agg[name]) agg[name]={c:0,a:0,ay:0};
-    agg[name].c+=1; agg[name].a+=x.aj; agg[name].ay+=x.ay;
-  });
+// 파일을 행x열 2차원 배열로 읽음 — HTML 표(.xls) / 실제 xlsx 모두 지원, 한글 인코딩 처리
+function perfReadRows(file, cb){
+  const rd=new FileReader();
+  rd.onerror=function(){ cb(null); };
+  rd.onload=function(e){
+    try{
+      const buf=new Uint8Array(e.target.result);
+      let head=''; for(let i=0;i<Math.min(buf.length,2048);i++) head+=String.fromCharCode(buf[i]);
+      if(/<table|<html|<\?xml|<tr[\s>]/i.test(head)){
+        let cs='utf-8'; const m=head.match(/charset\s*=\s*["']?([\w-]+)/i); if(m) cs=m[1];
+        let text;
+        try{ text=new TextDecoder(cs).decode(buf); }catch(_){ try{ text=new TextDecoder('euc-kr').decode(buf); }catch(__){ text=new TextDecoder('utf-8').decode(buf); } }
+        const doc=new DOMParser().parseFromString(text,'text/html');
+        const rows=[];
+        doc.querySelectorAll('tr').forEach(function(tr){
+          const cells=[];
+          tr.querySelectorAll('td,th').forEach(function(td){ cells.push((td.textContent||'').replace(/\s+/g,' ').trim()); });
+          rows.push(cells);
+        });
+        cb(rows);
+      } else if(typeof XLSX!=='undefined'){
+        const wb=XLSX.read(buf,{type:'array'});
+        let rows=[];
+        wb.SheetNames.forEach(function(sn){ rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null})); });
+        cb(rows);
+      } else { cb(null); }
+    }catch(err){ console.warn('read rows',err); cb(null); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+function perfNum(v){ return parseInt(String(v!=null?v:'0').replace(/[^0-9.-]/g,''),10)||0; }
+// rows(2차원) → agg{name:{c,a,ay}} 누적. a=인정실적(인정P), ay=영수실적(영수P)
+function perfAccumulate(rows, agg){
+  // 피벗 형식 감지: 1열에 '건'/'인정P'/'영수P'
+  let pivot=false;
+  for(let i=0;i<rows.length;i++){ const r=rows[i]||[]; const c0=(r[0]!=null?String(r[0]):'').trim(); if(c0==='건'||c0==='인정P'||c0==='영수P'){ pivot=true; break; } }
+  if(pivot){
+    rows.forEach(function(r){
+      if(!r) return;
+      const c0=(r[0]!=null?String(r[0]):'').trim();
+      if(c0!=='건'&&c0!=='인정P'&&c0!=='영수P') return;
+      const cell=r[1]!=null?String(r[1]):'';
+      const mm=cell.match(/\(([^)]+)\)/);
+      if(!mm) return; // 합계/소계 등 이름 없는 행 제외
+      const name=mm[1].trim(); if(!name) return;
+      const val=perfNum(r[2]);
+      if(!agg[name]) agg[name]={c:0,a:0,ay:0};
+      if(c0==='건') agg[name].c+=val;
+      else if(c0==='인정P') agg[name].a+=val;
+      else agg[name].ay+=val;
+    });
+    return;
+  }
+  // 평면 형식: 헤더(설계사 + 인정P/영수P 열), 1행=1건
+  let hr=-1,H=null;
+  for(let i=0;i<rows.length;i++){ const r=rows[i]||[]; if(r.indexOf('설계사')>=0 && (r.indexOf('인정P')>=0||r.indexOf('영수P')>=0)){ hr=i; H=r; break; } }
+  if(hr<0) return;
+  const ci={}; H.forEach(function(h,j){ if(h!=null) ci[String(h).trim()]=j; });
+  const iName=ci['설계사'], iAj=ci['인정P'], iAy=ci['영수P'];
+  if(iName==null) return;
+  for(let k=hr+1;k<rows.length;k++){
+    const r=rows[k]||[]; let nm=r[iName]; if(nm==null) continue; nm=String(nm).trim();
+    if(!nm || nm.indexOf('전체')===0) continue;
+    if(!agg[nm]) agg[nm]={c:0,a:0,ay:0};
+    agg[nm].c+=1;
+    if(iAj!=null) agg[nm].a+=perfNum(r[iAj]);
+    if(iAy!=null) agg[nm].ay+=perfNum(r[iAy]);
+  }
+}
+function finishPerfImport(agg,errcnt){
+  const names=Object.keys(agg);
+  if(!names.length){ toast('파일에서 실적을 찾지 못했습니다. (건/인정P/영수P 또는 설계사 열 확인)'); return; }
   const d=td();
-  const out=Object.keys(agg).map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,ay:agg[n].ay,d:d}; });
-  const totalC=out.reduce(function(s,x){return s+x.c;},0);
-  const totalAj=out.reduce(function(s,x){return s+x.a;},0);
-  const totalAy=out.reduce(function(s,x){return s+x.ay;},0);
-  if(!confirm('실적을 엑셀 데이터로 전체 교체합니다.\n설계사 '+out.length+'명 · '+totalC+'건\n인정실적 '+totalAj.toLocaleString()+'원 · 영수실적 '+totalAy.toLocaleString()+'원\n계속하시겠습니까?')) return;
+  const out=names.map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,ay:agg[n].ay,d:d}; });
+  const totalC=out.reduce(function(s,x){return s+(+x.c||0);},0);
+  const totalAj=out.reduce(function(s,x){return s+(+x.a||0);},0);
+  const totalAy=out.reduce(function(s,x){return s+(+x.ay||0);},0);
+  if(!confirm('실적을 파일 데이터로 전체 교체합니다.\n인원 '+out.length+'명 · '+totalC+'건\n인정실적 '+totalAj.toLocaleString()+'원 · 영수실적 '+totalAy.toLocaleString()+'원\n계속하시겠습니까?')) return;
   prf=out; sv('tops_prf',prf); rPerf();
   toast('실적이 최신화되었습니다. ('+out.length+'명 · '+totalC+'건)'+(errcnt?' · 일부 파일 오류 '+errcnt+'개':''));
 }
