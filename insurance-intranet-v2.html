@@ -2318,9 +2318,10 @@ function rPerf(){
     return result;
   }
   const branch1Names = getSubTeam('박지순');
-  // 직할 = 전체 실적자 중 1지점 제외 (단, 박지순BM은 1지점 포함)
+  // 직할 = 백동현 산하에서 박지순 산하(1지점)를 제외한 인원
+  const headTeamNames = getSubTeam('백동현');
   const allNames = Object.keys(agg);
-  const directNames = allNames.filter(n=>!branch1Names.includes(n));
+  const directNames = allNames.filter(n=>headTeamNames.includes(n) && !branch1Names.includes(n));
 
   const tc=prf.reduce((a,b)=>a+(+b.c),0);
   const ta=prf.reduce((a,b)=>a+(+b.a),0);
@@ -2344,11 +2345,15 @@ function rPerf(){
     const isTop=i===0;
     const rowStyle=isTop?'background:rgba(255,215,0,.08);border-left:3px solid #ffd700;':'';
     const is1j=branch1Names.includes(name);
+    const isDir=directNames.includes(name);
+    const grpLabel=is1j?'1지점':(isDir?'직할':'기타');
+    const grpBg=is1j?'rgba(40,80,220,.1)':(isDir?'rgba(100,60,200,.1)':'rgba(120,120,140,.12)');
+    const grpFg=is1j?'#2848cc':(isDir?'#5030aa':'#666688');
     return `<tr style="${rowStyle}">
       <td style="font-size:17px;text-align:center">${medal}</td>
       <td style="font-weight:700;font-size:16px;color:${isTop?'#3040cc':'#1a1a3a'}">${name}</td>
       <td><span class="rb">${rankMap[name]||'-'}</span></td>
-      <td style="font-size:13px"><span style="padding:2px 7px;border-radius:4px;background:${is1j?'rgba(40,80,220,.1)':'rgba(100,60,200,.1)'};color:${is1j?'#2848cc':'#5030aa'}">${is1j?'1지점':'직할'}</span></td>
+      <td style="font-size:13px"><span style="padding:2px 7px;border-radius:4px;background:${grpBg};color:${grpFg}">${grpLabel}</span></td>
       <td style="font-size:16px;color:#2a2a5a">${v.c}건</td>
       <td style="font-size:16px;font-weight:700;color:#3848cc">${(v.a).toLocaleString()}원</td>
       <td class="ao" style="white-space:nowrap">
