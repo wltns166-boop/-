@@ -182,6 +182,7 @@ table.dt tr:last-child td{border-bottom:none;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(typeof pdfjsLib!=="undefined")pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -422,7 +423,7 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 현재 실적 -->
     <div class="pg" id="pg_pc">
-      <div class="sh"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
       <div class="sg" id="perf_stats"></div>
       <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>금액(만원)</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
     </div>
@@ -2393,6 +2394,66 @@ g('m_perf_save').addEventListener('click',()=>{
   }
   sv('tops_prf',prf);g('m_perf').classList.remove('open');rPerf();
 });
+
+// 실적 엑셀 일괄 업로드 — 설계사별 영수금 합산 → tops_prf 전체 교체
+function importPerfExcel(){
+  if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.xlsx,.xls'; inp.multiple=true;
+  inp.onchange=function(){
+    const files=Array.prototype.slice.call(inp.files); if(!files.length) return;
+    const cdname={}, recs=[]; let pending=files.length, errcnt=0;
+    files.forEach(function(file){
+      const rd=new FileReader();
+      rd.onload=function(e){
+        try{
+          const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+          wb.SheetNames.forEach(function(sn){
+            const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+            let hr=-1, H=null;
+            for(let i=0;i<rows.length;i++){
+              const r=rows[i]||[];
+              if(r.indexOf('설계사')>=0 && r.indexOf('영수금')>=0){ hr=i; H=r; break; }
+            }
+            if(hr<0) return;
+            const ci={}; H.forEach(function(h,j){ if(h!=null) ci[String(h).trim()]=j; });
+            const iName=ci['설계사'], iCd=ci['설계사CD'], iAmt=ci['영수금'];
+            if(iName==null||iAmt==null) return;
+            for(let k=hr+1;k<rows.length;k++){
+              const r=rows[k]||[];
+              let nm=r[iName]; if(nm==null) continue; nm=String(nm).trim();
+              if(!nm || nm.indexOf('전체')===0) continue;
+              const cd=(iCd!=null && r[iCd]!=null)?String(r[iCd]).trim():'';
+              if(cd && nm.indexOf('*')<0) cdname[cd]=nm;
+              const amt=parseInt(String(r[iAmt]!=null?r[iAmt]:'0').replace(/[^0-9.-]/g,''),10)||0;
+              recs.push({cd:cd, nm:nm, amt:amt});
+            }
+          });
+        }catch(err){ errcnt++; console.warn('xlsx parse',err); }
+        if(--pending===0) finishPerfImport(recs,cdname,errcnt);
+      };
+      rd.readAsArrayBuffer(file);
+    });
+  };
+  inp.click();
+}
+function finishPerfImport(recs,cdname,errcnt){
+  if(!recs.length){ toast('엑셀에서 실적을 찾지 못했습니다. (설계사·영수금 열 확인)'); return; }
+  const agg={};
+  recs.forEach(function(x){
+    const name=cdname[x.cd]||x.nm;
+    if(!agg[name]) agg[name]={c:0,a:0};
+    agg[name].c+=1; agg[name].a+=x.amt;
+  });
+  const d=td();
+  const out=Object.keys(agg).map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,d:d}; });
+  const totalC=out.reduce(function(s,x){return s+x.c;},0);
+  const totalA=out.reduce(function(s,x){return s+x.a;},0);
+  if(!confirm('실적을 엑셀 데이터로 전체 교체합니다.\n설계사 '+out.length+'명 · '+totalC+'건 · 영수금 합계 '+totalA.toLocaleString()+'원\n계속하시겠습니까?')) return;
+  prf=out; sv('tops_prf',prf); rPerf();
+  toast('실적이 최신화되었습니다. ('+out.length+'명 · '+totalC+'건)'+(errcnt?' · 일부 파일 오류 '+errcnt+'개':''));
+}
 
 // GOALS
 function rGoal(type){
