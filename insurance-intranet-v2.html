@@ -2620,8 +2620,9 @@ function rGoal(type){
           ${r.consult}건
           ${consultGoal?`<span style="font-size:13px;color:#9090bb"> / ${consultGoal}건</span>`:'<span style="font-size:13px;color:#ccc"> / -</span>'}
         </td>
-        <td style="text-align:center">
+        <td style="text-align:center;white-space:nowrap">
           ${overallRate!==null?`<span style="font-size:16px;font-weight:800;color:${rateColor(overallRate)}">${overallRate}%</span>`:'<span style="color:#ccc">-</span>'}
+          ${(cu&&cu.admin)?`<button onclick="openGoalFor('${r.name.replace(/'/g,"\\'")}')" style="margin-left:8px;font-size:12px;padding:3px 9px;border:1px solid rgba(72,88,204,.3);border-radius:6px;background:#fff;color:#4858cc;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> 수정</button>`:''}
         </td>
       </tr>`;
     }).join('')}
@@ -2646,6 +2647,18 @@ function openGoal(type){
   g('m_goal').classList.add('open');
 }
 // btn_gm handled via onclick
+function openGoalFor(name){
+  if(!(cu&&cu.admin)){ toast('관리자만 목표를 수정할 수 있습니다.'); return; }
+  fillSel('mg_mem');
+  const sel=g('mg_mem'); sel.value=name; sel.disabled=false;
+  const ex=gls.find(x=>x.m===name&&x.type==='monthly')||{};
+  g('mg_cnt').value=ex.c||'';
+  g('mg_amt').value=ex.a||'';
+  if(g('mg_consult')) g('mg_consult').value=ex.consult||'';
+  g('mg_type').value='monthly';
+  g('m_goal_t').textContent='월간 목표 수정 — '+name;
+  g('m_goal').classList.add('open');
+}
 g('btn_gw').addEventListener('click',()=>openGoal('weekly'));
 g('m_goal_c').addEventListener('click',()=>g('m_goal').classList.remove('open'));
 g('m_goal_cancel').addEventListener('click',()=>g('m_goal').classList.remove('open'));
@@ -4499,6 +4512,13 @@ function sendCustReq(idx){
 // ===== 고객등록 현황 =====
 var custReqs = JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
 
+// 날짜 문자열을 'YYYY-MM-DD' 키로 정규화 (매일 초기화 비교용)
+function _dayKey(s){
+  if(!s) return '';
+  var m=String(s).replace(/\./g,'-').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? m[1]+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[3]).padStart(2,'0') : String(s);
+}
+
 function rCustStatus(){
   try{ window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]'); }catch(e){ window.custReqs=[]; }
   var tb=g('cust_status_tb'); if(!tb) return;
@@ -4508,13 +4528,17 @@ function rCustStatus(){
   var allReqs=window.custReqs||[];
   var reqs=isAdmin ? allReqs : allReqs.filter(function(r){ return r.agent===cu.name; });
 
+  // 매일 초기화: 오늘 등록분만 표시 (데이터는 보관됨)
+  var _today=_dayKey(tds());
+  reqs=reqs.filter(function(r){ return _dayKey(r.regDate)===_today; });
+
   // 최신순 정렬 (regDate 기준)
   var sorted=reqs.slice().sort(function(a,b){
     return (b.regDate||'').localeCompare(a.regDate||'');
   });
 
   if(!sorted.length){
-    tb.innerHTML='<tr><td colspan="5" class="em" style="padding:30px">등록 요청 내역이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="5" class="em" style="padding:30px">오늘 등록 요청 내역이 없습니다.</td></tr>';
     return;
   }
 
