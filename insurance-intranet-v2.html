@@ -424,7 +424,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <!-- 현재 실적 -->
     <div class="pg" id="pg_pc">
       <div class="sh"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
-      <div class="sg" id="perf_stats"></div>
+      <div class="sg" id="perf_stats" style="grid-template-columns:repeat(6,1fr)"></div>
       <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>인정실적</th><th>영수실적</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
     </div>
 
@@ -2337,11 +2337,11 @@ function rPerf(){
 
   // 통계 카드: 총건수 / 총 인정실적 / 총 영수실적 / 1지점 / 직할
   st.innerHTML=`
-    <div class="sc"><div class="sl">총 건수</div><div class="sv">${tc}</div><div class="su">건</div></div>
-    <div class="sc"><div class="sl">총 인정실적</div><div class="sv">${ta.toLocaleString()}</div><div class="su">원</div></div>
-    <div class="sc"><div class="sl">총 영수실적</div><div class="sv">${tay.toLocaleString()}</div><div class="su">원</div></div>
-    <div class="sc" style="border-color:rgba(60,100,220,.25)"><div class="sl">1지점 인정실적</div><div class="sv" style="font-size:18px">${ta1.toLocaleString()}</div><div class="su">원 · 영수 ${tay1.toLocaleString()}원 · ${tc1}건</div></div>
-    <div class="sc" style="border-color:rgba(100,60,200,.25)"><div class="sl">직할 인정실적</div><div class="sv" style="font-size:18px">${taDirect.toLocaleString()}</div><div class="su">원 · 영수 ${tayDirect.toLocaleString()}원 · ${tcDirect}건</div></div>`;
+    <div class="sc" style="grid-column:span 2"><div class="sl">총 건수</div><div class="sv">${tc}</div><div class="su">건</div></div>
+    <div class="sc" style="grid-column:span 2"><div class="sl">총 인정실적</div><div class="sv">${ta.toLocaleString()}</div><div class="su">원</div></div>
+    <div class="sc" style="grid-column:span 2"><div class="sl">총 영수실적</div><div class="sv">${tay.toLocaleString()}</div><div class="su">원</div></div>
+    <div class="sc" style="border-color:rgba(60,100,220,.25);grid-column:span 3"><div class="sl">1지점 인정실적</div><div class="sv" style="font-size:18px">${ta1.toLocaleString()}</div><div class="su">원 · 영수 ${tay1.toLocaleString()}원 · ${tc1}건</div></div>
+    <div class="sc" style="border-color:rgba(100,60,200,.25);grid-column:span 3"><div class="sl">직할 인정실적</div><div class="sv" style="font-size:18px">${taDirect.toLocaleString()}</div><div class="su">원 · 영수 ${tayDirect.toLocaleString()}원 · ${tcDirect}건</div></div>`;
 
   // 금액 기준 내림차순 정렬
   const sorted=Object.entries(agg).sort((x,y)=>y[1].a-x[1].a);
