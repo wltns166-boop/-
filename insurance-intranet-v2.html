@@ -1009,10 +1009,10 @@ function renderNotices() {
     <div class="notice-item">
       <div class="notice-icon ${n.type}">${n.type==='imp'?'🔴':'📘'}</div>
       <div>
-        <div class="notice-title">${n.title}</div>
+        <div class="notice-title">${esc(n.title)}</div>
         <div class="notice-meta">
           <span class="tag ${n.type==='imp'?'tag-red':'tag-blue'}" style="margin-right:6px">${n.type==='imp'?'중요':'일반'}</span>
-          ${n.author} · ${n.date}
+          ${esc(n.author)} · ${esc(n.date)}
         </div>
       </div>
     </div>`).join('');
@@ -1041,12 +1041,12 @@ function renderCustomers(filter='') {
   if (!tb) return;
   tb.innerHTML = data.map(c => `
     <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.dob}</td>
-      <td>${c.tel}</td>
-      <td>${c.fc}</td>
+      <td><strong>${esc(c.name)}</strong></td>
+      <td>${esc(c.dob)}</td>
+      <td>${esc(c.tel)}</td>
+      <td>${esc(c.fc)}</td>
       <td><span class="tag tag-green">정상</span></td>
-      <td>${c.date}</td>
+      <td>${esc(c.date)}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">등록된 고객이 없습니다</td></tr>';
 }
 function saveCustomer() {
@@ -1084,12 +1084,12 @@ function renderMedicals(filter='') {
   if (!tb) return;
   tb.innerHTML = data.map(m => `
     <tr>
-      <td><strong>${m.name}</strong></td>
-      <td>${m.disease}</td>
-      <td>${m.date}</td>
-      <td><span class="tag ${statusTag[m.status]||'tag-gray'}">${m.status}</span></td>
-      <td><span class="tag ${impactTag[m.impact]||'tag-gray'}">${m.impact}</span></td>
-      <td>${m.reg}</td>
+      <td><strong>${esc(m.name)}</strong></td>
+      <td>${esc(m.disease)}</td>
+      <td>${esc(m.date)}</td>
+      <td><span class="tag ${statusTag[m.status]||'tag-gray'}">${esc(m.status)}</span></td>
+      <td><span class="tag ${impactTag[m.impact]||'tag-gray'}">${esc(m.impact)}</span></td>
+      <td>${esc(m.reg)}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">등록된 병력이 없습니다</td></tr>';
 }
 function filterMed(v) { renderMedicals(v); }
@@ -1124,12 +1124,12 @@ function renderClaims() {
   if (!tb) return;
   tb.innerHTML = data.map((c,i) => `
     <tr>
-      <td style="font-family:'DM Mono',monospace;font-size:12px">${c.id}</td>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.type}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${esc(c.id)}</td>
+      <td><strong>${esc(c.name)}</strong></td>
+      <td>${esc(c.type)}</td>
       <td>₩${Number(c.amount).toLocaleString()}</td>
-      <td>${c.date}</td>
-      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
+      <td>${esc(c.date)}</td>
+      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${esc(c.status)}</span></td>
       <td>
         <select onchange="updateClaimStatus(${i},this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px;font-size:11px">
           ${['접수','심사중','완료','반려'].map(s=>`<option${c.status===s?' selected':''}>${s}</option>`).join('')}
@@ -1164,10 +1164,10 @@ function renderDashClaims() {
   const data = ls('claims',[]).slice(0,5);
   tb.innerHTML = data.map(c => `
     <tr>
-      <td>${c.name}</td>
-      <td>${c.type}</td>
+      <td>${esc(c.name)}</td>
+      <td>${esc(c.type)}</td>
       <td>₩${Number(c.amount).toLocaleString()}</td>
-      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
+      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${esc(c.status)}</span></td>
     </tr>`).join('');
 }
 function saveClaim() {
@@ -1281,11 +1281,11 @@ function renderDirectory(filter='') {
   g.innerHTML = data.map((s,i) => `
     <div class="dir-card" style="position:relative">
       <button onclick="deleteStaff(${s.id})" title="삭제" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px">✕</button>
-      <div class="dir-avatar" style="background:${s.color}">${s.name[0]}</div>
-      <div class="dir-name">${s.name}</div>
-      <div class="dir-role">${s.role}</div>
-      <div><span class="tag ${deptTag[s.dept]||'tag-gray'}">${s.dept}</span></div>
-      <div style="font-size:11px;color:var(--muted)">📞 ${s.tel}</div>
+      <div class="dir-avatar" style="background:${s.color}">${esc(s.name[0])}</div>
+      <div class="dir-name">${esc(s.name)}</div>
+      <div class="dir-role">${esc(s.role)}</div>
+      <div><span class="tag ${deptTag[s.dept]||'tag-gray'}">${esc(s.dept)}</span></div>
+      <div style="font-size:11px;color:var(--muted)">📞 ${esc(s.tel)}</div>
     </div>`).join('') || '<div style="text-align:center;padding:30px;color:var(--muted);grid-column:1/-1">등록된 직원이 없습니다</div>';
 }
 function filterDir(v) { renderDirectory(v); }
@@ -1360,7 +1360,7 @@ function buildCalendar() {
     const isToday = d === today;
     const isSun = (startDay + d - 1) % 7 === 0;
     let evHtml = '';
-    if (events[d]) events[d].forEach(e => { evHtml += `<div class="cal-event ${e.cls}">${e.text}</div>`; });
+    if (events[d]) events[d].forEach(e => { evHtml += `<div class="cal-event ${e.cls}">${esc(e.text)}</div>`; });
     cells += `<div class="cal-cell ${isToday?'today':''}"><div class="cal-num ${isSun?'sun':''}">${d}</div>${evHtml}</div>`;
   }
   grid.innerHTML = cells;
@@ -1405,9 +1405,9 @@ function renderNotifPanel() {
   const typeIcon = {info:'📘',warning:'⚠️',success:'✅',danger:'🚨'};
   el.innerHTML = notifs.length ? notifs.map(n => `
     <div class="notif-item ${n.read?'':'unread'}" onclick="markRead(${n.id})">
-      <div class="notif-title">${typeIcon[n.type]||'🔔'} ${n.title}</div>
-      <div class="notif-time">${n.msg}</div>
-      <div class="notif-time" style="margin-top:2px">${n.time}</div>
+      <div class="notif-title">${typeIcon[n.type]||'🔔'} ${esc(n.title)}</div>
+      <div class="notif-time">${esc(n.msg)}</div>
+      <div class="notif-time" style="margin-top:2px">${esc(n.time)}</div>
     </div>`).join('') : '<div class="notif-empty">알림이 없습니다</div>';
 }
 function markRead(id) {
@@ -1447,7 +1447,7 @@ function showToast(type, title, msg, duration=4000) {
   div.id = id;
   div.innerHTML = `
     <div class="toast-icon">${icons[type]||'🔔'}</div>
-    <div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>
+    <div class="toast-body"><div class="toast-title">${esc(title)}</div><div class="toast-msg">${esc(msg)}</div></div>
     <button class="toast-close" onclick="closeToast('${id}')">✕</button>`;
   document.getElementById('toast-container').appendChild(div);
   setTimeout(() => closeToast(id), duration);
@@ -1483,7 +1483,7 @@ function globalSearch(v) {
   const customers = ls('customers',[]).filter(c => c.name.includes(v) || c.tel.includes(v));
   const claims = ls('claims',[]).filter(c => c.name.includes(v) || c.id.includes(v));
 
-  let html = `<div class="sr-header">검색 결과: "${v}"</div>`;
+  let html = `<div class="sr-header">검색 결과: "${esc(v)}"</div>`;
   if (pages.length) {
     pages.forEach(p => {
       html += `<div class="sr-item" onclick="goPageByName('${p.page}')">
@@ -1495,13 +1495,13 @@ function globalSearch(v) {
   customers.forEach(c => {
     html += `<div class="sr-item" onclick="goPageByName('customer')">
       <div class="sr-icon">🧑‍💼</div>
-      <div><div class="sr-name">${c.name}</div><div class="sr-desc">고객 · ${c.tel}</div></div>
+      <div><div class="sr-name">${esc(c.name)}</div><div class="sr-desc">고객 · ${esc(c.tel)}</div></div>
     </div>`;
   });
   claims.forEach(c => {
     html += `<div class="sr-item" onclick="goPageByName('claim')">
       <div class="sr-icon">💰</div>
-      <div><div class="sr-name">${c.name} – ${c.id}</div><div class="sr-desc">청구 · ${c.status}</div></div>
+      <div><div class="sr-name">${esc(c.name)} – ${esc(c.id)}</div><div class="sr-desc">청구 · ${esc(c.status)}</div></div>
     </div>`;
   });
   if (!pages.length && !customers.length && !claims.length) {
@@ -1544,11 +1544,11 @@ function renderChat() {
     const isMine = m.user === currentUser?.name;
     return `
     <div class="msg ${isMine?'mine':''}">
-      <div class="msg-avatar" style="background:${m.color}">${m.avatar}</div>
+      <div class="msg-avatar" style="background:${m.color}">${esc(m.avatar)}</div>
       <div class="msg-body">
-        ${!isMine?`<div class="msg-name">${m.user}</div>`:''}
-        <div class="msg-bubble">${m.msg}</div>
-        <div class="msg-time">${m.time}</div>
+        ${!isMine?`<div class="msg-name">${esc(m.user)}</div>`:''}
+        <div class="msg-bubble">${esc(m.msg)}</div>
+        <div class="msg-time">${esc(m.time)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1655,7 +1655,7 @@ function toggleOrgEdit() {
 function addOrgNode() {
   const nodes = ls('orgNodes', []);
   const newId = 'n' + Date.now();
-  const parentOptions = nodes.map(n => `<option value="${n.id}">${n.label}</option>`).join('');
+  const parentOptions = nodes.map(n => `<option value="${esc(n.id)}">${esc(n.label)}</option>`).join('');
   const editorEl = document.getElementById('org-node-editor');
   editorEl.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1705,12 +1705,12 @@ function selectOrgNode(id) {
   const nodes = ls('orgNodes', []);
   const node = nodes.find(n => n.id === id);
   if (!node) return;
-  const parentOptions = nodes.filter(n => n.id !== id).map(n => `<option value="${n.id}"${n.id===node.parentId?' selected':''}>${n.label}</option>`).join('');
+  const parentOptions = nodes.filter(n => n.id !== id).map(n => `<option value="${esc(n.id)}"${n.id===node.parentId?' selected':''}>${esc(n.label)}</option>`).join('');
   const colorKey = Object.entries(orgColorMap).find(([k,v]) => v.fill === node.fill)?.[0] || 'blue';
   document.getElementById('org-node-editor').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div class="form-group"><label>노드명</label><input id="on-label" value="${node.label}"></div>
-      <div class="form-group"><label>담당자</label><input id="on-sub" value="${node.sub || ''}"></div>
+      <div class="form-group"><label>노드명</label><input id="on-label" value="${esc(node.label)}"></div>
+      <div class="form-group"><label>담당자</label><input id="on-sub" value="${esc(node.sub || '')}"></div>
       <div class="form-group"><label>상위 노드</label><select id="on-parent"><option value="">없음 (최상위)</option>${parentOptions}</select></div>
       <div class="form-group"><label>색상 테마</label><select id="on-fill">
         <option value="blue"${colorKey==='blue'?' selected':''}>파랑</option>
@@ -1747,8 +1747,7 @@ function saveOrgNode(id) {
 }
 
 function deleteOrgNode(id) {
-  if (!confirm('이 노드를 삭제하시겠습니까?
-하위 노드는 최상위로 이동됩니다.')) return;
+  if (!confirm('이 노드를 삭제하시겠습니까?\n하위 노드는 최상위로 이동됩니다.')) return;
   let nodes = ls('orgNodes', []);
   nodes = nodes.filter(n => n.id !== id).map(n => ({ ...n, parentId: n.parentId === id ? null : n.parentId }));
   lsSet('orgNodes', nodes);
@@ -1829,8 +1828,8 @@ function renderOrgChart() {
       <g onclick="selectOrgNode('${n.id}')" style="${editCursor}">
         ${selRing}
         <rect x="${x}" y="${y}" width="${nodeW}" height="${nodeH}" rx="9" fill="${n.fill}" stroke="${n.stroke}" ${highlight}/>
-        <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="13" font-weight="700" fill="${n.textColor}">${n.label}</text>
-        <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="11" fill="#6b7a99">${n.sub || ''}</text>
+        <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="13" font-weight="700" fill="${n.textColor}">${esc(n.label)}</text>
+        <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="11" fill="#6b7a99">${esc(n.sub || '')}</text>
       </g>`;
   });
 
@@ -1840,6 +1839,12 @@ function renderOrgChart() {
 }
 
 /* ── Util ── */
+/* HTML 이스케이프: 사용자 입력값을 innerHTML에 넣을 때 XSS 방지 */
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
