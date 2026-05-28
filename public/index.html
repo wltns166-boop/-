@@ -1227,10 +1227,19 @@ table.dt tr:last-child td{border-bottom:none;}
     <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글자간격 <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
     <button class="bp bco" onclick="ccApplyProps()" style="font-size:13px;padding:5px 12px">적용</button>
   </div>
-  <div id="cc_stage" style="position:relative;max-height:68vh;overflow:auto;border:1px solid rgba(80,80,160,.2);border-radius:8px;background:#e9e9ef">
-    <div id="cc_inner" style="position:relative;width:max-content">
-      <canvas id="cc_canvas" style="display:block"></canvas>
-      <div id="cc_overlay" style="position:absolute;left:0;top:0"></div>
+  <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+    <div id="cc_stage" style="flex:1;min-width:280px;position:relative;max-height:68vh;overflow:auto;border:1px solid rgba(80,80,160,.2);border-radius:8px;background:#e9e9ef">
+      <div id="cc_inner" style="position:relative;width:max-content">
+        <canvas id="cc_canvas" style="display:block"></canvas>
+        <div id="cc_overlay" style="position:absolute;left:0;top:0"></div>
+      </div>
+    </div>
+    <div style="width:240px;max-height:68vh;overflow-y:auto;border:1px solid rgba(80,80,160,.2);border-radius:8px;background:#fafbff;padding:8px 10px">
+      <div style="font-size:13px;font-weight:700;color:#3040aa;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid rgba(72,88,204,.15);display:flex;align-items:center;gap:5px">
+        <i class="ti ti-toolbox"></i> 도구박스
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.4">체크 = 배치 · 해제 = 숨김<br>＋ 추가 = 같은 항목 더 놓기</div>
+      <div id="cc_toolbox"></div>
     </div>
   </div>
 </div></div>
@@ -6881,15 +6890,25 @@ function rEduPrep(){
 /* ===== 청구서 좌표 설정/보정 ===== */
 // PDF 좌표(좌하단 원점, pt). page: 0=1페이지 ... 4=5페이지
 var CLAIM_FIELDS_DEFAULT = [
-  {key:'insName',    label:'성명',         page:0, x:153.9, y:701.3},
-  {key:'insRrn',     label:'주민번호',      page:0, x:301.5, y:692.9},
-  {key:'insRrnFront',label:'주민번호(앞6)', page:0, x:301.5, y:692.9, defOn:false},
-  {key:'insRrnBack', label:'주민번호(뒤7)', page:0, x:360,   y:692.9, defOn:false},
-  {key:'addr',       label:'주소',         page:0, x:153.9, y:654.2},
-  {key:'phone',      label:'연락처',        page:0, x:149.2, y:599.5},
-  {key:'phoneFront', label:'휴대폰(앞3)',   page:0, x:149.2, y:599.5, defOn:false},
-  {key:'phoneMid',   label:'휴대폰(중4)',   page:0, x:185,   y:599.5, defOn:false},
-  {key:'phoneBack',  label:'휴대폰(뒤4)',   page:0, x:225,   y:599.5, defOn:false},
+  {key:'ctName',     label:'계약자 성명',       page:0, x:130,   y:735, defOn:false},
+  {key:'ctSign',     label:'계약자 서명',       page:0, x:430,   y:735, defOn:false},
+  {key:'ctRrn',      label:'계약자 주민번호',    page:0, x:230,   y:735, defOn:false},
+  {key:'ctRrnFront', label:'계약자 주민번호(앞6)', page:0, x:230, y:735, defOn:false},
+  {key:'ctRrnBack',  label:'계약자 주민번호(뒤7)', page:0, x:290, y:735, defOn:false},
+  {key:'ctPhone',    label:'계약자 휴대폰',     page:0, x:150,   y:715, defOn:false},
+  {key:'ctPhoneFront',label:'계약자 휴대폰(앞3)',page:0, x:150,   y:715, defOn:false},
+  {key:'ctPhoneMid', label:'계약자 휴대폰(중4)', page:0, x:185,   y:715, defOn:false},
+  {key:'ctPhoneBack',label:'계약자 휴대폰(뒤4)', page:0, x:225,   y:715, defOn:false},
+  {key:'ctAddr',     label:'계약자 집주소',     page:0, x:150,   y:695, defOn:false},
+  {key:'insName',    label:'피보험자 성명',     page:0, x:153.9, y:701.3},
+  {key:'insRrn',     label:'피보험자 주민번호',  page:0, x:301.5, y:692.9},
+  {key:'insRrnFront',label:'피보험자 주민번호(앞6)', page:0, x:301.5, y:692.9, defOn:false},
+  {key:'insRrnBack', label:'피보험자 주민번호(뒤7)', page:0, x:360,   y:692.9, defOn:false},
+  {key:'addr',       label:'피보험자 집주소',    page:0, x:153.9, y:654.2},
+  {key:'phone',      label:'피보험자 휴대폰',    page:0, x:149.2, y:599.5},
+  {key:'phoneFront', label:'피보험자 휴대폰(앞3)', page:0, x:149.2, y:599.5, defOn:false},
+  {key:'phoneMid',   label:'피보험자 휴대폰(중4)', page:0, x:185,   y:599.5, defOn:false},
+  {key:'phoneBack',  label:'피보험자 휴대폰(뒤4)', page:0, x:225,   y:599.5, defOn:false},
   {key:'acc_injury', label:'사고유형:상해',  page:0, x:128.4, y:498},
   {key:'acc_disease',label:'사고유형:질병',  page:0, x:169.2, y:496.6},
   {key:'acc_traffic',label:'사고유형:교통',  page:0, x:208.6, y:497.3},
@@ -6905,7 +6924,7 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'wM',         label:'작성일:월',     page:0, x:126.4, y:150.6},
   {key:'wD',         label:'작성일:일',     page:0, x:178.2, y:150.6},
   {key:'signName',   label:'피보험자성명',   page:0, x:436.4, y:159.5},
-  {key:'sign',       label:'서명',         page:0, x:540.7, y:148.6},
+  {key:'sign',       label:'피보험자 서명', page:0, x:540.7, y:148.6},
   {key:'p2v1',       label:'동의V',        page:1, x:544.7, y:439.2},
   {key:'p2v2',       label:'동의V',        page:1, x:546.1, y:349.9},
   {key:'p2v3',       label:'동의V',        page:1, x:546.1, y:258.6},
@@ -6967,6 +6986,16 @@ function claimMeta(){
   function accPart(c,i){ if(!c.accDate) return ''; var p=String(c.accDate).split('.'); return p[i]?String(p[i]).trim():''; }
   function descPart(c,i){ var d=(c.desc||'').slice(0,100); return i===0?d.slice(0,50):d.slice(50); }
   return {
+    ctName:{t:'ko',s:9,w:108,v:function(c,x){return x.ctName;}},
+    ctSign:{t:'imgCt',w:80,h:14},
+    ctRrn:{t:'rrnCt',s:9,pitch:9},
+    ctRrnFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctRrn||'').slice(0,6);}},
+    ctRrnBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctRrn||'').slice(6,13);}},
+    ctAddr:{t:'ko',s:9,w:420,v:function(c,x){return (x.ctAddr||'').slice(0,45);}},
+    ctPhone:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(0,15);}},
+    ctPhoneFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(0,3);}},
+    ctPhoneMid:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(3,7);}},
+    ctPhoneBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(7,11);}},
     insName:{t:'ko',s:9,w:108,v:function(c,x){return x.insName;}},
     insRrn:{t:'rrn',s:9,pitch:9},
     insRrnFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.insRrn||'').slice(0,6);}},
@@ -7012,6 +7041,12 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
   var ctx={
     insName:(c.insName||c.custName||'').slice(0,20),
     insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    insPhone:String(c.phone||'').replace(/[^0-9]/g,''),
+    insAddr:(c.addr||''),
+    ctName:(c.ctName||c.contractorName||c.insName||c.custName||'').slice(0,20),
+    ctRrn:(c.ctRrn||c.contractorRrn||c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
+    ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
     yy:String(now.getFullYear()), mm:String(now.getMonth()+1), dd:String(now.getDate())
   };
   var hv=await srcDoc.embedFont(StandardFonts.Helvetica);
@@ -7022,9 +7057,18 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     try{ var sgb=Uint8Array.from(atob(c.sign.split(',')[1]),function(z){return z.charCodeAt(0);});
       signImg=await srcDoc.embedPng(sgb).catch(async function(){return await srcDoc.embedJpg(sgb);}); }catch(e){}
   }
-  var keys=Object.keys(META);
+  var ctSignImg=null;
+  var ctSignSrc=(c.ctSign||c.contractorSign||'');
+  if(ctSignSrc&&typeof ctSignSrc==='string'&&ctSignSrc.indexOf('data:image')===0){
+    try{ var cgb=Uint8Array.from(atob(ctSignSrc.split(',')[1]),function(z){return z.charCodeAt(0);});
+      ctSignImg=await srcDoc.embedPng(cgb).catch(async function(){return await srcDoc.embedJpg(cgb);}); }catch(e){}
+  } else { ctSignImg = signImg; }
+  // 배치된 모든 키(추가본 포함)를 렌더
+  var keys=Object.keys(coords);
   for(var i=0;i<keys.length;i++){
-    var key=keys[i], m=META[key], co=coords[key];
+    var key=keys[i];
+    var bkey=String(key).replace(/_\d+$/,'');  // 추가본(_2,_3) -> 원본 키
+    var m=META[bkey], co=coords[key];
     if(!m||!co||co.on===false) continue;
     var pi=(typeof co.page==='number')?co.page:0;
     var pg=pages[pi]; if(!pg) continue;
@@ -7032,14 +7076,16 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     try{
       var fsz = (typeof co.size==='number'&&co.size>0)?co.size:m.s;
       var pit = (typeof co.pitch==='number'&&co.pitch>0)?co.pitch:m.pitch;
-      function drawSpaced(s){
+      var drawSpaced=function(s){
         var str=String(s);
         if(pit){ for(var ci=0;ci<str.length;ci++) pg.drawText(str[ci],{x:co.x+ci*pit,y:co.y,size:fsz,font:hv,color:blk}); }
         else pg.drawText(str,{x:co.x,y:co.y,size:fsz,font:hv,color:blk});
-      }
+      };
       if(m.t==='chk'){ pg.drawText('V',{x:co.x,y:co.y,size:fsz,font:hv,color:blk}); }
       else if(m.t==='img'){ if(signImg) pg.drawImage(signImg,{x:co.x,y:co.y,width:m.w,height:m.h}); }
+      else if(m.t==='imgCt'){ if(ctSignImg) pg.drawImage(ctSignImg,{x:co.x,y:co.y,width:m.w,height:m.h}); }
       else if(m.t==='rrn'){ if(ctx.insRrn) drawSpaced(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6)); }
+      else if(m.t==='rrnCt'){ if(ctx.ctRrn) drawSpaced(ctx.ctRrn.slice(0,6)+'-'+ctx.ctRrn.slice(6)); }
       else if(m.t==='asc'){ var v=m.v?m.v(c,ctx):''; if(co.fmt==='yy2'&&/^\d{4}$/.test(String(v))) v=String(v).slice(2); if(v) drawSpaced(v); }
       else if(m.t==='ko'){ var v2=m.v?m.v(c,ctx):''; if(v2) await dtx(pg,srcDoc,v2,co.x,co.y,fsz,m.w); }
     }catch(e){ console.warn('drawField',key,e); }
@@ -7097,6 +7143,7 @@ function claimCoordsFor(insurer){
   ov=ov||{};
   var preset=(typeof CLAIM_PRESETS!=='undefined'&&CLAIM_PRESETS[insurer])?CLAIM_PRESETS[insurer]:{};
   var map={};
+  var defMap={}; CLAIM_FIELDS_DEFAULT.forEach(function(f){ defMap[f.key]=f; });
   CLAIM_FIELDS_DEFAULT.forEach(function(f){
     var b=preset[f.key]||{};
     var bx=(typeof b.x==='number')?b.x:f.x;
@@ -7114,6 +7161,23 @@ function claimCoordsFor(insurer){
       fmt:(o.fmt!=null?o.fmt:b.fmt),
       size:(typeof o.size==='number')?o.size:(typeof b.size==='number'?b.size:null),
       pitch:(typeof o.pitch==='number')?o.pitch:(typeof b.pitch==='number'?b.pitch:null)
+    };
+  });
+  // 사용자가 추가한 인스턴스 키(_2, _3 …)도 포함
+  Object.keys(ov).forEach(function(k){
+    if(map[k]) return;
+    var bk=String(k).replace(/_\d+$/,'');
+    var def=defMap[bk]; if(!def) return;
+    var o=ov[k]||{};
+    map[k]={
+      x:(typeof o.x==='number')?o.x:def.x,
+      y:(typeof o.y==='number')?o.y:def.y,
+      page:(typeof o.page==='number')?o.page:def.page,
+      on:(o.on===false)?false:true,
+      label:def.label+' #'+(k.split('_').pop()),
+      fmt:o.fmt!=null?o.fmt:null,
+      size:(typeof o.size==='number')?o.size:null,
+      pitch:(typeof o.pitch==='number')?o.pitch:null
     };
   });
   return map;
@@ -7219,7 +7283,7 @@ async function ccRenderPage(pn){
     cx.fillText(window._ccInsurer+' 양식이 없습니다.',24,140);
     cx.fillText('상단 [양식 PDF 업로드]로 청구서를 올려주세요.',24,168);
     g('cc_overlay').style.width=cv.width+'px'; g('cc_overlay').style.height=cv.height+'px';
-    ccBuildTabs(); ccBuildAddField();
+    ccBuildTabs(); ccBuildAddField(); ccRefreshToolbox();
     return;
   }
   try{
@@ -7242,34 +7306,183 @@ async function ccRenderPage(pn){
     ccBuildTabs(); ccBuildAddField(); ccPlaceChips();
   }catch(e){ console.warn('cc render',e); toast('양식 렌더 오류: '+e.message); }
 }
+function ccBaseKey(k){ return String(k).replace(/_\d+$/,''); }
+function ccLabelFor(key){
+  var bk=ccBaseKey(key);
+  var def=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===bk;});
+  var lbl=(def&&def.label)||key;
+  if(key!==bk){ var n=key.split('_').pop(); lbl+=' #'+n; }
+  return lbl;
+}
 function ccPlaceChips(){
   var ov=g('cc_overlay'); if(!ov) return;
   ov.innerHTML='';
   var sc=window._ccScale, H=window._ccPageH, pageIdx=window._ccPage-1;
-  CLAIM_FIELDS_DEFAULT.forEach(function(f){
-    var co=window._ccWork[f.key]; if(!co) return;
-    var fpage=(typeof co.page==='number')?co.page:f.page;
+  var defMap={}; CLAIM_FIELDS_DEFAULT.forEach(function(f){ defMap[f.key]=f; });
+  Object.keys(window._ccWork||{}).forEach(function(key){
+    var co=window._ccWork[key]; if(!co) return;
+    var bk=ccBaseKey(key); var def=defMap[bk]||{};
+    var fpage=(typeof co.page==='number')?co.page:(def.page||0);
     if(fpage!==pageIdx) return;
     var off=(co.on===false);
     var ax=co.x*sc, ay=(H-co.y)*sc;
     var chip=document.createElement('div');
-    chip.className='cc_chip'; chip.dataset.key=f.key;
+    chip.className='cc_chip'; chip.dataset.key=key;
     chip.style.cssText='position:absolute;padding:3px 7px 7px 9px;background:'+(off?'rgba(120,120,140,.65)':'rgba(72,88,204,.92)')+';color:#fff;font-size:12px;font-weight:600;border-radius:6px;white-space:nowrap;cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:5';
-    chip.innerHTML='<span class="cc_tog" title="사용/숨김 전환" style="cursor:pointer;margin-right:4px">'+(off?'☐':'☑')+'</span>'+f.label+'<span style="position:absolute;left:-3px;bottom:-3px;width:8px;height:8px;background:#ff3030;border:1px solid #fff;border-radius:50%"></span>';
+    var safeLabel=ccLabelFor(key).replace(/</g,'&lt;');
+    chip.innerHTML='<span class="cc_tog" title="사용/숨김 전환" style="cursor:pointer;margin-right:4px">'+(off?'☐':'☑')+'</span>'+safeLabel+'<span style="position:absolute;left:-3px;bottom:-3px;width:8px;height:8px;background:#ff3030;border:1px solid #fff;border-radius:50%"></span>';
     ov.appendChild(chip);
     var hh=chip.offsetHeight||22;
     chip.style.left=ax+'px'; chip.style.top=(ay-hh)+'px';
     var tog=chip.querySelector('.cc_tog');
-    if(tog){ tog.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); }); tog.addEventListener('click',function(ev){ ev.stopPropagation(); ccToggleField(f.key); }); }
-    if(window._ccSelKey===f.key) chip.style.outline='2px solid #ffaa00';
+    if(tog){ tog.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); }); tog.addEventListener('click',function(ev){ ev.stopPropagation(); ccToggleField(key); }); }
+    if(window._ccSelKey===key) chip.style.outline='2px solid #ffaa00';
     ccDrag(chip);
   });
   if(typeof ccUpdatePropsPanel==='function') ccUpdatePropsPanel();
+  if(typeof ccRefreshToolbox==='function') ccRefreshToolbox();
 }
 function ccToggleField(key){
   if(!window._ccWork[key]) return;
   window._ccWork[key].on=(window._ccWork[key].on===false)?true:false;
   ccPlaceChips();
+}
+
+// ===== 도구박스 (오른쪽 패널) =====
+var CC_TOOLBOX_GROUPS = [
+  { title:'계약자', items:[
+    {key:'ctName',       label:'성명'},
+    {key:'ctSign',       label:'서명'},
+    {key:'ctRrn',        label:'주민번호 (전체)'},
+    {key:'ctRrnFront',   label:'주민번호 앞 6자리'},
+    {key:'ctRrnBack',    label:'주민번호 뒤 7자리'},
+    {key:'ctPhone',      label:'휴대폰 (전체)'},
+    {key:'ctPhoneFront', label:'휴대폰 앞 3자리'},
+    {key:'ctPhoneMid',   label:'휴대폰 가운데 4자리'},
+    {key:'ctPhoneBack',  label:'휴대폰 뒤 4자리'},
+    {key:'ctAddr',       label:'집주소'}
+  ]},
+  { title:'피보험자', items:[
+    {key:'insName',    label:'성명'},
+    {key:'sign',       label:'서명'},
+    {key:'insRrn',     label:'주민번호 (전체)'},
+    {key:'insRrnFront',label:'주민번호 앞 6자리'},
+    {key:'insRrnBack', label:'주민번호 뒤 7자리'},
+    {key:'phone',      label:'휴대폰 (전체)'},
+    {key:'phoneFront', label:'휴대폰 앞 3자리'},
+    {key:'phoneMid',   label:'휴대폰 가운데 4자리'},
+    {key:'phoneBack',  label:'휴대폰 뒤 4자리'},
+    {key:'addr',       label:'집주소'}
+  ]},
+  { title:'사고', items:[
+    {key:'acc_disease',label:'사고유형: 질병 V'},
+    {key:'acc_injury', label:'사고유형: 상해 V'},
+    {key:'acc_traffic',label:'사고유형: 교통 V'},
+    {key:'desc1',      label:'사고경위 1줄'},
+    {key:'desc2',      label:'사고경위 2줄'},
+    {key:'accY',       label:'사고일: 년'},
+    {key:'accM',       label:'사고일: 월'},
+    {key:'accD',       label:'사고일: 일'}
+  ]},
+  { title:'계좌', items:[
+    {key:'bank',        label:'은행명'},
+    {key:'accountName', label:'예금주'},
+    {key:'accountNum',  label:'계좌번호'}
+  ]},
+  { title:'동의 V', items:[
+    {key:'p2v1', label:'2p 동의 V #1'},
+    {key:'p2v2', label:'2p 동의 V #2'},
+    {key:'p2v3', label:'2p 동의 V #3'},
+    {key:'p3v1', label:'3p 동의 V #1'},
+    {key:'p3v2', label:'3p 동의 V #2'},
+    {key:'p3v3', label:'3p 동의 V #3'},
+    {key:'p4v1', label:'4p 동의 V #1'},
+    {key:'p4v2', label:'4p 동의 V #2'},
+    {key:'p5v1', label:'5p 동의 V #1'},
+    {key:'p5v2', label:'5p 동의 V #2'},
+    {key:'p5v3', label:'5p 동의 V #3'}
+  ]},
+  { title:'작성일·기타', items:[
+    {key:'wY',       label:'작성일: 년'},
+    {key:'wM',       label:'작성일: 월'},
+    {key:'wD',       label:'작성일: 일'},
+    {key:'signName', label:'서명 옆 성명'}
+  ]}
+];
+
+function ccRefreshToolbox(){
+  var box=g('cc_toolbox'); if(!box) return;
+  var work=window._ccWork||{};
+  // 키 -> 인스턴스 개수 (켜진 것만 카운트)
+  var counts={};
+  Object.keys(work).forEach(function(k){
+    var bk=ccBaseKey(k);
+    if(work[k] && work[k].on!==false){ counts[bk]=(counts[bk]||0)+1; }
+  });
+  var html='';
+  CC_TOOLBOX_GROUPS.forEach(function(grp){
+    html+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:#3040aa;padding:5px 8px;background:rgba(72,88,204,.08);border-radius:5px;margin-bottom:4px">'+grp.title+'</div>';
+    grp.items.forEach(function(it){
+      var cnt=counts[it.key]||0;
+      var checked=cnt>0?'checked':'';
+      html+='<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:12.5px">'
+        +'<input type="checkbox" data-tb="'+it.key+'" '+checked+' onchange="ccTbToggle(\''+it.key+'\',this.checked)" style="accent-color:#4858cc;width:14px;height:14px;cursor:pointer">'
+        +'<label onclick="ccTbToggle(\''+it.key+'\',!('+cnt+'>0))" style="flex:1;cursor:pointer;color:#1a1a3a">'+it.label+(cnt>1?' <span style="color:#888;font-size:11px">×'+cnt+'</span>':'')+'</label>'
+        +'<button onclick="ccTbAdd(\''+it.key+'\')" title="배치 추가" style="font-size:11px;padding:2px 6px;background:#fff;border:1px solid rgba(72,88,204,.4);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit">+ 추가</button>'
+        +'</div>';
+    });
+    html+='</div>';
+  });
+  box.innerHTML=html;
+}
+
+function ccTbToggle(baseKey, checked){
+  if(!window._ccWork) window._ccWork={};
+  // 같은 baseKey의 모든 인스턴스 찾기
+  var keys=Object.keys(window._ccWork).filter(function(k){return ccBaseKey(k)===baseKey;});
+  if(checked){
+    if(keys.length===0){
+      // 새로 배치 (현재 페이지 중앙)
+      ccTbAdd(baseKey);
+      return;
+    }
+    // 기존 인스턴스 다시 켜기
+    keys.forEach(function(k){ window._ccWork[k].on=true; });
+  } else {
+    // 모두 끄기
+    keys.forEach(function(k){ window._ccWork[k].on=false; });
+  }
+  ccPlaceChips();
+}
+
+function ccTbAdd(baseKey){
+  if(!window._ccWork) window._ccWork={};
+  var W=window._ccPageW||595, H=window._ccPageH||841.9;
+  var existing=Object.keys(window._ccWork).filter(function(k){return ccBaseKey(k)===baseKey;});
+  var newKey;
+  if(existing.length===0){
+    newKey=baseKey;
+  } else {
+    var n=2;
+    while(window._ccWork[baseKey+'_'+n]) n++;
+    newKey=baseKey+'_'+n;
+  }
+  // 기본 좌표: 기존 첫 인스턴스 옆 또는 현재 페이지 중앙
+  var defField=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===baseKey;});
+  var bx, by;
+  if(existing.length===0 && defField){
+    bx=defField.x; by=defField.y;
+  } else {
+    bx=Math.round(W/2); by=Math.round(H/2);
+  }
+  window._ccWork[newKey]={
+    page: window._ccPage-1,
+    x: bx, y: by,
+    on: true
+  };
+  window._ccSelKey=newKey;
+  ccPlaceChips();
+  toast(ccLabelFor(newKey)+' 배치됨. 드래그해서 위치를 맞추세요.');
 }
 function ccAddFieldToPage(){
   var sel=g('cc_addfield'); var key=sel.value; sel.value='';
