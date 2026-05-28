@@ -1218,7 +1218,15 @@ table.dt tr:last-child td{border-bottom:none;}
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 맞춘 뒤 <b>저장</b> → 청구현황 <b>청구파일 재생성</b>.</div>
+  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭하면 아래에서 <b>글씨크기·글자간격</b>을 조정할 수 있습니다. 맞춘 뒤 <b>저장</b> → 청구현황 <b>청구파일 재생성</b>.</div>
+  <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
+    <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
+    <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
+    <span style="flex:1"></span>
+    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글씨크기 <input id="cc_props_size" type="number" step="0.5" min="5" max="24" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="9"></label>
+    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글자간격 <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
+    <button class="bp bco" onclick="ccApplyProps()" style="font-size:13px;padding:5px 12px">적용</button>
+  </div>
   <div id="cc_stage" style="position:relative;max-height:68vh;overflow:auto;border:1px solid rgba(80,80,160,.2);border-radius:8px;background:#e9e9ef">
     <div id="cc_inner" style="position:relative;width:max-content">
       <canvas id="cc_canvas" style="display:block"></canvas>
@@ -6875,8 +6883,13 @@ function rEduPrep(){
 var CLAIM_FIELDS_DEFAULT = [
   {key:'insName',    label:'성명',         page:0, x:153.9, y:701.3},
   {key:'insRrn',     label:'주민번호',      page:0, x:301.5, y:692.9},
+  {key:'insRrnFront',label:'주민번호(앞6)', page:0, x:301.5, y:692.9, defOn:false},
+  {key:'insRrnBack', label:'주민번호(뒤7)', page:0, x:360,   y:692.9, defOn:false},
   {key:'addr',       label:'주소',         page:0, x:153.9, y:654.2},
   {key:'phone',      label:'연락처',        page:0, x:149.2, y:599.5},
+  {key:'phoneFront', label:'휴대폰(앞3)',   page:0, x:149.2, y:599.5, defOn:false},
+  {key:'phoneMid',   label:'휴대폰(중4)',   page:0, x:185,   y:599.5, defOn:false},
+  {key:'phoneBack',  label:'휴대폰(뒤4)',   page:0, x:225,   y:599.5, defOn:false},
   {key:'acc_injury', label:'사고유형:상해',  page:0, x:128.4, y:498},
   {key:'acc_disease',label:'사고유형:질병',  page:0, x:169.2, y:496.6},
   {key:'acc_traffic',label:'사고유형:교통',  page:0, x:208.6, y:497.3},
@@ -6955,9 +6968,14 @@ function claimMeta(){
   function descPart(c,i){ var d=(c.desc||'').slice(0,100); return i===0?d.slice(0,50):d.slice(50); }
   return {
     insName:{t:'ko',s:9,w:108,v:function(c,x){return x.insName;}},
-    insRrn:{t:'rrn',s:9},
+    insRrn:{t:'rrn',s:9,pitch:9},
+    insRrnFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.insRrn||'').slice(0,6);}},
+    insRrnBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.insRrn||'').slice(6,13);}},
     addr:{t:'ko',s:9,w:420,v:function(c){return (c.addr||'').slice(0,45);}},
-    phone:{t:'asc',s:9,v:function(c){return c.phone?String(c.phone).slice(0,15):'';}},
+    phone:{t:'asc',s:9,pitch:9,v:function(c){return c.phone?String(c.phone).replace(/-/g,'').slice(0,15):'';}},
+    phoneFront:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(0,3);}},
+    phoneMid:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(3,7);}},
+    phoneBack:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(7,11);}},
     acc_injury:{t:'chk',s:9,cond:function(c){return accHas(c,'상해');}},
     acc_disease:{t:'chk',s:9,cond:function(c){return accHas(c,'질병');}},
     acc_traffic:{t:'chk',s:9,cond:function(c){return accHas(c,'교통');}},
@@ -6966,7 +6984,7 @@ function claimMeta(){
     accD:{t:'asc',s:9,v:function(c){return accPart(c,2);}},
     desc1:{t:'ko',s:9,w:450,v:function(c){return descPart(c,0);}},
     desc2:{t:'ko',s:9,w:450,v:function(c){return descPart(c,1);}},
-    accountNum:{t:'asc',s:9,v:function(c){return c.accountNum?String(c.accountNum).replace(/[^0-9-]/g,'').slice(0,22):'';}},
+    accountNum:{t:'asc',s:9,pitch:9,v:function(c){return c.accountNum?String(c.accountNum).replace(/[^0-9-]/g,'').slice(0,22):'';}},
     bank:{t:'ko',s:9,w:62,v:function(c){return c.bank||'';}},
     accountName:{t:'ko',s:9,w:55,v:function(c){return c.accountName||'';}},
     wY:{t:'asc',s:9,v:function(c,x){return x.yy;}},
@@ -7012,11 +7030,18 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     var pg=pages[pi]; if(!pg) continue;
     if(m.cond && !m.cond(c)) continue;
     try{
-      if(m.t==='chk'){ pg.drawText('V',{x:co.x,y:co.y,size:m.s,font:hv,color:blk}); }
+      var fsz = (typeof co.size==='number'&&co.size>0)?co.size:m.s;
+      var pit = (typeof co.pitch==='number'&&co.pitch>0)?co.pitch:m.pitch;
+      function drawSpaced(s){
+        var str=String(s);
+        if(pit){ for(var ci=0;ci<str.length;ci++) pg.drawText(str[ci],{x:co.x+ci*pit,y:co.y,size:fsz,font:hv,color:blk}); }
+        else pg.drawText(str,{x:co.x,y:co.y,size:fsz,font:hv,color:blk});
+      }
+      if(m.t==='chk'){ pg.drawText('V',{x:co.x,y:co.y,size:fsz,font:hv,color:blk}); }
       else if(m.t==='img'){ if(signImg) pg.drawImage(signImg,{x:co.x,y:co.y,width:m.w,height:m.h}); }
-      else if(m.t==='rrn'){ if(ctx.insRrn) pg.drawText(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6),{x:co.x,y:co.y,size:m.s,font:hv,color:blk}); }
-      else if(m.t==='asc'){ var v=m.v?m.v(c,ctx):''; if(co.fmt==='yy2'&&/^\d{4}$/.test(String(v))) v=String(v).slice(2); if(v) pg.drawText(String(v),{x:co.x,y:co.y,size:m.s,font:hv,color:blk}); }
-      else if(m.t==='ko'){ var v2=m.v?m.v(c,ctx):''; if(v2) await dtx(pg,srcDoc,v2,co.x,co.y,m.s,m.w); }
+      else if(m.t==='rrn'){ if(ctx.insRrn) drawSpaced(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6)); }
+      else if(m.t==='asc'){ var v=m.v?m.v(c,ctx):''; if(co.fmt==='yy2'&&/^\d{4}$/.test(String(v))) v=String(v).slice(2); if(v) drawSpaced(v); }
+      else if(m.t==='ko'){ var v2=m.v?m.v(c,ctx):''; if(v2) await dtx(pg,srcDoc,v2,co.x,co.y,fsz,m.w); }
     }catch(e){ console.warn('drawField',key,e); }
   }
 }
@@ -7077,7 +7102,8 @@ function claimCoordsFor(insurer){
     var bx=(typeof b.x==='number')?b.x:f.x;
     var by=(typeof b.y==='number')?b.y:f.y;
     var bp=(typeof b.page==='number')?b.page:f.page;
-    var bon=(b.on===false)?false:true;
+    var defOn=(typeof f.defOn==='boolean')?f.defOn:true;
+    var bon=(b.on===false)?false:((b.on===true)?true:defOn);
     var o=ov[f.key]||{};
     map[f.key]={
       x:(typeof o.x==='number')?o.x:bx,
@@ -7085,7 +7111,9 @@ function claimCoordsFor(insurer){
       page:(typeof o.page==='number')?o.page:bp,
       on:(o.on===false)?false:((o.on===true)?true:bon),
       label:f.label,
-      fmt:(o.fmt!=null?o.fmt:b.fmt)
+      fmt:(o.fmt!=null?o.fmt:b.fmt),
+      size:(typeof o.size==='number')?o.size:(typeof b.size==='number'?b.size:null),
+      pitch:(typeof o.pitch==='number')?o.pitch:(typeof b.pitch==='number'?b.pitch:null)
     };
   });
   return map;
@@ -7233,8 +7261,10 @@ function ccPlaceChips(){
     chip.style.left=ax+'px'; chip.style.top=(ay-hh)+'px';
     var tog=chip.querySelector('.cc_tog');
     if(tog){ tog.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); }); tog.addEventListener('click',function(ev){ ev.stopPropagation(); ccToggleField(f.key); }); }
+    if(window._ccSelKey===f.key) chip.style.outline='2px solid #ffaa00';
     ccDrag(chip);
   });
+  if(typeof ccUpdatePropsPanel==='function') ccUpdatePropsPanel();
 }
 function ccToggleField(key){
   if(!window._ccWork[key]) return;
@@ -7259,16 +7289,60 @@ function ccDrag(chip){
     try{chip.setPointerCapture(e.pointerId);}catch(_){}
     chip.style.cursor='grabbing';
     var sx=e.clientX, sy=e.clientY, ol=chip.offsetLeft, ot=chip.offsetTop;
-    function mv(ev){ chip.style.left=(ol+ev.clientX-sx)+'px'; chip.style.top=(ot+ev.clientY-sy)+'px'; }
+    var moved=false;
+    function mv(ev){
+      if(!moved && (Math.abs(ev.clientX-sx)>3 || Math.abs(ev.clientY-sy)>3)) moved=true;
+      chip.style.left=(ol+ev.clientX-sx)+'px';
+      chip.style.top=(ot+ev.clientY-sy)+'px';
+    }
     function up(ev){
       chip.removeEventListener('pointermove',mv);
       chip.removeEventListener('pointerup',up);
       chip.style.cursor='grab';
-      ccCommit(chip);
+      if(moved) ccCommit(chip);
+      ccSelectChip(chip.dataset.key);
     }
     chip.addEventListener('pointermove',mv);
     chip.addEventListener('pointerup',up);
   });
+}
+function ccSelectChip(key){
+  window._ccSelKey = key;
+  // 칩 하이라이트
+  var ov=g('cc_overlay');
+  if(ov){ Array.prototype.forEach.call(ov.querySelectorAll('.cc_chip'),function(c){
+    c.style.outline = (c.dataset.key===key) ? '2px solid #ffaa00' : 'none';
+  }); }
+  ccUpdatePropsPanel();
+}
+function ccUpdatePropsPanel(){
+  var key=window._ccSelKey;
+  var panel=g('cc_props'); if(!panel) return;
+  if(!key || !window._ccWork || !window._ccWork[key]){
+    g('cc_props_name').textContent='— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)';
+    g('cc_props_size').value=''; g('cc_props_pitch').value='';
+    g('cc_props_size').placeholder='—'; g('cc_props_pitch').placeholder='—';
+    return;
+  }
+  var co=window._ccWork[key];
+  var meta=(typeof claimMeta==='function')?(claimMeta()[key]||{}):{};
+  var defField=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===key;})||{};
+  g('cc_props_name').textContent=defField.label||key;
+  var sizeInput=g('cc_props_size'), pitchInput=g('cc_props_pitch');
+  sizeInput.placeholder=(meta.s!=null)?String(meta.s):'9';
+  pitchInput.placeholder=(meta.pitch!=null)?String(meta.pitch):'(없음)';
+  sizeInput.value=(typeof co.size==='number'&&co.size>0)?co.size:'';
+  pitchInput.value=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:'';
+}
+function ccApplyProps(){
+  var key=window._ccSelKey;
+  if(!key){ toast('항목을 먼저 클릭하세요.'); return; }
+  if(!window._ccWork[key]) window._ccWork[key]={};
+  var s=parseFloat((g('cc_props_size')||{}).value);
+  var p=parseFloat((g('cc_props_pitch')||{}).value);
+  if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else delete window._ccWork[key].size;
+  if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else delete window._ccWork[key].pitch;
+  toast('적용. "저장"을 눌러 영구 저장하세요.');
 }
 function ccCommit(chip){
   var key=chip.dataset.key; var sc=window._ccScale, H=window._ccPageH;
@@ -7289,6 +7363,8 @@ function saveClaimCal(){
     var w=window._ccWork[k];
     out[k]={x:w.x, y:w.y, page:(typeof w.page==='number')?w.page:0, on:(w.on===false)?false:true};
     if(w.fmt!=null) out[k].fmt=w.fmt;
+    if(typeof w.size==='number'&&w.size>0)   out[k].size=w.size;
+    if(typeof w.pitch==='number'&&w.pitch>0) out[k].pitch=w.pitch;
   });
   all[ins]=out;
   try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(all)); }catch(e){}
@@ -7298,7 +7374,12 @@ function saveClaimCal(){
 function ccExport(){
   var src=window._ccWork||claimCoords();
   var out={};
-  Object.keys(src).forEach(function(k){ out[k]={x:src[k].x, y:src[k].y, page:src[k].page, on:src[k].on!==false}; if(src[k].fmt!=null) out[k].fmt=src[k].fmt; });
+  Object.keys(src).forEach(function(k){
+    out[k]={x:src[k].x, y:src[k].y, page:src[k].page, on:src[k].on!==false};
+    if(src[k].fmt!=null) out[k].fmt=src[k].fmt;
+    if(typeof src[k].size==='number'&&src[k].size>0)   out[k].size=src[k].size;
+    if(typeof src[k].pitch==='number'&&src[k].pitch>0) out[k].pitch=src[k].pitch;
+  });
   var js=JSON.stringify({insurer:window._ccInsurer, coords:out});
   try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(js); } }catch(e){}
   try{ window.prompt('이 좌표 JSON을 전체 선택(Ctrl+A) → 복사(Ctrl+C)해서 채팅에 붙여주세요:', js); }catch(e){}
@@ -7306,8 +7387,13 @@ function ccExport(){
 }
 function resetClaimCal(){
   if(!confirm((window._ccInsurer||'')+' 좌표를 기본값으로 되돌릴까요? (저장을 눌러야 적용됩니다)')) return;
-  var def={}; CLAIM_FIELDS_DEFAULT.forEach(function(f){ def[f.key]={x:f.x,y:f.y,page:f.page,on:true,label:f.label}; });
+  var def={};
+  CLAIM_FIELDS_DEFAULT.forEach(function(f){
+    var on=(typeof f.defOn==='boolean')?f.defOn:true;
+    def[f.key]={x:f.x,y:f.y,page:f.page,on:on,label:f.label};
+  });
   window._ccWork=def;
+  window._ccSelKey=null;
   ccPlaceChips();
   toast('기본값으로 되돌렸습니다. "저장"을 눌러 적용하세요.');
 }
