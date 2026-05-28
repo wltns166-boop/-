@@ -1251,6 +1251,7 @@ table.dt tr:last-child td{border-bottom:none;}
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script>
 // Firebase 즉시 초기화 (SDK 로드 직후)
 (function(){
@@ -1593,6 +1594,7 @@ async function loadFromFirestore(){
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }
     if(d.consults&&d.consults.length){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -1615,6 +1617,7 @@ function startRealtimeSync(){
     if(d.dbInfo)  { dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); changed=true; }
     if(d.not)     { not=d.not;      localStorage.setItem('tops_not',JSON.stringify(not)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); if(typeof rAlerts==='function') rAlerts(); }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
@@ -6097,11 +6100,25 @@ function uploadDBClaimTemplate(){
     reader.onload = function(ev){
       var b64 = ev.target.result.split(',')[1];
       localStorage.setItem('tops_db_pdf_tpl', b64);
-      toast('DB손보 청구서 템플릿이 업로드되었습니다!');
+      toast('DB손보 청구서 저장 완료. 전체 팀 공유 중...');
+      uploadTemplateToStorage('DB손해보험', b64);
     };
     reader.readAsDataURL(file);
   };
   inp.click();
+}
+
+// Firebase Storage에 양식 PDF 업로드 (전체 팀 공유용)
+function uploadTemplateToStorage(insurer, b64){
+  try{
+    if(typeof firebase==='undefined' || !firebase.storage){ toast('Storage 미연결 - 본인만 사용 가능'); return; }
+    var bin=atob(b64); var u=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    var ref=firebase.storage().ref('claim_templates/'+encodeURIComponent(insurer)+'.pdf');
+    ref.put(u,{contentType:'application/pdf'})
+      .then(function(){ toast(insurer+' 양식이 전체 팀에 공유되었습니다.'); })
+      .catch(function(e){ console.warn('storage upload err:',e); toast('팀 공유 실패: '+e.message+' (본인만 사용 가능)'); });
+  }catch(e){ console.warn(e); toast('팀 공유 실패: '+e.message); }
 }
 
 // ===== 청구 패키지 PDF 생성 =====
@@ -6607,10 +6624,31 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
 
 // 보험사별 템플릿(IndexedDB). DB손해보험은 내장 PDF로 폴백
 async function claimTemplateFor(insurer){
+  // 1. 로컬 IndexedDB 캐시
   try{ var t=await idbGetTpl('tpl_'+insurer); if(t) return t; }catch(e){}
+  // 2. DB손해보험 — localStorage 레거시 (옛 업로드 흔적)
   if(insurer==='DB손해보험'){
     var ls=''; try{ls=localStorage.getItem('tops_db_pdf_tpl')||'';}catch(e){}
     if(ls) return ls;
+  }
+  // 3. Firebase Storage (팀 공유 양식) — 받으면 로컬에 캐시
+  try{
+    if(typeof firebase!=='undefined' && firebase.storage){
+      var url = await firebase.storage().ref('claim_templates/'+encodeURIComponent(insurer)+'.pdf').getDownloadURL();
+      var resp = await fetch(url);
+      if(resp.ok){
+        var ab = await resp.arrayBuffer();
+        var arr = new Uint8Array(ab);
+        var chunks=[]; var cs=8192;
+        for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
+        var b64fromStorage = btoa(chunks.join(''));
+        try{ await idbSetTpl('tpl_'+insurer, b64fromStorage); }catch(e){}
+        return b64fromStorage;
+      }
+    }
+  }catch(e){ /* not in storage, fall through */ }
+  // 4. 내장 기본 양식
+  if(insurer==='DB손해보험'){
     return (typeof DB_PDF_B64!=='undefined')?DB_PDF_B64:'';
   }
   return bakedTplFor(insurer);
@@ -6709,8 +6747,9 @@ function ccUploadTemplate(){
       var b64=String(rd.result).split(',')[1]||'';
       idbSetTpl('tpl_'+ins, b64).then(function(){
         window._ccPdf=null;
-        toast(ins+' 양식이 업로드되었습니다.');
+        toast(ins+' 양식 저장 완료. 전체 팀 공유 중...');
         ccPopulateInsurers().then(function(){ g('cc_insurer').value=ins; ccRenderPage(1); });
+        uploadTemplateToStorage(ins, b64);
       }).catch(function(e){ toast('업로드 실패: '+e.message); });
     };
     rd.readAsDataURL(file);
