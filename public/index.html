@@ -1626,6 +1626,12 @@ async function loadFromFirestore(){
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }
     if(d.consults&&d.consults.length){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }
+    if(Array.isArray(d.custs))    { localStorage.setItem('tops_custs',     JSON.stringify(d.custs));     try{ window._custs = d.custs; }catch(e){} }
+    if(Array.isArray(d.cust_reqs)){ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); try{ window.custReqs = d.cust_reqs; }catch(e){} }
+    if(Array.isArray(d.claims))   { localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }
+    if(Array.isArray(d.exams))    { localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }
+    if(Array.isArray(d.joinprep)) { localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }
+    if(Array.isArray(d.db_exchanges)){ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
     if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }
     return true;
@@ -1650,12 +1656,24 @@ function startRealtimeSync(){
     if(d.dbInfo)  { dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); changed=true; }
     if(d.not)     { not=d.not;      localStorage.setItem('tops_not',JSON.stringify(not)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); if(typeof rAlerts==='function') rAlerts(); }
+    if(Array.isArray(d.custs))    { localStorage.setItem('tops_custs',     JSON.stringify(d.custs));     try{ window._custs = d.custs; }catch(e){} changed=true; }
+    if(Array.isArray(d.cust_reqs)){ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
+    if(Array.isArray(d.claims))   { localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); changed=true; }
+    if(Array.isArray(d.exams))    { localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); changed=true; }
+    if(Array.isArray(d.joinprep)) { localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); changed=true; }
+    if(Array.isArray(d.db_exchanges)){ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
     if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
-        db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,wm:rWm};
+        db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,wm:rWm,
+        cust_apply:(typeof rCustList==='function'?rCustList:null),
+        cust_status:(typeof rCustStatus==='function'?rCustStatus:null),
+        claim_apply:(typeof rClaimApply==='function'?rClaimApply:null),
+        claim_status:(typeof rClaimStatus==='function'?rClaimStatus:null),
+        exam:(typeof rExam==='function'?rExam:null),
+        join_prep:(typeof rJoinPrep==='function'?rJoinPrep:null)};
       if(r[window._curPage]) r[window._curPage]();
     }
   },function(err){ console.warn('FS sync err:',err); });
