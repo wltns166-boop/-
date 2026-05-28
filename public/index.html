@@ -307,6 +307,8 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="ns"><div class="ni" id="n_wa">보장분석 작성</div></div>
       <div class="ns"><div class="ni" id="n_wm">병력정리</div></div>
       <div class="ns"><div class="ni" id="n_wc">보험금 청구</div></div>
+      <div class="ns"><div class="ni" id="n_report">보고서 작성</div></div>
+      <div class="ns"><div class="ni" id="n_binder">증권바인더 제작</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -467,14 +469,18 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div></div>
       <!-- 리모델링 전 -->
       <div class="card" style="margin-bottom:16px">
-        <div style="font-size:16px;font-weight:700;color:#2a3a8a;margin-bottom:14px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-file-minus" style="color:#cc6030"></i> 리모델링 전 보장분석
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:16px;font-weight:700;color:#2a3a8a;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-file-minus" style="color:#cc6030"></i> 리모델링 전 보장분석
+          </div>
+          <button onclick="openWaBeforeWrite()" style="font-size:13px;padding:6px 14px;background:rgba(40,80,200,.12);border:1px solid rgba(40,80,200,.3);border-radius:6px;color:#2050cc;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap"><i class="ti ti-edit"></i> 작성</button>
         </div>
         <div style="border:2px dashed rgba(200,80,40,.3);border-radius:10px;padding:20px;background:#fffaf8;text-align:center">
           <div style="font-size:15px;color:#9090bb;margin-bottom:10px">파일을 선택하거나 드래그해서 올려주세요</div>
           <input type="file" id="wa_before_file" multiple style="font-size:15px;cursor:pointer">
           <div id="wa_before_list" style="margin-top:10px;text-align:left"></div>
         </div>
+        <div id="wa_before_text_view" style="margin-top:14px"></div>
       </div>
       <!-- 리모델링 후 -->
       <div class="card">
@@ -487,6 +493,18 @@ table.dt tr:last-child td{border-bottom:none;}
           <div id="wa_after_list" style="margin-top:10px;text-align:left"></div>
         </div>
       </div>
+    </div>
+
+    <!-- 보고서 작성 -->
+    <div class="pg" id="pg_report">
+      <div class="sh"><div class="st"><i class="ti ti-report"></i>보고서 작성</div></div>
+      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다.</div></div>
+    </div>
+
+    <!-- 증권바인더 제작 -->
+    <div class="pg" id="pg_binder">
+      <div class="sh"><div class="st"><i class="ti ti-folders"></i>증권바인더 제작</div></div>
+      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다.</div></div>
     </div>
 
     <!-- 병력정리 -->
@@ -1453,6 +1471,15 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" id="m_db_cancel">취소</button><button class="bco" id="m_db_save">저장</button></div>
 </div></div>
 
+<div class="mb" id="m_wa_before"><div class="mo" style="max-width:720px;width:96vw">
+  <div class="mth">리모델링 전 보장분석 작성<span class="mc" onclick="g('m_wa_before').classList.remove('open')">×</span></div>
+  <div class="fg"><div class="fl">고객명 (선택)</div><input class="fi" id="wa_before_cust" placeholder="고객명"></div>
+  <div class="fg"><div class="fl">작성 내용</div>
+    <textarea id="wa_before_textarea" rows="14" style="width:100%;font-family:inherit;font-size:15px;padding:12px;border:1px solid #c8cdf0;border-radius:8px;resize:vertical;line-height:1.6" placeholder="현재 가입돼 있는 보험·보장 내용, 부족한 부분, 분석 의견 등을 자유롭게 작성하세요."></textarea>
+  </div>
+  <div class="mf"><button class="bca" onclick="g('m_wa_before').classList.remove('open')">취소</button><button class="bco" onclick="saveWaBeforeWrite()">저장</button></div>
+</div></div>
+
 <div class="mb" id="m_wa"><div class="mo">
   <div class="mth">보장분석 추가<span class="mc" id="m_wa_c">×</span></div>
   <div class="fr">
@@ -1594,6 +1621,7 @@ async function loadFromFirestore(){
     if(d.consults&&d.consults.length){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
+    if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -1617,6 +1645,7 @@ function startRealtimeSync(){
     if(d.not)     { not=d.not;      localStorage.setItem('tops_not',JSON.stringify(not)); }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); if(typeof rAlerts==='function') rAlerts(); }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
+    if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
@@ -1829,6 +1858,8 @@ g('n_work').addEventListener('click',function(){tnav('work');});
 g('n_wa').addEventListener('click',function(){showPage('wa');});
 g('n_wm').addEventListener('click',function(){showPage('wm');});
 g('n_wc').addEventListener('click',function(){showPage('wc');});
+g('n_report') && g('n_report').addEventListener('click',function(){showPage('report');});
+g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
 g('n_req_menu').addEventListener('click',function(){tnav('req');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
@@ -1846,7 +1877,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',
-  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',
+  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',
   edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트'};
 function showPage(name){
@@ -1855,7 +1886,7 @@ function showPage(name){
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:rMem,cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:rWa,wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:rMem,cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -4246,6 +4277,42 @@ function checkWaAfterLimit(inp){
   list.innerHTML=Array.from(inp.files).map(f=>
     '<div style="font-size:14px;color:#208050;padding:2px 0">✅ '+f.name+'</div>'
   ).join('');
+}
+
+// ===== 리모델링 전 보장분석 작성 (모달 텍스트) =====
+function openWaBeforeWrite(){
+  var raw = localStorage.getItem('tops_wa_before') || '';
+  var rec={cust:'',text:''};
+  if(raw){ try{ rec=JSON.parse(raw)||rec; }catch(e){} }
+  var custEl=g('wa_before_cust'); if(custEl) custEl.value = rec.cust || '';
+  var ta=g('wa_before_textarea'); if(ta) ta.value = rec.text || '';
+  g('m_wa_before').classList.add('open');
+  setTimeout(function(){ if(ta) ta.focus(); },50);
+}
+function saveWaBeforeWrite(){
+  var cust=(g('wa_before_cust')||{value:''}).value.trim();
+  var text=(g('wa_before_textarea')||{value:''}).value.trim();
+  var rec={cust:cust, text:text, dt:tds()};
+  try{ localStorage.setItem('tops_wa_before', JSON.stringify(rec)); }catch(e){}
+  try{ sv('tops_wa_before', rec); }catch(e){}
+  g('m_wa_before').classList.remove('open');
+  renderWaBeforeView();
+  toast(text ? '저장되었습니다.' : '내용 없음 - 비워둔 채로 저장됨.');
+}
+function renderWaBeforeView(){
+  var el=g('wa_before_text_view'); if(!el) return;
+  var raw = localStorage.getItem('tops_wa_before') || '';
+  if(!raw){ el.innerHTML=''; return; }
+  var rec={}; try{ rec=JSON.parse(raw); }catch(e){ el.innerHTML=''; return; }
+  if(!rec.text){ el.innerHTML=''; return; }
+  var esc=(typeof _alertEsc==='function')?_alertEsc:function(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  el.innerHTML='<div style="padding:14px;background:#fff5ec;border:1px solid rgba(200,100,40,.25);border-radius:8px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">'
+    +'<div style="font-size:13px;font-weight:700;color:#cc6030">📝 작성된 보장분석'+(rec.cust?' — '+esc(rec.cust):'')+'</div>'
+    +'<div style="font-size:12px;color:#9080a0">'+esc(rec.dt||'')+'</div>'
+    +'</div>'
+    +'<div style="font-size:15px;color:#1a1a3a;white-space:pre-wrap;line-height:1.6">'+esc(rec.text)+'</div>'
+    +'</div>';
 }
 
 function rRankRookie(){
