@@ -248,6 +248,34 @@ tbody tr:last-child td{border-bottom:none}
 .chat-input:focus{border-color:var(--blue)}
 .chat-send{background:var(--blue);border:none;color:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:16px}
 
+/* ── FORM COORDS EDITOR ── */
+.fc-layout{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+@media(max-width:900px){.fc-layout{grid-template-columns:1fr}}
+.fc-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.fc-toolbar input[type=file]{font-size:12px}
+.fc-canvas-wrap{position:relative;background:#f0f4fb;border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:75vh}
+.fc-canvas-inner{position:relative;display:inline-block;min-width:100%}
+#fc-canvas{display:block;background:#fff;cursor:crosshair}
+.fc-dot{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);cursor:grab;transform:translate(-50%,-50%);z-index:2;transition:transform .08s}
+.fc-dot.dragging{cursor:grabbing;transform:translate(-50%,-50%) scale(1.3)}
+.fc-dot.active{box-shadow:0 0 0 2px var(--blue),0 0 0 4px rgba(30,94,243,.3)}
+.fc-dot-label{position:absolute;background:#fff;border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap;transform:translate(10px,-50%);pointer-events:none;z-index:1}
+.fc-side{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;max-height:75vh;overflow-y:auto;position:sticky;top:80px}
+.fc-side h4{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--navy)}
+.fc-field-row{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
+.fc-field-row:hover{background:var(--bg)}
+.fc-field-row.active{background:#e8f0ff}
+.fc-color{width:12px;height:12px;border-radius:50%}
+.fc-name{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+.fc-coords{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.fc-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px}
+.fc-del:hover{color:var(--danger)}
+.fc-add{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:10px;align-items:end}
+.fc-add input,.fc-add select{padding:6px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit}
+.fc-status{font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5}
+.fc-pageinfo{font-size:11px;color:var(--muted)}
+.fc-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+
 /* ── TOAST NOTIFICATIONS ── */
 #toast-container{position:fixed;top:72px;right:16px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.12);display:flex;gap:10px;align-items:flex-start;min-width:280px;max-width:340px;pointer-events:all;animation:slideIn .3s ease}
@@ -382,6 +410,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="sidebar-section" style="margin-top:8px">업무</div>
       <div class="nav-item" onclick="goPage('claim',this)"><span class="icon">💰</span> 보험금 청구 <span class="nbadge" id="nb-claim">2</span></div>
       <div class="nav-item" onclick="goPage('dbreq',this)"><span class="icon">📋</span> DB 신청</div>
+      <div class="nav-item" onclick="goPage('formcoords',this)"><span class="icon">🗺️</span> 양식 좌표 편집</div>
       <div class="nav-item admin-only" id="nav-dbassign" onclick="goPage('dbassign',this)"><span class="icon">🔀</span> DB 배정</div>
       <div class="nav-item admin-only" id="nav-admin" onclick="goPage('admin',this)"><span class="icon">⚙️</span> 관리자 패널</div>
     </aside>
@@ -732,6 +761,47 @@ tbody tr:last-child td{border-bottom:none}
         </div>
       </div>
 
+      <!-- FORM COORDS EDITOR -->
+      <div class="page" id="page-formcoords">
+        <div class="page-title">🗺️ 양식 좌표 편집</div>
+        <div class="page-sub">PDF 또는 이미지를 올리고, 격자 위에서 클릭/드래그로 필드 좌표를 잡으세요. 좌표는 PDF 포인트(pt) 단위로 저장됩니다.</div>
+        <div class="fc-toolbar no-print">
+          <input type="file" id="fc-file" accept="application/pdf,image/*" onchange="fcLoadFile(this.files[0])">
+          <button class="btn btn-secondary btn-sm" onclick="fcPrevPage()">◀ 이전</button>
+          <span class="fc-pageinfo" id="fc-pageinfo">페이지 -</span>
+          <button class="btn btn-secondary btn-sm" onclick="fcNextPage()">다음 ▶</button>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;margin-left:8px"><input type="checkbox" id="fc-grid" checked onchange="fcRender()"> 격자</label>
+          <button class="btn btn-secondary btn-sm" onclick="fcResetFields()">기본 8개 다시 불러오기</button>
+          <button class="btn btn-secondary btn-sm" onclick="fcExport()">📥 JSON 내려받기</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fc-import').click()">📤 JSON 올리기</button>
+          <input type="file" id="fc-import" accept="application/json" style="display:none" onchange="fcImport(this.files[0])">
+        </div>
+        <div class="fc-layout">
+          <div class="fc-canvas-wrap">
+            <div class="fc-canvas-inner">
+              <canvas id="fc-canvas" width="800" height="500"></canvas>
+              <div id="fc-dots"></div>
+            </div>
+          </div>
+          <div class="fc-side">
+            <h4>필드 목록</h4>
+            <div id="fc-field-list"></div>
+            <div class="fc-add">
+              <input id="fc-add-name" placeholder="필드 이름">
+              <select id="fc-add-group">
+                <option value="주민번호">주민번호</option>
+                <option value="휴대전화">휴대전화</option>
+                <option value="사고일시">사고일시</option>
+                <option value="작성일자">작성일자</option>
+                <option value="기타">기타</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="fcAddField()">추가</button>
+            </div>
+            <div class="fc-status" id="fc-status">PDF/이미지 업로드 후 좌표를 클릭해 잡으세요. 점을 드래그해 미세 조정도 가능합니다.</div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 
@@ -957,6 +1027,7 @@ function initApp() {
   buildCalendar();
   renderChat();
   updateNotifBadge();
+  fcInit();
 
   // Admin stats
   if (u.role === 'admin') {
@@ -1836,6 +1907,278 @@ function renderOrgChart() {
   container.innerHTML = `<svg width="100%" viewBox="0 0 ${svgW} ${totalH}" style="display:block">
     ${lines}${nodesSvg}
   </svg>`;
+}
+
+/* ═══════════════════════════════════════
+   FORM COORDS EDITOR
+═══════════════════════════════════════ */
+const FC_DEFAULTS = [
+  { name:'주민번호_앞6',     group:'주민번호', pt:[220, 84] },
+  { name:'주민번호_뒷자리7', group:'주민번호', pt:[315, 84] },
+  { name:'휴대전화_앞3',     group:'휴대전화', pt:[215, 169] },
+  { name:'휴대전화_중4',     group:'휴대전화', pt:[275, 169] },
+  { name:'휴대전화_뒤4',     group:'휴대전화', pt:[340, 169] },
+  { name:'사고일시_년',      group:'사고일시', pt:[145, 392.5] },
+  { name:'사고일시_월',      group:'사고일시', pt:[210, 392.5] },
+  { name:'사고일시_일',      group:'사고일시', pt:[270, 392.5] },
+];
+const FC_GROUP_COLOR = {
+  '주민번호':'#dc2626','휴대전화':'#1e5ef3','사고일시':'#16a34a','작성일자':'#9333ea','기타':'#6b7280',
+};
+let fcState = {
+  pdf:null, imgEl:null, pageNum:1, pageCount:1,
+  pageW_pt:595, pageH_pt:842, canvasScale:2,
+  fields:[], activeIdx:-1, dragIdx:-1, pdfjsReady:null
+};
+
+function fcLoadFields() {
+  const stored = ls('fcFields', null);
+  fcState.fields = (Array.isArray(stored) && stored.length) ? stored : FC_DEFAULTS.map(f => ({...f, pt:[...f.pt]}));
+  fcState.activeIdx = fcState.fields.length ? 0 : -1;
+}
+function fcSaveFields() { lsSet('fcFields', fcState.fields); }
+
+function fcEnsurePdfJs() {
+  if (fcState.pdfjsReady) return fcState.pdfjsReady;
+  fcState.pdfjsReady = new Promise((resolve, reject) => {
+    if (window.pdfjsLib) return resolve(window.pdfjsLib);
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => reject(new Error('pdf.js 로딩 실패 (네트워크 차단?)'));
+    document.head.appendChild(s);
+  });
+  return fcState.pdfjsReady;
+}
+
+async function fcLoadFile(file) {
+  if (!file) return;
+  fcState.pdf = null; fcState.imgEl = null;
+  if (file.type === 'application/pdf') {
+    try {
+      const lib = await fcEnsurePdfJs();
+      const buf = await file.arrayBuffer();
+      fcState.pdf = await lib.getDocument({ data: buf }).promise;
+      fcState.pageCount = fcState.pdf.numPages;
+      fcState.pageNum = 1;
+      await fcRender();
+      showToast('success','📄 PDF 로드',`${file.name} (${fcState.pageCount}페이지)`);
+    } catch (e) { showToast('danger','오류','PDF 로드 실패: ' + e.message); }
+  } else if (file.type.startsWith('image/')) {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = URL.createObjectURL(file); });
+    fcState.imgEl = img;
+    fcState.pageCount = 1; fcState.pageNum = 1;
+    fcState.pageW_pt = img.naturalWidth; fcState.pageH_pt = img.naturalHeight;
+    await fcRender();
+    showToast('success','🖼️ 이미지 로드', file.name);
+  } else {
+    showToast('danger','오류','PDF나 이미지 파일을 올려주세요.');
+  }
+}
+
+async function fcRender() {
+  const canvas = document.getElementById('fc-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const showGrid = document.getElementById('fc-grid').checked;
+  const SCALE = 2;
+  fcState.canvasScale = SCALE;
+
+  if (fcState.pdf) {
+    const page = await fcState.pdf.getPage(fcState.pageNum);
+    const viewport = page.getViewport({ scale: SCALE });
+    fcState.pageW_pt = page.view[2] - page.view[0];
+    fcState.pageH_pt = page.view[3] - page.view[1];
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  } else if (fcState.imgEl) {
+    canvas.width = fcState.imgEl.naturalWidth; canvas.height = fcState.imgEl.naturalHeight;
+    ctx.drawImage(fcState.imgEl, 0, 0);
+    fcState.canvasScale = 1;
+  } else {
+    canvas.width = 800; canvas.height = 500;
+    ctx.fillStyle = '#f0f4fb'; ctx.fillRect(0,0,800,500);
+    ctx.fillStyle = '#6b7a99'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('상단의 파일 업로드로 PDF나 이미지를 올려주세요', 400, 250);
+    document.getElementById('fc-dots').innerHTML = '';
+    document.getElementById('fc-pageinfo').textContent = '페이지 -';
+    fcRenderFieldList();
+    return;
+  }
+
+  if (showGrid) {
+    const W = canvas.width, H = canvas.height, S = fcState.canvasScale;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(14,116,144,0.3)'; ctx.lineWidth = 0.5;
+    for (let x = 0; x <= W; x += 10*S) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 10*S) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(229,72,77,0.45)'; ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 50*S) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 50*S) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.fillStyle = '#1a2340'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
+    for (let x = 0; x <= W; x += 50*S) ctx.fillText(String(Math.round(x/S)), x+2, 11);
+    for (let y = 0; y <= H; y += 50*S) ctx.fillText(String(Math.round(y/S)), 2, y+10);
+    ctx.restore();
+  }
+
+  document.getElementById('fc-pageinfo').textContent =
+    `페이지 ${fcState.pageNum} / ${fcState.pageCount} · ${Math.round(fcState.pageW_pt)}×${Math.round(fcState.pageH_pt)} pt`;
+  fcRenderDots();
+  fcRenderFieldList();
+}
+
+function fcRenderDots() {
+  const dotsEl = document.getElementById('fc-dots');
+  if (!dotsEl) return;
+  dotsEl.innerHTML = '';
+  const S = fcState.canvasScale;
+  fcState.fields.forEach((f, i) => {
+    const color = FC_GROUP_COLOR[f.group] || FC_GROUP_COLOR['기타'];
+    const x = f.pt[0] * S, y = f.pt[1] * S;
+    const dot = document.createElement('div');
+    dot.className = 'fc-dot' + (i === fcState.activeIdx ? ' active' : '');
+    dot.style.left = x + 'px'; dot.style.top = y + 'px';
+    dot.style.background = color;
+    dot.dataset.idx = i;
+    dot.addEventListener('mousedown', fcDotDown);
+    dotsEl.appendChild(dot);
+    const lab = document.createElement('div');
+    lab.className = 'fc-dot-label';
+    lab.style.left = x + 'px'; lab.style.top = y + 'px';
+    lab.style.color = color;
+    lab.textContent = f.name;
+    dotsEl.appendChild(lab);
+  });
+}
+
+function fcRenderFieldList() {
+  const el = document.getElementById('fc-field-list');
+  if (!el) return;
+  if (!fcState.fields.length) { el.innerHTML = '<div class="fc-empty">필드를 추가하세요.</div>'; return; }
+  el.innerHTML = fcState.fields.map((f, i) => {
+    const color = FC_GROUP_COLOR[f.group] || FC_GROUP_COLOR['기타'];
+    const coords = f.pt.map(v => Math.round(v*10)/10).join(', ');
+    return `
+      <div class="fc-field-row ${i === fcState.activeIdx ? 'active' : ''}" onclick="fcSelectField(${i})">
+        <div class="fc-color" style="background:${color}"></div>
+        <div>
+          <div class="fc-name">${esc(f.name)}</div>
+          <div class="fc-coords">${esc(f.group)} · pt (${esc(coords)})</div>
+        </div>
+        <button class="fc-del" onclick="event.stopPropagation();fcDeleteField(${i})" title="삭제">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function fcSelectField(i) {
+  fcState.activeIdx = i;
+  fcRenderDots(); fcRenderFieldList();
+  document.getElementById('fc-status').textContent =
+    `선택: "${fcState.fields[i].name}" — 그림을 클릭하면 그 자리로 이동합니다. 점을 드래그하면 미세 조정.`;
+}
+
+function fcAddField() {
+  const name = document.getElementById('fc-add-name').value.trim();
+  if (!name) return showToast('danger','오류','필드 이름을 입력하세요.');
+  if (fcState.fields.some(f => f.name === name)) return showToast('danger','오류','같은 이름이 이미 있습니다.');
+  const group = document.getElementById('fc-add-group').value;
+  fcState.fields.push({ name, group, pt:[fcState.pageW_pt/2, fcState.pageH_pt/2] });
+  fcState.activeIdx = fcState.fields.length - 1;
+  fcSaveFields();
+  document.getElementById('fc-add-name').value = '';
+  fcRenderDots(); fcRenderFieldList();
+  showToast('success','✅ 추가',`"${name}" 필드 추가됨. 위치를 클릭으로 잡으세요.`);
+}
+
+function fcDeleteField(i) {
+  if (!confirm(`"${fcState.fields[i].name}" 필드를 삭제할까요?`)) return;
+  fcState.fields.splice(i, 1);
+  if (fcState.activeIdx >= fcState.fields.length) fcState.activeIdx = fcState.fields.length - 1;
+  fcSaveFields(); fcRenderDots(); fcRenderFieldList();
+}
+
+function fcResetFields() {
+  if (!confirm('기본 8개 필드로 되돌릴까요? 현재 등록된 내용은 사라집니다.')) return;
+  fcState.fields = FC_DEFAULTS.map(f => ({...f, pt:[...f.pt]}));
+  fcState.activeIdx = 0;
+  fcSaveFields(); fcRenderDots(); fcRenderFieldList();
+}
+
+function fcPrevPage() { if (fcState.pageNum > 1) { fcState.pageNum--; fcRender(); } }
+function fcNextPage() { if (fcState.pageNum < fcState.pageCount) { fcState.pageNum++; fcRender(); } }
+
+function fcCanvasClick(e) {
+  if (fcState.activeIdx < 0) { showToast('warning','선택 필요','오른쪽 목록에서 필드를 먼저 고르세요.'); return; }
+  const rect = document.getElementById('fc-canvas').getBoundingClientRect();
+  const S = fcState.canvasScale;
+  fcState.fields[fcState.activeIdx].pt = [(e.clientX - rect.left)/S, (e.clientY - rect.top)/S];
+  fcSaveFields(); fcRenderDots(); fcRenderFieldList();
+}
+
+function fcDotDown(e) {
+  e.preventDefault();
+  fcState.dragIdx = parseInt(e.currentTarget.dataset.idx);
+  fcState.activeIdx = fcState.dragIdx;
+  e.currentTarget.classList.add('dragging');
+  document.addEventListener('mousemove', fcDotMove);
+  document.addEventListener('mouseup', fcDotUp);
+}
+function fcDotMove(e) {
+  if (fcState.dragIdx < 0) return;
+  const rect = document.getElementById('fc-canvas').getBoundingClientRect();
+  const cx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+  const cy = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+  const S = fcState.canvasScale;
+  fcState.fields[fcState.dragIdx].pt = [cx/S, cy/S];
+  fcRenderDots(); fcRenderFieldList();
+}
+function fcDotUp() {
+  fcState.dragIdx = -1;
+  document.querySelectorAll('.fc-dot.dragging').forEach(d => d.classList.remove('dragging'));
+  document.removeEventListener('mousemove', fcDotMove);
+  document.removeEventListener('mouseup', fcDotUp);
+  fcSaveFields();
+}
+
+function fcExport() {
+  const data = {
+    page: fcState.pageNum,
+    page_size_pt: [fcState.pageW_pt, fcState.pageH_pt],
+    scale_px_per_pt: fcState.canvasScale,
+    fields: fcState.fields,
+    exported_at: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `field-coords-p${fcState.pageNum}.json`;
+  a.click();
+  showToast('success','📥 내려받기','좌표 JSON 저장됨');
+}
+
+async function fcImport(file) {
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.fields)) throw new Error('fields 배열 없음');
+    fcState.fields = data.fields.filter(f => f && typeof f.name === 'string' && Array.isArray(f.pt) && f.pt.length === 2);
+    fcState.activeIdx = fcState.fields.length ? 0 : -1;
+    fcSaveFields(); fcRenderDots(); fcRenderFieldList();
+    showToast('success','📤 올리기 완료',`${fcState.fields.length}개 필드 로드`);
+  } catch (e) {
+    showToast('danger','오류','JSON 파싱 실패: ' + e.message);
+  }
+}
+
+function fcInit() {
+  fcLoadFields();
+  const canvas = document.getElementById('fc-canvas');
+  if (canvas) canvas.addEventListener('click', fcCanvasClick);
+  fcRender();
 }
 
 /* ── Util ── */
