@@ -2112,6 +2112,7 @@ function fcPrevPage() { if (fcState.pageNum > 1) { fcState.pageNum--; fcRender()
 function fcNextPage() { if (fcState.pageNum < fcState.pageCount) { fcState.pageNum++; fcRender(); } }
 
 function fcCanvasClick(e) {
+  if (!fcState.pdf && !fcState.imgEl) return;
   if (fcState.activeIdx < 0) { showToast('warning','선택 필요','오른쪽 목록에서 필드를 먼저 고르세요.'); return; }
   const rect = document.getElementById('fc-canvas').getBoundingClientRect();
   const S = fcState.canvasScale;
@@ -2165,7 +2166,12 @@ async function fcImport(file) {
   try {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.fields)) throw new Error('fields 배열 없음');
-    fcState.fields = data.fields.filter(f => f && typeof f.name === 'string' && Array.isArray(f.pt) && f.pt.length === 2);
+    fcState.fields = data.fields.filter(f =>
+      f && typeof f.name === 'string' &&
+      Array.isArray(f.pt) && f.pt.length === 2 &&
+      typeof f.pt[0] === 'number' && typeof f.pt[1] === 'number' &&
+      isFinite(f.pt[0]) && isFinite(f.pt[1])
+    );
     fcState.activeIdx = fcState.fields.length ? 0 : -1;
     fcSaveFields(); fcRenderDots(); fcRenderFieldList();
     showToast('success','📤 올리기 완료',`${fcState.fields.length}개 필드 로드`);
