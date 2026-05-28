@@ -3643,18 +3643,15 @@ async function analyzeMedical(){
     promptLines.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음/입원N일/수술 | N회 |');
     var prompt = promptLines.join('\n');
 
-        var res = await fetch('https://api.anthropic.com/v1/messages', {
+        var res = await fetch('/api/analyze', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': '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',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
-        messages: [{role:'user', content: prompt}]
+        prompt: prompt
       })
     });
 
