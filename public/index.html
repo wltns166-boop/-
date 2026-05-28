@@ -3610,6 +3610,22 @@ async function fileToB64(file){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
 }
 
+// 긴 의료기록 텍스트를 안전한 청크로 분할 (경계는 가급적 섹션/문단/줄 단위)
+function _splitMedChunks(text, maxLen){
+  if(!text || text.length <= maxLen) return [text||''];
+  var chunks=[]; var rem=text;
+  while(rem.length > maxLen){
+    var p = rem.lastIndexOf('\n\n=== ', maxLen);
+    if(p < maxLen*0.5) p = rem.lastIndexOf('\n\n', maxLen);
+    if(p < maxLen*0.5) p = rem.lastIndexOf('\n', maxLen);
+    if(p < maxLen*0.5) p = maxLen;
+    chunks.push(rem.slice(0, p));
+    rem = rem.slice(p).replace(/^\s+/, '');
+  }
+  if(rem.length>0) chunks.push(rem);
+  return chunks;
+}
+
 async function extractPdfText(file, password){
   return new Promise(function(resolve){
     var reader = new FileReader();
@@ -3698,59 +3714,79 @@ async function analyzeMedical(){
       throw new Error('PDF에서 텍스트를 읽을 수 없습니다. 스캔 이미지 PDF이거나 비밀번호가 틀렸을 수 있습니다.');
     }
 
-    // 토큰 한도 초과 방지 (Claude 200k 한도, 출력·지시문 여유 두기)
-    // 한국어는 대략 1글자=1~1.5토큰, 안전치로 300k 글자 = 약 200k 토큰
-    var MAX_TEXT_CHARS = 290000;
-    var wasTruncated = false;
-    if(combinedText.length > MAX_TEXT_CHARS){
-      wasTruncated = true;
-      var dropped = combinedText.length - MAX_TEXT_CHARS;
-      combinedText = combinedText.slice(0, MAX_TEXT_CHARS) + '\n\n[...텍스트가 너무 길어 뒤쪽 약 ' + Math.round(dropped/1000) + 'k자가 생략되었습니다...]';
-      toast('⚠ PDF가 길어 앞 ' + Math.round(MAX_TEXT_CHARS/1000) + 'k자만 분석합니다. 결과 표 아래에 생략 안내가 표시됩니다.');
-    }
+    // 분할 분석 — 200k 토큰 한도 안에 들어가게 청크로 쪼개고 각각 호출
+    var MAX_CHUNK_CHARS = 280000;
+    var chunks = _splitMedChunks(combinedText, MAX_CHUNK_CHARS);
+    var allRows = [];
+    var chunkErrors = [];
 
-    loadEl.textContent='🤖 AI 분석 중...';
-    var promptLines = [];
-    if(pw) promptLines.push('PDF비밀번호: ' + pw);
-    promptLines.push(combinedText);
-    promptLines.push('---');
-    promptLines.push('위 의료기록 전체를 빠짐없이 분석하여 보험심사용 병력을 정리해주세요.');
-    if(wasTruncated){
-      promptLines.push('주의: 원본 PDF가 매우 길어 뒤쪽 일부가 생략되었습니다. 분석 결과 표 마지막에 별도 줄로 "⚠ 원본 PDF가 길어 일부 구간이 분석에서 제외됨" 이라고 명시해 주세요.');
-    }
-    promptLines.push('중요: 모든 페이지의 모든 진료내역을 누락 없이 포함해야 합니다. 첫 페이지부터 마지막 페이지까지 전부 확인하세요.');
-    promptLines.push('규칙: 1)동일기간+동일질병(병원/약국)은 1건으로 합산 2)연속된 동일질병은 하나로 묶기 3)약국처방은 약제처방횟수에 포함 4)모든 상병코드 포함');
-    promptLines.push('출력형식(반드시 표 전체 출력, 절대 생략하지 말것):');
-    promptLines.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |');
-    promptLines.push('|---|---|---|---|---|---|');
-    promptLines.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음/입원N일/수술 | N회 |');
-    var prompt = promptLines.join('\n');
+    for(var ci=0; ci<chunks.length; ci++){
+      loadEl.textContent = '🤖 AI 분석 중... (' + (ci+1) + '/' + chunks.length + ')';
+      var pl = [];
+      if(pw) pl.push('PDF비밀번호: ' + pw);
+      pl.push(chunks[ci]);
+      pl.push('---');
+      if(chunks.length > 1){
+        pl.push('이것은 큰 의료기록을 ' + chunks.length + '부분으로 나눈 중 ' + (ci+1) + '번째 부분입니다. 이 부분에 나온 진료내역만 정리하세요 (다른 부분은 별도 분석되어 합쳐집니다).');
+      } else {
+        pl.push('위 의료기록 전체를 빠짐없이 분석하여 보험심사용 병력을 정리해주세요.');
+      }
+      pl.push('중요: 이 부분의 모든 진료내역을 누락 없이 포함해야 합니다.');
+      pl.push('규칙: 1)동일기간+동일질병(병원/약국)은 1건으로 합산 2)연속된 동일질병은 하나로 묶기 3)약국처방은 약제처방횟수에 포함 4)모든 상병코드 포함');
+      pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
+      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |');
+      pl.push('|---|---|---|---|---|---|');
+      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음/입원N일/수술 | N회 |');
+      var prompt = pl.join('\n');
 
+      try {
         var res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        prompt: prompt
-      })
-    });
-
-    if(!res.ok){
-      var errData = await res.json().catch(function(){return {};});
-      throw new Error((errData.error&&errData.error.message)||'API오류 '+res.status);
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, prompt: prompt })
+        });
+        if(!res.ok){
+          var errData = await res.json().catch(function(){return {};});
+          throw new Error((errData.error && errData.error.message) || 'API오류 ' + res.status);
+        }
+        var data = await res.json();
+        var chunkText = data.content && data.content.map(function(c){return c.text||'';}).join('').trim();
+        if(!chunkText){ chunkErrors.push((ci+1)+'번째 부분: 결과없음'); continue; }
+        // 청크 결과에서 데이터 행만 추출 (헤더/구분선 제외)
+        chunkText.split('\n').forEach(function(line){
+          var t = line.trim();
+          if(!t) return;
+          if(/^\|\s*진료기간/.test(t)) return;
+          if(/^\|[\s\-:|]+\|$/.test(t)) return;
+          if(t.charAt(0)==='|' && t.length>5) allRows.push(t);
+        });
+      } catch(e){
+        console.error('chunk '+(ci+1)+' err:', e);
+        chunkErrors.push((ci+1)+'번째 부분: ' + e.message);
+      }
     }
 
-    var data = await res.json();
-    var text = data.content && data.content.map(function(c){return c.text||'';}).join('').trim();
-    if(!text) throw new Error('결과없음');
+    if(!allRows.length){
+      throw new Error('분석 결과 없음. ' + (chunkErrors.join(' / ') || ''));
+    }
+
+    var finalLines = [
+      '| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |',
+      '|---|---|---|---|---|---|'
+    ].concat(allRows);
+    if(chunks.length > 1){
+      finalLines.push('');
+      finalLines.push('※ 원본 PDF가 길어 ' + chunks.length + '개 부분으로 나누어 분석 후 통합되었습니다.');
+    }
+    if(chunkErrors.length){
+      finalLines.push('⚠ 일부 구간 분석 실패: ' + chunkErrors.join(', '));
+    }
+    var text = finalLines.join('\n');
 
     renderMedResult(text);
     resultEl.style.display='block';
     autoSaveMedResult(text, document.getElementById('med_result_text').innerHTML);
-    toast('분석 완료! 자동 저장됩니다.');
+    toast(chunks.length > 1 ? ('분석 완료 — ' + chunks.length + '개 부분 통합!') : '분석 완료! 자동 저장됩니다.');
 
   }catch(err){
     document.getElementById('med_result_text').innerHTML =
