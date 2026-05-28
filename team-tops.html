@@ -3550,9 +3550,17 @@ async function extractPdfText(file, password){
           pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
           var typedArray = new Uint8Array(e.target.result);
-          var docParams = {data: typedArray};
-          if(password) docParams.password = password;
-          pdfjsLib.getDocument(docParams).promise.then(function(pdf){
+          var loadingTask = pdfjsLib.getDocument({data: typedArray, password: password || ''});
+          loadingTask.onPassword = function(updatePassword, reason){
+            var wrong = (pdfjsLib.PasswordResponses && reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD);
+            var msg = wrong
+              ? '비밀번호가 올바르지 않습니다. PDF 비밀번호를 다시 입력해주세요.\n(보통 생년월일 6자리 또는 주민번호 앞 6자리)'
+              : '이 PDF는 비밀번호로 보호되어 있습니다.\nPDF 비밀번호를 입력해주세요.\n(보통 생년월일 6자리 또는 주민번호 앞 6자리)';
+            var pw = window.prompt(msg, '');
+            if(pw){ updatePassword(pw); }
+            else { try{ loadingTask.destroy(); }catch(_){} resolve('PDF잠김: 비밀번호가 입력되지 않았습니다.'); }
+          };
+          loadingTask.promise.then(function(pdf){
             var pagePromises = [];
             var total = pdf.numPages;
             if(total === 0){ resolve(''); return; }
@@ -3568,7 +3576,10 @@ async function extractPdfText(file, password){
             Promise.all(pagePromises).then(function(pages){
               resolve(pages.join('\n').trim());
             }).catch(function(err){ resolve('페이지오류: '+err.message); });
-          }).catch(function(err){ resolve('PDF오류: '+err.message); });
+          }).catch(function(err){
+            var locked = err && (err.name === 'PasswordException' || /password/i.test(err.message||''));
+            resolve((locked ? 'PDF잠김: ' : 'PDF오류: ') + err.message);
+          });
         } else {
           resolve('PDF.js미로드');
         }
@@ -3604,8 +3615,12 @@ async function analyzeMedical(){
       var file = files[fi][1];
       loadEl.textContent='📄 '+labels[id]+' 추출 중... ('+(fi+1)+'/'+files.length+')';
       var extracted = await extractPdfText(file, pw);
-      if(extracted && extracted.length > 10 && !extracted.startsWith('PDF오류') && !extracted.startsWith('추출실패')){
+      var errPrefixes = ['PDF오류','추출실패','PDF잠김','페이지오류','PDF.js미로드','읽기실패'];
+      var isErr = errPrefixes.some(function(p){ return extracted.indexOf(p) === 0; });
+      if(extracted && !isErr && extracted.length > 10){
         combinedText += '\n\n=== ' + labels[id] + ' ('+extracted.length+'자 추출) ===\n' + extracted;
+      } else if(extracted.indexOf('PDF잠김') === 0){
+        throw new Error(labels[id]+': 비밀번호로 보호된 PDF입니다. 안내창 또는 \'PDF 비밀번호\' 칸에 비밀번호(보통 생년월일 6자리 또는 주민번호 앞 6자리)를 입력 후 다시 시도해주세요.');
       } else if(extracted){
         throw new Error(labels[id]+' 오류: '+extracted);
       }
