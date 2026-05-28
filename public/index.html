@@ -3009,8 +3009,9 @@ function rWm(){
     <td style="text-align:center">
       <button class="be" onclick="viewMedDetail(${i})" style="padding:4px 10px;font-size:14px"><i class="ti ti-eye"></i> 상세보기</button>
     </td>
-    <td style="text-align:center">
-      <button onclick="saveMedPdfByIdx(${i})" style="padding:4px 10px;font-size:14px;background:rgba(200,40,40,.12);border:1px solid rgba(200,50,50,.25);border-radius:6px;color:#cc3030;cursor:pointer;font-family:inherit"><i class="ti ti-file-type-pdf"></i> PDF</button>
+    <td style="text-align:center;white-space:nowrap">
+      <button onclick="saveMedPdfByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(200,40,40,.12);border:1px solid rgba(200,50,50,.25);border-radius:6px;color:#cc3030;cursor:pointer;font-family:inherit;margin-right:4px" title="전체 병력 PDF로 저장"><i class="ti ti-file-type-pdf"></i> 전체</button>
+      <button onclick="saveMedPdfByIdx(${i},true)" style="padding:4px 10px;font-size:13px;background:rgba(255,140,40,.12);border:1px solid rgba(255,140,40,.3);border-radius:6px;color:#c06010;cursor:pointer;font-family:inherit" title="치과진료 항목 제외 PDF"><i class="ti ti-file-type-pdf"></i> 치과제외</button>
     </td>
     <td style="text-align:center">
       <button onclick="saveMedExcelByIdx(${i})" style="padding:4px 10px;font-size:14px;background:rgba(20,140,60,.12);border:1px solid rgba(30,160,70,.25);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit"><i class="ti ti-file-spreadsheet"></i> 엑셀</button>
@@ -3056,23 +3057,64 @@ function viewMedDetail(i){
   setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 
-function saveMedPdfByIdx(i){
+// 치과진료 키워드 / ICD-10 K00~K08 코드를 가진 행인지 판정
+function _isDentalRow(rowText, codeText){
+  var keywords = ['치과','치주','치은','치아','치수','치근','잇몸','충치','발치','스케일링','임플란트','근관','보철','의치','우식','구내염','구강염'];
+  for(var i=0;i<keywords.length;i++){ if(rowText.indexOf(keywords[i])>=0) return true; }
+  if(codeText){
+    var codes = codeText.match(/K\d{2}/gi) || [];
+    for(var j=0;j<codes.length;j++){
+      var n = parseInt(codes[j].slice(1),10);
+      if(n>=0 && n<=8) return true; // K00~K08: 치아·치주 질환
+    }
+  }
+  return false;
+}
+function _filterDentalFromHtml(html){
+  var box = document.createElement('div'); box.innerHTML = html||'';
+  var removed = 0;
+  box.querySelectorAll('table').forEach(function(table){
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      var tds = tr.querySelectorAll('td');
+      if(!tds.length) return;
+      var rowText = tr.textContent||'';
+      var codeText = tds.length>=3 ? (tds[2].textContent||'') : '';
+      if(_isDentalRow(rowText, codeText)){ tr.remove(); removed++; }
+    });
+  });
+  return { html: box.innerHTML, removed: removed };
+}
+
+function saveMedPdfByIdx(i, excludeDental){
   const m=mhx[i];
   if(!m){toast('데이터 없음');return;}
-  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+m.cust+' 병력정리</title>'
+  var noteHtml = m.noteHtml || m.note || '';
+  var titleSuffix = '';
+  var removedCount = 0;
+  if(excludeDental && noteHtml){
+    var filtered = _filterDentalFromHtml(noteHtml);
+    noteHtml = filtered.html;
+    removedCount = filtered.removed;
+    titleSuffix = ' (치과 제외)';
+    toast(removedCount>0 ? ('치과 ' + removedCount + '건 제외 PDF 생성') : '치과 항목이 없어 전체병력과 동일합니다.');
+  }
+  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+m.cust+' 병력정리'+titleSuffix+'</title>'
     +'<style>body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:20px;font-size:15px;color:#111}'
     +'@media print{@page{margin:15mm;size:A4}}'
     +'h2{font-size:20px;font-weight:700;color:#1a1a3a;margin-bottom:4px}'
     +'.meta{font-size:14px;color:#555;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #2a2a8a}'
+    +'.dent-note{color:#cc4040;font-weight:600}'
     +'table{width:100%;border-collapse:collapse;margin:12px 0}'
     +'th{background:#e8eaff;color:#2a2a7a;padding:8px 10px;border:1px solid #aab;text-align:left;font-weight:700}'
     +'td{padding:7px 10px;border:1px solid #ccd}'
     +'tr:nth-child(even) td{background:#f8f8ff}'
     +'div{margin:5px 0}'
     +'</style></head><body>'
-    +'<h2>'+m.cust+' 병력정리</h2>'
-    +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m+'</div>'
-    +(m.noteHtml||m.note||'')
+    +'<h2>'+m.cust+' 병력정리'+titleSuffix+'</h2>'
+    +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m
+    +(removedCount>0 ? ' | <span class="dent-note">⚠ 치과진료 '+removedCount+'건 제외됨</span>' : '')
+    +'</div>'
+    +noteHtml
     +'<script>window.onload=function(){window.print()}<\/script>'
     +'</body></html>';
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
