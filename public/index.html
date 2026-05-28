@@ -5489,13 +5489,35 @@ function rClaimApply(){
     var doneBtn='<button onclick="toggleClaimDone('+i+')" style="font-size:13px;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit;border:none;font-weight:600;white-space:nowrap;'
       +(c.done?'background:#1a9050;color:#fff':'background:#cc3030;color:#fff')
       +'">'+( c.done?'완료':'미완료')+'</button>';
-    var fileCell='<div style="display:flex;flex-direction:column;gap:4px">'
-      +'<div style="display:flex;gap:4px">'
-        +'<button onclick="downloadClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:5px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(c.packagePDF?'':';opacity:.55')+'"><i class="ti ti-download"></i> 다운로드</button>'
-        +'<button onclick="previewClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(c.packagePDF?'':';opacity:.55')+'"><i class="ti ti-eye"></i> 미리보기</button>'
-      +'</div>'
-      +'<button onclick="rebuildClaimPackage('+i+')" style="font-size:12px;padding:1px 5px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:4px;color:#8a6010;cursor:pointer;font-family:inherit;white-space:nowrap">'
-        +'<i class="ti ti-refresh"></i> '+(c.packagePDF?'재생성':'청구파일 생성')
+    var insList = (c.insurerList && c.insurerList.length) ? c.insurerList
+                    : (c.insurer ? String(c.insurer).split(/,\s*/).filter(function(s){return s;}) : []);
+    var anyPkg = false;
+    var insCards = insList.map(function(ins){
+      var has = !!_claimPkgFor(i, ins);
+      if(has) anyPkg = true;
+      var dim = has ? '' : ';opacity:.55';
+      var insArg = String(ins).replace(/'/g,"\\'");
+      return '<div style="border:1px solid rgba(80,90,180,.3);border-radius:6px;padding:5px 7px;background:rgba(50,60,160,.06);display:flex;flex-direction:column;gap:3px;min-width:140px">'
+        +'<div style="font-size:12px;font-weight:600;color:#384858;white-space:nowrap">'+ins+'</div>'
+        +'<div style="display:flex;gap:4px">'
+          +'<button onclick="previewClaimPackage('+i+",'"+insArg+"'"+')" style="font-size:12px;padding:2px 7px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+dim+'"><i class="ti ti-eye"></i> 미리보기</button>'
+          +'<button onclick="downloadClaimPackage('+i+",'"+insArg+"'"+')" style="font-size:12px;padding:2px 7px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:4px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+dim+'"><i class="ti ti-download"></i> 다운로드</button>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+    // legacy 호환: insurerList 비어있는 옛 데이터
+    if(!insList.length){
+      var legacyHas = !!(c.packagePDF || (function(){try{return localStorage.getItem('tops_pkg_'+i);}catch(e){return null;}})());
+      if(legacyHas) anyPkg = true;
+      insCards = '<div style="display:flex;gap:4px">'
+        +'<button onclick="downloadClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:5px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(legacyHas?'':';opacity:.55')+'"><i class="ti ti-download"></i> 다운로드</button>'
+        +'<button onclick="previewClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(legacyHas?'':';opacity:.55')+'"><i class="ti ti-eye"></i> 미리보기</button>'
+      +'</div>';
+    }
+    var fileCell='<div style="display:flex;flex-direction:column;gap:5px">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'+insCards+'</div>'
+      +'<button onclick="rebuildClaimPackage('+i+')" style="font-size:12px;padding:2px 6px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:4px;color:#8a6010;cursor:pointer;font-family:inherit;white-space:nowrap;align-self:flex-start">'
+        +'<i class="ti ti-refresh"></i> '+(anyPkg?'전체 재생성':'청구파일 생성')
       +'</button>'
       +'</div>';
     return '<tr>'
@@ -5947,13 +5969,35 @@ function rClaimStatus(){
       +(c.done?'background:#1a9050;color:#fff':'background:#cc3030;color:#fff')
       +'">'+( c.done?'완료':'미완료')+'</button>';
     var insurer=c.insurer||'-';
-    var fileCell='<div style="display:flex;flex-direction:column;gap:4px">'
-      +'<div style="display:flex;gap:4px">'
-        +'<button onclick="downloadClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:5px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(c.packagePDF?'':';opacity:.55')+'"><i class="ti ti-download"></i> 다운로드</button>'
-        +'<button onclick="previewClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(c.packagePDF?'':';opacity:.55')+'"><i class="ti ti-eye"></i> 미리보기</button>'
-      +'</div>'
-      +'<button onclick="rebuildClaimPackage('+i+')" style="font-size:12px;padding:1px 5px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:4px;color:#8a6010;cursor:pointer;font-family:inherit;white-space:nowrap">'
-        +'<i class="ti ti-refresh"></i> '+(c.packagePDF?'재생성':'청구파일 생성')
+    var insList = (c.insurerList && c.insurerList.length) ? c.insurerList
+                    : (c.insurer ? String(c.insurer).split(/,\s*/).filter(function(s){return s;}) : []);
+    var anyPkg = false;
+    var insCards = insList.map(function(ins){
+      var has = !!_claimPkgFor(i, ins);
+      if(has) anyPkg = true;
+      var dim = has ? '' : ';opacity:.55';
+      var insArg = String(ins).replace(/'/g,"\\'");
+      return '<div style="border:1px solid rgba(80,90,180,.3);border-radius:6px;padding:5px 7px;background:rgba(50,60,160,.06);display:flex;flex-direction:column;gap:3px;min-width:140px">'
+        +'<div style="font-size:12px;font-weight:600;color:#384858;white-space:nowrap">'+ins+'</div>'
+        +'<div style="display:flex;gap:4px">'
+          +'<button onclick="previewClaimPackage('+i+",'"+insArg+"'"+')" style="font-size:12px;padding:2px 7px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+dim+'"><i class="ti ti-eye"></i> 미리보기</button>'
+          +'<button onclick="downloadClaimPackage('+i+",'"+insArg+"'"+')" style="font-size:12px;padding:2px 7px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:4px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+dim+'"><i class="ti ti-download"></i> 다운로드</button>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+    // legacy 호환: insurerList 비어있는 옛 데이터
+    if(!insList.length){
+      var legacyHas = !!(c.packagePDF || (function(){try{return localStorage.getItem('tops_pkg_'+i);}catch(e){return null;}})());
+      if(legacyHas) anyPkg = true;
+      insCards = '<div style="display:flex;gap:4px">'
+        +'<button onclick="downloadClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:5px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(legacyHas?'':';opacity:.55')+'"><i class="ti ti-download"></i> 다운로드</button>'
+        +'<button onclick="previewClaimPackage('+i+')" style="font-size:13px;padding:3px 8px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;white-space:nowrap'+(legacyHas?'':';opacity:.55')+'"><i class="ti ti-eye"></i> 미리보기</button>'
+      +'</div>';
+    }
+    var fileCell='<div style="display:flex;flex-direction:column;gap:5px">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'+insCards+'</div>'
+      +'<button onclick="rebuildClaimPackage('+i+')" style="font-size:12px;padding:2px 6px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:4px;color:#8a6010;cursor:pointer;font-family:inherit;white-space:nowrap;align-self:flex-start">'
+        +'<i class="ti ti-refresh"></i> '+(anyPkg?'전체 재생성':'청구파일 생성')
       +'</button>'
       +'</div>';
     return '<tr>'
@@ -6154,63 +6198,103 @@ async function generateClaimPackage(idx) {
     }catch(e){console.warn('dtx',text,e);}
   }
 
-  try{
-    var {PDFDocument}=PDFLib;
-    var mergedDoc=await PDFDocument.create();
-    var insurer=c.insurer||'DB손해보험';
+  // 보험사 리스트 결정 (다중 선택 지원)
+  var insurers = (c.insurerList && c.insurerList.length) ? c.insurerList.slice()
+                  : (c.insurer ? String(c.insurer).split(/,\s*/) : ['DB손해보험']);
+  insurers = insurers.map(function(s){return String(s||'').trim();}).filter(function(s){return s;});
+  if(!insurers.length) insurers=['DB손해보험'];
 
-    toast(insurer+' 청구서 작성 중...');
-    var b64src=await claimTemplateFor(insurer);
-    if(!b64src){ toast(insurer+' 양식이 등록되지 않았습니다. (관리자: 좌표 직접설정에서 양식 업로드)'); return false; }
+  var {PDFDocument}=PDFLib;
+  var packagePDFs = {};
+  var firstErr = '';
+  var okCount = 0;
 
-    var srcBytes;
-    try{var sb=atob(b64src);srcBytes=new Uint8Array(sb.length);for(var si=0;si<sb.length;si++)srcBytes[si]=sb.charCodeAt(si);}
-    catch(e){toast('디코딩 실패: '+e.message);return false;}
-    var srcDoc;
-    try{srcDoc=await PDFDocument.load(srcBytes,{ignoreEncryption:true});}
-    catch(e){toast('로드 실패: '+e.message);return false;}
+  for(var ii=0; ii<insurers.length; ii++){
+    var insurer = insurers[ii];
+    try{
+      toast(insurer+' 청구서 작성 중... ('+(ii+1)+'/'+insurers.length+')');
+      var b64src = await claimTemplateFor(insurer);
+      if(!b64src){
+        if(!firstErr) firstErr = insurer+' 양식이 등록되지 않았습니다. (관리자: 좌표 직접설정에서 양식 업로드)';
+        continue;
+      }
+      var srcBytes;
+      try{ var sb=atob(b64src); srcBytes=new Uint8Array(sb.length); for(var si=0;si<sb.length;si++) srcBytes[si]=sb.charCodeAt(si); }
+      catch(e){ if(!firstErr) firstErr=insurer+' 디코딩 실패: '+e.message; continue; }
+      var srcDoc;
+      try{ srcDoc = await PDFDocument.load(srcBytes,{ignoreEncryption:true}); }
+      catch(e){ if(!firstErr) firstErr=insurer+' 로드 실패: '+e.message; continue; }
 
-    var coords=claimCoordsFor(insurer);
-    await drawClaimFields(srcDoc, coords, c, dtx);
+      var coords = claimCoordsFor(insurer);
+      await drawClaimFields(srcDoc, coords, c, dtx);
 
-    var copied=await mergedDoc.copyPages(srcDoc,srcDoc.getPageIndices());
-    copied.forEach(function(p){mergedDoc.addPage(p);});
-    toast(insurer+' '+copied.length+'페이지 완료 ✅');
+      var mergedDoc = await PDFDocument.create();
+      var copied = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+      copied.forEach(function(p){ mergedDoc.addPage(p); });
 
-    if(c.files&&c.files.length){
-      for(var fi2=0;fi2<c.files.length;fi2++){
-        var f2=c.files[fi2]; var fData=f2.data||f2;
-        if(typeof fData==='string'&&fData.startsWith('data:')){
-          if(fData.includes('/pdf')){
-            try{var fDoc=await PDFDocument.load(Uint8Array.from(atob(fData.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
-              (await mergedDoc.copyPages(fDoc,fDoc.getPageIndices())).forEach(function(p){mergedDoc.addPage(p);});}
-            catch(e){await addImagePage(mergedDoc,fData,'병원서류');}
-          }else{await addImagePage(mergedDoc,fData,'병원서류');}
+      // 첨부서류 (보험사별로 동일하게 모두 포함)
+      if(c.files && c.files.length){
+        for(var fi2=0; fi2<c.files.length; fi2++){
+          var f2=c.files[fi2]; var fData=f2.data||f2;
+          if(typeof fData==='string' && fData.startsWith('data:')){
+            if(fData.includes('/pdf')){
+              try{
+                var fDoc = await PDFDocument.load(Uint8Array.from(atob(fData.split(',')[1]), function(ch){return ch.charCodeAt(0);}));
+                (await mergedDoc.copyPages(fDoc, fDoc.getPageIndices())).forEach(function(p){ mergedDoc.addPage(p); });
+              }catch(e){ await addImagePage(mergedDoc, fData, '병원서류'); }
+            }else{ await addImagePage(mergedDoc, fData, '병원서류'); }
+          }
         }
       }
-    }
-    if(c.bankImg) await addImagePage(mergedDoc,c.bankImg,'통장사본');
-    if(c.idImg)   await addImagePage(mergedDoc,c.idImg,'신분증');
-    if(c.insFiles&&c.insFiles.length){
-      for(var fi3=0;fi3<c.insFiles.length;fi3++) await addImagePage(mergedDoc,c.insFiles[fi3],'보험사청구파일_'+(fi3+1));
-    }
+      if(c.bankImg) await addImagePage(mergedDoc, c.bankImg, '통장사본');
+      if(c.idImg)   await addImagePage(mergedDoc, c.idImg,   '신분증');
+      if(c.insFiles && c.insFiles.length){
+        for(var fi3=0; fi3<c.insFiles.length; fi3++) await addImagePage(mergedDoc, c.insFiles[fi3], '보험사청구파일_'+(fi3+1));
+      }
 
-    toast('PDF 저장 중...');
-    var pdfBytes=await mergedDoc.save();
-    var cks=[]; var csz=8192;
-    for(var ci=0;ci<pdfBytes.length;ci+=csz) cks.push(String.fromCharCode.apply(null,pdfBytes.subarray(ci,ci+csz)));
-    claims[idx].packagePDF='data:application/pdf;base64,'+btoa(cks.join(''));
-    claims[idx].packageDate=tds();
-    var cl2=claims.map(function(cl,ci){if(ci===idx){var cp=Object.assign({},cl);delete cp.packagePDF;return cp;}return cl;});
-    localStorage.setItem('tops_claims',JSON.stringify(cl2));
-    try{localStorage.setItem('tops_pkg_'+idx,claims[idx].packagePDF);}catch(le){}
-    try{sv('tops_claims',cl2);}catch(e){}
-    return true;
-  }catch(err){
-    console.error('Package PDF error:',err);
-    toast('PDF 생성 오류: '+err.message);
+      var pdfBytes = await mergedDoc.save();
+      var cks=[]; var csz=8192;
+      for(var ci=0; ci<pdfBytes.length; ci+=csz) cks.push(String.fromCharCode.apply(null, pdfBytes.subarray(ci, ci+csz)));
+      packagePDFs[insurer] = 'data:application/pdf;base64,'+btoa(cks.join(''));
+      okCount++;
+      toast(insurer+' 완료 ('+okCount+'/'+insurers.length+')');
+    }catch(err){
+      console.error(insurer+' Package PDF error:', err);
+      if(!firstErr) firstErr = insurer+' 생성 오류: '+err.message;
+    }
+  }
+
+  if(okCount===0){
+    toast(firstErr || 'PDF 생성 실패');
     return false;
   }
+
+  claims[idx].packagePDFs = packagePDFs;
+  claims[idx].packageDate = tds();
+  delete claims[idx].packagePDF;
+  // 보험사별로 별도 localStorage 키에 저장
+  Object.keys(packagePDFs).forEach(function(ins){
+    try{ localStorage.setItem('tops_pkg_'+idx+'__'+ins, packagePDFs[ins]); }catch(e){}
+  });
+  try{ localStorage.removeItem('tops_pkg_'+idx); }catch(e){}
+
+  // 큰 base64는 동기화에서 제외
+  var cl2 = claims.map(function(cl, ci){
+    if(ci===idx){
+      var cp = Object.assign({}, cl);
+      delete cp.packagePDF;
+      delete cp.packagePDFs;
+      return cp;
+    }
+    return cl;
+  });
+  try{ localStorage.setItem('tops_claims', JSON.stringify(cl2)); }catch(e){}
+  try{ sv('tops_claims', cl2); }catch(e){}
+
+  if(firstErr && okCount < insurers.length){
+    toast('일부 실패: ' + firstErr);
+  }
+  return true;
 }
 
 
@@ -6229,37 +6313,66 @@ function rebuildClaimPackage(idx){
   });
 }
 
-function downloadClaimPackage(idx){
-  try{ claims=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){}
-  var c=claims[idx]; if(!c){ toast('해당 청구건을 찾을 수 없습니다.'); return; }
-  if(!c.packagePDF){ try{ c.packagePDF=localStorage.getItem('tops_pkg_'+idx)||''; }catch(e){} }
-  if(!c.packagePDF){ toast('청구파일이 없습니다. 청구파일 생성 버튼을 눌러주세요.'); return; }
-  var a=document.createElement('a');
-  a.href=c.packagePDF;
-  a.download='청구서류_'+(c.custName||'')+'_'+(c.packageDate||tds())+'.pdf';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  toast('다운로드 완료!');
+// 특정 청구건의 보험사별 PDF 데이터 URI 가져오기 (없으면 빈 문자열)
+function _claimPkgFor(idx, insurer){
+  try{
+    if(claims[idx] && claims[idx].packagePDFs && claims[idx].packagePDFs[insurer]) return claims[idx].packagePDFs[insurer];
+  }catch(e){}
+  try{ var k=localStorage.getItem('tops_pkg_'+idx+'__'+insurer); if(k) return k; }catch(e){}
+  // Legacy: 단일 PDF (옛 데이터)
+  try{
+    var c=claims[idx]; if(!c) return '';
+    var insList = (c.insurerList&&c.insurerList.length)?c.insurerList:(c.insurer?c.insurer.split(/,\s*/):[]);
+    if(insList.length===1 && insList[0]===insurer){
+      if(c.packagePDF) return c.packagePDF;
+      try{ var k2=localStorage.getItem('tops_pkg_'+idx); if(k2) return k2; }catch(e){}
+    }
+  }catch(e){}
+  return '';
 }
 
-function previewClaimPackage(idx){
+function downloadClaimPackage(idx, insurer){
   try{ claims=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){}
   var c=claims[idx]; if(!c){ toast('해당 청구건을 찾을 수 없습니다.'); return; }
-  if(!c.packagePDF){ try{ c.packagePDF=localStorage.getItem('tops_pkg_'+idx)||''; }catch(e){} }
-  if(!c.packagePDF){ toast('청구파일이 없습니다. 먼저 청구파일 생성 버튼을 눌러주세요.'); return; }
+  var pdf='';
+  if(insurer){ pdf=_claimPkgFor(idx, insurer); }
+  else {
+    pdf = c.packagePDF || '';
+    if(!pdf){ try{ pdf=localStorage.getItem('tops_pkg_'+idx)||''; }catch(e){} }
+  }
+  if(!pdf){ toast((insurer?insurer+' ':'')+'청구파일이 없습니다. 청구파일 생성 버튼을 눌러주세요.'); return; }
+  var a=document.createElement('a');
+  a.href=pdf;
+  a.download='청구서류_'+(insurer?insurer+'_':'')+(c.custName||'')+'_'+(c.packageDate||tds())+'.pdf';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast((insurer?insurer+' ':'')+'다운로드 완료!');
+}
+
+function previewClaimPackage(idx, insurer){
+  try{ claims=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){}
+  var c=claims[idx]; if(!c){ toast('해당 청구건을 찾을 수 없습니다.'); return; }
+  var pdfData='';
+  if(insurer){ pdfData=_claimPkgFor(idx, insurer); }
+  else {
+    pdfData = c.packagePDF || '';
+    if(!pdfData){ try{ pdfData=localStorage.getItem('tops_pkg_'+idx)||''; }catch(e){} }
+  }
+  if(!pdfData){ toast((insurer?insurer+' ':'')+'청구파일이 없습니다. 먼저 청구파일 생성 버튼을 눌러주세요.'); return; }
   var old2=document.getElementById('claim_preview_overlay'); if(old2) old2.remove();
   var ov=document.createElement('div');
   ov.id='claim_preview_overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.95);z-index:9999;display:flex;flex-direction:column';
+  var dlArg = insurer ? idx+",'"+insurer.replace(/'/g,"\\'")+"'" : idx;
   ov.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1a1a2e;flex-shrink:0">'
-    +'<span style="color:#fff;font-size:15px;font-weight:700">📄 청구파일 미리보기 — '+(c.custName||'')+'</span>'
+    +'<span style="color:#fff;font-size:15px;font-weight:700">📄 '+(insurer?insurer+' ':'')+'청구파일 미리보기 — '+(c.custName||'')+'</span>'
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="downloadClaimPackage('+idx+')" style="font-size:14px;padding:5px 14px;background:#4858cc;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit">⬇ 다운로드</button>'
+    +'<button onclick="downloadClaimPackage('+dlArg+')" style="font-size:14px;padding:5px 14px;background:#4858cc;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit">⬇ 다운로드</button>'
     +'<button onclick="document.getElementById(\'claim_preview_overlay\').remove()" style="font-size:14px;padding:5px 14px;background:#555;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit">✕ 닫기</button>'
     +'</div></div>'
     +'<div id="clm_pvw_pages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px">'
     +'<div style="color:#aaa;font-size:15px">렌더링 중...</div></div>';
   document.body.appendChild(ov);
-  var b64=c.packagePDF.indexOf(',')>=0?c.packagePDF.split(',')[1]:c.packagePDF;
+  var b64=pdfData.indexOf(',')>=0?pdfData.split(',')[1]:pdfData;
   var arr; try{ var bin=atob(b64); arr=new Uint8Array(bin.length); for(var bi=0;bi<bin.length;bi++) arr[bi]=bin.charCodeAt(bi); }catch(e){ document.getElementById('clm_pvw_pages').innerHTML='<div style="color:#f88">데이터 오류: '+e.message+'</div>'; return; }
   var pDiv=document.getElementById('clm_pvw_pages');
   if(typeof pdfjsLib==='undefined'){ pDiv.innerHTML='<div style="color:#f88">PDF.js 미로드. 다운로드 버튼 이용.</div>'; return; }
