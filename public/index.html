@@ -3774,11 +3774,18 @@ async function analyzeMedical(){
         pl.push('위 의료기록 전체를 빠짐없이 분석하여 보험심사용 병력을 정리해주세요.');
       }
       pl.push('중요: 이 부분의 모든 진료내역을 누락 없이 포함해야 합니다.');
-      pl.push('규칙: 1)동일기간+동일질병(병원/약국)은 1건으로 합산 2)연속된 동일질병은 하나로 묶기 3)약국처방은 약제처방횟수에 포함 4)모든 상병코드 포함');
+      pl.push('규칙:');
+      pl.push('  1) 동일기간+동일질병(병원/약국)은 1건으로 합산');
+      pl.push('  2) 연속된 동일질병은 하나로 묶기');
+      pl.push('  3) 약국처방은 약제처방횟수에 포함');
+      pl.push('  4) 모든 상병코드 포함');
+      pl.push('  5) ★수술 판정: "세부진료정보" 또는 "진료내역"의 "코드명/진료행위명"에 "절제술" 단어가 포함되면 그 진료는 수술로 분류. "수술" 단어가 직접 적힌 경우도 수술. 수술 횟수를 정확히 셈.');
+      pl.push('  6) 입원 판정: "입원" 또는 "재원일수" 표기가 있으면 입원으로 분류 (일수 명시).');
+      pl.push('  7) "입원/수술여부" 칸 작성 규칙: 둘 다 없으면 "없음" / 입원만 있으면 "입원 N일" / 수술만 있으면 "수술 N회" / 둘 다 있으면 "입원 N일·수술 N회"');
       pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
       pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |');
       pl.push('|---|---|---|---|---|---|');
-      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음/입원N일/수술 | N회 |');
+      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음 또는 수술 N회 또는 입원 N일 | N회 |');
       var prompt = pl.join('\n');
 
       try {
@@ -3869,20 +3876,32 @@ function buildTable(rows){
   var dataRows = rows.filter(function(r){ return !r.every(function(c){return /^[-:]+$/.test(c);}); });
   if(!dataRows.length) return '';
   var head = dataRows[0];
+  // "입원/수술여부" 칸 인덱스 찾기
+  var hospIdx = -1;
+  head.forEach(function(h, idx){ if(/입원|수술/.test(h||'')) hospIdx = idx; });
   var body = dataRows.slice(1);
   var t = '<div style="overflow-x:auto;margin:10px 0"><table class="dt" style="min-width:700px;background:#fff">';
   t += '<thead style="background:#f0f2ff"><tr>'+head.map(function(h){return '<th style="color:#3040aa;font-size:14px;padding:10px 12px">'+h+'</th>';}).join('')+'</tr></thead>';
   t += '<tbody>';
   body.forEach(function(row, i){
-    var bg = i%2===0 ? '#fff' : '#f8f9ff';
-    t += '<tr style="background:'+bg+'">';
-    row.forEach(function(c){
-      // 입원/수술 여부 칸 - 없음이 아니면 빨간색 강조
-      var isHospital = (c && c !== '-' && c !== '없음' && c !== '' &&
-        (c.indexOf('입원') !== -1 || c.indexOf('수술') !== -1));
-      var cellStyle = 'font-size:15px;color:#1a1a3a;padding:9px 12px;';
-      if(isHospital){
-        cellStyle = 'font-size:15px;font-weight:700;color:#cc2020;padding:9px 12px;background:rgba(220,50,50,.1);border-left:3px solid #cc2020;';
+    var hospVal = hospIdx >= 0 ? String(row[hospIdx]||'').trim() : '';
+    var hasHosp = !!hospVal && hospVal!=='-' && hospVal!=='' && hospVal!=='없음' &&
+                  (hospVal.indexOf('입원') !== -1 || hospVal.indexOf('수술') !== -1);
+    var rowBg = hasHosp ? 'rgba(220,50,50,.10)' : (i%2===0 ? '#fff' : '#f8f9ff');
+    var rowStyle = hasHosp
+      ? 'background:'+rowBg+';border-left:4px solid #cc2020;'
+      : 'background:'+rowBg+';';
+    t += '<tr style="'+rowStyle+'">';
+    row.forEach(function(c, ci){
+      var cellStyle;
+      if(hasHosp){
+        if(ci===hospIdx){
+          cellStyle = 'font-size:15px;font-weight:800;color:#cc2020;padding:9px 12px;';
+        } else {
+          cellStyle = 'font-size:15px;font-weight:600;color:#cc2020;padding:9px 12px;';
+        }
+      } else {
+        cellStyle = 'font-size:15px;color:#1a1a3a;padding:9px 12px;';
       }
       t += '<td style="'+cellStyle+'">'+c+'</td>';
     });
