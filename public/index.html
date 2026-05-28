@@ -140,6 +140,15 @@ table.dt tr:last-child td{border-bottom:none;}
 .toast{position:fixed;bottom:20px;right:20px;background:rgba(18,28,98,.97);border:1px solid rgba(70,90,220,.28);border-radius:10px;padding:10px 17px;color:#a8b0e8;font-size:15px;z-index:999;display:none;animation:si .3s ease;}
 @keyframes si{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
 
+/* ALERTS (총무용 영구 알림, X로만 닫힘) */
+#alerts_box{position:fixed;top:62px;right:20px;z-index:998;display:flex;flex-direction:column;gap:10px;max-width:360px;width:max-content;pointer-events:none;}
+.alert-card{background:rgba(18,28,98,.98);border:1px solid rgba(110,130,255,.45);border-radius:11px;padding:12px 14px;color:#dde2ff;font-size:14px;box-shadow:0 6px 22px rgba(0,0,40,.55);display:flex;align-items:flex-start;gap:10px;animation:si .3s ease;pointer-events:auto;}
+.alert-type{font-size:11px;background:rgba(120,90,240,.4);color:#d8c8ff;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:5px;letter-spacing:.5px;font-weight:700;}
+.alert-body{flex:1;line-height:1.4;}
+.alert-meta{font-size:12px;color:#9aa0d0;margin-top:5px;}
+.alert-close{cursor:pointer;color:#8a8ab8;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0;font-weight:700;}
+.alert-close:hover{color:#fff;}
+
 /* MODALS */
 .mb{position:fixed;inset:0;background:rgba(0,0,16,.76);z-index:100;display:none;align-items:center;justify-content:center;}
 .mb.open{display:flex;}
@@ -240,6 +249,7 @@ table.dt tr:last-child td{border-bottom:none;}
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="alerts_box"></div>
 
 <!-- APP -->
 <div id="app">
@@ -1524,6 +1534,7 @@ let clm=JSON.parse(localStorage.getItem('tops_clm')||'[]');
 let wst=JSON.parse(localStorage.getItem('tops_wst')||'[]');
 let dbInfo=JSON.parse(localStorage.getItem('tops_dbInfo')||'[]');
 let consults=JSON.parse(localStorage.getItem('tops_consults')||'[]');
+let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
 window.FS_DOC = null;
@@ -1581,6 +1592,7 @@ async function loadFromFirestore(){
     if(d.wst&&d.wst.length)    { wst=d.wst;     localStorage.setItem('tops_wst',JSON.stringify(wst)); }
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }
     if(d.consults&&d.consults.length){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -1602,6 +1614,7 @@ function startRealtimeSync(){
     if(d.consults){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); changed=true; }
     if(d.dbInfo)  { dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); changed=true; }
     if(d.not)     { not=d.not;      localStorage.setItem('tops_not',JSON.stringify(not)); }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); if(typeof rAlerts==='function') rAlerts(); }
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
@@ -1692,10 +1705,12 @@ function login(){
       rRankCnt();
       rRankRookie();
       rNotices();
+      rAlerts();
     }, 300);
     startRealtimeSync();
   }).catch(function(){
     startRealtimeSync();
+    rAlerts();
   });
 }
 function logout(){
@@ -3107,7 +3122,13 @@ function rWc(){const tb=g('wc_tb');if(!clm.length){tb.innerHTML='<tr><td colspan
 g('btn_wc').addEventListener('click',()=>{fillSel('mwc_mem');g('mwc_cust').value='';g('mwc_co').value='';g('mwc_amt').value='';g('m_wc').classList.add('open');});
 g('m_wc_c').addEventListener('click',()=>g('m_wc').classList.remove('open'));
 g('m_wc_cancel').addEventListener('click',()=>g('m_wc').classList.remove('open'));
-g('m_wc_save').addEventListener('click',()=>{clm.push({cust:g('mwc_cust').value,m:g('mwc_mem').value,co:g('mwc_co').value,amt:g('mwc_amt').value,st:g('mwc_st').value,dt:td()});sv('tops_clm',clm);g('m_wc').classList.remove('open');rWc();toast('저장되었습니다.');});
+g('m_wc_save').addEventListener('click',()=>{
+  var _cust=g('mwc_cust').value, _co=g('mwc_co').value, _amt=g('mwc_amt').value;
+  clm.push({cust:_cust,m:g('mwc_mem').value,co:_co,amt:_amt,st:g('mwc_st').value,dt:td()});
+  sv('tops_clm',clm);
+  try{ pushAlert('총무','보험금청구', ((cu&&cu.name)||'담당자')+'님이 '+_cust+' 고객의 보험금청구'+(_co?'('+_co+(_amt?' '+Number(_amt).toLocaleString()+'원':'')+')':'')+'을 등록했습니다.'); }catch(e){}
+  g('m_wc').classList.remove('open');rWc();toast('저장되었습니다.');
+});
 
 // CALC
 [g('ct1'),g('ct2'),g('ct3')].forEach(t=>t.addEventListener('click',function(){[g('ct1'),g('ct2'),g('ct3')].forEach(x=>x.classList.remove('ac'));this.classList.add('ac');g('c_tot').value='';g('c_ded').value='';g('c_res').textContent='-';g('c_det').textContent='';}));
@@ -3116,6 +3137,52 @@ g('c_tot').addEventListener('input',calcLoss);g('c_ded').addEventListener('input
 
 // TOAST
 function toast(msg){const t=g('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2400);}
+
+// ===== 총무용 알림 (X로 직접 닫아야 사라짐) =====
+function _alertEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pushAlert(toRole, type, msg){
+  if(!Array.isArray(nalerts)) nalerts=[];
+  nalerts.push({
+    id:'a_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    toRole:toRole,
+    fromName:(typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'',
+    type:type,
+    msg:msg,
+    ts:Date.now()
+  });
+  if(nalerts.length>200) nalerts=nalerts.slice(-200);
+  try{sv('tops_nalerts', nalerts);}catch(e){console.warn('alert save:',e);}
+  rAlerts();
+}
+function dismissAlert(id){
+  if(!Array.isArray(nalerts)) nalerts=[];
+  nalerts=nalerts.filter(function(a){return a.id!==id;});
+  try{sv('tops_nalerts', nalerts);}catch(e){console.warn('alert save:',e);}
+  rAlerts();
+}
+function rAlerts(){
+  var box=document.getElementById('alerts_box');
+  if(!box) return;
+  if(typeof cu==='undefined' || !cu){ box.innerHTML=''; return; }
+  var my=(Array.isArray(nalerts)?nalerts:[]).filter(function(a){
+    return a && a.toRole && cu.role && a.toRole===cu.role;
+  });
+  if(!my.length){ box.innerHTML=''; return; }
+  my.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+  var pad=function(n){return n<10?'0'+n:''+n;};
+  box.innerHTML=my.map(function(a){
+    var dt=new Date(a.ts||Date.now());
+    var when=pad(dt.getMonth()+1)+'.'+pad(dt.getDate())+' '+pad(dt.getHours())+':'+pad(dt.getMinutes());
+    return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'">'
+      +'<div class="alert-body">'
+      +'<span class="alert-type">'+_alertEsc(a.type||'알림')+'</span>'
+      +'<div>'+_alertEsc(a.msg||'')+'</div>'
+      +'<div class="alert-meta">'+_alertEsc(a.fromName||'')+' · '+when+'</div>'
+      +'</div>'
+      +'<span class="alert-close" onclick="dismissAlert(\''+_alertEsc(a.id)+'\')">✕</span>'
+      +'</div>';
+  }).join('');
+}
 
 // ===== CODE SELECT MODAL =====
 function openCodeSelect(){
@@ -5628,6 +5695,9 @@ function saveClaim(){
   cancelClaimForm();
   rClaimApply();
   toast(idx!==''?'수정되었습니다.':'청구신청이 완료되었습니다! 청구파일 생성 중...');
+  if(idx===''){
+    try{ pushAlert('총무','청구신청', ((cu&&cu.name)||'담당자')+'님이 '+name+' 고객의 청구신청을 등록했습니다.'); }catch(e){}
+  }
   var savedIdx=idx!==''?+idx:claims.length-1;
   setTimeout(function(){
     generateClaimPackage(savedIdx).then(function(ok){
@@ -6141,9 +6211,8 @@ function rebuildClaimPackage(idx){
       rClaimApply();
       if(g('claim_status_tb')) rClaimStatus();
       toast('청구파일이 생성되었습니다!');
-    } else {
-      toast('생성 실패. F12 Console을 확인해주세요.');
     }
+    // 실패 시: generateClaimPackage 내부에서 이미 구체적인 사유 toast를 띄웠음 (덮어쓰지 않음)
   });
 }
 
