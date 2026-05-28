@@ -3698,12 +3698,26 @@ async function analyzeMedical(){
       throw new Error('PDF에서 텍스트를 읽을 수 없습니다. 스캔 이미지 PDF이거나 비밀번호가 틀렸을 수 있습니다.');
     }
 
+    // 토큰 한도 초과 방지 (Claude 200k 한도, 출력·지시문 여유 두기)
+    // 한국어는 대략 1글자=1~1.5토큰, 안전치로 300k 글자 = 약 200k 토큰
+    var MAX_TEXT_CHARS = 290000;
+    var wasTruncated = false;
+    if(combinedText.length > MAX_TEXT_CHARS){
+      wasTruncated = true;
+      var dropped = combinedText.length - MAX_TEXT_CHARS;
+      combinedText = combinedText.slice(0, MAX_TEXT_CHARS) + '\n\n[...텍스트가 너무 길어 뒤쪽 약 ' + Math.round(dropped/1000) + 'k자가 생략되었습니다...]';
+      toast('⚠ PDF가 길어 앞 ' + Math.round(MAX_TEXT_CHARS/1000) + 'k자만 분석합니다. 결과 표 아래에 생략 안내가 표시됩니다.');
+    }
+
     loadEl.textContent='🤖 AI 분석 중...';
     var promptLines = [];
     if(pw) promptLines.push('PDF비밀번호: ' + pw);
     promptLines.push(combinedText);
     promptLines.push('---');
     promptLines.push('위 의료기록 전체를 빠짐없이 분석하여 보험심사용 병력을 정리해주세요.');
+    if(wasTruncated){
+      promptLines.push('주의: 원본 PDF가 매우 길어 뒤쪽 일부가 생략되었습니다. 분석 결과 표 마지막에 별도 줄로 "⚠ 원본 PDF가 길어 일부 구간이 분석에서 제외됨" 이라고 명시해 주세요.');
+    }
     promptLines.push('중요: 모든 페이지의 모든 진료내역을 누락 없이 포함해야 합니다. 첫 페이지부터 마지막 페이지까지 전부 확인하세요.');
     promptLines.push('규칙: 1)동일기간+동일질병(병원/약국)은 1건으로 합산 2)연속된 동일질병은 하나로 묶기 3)약국처방은 약제처방횟수에 포함 4)모든 상병코드 포함');
     promptLines.push('출력형식(반드시 표 전체 출력, 절대 생략하지 말것):');
