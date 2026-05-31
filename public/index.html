@@ -1215,6 +1215,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <span style="font-size:13px;color:#6070aa;font-weight:600">페이지</span>
     <div id="cc_tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     <span style="flex:1"></span>
+    <button class="bp" id="cc_preview_btn" onclick="ccTogglePreview()" style="font-size:13px;padding:5px 10px" title="실제 들어갈 글자를 흐리게 미리보기"><i class="ti ti-eye"></i> 미리보기 끄기</button>
     <button class="bp" onclick="ccExport()" style="font-size:13px;padding:5px 10px"><i class="ti ti-copy"></i> 내보내기</button>
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
@@ -7233,6 +7234,7 @@ function openClaimCal(){
   if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
   if(typeof pdfjsLib==='undefined'){ toast('PDF 뷰어 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
   g('m_claimcal').classList.add('open');
+  if(typeof window._ccShowPreview==='undefined') window._ccShowPreview=true;
   ccNudgeSetup();
   ccPopulateInsurers().then(function(){
     var sel=g('cc_insurer');
@@ -7433,8 +7435,91 @@ function ccPlaceChips(){
     if(window._ccSelKey===key) chip.style.outline='2px solid #ffaa00';
     ccDrag(chip);
   });
+  ccPlacePreviews();
   if(typeof ccUpdatePropsPanel==='function') ccUpdatePropsPanel();
   if(typeof ccRefreshToolbox==='function') ccRefreshToolbox();
+}
+
+// 칩 위치에 실제 들어갈 글자를 흐리게 미리보기로 표시
+var CC_PREVIEW_SAMPLES = {
+  ctName:'김계약', ctSign:'서명',
+  ctRrn:'800505-1234567', ctRrnFront:'800505', ctRrnBack:'1234567',
+  ctPhone:'01098765432', ctPhoneFront:'010', ctPhoneMid:'9876', ctPhoneBack:'5432',
+  ctAddr:'서울 강남구 테헤란로 123',
+  insName:'홍길동', sign:'서명',
+  insRrn:'900101-1234567', insRrnFront:'900101', insRrnBack:'1234567',
+  phone:'01012345678', phoneFront:'010', phoneMid:'1234', phoneBack:'5678',
+  addr:'서울 강남구 테헤란로 123',
+  acc_injury:'V', acc_disease:'V', acc_traffic:'V',
+  accY:'2026', accY2:'26', accM:'05', accD:'28',
+  desc1:'사고경위 예시 앞부분', desc2:'사고경위 예시 뒷부분',
+  bank:'국민은행', accountName:'홍길동', accountNum:'123456-78-901234',
+  wY:'2026', wY2:'26', wM:'05', wD:'28',
+  signName:'홍길동',
+  p2v1:'V', p2v2:'V', p2v3:'V',
+  p3v1:'V', p3v2:'V', p3v3:'V',
+  p4v1:'V', p4v2:'V',
+  p5v1:'V', p5v2:'V', p5v3:'V',
+  p5Y:'2026', p5Y2:'26', p5M:'05', p5D:'28',
+  p5Name:'홍길동', p5Sign:'서명'
+};
+function ccPlacePreviews(){
+  var ov=g('cc_overlay'); if(!ov) return;
+  // 기존 preview 제거
+  Array.prototype.forEach.call(ov.querySelectorAll('.cc_preview'),function(el){el.remove();});
+  if(!window._ccShowPreview) return;
+  var sc=window._ccScale, H=window._ccPageH, pageIdx=window._ccPage-1;
+  var META=(typeof claimMeta==='function')?claimMeta():{};
+  Object.keys(window._ccWork||{}).forEach(function(key){
+    var co=window._ccWork[key]; if(!co || co.on===false) return;
+    var bk=ccBaseKey(key);
+    var fpage=(typeof co.page==='number')?co.page:0;
+    if(fpage!==pageIdx) return;
+    var text=CC_PREVIEW_SAMPLES[bk]; if(!text) return;
+    var meta=META[bk]||{};
+    var size=(typeof co.size==='number'&&co.size>0)?co.size:(meta.s||9);
+    var pitch=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:(meta.pitch||0);
+    var pxFs=size*sc;
+    var span=document.createElement('div');
+    span.className='cc_preview'; span.dataset.key=key;
+    span.textContent=text;
+    var css='position:absolute;'
+      +'left:'+(co.x*sc)+'px;'
+      +'top:'+((H-co.y)*sc - pxFs)+'px;'
+      +'font-size:'+pxFs.toFixed(1)+'px;'
+      +'line-height:'+pxFs.toFixed(1)+'px;'
+      +'font-family:"Malgun Gothic","나눔고딕","Apple SD Gothic Neo",sans-serif;'
+      +'color:rgba(20,30,160,.45);'
+      +'pointer-events:none;white-space:nowrap;z-index:1;';
+    if(pitch){
+      // 한 글자당 실제 진행 = pitch pt → CSS letter-spacing = (pitch - 실제 글자폭) * scale
+      // 평균 글자폭은 fontSize * 0.55 정도로 근사
+      var ls=(pitch - size*0.55)*sc;
+      css += 'letter-spacing:'+ls.toFixed(2)+'px;';
+    }
+    span.style.cssText=css;
+    ov.appendChild(span);
+  });
+}
+function ccUpdatePreviewFor(key){
+  var ov=g('cc_overlay'); if(!ov || !window._ccShowPreview) return;
+  var span=ov.querySelector('.cc_preview[data-key="'+key+'"]');
+  if(!span) return;
+  var co=window._ccWork[key]; if(!co) return;
+  var sc=window._ccScale, H=window._ccPageH;
+  var bk=ccBaseKey(key);
+  var META=(typeof claimMeta==='function')?claimMeta():{};
+  var meta=META[bk]||{};
+  var size=(typeof co.size==='number'&&co.size>0)?co.size:(meta.s||9);
+  var pxFs=size*sc;
+  span.style.left=(co.x*sc)+'px';
+  span.style.top=((H-co.y)*sc - pxFs)+'px';
+}
+function ccTogglePreview(){
+  window._ccShowPreview=!window._ccShowPreview;
+  var btn=g('cc_preview_btn');
+  if(btn) btn.textContent=window._ccShowPreview?'미리보기 끄기':'미리보기 켜기';
+  ccPlaceChips();
 }
 function ccToggleField(key){
   if(!window._ccWork[key]) return;
@@ -7668,6 +7753,7 @@ function ccNudgeSetup(){
           chip.style.left=(co.x*sc)+'px';
           chip.style.top=((H-co.y)*sc - hh)+'px';
           chip.title=key+' (x:'+co.x+', y:'+co.y+')';
+          ccUpdatePreviewFor(key);
         } else {
           ccPlaceChips();
         }
@@ -7702,6 +7788,7 @@ function ccApplyProps(){
   var p=parseFloat((g('cc_props_pitch')||{}).value);
   if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else delete window._ccWork[key].size;
   if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else delete window._ccWork[key].pitch;
+  ccPlacePreviews();
   toast('적용. "저장"을 눌러 영구 저장하세요.');
 }
 function ccCommit(chip){
@@ -7714,6 +7801,7 @@ function ccCommit(chip){
   window._ccWork[key].y=Math.round(y*10)/10;
   if(typeof window._ccWork[key].page!=='number') window._ccWork[key].page=window._ccPage-1;
   chip.title=key+' (x:'+window._ccWork[key].x+', y:'+window._ccWork[key].y+')';
+  ccUpdatePreviewFor(key);
 }
 function saveClaimCal(){
   var ins=window._ccInsurer||'DB손해보험';
