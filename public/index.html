@@ -6988,29 +6988,29 @@ function claimMeta(){
   return {
     ctName:{t:'ko',s:9,w:108,v:function(c,x){return x.ctName;}},
     ctSign:{t:'imgCt',w:80,h:14},
-    ctRrn:{t:'rrnCt',s:9,pitch:9},
-    ctRrnFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctRrn||'').slice(0,6);}},
-    ctRrnBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctRrn||'').slice(6,13);}},
+    ctRrn:{t:'rrnCt',s:9,pitch:15},
+    ctRrnFront:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctRrn||'').slice(0,6);}},
+    ctRrnBack:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctRrn||'').slice(6,13);}},
     ctAddr:{t:'ko',s:9,w:420,v:function(c,x){return (x.ctAddr||'').slice(0,45);}},
-    ctPhone:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(0,15);}},
-    ctPhoneFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(0,3);}},
-    ctPhoneMid:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(3,7);}},
-    ctPhoneBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.ctPhone||'').slice(7,11);}},
+    ctPhone:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctPhone||'').slice(0,15);}},
+    ctPhoneFront:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctPhone||'').slice(0,3);}},
+    ctPhoneMid:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctPhone||'').slice(3,7);}},
+    ctPhoneBack:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.ctPhone||'').slice(7,11);}},
     insName:{t:'ko',s:9,w:108,v:function(c,x){return x.insName;}},
-    insRrn:{t:'rrn',s:9,pitch:9},
-    insRrnFront:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.insRrn||'').slice(0,6);}},
-    insRrnBack:{t:'asc',s:9,pitch:9,v:function(c,x){return (x.insRrn||'').slice(6,13);}},
+    insRrn:{t:'rrn',s:9,pitch:15},
+    insRrnFront:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.insRrn||'').slice(0,6);}},
+    insRrnBack:{t:'asc',s:9,pitch:15,v:function(c,x){return (x.insRrn||'').slice(6,13);}},
     addr:{t:'ko',s:9,w:420,v:function(c){return (c.addr||'').slice(0,45);}},
-    phone:{t:'asc',s:9,pitch:9,v:function(c){return c.phone?String(c.phone).replace(/-/g,'').slice(0,15):'';}},
-    phoneFront:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(0,3);}},
-    phoneMid:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(3,7);}},
-    phoneBack:{t:'asc',s:9,pitch:9,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(7,11);}},
+    phone:{t:'asc',s:9,pitch:15,v:function(c){return c.phone?String(c.phone).replace(/-/g,'').slice(0,15):'';}},
+    phoneFront:{t:'asc',s:9,pitch:15,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(0,3);}},
+    phoneMid:{t:'asc',s:9,pitch:15,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(3,7);}},
+    phoneBack:{t:'asc',s:9,pitch:15,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(7,11);}},
     acc_injury:{t:'chk',s:9,cond:function(c){return accHas(c,'상해');}},
     acc_disease:{t:'chk',s:9,cond:function(c){return accHas(c,'질병');}},
     acc_traffic:{t:'chk',s:9,cond:function(c){return accHas(c,'교통');}},
-    accY:{t:'asc',s:9,v:function(c){return accPart(c,0);}},
-    accM:{t:'asc',s:9,v:function(c){return accPart(c,1);}},
-    accD:{t:'asc',s:9,v:function(c){return accPart(c,2);}},
+    accY:{t:'asc',s:9,pitch:15,v:function(c){return accPart(c,0);}},
+    accM:{t:'asc',s:9,pitch:15,v:function(c){return accPart(c,1);}},
+    accD:{t:'asc',s:9,pitch:15,v:function(c){return accPart(c,2);}},
     desc1:{t:'ko',s:9,w:450,v:function(c){return descPart(c,0);}},
     desc2:{t:'ko',s:9,w:450,v:function(c){return descPart(c,1);}},
     accountNum:{t:'asc',s:9,pitch:9,v:function(c){return c.accountNum?String(c.accountNum).replace(/[^0-9-]/g,'').slice(0,22):'';}},
@@ -7050,6 +7050,7 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     yy:String(now.getFullYear()), mm:String(now.getMonth()+1), dd:String(now.getDate())
   };
   var hv=await srcDoc.embedFont(StandardFonts.Helvetica);
+  var hvB=await srcDoc.embedFont(StandardFonts.HelveticaBold);
   var pages=srcDoc.getPages();
   var META=claimMeta();
   var signImg=null;
@@ -7081,7 +7082,10 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
         if(pit){ for(var ci=0;ci<str.length;ci++) pg.drawText(str[ci],{x:co.x+ci*pit,y:co.y,size:fsz,font:hv,color:blk}); }
         else pg.drawText(str,{x:co.x,y:co.y,size:fsz,font:hv,color:blk});
       };
-      if(m.t==='chk'){ pg.drawText('V',{x:co.x,y:co.y,size:fsz,font:hv,color:blk}); }
+      if(m.t==='chk'){
+        pg.drawText('V',{x:co.x,y:co.y,size:fsz,font:hvB,color:blk});
+        pg.drawText('V',{x:co.x+0.4,y:co.y,size:fsz,font:hvB,color:blk});
+      }
       else if(m.t==='img'){ if(signImg) pg.drawImage(signImg,{x:co.x,y:co.y,width:m.w,height:m.h}); }
       else if(m.t==='imgCt'){ if(ctSignImg) pg.drawImage(ctSignImg,{x:co.x,y:co.y,width:m.w,height:m.h}); }
       else if(m.t==='rrn'){ if(ctx.insRrn) drawSpaced(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6)); }
