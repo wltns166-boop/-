@@ -1207,6 +1207,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <span style="font-size:13px;color:#6070aa;font-weight:600">보험사</span>
     <select id="cc_insurer" onchange="ccSelectInsurer()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:220px"></select>
     <button class="bp" onclick="ccUploadTemplate()" style="font-size:13px;padding:5px 10px"><i class="ti ti-upload"></i> 양식 PDF 업로드</button>
+    <button class="bp" onclick="ccUploadMultiple()" style="font-size:13px;padding:5px 10px;background:#fff4d8;border-color:rgba(180,140,40,.4);color:#8a6a10" title="파일명이 '01_보험사명.pdf' 형식이면 자동으로 각 보험사로 업로드"><i class="ti ti-upload"></i> 여러개 한꺼번에 업로드</button>
     <span style="flex:1"></span>
     <select id="cc_addfield" onchange="ccAddFieldToPage()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:230px"><option value="">+ 이 페이지에 항목 추가</option></select>
   </div>
@@ -6947,7 +6948,7 @@ var CLAIM_FIELDS_DEFAULT = [
 ];
 // 저장된 좌표(override) 병합해서 {key:{x,y,page,label}} 반환
 // 전 보험사 목록
-var CLAIM_INSURERS=['삼성화재','현대해상','DB손해보험','KB손해보험','메리츠화재','한화손해보험','롯데손해보험','흥국화재','MG손해보험','라이나손해보험','하나손해보험','AXA손해보험','삼성생명','한화생명','교보생명','신한라이프','NH농협생명','흥국생명','동양생명','AIA생명','푸본현대생명','DB생명','KDB생명','미래에셋생명','라이나생명','처브라이프','ABL생명','IM라이프','메트라이프','카디프생명'];
+var CLAIM_INSURERS=['삼성화재','현대해상','DB손해보험','KB손해보험','메리츠화재','한화손해보험','롯데손해보험','흥국화재','MG손해보험','라이나손해보험','하나손해보험','AXA손해보험','NH농협손해보험','AIG손해보험','캐롯손해보험','삼성생명','한화생명','교보생명','신한라이프','NH농협생명','흥국생명','동양생명','AIA생명','푸본현대생명','DB생명','KDB생명','DGB생명','미래에셋생명','라이나생명','처브라이프','ABL생명','IM라이프','메트라이프','카디프생명','우체국보험','신협공제'];
 // 보험사별 좌표 프리셋(기본값). DB손해보험은 CLAIM_FIELDS_DEFAULT 사용. 미지정 항목은 on:false 로 숨김.
 var CLAIM_PRESETS = {
  'KB손해보험':{
@@ -7278,6 +7279,68 @@ function ccUploadTemplate(){
   };
   inp.click();
 }
+// 파일명에서 보험사명 추출. "01_MG손해보험.pdf" / "MG손해보험.pdf" / "1-MG손해보험.pdf" 등 지원
+function ccGuessInsurerFromName(name){
+  if(!name) return '';
+  var s=String(name).replace(/\.pdf$/i,'');
+  // 앞쪽 번호·구분자 제거
+  s=s.replace(/^[\s_\-0-9.]+/, '').trim();
+  if(!s) return '';
+  // CLAIM_INSURERS 중 정확/부분일치
+  for(var i=0;i<CLAIM_INSURERS.length;i++){
+    if(s===CLAIM_INSURERS[i] || s.indexOf(CLAIM_INSURERS[i])>=0) return CLAIM_INSURERS[i];
+  }
+  // 별칭 매핑
+  var aliases={
+    'MG':'MG손해보험','DB손보':'DB손해보험','KB손보':'KB손해보험','한화손보':'한화손해보험',
+    '롯데손보':'롯데손해보험','하나손보':'하나손해보험','농협손보':'NH농협손해보험',
+    'NH손보':'NH농협손해보험','농협손해보험':'NH농협손해보험','AXA':'AXA손해보험',
+    '악사손해보험':'AXA손해보험','AIG':'AIG손해보험','캐롯':'캐롯손해보험',
+    '캐롯손보':'캐롯손해보험','삼성':'삼성화재','현대':'현대해상','메리츠':'메리츠화재',
+    '흥국':'흥국화재','라이나':'라이나생명','처브':'처브라이프','우체국':'우체국보험','신협':'신협공제'
+  };
+  var keys=Object.keys(aliases);
+  for(var j=0;j<keys.length;j++){ if(s.indexOf(keys[j])>=0) return aliases[keys[j]]; }
+  return '';
+}
+
+function ccUploadMultiple(){
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='application/pdf'; inp.multiple=true;
+  inp.onchange=async function(){
+    var files=Array.prototype.slice.call(inp.files||[]);
+    if(!files.length) return;
+    // 미리 매칭 결과 확인
+    var matched=[], unmatched=[];
+    files.forEach(function(f){
+      var ins=ccGuessInsurerFromName(f.name);
+      if(ins) matched.push({file:f, insurer:ins}); else unmatched.push(f);
+    });
+    var msg=matched.length+'개 파일 인식됨';
+    if(unmatched.length) msg+=' / '+unmatched.length+'개는 보험사 인식 실패 (파일명에 보험사명을 포함해 주세요)';
+    if(!confirm(msg+'\n\n계속 업로드할까요?')) return;
+    var ok=0, fail=0;
+    for(var i=0;i<matched.length;i++){
+      var m=matched[i];
+      toast('업로드 중 ('+(i+1)+'/'+matched.length+'): '+m.insurer);
+      try{
+        var b64=await new Promise(function(res,rej){
+          var rd=new FileReader();
+          rd.onload=function(){ res(String(rd.result).split(',')[1]||''); };
+          rd.onerror=function(){ rej(rd.error); };
+          rd.readAsDataURL(m.file);
+        });
+        await idbSetTpl('tpl_'+m.insurer, b64);
+        try{ uploadTemplateToStorage(m.insurer, b64); }catch(e){}
+        ok++;
+      }catch(e){ console.warn('multi upload',m.insurer,e); fail++; }
+    }
+    window._ccPdf=null;
+    toast('완료: 성공 '+ok+'개, 실패 '+fail+'개, 미인식 '+unmatched.length+'개');
+    ccPopulateInsurers().then(function(){ ccRenderPage(1); });
+  };
+  inp.click();
+}
+
 function ccTotalPages(){
   if(window._ccPdf&&window._ccPdf.numPages) return window._ccPdf.numPages;
   var mx=0; CLAIM_FIELDS_DEFAULT.forEach(function(f){ if(f.page>mx)mx=f.page; }); return mx+1;
