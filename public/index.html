@@ -1216,6 +1216,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <div id="cc_tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     <span style="flex:1"></span>
     <button class="bp" id="cc_preview_btn" onclick="ccTogglePreview()" style="font-size:13px;padding:5px 10px" title="실제 들어갈 글자를 흐리게 미리보기"><i class="ti ti-eye"></i> 미리보기 끄기</button>
+    <button class="bp" id="cc_labels_btn" onclick="ccToggleLabels()" style="font-size:13px;padding:5px 10px" title="칩의 항목 제목 글자를 숨겨 미리보기가 가려지지 않게 함"><i class="ti ti-tag"></i> 제목 안보이기</button>
     <button class="bp" onclick="ccExport()" style="font-size:13px;padding:5px 10px"><i class="ti ti-copy"></i> 내보내기</button>
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
@@ -7426,7 +7427,13 @@ function ccPlaceChips(){
     chip.className='cc_chip'; chip.dataset.key=key;
     chip.style.cssText='position:absolute;padding:3px 7px 7px 9px;background:'+(off?'rgba(120,120,140,.65)':'rgba(72,88,204,.92)')+';color:#fff;font-size:12px;font-weight:600;border-radius:6px;white-space:nowrap;cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:5';
     var safeLabel=ccLabelFor(key).replace(/</g,'&lt;');
-    chip.innerHTML='<span class="cc_tog" title="사용/숨김 전환" style="cursor:pointer;margin-right:4px">'+(off?'☐':'☑')+'</span>'+safeLabel+'<span style="position:absolute;left:-3px;bottom:-3px;width:8px;height:8px;background:#ff3030;border:1px solid #fff;border-radius:50%"></span>';
+    chip.title=safeLabel;
+    var labelHidden=!!window._ccHideLabels;
+    var labelHtml = labelHidden ? '' : '<span class="cc_label">'+safeLabel+'</span>';
+    if(labelHidden){
+      chip.style.cssText='position:absolute;padding:2px 3px;background:'+(off?'rgba(120,120,140,.55)':'rgba(72,88,204,.7)')+';color:#fff;font-size:11px;font-weight:600;border-radius:4px;white-space:nowrap;cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 3px rgba(0,0,0,.25);z-index:5';
+    }
+    chip.innerHTML='<span class="cc_tog" title="사용/숨김 전환" style="cursor:pointer;'+(labelHidden?'':'margin-right:4px')+'">'+(off?'☐':'☑')+'</span>'+labelHtml+'<span style="position:absolute;left:-3px;bottom:-3px;width:8px;height:8px;background:#ff3030;border:1px solid #fff;border-radius:50%"></span>';
     ov.appendChild(chip);
     var hh=chip.offsetHeight||22;
     chip.style.left=ax+'px'; chip.style.top=(ay-hh)+'px';
@@ -7519,6 +7526,12 @@ function ccTogglePreview(){
   window._ccShowPreview=!window._ccShowPreview;
   var btn=g('cc_preview_btn');
   if(btn) btn.textContent=window._ccShowPreview?'미리보기 끄기':'미리보기 켜기';
+  ccPlaceChips();
+}
+function ccToggleLabels(){
+  window._ccHideLabels=!window._ccHideLabels;
+  var btn=g('cc_labels_btn');
+  if(btn) btn.textContent=window._ccHideLabels?'제목 보이기':'제목 안보이기';
   ccPlaceChips();
 }
 function ccToggleField(key){
