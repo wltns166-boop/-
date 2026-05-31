@@ -1218,7 +1218,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭하면 아래에서 <b>글씨크기·글자간격</b>을 조정할 수 있습니다. 맞춘 뒤 <b>저장</b> → 청구현황 <b>청구파일 재생성</b>.</div>
+  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭한 뒤 <b>방향키</b>로도 이동(↑↓←→ 1pt, Shift+방향키 10pt, Alt+방향키 0.5pt). 아래에서 <b>글씨크기·글자간격</b>도 조정. 맞춘 뒤 <b>저장</b> → 청구현황 <b>청구파일 재생성</b>.</div>
   <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
     <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
@@ -7216,6 +7216,7 @@ function openClaimCal(){
   if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
   if(typeof pdfjsLib==='undefined'){ toast('PDF 뷰어 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
   g('m_claimcal').classList.add('open');
+  ccNudgeSetup();
   ccPopulateInsurers().then(function(){
     var sel=g('cc_insurer');
     if(sel && !window._ccInsurer){ sel.value='DB손해보험'; }
@@ -7541,6 +7542,47 @@ function ccSelectChip(key){
     c.style.outline = (c.dataset.key===key) ? '2px solid #ffaa00' : 'none';
   }); }
   ccUpdatePropsPanel();
+}
+
+// 방향키로 선택된 칩 미세 이동 (모달 열려있고 입력칸 포커스가 아닐 때만)
+function ccNudgeSetup(){
+  if(window._ccNudgeBound) return;
+  window._ccNudgeBound=true;
+  document.addEventListener('keydown', function(e){
+    var modal=g('m_claimcal');
+    if(!modal || !modal.classList.contains('open')) return;
+    var key=window._ccSelKey;
+    if(!key || !window._ccWork || !window._ccWork[key]) return;
+    var tag=(e.target&&e.target.tagName)||'';
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+    var step;
+    if(e.shiftKey) step=10;
+    else if(e.altKey) step=0.5;
+    else step=1;
+    var co=window._ccWork[key];
+    var moved=false;
+    if(e.key==='ArrowLeft'){  co.x=Math.round((co.x-step)*10)/10; moved=true; }
+    else if(e.key==='ArrowRight'){ co.x=Math.round((co.x+step)*10)/10; moved=true; }
+    else if(e.key==='ArrowUp'){    co.y=Math.round((co.y+step)*10)/10; moved=true; } // PDF: y+ = 위
+    else if(e.key==='ArrowDown'){  co.y=Math.round((co.y-step)*10)/10; moved=true; }
+    if(moved){
+      e.preventDefault();
+      // 해당 칩만 위치 업데이트 (전체 재렌더 안 하고 더 부드럽게)
+      var ov=g('cc_overlay');
+      if(ov){
+        var chip=ov.querySelector('.cc_chip[data-key="'+key+'"]');
+        if(chip){
+          var sc=window._ccScale, H=window._ccPageH;
+          var hh=chip.offsetHeight||22;
+          chip.style.left=(co.x*sc)+'px';
+          chip.style.top=((H-co.y)*sc - hh)+'px';
+          chip.title=key+' (x:'+co.x+', y:'+co.y+')';
+        } else {
+          ccPlaceChips();
+        }
+      }
+    }
+  });
 }
 function ccUpdatePropsPanel(){
   var key=window._ccSelKey;
