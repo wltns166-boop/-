@@ -6912,7 +6912,8 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'acc_injury', label:'사고유형:상해',  page:0, x:128.4, y:498},
   {key:'acc_disease',label:'사고유형:질병',  page:0, x:169.2, y:496.6},
   {key:'acc_traffic',label:'사고유형:교통',  page:0, x:208.6, y:497.3},
-  {key:'accY',       label:'사고일:년',     page:0, x:106.1, y:467.3},
+  {key:'accY',       label:'사고일:년(4자리)', page:0, x:106.1, y:467.3},
+  {key:'accY2',      label:'사고일:년(2자리)', page:0, x:106.1, y:467.3, defOn:false},
   {key:'accM',       label:'사고일:월',     page:0, x:160.9, y:468.3},
   {key:'accD',       label:'사고일:일',     page:0, x:195.4, y:469},
   {key:'desc1',      label:'사고경위1',     page:0, x:377.4, y:472.9},
@@ -6920,7 +6921,8 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'accountNum', label:'계좌번호',      page:0, x:177.8, y:288.8},
   {key:'bank',       label:'은행',         page:0, x:378.1, y:293.7},
   {key:'accountName',label:'예금주',        page:0, x:480.7, y:294.4},
-  {key:'wY',         label:'작성일:년',     page:0, x:62.2,  y:149.9},
+  {key:'wY',         label:'작성일:년(4자리)', page:0, x:62.2,  y:149.9},
+  {key:'wY2',        label:'작성일:년(2자리)', page:0, x:62.2,  y:149.9, defOn:false},
   {key:'wM',         label:'작성일:월',     page:0, x:126.4, y:150.6},
   {key:'wD',         label:'작성일:일',     page:0, x:178.2, y:150.6},
   {key:'signName',   label:'피보험자성명',   page:0, x:436.4, y:159.5},
@@ -6936,9 +6938,10 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'p5v1',       label:'동의V',        page:4, x:544.7, y:664.1},
   {key:'p5v2',       label:'동의V',        page:4, x:544,   y:591},
   {key:'p5v3',       label:'동의V',        page:4, x:543.3, y:455.3},
-  {key:'p5Y',        label:'작성일:년',     page:4, x:96.3,  y:163.7},
-  {key:'p5M',        label:'작성일:월',     page:4, x:137.7, y:163},
-  {key:'p5D',        label:'작성일:일',     page:4, x:189.8, y:165.1},
+  {key:'p5Y',        label:'5p작성일:년(4자리)', page:4, x:96.3,  y:163.7},
+  {key:'p5Y2',       label:'5p작성일:년(2자리)', page:4, x:96.3,  y:163.7, defOn:false},
+  {key:'p5M',        label:'5p작성일:월',     page:4, x:137.7, y:163},
+  {key:'p5D',        label:'5p작성일:일',     page:4, x:189.8, y:165.1},
   {key:'p5Name',     label:'성명',         page:4, x:435.7, y:175.6},
   {key:'p5Sign',     label:'서명',         page:4, x:534.8, y:173.5}
 ];
@@ -6983,7 +6986,14 @@ var CLAIM_PRESETS = {
 function claimMeta(){
   var T=function(){return true;};
   function accHas(c,t){ var a=Array.isArray(c.accident)?c.accident:(c.accident?[c.accident]:[]); return a.indexOf(t)>=0; }
-  function accPart(c,i){ if(!c.accDate) return ''; var p=String(c.accDate).split('.'); return p[i]?String(p[i]).trim():''; }
+  function accPart(c,i){
+    if(!c.accDate) return '';
+    var p=String(c.accDate).split('.');
+    var v=p[i]?String(p[i]).trim():'';
+    if(!v) return '';
+    if(i===1||i===2){ if(v.length===1) v='0'+v; }   // 월·일은 두자리 (01~12, 01~31)
+    return v;
+  }
   function descPart(c,i){ var d=(c.desc||'').slice(0,100); return i===0?d.slice(0,50):d.slice(50); }
   return {
     ctName:{t:'ko',s:9,w:108,v:function(c,x){return x.ctName;}},
@@ -7009,6 +7019,7 @@ function claimMeta(){
     acc_disease:{t:'chk',s:9,cond:function(c){return accHas(c,'질병');}},
     acc_traffic:{t:'chk',s:9,cond:function(c){return accHas(c,'교통');}},
     accY:{t:'asc',s:9,pitch:25,v:function(c){return accPart(c,0);}},
+    accY2:{t:'asc',s:9,pitch:25,v:function(c){var v=accPart(c,0);return v?v.slice(-2):'';}},
     accM:{t:'asc',s:9,pitch:25,v:function(c){return accPart(c,1);}},
     accD:{t:'asc',s:9,pitch:25,v:function(c){return accPart(c,2);}},
     desc1:{t:'ko',s:9,w:450,v:function(c){return descPart(c,0);}},
@@ -7017,6 +7028,7 @@ function claimMeta(){
     bank:{t:'ko',s:9,w:62,v:function(c){return c.bank||'';}},
     accountName:{t:'ko',s:9,w:55,v:function(c){return c.accountName||'';}},
     wY:{t:'asc',s:9,v:function(c,x){return x.yy;}},
+    wY2:{t:'asc',s:9,v:function(c,x){return x.yy2;}},
     wM:{t:'asc',s:9,v:function(c,x){return x.mm;}},
     wD:{t:'asc',s:9,v:function(c,x){return x.dd;}},
     signName:{t:'ko',s:9,w:100,v:function(c,x){return x.insName;}},
@@ -7026,6 +7038,7 @@ function claimMeta(){
     p4v1:{t:'chk',s:8,cond:T},p4v2:{t:'chk',s:8,cond:T},
     p5v1:{t:'chk',s:8,cond:T},p5v2:{t:'chk',s:8,cond:T},p5v3:{t:'chk',s:8,cond:T},
     p5Y:{t:'asc',s:9,v:function(c,x){return x.yy;}},
+    p5Y2:{t:'asc',s:9,v:function(c,x){return x.yy2;}},
     p5M:{t:'asc',s:9,v:function(c,x){return x.mm;}},
     p5D:{t:'asc',s:9,v:function(c,x){return x.dd;}},
     p5Name:{t:'ko',s:9,w:100,v:function(c,x){return x.insName;}},
@@ -7047,7 +7060,10 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     ctRrn:(c.ctRrn||c.contractorRrn||c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
     ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
     ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
-    yy:String(now.getFullYear()), mm:String(now.getMonth()+1), dd:String(now.getDate())
+    yy:String(now.getFullYear()),
+    yy2:String(now.getFullYear()).slice(-2),
+    mm:('0'+(now.getMonth()+1)).slice(-2),
+    dd:('0'+now.getDate()).slice(-2)
   };
   var hv=await srcDoc.embedFont(StandardFonts.Helvetica);
   var hvB=await srcDoc.embedFont(StandardFonts.HelveticaBold);
@@ -7395,9 +7411,10 @@ var CC_TOOLBOX_GROUPS = [
     {key:'acc_traffic',label:'사고유형: 교통 V'},
     {key:'desc1',      label:'사고경위 1줄'},
     {key:'desc2',      label:'사고경위 2줄'},
-    {key:'accY',       label:'사고일: 년'},
-    {key:'accM',       label:'사고일: 월'},
-    {key:'accD',       label:'사고일: 일'}
+    {key:'accY',       label:'사고일: 년 (4자리)'},
+    {key:'accY2',      label:'사고일: 년 (2자리)'},
+    {key:'accM',       label:'사고일: 월 (01~12)'},
+    {key:'accD',       label:'사고일: 일 (01~31)'}
   ]},
   { title:'계좌', items:[
     {key:'bank',        label:'은행명'},
@@ -7418,9 +7435,10 @@ var CC_TOOLBOX_GROUPS = [
     {key:'p5v3', label:'5p 동의 V #3'}
   ]},
   { title:'작성일·기타', items:[
-    {key:'wY',       label:'작성일: 년'},
-    {key:'wM',       label:'작성일: 월'},
-    {key:'wD',       label:'작성일: 일'},
+    {key:'wY',       label:'작성일: 년 (4자리)'},
+    {key:'wY2',      label:'작성일: 년 (2자리)'},
+    {key:'wM',       label:'작성일: 월 (01~12)'},
+    {key:'wD',       label:'작성일: 일 (01~31)'},
     {key:'signName', label:'서명 옆 성명'}
   ]}
 ];
