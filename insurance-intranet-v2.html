@@ -624,6 +624,19 @@ tbody tr:last-child td{border-bottom:none}
       <div class="page" id="page-claim">
         <div class="page-title">💰 보험금 청구</div>
         <div class="page-sub">보험금 청구 접수 및 현황을 관리하세요</div>
+
+        <!-- 청구서류 양식 (Firebase Storage 팀 공유) -->
+        <div class="card mb20" id="claim-forms-card">
+          <div class="card-title"><span class="ct-icon">📎</span> 청구서류 양식 <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">· 팀 공용 · 관리자가 올리면 모두 다운로드</span></div>
+          <div id="cf-admin-upload" class="no-print" style="display:none;margin-bottom:14px;align-items:center;gap:10px">
+            <label class="btn btn-primary" style="cursor:pointer;display:inline-block">⬆ 양식 업로드
+              <input type="file" id="cf-file" onchange="uploadClaimForm(this)" style="display:none">
+            </label>
+            <span id="cf-upload-status" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div id="cf-list" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+
         <div class="flex gap8 mb16">
           <button class="btn btn-primary no-print" onclick="toggleForm('claim-form')">➕ 청구 접수</button>
           <button class="btn btn-secondary no-print" onclick="exportPDF('page-claim','보험금청구')">📄 PDF</button>
@@ -761,6 +774,29 @@ tbody tr:last-child td{border-bottom:none}
     </button>
   </div>
 </div>
+
+<!-- Firebase SDK (청구서류 양식 클라우드 공유) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script>
+  /* ⚠ 아래 값은 Firebase 콘솔의 firebaseConfig 입니다.
+     이미지에서 옮겨 적었으니, 연결이 안 되면 apiKey / appId 가 정확한지 콘솔의 복사 버튼으로 다시 확인하세요. */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBg8dwkOHXU_LZO3C9k4hvOH0OnatJEWwY",
+    authDomain: "team-tops-intranet.firebaseapp.com",
+    projectId: "team-tops-intranet",
+    storageBucket: "team-tops-intranet.firebasestorage.app",
+    messagingSenderId: "529903386122",
+    appId: "1:529903386122:web:6244e4459aa084726fa9f3",
+    measurementId: "G-XRM6D3JWS2"
+  };
+  try {
+    firebase.initializeApp(firebaseConfig);
+    window._fbStorage = firebase.storage();
+  } catch (e) {
+    console.error('Firebase 초기화 실패:', e);
+  }
+</script>
 
 <script>
 /* ═══════════════════════════════════════
@@ -954,6 +990,7 @@ function initApp() {
   renderOrgChart();
   renderNotifPanel();
   renderDashClaims();
+  renderClaimForms();
   buildCalendar();
   renderChat();
   updateNotifBadge();
@@ -1837,6 +1874,92 @@ function renderOrgChart() {
   container.innerHTML = `<svg width="100%" viewBox="0 0 ${svgW} ${totalH}" style="display:block">
     ${lines}${nodesSvg}
   </svg>`;
+}
+
+/* ═══════════════════════════════════════
+   청구서류 양식 (Firebase Storage 팀 공유)
+═══════════════════════════════════════ */
+function cfFmtSize(bytes) {
+  if (bytes == null) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+function cfIcon(name) {
+  if (/\.pdf$/i.test(name)) return '📕';
+  if (/\.(xls|xlsx|csv)$/i.test(name)) return '📊';
+  if (/\.(doc|docx|hwp|hwpx)$/i.test(name)) return '📄';
+  if (/\.(png|jpe?g|gif|webp)$/i.test(name)) return '🖼️';
+  if (/\.(zip|rar|7z)$/i.test(name)) return '🗜️';
+  return '📎';
+}
+async function renderClaimForms() {
+  const list = document.getElementById('cf-list');
+  if (!list) return;
+  // 관리자에게만 업로드 영역 표시
+  const up = document.getElementById('cf-admin-upload');
+  const isAdmin = !!(currentUser && currentUser.role === 'admin');
+  if (up) up.style.display = isAdmin ? 'flex' : 'none';
+
+  if (typeof firebase === 'undefined' || !window._fbStorage) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--danger)">⚠ 클라우드(Firebase) 연결이 설정되지 않았습니다.</div>';
+    return;
+  }
+  list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">불러오는 중…</div>';
+  try {
+    const res = await window._fbStorage.ref('claim_templates').listAll();
+    if (!res.items.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">아직 등록된 양식이 없습니다.' +
+        (isAdmin ? ' 위 <b>양식 업로드</b> 버튼으로 올려주세요.' : ' 관리자가 등록하면 여기에 표시됩니다.') + '</div>';
+      return;
+    }
+    const rows = await Promise.all(res.items.map(async item => {
+      let url = '', meta = {};
+      try { url = await item.getDownloadURL(); } catch (e) {}
+      try { meta = await item.getMetadata(); } catch (e) {}
+      const safePath = item.fullPath.replace(/'/g, "\\'");
+      const safeName = item.name.replace(/'/g, "\\'");
+      return `<div class="file-item">
+        <div class="file-icon">${cfIcon(item.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="file-name">${item.name}</div>
+          <div class="file-meta">${meta.size ? cfFmtSize(meta.size) : ''}${meta.timeCreated ? ' · ' + meta.timeCreated.slice(0, 10) : ''}</div>
+        </div>
+        <a class="btn btn-secondary btn-sm" href="${url}" target="_blank" rel="noopener" download="${item.name}">⬇ 다운로드</a>
+        ${isAdmin ? `<button class="btn btn-sm no-print" style="background:var(--danger);color:#fff" onclick="deleteClaimForm('${safePath}','${safeName}')">삭제</button>` : ''}
+      </div>`;
+    }));
+    list.innerHTML = rows.join('');
+  } catch (e) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--danger)">불러오기 실패: ' + (e.message || e) + '</div>';
+  }
+}
+async function uploadClaimForm(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!window._fbStorage) { showToast('danger', '오류', '클라우드 연결이 없습니다.'); return; }
+  const status = document.getElementById('cf-upload-status');
+  if (status) status.textContent = `'${file.name}' 업로드 중…`;
+  try {
+    await window._fbStorage.ref('claim_templates/' + file.name).put(file);
+    if (status) status.textContent = '';
+    input.value = '';
+    showToast('success', '✅ 업로드 완료', `${file.name} 양식이 팀에 공유되었습니다.`);
+    renderClaimForms();
+  } catch (e) {
+    if (status) status.textContent = '';
+    showToast('danger', '업로드 실패', e.message || String(e));
+  }
+}
+async function deleteClaimForm(fullPath, name) {
+  if (!confirm(`'${name}' 양식을 삭제할까요? 팀 전체에서 사라집니다.`)) return;
+  try {
+    await window._fbStorage.ref(fullPath).delete();
+    showToast('info', '🗑️ 삭제됨', `${name} 양식이 삭제되었습니다.`);
+    renderClaimForms();
+  } catch (e) {
+    showToast('danger', '삭제 실패', e.message || String(e));
+  }
 }
 
 /* ── Util ── */
