@@ -293,6 +293,36 @@ tbody tr:last-child td{border-bottom:none}
 
 /* Utility */
 .mb16{margin-bottom:16px}.mb20{margin-bottom:20px}.mt16{margin-top:16px}.flex{display:flex}.gap8{gap:8px}.gap10{gap:10px}
+
+/* ── 청구서 좌표 직접설정 모달 ── */
+.cc-modal{display:none;position:fixed;inset:0;background:rgba(15,31,61,.55);backdrop-filter:blur(3px);z-index:400;align-items:center;justify-content:center;padding:20px}
+.cc-modal.show{display:flex}
+.cc-box{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:800px;max-width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;animation:fadeUp .25s ease}
+.cc-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cc-head h3{font-size:16px;font-weight:700}
+.cc-x{cursor:pointer;font-size:22px;color:var(--muted);background:none;border:none;line-height:1;padding:0 4px}
+.cc-x:hover{color:var(--text)}
+.cc-body{padding:18px 20px;overflow:auto;display:flex;gap:18px;flex-wrap:wrap}
+.cc-stage{flex:1;min-width:300px;display:flex;flex-direction:column;gap:10px}
+.cc-hint{font-size:12px;color:var(--muted);line-height:1.7}
+.cc-hint kbd{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text)}
+.cc-canvas{position:relative;width:100%;max-width:460px;aspect-ratio:1 / 1.414;margin:0 auto;background:#fff;border:1px solid var(--border);border-radius:6px;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:24px 24px;overflow:hidden;user-select:none;touch-action:none}
+.cc-canvas::before{content:'청구서 양식';position:absolute;top:10px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);letter-spacing:3px;pointer-events:none}
+.cc-chip{position:absolute;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:var(--blue);color:#fff;font-size:12px;font-weight:600;border-radius:7px;white-space:nowrap;cursor:grab;box-shadow:0 2px 6px rgba(30,94,243,.35);border:2px solid transparent;touch-action:none}
+.cc-chip:active{cursor:grabbing}
+.cc-chip.sel{background:var(--accent);color:#06352b;border-color:#fff;box-shadow:0 0 0 2px var(--accent),0 3px 12px rgba(0,212,170,.5);z-index:5}
+.cc-chip .cc-val{font-weight:400;opacity:.85}
+.cc-rubber{position:absolute;border:1.5px dashed var(--blue);background:rgba(30,94,243,.1);pointer-events:none;z-index:10}
+.cc-side{width:208px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.cc-side .cc-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.cc-list{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow:auto}
+.cc-list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer}
+.cc-list-item:hover{background:var(--bg)}
+.cc-list-item.sel{border-color:var(--accent);background:rgba(0,212,170,.08)}
+.cc-list-item .cc-xy{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.cc-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cc-sel-count{font-size:12px;color:var(--muted)}
+@media(max-width:640px){.cc-side{width:100%}}
 </style>
 </head>
 <body>
@@ -364,6 +394,34 @@ tbody tr:last-child td{border-bottom:none}
 
   <!-- Sidebar overlay -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- 청구서 좌표 직접설정 모달 -->
+  <div class="cc-modal" id="cc-modal" role="dialog" aria-modal="true" aria-labelledby="cc-title">
+    <div class="cc-box">
+      <div class="cc-head">
+        <h3 id="cc-title">🧷 청구서 좌표 직접설정</h3>
+        <button class="cc-x" onclick="ccCloseSetup()" aria-label="닫기">×</button>
+      </div>
+      <div class="cc-body">
+        <div class="cc-stage">
+          <div class="cc-hint">필드 칩을 드래그해 청구서 양식 위에 배치하세요. 칩을 클릭하면 선택되고, <kbd>Shift</kbd>+클릭 또는 빈 곳 드래그로 여러 개를 함께 선택할 수 있습니다. 선택된 칩은 <kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> 방향키로 미세 이동(<kbd>Shift</kbd>+방향키는 10px)할 수 있습니다.</div>
+          <div class="cc-canvas" id="cc-canvas"></div>
+        </div>
+        <div class="cc-side">
+          <div class="cc-label">필드 목록</div>
+          <div class="cc-list" id="cc-list"></div>
+        </div>
+      </div>
+      <div class="cc-foot">
+        <span class="cc-sel-count" id="cc-sel-count">선택 없음</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="ccResetCoords()">초기화</button>
+          <button class="btn btn-secondary" onclick="ccCloseSetup()">취소</button>
+          <button class="btn btn-primary" onclick="ccSaveCoords()">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="layout">
     <aside id="sidebar">
@@ -626,6 +684,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="page-sub">보험금 청구 접수 및 현황을 관리하세요</div>
         <div class="flex gap8 mb16">
           <button class="btn btn-primary no-print" onclick="toggleForm('claim-form')">➕ 청구 접수</button>
+          <button class="btn btn-secondary no-print" onclick="ccOpenSetup()">🧷 청구서 좌표 설정</button>
           <button class="btn btn-secondary no-print" onclick="exportPDF('page-claim','보험금청구')">📄 PDF</button>
           <button class="btn btn-secondary no-print" onclick="printPage()">🖨️ 인쇄</button>
         </div>
@@ -1614,6 +1673,248 @@ function exportPDF(pageId, filename) {
 }
 
 /* ═══════════════════════════════════════
+   청구서 좌표 직접설정 (드래그·다중선택·방향키)
+   - 단일 선택 집합(CC.sel)을 드래그/다중선택/방향키가 공유
+   - 방향키 핸들러는 모달 열림 동안 document에 부착 → 포커스와 무관하게 동작
+═══════════════════════════════════════ */
+const CC_FIELDS = [
+  { key:'id',     label:'청구번호', dx:48, dy:12 },
+  { key:'date',   label:'접수일',   dx:48, dy:22 },
+  { key:'name',   label:'고객명',   dx:14, dy:34 },
+  { key:'type',   label:'보험종류', dx:54, dy:34 },
+  { key:'amount', label:'청구금액', dx:14, dy:48 },
+  { key:'diag',   label:'진단명',   dx:14, dy:62 },
+  { key:'period', label:'입원기간', dx:14, dy:76 },
+];
+const CC_SAMPLE = { id:'CLM-2025-001', date:'2025.06.01', name:'홍길동', type:'실손의료', amount:'₩1,200,000', diag:'단순골절', period:'05.01~05.05' };
+const CC = { sel:new Set(), coords:{}, keyHandler:null };
+
+function ccClamp(v){ return Math.max(0, Math.min(96, v)); }
+
+function ccLoadCoords() {
+  const saved = ls('claimFormCoords', {});
+  const out = {};
+  CC_FIELDS.forEach(f => {
+    const s = saved[f.key];
+    out[f.key] = (s && typeof s.x === 'number' && typeof s.y === 'number')
+      ? { x:ccClamp(s.x), y:ccClamp(s.y) }
+      : { x:f.dx, y:f.dy };
+  });
+  return out;
+}
+
+function ccOpenSetup() {
+  CC.coords = ccLoadCoords();
+  CC.sel = new Set();
+  document.getElementById('cc-modal').classList.add('show');
+  ccRenderChips();
+  ccNudgeSetup();
+}
+function ccCloseSetup() {
+  document.getElementById('cc-modal').classList.remove('show');
+  ccNudgeTeardown();
+}
+
+function ccRenderChips() {
+  const canvas = document.getElementById('cc-canvas');
+  if (!canvas) return;
+  canvas.querySelectorAll('.cc-chip').forEach(n => n.remove());
+  CC_FIELDS.forEach(f => {
+    const c = CC.coords[f.key];
+    const chip = document.createElement('div');
+    chip.className = 'cc-chip' + (CC.sel.has(f.key) ? ' sel' : '');
+    chip.dataset.key = f.key;
+    chip.style.left = c.x + '%';
+    chip.style.top  = c.y + '%';
+    chip.innerHTML = `${f.label} <span class="cc-val">${CC_SAMPLE[f.key] || ''}</span>`;
+    chip.addEventListener('pointerdown', e => ccDrag(e, f.key));
+    canvas.appendChild(chip);
+  });
+  canvas.onpointerdown = ccCanvasDown; // 빈 곳 드래그 = 러버밴드 다중선택
+  ccRenderList();
+  ccUpdateSelCount();
+}
+
+function ccApplyPositions() {
+  document.querySelectorAll('#cc-canvas .cc-chip').forEach(chip => {
+    const c = CC.coords[chip.dataset.key];
+    chip.style.left = c.x + '%';
+    chip.style.top  = c.y + '%';
+  });
+}
+function ccSyncSelClasses() {
+  document.querySelectorAll('#cc-canvas .cc-chip').forEach(chip => {
+    chip.classList.toggle('sel', CC.sel.has(chip.dataset.key));
+  });
+  document.querySelectorAll('#cc-list .cc-list-item').forEach(it => {
+    it.classList.toggle('sel', CC.sel.has(it.dataset.key));
+  });
+}
+
+/* 칩 선택: additive(Shift/Ctrl)면 토글, 아니면 단독 선택 */
+function ccSelectChip(key, additive) {
+  if (additive) {
+    if (CC.sel.has(key)) CC.sel.delete(key); else CC.sel.add(key);
+  } else {
+    CC.sel = new Set([key]);
+  }
+  ccSyncSelClasses();
+  ccUpdateSelCount();
+}
+
+/* 칩 드래그: 선택된 모든 칩을 함께 이동 */
+function ccDrag(e, key) {
+  e.preventDefault();
+  e.stopPropagation(); // 캔버스 러버밴드가 시작되지 않도록
+  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  if (additive) {
+    ccSelectChip(key, true);
+  } else if (!CC.sel.has(key)) {
+    ccSelectChip(key, false); // 선택 안 된 칩을 잡으면 단독 선택
+  }
+  if (!CC.sel.has(key)) return; // Shift로 방금 해제했다면 드래그 안 함
+
+  const canvas = document.getElementById('cc-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const startX = e.clientX, startY = e.clientY;
+  const origin = {};
+  CC.sel.forEach(k => origin[k] = { x:CC.coords[k].x, y:CC.coords[k].y });
+
+  const onMove = ev => {
+    const ddx = (ev.clientX - startX) / rect.width  * 100;
+    const ddy = (ev.clientY - startY) / rect.height * 100;
+    CC.sel.forEach(k => {
+      CC.coords[k].x = ccClamp(origin[k].x + ddx);
+      CC.coords[k].y = ccClamp(origin[k].y + ddy);
+    });
+    ccApplyPositions();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    ccRenderList();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+/* 캔버스 빈 곳 드래그 → 러버밴드 박스로 다중 선택 */
+function ccCanvasDown(e) {
+  if (e.target.closest('.cc-chip')) return; // 칩은 자체 처리
+  const canvas = document.getElementById('cc-canvas');
+  const rect = canvas.getBoundingClientRect();
+  if (!(e.shiftKey || e.ctrlKey || e.metaKey)) {
+    CC.sel = new Set();
+    ccSyncSelClasses();
+    ccUpdateSelCount();
+  }
+  const base = new Set(CC.sel);
+  const startX = e.clientX, startY = e.clientY;
+  const box = document.createElement('div');
+  box.className = 'cc-rubber';
+  canvas.appendChild(box);
+
+  const onMove = ev => {
+    const x1 = Math.min(startX, ev.clientX), y1 = Math.min(startY, ev.clientY);
+    const x2 = Math.max(startX, ev.clientX), y2 = Math.max(startY, ev.clientY);
+    box.style.left   = (x1 - rect.left) + 'px';
+    box.style.top    = (y1 - rect.top)  + 'px';
+    box.style.width  = (x2 - x1) + 'px';
+    box.style.height = (y2 - y1) + 'px';
+    const sel = new Set(base);
+    document.querySelectorAll('#cc-canvas .cc-chip').forEach(chip => {
+      const r = chip.getBoundingClientRect();
+      if (r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1) sel.add(chip.dataset.key);
+    });
+    CC.sel = sel;
+    ccSyncSelClasses();
+    ccUpdateSelCount();
+  };
+  const onUp = () => {
+    box.remove();
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+/* 방향키 미세 이동: 모달 열림 동안 document에 부착 */
+function ccNudgeSetup() {
+  ccNudgeTeardown();
+  CC.keyHandler = ccOnKey;
+  document.addEventListener('keydown', CC.keyHandler);
+}
+function ccNudgeTeardown() {
+  if (CC.keyHandler) {
+    document.removeEventListener('keydown', CC.keyHandler);
+    CC.keyHandler = null;
+  }
+}
+function ccOnKey(e) {
+  const modal = document.getElementById('cc-modal');
+  if (!modal || !modal.classList.contains('show')) return;
+  if (e.key === 'Escape') { ccCloseSetup(); return; }
+  // 입력 요소에 포커스가 있으면 방향키를 가로채지 않음
+  const t = e.target;
+  if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+  const D = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] };
+  const d = D[e.key];
+  if (!d) return;
+  e.preventDefault(); // 페이지 스크롤 방지
+  if (CC.sel.size === 0) return;
+  const canvas = document.getElementById('cc-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const px = e.shiftKey ? 10 : 1;
+  const stepX = px / rect.width  * 100;
+  const stepY = px / rect.height * 100;
+  CC.sel.forEach(k => {
+    CC.coords[k].x = ccClamp(CC.coords[k].x + d[0] * stepX);
+    CC.coords[k].y = ccClamp(CC.coords[k].y + d[1] * stepY);
+  });
+  ccApplyPositions();
+  ccRenderList();
+}
+
+function ccRenderList() {
+  const list = document.getElementById('cc-list');
+  if (!list) return;
+  list.innerHTML = CC_FIELDS.map(f => {
+    const c = CC.coords[f.key];
+    return `<div class="cc-list-item${CC.sel.has(f.key) ? ' sel' : ''}" data-key="${f.key}" onclick="ccListClick(event,'${f.key}')">
+      <span>${f.label}</span>
+      <span class="cc-xy">${Math.round(c.x)}, ${Math.round(c.y)}</span>
+    </div>`;
+  }).join('');
+}
+function ccListClick(e, key) {
+  ccSelectChip(key, e.shiftKey || e.ctrlKey || e.metaKey);
+}
+
+function ccUpdateSelCount() {
+  const el = document.getElementById('cc-sel-count');
+  if (!el) return;
+  el.textContent = CC.sel.size === 0 ? '선택 없음'
+    : CC.sel.size === 1 ? '1개 선택됨 · 방향키로 이동'
+    : `${CC.sel.size}개 선택됨 · 방향키로 함께 이동`;
+}
+
+function ccSaveCoords() {
+  const out = {};
+  CC_FIELDS.forEach(f => out[f.key] = { x:CC.coords[f.key].x, y:CC.coords[f.key].y });
+  lsSet('claimFormCoords', out);
+  ccCloseSetup();
+  showToast('success', '🧷 좌표 저장', '청구서 필드 좌표가 저장되었습니다.');
+}
+function ccResetCoords() {
+  CC.coords = {};
+  CC_FIELDS.forEach(f => CC.coords[f.key] = { x:f.dx, y:f.dy });
+  CC.sel = new Set();
+  ccRenderChips();
+  showToast('info', '↺ 초기화', '기본 좌표로 되돌렸습니다.');
+}
+
+/* ═══════════════════════════════════════
    ADMIN
 ═══════════════════════════════════════ */
 function exportAllData() {
@@ -1747,8 +2048,7 @@ function saveOrgNode(id) {
 }
 
 function deleteOrgNode(id) {
-  if (!confirm('이 노드를 삭제하시겠습니까?
-하위 노드는 최상위로 이동됩니다.')) return;
+  if (!confirm('이 노드를 삭제하시겠습니까?\n하위 노드는 최상위로 이동됩니다.')) return;
   let nodes = ls('orgNodes', []);
   nodes = nodes.filter(n => n.id !== id).map(n => ({ ...n, parentId: n.parentId === id ? null : n.parentId }));
   lsSet('orgNodes', nodes);
