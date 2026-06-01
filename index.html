@@ -6492,6 +6492,11 @@ async function uploadClaimPackagesToStorage(pkgId, packagePDFs, urlMap){
     toast('Storage 미연결 — 청구파일이 본인 기기에만 저장됩니다.');
     return;
   }
+  // 보안 규칙(claim_packages는 인증 필요)을 위해 익명 인증 완료까지 대기
+  try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+  if(typeof firebase!=='undefined' && firebase.auth && !(firebase.auth().currentUser)){
+    try{ await firebase.auth().signInAnonymously(); }catch(e){ console.warn('익명 인증 재시도 실패:', e); }
+  }
   var insurers = Object.keys(packagePDFs);
   for(var i=0;i<insurers.length;i++){
     var ins = insurers[i];
