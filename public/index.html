@@ -6500,7 +6500,11 @@ async function generateClaimPackage(idx) {
       var arr=Uint8Array.from(atob(png.split(',')[1]),function(ch){return ch.charCodeAt(0);});
       var img=await doc.embedPng(arr);
       var lh=(fontSize||9)*1.4;
-      page.drawImage(img,{x:x,y:y-lh+2,width:img.width/3,height:lh});
+      // 캔버스 안 글자 바닥선은 cv.height*0.78 위치 → 이미지 바닥이 y 좌표에
+      // 오게 두면 한글 글자가 빨간 점보다 ~8pt 아래로 박히는 문제.
+      // 글자 베이스라인이 y에 오도록 이미지 바닥을 위로 보정 (1-0.78)*lh.
+      var baselineOffset=lh*0.22;
+      page.drawImage(img,{x:x,y:y-baselineOffset,width:img.width/3,height:lh});
     }catch(e){console.warn('dtx',text,e);}
   }
 
