@@ -1,0 +1,42 @@
+name: Deploy to Firebase
+
+# main 또는 claude/* 브랜치에 푸시되면 자동으로 Firebase에 배포한다.
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # 1) 호스팅(HTML) 배포 — 무료(Spark) 요금제에서도 항상 동작
+      - name: Deploy Hosting
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting --project team-tops-intranet
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # 2) (선택) /api/analyze 함수 배포 — Blaze 요금제 + ANTHROPIC_API_KEY 시크릿 필요
+      #    설정 전에는 이 단계가 실패해도 호스팅 배포에는 영향이 없도록 continue-on-error 처리
+      - name: Install functions deps
+        run: npm --prefix functions install
+
+      - name: Deploy Functions (optional)
+        continue-on-error: true
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions --project team-tops-intranet
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
