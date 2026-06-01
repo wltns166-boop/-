@@ -699,7 +699,8 @@ tbody tr:last-child td{border-bottom:none}
             <div class="form-group"><label>진단명</label><input id="clf-diag" placeholder="진단명"></div>
             <div class="form-group"><label>입원기간</label><input id="clf-period" placeholder="2025.05.01 ~ 2025.05.05"></div>
           </div>
-          <div class="form-group"><label>서류 목록</label><textarea id="clf-docs" placeholder="진단서, 영수증, 입퇴원확인서 등"></textarea></div>
+          <div class="form-group"><label>서류 메모</label><textarea id="clf-docs" placeholder="진단서, 영수증, 입퇴원확인서 등"></textarea></div>
+          <div class="form-group"><label>청구 서류 첨부 (이미지·PDF, 여러 개 가능)</label><input id="clf-files" type="file" multiple accept="image/*,application/pdf" style="font-size:13px"></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="saveClaim()">청구 접수</button><button class="btn btn-secondary" onclick="toggleForm('claim-form')">취소</button></div>
         </div>
         <div class="grid-4 mb20">
@@ -709,7 +710,7 @@ tbody tr:last-child td{border-bottom:none}
           <div class="stat-card"><div class="stat-label">반려</div><div class="stat-val" id="cs-reject" style="color:var(--danger)">0</div></div>
         </div>
         <div class="card"><div class="tbl-wrap"><table>
-          <thead><tr><th>청구번호</th><th>고객명</th><th>보험종류</th><th>청구금액</th><th>접수일</th><th>상태</th><th>액션</th></tr></thead>
+          <thead><tr><th>청구번호</th><th>고객명</th><th>보험종류</th><th>청구금액</th><th>접수일</th><th>서류</th><th>상태</th><th>액션</th></tr></thead>
           <tbody id="claim-table"></tbody>
         </table></div></div>
       </div>
@@ -821,7 +822,70 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+
 <script>
+/* ═══════════════════════════════════════
+   FIREBASE 설정 (클라우드 동기화 + 파일 업로드)
+   - apiKey는 웹 클라이언트용 공개 키입니다. 실제 보호는 보안 규칙이 담당합니다.
+═══════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBg8dwkOHXU_lZO3C9k4hvOH0OnatJEWwY",
+  authDomain: "team-tops-intranet.firebaseapp.com",
+  projectId: "team-tops-intranet",
+  storageBucket: "team-tops-intranet.firebasestorage.app",
+  messagingSenderId: "529903386122",
+  appId: "1:529903386122:web:6244e4459aa084726fa9f3",
+  measurementId: "G-XRM6D3JWS2"
+};
+
+/* 클라우드 동기화 계층: localStorage를 로컬 캐시로 두고, 저장 시 Firestore에 미러,
+   로그인 시 Firestore에서 먼저 내려받아(hydrate) 어느 기기에서나 같은 데이터를 봅니다. */
+const CLOUD = {
+  ready: false, db: null, storage: null,
+  // localStorage와 1:1로 미러링할 키 목록
+  KEYS: ['customers','medicals','claims','dbreqs','notices','calEvents','chats','notifs','orgNodes','staff','claimFormCoords']
+};
+function cloudInit() {
+  try {
+    if (typeof firebase === 'undefined') throw new Error('Firebase SDK 로드 실패');
+    firebase.initializeApp(firebaseConfig);
+    CLOUD.db = firebase.firestore();
+    CLOUD.storage = firebase.storage();
+    CLOUD.ready = true;
+  } catch (e) {
+    CLOUD.ready = false;
+    console.warn('[cloud] 초기화 실패 — 로컬(localStorage) 모드로 동작합니다.', e);
+  }
+}
+/* 로그인 시 클라우드 → localStorage 로 최신 데이터 내려받기 */
+async function cloudHydrate() {
+  if (!CLOUD.ready) return false;
+  try {
+    const snap = await CLOUD.db.collection('appdata').get();
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d && typeof d.json === 'string') {
+        try { localStorage.setItem('in_' + doc.id, d.json); } catch {}
+      }
+    });
+    return true;
+  } catch (e) {
+    console.warn('[cloud] 데이터 내려받기 실패', e);
+    return false;
+  }
+}
+/* 저장 시 클라우드로 미러 (fire-and-forget) */
+function cloudPush(key, jsonStr) {
+  if (!CLOUD.ready) return;
+  CLOUD.db.collection('appdata').doc(key)
+    .set({ json: jsonStr, updatedAt: Date.now() })
+    .catch(e => console.warn('[cloud] 저장 실패:', key, e));
+}
+
 /* ═══════════════════════════════════════
    DATA & USERS
 ═══════════════════════════════════════ */
@@ -839,7 +903,9 @@ function ls(key, def) {
   try { const v = localStorage.getItem('in_'+key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
 function lsSet(key, val) {
-  try { localStorage.setItem('in_'+key, JSON.stringify(val)); } catch {}
+  let str;
+  try { str = JSON.stringify(val); localStorage.setItem('in_'+key, str); } catch {}
+  if (str !== undefined) cloudPush(key, str); // 클라우드로 미러 (연결 없으면 무시)
 }
 
 /* ── Seed initial data if empty ── */
@@ -976,12 +1042,18 @@ function doLogout() {
   document.getElementById('login-pw').value='';
 }
 document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+cloudInit(); // 페이지 로드 시 Firebase 연결 (실패해도 로컬 모드로 동작)
 
 /* ═══════════════════════════════════════
    INIT APP
 ═══════════════════════════════════════ */
-function initApp() {
+async function initApp() {
+  // 1) 클라우드에서 최신 데이터를 먼저 내려받아 localStorage(캐시)를 채운다
+  const synced = await cloudHydrate();
+  // 2) 그 후 비어 있는 키만 시드 (시드도 lsSet을 거쳐 클라우드에 자동 반영됨)
   initData();
+  if (synced) showToast('success', '☁️ 동기화 완료', '클라우드에서 최신 데이터를 불러왔습니다.');
+  else if (!CLOUD.ready) showToast('warning', '오프라인 모드', '클라우드 연결이 없어 이 기기에만 저장됩니다.');
 
   // Header
   const u = currentUser;
@@ -1188,13 +1260,16 @@ function renderClaims() {
       <td>${c.type}</td>
       <td>₩${Number(c.amount).toLocaleString()}</td>
       <td>${c.date}</td>
+      <td>${(c.files && c.files.length)
+        ? c.files.map(f=>`<a href="${f.url}" target="_blank" rel="noopener" style="display:block;font-size:11px;color:var(--blue);text-decoration:none">📎 ${f.name}</a>`).join('')
+        : '<span style="color:var(--muted);font-size:11px">-</span>'}</td>
       <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
       <td>
         <select onchange="updateClaimStatus(${i},this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px;font-size:11px">
           ${['접수','심사중','완료','반려'].map(s=>`<option${c.status===s?' selected':''}>${s}</option>`).join('')}
         </select>
       </td>
-    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">청구 내역이 없습니다</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">청구 내역이 없습니다</td></tr>';
   // Stats
   const counts = {접수:0,심사중:0,완료:0,반려:0};
   data.forEach(c => { if(counts[c.status]!==undefined) counts[c.status]++; });
@@ -1229,26 +1304,53 @@ function renderDashClaims() {
       <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
     </tr>`).join('');
 }
-function saveClaim() {
+async function saveClaim() {
   const name = document.getElementById('clf-name').value.trim();
   if (!name) return showToast('danger','오류','고객명을 입력하세요.');
   const claims = ls('claims',[]);
   const newId = 'CL-2025-' + String(claims.length + 25).padStart(4,'0');
+
+  // 청구 서류 파일 업로드 → Firebase Storage
+  const fileInput = document.getElementById('clf-files');
+  let files = [];
+  if (fileInput && fileInput.files.length) {
+    if (CLOUD.ready) {
+      showToast('info','⬆️ 업로드 중',`서류 ${fileInput.files.length}건을 업로드하고 있습니다...`);
+      try {
+        for (const f of fileInput.files) {
+          const path = `claims/${newId}/${Date.now()}_${f.name}`;
+          const ref = CLOUD.storage.ref().child(path);
+          await ref.put(f);
+          const url = await ref.getDownloadURL();
+          files.push({ name: f.name, url, path });
+        }
+      } catch (e) {
+        console.warn('[cloud] 서류 업로드 실패', e);
+        return showToast('danger','업로드 실패','서류 업로드 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      }
+    } else {
+      showToast('warning','오프라인','클라우드 연결이 없어 첨부 파일은 저장되지 않았습니다.');
+    }
+  }
+
   claims.unshift({
     id: newId, name,
     type: document.getElementById('clf-type').value,
     amount: document.getElementById('clf-amount').value || 0,
     diag: document.getElementById('clf-diag').value,
     period: document.getElementById('clf-period').value,
+    docs: document.getElementById('clf-docs').value,
+    files,
     status: '접수',
     date: today()
   });
-  lsSet('claims', claims);
+  lsSet('claims', claims); // localStorage + 클라우드 미러
   renderClaims();
   toggleForm('claim-form');
-  showToast('success','✅ 청구 접수',`${name} 님 청구가 접수되었습니다.`);
+  showToast('success','✅ 청구 접수',`${name} 님 청구가 접수되었습니다.${files.length?` (서류 ${files.length}건 첨부)`:''}`);
   addNotif('info','청구 접수',`${name} 님 보험금 청구가 접수되었습니다.`);
   ['clf-name','clf-amount','clf-diag','clf-period','clf-docs'].forEach(id=>{document.getElementById(id).value='';});
+  if (fileInput) fileInput.value = '';
   document.getElementById('nb-claim').textContent = ls('claims',[]).filter(c=>c.status==='접수').length;
 }
 
