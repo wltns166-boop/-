@@ -783,6 +783,24 @@ tbody tr:last-child td{border-bottom:none}
           <div class="form-group"><label>내용</label><textarea id="adm-notice-body" placeholder="공지 내용"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="addNotice()">공지 등록</button></div>
         </div>
+        <div class="card mb20">
+          <div class="card-title">👤 팀원 계정 관리</div>
+          <div class="page-sub" style="margin:0 0 14px">로그인 가능한 팀원 계정을 만들고 관리합니다. (클라우드 연결 시에만 동작)</div>
+          <div class="form-row col3">
+            <div class="form-group"><label>로그인 아이디</label><input id="am-id" placeholder="예: fc3" autocomplete="off"></div>
+            <div class="form-group"><label>이름</label><input id="am-name" placeholder="홍길동"></div>
+            <div class="form-group"><label>비밀번호 (6자 이상)</label><input id="am-pw" type="password" placeholder="초기 비밀번호" autocomplete="new-password"></div>
+          </div>
+          <div class="form-row col2">
+            <div class="form-group"><label>부서</label><select id="am-dept"><option>영업1팀</option><option>영업2팀</option><option>관리팀</option><option>HR팀</option><option>IT팀</option></select></div>
+            <div class="form-group"><label>권한</label><select id="am-role"><option value="fc">FC (일반)</option><option value="admin">관리자</option></select></div>
+          </div>
+          <div class="btn-group"><button class="btn btn-primary" onclick="addMember()">➕ 팀원 계정 생성</button></div>
+          <div class="tbl-wrap" style="margin-top:16px"><table>
+            <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>권한</th><th>상태</th><th>액션</th></tr></thead>
+            <tbody id="member-table"></tbody>
+          </table></div>
+        </div>
         <div class="card">
           <div class="card-title">🗑️ 데이터 관리</div>
           <div class="flex gap8" style="flex-wrap:wrap">
@@ -824,6 +842,7 @@ tbody tr:last-child td{border-bottom:none}
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
@@ -845,14 +864,15 @@ const firebaseConfig = {
 /* 클라우드 동기화 계층: localStorage를 로컬 캐시로 두고, 저장 시 Firestore에 미러,
    로그인 시 Firestore에서 먼저 내려받아(hydrate) 어느 기기에서나 같은 데이터를 봅니다. */
 const CLOUD = {
-  ready: false, db: null, storage: null,
+  ready: false, auth: null, db: null, storage: null, mode: 'local', // 'cloud' | 'local'
   // localStorage와 1:1로 미러링할 키 목록
-  KEYS: ['customers','medicals','claims','dbreqs','notices','calEvents','chats','notifs','orgNodes','staff','claimFormCoords']
+  KEYS: ['customers','medicals','claims','dbreqs','notices','calEvents','chats','notifs','orgNodes','staff','claimFormCoords','members']
 };
 function cloudInit() {
   try {
     if (typeof firebase === 'undefined') throw new Error('Firebase SDK 로드 실패');
     firebase.initializeApp(firebaseConfig);
+    CLOUD.auth = firebase.auth();
     CLOUD.db = firebase.firestore();
     CLOUD.storage = firebase.storage();
     CLOUD.ready = true;
@@ -861,6 +881,15 @@ function cloudInit() {
     console.warn('[cloud] 초기화 실패 — 로컬(localStorage) 모드로 동작합니다.', e);
   }
 }
+/* 로그인 아이디 → Firebase 인증용 내부 이메일 (팀원은 이메일 몰라도 됨) */
+function idToEmail(id) { return String(id).trim().toLowerCase() + '@teamtops.local'; }
+/* 로그인 프로필 해석: 기본 USERS(코드) + 관리자가 추가한 members(클라우드 동기화) */
+function getProfile(id) {
+  const extra = ls('members', {});
+  return USERS[id] || extra[id] || null;
+}
+const MEMBER_COLORS = ['#1e5ef3','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#14b8a6'];
+function pickMemberColor() { return MEMBER_COLORS[Math.floor(Math.random() * MEMBER_COLORS.length)]; }
 /* 로그인 시 클라우드 → localStorage 로 최신 데이터 내려받기 */
 async function cloudHydrate() {
   if (!CLOUD.ready) return false;
@@ -1017,29 +1046,122 @@ const DBPOOL = [
 /* ═══════════════════════════════════════
    LOGIN / LOGOUT
 ═══════════════════════════════════════ */
-function doLogin() {
+function loginFail(msg) {
+  const err = document.getElementById('login-err');
+  if (msg) err.textContent = msg;
+  err.style.display = 'block';
+}
+function enterApp(id, mode) {
+  CLOUD.mode = mode;
+  document.getElementById('login-err').style.display = 'none';
+  document.getElementById('login-screen').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    initApp(id);
+  }, 400);
+}
+async function doLogin() {
   const id = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
-  const u = USERS[id];
-  if (u && u.pw === pw) {
-    currentUser = { id, ...u };
-    document.getElementById('login-err').style.display = 'none';
-    document.getElementById('login-screen').style.opacity = '0';
-    setTimeout(() => {
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').classList.add('active');
-      initApp();
-    }, 400);
-  } else {
-    document.getElementById('login-err').style.display = 'block';
+  if (!id || !pw) return loginFail('아이디와 비밀번호를 입력하세요.');
+
+  // 1) Firebase 인증 시도 (팀원 전용 — 클라우드 데이터 접근 가능)
+  if (CLOUD.ready) {
+    try {
+      await CLOUD.auth.signInWithEmailAndPassword(idToEmail(id), pw);
+      // 관리자가 비활성화한 계정인지 클라우드에서 확인
+      try {
+        const doc = await CLOUD.db.collection('appdata').doc('members').get();
+        const m = doc.exists ? JSON.parse(doc.data().json || '{}') : {};
+        if (m[id] && m[id].disabled) { await CLOUD.auth.signOut(); return loginFail('비활성화된 계정입니다. 관리자에게 문의하세요.'); }
+      } catch {}
+      return enterApp(id, 'cloud');
+    } catch (e) {
+      // 안전망: Firebase 계정이 아직 없거나(마이그레이션·설정 중) 인증이 불가하면,
+      // 코드에 있는 기본 계정은 로컬 모드로만 허용 (클라우드 데이터엔 접근 불가)
+      const u = USERS[id];
+      if (u && u.pw === pw) return enterApp(id, 'local');
+      return loginFail('아이디 또는 비밀번호가 올바르지 않습니다.');
+    }
   }
+
+  // 2) Firebase 사용 불가(오프라인 등) → 기존 코드 계정만 로컬 모드 허용
+  const u = USERS[id];
+  if (u && u.pw === pw) return enterApp(id, 'local');
+  return loginFail('아이디 또는 비밀번호가 올바르지 않습니다.');
 }
 function doLogout() {
+  if (CLOUD.ready && CLOUD.auth.currentUser) CLOUD.auth.signOut().catch(()=>{});
   currentUser = null;
   document.getElementById('app').classList.remove('active');
   document.getElementById('login-screen').style.opacity='1';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('login-pw').value='';
+}
+
+/* ── 팀원 계정 관리 (관리자 전용) ── */
+async function addMember() {
+  const id   = document.getElementById('am-id').value.trim().toLowerCase();
+  const name = document.getElementById('am-name').value.trim();
+  const pw   = document.getElementById('am-pw').value;
+  const dept = document.getElementById('am-dept').value;
+  const role = document.getElementById('am-role').value;
+  if (!id || !name || !pw) return showToast('danger','오류','아이디·이름·비밀번호를 모두 입력하세요.');
+  if (!/^[a-z0-9_]+$/.test(id)) return showToast('danger','오류','아이디는 영문 소문자·숫자·밑줄(_)만 쓸 수 있습니다.');
+  if (pw.length < 6) return showToast('danger','오류','비밀번호는 6자 이상이어야 합니다.');
+  if (getProfile(id)) return showToast('danger','오류','이미 존재하는 아이디입니다.');
+  if (!CLOUD.ready) return showToast('danger','오류','클라우드에 연결되어야 계정을 만들 수 있습니다.');
+
+  // 관리자 로그인 세션을 건드리지 않도록 보조 앱 인스턴스로 계정 생성
+  let sec;
+  try {
+    sec = firebase.initializeApp(firebaseConfig, 'secondary-' + Date.now());
+    await sec.auth().createUserWithEmailAndPassword(idToEmail(id), pw);
+    await sec.auth().signOut();
+  } catch (e) {
+    if (sec) { try { await sec.delete(); } catch {} }
+    const msg = e.code === 'auth/email-already-in-use' ? '이미 등록된 아이디입니다.'
+              : e.code === 'auth/weak-password'       ? '비밀번호가 너무 약합니다 (6자 이상).'
+              : '계정 생성 실패: ' + (e.message || e.code);
+    return showToast('danger','생성 실패', msg);
+  }
+  try { await sec.delete(); } catch {}
+
+  const members = ls('members', {});
+  members[id] = { name, dept, role, avatar: name[0], color: pickMemberColor() };
+  lsSet('members', members); // 클라우드 동기화
+  ['am-id','am-name','am-pw'].forEach(i => document.getElementById(i).value = '');
+  renderMembers();
+  showToast('success','✅ 팀원 추가',`${name}(${id}) 계정이 생성되었습니다. 이 아이디·비밀번호로 로그인할 수 있습니다.`);
+}
+function renderMembers() {
+  const tb = document.getElementById('member-table');
+  if (!tb) return;
+  const members = ls('members', {});
+  const rows = [];
+  Object.keys(USERS).forEach(id => rows.push({ id, ...USERS[id], src:'기본', disabled: !!(members[id] && members[id].disabled) }));
+  Object.keys(members).forEach(id => { if (!USERS[id]) rows.push({ id, ...members[id], src:'추가' }); });
+  tb.innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${r.id}</td>
+      <td><strong>${r.name||'-'}</strong></td>
+      <td>${r.dept||'-'}</td>
+      <td>${r.role==='admin' ? '<span class="tag tag-purple">관리자</span>' : '<span class="tag tag-gray">FC</span>'}</td>
+      <td>${r.disabled ? '<span class="tag tag-red">비활성</span>' : '<span class="tag tag-green">활성</span>'}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="toggleMember('${r.id}')">${r.disabled?'활성화':'비활성화'}</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">계정이 없습니다</td></tr>';
+}
+function toggleMember(id) {
+  const members = ls('members', {});
+  if (!members[id]) {
+    const base = USERS[id] || {};
+    members[id] = { name:base.name, dept:base.dept, role:base.role, avatar:base.avatar, color:base.color };
+  }
+  members[id].disabled = !members[id].disabled;
+  lsSet('members', members);
+  renderMembers();
+  showToast('info', members[id].disabled?'🚫 비활성화':'✅ 활성화', `${id} 계정이 ${members[id].disabled?'비활성화되어 로그인할 수 없습니다':'활성화되었습니다'}.`);
 }
 document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 cloudInit(); // 페이지 로드 시 Firebase 연결 (실패해도 로컬 모드로 동작)
@@ -1047,13 +1169,17 @@ cloudInit(); // 페이지 로드 시 Firebase 연결 (실패해도 로컬 모드
 /* ═══════════════════════════════════════
    INIT APP
 ═══════════════════════════════════════ */
-async function initApp() {
-  // 1) 클라우드에서 최신 데이터를 먼저 내려받아 localStorage(캐시)를 채운다
-  const synced = await cloudHydrate();
+async function initApp(loginId) {
+  // 1) 클라우드 모드면 최신 데이터를 먼저 내려받아 localStorage(캐시)를 채운다
+  const synced = (CLOUD.mode === 'cloud') ? await cloudHydrate() : false;
   // 2) 그 후 비어 있는 키만 시드 (시드도 lsSet을 거쳐 클라우드에 자동 반영됨)
   initData();
-  if (synced) showToast('success', '☁️ 동기화 완료', '클라우드에서 최신 데이터를 불러왔습니다.');
-  else if (!CLOUD.ready) showToast('warning', '오프라인 모드', '클라우드 연결이 없어 이 기기에만 저장됩니다.');
+  // 3) 로그인 아이디로 프로필 해석 (코드 USERS + 관리자가 추가한 members)
+  const prof = getProfile(loginId) || { name: loginId, dept: '-', role: 'fc', avatar: (loginId[0] || '?').toUpperCase(), color: '#1e5ef3' };
+  currentUser = { id: loginId, ...prof };
+
+  if (CLOUD.mode === 'cloud' && synced) showToast('success', '☁️ 동기화 완료', '클라우드에서 최신 데이터를 불러왔습니다.');
+  else showToast('warning', '로컬 모드', '클라우드에 연결되지 않아 이 기기에만 저장됩니다.');
 
   // Header
   const u = currentUser;
@@ -1081,6 +1207,7 @@ async function initApp() {
   renderDBReqs();
   renderDBAssign();
   renderDirectory();
+  renderMembers();
   renderDocs();
   renderOrgChart();
   renderNotifPanel();
