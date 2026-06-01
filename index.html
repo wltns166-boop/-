@@ -7326,6 +7326,17 @@ async function ccPopulateInsurers(){
   if(typeof DB_PDF_B64!=='undefined') haveSet['DB손해보험']=true;
   try{ if(localStorage.getItem('tops_db_pdf_tpl')) haveSet['DB손해보험']=true; }catch(e){}
   CLAIM_INSURERS.forEach(function(n){ if(bakedTplFor(n)) haveSet[n]=true; });
+  // Firebase Storage(팀 공유 양식)도 조회해 ✅ 표시에 반영 — 다른 기기/관리자도 동일하게 보이도록
+  try{
+    if(typeof firebase!=='undefined' && firebase.storage){
+      var res=await firebase.storage().ref('claim_templates').listAll();
+      (res.items||[]).forEach(function(it){
+        var base=String(it.name||'').replace(/\.pdf$/i,'');
+        var cands=[base]; try{ cands.push(decodeURIComponent(base)); }catch(e){}
+        cands.forEach(function(c){ if(CLAIM_INSURERS.indexOf(c)>=0) haveSet[c]=true; });
+      });
+    }
+  }catch(e){ console.warn('Storage 양식 목록 조회 실패:', e); }
   var cur=sel.value;
   sel.innerHTML=CLAIM_INSURERS.map(function(n){ return '<option value="'+n+'">'+n+(haveSet[n]?' ✅':' (양식없음)')+'</option>'; }).join('');
   if(cur) sel.value=cur;
