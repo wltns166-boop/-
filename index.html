@@ -1295,6 +1295,7 @@ table.dt tr:last-child td{border-bottom:none;}
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script>
 // Firebase 즉시 초기화 (SDK 로드 직후)
 (function(){
@@ -1310,6 +1311,14 @@ table.dt tr:last-child td{border-bottom:none;}
     if(!firebase.apps.length) firebase.initializeApp(cfg);
     window.db = firebase.firestore();
     window.FS_DOC = window.db.collection('tops').doc('data');
+    // 보안 규칙(인증된 사용자만 접근)을 위해 앱 로드 시 익명 인증으로 자동 로그인.
+    // 인증이 완료되면 window._fbAuthReady(Promise)가 resolve 된다.
+    window._fbAuthReady = new Promise(function(resolve){
+      try{
+        firebase.auth().onAuthStateChanged(function(u){ if(u) resolve(u); });
+        firebase.auth().signInAnonymously().catch(function(e){ console.warn('익명 인증 실패:', e); resolve(null); });
+      }catch(e){ console.warn('auth init err:', e); resolve(null); }
+    });
     console.log('✅ Firebase 연결 성공');
   }catch(e){ console.warn('❌ Firebase 연결 실패:', e); }
 })();
@@ -1619,6 +1628,8 @@ function sv(k,v){
 
 // Firestore에서 전체 데이터 로드
 async function loadFromFirestore(){
+  // 보안 규칙(인증 필요)을 위해 익명 인증이 끝날 때까지 대기
+  try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
   if(!FS_DOC || !db){
     try{
       var cfg={apiKey:"AIzaSyBg8dwkOHXU_lZO3C9k4hvOH0OnatJEWwY",authDomain:"team-tops-intranet.firebaseapp.com",projectId:"team-tops-intranet",storageBucket:"team-tops-intranet.firebasestorage.app",messagingSenderId:"529903386152",appId:"1:529903386122:web:6244e4459aa084726fa9f3"};

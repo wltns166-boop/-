@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// TEAM TOPS — Firestore 보안 규칙
+// 앱이 익명 인증으로 로그인하므로, 인증된 세션만 데이터 읽기/쓰기 허용.
+// (청구 메타데이터에 주민번호 등 민감정보가 포함되므로 인증 없는 접근을 차단)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

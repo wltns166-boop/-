@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// TEAM TOPS — Firebase Storage 보안 규칙
+// 앱 로드 시 익명 인증(signInAnonymously)으로 로그인하므로, 인증된 세션만 접근 허용.
+// 인증 없이 URL/버킷에 직접 접근(크롤러·외부 유출 등)은 차단된다.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 빈 청구서 양식(민감정보 아님) — 인증된 사용자만 읽기/쓰기
+    match /claim_templates/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 보장분석 양식 — 인증된 사용자만 읽기/쓰기
+    match /wa_templates/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 청구서류(주민번호·신분증·통장 등 민감 개인정보) — 인증된 사용자만 읽기/쓰기
+    match /claim_packages/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 그 외 모든 경로는 기본 차단
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
