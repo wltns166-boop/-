@@ -1221,7 +1221,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭한 뒤 <b>방향키</b>로 이동(↑↓←→ 1pt, Shift+방향키 10pt, Alt+방향키 0.5pt), <b>Delete/Backspace</b>로 제거. 아래에서 <b>글씨크기·글자간격</b>도 조정. 맞춘 뒤 <b>저장</b> → 청구현황 <b>청구파일 재생성</b>.</div>
+  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭한 뒤 <b>방향키</b>로 이동(↑↓←→ 1pt, Shift+방향키 10pt, Alt+방향키 0.5pt), <b>Delete/Backspace</b>로 제거. 아래에서 <b>글씨크기·글자간격</b>도 조정. 맞춘 뒤 <b>저장</b>을 누르면 해당 보험사의 청구파일이 자동으로 재생성됩니다.</div>
   <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
     <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
@@ -7816,7 +7816,7 @@ function ccCommit(chip){
   chip.title=key+' (x:'+window._ccWork[key].x+', y:'+window._ccWork[key].y+')';
   ccUpdatePreviewFor(key);
 }
-function saveClaimCal(){
+async function saveClaimCal(){
   var ins=window._ccInsurer||'DB손해보험';
   var all={}; try{all=JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}');}catch(e){}
   var out={};
@@ -7830,7 +7830,33 @@ function saveClaimCal(){
   all[ins]=out;
   try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(all)); }catch(e){}
   try{ sv('tops_claim_coords_v2',all); }catch(e){}
-  toast(ins+' 좌표가 저장되었습니다. 청구현황에서 "청구파일 재생성"으로 확인하세요.');
+
+  // 좌표 저장 후 해당 보험사를 쓰는 청구 파일을 자동 재생성
+  var list=[]; try{ list=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){ list=[]; }
+  if(typeof claims!=='undefined') claims=list;
+  var targets=[];
+  list.forEach(function(c,i){
+    var insList=(c.insurerList&&c.insurerList.length)?c.insurerList
+                : (c.insurer?String(c.insurer).split(/,\s*/):[]);
+    if(insList.some(function(s){return String(s).trim()===ins;})) targets.push(i);
+  });
+
+  if(!targets.length){
+    toast(ins+' 좌표가 저장되었습니다.');
+    return;
+  }
+
+  toast(ins+' 좌표 저장 — '+targets.length+'건 청구파일 자동 재생성 중...');
+  var ok=0, fail=0;
+  for(var i=0;i<targets.length;i++){
+    try{
+      var r=await generateClaimPackage(targets[i]);
+      if(r) ok++; else fail++;
+    }catch(e){ console.warn('auto regen',targets[i],e); fail++; }
+  }
+  try{ if(typeof rClaimApply==='function') rClaimApply(); }catch(e){}
+  try{ if(g('claim_status_tb') && typeof rClaimStatus==='function') rClaimStatus(); }catch(e){}
+  toast(ins+' 좌표 저장 완료 · 자동 재생성 성공 '+ok+'건'+(fail?' / 실패 '+fail+'건':''));
 }
 function ccExport(){
   var src=window._ccWork||claimCoords();
