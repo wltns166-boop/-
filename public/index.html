@@ -1221,7 +1221,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">보험사를 고르고 양식을 올린 뒤, 파란 칩을 드래그해 칸 위에 올려놓으세요. <b>칩 왼쪽 아래 빨간 점</b>이 글자 시작 위치입니다. 칩의 <b>☑</b>를 누르면 사용/숨김 전환, 다른 페이지 항목은 <b>+ 항목 추가</b>로 가져옵니다. 칩을 한 번 클릭한 뒤 <b>방향키</b>로 이동(↑↓←→ 1pt, Shift+방향키 10pt, Alt+방향키 0.5pt), <b>Delete/Backspace</b>로 제거. 아래에서 <b>글씨크기·글자간격</b>도 조정. 맞춘 뒤 <b>저장</b>을 누르면 해당 보험사의 청구파일이 자동으로 재생성됩니다.</div>
+  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">파란 칩을 드래그해 칸 위에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. <b>다중 선택</b>: ① 빈 공간을 드래그해 박스로 묶기 ② Ctrl/Shift+클릭으로 하나씩 추가 ③ Ctrl/⌘+A로 현재 페이지 전체. 여러개 선택 상태에서 드래그하면 함께 이동, <b>방향키</b>로도 함께 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 함께 제거, <b>Esc</b>로 선택 해제. 칩 한 개 클릭하면 아래에서 <b>글씨크기·글자간격</b> 조정. <b>저장</b> 시 해당 보험사 청구파일이 자동 재생성됩니다.</div>
   <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
     <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
@@ -7443,6 +7443,7 @@ function ccPlaceChips(){
     ccDrag(chip);
   });
   ccPlacePreviews();
+  if(typeof ccLassoSetup==='function') ccLassoSetup();
   if(typeof ccUpdatePropsPanel==='function') ccUpdatePropsPanel();
   if(typeof ccRefreshToolbox==='function') ccRefreshToolbox();
 }
@@ -7693,34 +7694,127 @@ function ccAddFieldToPage(){
 function ccDrag(chip){
   chip.addEventListener('pointerdown',function(e){
     e.preventDefault();
+    e.stopPropagation();   // 라쏘(overlay) 핸들러로 전파 차단
     try{chip.setPointerCapture(e.pointerId);}catch(_){}
     chip.style.cursor='grabbing';
-    var sx=e.clientX, sy=e.clientY, ol=chip.offsetLeft, ot=chip.offsetTop;
+    var key=chip.dataset.key;
+    var sel=Array.isArray(window._ccSelKeys)?window._ccSelKeys:[];
+    var ctrlMeta=e.ctrlKey||e.metaKey||e.shiftKey;
+    // 선택 상태 갱신
+    if(ctrlMeta){
+      ccSelectChip(key, true);  // 토글 추가
+    } else if(sel.indexOf(key)<0){
+      ccSelectChip(key, false); // 단일 선택
+    } // else: 이미 선택된 다수 → 유지하고 함께 이동
+    // 함께 움직일 칩 목록
+    var movingKeys=(Array.isArray(window._ccSelKeys)&&window._ccSelKeys.length)?window._ccSelKeys.slice():[key];
+    var ov=g('cc_overlay');
+    var startPos={};
+    movingKeys.forEach(function(k){
+      var c=ov?ov.querySelector('.cc_chip[data-key="'+k+'"]'):null;
+      if(c) startPos[k]={left:c.offsetLeft, top:c.offsetTop};
+    });
+    var sx=e.clientX, sy=e.clientY;
     var moved=false;
     function mv(ev){
-      if(!moved && (Math.abs(ev.clientX-sx)>3 || Math.abs(ev.clientY-sy)>3)) moved=true;
-      chip.style.left=(ol+ev.clientX-sx)+'px';
-      chip.style.top=(ot+ev.clientY-sy)+'px';
+      var dx=ev.clientX-sx, dy=ev.clientY-sy;
+      if(!moved && (Math.abs(dx)>3 || Math.abs(dy)>3)) moved=true;
+      movingKeys.forEach(function(k){
+        var sp=startPos[k]; if(!sp) return;
+        var c=ov?ov.querySelector('.cc_chip[data-key="'+k+'"]'):null;
+        if(c){ c.style.left=(sp.left+dx)+'px'; c.style.top=(sp.top+dy)+'px'; }
+      });
     }
     function up(ev){
       chip.removeEventListener('pointermove',mv);
       chip.removeEventListener('pointerup',up);
       chip.style.cursor='grab';
-      if(moved) ccCommit(chip);
-      ccSelectChip(chip.dataset.key);
+      if(moved){
+        movingKeys.forEach(function(k){
+          var c=ov?ov.querySelector('.cc_chip[data-key="'+k+'"]'):null;
+          if(c) ccCommit(c);
+        });
+      }
     }
     chip.addEventListener('pointermove',mv);
     chip.addEventListener('pointerup',up);
   });
 }
-function ccSelectChip(key){
-  window._ccSelKey = key;
-  // 칩 하이라이트
-  var ov=g('cc_overlay');
-  if(ov){ Array.prototype.forEach.call(ov.querySelectorAll('.cc_chip'),function(c){
-    c.style.outline = (c.dataset.key===key) ? '2px solid #ffaa00' : 'none';
-  }); }
+function ccUpdateHighlights(){
+  var ov=g('cc_overlay'); if(!ov) return;
+  var sel=window._ccSelKeys||[];
+  Array.prototype.forEach.call(ov.querySelectorAll('.cc_chip'),function(c){
+    c.style.outline = sel.indexOf(c.dataset.key)>=0 ? '2px solid #ffaa00' : 'none';
+  });
+}
+function ccSelectChip(key, additive){
+  if(!Array.isArray(window._ccSelKeys)) window._ccSelKeys=[];
+  if(!key){
+    window._ccSelKeys=[]; window._ccSelKey=null;
+  } else if(additive){
+    var i=window._ccSelKeys.indexOf(key);
+    if(i>=0) window._ccSelKeys.splice(i,1);
+    else window._ccSelKeys.push(key);
+  } else {
+    window._ccSelKeys=[key];
+  }
+  window._ccSelKey = window._ccSelKeys[window._ccSelKeys.length-1] || null;
+  ccUpdateHighlights();
   ccUpdatePropsPanel();
+}
+
+// 빈 영역 드래그로 다중 선택 (라쏘)
+function ccLassoSetup(){
+  var ov=g('cc_overlay'); if(!ov || ov._lassoBound) return;
+  ov._lassoBound=true;
+  ov.addEventListener('pointerdown', function(e){
+    if(e.target!==ov) return;  // 칩 위 클릭은 무시
+    e.preventDefault();
+    var rect=ov.getBoundingClientRect();
+    var sx=e.clientX, sy=e.clientY;
+    var box=document.createElement('div');
+    box.style.cssText='position:absolute;border:1px dashed #4858cc;background:rgba(72,88,204,.1);pointer-events:none;z-index:6';
+    ov.appendChild(box);
+    function mv(ev){
+      var x=Math.min(sx,ev.clientX)-rect.left;
+      var y=Math.min(sy,ev.clientY)-rect.top;
+      box.style.left=x+'px'; box.style.top=y+'px';
+      box.style.width=Math.abs(ev.clientX-sx)+'px';
+      box.style.height=Math.abs(ev.clientY-sy)+'px';
+    }
+    function up(ev){
+      document.removeEventListener('pointermove',mv);
+      document.removeEventListener('pointerup',up);
+      var bx={l:Math.min(sx,ev.clientX)-rect.left,t:Math.min(sy,ev.clientY)-rect.top,
+              r:Math.max(sx,ev.clientX)-rect.left,b:Math.max(sy,ev.clientY)-rect.top};
+      box.remove();
+      if((bx.r-bx.l)<4 && (bx.b-bx.t)<4){
+        // 빈 곳 단순 클릭 → 선택 해제
+        if(!(ev.ctrlKey||ev.metaKey||ev.shiftKey)) ccSelectChip(null);
+        return;
+      }
+      var picked=[];
+      Array.prototype.forEach.call(ov.querySelectorAll('.cc_chip'), function(c){
+        var rx=c.offsetLeft-3;
+        var ry=c.offsetTop+(c.offsetHeight||22)-3;
+        if(rx>=bx.l && rx<=bx.r && ry>=bx.t && ry<=bx.b) picked.push(c.dataset.key);
+      });
+      if(!picked.length) return;
+      if(ev.shiftKey||ev.ctrlKey||ev.metaKey){
+        var cur=(window._ccSelKeys||[]).slice();
+        picked.forEach(function(k){ if(cur.indexOf(k)<0) cur.push(k); });
+        window._ccSelKeys=cur;
+      } else {
+        window._ccSelKeys=picked;
+      }
+      window._ccSelKey=window._ccSelKeys[window._ccSelKeys.length-1]||null;
+      ccUpdateHighlights();
+      ccUpdatePropsPanel();
+      toast(picked.length+'개 항목 선택됨 (방향키로 함께 이동, Delete로 함께 제거)');
+    }
+    document.addEventListener('pointermove',mv);
+    document.addEventListener('pointerup',up);
+  });
 }
 
 // 방향키로 선택된 칩 미세 이동 (모달 열려있고 입력칸 포커스가 아닐 때만)
@@ -7730,48 +7824,61 @@ function ccNudgeSetup(){
   document.addEventListener('keydown', function(e){
     var modal=g('m_claimcal');
     if(!modal || !modal.classList.contains('open')) return;
-    var key=window._ccSelKey;
-    if(!key || !window._ccWork || !window._ccWork[key]) return;
     var tag=(e.target&&e.target.tagName)||'';
     if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
-    var step;
-    if(e.shiftKey) step=10;
-    else if(e.altKey) step=0.5;
-    else step=1;
-    var co=window._ccWork[key];
-    // Delete/Backspace → 선택한 항목 제거
-    if(e.key==='Delete'||e.key==='Backspace'){
+    var keys=(Array.isArray(window._ccSelKeys)&&window._ccSelKeys.length)?window._ccSelKeys.slice()
+             :(window._ccSelKey?[window._ccSelKey]:[]);
+    // Ctrl/Cmd+A → 현재 페이지의 모든 칩 선택
+    if((e.ctrlKey||e.metaKey) && (e.key==='a'||e.key==='A')){
       e.preventDefault();
-      var label=(typeof ccLabelFor==='function')?ccLabelFor(key):key;
-      delete window._ccWork[key];
-      window._ccSelKey=null;
-      ccPlaceChips();
-      toast('"'+label+'" 항목을 제거했습니다. (저장을 눌러야 영구 반영)');
+      var ov0=g('cc_overlay'); if(!ov0) return;
+      var all=Array.prototype.map.call(ov0.querySelectorAll('.cc_chip'),function(c){return c.dataset.key;});
+      window._ccSelKeys=all; window._ccSelKey=all[all.length-1]||null;
+      ccUpdateHighlights(); ccUpdatePropsPanel();
+      toast(all.length+'개 항목 선택됨');
       return;
     }
-    var moved=false;
-    if(e.key==='ArrowLeft'){  co.x=Math.round((co.x-step)*10)/10; moved=true; }
-    else if(e.key==='ArrowRight'){ co.x=Math.round((co.x+step)*10)/10; moved=true; }
-    else if(e.key==='ArrowUp'){    co.y=Math.round((co.y+step)*10)/10; moved=true; } // PDF: y+ = 위
-    else if(e.key==='ArrowDown'){  co.y=Math.round((co.y-step)*10)/10; moved=true; }
-    if(moved){
+    if(!keys.length || !window._ccWork) return;
+    // 모두 _ccWork 에 존재하는 것만 필터
+    keys=keys.filter(function(k){return window._ccWork[k];});
+    if(!keys.length) return;
+    // Escape → 선택 해제
+    if(e.key==='Escape'){ e.preventDefault(); ccSelectChip(null); return; }
+    // Delete/Backspace → 모두 제거
+    if(e.key==='Delete'||e.key==='Backspace'){
       e.preventDefault();
-      // 해당 칩만 위치 업데이트 (전체 재렌더 안 하고 더 부드럽게)
-      var ov=g('cc_overlay');
-      if(ov){
-        var chip=ov.querySelector('.cc_chip[data-key="'+key+'"]');
-        if(chip){
-          var sc=window._ccScale, H=window._ccPageH;
-          var hh=chip.offsetHeight||22;
-          chip.style.left=(co.x*sc)+'px';
-          chip.style.top=((H-co.y)*sc - hh)+'px';
-          chip.title=key+' (x:'+co.x+', y:'+co.y+')';
-          ccUpdatePreviewFor(key);
-        } else {
-          ccPlaceChips();
-        }
-      }
+      var n=keys.length;
+      keys.forEach(function(k){ delete window._ccWork[k]; });
+      window._ccSelKey=null; window._ccSelKeys=[];
+      ccPlaceChips();
+      toast(n+'개 항목을 제거했습니다. (저장을 눌러야 영구 반영)');
+      return;
     }
+    // 방향키 → 다중 이동
+    var step = e.shiftKey?10 : (e.altKey?0.5 : 1);
+    var dx=0, dy=0;
+    if(e.key==='ArrowLeft') dx=-step;
+    else if(e.key==='ArrowRight') dx=step;
+    else if(e.key==='ArrowUp') dy=step;    // PDF: y+ = 위
+    else if(e.key==='ArrowDown') dy=-step;
+    else return;
+    e.preventDefault();
+    var ov=g('cc_overlay');
+    var sc=window._ccScale, H=window._ccPageH;
+    keys.forEach(function(k){
+      var co=window._ccWork[k]; if(!co) return;
+      co.x=Math.round((co.x+dx)*10)/10;
+      co.y=Math.round((co.y+dy)*10)/10;
+      if(!ov) return;
+      var chip=ov.querySelector('.cc_chip[data-key="'+k+'"]');
+      if(chip){
+        var hh=chip.offsetHeight||22;
+        chip.style.left=(co.x*sc)+'px';
+        chip.style.top=((H-co.y)*sc - hh)+'px';
+        chip.title=k+' (x:'+co.x+', y:'+co.y+')';
+      }
+      ccUpdatePreviewFor(k);
+    });
   });
 }
 function ccUpdatePropsPanel(){
