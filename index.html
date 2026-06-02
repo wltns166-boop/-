@@ -469,34 +469,49 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div></div>
       <!-- 리모델링 전 -->
       <div class="card" style="margin-bottom:16px">
-        <div style="font-size:16px;font-weight:700;color:#2a3a8a;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <div style="font-size:16px;font-weight:700;color:#2a3a8a;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <i class="ti ti-file-minus" style="color:#cc6030"></i> 리모델링 전 보장분석
+          <button onclick="uploadWaTemplate('before')" style="margin-left:auto;padding:6px 14px;font-size:13px;background:rgba(200,80,40,.1);border:1px solid rgba(200,80,40,.35);border-radius:6px;color:#cc6030;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-upload"></i> 엑셀 양식 업로드</button>
+          <span id="wa_before_tpl_status" style="font-size:12px;color:#208050;font-weight:400"></span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <!-- 좌: PDF 업로드 + 작성 -->
-          <div style="border:2px dashed rgba(200,80,40,.3);border-radius:10px;padding:18px;background:#fffaf8;display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:14px;color:#9090bb;text-align:center">PDF 파일 선택<br><span style="font-size:12px;color:#b0b0c8">(보험증권 등)</span></div>
-            <input type="file" id="wa_before_file" multiple accept=".pdf" style="font-size:14px;cursor:pointer;width:100%">
-            <div id="wa_before_list" style="font-size:13px;text-align:left;max-height:120px;overflow-y:auto"></div>
-            <button onclick="generateWaBeforeExcel()" style="margin-top:auto;padding:10px 18px;background:#cc6030;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px"><i class="ti ti-file-spreadsheet"></i> 작성</button>
+        <div style="display:grid;grid-template-columns:1fr 3fr;gap:14px">
+          <!-- 좌: PDF 업로드 + 작성 (1/4) -->
+          <div style="border:2px dashed rgba(200,80,40,.3);border-radius:10px;padding:14px;background:#fffaf8;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:13px;color:#9090bb;text-align:center">PDF 파일 선택<br><span style="font-size:11px;color:#b0b0c8">(보험증권 등)</span></div>
+            <input type="file" id="wa_before_file" multiple accept=".pdf" style="font-size:13px;cursor:pointer;width:100%">
+            <div id="wa_before_list" style="font-size:12px;text-align:left;max-height:120px;overflow-y:auto"></div>
+            <button onclick="generateWaBeforeExcel()" style="margin-top:auto;padding:8px 10px;background:#cc6030;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px"><i class="ti ti-file-spreadsheet"></i> 작성</button>
           </div>
-          <!-- 우: 엑셀 미리보기/다운로드 -->
-          <div style="border:2px solid rgba(40,80,200,.2);border-radius:10px;padding:18px;background:#f8faff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:200px">
-            <div id="wa_before_excel_status" style="font-size:14px;color:#7080a8;text-align:center;line-height:1.6">PDF를 올리고<br><b style="color:#cc6030">[작성]</b> 버튼을 누르면<br>여기서 엑셀 미리보기·다운로드 가능합니다.</div>
-            <div id="wa_before_excel_buttons" style="display:none;gap:8px;flex-wrap:wrap;justify-content:center"></div>
+          <!-- 우: 엑셀 미리보기 (3/4) -->
+          <div style="border:2px solid rgba(40,80,200,.2);border-radius:10px;padding:18px;background:#f8faff;display:flex;flex-direction:column;gap:12px;min-height:220px">
+            <div id="wa_before_excel_status" style="font-size:14px;color:#7080a8;text-align:center;line-height:1.6;margin:auto">PDF를 올리고<br><b style="color:#cc6030">[작성]</b> 버튼을 누르면<br>여기서 엑셀 미리보기·다운로드 가능합니다.</div>
+            <div id="wa_before_excel_buttons" style="display:none;gap:8px;flex-wrap:wrap"></div>
+            <div id="wa_before_excel_preview" style="overflow:auto;flex:1"></div>
           </div>
         </div>
         <div id="wa_before_text_view" style="margin-top:14px"></div>
       </div>
       <!-- 리모델링 후 -->
       <div class="card">
-        <div style="font-size:16px;font-weight:700;color:#2a3a8a;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <div style="font-size:16px;font-weight:700;color:#2a3a8a;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <i class="ti ti-file-plus" style="color:#2080cc"></i> 리모델링 후 보장분석 <span style="font-size:13px;color:#8888bb;font-weight:400">(최대 10개)</span>
+          <button onclick="uploadWaTemplate('after')" style="margin-left:auto;padding:6px 14px;font-size:13px;background:rgba(32,128,204,.1);border:1px solid rgba(32,128,204,.35);border-radius:6px;color:#2080cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-upload"></i> 엑셀 양식 업로드</button>
+          <span id="wa_after_tpl_status" style="font-size:12px;color:#208050;font-weight:400"></span>
         </div>
-        <div style="border:2px dashed rgba(40,80,200,.3);border-radius:10px;padding:20px;background:#f8faff;text-align:center">
-          <div style="font-size:15px;color:#9090bb;margin-bottom:10px">파일을 선택하거나 드래그해서 올려주세요 (최대 10개)</div>
-          <input type="file" id="wa_after_file" multiple accept="*/*" style="font-size:15px;cursor:pointer" onchange="checkWaAfterLimit(this)">
-          <div id="wa_after_list" style="margin-top:10px;text-align:left"></div>
+        <div style="display:grid;grid-template-columns:1fr 3fr;gap:14px">
+          <!-- 좌: PDF 업로드 + 작성 (1/4) -->
+          <div style="border:2px dashed rgba(40,80,200,.3);border-radius:10px;padding:14px;background:#f8faff;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:13px;color:#9090bb;text-align:center">파일 선택<br><span style="font-size:11px;color:#b0b0c8">(최대 10개)</span></div>
+            <input type="file" id="wa_after_file" multiple accept=".pdf" style="font-size:13px;cursor:pointer;width:100%" onchange="checkWaAfterLimit(this)">
+            <div id="wa_after_list" style="font-size:12px;text-align:left;max-height:120px;overflow-y:auto"></div>
+            <button onclick="generateWaAfterExcel()" style="margin-top:auto;padding:8px 10px;background:#2080cc;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px"><i class="ti ti-file-spreadsheet"></i> 작성</button>
+          </div>
+          <!-- 우: 엑셀 미리보기 (3/4) -->
+          <div style="border:2px solid rgba(40,80,200,.2);border-radius:10px;padding:18px;background:#f8faff;display:flex;flex-direction:column;gap:12px;min-height:220px">
+            <div id="wa_after_excel_status" style="font-size:14px;color:#7080a8;text-align:center;line-height:1.6;margin:auto">파일을 올리고<br><b style="color:#2080cc">[작성]</b> 버튼을 누르면<br>여기서 엑셀 미리보기·다운로드 가능합니다.</div>
+            <div id="wa_after_excel_buttons" style="display:none;gap:8px;flex-wrap:wrap"></div>
+            <div id="wa_after_excel_preview" style="overflow:auto;flex:1"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1946,7 +1961,7 @@ function showPage(name){
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:rMem,cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:rMem,cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -4417,8 +4432,9 @@ function saveCalEvent(){
   toast(editIdx!==''?'수정되었습니다.':'일정이 등록되었습니다.');
 }
 
-// ===== 리모델링 전 보장분석 — PDF → 엑셀 자동 작성 =====
-// 파일 선택 시 목록 표시
+// ===== 보장분석 — 공용 엑셀 미리보기 및 양식 관리 =====
+
+// PDF 파일 선택 시 목록 표시 (리모델링 전)
 document.addEventListener('DOMContentLoaded', function(){
   var inp = document.getElementById('wa_before_file');
   if(inp){
@@ -4426,77 +4442,256 @@ document.addEventListener('DOMContentLoaded', function(){
       var list = document.getElementById('wa_before_list');
       if(!list) return;
       list.innerHTML = Array.from(inp.files).map(function(f){
-        return '<div style="font-size:13px;color:#208050;padding:2px 0">✅ '+f.name+'</div>';
+        return '<div style="font-size:13px;color:#208050;padding:2px 0">&#10003; '+f.name+'</div>';
       }).join('');
     });
   }
 });
 
+// SheetJS로 base64 엑셀을 HTML 표로 변환해 컨테이너에 렌더
+function renderWaExcelPreview(side, b64){
+  var previewId = 'wa_'+side+'_excel_preview';
+  var statusId  = 'wa_'+side+'_excel_status';
+  var buttonsId = 'wa_'+side+'_excel_buttons';
+  var container = document.getElementById(previewId);
+  var st        = document.getElementById(statusId);
+  var box       = document.getElementById(buttonsId);
+  if(!container) return;
+  if(!b64){
+    container.innerHTML = '';
+    return;
+  }
+  try{
+    var wb = XLSX.read(b64, {type:'base64'});
+    var html = '';
+    // 시트명 XSS 방지용 이스케이프
+    function _escHtml(s){ return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+    wb.SheetNames.forEach(function(sname){
+      var ws = wb.Sheets[sname];
+      var tableHtml = XLSX.utils.sheet_to_html(ws, {editable:false});
+      // 시트 탭 제목
+      html += '<div style="font-size:12px;font-weight:700;color:#5060a0;margin-bottom:4px;padding:2px 6px;background:rgba(80,96,160,.08);border-radius:4px;display:inline-block">'
+             + _escHtml(sname) + '</div>';
+      html += tableHtml;
+      html += '<div style="height:12px"></div>';
+    });
+    // 스타일은 최초 1회만 주입 (중복 방지)
+    var styleId = 'wa_excel_preview_style';
+    if(!document.getElementById(styleId)){
+      var styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.textContent =
+        '.wa-xlsx-preview table{border-collapse:collapse;font-size:12px;min-width:100%}'
+        +'.wa-xlsx-preview td,.wa-xlsx-preview th{border:1px solid #d0d4e8;padding:4px 8px;white-space:nowrap;color:#1a1a3a}'
+        +'.wa-xlsx-preview tr:nth-child(even){background:rgba(80,100,200,.04)}';
+      document.head.appendChild(styleEl);
+    }
+    container.className = 'wa-xlsx-preview';
+    container.innerHTML = html;
+    if(st) st.style.display = 'none';
+    if(box){
+      box.style.display = 'flex';
+      var dlKey = (side==='before') ? 'tops_wa_excel_result_before' : 'tops_wa_excel_result_after';
+      try{ localStorage.setItem(dlKey, b64); }catch(e){}
+      box.innerHTML =
+        '<button onclick="downloadWaExcelSide(\''+side+'\')" style="padding:8px 16px;font-size:13px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-download"></i> 다운로드</button>';
+    }
+  }catch(err){
+    container.innerHTML = '<div style="color:#cc4040;font-size:13px;padding:10px">미리보기 오류: '+err.message+'</div>';
+  }
+}
+
+// 다운로드 (side: 'before' | 'after')
+function downloadWaExcelSide(side){
+  var key = (side==='before') ? 'tops_wa_excel_result_before' : 'tops_wa_excel_result_after';
+  var fname = (side==='before') ? '리모델링전_보장분석_'+tds()+'.xlsx' : '리모델링후_보장분석_'+tds()+'.xlsx';
+  var b64 = ''; try{ b64 = localStorage.getItem(key)||''; }catch(e){}
+  if(!b64){ toast('엑셀이 아직 생성되지 않았습니다.'); return; }
+  var a = document.createElement('a');
+  a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+b64;
+  a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('다운로드 완료!');
+}
+
+// Storage에서 base64 읽기 헬퍼 (인증 포함)
+async function _fetchWaTplFromStorage(filename){
+  if(typeof firebase==='undefined' || !firebase.storage) return '';
+  try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+  if(firebase.auth && !firebase.auth().currentUser){
+    try{ await firebase.auth().signInAnonymously(); }catch(e){ console.warn('wa tpl 익명인증 실패:', e); }
+  }
+  try{
+    var url = await firebase.storage().ref('wa_templates/'+filename).getDownloadURL();
+    var resp = await fetch(url);
+    if(!resp.ok) return '';
+    var ab = await resp.arrayBuffer();
+    var arr = new Uint8Array(ab);
+    var chunks = []; var cs = 8192;
+    for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
+    return btoa(chunks.join(''));
+  }catch(e){ return ''; }
+}
+
+// 엑셀 양식 업로드 (팀 공용 — before/after 공통)
+async function uploadWaTemplate(side){
+  var storageFile = (side==='before') ? 'before.xlsx' : 'after.xlsx';
+  var lsKey       = (side==='before') ? 'tops_wa_excel_tpl_before' : 'tops_wa_excel_tpl_after';
+  var statusId    = (side==='before') ? 'wa_before_tpl_status' : 'wa_after_tpl_status';
+  // 동적 파일 input 생성
+  var fi = document.createElement('input');
+  fi.type = 'file'; fi.accept = '.xlsx,.xls';
+  fi.style.display = 'none';
+  document.body.appendChild(fi);
+  fi.onchange = async function(){
+    document.body.removeChild(fi);
+    var file = fi.files && fi.files[0];
+    if(!file){ return; }
+    toast('양식 업로드 중...');
+    try{
+      var ab = await file.arrayBuffer();
+      var u8 = new Uint8Array(ab);
+      // base64 변환 (localStorage 캐시용)
+      var chunks=[]; var cs=8192;
+      for(var i=0;i<u8.length;i+=cs) chunks.push(String.fromCharCode.apply(null, u8.subarray(i,i+cs)));
+      var b64 = btoa(chunks.join(''));
+      // localStorage 캐시
+      try{ localStorage.setItem(lsKey, b64); }catch(e){}
+      // Storage 업로드 (익명 인증 포함)
+      var storageOk = false;
+      var storageErrMsg = '';
+      if(typeof firebase!=='undefined' && firebase.storage){
+        try{
+          if(window._fbAuthReady) await window._fbAuthReady;
+        }catch(e){}
+        if(firebase.auth && !firebase.auth().currentUser){
+          try{ await firebase.auth().signInAnonymously(); }catch(e){ console.warn('wa upload 익명인증 실패:', e); }
+        }
+        try{
+          var ref = firebase.storage().ref('wa_templates/'+storageFile);
+          await ref.put(u8, {contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+          storageOk = true;
+        }catch(e){
+          console.warn('wa_template storage 업로드 오류:', e);
+          storageErrMsg = e.message;
+        }
+      }
+      // 상태 표시 (toast 1회만)
+      var stEl = document.getElementById(statusId);
+      if(stEl) stEl.textContent = storageOk ? '공용 양식 등록됨' : '로컬 저장됨';
+      if(storageOk){
+        toast('공용 양식이 등록되었습니다. 팀원이 메뉴 진입 시 자동 적용됩니다.');
+      } else if(typeof firebase==='undefined' || !firebase.storage){
+        toast('Storage 미연결 — 본인 기기에만 저장됩니다.');
+      } else {
+        toast('팀 공유 실패: '+storageErrMsg+' (본인 기기에만 저장됨)');
+      }
+      // 미리보기 즉시 렌더
+      renderWaExcelPreview(side, b64);
+    }catch(e){
+      console.warn('uploadWaTemplate 오류:', e);
+      toast('양식 업로드 중 오류: '+e.message);
+    }
+  };
+  fi.click();
+}
+
+// 페이지 진입 시 before/after 양식을 Storage에서 로드해 미리보기 표시
+async function loadWaTemplatesOnEnter(){
+  var sides = ['before','after'];
+  for(var si=0;si<sides.length;si++){
+    var side = sides[si];
+    var lsKey      = (side==='before') ? 'tops_wa_excel_tpl_before' : 'tops_wa_excel_tpl_after';
+    var statusId   = (side==='before') ? 'wa_before_tpl_status' : 'wa_after_tpl_status';
+    var storageFile= (side==='before') ? 'before.xlsx' : 'after.xlsx';
+    var resultKey  = (side==='before') ? 'tops_wa_excel_result_before' : 'tops_wa_excel_result_after';
+    var stEl = document.getElementById(statusId);
+    // 기존 결과(작성 완료 엑셀) 복원
+    var resultB64 = ''; try{ resultB64 = localStorage.getItem(resultKey)||''; }catch(e){}
+    if(resultB64){ renderWaExcelPreview(side, resultB64); }
+    // 양식 캐시 확인
+    var b64 = ''; try{ b64 = localStorage.getItem(lsKey)||''; }catch(e){}
+    if(!b64){
+      // Storage에서 받아오기
+      b64 = await _fetchWaTplFromStorage(storageFile);
+      if(b64){ try{ localStorage.setItem(lsKey, b64); }catch(e){} }
+    }
+    if(b64 && stEl) stEl.textContent = '공용 양식 등록됨';
+    else if(stEl) stEl.textContent = '';
+  }
+}
+
+// 리모델링 전 — [작성] 버튼
 async function generateWaBeforeExcel(){
   var inp = document.getElementById('wa_before_file');
   if(!inp || !inp.files || !inp.files.length){
     toast('먼저 PDF 파일을 선택해주세요.');
     return;
   }
-  // 엑셀 양식 확인 (Storage 또는 localStorage)
+  // 엑셀 양식 확인 (localStorage 캐시 → Storage 순)
   var tplB64 = '';
-  try{ tplB64 = localStorage.getItem('tops_wa_excel_tpl') || ''; }catch(e){}
-  if(!tplB64 && typeof firebase!=='undefined' && firebase.storage){
-    try{
-      var url = await firebase.storage().ref('wa_templates/before.xlsx').getDownloadURL();
-      var resp = await fetch(url);
-      if(resp.ok){
-        var ab = await resp.arrayBuffer();
-        var arr = new Uint8Array(ab);
-        var chunks=[]; var cs=8192;
-        for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
-        tplB64 = btoa(chunks.join(''));
-        try{ localStorage.setItem('tops_wa_excel_tpl', tplB64); }catch(e){}
-      }
-    }catch(e){ /* 양식 미등록 */ }
+  try{ tplB64 = localStorage.getItem('tops_wa_excel_tpl_before')||''; }catch(e){}
+  if(!tplB64){
+    toast('양식을 불러오는 중...');
+    tplB64 = await _fetchWaTplFromStorage('before.xlsx');
+    if(tplB64){ try{ localStorage.setItem('tops_wa_excel_tpl_before', tplB64); }catch(e){} }
   }
   if(!tplB64){
-    toast('엑셀 양식이 아직 등록되지 않았습니다. 관리자(사장님)가 양식 업로드 후 사용 가능합니다.');
+    toast('엑셀 양식이 아직 등록되지 않았습니다. 헤더의 [엑셀 양식 업로드] 버튼으로 먼저 등록해주세요.');
     var st = document.getElementById('wa_before_excel_status');
-    if(st) st.innerHTML = '⚠ 엑셀 양식이 등록되지 않았습니다.<br><span style="font-size:12px;color:#a0a0c0">사장님이 양식을 등록한 후 사용 가능합니다.</span>';
+    if(st){ st.style.display=''; st.innerHTML = '&#9888; 엑셀 양식이 등록되지 않았습니다.<br><span style="font-size:12px;color:#a0a0c0">헤더의 [엑셀 양식 업로드] 버튼으로 등록 후 사용하세요.</span>'; }
     return;
   }
-  toast('엑셀 양식 처리는 다음 단계에서 연결됩니다.');
-  // TODO: PDF 텍스트 추출 → /api/analyze 로 항목 추출 → SheetJS로 엑셀 채우기
+  // 양식을 결과로 저장 후 미리보기 렌더 (추후 AI 기입 결과로 교체 가능)
+  try{ localStorage.setItem('tops_wa_excel_result_before', tplB64); }catch(e){}
+  renderWaExcelPreview('before', tplB64);
+  toast('엑셀 양식을 불러왔습니다. 다운로드해서 사용하세요.');
 }
 
+// 리모델링 후 — [작성] 버튼
+async function generateWaAfterExcel(){
+  var inp = document.getElementById('wa_after_file');
+  if(!inp || !inp.files || !inp.files.length){
+    toast('먼저 파일을 선택해주세요.');
+    return;
+  }
+  var tplB64 = '';
+  try{ tplB64 = localStorage.getItem('tops_wa_excel_tpl_after')||''; }catch(e){}
+  if(!tplB64){
+    toast('양식을 불러오는 중...');
+    tplB64 = await _fetchWaTplFromStorage('after.xlsx');
+    if(tplB64){ try{ localStorage.setItem('tops_wa_excel_tpl_after', tplB64); }catch(e){} }
+  }
+  if(!tplB64){
+    toast('엑셀 양식이 아직 등록되지 않았습니다. 헤더의 [엑셀 양식 업로드] 버튼으로 먼저 등록해주세요.');
+    var st = document.getElementById('wa_after_excel_status');
+    if(st){ st.style.display=''; st.innerHTML = '&#9888; 엑셀 양식이 등록되지 않았습니다.<br><span style="font-size:12px;color:#a0a0c0">헤더의 [엑셀 양식 업로드] 버튼으로 등록 후 사용하세요.</span>'; }
+    return;
+  }
+  try{ localStorage.setItem('tops_wa_excel_result_after', tplB64); }catch(e){}
+  renderWaExcelPreview('after', tplB64);
+  toast('엑셀 양식을 불러왔습니다. 다운로드해서 사용하세요.');
+}
+
+// 하위 호환: 기존 코드에서 호출될 수 있는 구버전 함수 래퍼
 function _showWaExcelButtons(b64){
-  try{ localStorage.setItem('tops_wa_excel_result', b64); }catch(e){}
-  var st = document.getElementById('wa_before_excel_status');
-  if(st) st.style.display='none';
-  var box = document.getElementById('wa_before_excel_buttons');
-  if(!box) return;
-  box.style.display='flex';
-  box.innerHTML =
-     '<button onclick="previewWaExcel()" style="padding:8px 16px;font-size:14px;background:rgba(40,80,200,.12);border:1px solid rgba(40,80,200,.3);border-radius:6px;color:#2050cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-eye"></i> 미리보기</button>'
-    +'<button onclick="downloadWaExcel()" style="padding:8px 16px;font-size:14px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-download"></i> 다운로드</button>';
+  try{ localStorage.setItem('tops_wa_excel_result_before', b64); }catch(e){}
+  renderWaExcelPreview('before', b64);
 }
-
 function downloadWaExcel(){
-  var b64=''; try{ b64=localStorage.getItem('tops_wa_excel_result')||''; }catch(e){}
-  if(!b64){ toast('엑셀이 아직 생성되지 않았습니다.'); return; }
-  var a=document.createElement('a');
-  a.href='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+b64;
-  a.download='리모델링전_보장분석_'+tds()+'.xlsx';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  toast('다운로드 완료!');
+  downloadWaExcelSide('before');
 }
-
 function previewWaExcel(){
-  var b64=''; try{ b64=localStorage.getItem('tops_wa_excel_result')||''; }catch(e){}
+  var b64=''; try{ b64=localStorage.getItem('tops_wa_excel_result_before')||localStorage.getItem('tops_wa_excel_result')||''; }catch(e){}
   if(!b64){ toast('엑셀이 아직 생성되지 않았습니다.'); return; }
-  toast('미리보기는 다음 단계에서 연결됩니다. 일단 다운로드해서 열어주세요.');
+  renderWaExcelPreview('before', b64);
 }
-
-// 페이지 진입 시 기존 결과가 있으면 버튼 노출
 function _restoreWaExcelButtons(){
-  var b64=''; try{ b64=localStorage.getItem('tops_wa_excel_result')||''; }catch(e){}
-  if(b64) _showWaExcelButtons(b64);
+  // 구버전 키 마이그레이션
+  var oldB64=''; try{ oldB64=localStorage.getItem('tops_wa_excel_result')||''; }catch(e){}
+  if(oldB64){ try{ localStorage.setItem('tops_wa_excel_result_before', oldB64); }catch(e){} }
+  var b64=''; try{ b64=localStorage.getItem('tops_wa_excel_result_before')||oldB64; }catch(e){}
+  if(b64) renderWaExcelPreview('before', b64);
 }
 
 // ===== 보장분석 파일 개수 제한 =====
@@ -4507,10 +4702,10 @@ function checkWaAfterLimit(inp){
     document.getElementById('wa_after_list').innerHTML='';
     return;
   }
-  const list=document.getElementById('wa_after_list');
-  list.innerHTML=Array.from(inp.files).map(f=>
-    '<div style="font-size:14px;color:#208050;padding:2px 0">✅ '+f.name+'</div>'
-  ).join('');
+  var list=document.getElementById('wa_after_list');
+  list.innerHTML=Array.from(inp.files).map(function(f){
+    return '<div style="font-size:14px;color:#208050;padding:2px 0">&#10003; '+f.name+'</div>';
+  }).join('');
 }
 
 // ===== 리모델링 전 보장분석 작성 (모달 텍스트) =====
