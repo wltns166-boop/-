@@ -1647,6 +1647,8 @@ function sv(k,v){
   try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
   // 팀 공용 구글드라이브(구글 시트) 자동 최신화 — 대상 키만 동작
   try{ _driveSync(k,v); }catch(e){}
+  // 고객별 폴더(팀원/고객/분류)로도 각각 파일 저장
+  try{ _driveSyncFolders(k,v); }catch(e){}
   if(!window.FS_DOC) return;
   FS_DOC = window.FS_DOC;
   const fsKey = k.replace('tops_','');
@@ -1766,14 +1768,116 @@ function _driveSaveClaimFiles(claim, packagePDFs){
   });
 }
 
+// ===== 고객별 폴더 저장 =====
+//   TEAM TOPS 자료 / {팀원=담당자} / {고객} / {분류} / {파일}
+//   고객등록 → "{고객} 고객등록 파일"(시트)   DB배정현황 → "{고객} DB배정 리스트"(시트)
+//   병력정리 → "{고객}"(문서)                 보장분석   → "{고객}"(문서)
+var _DRIVE_CF_NAME = { '고객등록':'고객등록 파일', 'DB배정현황':'DB배정 리스트', '병력정리':'', '보장분석':'' };
+var _driveFolderTimers = {};
+
+// 간단 해시(변경 없으면 재생성 방지)
+function _driveHash(s){ var h=0,i,c; s=String(s); for(i=0;i<s.length;i++){ c=s.charCodeAt(i); h=((h<<5)-h)+c; h|=0; } return h; }
+
+// 분류·팀원·고객별로 파일 1개 저장(내용 변경 없으면 스킵)
+function _driveSaveCustFile(category, member, cust, kind, data){
+  var url=_driveSyncUrl(); if(!url) return;
+  member=String(member==null?'':member).trim()||'미지정';
+  cust=String(cust==null?'':cust).trim(); if(!cust) return;
+  var suffix=_DRIVE_CF_NAME[category];
+  var filename=(suffix==null?'':suffix) ? (cust+' '+suffix) : cust;
+  var payload={ action:'custFile', member:member, cust:cust, category:category, filename:filename, kind:(kind||'sheet') };
+  if(payload.kind==='sheet'){ payload.headers=(data&&data.headers)||[]; payload.rows=(data&&data.rows)||[]; }
+  else { payload.text=(data&&data.text)||''; }
+  // 같은 (분류|팀원|고객) 내용이 직전과 동일하면 서버 호출 생략
+  var hkey='tops_drv_h_'+category+'|'+member+'|'+cust;
+  var sig=String(_driveHash(JSON.stringify(payload)));
+  try{ if(localStorage.getItem(hkey)===sig) return; }catch(e){}
+  try{
+    fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+      .catch(function(e){ console.warn('drive cust file err:', e); });
+  }catch(e){ console.warn('drive cust file err:', e); return; }
+  try{ localStorage.setItem(hkey, sig); }catch(e){}
+}
+
+// 고객등록 → 항목/내용 2열 시트
+function _custRegSheet(c){
+  var rows=[];
+  function add(l,v){ rows.push([l, (v==null?'':String(v))]); }
+  add('고객명', c.name); add('주민번호', c.rrn); add('연락처', c.phone); add('통신사', c.carrier);
+  add('지역', c.region); add('주소', c.addr); add('키', c.height); add('몸무게', c.weight);
+  add('직업', c.job); add('은행', c.bankName); add('계좌번호', c.bankNum);
+  add('병력', c.disease); add('보험사', Array.isArray(c.ins)?c.ins.join(', '):(c.ins||'')); add('메모', c.note);
+  add('등록일', c.regDate||'');
+  if(Array.isArray(c.family) && c.family.length){
+    add('가족수', c.familyCnt||c.family.length);
+    c.family.forEach(function(f,i){
+      var p='가족'+(i+1)+' ';
+      add(p+'성함', f.name); add(p+'관계', f.rel); add(p+'주민번호', f.rrn);
+      add(p+'연락처', f.phone); add(p+'직업', f.job); add(p+'병력', f.disease);
+    });
+  }
+  return { headers:['항목','내용'], rows:rows };
+}
+// DB배정 리드 1명 → 항목/내용 2열 시트
+function _dbLeadSheet(d, n){
+  return { headers:['항목','내용'], rows:[
+    ['고객명', n.name||''], ['연락처', n.phone||''], ['생년월일', n.birth||''],
+    ['성별', n.gender||''], ['보험료', n.premium||''], ['통화가능시간', n.calltime||''],
+    ['주소', n.address||''], ['DB종류', d.k||''], ['지역', d.region||''],
+    ['담당자', d.m||''], ['배정일', d.dt||'']
+  ]};
+}
+// 보장분석 → 문서 텍스트
+function _anaText(a){
+  return '고객명: '+(a.cust||'')+'\n담당자: '+(a.m||'')+'\n일자: '+(a.dt||'')+'\n상태: '+(a.st||'')+'\n\n[보장분석 항목/요약]\n'+(a.items||'');
+}
+
+// 키별 배열을 고객별 폴더 파일로 즉시 전송
+function _driveSyncFoldersCore(k, arr){
+  if(!Array.isArray(arr) || !_driveSyncUrl()) return;
+  if(k==='tops_custs'){
+    arr.forEach(function(c){ if(c && c.name) _driveSaveCustFile('고객등록', c.m||(window.cu&&window.cu.name)||'미지정', c.name, 'sheet', _custRegSheet(c)); });
+  }else if(k==='tops_dbs'){
+    arr.forEach(function(d){ if(d && Array.isArray(d.notes)) d.notes.forEach(function(n){ if(n && n.name) _driveSaveCustFile('DB배정현황', d.m||'미지정', n.name, 'sheet', _dbLeadSheet(d,n)); }); });
+  }else if(k==='tops_mhx'){
+    arr.forEach(function(m){ if(m && m.cust) _driveSaveCustFile('병력정리', m.m||'미지정', m.cust, 'doc', { text:(m.note||m.items||'') }); });
+  }else if(k==='tops_ana'){
+    arr.forEach(function(a){ if(a && a.cust) _driveSaveCustFile('보장분석', a.m||'미지정', a.cust, 'doc', { text:_anaText(a) }); });
+  }
+}
+// 데이터 변경 시 호출(디바운스) — sv()에서 자동 실행
+function _driveSyncFolders(k, v){
+  if(!_DRIVE_SHEETS[k] || !Array.isArray(v) || !_driveSyncUrl()) return;
+  if(_driveFolderTimers[k]) clearTimeout(_driveFolderTimers[k]);
+  var snapshot = v;
+  _driveFolderTimers[k] = setTimeout(function(){ try{ _driveSyncFoldersCore(k, snapshot); }catch(e){ console.warn('drive folder err:', e); } }, 1800);
+}
+
+// 기존 데이터 전체를 고객별 폴더로 한 번에 올리기(백필/수동)
+function driveSaveAllCustFiles(){
+  if(!_driveSyncUrl()) return;
+  ['tops_custs','tops_dbs','tops_mhx','tops_ana'].forEach(function(k){
+    var v=[]; try{ v=JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ v=[]; }
+    try{ _driveSyncFoldersCore(k, v); }catch(e){}
+  });
+}
+
 // URL이 설정된 환경에서 최초 1회 자동 백필(기존 데이터를 드라이브에 올림)
 function _driveBackfillOnce(){
   if(!_driveSyncUrl()) return;
   var done=''; try{ done = localStorage.getItem('tops_drive_backfilled')||''; }catch(e){}
-  if(done) return;
-  setTimeout(function(){
-    try{ driveSyncAll(); localStorage.setItem('tops_drive_backfilled','1'); }catch(e){}
-  }, 4000);
+  if(!done){
+    setTimeout(function(){
+      try{ driveSyncAll(); localStorage.setItem('tops_drive_backfilled','1'); }catch(e){}
+    }, 4000);
+  }
+  // 고객별 폴더 백필(별도 플래그)
+  var doneCF=''; try{ doneCF = localStorage.getItem('tops_drive_custfiles_backfilled')||''; }catch(e){}
+  if(!doneCF){
+    setTimeout(function(){
+      try{ driveSaveAllCustFiles(); localStorage.setItem('tops_drive_custfiles_backfilled','1'); }catch(e){}
+    }, 7000);
+  }
 }
 try{ if(document.readyState!=='loading') _driveBackfillOnce(); else document.addEventListener('DOMContentLoaded', _driveBackfillOnce); }catch(e){}
 
@@ -5222,9 +5326,12 @@ function saveCust(){
     bankNum:(g('cust_bank_num')||{value:''}).value.trim(),
     disease:(g('cust_disease')||{value:''}).value.trim(),
     note:(g('cust_note')||{value:''}).value.trim(),
-    familyCnt:familyCnt,family:family,ins:ins,regDate:tds()
+    familyCnt:familyCnt,family:family,ins:ins,regDate:tds(),
+    m:(window.cu&&window.cu.name)?window.cu.name:''
   };
   var idx=(g('cust_edit_idx')||{value:''}).value;
+  // 수정 시 기존 담당자 유지(없을 때만 현재 사용자)
+  if(idx!=='' && Array.isArray(custs) && custs[+idx] && custs[+idx].m) obj.m=custs[+idx].m;
   if(idx!=='') custs[+idx]=obj; else { if(!Array.isArray(custs)) custs=[]; custs.push(obj); }
   localStorage.setItem('tops_custs',JSON.stringify(custs));
   window._custs = custs;

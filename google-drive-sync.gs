@@ -37,6 +37,9 @@ function doPost(e) {
     // 보험금 청구 파일 저장 (팀원별 폴더)
     if (body.action === 'claimFile') { return _saveClaimFile(body, out); }
 
+    // 고객별 폴더 저장: TEAM TOPS 자료 / {팀원} / {고객} / {분류} / {파일}
+    if (body.action === 'custFile') { return _saveCustFile(body, out); }
+
     var sheetName = String(body.sheet || '').trim();
     if (!sheetName) { out.setContent(JSON.stringify({ error: 'sheet name required' })); return out; }
 
@@ -140,6 +143,61 @@ function _saveClaimFile(body, out) {
   var bytes = Utilities.base64Decode(b64);
   var blob = Utilities.newBlob(bytes, 'application/pdf', fileName);
   var f = subF.createFile(blob);
+  out.setContent(JSON.stringify({ ok: true, file: fileName, url: f.getUrl() }));
+  return out;
+}
+
+// 고객별 폴더 저장
+//   폴더:  TEAM TOPS 자료 / {팀원} / {고객} / {분류} / {파일}
+//   분류:  고객등록 · DB배정현황 · 병력정리 · 보장분석
+//   형식:  kind='sheet' → 구글시트(헤더+행),  kind='doc' → 구글문서(텍스트)
+function _saveCustFile(body, out) {
+  var member   = String(body.member   || '미지정').trim() || '미지정';
+  var cust     = String(body.cust     || '').trim();
+  var category = String(body.category || '').trim();
+  var fileName = String(body.filename || cust).trim() || cust;
+  var kind     = String(body.kind     || 'sheet');
+  if (!cust || !category) { out.setContent(JSON.stringify({ error: 'cust/category required' })); return out; }
+
+  var root    = _getFolder();
+  var memberF = _getChildFolder(root, member);
+  var custF   = _getChildFolder(memberF, cust);
+  var catF    = _getChildFolder(custF, category);
+
+  // 같은 이름 파일이 있으면 휴지통으로(덮어쓰기 효과)
+  var ex = catF.getFilesByName(fileName);
+  while (ex.hasNext()) ex.next().setTrashed(true);
+
+  var f;
+  if (kind === 'doc') {
+    var doc = DocumentApp.create(fileName);
+    doc.getBody().setText(String(body.text || ''));
+    doc.saveAndClose();
+    f = DriveApp.getFileById(doc.getId());
+  } else {
+    var ss = SpreadsheetApp.create(fileName);
+    var sh = ss.getSheets()[0];
+    var headers = body.headers || [];
+    var rows    = body.rows || [];
+    var data = [];
+    if (headers.length) data.push(headers.map(_cell));
+    for (var i = 0; i < rows.length; i++) data.push((rows[i] || []).map(_cell));
+    if (data.length) {
+      var w = 0;
+      for (var j = 0; j < data.length; j++) w = Math.max(w, data[j].length);
+      for (var j2 = 0; j2 < data.length; j2++) { while (data[j2].length < w) data[j2].push(''); }
+      sh.getRange(1, 1, data.length, w).setValues(data);
+      if (headers.length) {
+        sh.getRange(1, 1, 1, w).setFontWeight('bold').setBackground('#e8eaf6');
+        sh.setFrozenRows(1);
+      }
+    }
+    SpreadsheetApp.flush();
+    f = DriveApp.getFileById(ss.getId());
+  }
+
+  // 루트에서 대상 폴더로 이동
+  try { catF.addFile(f); DriveApp.getRootFolder().removeFile(f); } catch (e) {}
   out.setContent(JSON.stringify({ ok: true, file: fileName, url: f.getUrl() }));
   return out;
 }
