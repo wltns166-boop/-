@@ -33,6 +33,10 @@ function doPost(e) {
   out.setMimeType(ContentService.MimeType.JSON);
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // 보험금 청구 파일 저장 (팀원별 폴더)
+    if (body.action === 'claimFile') { return _saveClaimFile(body, out); }
+
     var sheetName = String(body.sheet || '').trim();
     if (!sheetName) { out.setContent(JSON.stringify({ error: 'sheet name required' })); return out; }
 
@@ -107,4 +111,35 @@ function _getFolder() {
   var it = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
   if (it.hasNext()) return it.next();
   return DriveApp.createFolder(ROOT_FOLDER_NAME);
+}
+
+// 하위 폴더 가져오기(없으면 생성)
+function _getChildFolder(parent, name) {
+  var it = parent.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return parent.createFolder(name);
+}
+
+// 보험금 청구 PDF 저장: 보험금청구 / {팀원이름} / {폴더명} / {파일명}
+function _saveClaimFile(body, out) {
+  var member   = String(body.member || '미지정').trim() || '미지정';
+  var folder   = String(body.folder || '보험금청구').trim() || '보험금청구';
+  var fileName = String(body.filename || 'file.pdf').trim() || 'file.pdf';
+  var b64      = body.b64 || '';
+  if (!b64) { out.setContent(JSON.stringify({ error: 'b64 required' })); return out; }
+
+  var root      = _getFolder();
+  var claimRoot = _getChildFolder(root, '보험금청구');
+  var memberF   = _getChildFolder(claimRoot, member);
+  var subF      = _getChildFolder(memberF, folder);
+
+  // 같은 이름 파일이 있으면 휴지통으로(덮어쓰기 효과)
+  var ex = subF.getFilesByName(fileName);
+  while (ex.hasNext()) ex.next().setTrashed(true);
+
+  var bytes = Utilities.base64Decode(b64);
+  var blob = Utilities.newBlob(bytes, 'application/pdf', fileName);
+  var f = subF.createFile(blob);
+  out.setContent(JSON.stringify({ ok: true, file: fileName, url: f.getUrl() }));
+  return out;
 }

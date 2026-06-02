@@ -1736,6 +1736,36 @@ function driveSyncAll(){
   if(typeof toast==='function') toast('구글드라이브로 전체 동기화를 시작했습니다.');
 }
 
+// 날짜 → "YYYY년MM월DD일"
+function _krDateStr(d){
+  d = d || new Date();
+  var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+  return y+'년'+m+'월'+day+'일';
+}
+
+// 보험금 청구 PDF를 팀원별 구글드라이브 폴더에 저장
+//   폴더:  보험금청구 / {팀원이름} / {고객}님 YYYY년MM월DD일 보험금청구
+//   파일:  {고객}님 YYYY년MM월DD일 보험금청구 (보험사).pdf  (보험사별)
+function _driveSaveClaimFiles(claim, packagePDFs){
+  var url = _driveSyncUrl();
+  if(!url || !claim || !packagePDFs) return;
+  var member = claim.agent || ((typeof cu!=='undefined' && cu && cu.name) ? cu.name : '미지정');
+  var custName = claim.custName || '고객';
+  var baseName = custName + '님 ' + _krDateStr(new Date()) + ' 보험금청구';
+  var insurers = Object.keys(packagePDFs);
+  insurers.forEach(function(ins){
+    var dataUrl = packagePDFs[ins] || '';
+    var b64 = dataUrl.indexOf(',')>=0 ? dataUrl.split(',')[1] : dataUrl;
+    if(!b64) return;
+    var fileName = baseName + ' (' + ins + ').pdf';
+    var payload = { action:'claimFile', member:member, folder:baseName, filename:fileName, b64:b64 };
+    try{
+      fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+        .catch(function(e){ console.warn('drive claim file err:', e); });
+    }catch(e){ console.warn('drive claim file err:', e); }
+  });
+}
+
 // URL이 설정된 환경에서 최초 1회 자동 백필(기존 데이터를 드라이브에 올림)
 function _driveBackfillOnce(){
   if(!_driveSyncUrl()) return;
@@ -6431,6 +6461,12 @@ function saveClaim(){
   toast(idx!==''?'수정되었습니다.':'청구신청이 완료되었습니다! 청구파일 생성 중...');
   if(idx===''){
     try{ pushAlert('총무','청구신청', ((cu&&cu.name)||'담당자')+'님이 '+name+' 고객의 청구신청을 등록했습니다.'); }catch(e){}
+    // 업무관리 > 보험금 청구 목록에도 자동 등록(신청 내역이 계속 누적 저장됨)
+    try{
+      if(!Array.isArray(clm)) clm=[];
+      clm.push({ cust:name, m:(cu?cu.name:''), co:obj.insurer||'', amt:0, st:'접수', dt:tds(), fromClaim:true });
+      sv('tops_clm', clm);
+    }catch(e){ console.warn('clm auto add err:', e); }
   }
   var savedIdx=idx!==''?+idx:claims.length-1;
   setTimeout(function(){
@@ -7050,6 +7086,9 @@ async function generateClaimPackage(idx) {
   // Firebase Storage에 업로드 → 다운로드 URL을 Firestore로 공유(팀원 전체가 열람 가능)
   claims[idx].pkgUrls = claims[idx].pkgUrls || {};
   await uploadClaimPackagesToStorage(claims[idx].pkgId, packagePDFs, claims[idx].pkgUrls);
+
+  // 팀원별 구글드라이브 폴더에 청구파일 저장 (공용 드라이브 / 보험금청구 / 팀원이름 / 폴더)
+  try{ _driveSaveClaimFiles(claims[idx], packagePDFs); }catch(e){ console.warn('drive claim save err:', e); }
 
   // 로컬 저장: 큰 패키지 PDF는 별도 키에 있으므로 claims에서는 제외(첨부 이미지는 본인 편집용으로 유지)
   var clLocal = claims.map(function(cl){
