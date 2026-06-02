@@ -1323,6 +1323,10 @@ table.dt tr:last-child td{border-bottom:none;}
   }catch(e){ console.warn('❌ Firebase 연결 실패:', e); }
 })();
 
+// AI 분석 중계 서버(Apps Script 웹앱) URL. 배포 후 아래 따옴표 안에 /exec URL을 넣으면
+// 병력정리·보장분석 AI 기능이 동작한다. (localStorage 'tops_ai_proxy_url'로도 덮어쓰기 가능)
+window.AI_PROXY_URL = "";
+
 
 
 
@@ -3875,9 +3879,10 @@ async function analyzeMedical(){
       var prompt = pl.join('\n');
 
       try {
-        var res = await fetch('/api/analyze', {
+        var _aiUrl = (function(){ try{ return localStorage.getItem('tops_ai_proxy_url')||''; }catch(e){ return ''; } })() || (window.AI_PROXY_URL||'') || '/api/analyze';
+        var res = await fetch(_aiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, prompt: prompt })
         });
         if(!res.ok){
