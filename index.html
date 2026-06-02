@@ -1746,7 +1746,7 @@ function _krDateStr(d){
 }
 
 // 보험금 청구 PDF를 팀원별 구글드라이브 폴더에 저장
-//   폴더:  보험금청구 / {팀원이름} / {고객}님 YYYY년MM월DD일 보험금청구
+//   폴더:  {팀원이름} / {고객명}
 //   파일:  {고객}님 YYYY년MM월DD일 보험금청구 (보험사).pdf  (보험사별)
 function _driveSaveClaimFiles(claim, packagePDFs){
   var url = _driveSyncUrl();
@@ -1760,7 +1760,7 @@ function _driveSaveClaimFiles(claim, packagePDFs){
     var b64 = dataUrl.indexOf(',')>=0 ? dataUrl.split(',')[1] : dataUrl;
     if(!b64) return;
     var fileName = baseName + ' (' + ins + ').pdf';
-    var payload = { action:'claimFile', member:member, folder:baseName, filename:fileName, b64:b64 };
+    var payload = { action:'claimFile', member:member, cust:custName, filename:fileName, b64:b64 };
     try{
       fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
         .catch(function(e){ console.warn('drive claim file err:', e); });
@@ -1772,7 +1772,7 @@ function _driveSaveClaimFiles(claim, packagePDFs){
 //   TEAM TOPS 자료 / {팀원=담당자} / {고객} / {분류} / {파일}
 //   고객등록 → "{고객} 고객등록 파일"(시트)   DB배정현황 → "{고객} DB배정 리스트"(시트)
 //   병력정리 → "{고객}"(문서)                 보장분석   → "{고객}"(문서)
-var _DRIVE_CF_NAME = { '고객등록':'고객등록 파일', 'DB배정현황':'DB배정 리스트', '병력정리':'', '보장분석':'' };
+var _DRIVE_CF_NAME = { '고객등록':'고객등록 파일', 'DB배정현황':'DB배정 리스트', '병력정리':'병력정리', '보장분석':'보장분석' };
 var _driveFolderTimers = {};
 
 // 간단 해시(변경 없으면 재생성 방지)
@@ -1789,7 +1789,7 @@ function _driveSaveCustFile(category, member, cust, kind, data){
   if(payload.kind==='sheet'){ payload.headers=(data&&data.headers)||[]; payload.rows=(data&&data.rows)||[]; }
   else { payload.text=(data&&data.text)||''; }
   // 같은 (분류|팀원|고객) 내용이 직전과 동일하면 서버 호출 생략
-  var hkey='tops_drv_h_'+category+'|'+member+'|'+cust;
+  var hkey='tops_drv_h2_'+category+'|'+member+'|'+cust;
   var sig=String(_driveHash(JSON.stringify(payload)));
   try{ if(localStorage.getItem(hkey)===sig) return; }catch(e){}
   try{
@@ -1871,11 +1871,11 @@ function _driveBackfillOnce(){
       try{ driveSyncAll(); localStorage.setItem('tops_drive_backfilled','1'); }catch(e){}
     }, 4000);
   }
-  // 고객별 폴더 백필(별도 플래그)
-  var doneCF=''; try{ doneCF = localStorage.getItem('tops_drive_custfiles_backfilled')||''; }catch(e){}
+  // 고객별 폴더 백필(별도 플래그 — 폴더 구성 변경 시 버전 올림)
+  var doneCF=''; try{ doneCF = localStorage.getItem('tops_drive_custfiles_backfilled_v2')||''; }catch(e){}
   if(!doneCF){
     setTimeout(function(){
-      try{ driveSaveAllCustFiles(); localStorage.setItem('tops_drive_custfiles_backfilled','1'); }catch(e){}
+      try{ driveSaveAllCustFiles(); localStorage.setItem('tops_drive_custfiles_backfilled_v2','1'); }catch(e){}
     }, 7000);
   }
 }

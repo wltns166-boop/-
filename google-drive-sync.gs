@@ -123,18 +123,26 @@ function _getChildFolder(parent, name) {
   return parent.createFolder(name);
 }
 
-// 보험금 청구 PDF 저장: 보험금청구 / {팀원이름} / {폴더명} / {파일명}
+// 보험금 청구 PDF 저장: {팀원이름} / {고객명} / {파일명}
+//   (cust 없으면 예전 방식: 보험금청구 / {팀원} / {폴더} / {파일})
 function _saveClaimFile(body, out) {
   var member   = String(body.member || '미지정').trim() || '미지정';
+  var cust     = String(body.cust || '').trim();
   var folder   = String(body.folder || '보험금청구').trim() || '보험금청구';
   var fileName = String(body.filename || 'file.pdf').trim() || 'file.pdf';
   var b64      = body.b64 || '';
   if (!b64) { out.setContent(JSON.stringify({ error: 'b64 required' })); return out; }
 
-  var root      = _getFolder();
-  var claimRoot = _getChildFolder(root, '보험금청구');
-  var memberF   = _getChildFolder(claimRoot, member);
-  var subF      = _getChildFolder(memberF, folder);
+  var root    = _getFolder();
+  var memberF = _getChildFolder(root, member);
+  var subF;
+  if (cust) {
+    subF = _getChildFolder(memberF, cust);                 // {팀원} / {고객}
+  } else {
+    var claimRoot = _getChildFolder(root, '보험금청구');     // 예전 방식 호환
+    var memF2     = _getChildFolder(claimRoot, member);
+    subF          = _getChildFolder(memF2, folder);
+  }
 
   // 같은 이름 파일이 있으면 휴지통으로(덮어쓰기 효과)
   var ex = subF.getFilesByName(fileName);
@@ -148,8 +156,11 @@ function _saveClaimFile(body, out) {
 }
 
 // 고객별 폴더 저장
-//   폴더:  TEAM TOPS 자료 / {팀원} / {고객} / {분류} / {파일}
-//   분류:  고객등록 · DB배정현황 · 병력정리 · 보장분석
+//   폴더 구성(팀원 폴더 안):
+//     고객등록   → 고객정보 / "{고객} 고객등록 파일"
+//     병력정리   → {고객} / "{고객} 병력정리"
+//     보장분석   → {고객} / "{고객} 보장분석"
+//     DB배정현황 → DB배정 / "{고객} DB배정 리스트"
 //   형식:  kind='sheet' → 구글시트(헤더+행),  kind='doc' → 구글문서(텍스트)
 function _saveCustFile(body, out) {
   var member   = String(body.member   || '미지정').trim() || '미지정';
@@ -161,8 +172,10 @@ function _saveCustFile(body, out) {
 
   var root    = _getFolder();
   var memberF = _getChildFolder(root, member);
-  var custF   = _getChildFolder(memberF, cust);
-  var catF    = _getChildFolder(custF, category);
+  var catF;
+  if (category === '고객등록')        catF = _getChildFolder(memberF, '고객정보');
+  else if (category === 'DB배정현황')  catF = _getChildFolder(memberF, 'DB배정');
+  else                                catF = _getChildFolder(memberF, cust);  // 병력정리·보장분석
 
   // 같은 이름 파일이 있으면 휴지통으로(덮어쓰기 효과)
   var ex = catF.getFilesByName(fileName);
