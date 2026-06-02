@@ -1343,6 +1343,11 @@ table.dt tr:last-child td{border-bottom:none;}
 // 병력정리·보장분석 AI 기능이 동작한다. (localStorage 'tops_ai_proxy_url'로도 덮어쓰기 가능)
 window.AI_PROXY_URL = "";
 
+// 처리 결과를 팀 공용 구글드라이브(구글 시트)에 자동 저장하는 Apps Script 웹앱 URL.
+// 배포 후 아래 따옴표 안에 /exec URL을 넣으면 고객등록·DB배정현황·병력정리·보장분석이
+// 데이터 변경 시마다 구글 시트에 자동 최신화된다. (localStorage 'tops_drive_sync_url'로도 덮어쓰기 가능)
+window.DRIVE_SYNC_URL = "";
+
 
 
 
@@ -1640,11 +1645,107 @@ function initFirebase(){
 // 저장: localStorage + Firestore 동시
 function sv(k,v){
   try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
+  // 팀 공용 구글드라이브(구글 시트) 자동 최신화 — 대상 키만 동작
+  try{ _driveSync(k,v); }catch(e){}
   if(!window.FS_DOC) return;
   FS_DOC = window.FS_DOC;
   const fsKey = k.replace('tops_','');
   FS_DOC.set({[fsKey]: v}, {merge:true}).catch(function(e){console.warn('FS save err:',e);});
 }
+
+// ===== 구글드라이브(구글 시트) 자동 동기화 =====
+// 처리/등록 시 sv()가 호출 → 아래 4개 데이터를 각각의 시트(탭)에 전체 덮어쓰기로 최신화한다.
+var _DRIVE_SHEETS = {
+  tops_custs: '고객등록',
+  tops_dbs:  'DB배정현황',
+  tops_mhx:  '병력정리',
+  tops_ana:  '보장분석'
+};
+// 헤더를 한국어로 보기 좋게 (없는 키는 원래 키 그대로 표시)
+var _DRIVE_LABELS = {
+  name:'이름', cust:'고객명', applicant:'신청인', m:'담당자', mem:'담당자', manager:'담당자',
+  phone:'연락처', tel:'연락처', carrier:'통신사', rrn:'주민번호', birth:'생년월일',
+  gender:'성별', region:'지역', addr:'주소', email:'이메일', job:'직업',
+  ins:'보험사', family:'가족', kind:'DB종류', type:'종류', qty:'배정수량',
+  buyQty:'구매수량', remain:'잔여수량', items:'항목/요약', note:'내용', memo:'메모',
+  status:'상태', st:'상태', dt:'일자', date:'일자', reqDt:'신청일', assignDt:'배정일'
+};
+// 시트로 보내지 않을 키(중복 HTML·이미지·base64 등)
+var _DRIVE_EXCLUDE = { noteHtml:1, noteHTML:1, html:1, b64:1, data:1, dataUrl:1, pdf:1, file:1, photo:1, image:1, img:1 };
+var _DRIVE_MAX_CELL = 45000;
+var _driveTimers = {};
+
+function _driveSyncUrl(){
+  var url=''; try{ url = localStorage.getItem('tops_drive_sync_url')||''; }catch(e){}
+  return url || window.DRIVE_SYNC_URL || '';
+}
+
+// 객체 배열 → { sheet, headers, rows } 페이로드로 변환
+function _driveBuildPayload(sheet, arr){
+  var keys=[];
+  arr.forEach(function(o){
+    if(o && typeof o==='object'){
+      Object.keys(o).forEach(function(kk){ if(!_DRIVE_EXCLUDE[kk] && keys.indexOf(kk)<0) keys.push(kk); });
+    }
+  });
+  var headers = keys.map(function(kk){ return _DRIVE_LABELS[kk] || kk; });
+  var rows = arr.map(function(o){
+    return keys.map(function(kk){
+      var val = (o && typeof o==='object') ? o[kk] : o;
+      if(val==null) return '';
+      if(typeof val==='object'){ try{ val = JSON.stringify(val); }catch(e){ val = String(val); } }
+      else val = String(val);
+      if(val.indexOf('data:')===0) return '(첨부)';        // base64 데이터 URL 제외
+      if(val.length > _DRIVE_MAX_CELL) val = val.slice(0,_DRIVE_MAX_CELL)+'…';
+      return val;
+    });
+  });
+  return { sheet: sheet, headers: headers, rows: rows };
+}
+
+// 데이터 변경 시 호출 — 대상 키만 디바운스 후 드라이브로 전송(fire-and-forget)
+function _driveSync(k, v){
+  var sheet = _DRIVE_SHEETS[k];
+  if(!sheet || !Array.isArray(v)) return;
+  var url = _driveSyncUrl();
+  if(!url) return; // 미설정 시 조용히 패스
+  if(_driveTimers[k]) clearTimeout(_driveTimers[k]);
+  _driveTimers[k] = setTimeout(function(){
+    try{
+      var payload = _driveBuildPayload(sheet, v);
+      fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+        .catch(function(e){ console.warn('drive sync err:', e); });
+    }catch(e){ console.warn('drive payload err:', e); }
+  }, 1500);
+}
+
+// 현재 저장된 4개 데이터를 즉시 전부 드라이브로 내보내기(초기 1회 백필 / 수동 동기화용)
+function driveSyncAll(){
+  var url = _driveSyncUrl();
+  if(!url){ if(typeof toast==='function') toast('구글드라이브 연동 URL이 설정되지 않았습니다.'); return; }
+  var map = { tops_custs:(typeof custs!=='undefined'?custs:null), tops_dbs:(typeof dbs!=='undefined'?dbs:null),
+              tops_mhx:(typeof mhx!=='undefined'?mhx:null), tops_ana:(typeof ana!=='undefined'?ana:null) };
+  Object.keys(map).forEach(function(k){
+    var v = map[k];
+    if(!Array.isArray(v)){ try{ v = JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ v=[]; } }
+    try{
+      var payload = _driveBuildPayload(_DRIVE_SHEETS[k], v);
+      fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+    }catch(e){ console.warn('driveSyncAll err:', e); }
+  });
+  if(typeof toast==='function') toast('구글드라이브로 전체 동기화를 시작했습니다.');
+}
+
+// URL이 설정된 환경에서 최초 1회 자동 백필(기존 데이터를 드라이브에 올림)
+function _driveBackfillOnce(){
+  if(!_driveSyncUrl()) return;
+  var done=''; try{ done = localStorage.getItem('tops_drive_backfilled')||''; }catch(e){}
+  if(done) return;
+  setTimeout(function(){
+    try{ driveSyncAll(); localStorage.setItem('tops_drive_backfilled','1'); }catch(e){}
+  }, 4000);
+}
+try{ if(document.readyState!=='loading') _driveBackfillOnce(); else document.addEventListener('DOMContentLoaded', _driveBackfillOnce); }catch(e){}
 
 // Firestore에서 전체 데이터 로드
 async function loadFromFirestore(){
