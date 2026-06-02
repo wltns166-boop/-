@@ -578,6 +578,7 @@ table.dt tr:last-child td{border-bottom:none;}
               <button type="button" onclick="copyMedResult()" class="bp"><i class="ti ti-copy"></i> 복사</button>
               <button type="button" onclick="saveMedPdf()" class="bp" style="background:rgba(200,40,40,.15);border-color:rgba(220,60,60,.3);color:#cc2020"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
               <button type="button" onclick="saveMedResult()" class="bp" style="background:rgba(20,140,80,.18);border-color:rgba(30,180,100,.3);color:#20aa60"><i class="ti ti-device-floppy"></i> 목록 저장</button>
+              <button type="button" onclick="showMedRaw()" class="bp" style="background:rgba(120,90,200,.12);border-color:rgba(120,90,200,.3);color:#6a40c0" title="AI에게 전달된 PDF 추출 원문 확인(진단용)"><i class="ti ti-file-search"></i> 추출원문</button>
             </div>
           </div>
           <div id="med_result_text" style="font-size:16px;line-height:1.9;color:#1a1a3a;white-space:pre-wrap;background:#f8f9ff;border-radius:8px;padding:18px 20px;border:1px solid rgba(60,80,200,.1);min-height:80px"></div>
@@ -3846,6 +3847,7 @@ async function analyzeMedical(){
     if(!combinedText.trim()){
       throw new Error('PDF에서 텍스트를 읽을 수 없습니다. 스캔 이미지 PDF이거나 비밀번호가 틀렸을 수 있습니다.');
     }
+    try{ window._lastMedRaw = combinedText; }catch(e){}
 
     // 분할 분석 — 200k 토큰 한도 안에 들어가게 청크로 쪼개고 각각 호출
     var MAX_CHUNK_CHARS = 280000;
@@ -3887,7 +3889,7 @@ async function analyzeMedical(){
           var res = await fetch(_aiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, prompt: prompt })
+            body: JSON.stringify({ model: (window.AI_MODEL||'claude-sonnet-4-6'), max_tokens: 4000, prompt: prompt })
           });
           if(!res.ok){
             var errData = await res.json().catch(function(){return {};});
@@ -3951,6 +3953,19 @@ async function analyzeMedical(){
   }
   loadEl.style.display='none';
   loadEl.textContent='AI가 PDF를 분석 중입니다. 잠시 기다려주세요...';
+}
+
+// AI에게 전달된 PDF 추출 원문 보기 (진단용) — 상병코드/병명이 원문에 있는지 확인
+function showMedRaw(){
+  var raw = window._lastMedRaw || '';
+  if(!raw){ toast('먼저 병력분석을 실행해주세요.'); return; }
+  var w = window.open('', '_blank');
+  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+  var esc = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>추출 원문</title></head><body style="font-family:monospace;padding:18px;white-space:pre-wrap;font-size:13px;line-height:1.6;color:#111">'
+    + '<div style="font-family:sans-serif;background:#eef;padding:10px;border-radius:6px;margin-bottom:12px;font-size:14px">총 '+raw.length+'자 추출됨. 여기에 상병코드(예: AJ069)·병명이 보이면 정상, 안 보이면 PDF에 코드가 없거나 추출이 안 된 것입니다.</div>'
+    + esc + '</body></html>');
+  w.document.close();
 }
 
 function renderMedResult(text){
