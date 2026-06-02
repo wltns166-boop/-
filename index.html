@@ -3761,6 +3761,46 @@ function _cleanMedText(t){
   return t;
 }
 
+// 같은 상병코드끼리 행을 묶어 기간(최초~최근)·통원·약제 횟수를 합산
+function _mergeMedRowsByCode(rows){
+  function num(s){ var m=String(s||'').match(/\d+/); return m?parseInt(m[0],10):0; }
+  function dates(period){ // "2024.04.01~2024.04.08" → [start,end] (숫자 YYYYMMDD)
+    var ms=String(period||'').match(/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}/g)||[];
+    var ns=ms.map(function(d){ var p=d.replace(/[.\-/]/g,'.').split('.'); return parseInt(p[0]+String(p[1]).padStart(2,'0')+String(p[2]).padStart(2,'0'),10); });
+    return ns.length?[Math.min.apply(null,ns),Math.max.apply(null,ns)]:[0,0];
+  }
+  function fmt(n){ if(!n) return ''; var s=String(n); return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8); }
+  var groups={}, order=[];
+  rows.forEach(function(line){
+    var cells=String(line).replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();});
+    if(cells.length<6) return;
+    var period=cells[0], name=cells[1], code=cells[2], visit=cells[3], hosp=cells[4], drug=cells[5];
+    if(/진료기간/.test(period)) return; // 헤더 스킵
+    var key=(code||'').replace(/\s/g,'')||('NAME:'+name);
+    if(!groups[key]){ groups[key]={name:name,code:code,start:0,end:0,visit:0,drug:0,inDays:0,opCnt:0,hospRaw:[]}; order.push(key); }
+    var g=groups[key];
+    var d=dates(period); if(d[0] && (!g.start||d[0]<g.start)) g.start=d[0]; if(d[1]>g.end) g.end=d[1];
+    g.visit+=num(visit); g.drug+=num(drug);
+    if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
+    var inM=String(hosp).match(/입원\s*(\d+)\s*일/); if(inM) g.inDays+=parseInt(inM[1],10);
+    var opM=String(hosp).match(/수술\s*(\d+)\s*회/); if(opM) g.opCnt+=parseInt(opM[1],10);
+    if(hosp && hosp!=='없음') g.hospRaw.push(hosp);
+  });
+  return order.map(function(key){
+    var g=groups[key];
+    var hosp='없음';
+    if(g.inDays && g.opCnt) hosp='입원 '+g.inDays+'일·수술 '+g.opCnt+'회';
+    else if(g.inDays) hosp='입원 '+g.inDays+'일';
+    else if(g.opCnt) hosp='수술 '+g.opCnt+'회';
+    else if(g.hospRaw.length) hosp=g.hospRaw[0];
+    var period=(g.start===g.end)?fmt(g.start):(fmt(g.start)+'~'+fmt(g.end));
+    return '| '+period+' | '+g.name+' | '+g.code+' | '+g.visit+'회 | '+hosp+' | '+g.drug+'회 |';
+  }).sort(function(a,b){
+    var da=(a.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0], db=(b.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0];
+    return da<db?-1:(da>db?1:0);
+  });
+}
+
 // 긴 의료기록 텍스트를 안전한 청크로 분할 (경계는 가급적 섹션/문단/줄 단위)
 function _splitMedChunks(text, maxLen){
   if(!text || text.length <= maxLen) return [text||''];
@@ -3946,10 +3986,13 @@ async function analyzeMedical(){
       throw new Error('분석 결과 없음. ' + (chunkErrors.join(' / ') || ''));
     }
 
+    // 같은 상병코드끼리 묶어 기간(최초~최근)·통원·약제 횟수 합산
+    var mergedRows = _mergeMedRowsByCode(allRows);
+
     var finalLines = [
       '| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |',
       '|---|---|---|---|---|---|'
-    ].concat(allRows);
+    ].concat(mergedRows);
     if(chunks.length > 1){
       finalLines.push('');
       finalLines.push('※ 원본 PDF가 길어 ' + chunks.length + '개 부분으로 나누어 분석 후 통합되었습니다.');
