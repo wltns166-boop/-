@@ -3744,6 +3744,23 @@ async function fileToB64(file){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
 }
 
+// 추출 텍스트 정리 — 글자사이 공백 제거 + 페이지 반복 머리말/꼬리말 제거로 토큰(분량) 대폭 축소
+function _cleanMedText(t){
+  if(!t) return t;
+  // 1) 글자 사이 단일 공백은 제거, 컬럼 구분용 2칸 이상 공백은 한 칸으로 유지
+  t = t.replace(/ +/g, function(m){ return m.length >= 2 ? " " : ""; });
+  // 2) 페이지마다 반복되는 안내문구 제거(단어 사이 공백 허용)
+  t = t.replace(/\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*(AM|PM)/gi, '');                 // 타임스탬프
+  t = t.replace(/순번[\s\S]{0,120}?처방조제정보\s*\d+\s*\/\s*\d+/g, '');                    // 표 머리말+페이지번호
+  t = t.replace(/·[^·\n]{0,90}?증빙자료[^·\n]{0,90}?있습니다\.?/g, '');
+  t = t.replace(/·[^·\n]{0,90}?요양급여비용[^·\n]{0,90}?자료입니다\.?/g, '');
+  t = t.replace(/·[^·\n]{0,90}?선별급여[^·\n]{0,90}?않습니다\.?/g, '');
+  t = t.replace(/·\s*본\s*자료는\s*병?/g, '');   // 가운뎃점(병·의원) 때문에 남는 잔여물 정리
+  // 3) 공백/빈 줄 정리
+  t = t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return t;
+}
+
 // 긴 의료기록 텍스트를 안전한 청크로 분할 (경계는 가급적 섹션/문단/줄 단위)
 function _splitMedChunks(text, maxLen){
   if(!text || text.length <= maxLen) return [text||''];
@@ -3837,7 +3854,8 @@ async function analyzeMedical(){
       var errPrefixes = ['PDF오류','추출실패','PDF잠김','페이지오류','PDF.js미로드','읽기실패'];
       var isErr = errPrefixes.some(function(p){ return extracted.indexOf(p) === 0; });
       if(extracted && !isErr && extracted.length > 10){
-        combinedText += '\n\n=== ' + labels[id] + ' ('+extracted.length+'자 추출) ===\n' + extracted;
+        var cleaned = _cleanMedText(extracted);
+        combinedText += '\n\n=== ' + labels[id] + ' ('+cleaned.length+'자) ===\n' + cleaned;
       } else if(extracted.indexOf('PDF잠김') === 0){
         throw new Error(labels[id]+': 비밀번호로 보호된 PDF입니다. 안내창 또는 \'PDF 비밀번호\' 칸에 비밀번호(보통 생년월일 6자리 또는 주민번호 앞 6자리)를 입력 후 다시 시도해주세요.');
       } else if(extracted){
