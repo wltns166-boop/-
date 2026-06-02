@@ -18,7 +18,8 @@ exports.api = onRequest(
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
     if (req.method !== "POST") { res.status(405).json({ error: { message: "POST only" } }); return; }
 
-    const body = req.body || {};
+    var body = req.body || {};
+    if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
     const model = body.model || "claude-haiku-4-5-20251001";
     const maxTokens = body.max_tokens || 4000;
     const prompt = body.prompt || "";
