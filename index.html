@@ -3849,8 +3849,8 @@ async function analyzeMedical(){
     }
     try{ window._lastMedRaw = combinedText; }catch(e){}
 
-    // 분할 분석 — 200k 토큰 한도 안에 들어가게 청크로 쪼개고 각각 호출
-    var MAX_CHUNK_CHARS = 280000;
+    // 분할 분석 — 한 요청이 60초·분당 토큰 한도를 넘지 않도록 작게 쪼개고 각각 호출
+    var MAX_CHUNK_CHARS = 80000;
     var chunks = _splitMedChunks(combinedText, MAX_CHUNK_CHARS);
     var allRows = [];
     var chunkErrors = [];
@@ -3891,14 +3891,14 @@ async function analyzeMedical(){
           var res = await fetch(_aiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ model: (window.AI_MODEL||'claude-sonnet-4-6'), max_tokens: 4000, prompt: prompt })
+            body: JSON.stringify({ model: (window.AI_MODEL||'claude-haiku-4-5-20251001'), max_tokens: 4000, prompt: prompt })
           });
           if(!res.ok){
             var errData = await res.json().catch(function(){return {};});
             lastErr = (errData.error && errData.error.message) || ('API오류 ' + res.status);
             // 분당 토큰 한도(429) 또는 일시 과부하(529)면 잠시 기다렸다 자동 재시도
-            if((res.status===429 || res.status===529 || /rate limit|exceed|429|529|overloaded/i.test(lastErr)) && attempt<3){
-              await _wait(40 + attempt*30);
+            if((res.status===429 || res.status===529 || res.status===502 || res.status===503 || res.status===504 || res.status===500 || /rate limit|exceed|429|529|5\d\d|overloaded|timeout|gateway/i.test(lastErr)) && attempt<3){
+              await _wait(res.status===429 ? (40 + attempt*30) : (8 + attempt*12));
               continue;
             }
             break;
