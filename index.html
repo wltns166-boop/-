@@ -1761,10 +1761,7 @@ function _driveSaveClaimFiles(claim, packagePDFs){
     if(!b64) return;
     var fileName = baseName + ' (' + ins + ').pdf';
     var payload = { action:'claimFile', member:member, cust:custName, filename:fileName, b64:b64 };
-    try{
-      fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
-        .catch(function(e){ console.warn('drive claim file err:', e); });
-    }catch(e){ console.warn('drive claim file err:', e); }
+    _driveEnqueue(payload);
   });
 }
 
@@ -1777,6 +1774,24 @@ var _driveFolderTimers = {};
 
 // 간단 해시(변경 없으면 재생성 방지)
 function _driveHash(s){ var h=0,i,c; s=String(s); for(i=0;i<s.length;i++){ c=s.charCodeAt(i); h=((h<<5)-h)+c; h|=0; } return h; }
+
+// 전송 큐: 한꺼번에 쏘면 서버가 동시 실행되어 폴더가 중복 생성된다.
+// → 0.6초 간격으로 한 건씩 순서대로 보낸다(서버 잠금과 함께 중복 방지).
+var _driveQueue = [];
+var _driveQueueTimer = null;
+function _driveEnqueue(payload){
+  var url=_driveSyncUrl(); if(!url) return;
+  _driveQueue.push(payload);
+  if(_driveQueueTimer) return;
+  _driveQueueTimer = setInterval(function(){
+    if(!_driveQueue.length){ clearInterval(_driveQueueTimer); _driveQueueTimer=null; return; }
+    var p=_driveQueue.shift();
+    try{
+      fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(p) })
+        .catch(function(e){ console.warn('drive send err:', e); });
+    }catch(e){ console.warn('drive send err:', e); }
+  }, 600);
+}
 
 // 분류·팀원·고객별로 파일 1개 저장(내용 변경 없으면 스킵)
 function _driveSaveCustFile(category, member, cust, kind, data){
@@ -1792,10 +1807,7 @@ function _driveSaveCustFile(category, member, cust, kind, data){
   var hkey='tops_drv_h2_'+category+'|'+member+'|'+cust;
   var sig=String(_driveHash(JSON.stringify(payload)));
   try{ if(localStorage.getItem(hkey)===sig) return; }catch(e){}
-  try{
-    fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
-      .catch(function(e){ console.warn('drive cust file err:', e); });
-  }catch(e){ console.warn('drive cust file err:', e); return; }
+  _driveEnqueue(payload);
   try{ localStorage.setItem(hkey, sig); }catch(e){}
 }
 
@@ -1854,8 +1866,16 @@ function _driveSyncFolders(k, v){
 }
 
 // 기존 데이터 전체를 고객별 폴더로 한 번에 올리기(백필/수동)
-function driveSaveAllCustFiles(){
+//   수동 호출 시(force) 내용 해시 캐시를 비워 무조건 다시 보낸다(정리 후 재백필용).
+function driveSaveAllCustFiles(force){
   if(!_driveSyncUrl()) return;
+  if(force!==false){
+    try{
+      var rm=[];
+      for(var i=0;i<localStorage.length;i++){ var kk=localStorage.key(i); if(kk && kk.indexOf('tops_drv_h2_')===0) rm.push(kk); }
+      rm.forEach(function(kk){ try{ localStorage.removeItem(kk); }catch(e){} });
+    }catch(e){}
+  }
   ['tops_custs','tops_dbs','tops_mhx','tops_ana'].forEach(function(k){
     var v=[]; try{ v=JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ v=[]; }
     try{ _driveSyncFoldersCore(k, v); }catch(e){}

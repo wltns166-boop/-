@@ -34,11 +34,16 @@ function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
 
-    // 보험금 청구 파일 저장 (팀원별 폴더)
-    if (body.action === 'claimFile') { return _saveClaimFile(body, out); }
-
-    // 고객별 폴더 저장: TEAM TOPS 자료 / {팀원} / {고객} / {분류} / {파일}
-    if (body.action === 'custFile') { return _saveCustFile(body, out); }
+    // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
+    if (body.action === 'claimFile' || body.action === 'custFile') {
+      var lock = LockService.getScriptLock();
+      try { lock.waitLock(50000); } catch (e) {}
+      try {
+        return (body.action === 'claimFile') ? _saveClaimFile(body, out) : _saveCustFile(body, out);
+      } finally {
+        try { lock.releaseLock(); } catch (e) {}
+      }
+    }
 
     var sheetName = String(body.sheet || '').trim();
     if (!sheetName) { out.setContent(JSON.stringify({ error: 'sheet name required' })); return out; }
