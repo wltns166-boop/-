@@ -27,6 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
+var SERVER_VERSION = 'generic-1';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -87,9 +88,15 @@ function doPost(e) {
   }
 }
 
-function doGet() {
+function doGet(e) {
+  // ?ping=1 → 배포된 서버 버전을 JSON으로 응답(클라이언트가 재배포 필요 여부 확인)
+  if (e && e.parameter && e.parameter.ping) {
+    var out = ContentService.createTextOutput(JSON.stringify({ ok: true, version: SERVER_VERSION }));
+    out.setMimeType(ContentService.MimeType.JSON);
+    return out;
+  }
   var ss = _getSpreadsheet();
-  return ContentService.createTextOutput('TEAM TOPS Drive sync OK\n' + ss.getUrl());
+  return ContentService.createTextOutput('TEAM TOPS Drive sync OK (' + SERVER_VERSION + ')\n' + ss.getUrl());
 }
 
 // 셀 값 정규화: 문자열화 + 길이 제한
@@ -168,8 +175,9 @@ function _saveClaimFile(body, out) {
   var ex = subF.getFilesByName(fileName);
   while (ex.hasNext()) ex.next().setTrashed(true);
 
+  var mime = String(body.mime || 'application/pdf').trim() || 'application/pdf';
   var bytes = Utilities.base64Decode(b64);
-  var blob = Utilities.newBlob(bytes, 'application/pdf', fileName);
+  var blob = Utilities.newBlob(bytes, mime, fileName);
   var f = subF.createFile(blob);
   out.setContent(JSON.stringify({ ok: true, file: fileName, url: f.getUrl() }));
   return out;
