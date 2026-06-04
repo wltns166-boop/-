@@ -130,8 +130,20 @@ function _getChildFolder(parent, name) {
   return parent.createFolder(name);
 }
 
-// 보험금 청구 PDF 저장: {팀원이름} / {고객명} / {파일명}
-//   (cust 없으면 예전 방식: 보험금청구 / {팀원} / {폴더} / {파일})
+// {팀원}/seg1/seg2/... 경로 폴더를 차례로 만들며 마지막 폴더 반환. folders=[] 면 팀원 폴더.
+function _resolveFolderPath(root, member, folders) {
+  var f = _getChildFolder(root, member);
+  if (folders && folders.length) {
+    for (var i = 0; i < folders.length; i++) {
+      var nm = String(folders[i] == null ? '' : folders[i]).trim();
+      if (nm) f = _getChildFolder(f, nm);
+    }
+  }
+  return f;
+}
+
+// 보험금 청구 PDF 저장: {팀원이름} / 보험청구서 / {고객명} / {파일명}
+//   folders(경로 배열)가 오면 그대로 사용. 없으면 cust/예전 방식으로 호환 처리.
 function _saveClaimFile(body, out) {
   var member   = String(body.member || '미지정').trim() || '미지정';
   var cust     = String(body.cust || '').trim();
@@ -141,12 +153,13 @@ function _saveClaimFile(body, out) {
   if (!b64) { out.setContent(JSON.stringify({ error: 'b64 required' })); return out; }
 
   var root    = _getFolder();
-  var memberF = _getChildFolder(root, member);
   var subF;
-  if (cust) {
-    subF = _getChildFolder(memberF, cust);                 // {팀원} / {고객}
+  if (body.folders) {
+    subF = _resolveFolderPath(root, member, body.folders);   // 예: 보험청구서 / {고객}
+  } else if (cust) {
+    subF = _getChildFolder(_getChildFolder(root, member), cust);
   } else {
-    var claimRoot = _getChildFolder(root, '보험금청구');     // 예전 방식 호환
+    var claimRoot = _getChildFolder(root, '보험금청구');       // 예전 방식 호환
     var memF2     = _getChildFolder(claimRoot, member);
     subF          = _getChildFolder(memF2, folder);
   }
@@ -162,12 +175,8 @@ function _saveClaimFile(body, out) {
   return out;
 }
 
-// 고객별 폴더 저장
-//   폴더 구성(팀원 폴더 안):
-//     고객등록   → 고객정보 / "{고객} 고객등록 파일"
-//     병력정리   → {고객} / "{고객} 병력정리"
-//     보장분석   → {고객} / "{고객} 보장분석"
-//     DB배정현황 → DB배정 / "{고객} DB배정 리스트"
+// 팀원/하위폴더 경로에 파일 1개 저장(문서/시트)
+//   folders(경로 배열) 사용. 예) 병력정리/{고객}=['병력정리'], 보장분석=['보장분석표','{고객}']
 //   형식:  kind='sheet' → 구글시트(헤더+행),  kind='doc' → 구글문서(텍스트)
 function _saveCustFile(body, out) {
   var member   = String(body.member   || '미지정').trim() || '미지정';
@@ -175,14 +184,19 @@ function _saveCustFile(body, out) {
   var category = String(body.category || '').trim();
   var fileName = String(body.filename || cust).trim() || cust;
   var kind     = String(body.kind     || 'sheet');
-  if (!cust || !category) { out.setContent(JSON.stringify({ error: 'cust/category required' })); return out; }
+  if (!fileName) { out.setContent(JSON.stringify({ error: 'filename required' })); return out; }
 
   var root    = _getFolder();
-  var memberF = _getChildFolder(root, member);
   var catF;
-  if (category === '고객등록')        catF = _getChildFolder(memberF, '고객정보');
-  else if (category === 'DB배정현황')  catF = _getChildFolder(memberF, 'DB배정');
-  else                                catF = _getChildFolder(memberF, cust);  // 병력정리·보장분석
+  if (body.folders) {
+    catF = _resolveFolderPath(root, member, body.folders);
+  } else {
+    // 예전 방식(category) 호환
+    var memberF = _getChildFolder(root, member);
+    if (category === '고객등록')        catF = _getChildFolder(memberF, '고객정보');
+    else if (category === 'DB배정현황')  catF = _getChildFolder(memberF, 'DB배정');
+    else                                catF = _getChildFolder(memberF, cust);
+  }
 
   // 같은 이름 파일이 있으면 휴지통으로(덮어쓰기 효과)
   var ex = catF.getFilesByName(fileName);
@@ -222,25 +236,17 @@ function _saveCustFile(body, out) {
   return out;
 }
 
-// 고객등록 통합 표 저장: {팀원}/{folder=고객정보}/{filename=고객등록} 구글시트 1개에
-//   고객을 가로(행)로 전부 저장(전체 덮어쓰기). 헤더 1행 + 고객 1명당 1행.
+// 통합 표 저장: {팀원}/{folders...}/{filename} 구글시트 1개에 가로(행)로 전부 저장
+//   (전체 덮어쓰기). 예) 고객리스트=folders[], DB리스트=folders['DB배정']
 function _saveCustTable(body, out) {
   var member   = String(body.member   || '미지정').trim() || '미지정';
-  var folder   = String(body.folder   || '고객정보').trim() || '고객정보';
-  var fileName = String(body.filename || '고객등록').trim() || '고객등록';
+  var fileName = String(body.filename || '목록').trim() || '목록';
   var headers  = body.headers || [];
   var rows     = body.rows || [];
 
-  var root    = _getFolder();
-  var memberF = _getChildFolder(root, member);
-  var catF    = _getChildFolder(memberF, folder);
+  var root = _getFolder();
+  var catF = _resolveFolderPath(root, member, body.folders || []);
 
-  // 옛 방식(고객별 "* 고객등록 파일")이 남아 있으면 정리
-  var old = catF.getFiles();
-  while (old.hasNext()) {
-    var of = old.next();
-    if (/고객등록 파일$/.test(of.getName())) of.setTrashed(true);
-  }
   // 같은 이름의 통합 파일이 있으면 휴지통으로(덮어쓰기 효과)
   var ex = catF.getFilesByName(fileName);
   while (ex.hasNext()) ex.next().setTrashed(true);
