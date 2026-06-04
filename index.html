@@ -1864,17 +1864,28 @@ function _anaText(a){
   return '고객명: '+(a.cust||'')+'\n담당자: '+(a.m||'')+'\n일자: '+(a.dt||'')+'\n상태: '+(a.st||'')+'\n\n[보장분석 항목/요약]\n'+(a.items||'');
 }
 
+// 현재 로그인 사용자 이름(여러 경로로 안전하게 조회)
+function _curUserName(){
+  try{ if(typeof cu!=='undefined' && cu && cu.name) return cu.name; }catch(e){}
+  try{ if(window.cu && window.cu.name) return window.cu.name; }catch(e){}
+  return '';
+}
+// 담당자(팀원) 폴더 이름: 기록의 담당자 → 없으면 로그인 사용자 → 그래도 없으면 미지정
+function _memberName(m){
+  return (m && String(m).trim()) || _curUserName() || '미지정';
+}
+
 // 키별 배열을 고객별 폴더 파일로 즉시 전송
 function _driveSyncFoldersCore(k, arr){
   if(!Array.isArray(arr) || !_driveSyncUrl()) return;
   if(k==='tops_custs'){
-    arr.forEach(function(c){ if(c && c.name) _driveSaveCustFile('고객등록', c.m||(window.cu&&window.cu.name)||'미지정', c.name, 'sheet', _custRegSheet(c)); });
+    arr.forEach(function(c){ if(c && c.name) _driveSaveCustFile('고객등록', _memberName(c.m), c.name, 'sheet', _custRegSheet(c)); });
   }else if(k==='tops_dbs'){
-    arr.forEach(function(d){ if(d && Array.isArray(d.notes)) d.notes.forEach(function(n){ if(n && n.name) _driveSaveCustFile('DB배정현황', d.m||'미지정', n.name, 'sheet', _dbLeadSheet(d,n)); }); });
+    arr.forEach(function(d){ if(d && Array.isArray(d.notes)) d.notes.forEach(function(n){ if(n && n.name) _driveSaveCustFile('DB배정현황', _memberName(d.m), n.name, 'sheet', _dbLeadSheet(d,n)); }); });
   }else if(k==='tops_mhx'){
-    arr.forEach(function(m){ if(m && m.cust) _driveSaveCustFile('병력정리', m.m||'미지정', m.cust, 'doc', { text:(m.note||m.items||'') }); });
+    arr.forEach(function(m){ if(m && m.cust) _driveSaveCustFile('병력정리', _memberName(m.m), m.cust, 'doc', { text:(m.note||m.items||'') }); });
   }else if(k==='tops_ana'){
-    arr.forEach(function(a){ if(a && a.cust) _driveSaveCustFile('보장분석', a.m||'미지정', a.cust, 'doc', { text:_anaText(a) }); });
+    arr.forEach(function(a){ if(a && a.cust) _driveSaveCustFile('보장분석', _memberName(a.m), a.cust, 'doc', { text:_anaText(a) }); });
   }
 }
 // 데이터 변경 시 호출(디바운스) — sv()에서 자동 실행
@@ -2071,6 +2082,7 @@ function saveSession(){
   sessionStorage.setItem('tops_session', JSON.stringify(cu));
 }
 function login(){
+  try{ window.cu = cu; }catch(e){}   // let 선언이라 window 에 안 붙음 → 명시 연결
   g('ls').style.display='none';
   g('app').style.display='block';
   g('sbu').textContent=cu.name;
@@ -5369,7 +5381,7 @@ function saveCust(){
     disease:(g('cust_disease')||{value:''}).value.trim(),
     note:(g('cust_note')||{value:''}).value.trim(),
     familyCnt:familyCnt,family:family,ins:ins,regDate:tds(),
-    m:(window.cu&&window.cu.name)?window.cu.name:''
+    m:_curUserName()
   };
   var idx=(g('cust_edit_idx')||{value:''}).value;
   // 수정 시 기존 담당자 유지(없을 때만 현재 사용자)
