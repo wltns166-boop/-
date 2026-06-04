@@ -1642,9 +1642,27 @@ function initFirebase(){
   }catch(e){ console.warn('Firebase 초기화 실패:', e); }
 }
 
+// localStorage 저장 시 무거운 필드(noteHtml 등)를 제거한 슬림 복사본을 반환
+function _slimForStorage(k, v){
+  // tops_mhx: noteHtml 제거 (note 는 유지)
+  if(k === 'tops_mhx' && Array.isArray(v)){
+    return v.map(function(rec){
+      if(!rec || typeof rec !== 'object') return rec;
+      var slim = Object.assign({}, rec);
+      delete slim.noteHtml;
+      return slim;
+    });
+  }
+  return v;
+}
+
 // 저장: localStorage + Firestore 동시
 function sv(k,v){
-  try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
+  // localStorage 에는 슬림 버전(무거운 필드 제거)으로 저장
+  try{
+    var lsVal = _slimForStorage(k, v);
+    localStorage.setItem(k, JSON.stringify(lsVal));
+  }catch(e){ console.warn('localStorage 저장 실패 (quota 초과 등):', k, e); }
   // 팀 공용 구글드라이브(구글 시트) 자동 최신화 — 대상 키만 동작
   try{ _driveSync(k,v); }catch(e){}
   // 고객별 폴더(팀원/고객/분류)로도 각각 파일 저장
@@ -1652,6 +1670,7 @@ function sv(k,v){
   if(!window.FS_DOC) return;
   FS_DOC = window.FS_DOC;
   const fsKey = k.replace('tops_','');
+  // Firestore 에는 원본(noteHtml 포함) 그대로 저장
   FS_DOC.set({[fsKey]: v}, {merge:true}).catch(function(e){console.warn('FS save err:',e);});
 }
 
@@ -1918,28 +1937,28 @@ async function loadFromFirestore(){
     if(!doc.exists) return false;
     const d = doc.data();
     const map = {mem,not,prf,gls,prm,dba,dbs,ana,mhx,clm,wst,dbInfo,consults};
-    if(d.mem&&d.mem.length)    { mem=d.mem;     localStorage.setItem('tops_mem',JSON.stringify(mem)); }
-    if(d.not&&d.not.length)    { not=d.not;     localStorage.setItem('tops_not',JSON.stringify(not)); }
-    if(d.prf&&d.prf.length)    { prf=d.prf;     localStorage.setItem('tops_prf',JSON.stringify(prf)); }
-    if(d.gls&&d.gls.length)    { gls=d.gls;     localStorage.setItem('tops_gls',JSON.stringify(gls)); }
-    if(d.prm&&d.prm.length)    { prm=d.prm;     localStorage.setItem('tops_prm',JSON.stringify(prm)); }
-    if(d.dba&&d.dba.length)    { dba=d.dba;     localStorage.setItem('tops_dba',JSON.stringify(dba)); }
-    if(d.dbs&&d.dbs.length)    { dbs=d.dbs;     localStorage.setItem('tops_dbs',JSON.stringify(dbs)); }
-    if(d.ana&&d.ana.length)    { ana=d.ana;     localStorage.setItem('tops_ana',JSON.stringify(ana)); }
-    if(d.mhx&&d.mhx.length)    { mhx=d.mhx;     localStorage.setItem('tops_mhx',JSON.stringify(mhx)); }
-    if(d.clm&&d.clm.length)    { clm=d.clm;     localStorage.setItem('tops_clm',JSON.stringify(clm)); }
-    if(d.wst&&d.wst.length)    { wst=d.wst;     localStorage.setItem('tops_wst',JSON.stringify(wst)); }
-    if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }
-    if(d.consults&&d.consults.length){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); }
-    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }
-    if(Array.isArray(d.custs))    { localStorage.setItem('tops_custs',     JSON.stringify(d.custs));     try{ window._custs = d.custs; }catch(e){} }
-    if(Array.isArray(d.cust_reqs)){ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); try{ window.custReqs = d.cust_reqs; }catch(e){} }
-    if(Array.isArray(d.claims))   { localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }
-    if(Array.isArray(d.exams))    { localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }
-    if(Array.isArray(d.joinprep)) { localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }
-    if(Array.isArray(d.db_exchanges)){ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }
-    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
-    if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }
+    if(d.mem&&d.mem.length)    { mem=d.mem;     try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); } }
+    if(d.not&&d.not.length)    { not=d.not;     try{ localStorage.setItem('tops_not',JSON.stringify(not)); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
+    if(d.prf&&d.prf.length)    { prf=d.prf;     try{ localStorage.setItem('tops_prf',JSON.stringify(prf)); }catch(e){ console.warn('localStorage tops_prf 저장 실패:',e); } }
+    if(d.gls&&d.gls.length)    { gls=d.gls;     try{ localStorage.setItem('tops_gls',JSON.stringify(gls)); }catch(e){ console.warn('localStorage tops_gls 저장 실패:',e); } }
+    if(d.prm&&d.prm.length)    { prm=d.prm;     try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); } }
+    if(d.dba&&d.dba.length)    { dba=d.dba;     try{ localStorage.setItem('tops_dba',JSON.stringify(dba)); }catch(e){ console.warn('localStorage tops_dba 저장 실패:',e); } }
+    if(d.dbs&&d.dbs.length)    { dbs=d.dbs;     try{ localStorage.setItem('tops_dbs',JSON.stringify(dbs)); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); } }
+    if(d.ana&&d.ana.length)    { ana=d.ana;     try{ localStorage.setItem('tops_ana',JSON.stringify(ana)); }catch(e){ console.warn('localStorage tops_ana 저장 실패:',e); } }
+    if(d.mhx&&d.mhx.length)    { mhx=d.mhx;     try{ localStorage.setItem('tops_mhx',JSON.stringify(_slimForStorage('tops_mhx',mhx))); }catch(e){ console.warn('localStorage tops_mhx 저장 실패:',e); } }
+    if(d.clm&&d.clm.length)    { clm=d.clm;     try{ localStorage.setItem('tops_clm',JSON.stringify(clm)); }catch(e){ console.warn('localStorage tops_clm 저장 실패:',e); } }
+    if(d.wst&&d.wst.length)    { wst=d.wst;     try{ localStorage.setItem('tops_wst',JSON.stringify(wst)); }catch(e){ console.warn('localStorage tops_wst 저장 실패:',e); } }
+    if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } }
+    if(d.consults&&d.consults.length){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
+    if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
+    if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
+    if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
+    if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
+    if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
+    if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -1951,25 +1970,25 @@ function startRealtimeSync(){
     if(!doc.exists||!cu) return;
     const d = doc.data();
     let changed = false;
-    if(d.mem)     { mem=d.mem;      localStorage.setItem('tops_mem',JSON.stringify(mem));      changed=true; }
-    if(d.prf)     { prf=d.prf;      localStorage.setItem('tops_prf',JSON.stringify(prf));      changed=true; }
-    if(d.gls)     { gls=d.gls;      localStorage.setItem('tops_gls',JSON.stringify(gls));      changed=true; }
-    if(d.prm)     { prm=d.prm;      localStorage.setItem('tops_prm',JSON.stringify(prm));      changed=true; }
-    if(d.dba)     { dba=d.dba;      localStorage.setItem('tops_dba',JSON.stringify(dba));      changed=true; }
-    if(d.dbs)     { dbs=d.dbs;      localStorage.setItem('tops_dbs',JSON.stringify(dbs));      changed=true; }
-    if(d.mhx)     { mhx=d.mhx;      localStorage.setItem('tops_mhx',JSON.stringify(mhx));      changed=true; }
-    if(d.consults){ consults=d.consults; localStorage.setItem('tops_consults',JSON.stringify(consults)); changed=true; }
-    if(d.dbInfo)  { dbInfo=d.dbInfo; localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); changed=true; }
-    if(d.not)     { not=d.not;      localStorage.setItem('tops_not',JSON.stringify(not)); }
-    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); if(typeof rAlerts==='function') rAlerts(); }
-    if(Array.isArray(d.custs))    { localStorage.setItem('tops_custs',     JSON.stringify(d.custs));     try{ window._custs = d.custs; }catch(e){} changed=true; }
-    if(Array.isArray(d.cust_reqs)){ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
-    if(Array.isArray(d.claims))   { localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); changed=true; }
-    if(Array.isArray(d.exams))    { localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); changed=true; }
-    if(Array.isArray(d.joinprep)) { localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); changed=true; }
-    if(Array.isArray(d.db_exchanges)){ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); changed=true; }
-    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }
-    if(d.wa_before && typeof d.wa_before==='object'){ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
+    if(d.mem)     { mem=d.mem;      try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); }      changed=true; }
+    if(d.prf)     { prf=d.prf;      try{ localStorage.setItem('tops_prf',JSON.stringify(prf)); }catch(e){ console.warn('localStorage tops_prf 저장 실패:',e); }      changed=true; }
+    if(d.gls)     { gls=d.gls;      try{ localStorage.setItem('tops_gls',JSON.stringify(gls)); }catch(e){ console.warn('localStorage tops_gls 저장 실패:',e); }      changed=true; }
+    if(d.prm)     { prm=d.prm;      try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); }      changed=true; }
+    if(d.dba)     { dba=d.dba;      try{ localStorage.setItem('tops_dba',JSON.stringify(dba)); }catch(e){ console.warn('localStorage tops_dba 저장 실패:',e); }      changed=true; }
+    if(d.dbs)     { dbs=d.dbs;      try{ localStorage.setItem('tops_dbs',JSON.stringify(dbs)); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); }      changed=true; }
+    if(d.mhx)     { mhx=d.mhx;      try{ localStorage.setItem('tops_mhx',JSON.stringify(_slimForStorage('tops_mhx',mhx))); }catch(e){ console.warn('localStorage tops_mhx 저장 실패:',e); }      changed=true; }
+    if(d.consults){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } changed=true; }
+    if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
+    if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(not)); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
+    if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
+    if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
+    if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
@@ -3411,7 +3430,7 @@ function viewMedDetail(i){
     +'</style></head><body>'
     +'<h2>'+m.cust+' 병력정리</h2>'
     +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m+'</div>'
-    +(m.noteHtml||m.note||'')
+    +(m.noteHtml||(m.note?m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'):''))
     +'</body></html>';
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -3450,7 +3469,8 @@ function _filterDentalFromHtml(html){
 function saveMedPdfByIdx(i, excludeDental){
   const m=mhx[i];
   if(!m){toast('데이터 없음');return;}
-  var noteHtml = m.noteHtml || m.note || '';
+  // noteHtml 이 없으면(localStorage 슬림 저장 후 재로드 케이스) note 평문을 HTML로 변환해 폴백
+  var noteHtml = m.noteHtml || (m.note ? m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') : '');
   var titleSuffix = '';
   var removedCount = 0;
   if(excludeDental && noteHtml){
@@ -3490,7 +3510,8 @@ function saveMedExcelByIdx(i){
   const m=mhx[i];
   if(!m){toast('데이터 없음');return;}
   const div=document.createElement('div');
-  div.innerHTML=m.noteHtml||'';
+  // noteHtml 이 없으면(localStorage 슬림 저장 후 재로드 케이스) note 평문 폴백
+  div.innerHTML=m.noteHtml||(m.note ? m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') : '');
   const table=div.querySelector('table');
   if(!table){
     // 표 없으면 텍스트로 저장
