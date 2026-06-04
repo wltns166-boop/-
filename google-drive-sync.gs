@@ -35,11 +35,13 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
 
     // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
-    if (body.action === 'claimFile' || body.action === 'custFile') {
+    if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable') {
       var lock = LockService.getScriptLock();
       try { lock.waitLock(50000); } catch (e) {}
       try {
-        return (body.action === 'claimFile') ? _saveClaimFile(body, out) : _saveCustFile(body, out);
+        if (body.action === 'claimFile') return _saveClaimFile(body, out);
+        if (body.action === 'custTable') return _saveCustTable(body, out);
+        return _saveCustFile(body, out);
       } finally {
         try { lock.releaseLock(); } catch (e) {}
       }
@@ -217,5 +219,50 @@ function _saveCustFile(body, out) {
   // 루트에서 대상 폴더로 이동
   try { catF.addFile(f); DriveApp.getRootFolder().removeFile(f); } catch (e) {}
   out.setContent(JSON.stringify({ ok: true, file: fileName, url: f.getUrl() }));
+  return out;
+}
+
+// 고객등록 통합 표 저장: {팀원}/{folder=고객정보}/{filename=고객등록} 구글시트 1개에
+//   고객을 가로(행)로 전부 저장(전체 덮어쓰기). 헤더 1행 + 고객 1명당 1행.
+function _saveCustTable(body, out) {
+  var member   = String(body.member   || '미지정').trim() || '미지정';
+  var folder   = String(body.folder   || '고객정보').trim() || '고객정보';
+  var fileName = String(body.filename || '고객등록').trim() || '고객등록';
+  var headers  = body.headers || [];
+  var rows     = body.rows || [];
+
+  var root    = _getFolder();
+  var memberF = _getChildFolder(root, member);
+  var catF    = _getChildFolder(memberF, folder);
+
+  // 옛 방식(고객별 "* 고객등록 파일")이 남아 있으면 정리
+  var old = catF.getFiles();
+  while (old.hasNext()) {
+    var of = old.next();
+    if (/고객등록 파일$/.test(of.getName())) of.setTrashed(true);
+  }
+  // 같은 이름의 통합 파일이 있으면 휴지통으로(덮어쓰기 효과)
+  var ex = catF.getFilesByName(fileName);
+  while (ex.hasNext()) ex.next().setTrashed(true);
+
+  var ss = SpreadsheetApp.create(fileName);
+  var sh = ss.getSheets()[0];
+  var data = [];
+  if (headers.length) data.push(headers.map(_cell));
+  for (var i = 0; i < rows.length; i++) data.push((rows[i] || []).map(_cell));
+  if (data.length) {
+    var w = 0;
+    for (var j = 0; j < data.length; j++) w = Math.max(w, data[j].length);
+    for (var j2 = 0; j2 < data.length; j2++) { while (data[j2].length < w) data[j2].push(''); }
+    sh.getRange(1, 1, data.length, w).setValues(data);
+    if (headers.length) {
+      sh.getRange(1, 1, 1, w).setFontWeight('bold').setBackground('#e8eaf6');
+      sh.setFrozenRows(1);
+    }
+  }
+  SpreadsheetApp.flush();
+  var f = DriveApp.getFileById(ss.getId());
+  try { catF.addFile(f); DriveApp.getRootFolder().removeFile(f); } catch (e) {}
+  out.setContent(JSON.stringify({ ok: true, file: fileName, rows: rows.length, url: f.getUrl() }));
   return out;
 }
