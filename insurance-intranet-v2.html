@@ -1267,6 +1267,55 @@ function assignDB(i) {
   renderDBAssign();
   showToast('success','✅ 배정 완료',`${DBPOOL[i].name} → ${DBPOOL[i].fc} 배정되었습니다.`);
   addNotif('success','DB 배정 완료',`${DBPOOL[i].id}이 ${DBPOOL[i].fc}에게 배정되었습니다.`);
+
+  // 배정된 팀원(FC)에게 카카오톡 알림 발송
+  const db = DBPOOL[i];
+  const msg = `[DB 배정 알림]\n${db.fc}님, 새 DB가 배정되었습니다.\n\nDB번호: ${db.id}\n고객명: ${db.name}\n연락처: ${db.tel}\n유형: ${db.type}\n지역: ${db.region}\n\n인트라넷에서 확인해 주세요.`;
+  sendKakaoNotify(db.fc, msg);
+}
+
+/* ═══════════════════════════════════════
+   KAKAO 알림 발송 (연동 지점)
+   ───────────────────────────────────────
+   ⚠️ 실제 카카오톡 발송은 백엔드 + 카카오 알림톡(Alimtalk)
+   비즈니스 채널/템플릿 승인/API 키가 필요합니다.
+   브라우저 단독(이 HTML)에서는 직접 발송이 불가능하므로,
+   지금은 발송 동작을 시뮬레이션합니다.
+   실제 연동 시 아래 fetch 부분의 주석만 풀고 서버 엔드포인트를
+   연결하면 됩니다. (이 함수만 교체하면 끝)
+═══════════════════════════════════════ */
+function findStaffTel(name) {
+  const staff = ls('staff', []);
+  const s = staff.find(x => x.name === name);
+  return s ? s.tel : null;
+}
+function sendKakaoNotify(name, message) {
+  const tel = findStaffTel(name);
+  if (!tel) {
+    showToast('warning','카톡 발송 실패',`${name}님의 연락처를 찾을 수 없습니다.`);
+    return;
+  }
+
+  // ── 발송 기록 저장 (로그) ──
+  const log = ls('kakaoLog', []);
+  log.unshift({ id:Date.now(), name, tel, message, time:new Date().toLocaleString('ko-KR'), status:'발송완료(시뮬레이션)' });
+  lsSet('kakaoLog', log.slice(0,50));
+
+  // ── 시뮬레이션 안내 ──
+  showToast('info','💬 카톡 발송',`${name}님(${tel})에게 카카오 알림을 보냈습니다.`);
+  addNotif('info','💬 카카오 알림 발송',`${name}님(${tel})에게 배정 알림 발송`);
+  console.log('[KakaoNotify] 발송 대상:', name, tel, '\n메시지:\n' + message);
+
+  /* ── 실제 알림톡 연동 시 (서버 구축 후) ──
+  fetch('/api/kakao/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to: tel, text: message })
+  })
+  .then(r => r.ok ? showToast('success','💬 카톡 발송 완료',`${name}님에게 전송되었습니다.`)
+                  : showToast('danger','카톡 발송 실패','서버 응답 오류'))
+  .catch(() => showToast('danger','카톡 발송 실패','네트워크 오류'));
+  */
 }
 
 /* ═══════════════════════════════════════
@@ -1634,7 +1683,7 @@ function exportAllData() {
 }
 function resetData() {
   if (!confirm('⚠️ 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
-  ['customers','medicals','claims','dbreqs','notices','calEvents','chats','notifs'].forEach(k => localStorage.removeItem('in_'+k));
+  ['customers','medicals','claims','dbreqs','notices','calEvents','chats','notifs','kakaoLog'].forEach(k => localStorage.removeItem('in_'+k));
   showToast('warning','⚠️ 초기화 완료','데이터가 초기화되었습니다. 새로고침하세요.');
 }
 
