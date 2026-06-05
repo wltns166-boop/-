@@ -20,6 +20,31 @@ exports.api = onRequest(
 
     var body = req.body || {};
     if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+
+    // 드라이브(앱스크립트) 프록시 — 브라우저는 CORS로 앱스크립트 응답을 못 읽으므로
+    // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.
+    if (body.driveProxy) {
+      const target = String(body.url || "");
+      if (!/^https:\/\/script\.google\.com\//.test(target)) {
+        res.status(400).json({ error: { message: "invalid drive url" } });
+        return;
+      }
+      try {
+        const r = await fetch(target, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body.payload || {}),
+          redirect: "follow"
+        });
+        const txt = await r.text();
+        let j; try { j = JSON.parse(txt); } catch (e) { j = { raw: txt.slice(0, 500) }; }
+        res.status(200).json(j);
+      } catch (e) {
+        res.status(500).json({ error: { message: String((e && e.message) || e) } });
+      }
+      return;
+    }
+
     const model = body.model || "claude-haiku-4-5-20251001";
     const maxTokens = body.max_tokens || 4000;
     const prompt = body.prompt || "";

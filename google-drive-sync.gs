@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'generic-1';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-1';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -36,12 +36,16 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
 
     // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
-    if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable') {
+    if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable'
+        || body.action === 'waTemplate' || body.action === 'waCreate' || body.action === 'waExport') {
       var lock = LockService.getScriptLock();
       try { lock.waitLock(50000); } catch (e) {}
       try {
         if (body.action === 'claimFile') return _saveClaimFile(body, out);
         if (body.action === 'custTable') return _saveCustTable(body, out);
+        if (body.action === 'waTemplate') return _waSaveTemplate(body, out);
+        if (body.action === 'waCreate')   return _waCreateSheet(body, out);
+        if (body.action === 'waExport')   return _waExportXlsx(body, out);
         return _saveCustFile(body, out);
       } finally {
         try { lock.releaseLock(); } catch (e) {}
@@ -97,6 +101,92 @@ function doGet(e) {
   }
   var ss = _getSpreadsheet();
   return ContentService.createTextOutput('TEAM TOPS Drive sync OK (' + SERVER_VERSION + ')\n' + ss.getUrl());
+}
+
+// ===== 보장분석표 — 구글 스프레드시트 방식 =====
+
+// xlsx(base64)를 구글시트로 변환해 지정 폴더에 만들고 시트 ID 반환 (Drive REST, 고급서비스 불필요)
+function _xlsxToGoogleSheet(b64, title, folderId) {
+  var boundary = 'tops' + Date.now();
+  var meta = JSON.stringify({ name: title, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [folderId] });
+  var pre = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+            '\r\n--' + boundary + '\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n';
+  var post = '\r\n--' + boundary + '--';
+  var bytes = Utilities.newBlob(pre).getBytes()
+                .concat(Utilities.base64Decode(b64))
+                .concat(Utilities.newBlob(post).getBytes());
+  var resp = UrlFetchApp.fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
+      method: 'post',
+      contentType: 'multipart/related; boundary=' + boundary,
+      payload: bytes,
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+  var code = resp.getResponseCode();
+  if (code < 200 || code >= 300) throw new Error('convert failed ' + code + ': ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText()).id;
+}
+
+// 공용 양식 폴더(없으면 생성)
+function _waTplFolder() { return _getChildFolder(_getFolder(), '_양식'); }
+
+// 관리자 양식(xlsx) → 구글시트 양식으로 변환·등록 (이후 고객별로 이걸 복사해서 작성)
+function _waSaveTemplate(body, out) {
+  var b64 = body.b64 || '';
+  if (!b64) { out.setContent(JSON.stringify({ error: 'b64 required' })); return out; }
+  var tplFolder = _waTplFolder();
+  var ex = tplFolder.getFilesByName('보장분석_양식'); while (ex.hasNext()) ex.next().setTrashed(true);
+  var id = _xlsxToGoogleSheet(b64, '보장분석_양식', tplFolder.getId());
+  PropertiesService.getScriptProperties().setProperty('WA_TPL_ID', id);
+  out.setContent(JSON.stringify({ ok: true, templateId: id }));
+  return out;
+}
+
+// 고객별 보장분석표 생성/갱신: 양식 복사 → 전달받은 셀(edits)만 기입 → 임베드 주소 반환
+//   edits: [{ s:시트index(0=전,1=후), r:0기준행, c:0기준열, v:값 }]
+function _waCreateSheet(body, out) {
+  var member = String(body.member || '미지정').trim() || '미지정';
+  var cust   = String(body.cust   || '고객').trim() || '고객';
+  var edits  = body.edits || [];
+  var tplId  = PropertiesService.getScriptProperties().getProperty('WA_TPL_ID');
+  if (!tplId) { out.setContent(JSON.stringify({ error: 'no_template' })); return out; }
+
+  var custFolder = _resolveFolderPath(_getFolder(), member, ['보장분석표', cust]);
+  var fileName = cust + '님 보장분석표';
+  var ssId = null;
+  var ex = custFolder.getFilesByName(fileName);
+  if (ex.hasNext()) { ssId = ex.next().getId(); }
+  else { ssId = DriveApp.getFileById(tplId).makeCopy(fileName, custFolder).getId(); }
+
+  var ss = SpreadsheetApp.openById(ssId);
+  var sheets = ss.getSheets();
+  for (var i = 0; i < edits.length; i++) {
+    var e = edits[i]; if (!e) continue;
+    var sheet = sheets[(e.s | 0)]; if (!sheet) continue;
+    var r = (e.r | 0) + 1, c = (e.c | 0) + 1; if (r < 1 || c < 1) continue;
+    try { sheet.getRange(r, c).setValue(e.v); } catch (_e) {}
+  }
+  SpreadsheetApp.flush();
+
+  var file = DriveApp.getFileById(ssId);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT); } catch (e) {}
+  out.setContent(JSON.stringify({
+    ok: true, id: ssId, url: ss.getUrl(),
+    embedUrl: 'https://docs.google.com/spreadsheets/d/' + ssId + '/edit?rm=embedded&widget=true&headers=false'
+  }));
+  return out;
+}
+
+// 고객 보장분석표(구글시트) → 엑셀(xlsx) base64로 내보내기
+function _waExportXlsx(body, out) {
+  var id = String(body.id || '').trim();
+  if (!id) { out.setContent(JSON.stringify({ error: 'id required' })); return out; }
+  var resp = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx',
+    { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (resp.getResponseCode() !== 200) { out.setContent(JSON.stringify({ error: 'export ' + resp.getResponseCode() })); return out; }
+  out.setContent(JSON.stringify({ ok: true, b64: Utilities.base64Encode(resp.getContent()) }));
+  return out;
 }
 
 // 셀 값 정규화: 문자열화 + 길이 제한
