@@ -9,7 +9,7 @@
 :root {
   --navy:#0f1f3d; --navy-mid:#1a3260; --blue:#1e5ef3; --blue-light:#3b7bff;
   --accent:#00d4aa; --accent2:#f59e0b; --bg:#f0f4fb; --card:#fff;
-  --text:#1a2340; --muted:#6b7a99; --border:#dde4f0;
+  --text:#1a2340; --muted:#5a6a8a; --border:#dde4f0;
   --danger:#ef4444; --success:#10b981; --sidebar-w:230px; --header-h:60px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -293,6 +293,9 @@ tbody tr:last-child td{border-bottom:none}
 
 /* Utility */
 .mb16{margin-bottom:16px}.mb20{margin-bottom:20px}.mt16{margin-top:16px}.flex{display:flex}.gap8{gap:8px}.gap10{gap:10px}
+
+/* 스크린리더 전용 숨김 텍스트 (시각적으로 숨기되 보조기술에는 노출) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
@@ -308,9 +311,9 @@ tbody tr:last-child td{border-bottom:none}
       <h1>InsureNet</h1>
       <p>사내 인트라넷 v2.0</p>
     </div>
-    <label>아이디</label>
+    <label for="login-id">아이디</label>
     <input type="text" id="login-id" placeholder="직원 아이디" autocomplete="username">
-    <label>비밀번호</label>
+    <label for="login-pw">비밀번호</label>
     <input type="password" id="login-pw" placeholder="비밀번호" autocomplete="current-password">
     <button class="btn-login" onclick="doLogin()">로그인</button>
     <div class="login-err" id="login-err">아이디 또는 비밀번호가 올바르지 않습니다.</div>
@@ -324,7 +327,7 @@ tbody tr:last-child td{border-bottom:none}
 <!-- APP -->
 <div id="app">
   <header>
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()" aria-label="메뉴 열기/닫기">☰</button>
     <div class="header-logo" style="display:flex;align-items:center;gap:10px">
       Insure<span>Net</span>
       <a href="https://insurenet.example.com" target="_blank" style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.75);font-size:11px;font-weight:600;padding:3px 10px;border-radius:8px;text-decoration:none;letter-spacing:.3px;border:1px solid rgba(255,255,255,.15)" title="홈페이지 바로가기">🌐 홈페이지</a>
@@ -333,11 +336,11 @@ tbody tr:last-child td{border-bottom:none}
     <!-- Global search -->
     <div class="global-search" onclick="document.getElementById('gs-input').focus()">
       <span style="color:rgba(255,255,255,.4);font-size:14px">🔍</span>
-      <input id="gs-input" placeholder="전체 검색..." oninput="globalSearch(this.value)" onblur="setTimeout(()=>closeSearch(),200)">
+      <input id="gs-input" placeholder="전체 검색..." oninput="globalSearch(this.value)" onblur="setTimeout(()=>closeSearch(),200)" aria-label="전체 검색">
     </div>
 
     <!-- Notif bell -->
-    <button class="notif-btn no-print" onclick="toggleNotifPanel()" id="notif-btn">
+    <button class="notif-btn no-print" onclick="toggleNotifPanel()" id="notif-btn" aria-label="알림">
       🔔
       <span class="notif-dot" id="notif-dot"></span>
     </button>
@@ -366,24 +369,24 @@ tbody tr:last-child td{border-bottom:none}
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
   <div class="layout">
-    <aside id="sidebar">
+    <aside id="sidebar" aria-label="사이드 내비게이션">
       <div class="sidebar-section">메인</div>
-      <div class="nav-item active" onclick="goPage('dashboard',this)"><span class="icon">🏠</span> 대시보드</div>
-      <div class="nav-item" onclick="goPage('notice',this)"><span class="icon">📢</span> 공지사항 <span class="nbadge" id="nb-notice">3</span></div>
-      <div class="nav-item" onclick="goPage('calendar',this)"><span class="icon">📅</span> 일정/캘린더</div>
-      <div class="nav-item" onclick="goPage('docs',this)"><span class="icon">📁</span> 문서 자료실</div>
-      <div class="nav-item" onclick="goPage('directory',this)"><span class="icon">👥</span> 직원 디렉토리</div>
+      <div class="nav-item active" role="button" tabindex="0" onclick="goPage('dashboard',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">🏠</span> 대시보드</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('notice',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">📢</span> 공지사항 <span class="nbadge" id="nb-notice">3</span></div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('calendar',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">📅</span> 일정/캘린더</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('docs',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">📁</span> 문서 자료실</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('directory',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">👥</span> 직원 디렉토리</div>
 
       <div class="sidebar-section" style="margin-top:8px">고객 관리</div>
-      <div class="nav-item" onclick="goPage('customer',this)"><span class="icon">🧑‍💼</span> 고객정보 정리</div>
-      <div class="nav-item" onclick="goPage('medical',this)"><span class="icon">🩺</span> 병력 정리</div>
-      <div class="nav-item" onclick="goPage('coverage',this)"><span class="icon">📊</span> 보장분석표</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('customer',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">🧑‍💼</span> 고객정보 정리</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('medical',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">🩺</span> 병력 정리</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('coverage',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">📊</span> 보장분석표</div>
 
       <div class="sidebar-section" style="margin-top:8px">업무</div>
-      <div class="nav-item" onclick="goPage('claim',this)"><span class="icon">💰</span> 보험금 청구 <span class="nbadge" id="nb-claim">2</span></div>
-      <div class="nav-item" onclick="goPage('dbreq',this)"><span class="icon">📋</span> DB 신청</div>
-      <div class="nav-item admin-only" id="nav-dbassign" onclick="goPage('dbassign',this)"><span class="icon">🔀</span> DB 배정</div>
-      <div class="nav-item admin-only" id="nav-admin" onclick="goPage('admin',this)"><span class="icon">⚙️</span> 관리자 패널</div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('claim',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">💰</span> 보험금 청구 <span class="nbadge" id="nb-claim">2</span></div>
+      <div class="nav-item" role="button" tabindex="0" onclick="goPage('dbreq',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">📋</span> DB 신청</div>
+      <div class="nav-item admin-only" id="nav-dbassign" role="button" tabindex="0" onclick="goPage('dbassign',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">🔀</span> DB 배정</div>
+      <div class="nav-item admin-only" id="nav-admin" role="button" tabindex="0" onclick="goPage('admin',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="icon">⚙️</span> 관리자 패널</div>
     </aside>
 
     <main>
@@ -396,7 +399,7 @@ tbody tr:last-child td{border-bottom:none}
           <div class="stat-card"><div class="stat-label">이번 달 청구건</div><div class="stat-val">24</div><div class="stat-change up">▲ 8% vs 전달</div></div>
           <div class="stat-card"><div class="stat-label">처리 대기</div><div class="stat-val">7</div><div class="stat-change dn">● 긴급 2건</div></div>
           <div class="stat-card"><div class="stat-label">DB 배정 현황</div><div class="stat-val">38</div><div class="stat-change up">▲ 12건 신규</div></div>
-          <div class="stat-card"><div class="stat-label">월 목표 달성률</div><div class="stat-val">73%</div><div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:73%"></div></div></div>
+          <div class="stat-card"><div class="stat-label">월 목표 달성률</div><div class="stat-val">73%</div><div class="progress-bar" style="margin-top:10px" role="progressbar" aria-label="월 목표 달성률" aria-valuenow="73" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" style="width:73%"></div></div></div>
         </div>
         <div class="grid-2">
           <div class="card">
@@ -423,10 +426,10 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-primary" onclick="printPage()">🖨️ 인쇄</button>
           <button class="btn btn-secondary" onclick="exportPDF('page-notice','공지사항')">📄 PDF 저장</button>
         </div>
-        <div class="tabs">
-          <div class="tab active" onclick="switchTab(this)">전체</div>
-          <div class="tab" onclick="switchTab(this)">중요공지</div>
-          <div class="tab" onclick="switchTab(this)">팀공지</div>
+        <div class="tabs" role="tablist">
+          <div class="tab active" role="tab" tabindex="0" aria-selected="true" onclick="switchTab(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">전체</div>
+          <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">중요공지</div>
+          <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">팀공지</div>
         </div>
         <div class="card" id="notice-list"></div>
       </div>
@@ -442,9 +445,9 @@ tbody tr:last-child td{border-bottom:none}
         <div id="add-event-form" class="card mb20" style="display:none">
           <div class="card-title">일정 추가</div>
           <div class="form-row col3">
-            <div class="form-group"><label>제목</label><input id="ev-title" placeholder="일정 제목"></div>
-            <div class="form-group"><label>날짜</label><input id="ev-date" type="number" min="1" max="31" placeholder="1~31"></div>
-            <div class="form-group"><label>유형</label><select id="ev-type"><option value="">팀미팅(파랑)</option><option value="green">교육(초록)</option><option value="yellow">마감(노랑)</option></select></div>
+            <div class="form-group"><label for="ev-title">제목</label><input id="ev-title" placeholder="일정 제목"></div>
+            <div class="form-group"><label for="ev-date">날짜</label><input id="ev-date" type="number" min="1" max="31" placeholder="1~31"></div>
+            <div class="form-group"><label for="ev-type">유형</label><select id="ev-type"><option value="">팀미팅(파랑)</option><option value="green">교육(초록)</option><option value="yellow">마감(노랑)</option></select></div>
           </div>
           <div class="btn-group"><button class="btn btn-primary" onclick="addCalEvent()">추가</button><button class="btn btn-secondary" onclick="closeAddEvent()">취소</button></div>
         </div>
@@ -463,7 +466,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="page" id="page-docs">
         <div class="page-title">📁 문서 자료실</div>
         <div class="page-sub">공유 문서 및 자료를 검색하고 다운로드 하세요</div>
-        <div class="search-bar"><span>🔍</span><input placeholder="문서명, 작성자, 태그 검색..." oninput="filterDocs(this.value)"></div>
+        <div class="search-bar"><span>🔍</span><input placeholder="문서명, 작성자, 태그 검색..." oninput="filterDocs(this.value)" aria-label="문서 검색"></div>
         <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap" id="doc-filters">
           <span class="tag tag-blue" style="cursor:pointer;padding:6px 14px" onclick="filterDocTag('전체',this)">전체</span>
           <span class="tag tag-gray" style="cursor:pointer;padding:6px 14px" onclick="filterDocTag('약관',this)">약관/규정</span>
@@ -486,15 +489,15 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20" id="staff-form" style="display:none">
           <div class="card-title">신규 직원 등록</div>
           <div class="form-row col3">
-            <div class="form-group"><label>이름</label><input id="sf-name" placeholder="홍길동"></div>
-            <div class="form-group"><label>직책</label><input id="sf-role" placeholder="선임 FC"></div>
-            <div class="form-group"><label>부서</label><select id="sf-dept">
+            <div class="form-group"><label for="sf-name">이름</label><input id="sf-name" placeholder="홍길동"></div>
+            <div class="form-group"><label for="sf-role">직책</label><input id="sf-role" placeholder="선임 FC"></div>
+            <div class="form-group"><label for="sf-dept">부서</label><select id="sf-dept">
               <option>영업1팀</option><option>영업2팀</option><option>관리팀</option><option>HR팀</option><option>IT팀</option>
             </select></div>
           </div>
           <div class="form-row col2">
-            <div class="form-group"><label>연락처</label><input id="sf-tel" placeholder="010-0000-0000"></div>
-            <div class="form-group"><label>카드 색상</label><select id="sf-color">
+            <div class="form-group"><label for="sf-tel">연락처</label><input id="sf-tel" placeholder="010-0000-0000"></div>
+            <div class="form-group"><label for="sf-color">카드 색상</label><select id="sf-color">
               <option value="#1e5ef3">파랑 (영업)</option>
               <option value="#10b981">초록</option>
               <option value="#f59e0b">노랑</option>
@@ -509,8 +512,8 @@ tbody tr:last-child td{border-bottom:none}
             <button class="btn btn-secondary" onclick="toggleForm('staff-form')">취소</button>
           </div>
         </div>
-        <div class="tabs"><div class="tab active" onclick="switchTab(this)">직원 목록</div><div class="tab" onclick="switchTab(this)">조직도</div></div>
-        <div class="search-bar"><span>🔍</span><input placeholder="이름, 부서, 직책 검색..." oninput="filterDir(this.value)"></div>
+        <div class="tabs" role="tablist"><div class="tab active" role="tab" tabindex="0" aria-selected="true" onclick="switchTab(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">직원 목록</div><div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">조직도</div></div>
+        <div class="search-bar"><span>🔍</span><input placeholder="이름, 부서, 직책 검색..." oninput="filterDir(this.value)" aria-label="직원 검색"></div>
         <div class="grid-4" id="dir-grid"></div>
         <div style="margin-top:28px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -541,20 +544,20 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20" id="cust-form" style="display:none">
           <div class="card-title">신규 고객 등록</div>
           <div class="form-row col3">
-            <div class="form-group"><label>고객명</label><input id="cf-name" placeholder="홍길동"></div>
-            <div class="form-group"><label>생년월일</label><input id="cf-dob" type="date"></div>
-            <div class="form-group"><label>성별</label><select id="cf-gender"><option>남성</option><option>여성</option></select></div>
+            <div class="form-group"><label for="cf-name">고객명</label><input id="cf-name" placeholder="홍길동"></div>
+            <div class="form-group"><label for="cf-dob">생년월일</label><input id="cf-dob" type="date"></div>
+            <div class="form-group"><label for="cf-gender">성별</label><select id="cf-gender"><option>남성</option><option>여성</option></select></div>
           </div>
           <div class="form-row col3">
-            <div class="form-group"><label>연락처</label><input id="cf-tel" placeholder="010-0000-0000"></div>
-            <div class="form-group"><label>이메일</label><input id="cf-email" type="email" placeholder="email@example.com"></div>
-            <div class="form-group"><label>직업</label><input id="cf-job" placeholder="직업"></div>
+            <div class="form-group"><label for="cf-tel">연락처</label><input id="cf-tel" placeholder="010-0000-0000"></div>
+            <div class="form-group"><label for="cf-email">이메일</label><input id="cf-email" type="email" placeholder="email@example.com"></div>
+            <div class="form-group"><label for="cf-job">직업</label><input id="cf-job" placeholder="직업"></div>
           </div>
           <div class="form-row col2">
-            <div class="form-group"><label>주소</label><input id="cf-addr" placeholder="주소"></div>
-            <div class="form-group"><label>담당 FC</label><select id="cf-fc"><option>김철수</option><option>이영희</option><option>윤지아</option></select></div>
+            <div class="form-group"><label for="cf-addr">주소</label><input id="cf-addr" placeholder="주소"></div>
+            <div class="form-group"><label for="cf-fc">담당 FC</label><select id="cf-fc"><option>김철수</option><option>이영희</option><option>윤지아</option></select></div>
           </div>
-          <div class="form-group"><label>메모</label><textarea id="cf-memo" placeholder="특이사항"></textarea></div>
+          <div class="form-group"><label for="cf-memo">메모</label><textarea id="cf-memo" placeholder="특이사항"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="saveCustomer()">저장</button><button class="btn btn-secondary" onclick="toggleForm('cust-form')">취소</button></div>
         </div>
         <div class="card"><div class="tbl-wrap"><table>
@@ -568,23 +571,23 @@ tbody tr:last-child td{border-bottom:none}
         <div class="page-title">🩺 병력 정리</div>
         <div class="page-sub">고객 병력사항을 등록하고 관리하세요</div>
         <div class="flex gap8 mb16">
-          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..." oninput="filterMed(this.value)"></div>
+          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..." oninput="filterMed(this.value)" aria-label="병력 고객명 검색"></div>
           <button class="btn btn-primary no-print" onclick="toggleForm('med-form')">➕ 병력 등록</button>
           <button class="btn btn-secondary no-print" onclick="exportPDF('page-medical','병력정리')">📄 PDF</button>
         </div>
         <div class="card mb20" id="med-form" style="display:none">
           <div class="card-title">병력 등록</div>
           <div class="form-row col3">
-            <div class="form-group"><label>고객명</label><input id="mf-name" placeholder="고객명"></div>
-            <div class="form-group"><label>질병/상해명</label><input id="mf-disease" placeholder="예: 고혈압"></div>
-            <div class="form-group"><label>진단일</label><input id="mf-date" type="date"></div>
+            <div class="form-group"><label for="mf-name">고객명</label><input id="mf-name" placeholder="고객명"></div>
+            <div class="form-group"><label for="mf-disease">질병/상해명</label><input id="mf-disease" placeholder="예: 고혈압"></div>
+            <div class="form-group"><label for="mf-date">진단일</label><input id="mf-date" type="date"></div>
           </div>
           <div class="form-row col3">
-            <div class="form-group"><label>치료 여부</label><select id="mf-status"><option>치료완료</option><option>치료중</option><option>미치료</option></select></div>
-            <div class="form-group"><label>의료기관</label><input id="mf-hospital" placeholder="병원명"></div>
-            <div class="form-group"><label>심사 영향도</label><select id="mf-impact"><option>낮음</option><option>보통</option><option>높음</option><option>인수불가</option></select></div>
+            <div class="form-group"><label for="mf-status">치료 여부</label><select id="mf-status"><option>치료완료</option><option>치료중</option><option>미치료</option></select></div>
+            <div class="form-group"><label for="mf-hospital">의료기관</label><input id="mf-hospital" placeholder="병원명"></div>
+            <div class="form-group"><label for="mf-impact">심사 영향도</label><select id="mf-impact"><option>낮음</option><option>보통</option><option>높음</option><option>인수불가</option></select></div>
           </div>
-          <div class="form-group"><label>상세내용</label><textarea id="mf-detail" placeholder="병력 상세 내용"></textarea></div>
+          <div class="form-group"><label for="mf-detail">상세내용</label><textarea id="mf-detail" placeholder="병력 상세 내용"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="saveMedical()">저장</button><button class="btn btn-secondary" onclick="toggleForm('med-form')">취소</button></div>
         </div>
         <div class="card"><div class="tbl-wrap"><table>
@@ -602,18 +605,18 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20 no-print">
           <div class="card-title">📝 보장분석 작성</div>
           <div class="form-row col2">
-            <div class="form-group"><label>고객명</label><input id="cov-name" placeholder="고객명" maxlength="50"></div>
-            <div class="form-group"><label>가입제안서 업로드</label><input id="cov-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls" onchange="onProposalChange()"></div>
+            <div class="form-group"><label for="cov-name">고객명</label><input id="cov-name" placeholder="고객명" maxlength="50"></div>
+            <div class="form-group"><label for="cov-file">가입제안서 업로드</label><input id="cov-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls" onchange="onProposalChange()"></div>
           </div>
-          <div id="cov-file-info" class="file-meta" style="margin:-4px 0 14px">선택된 파일이 없습니다.</div>
+          <div id="cov-file-info" class="file-meta" style="margin:-4px 0 14px" aria-live="polite" aria-atomic="true">선택된 파일이 없습니다.</div>
           <div class="btn-group">
             <button class="btn btn-primary" onclick="createCoverage()">📊 보장분석표 작성</button>
-            <button class="btn btn-secondary" onclick="resetCoverage()">초기화</button>
+            <button class="btn btn-secondary" onclick="resetCoverage()" aria-label="보장분석 입력 초기화">초기화</button>
           </div>
         </div>
 
         <div class="flex gap8 mb20">
-          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..." oninput="renderCoverages(this.value)"></div>
+          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..." oninput="renderCoverages(this.value)" aria-label="보장분석 고객명 검색"></div>
           <button class="btn btn-primary no-print" onclick="exportPDF('page-coverage','보장분석표')">📄 PDF 출력</button>
           <button class="btn btn-secondary no-print" onclick="printPage()">🖨️ 인쇄</button>
         </div>
@@ -633,15 +636,15 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20" id="claim-form" style="display:none">
           <div class="card-title">보험금 청구 접수</div>
           <div class="form-row col3">
-            <div class="form-group"><label>고객명</label><input id="clf-name" placeholder="고객명"></div>
-            <div class="form-group"><label>보험 종류</label><select id="clf-type"><option>실손의료</option><option>암보험</option><option>상해보험</option><option>종신보험</option><option>치아보험</option></select></div>
-            <div class="form-group"><label>청구 금액 (원)</label><input id="clf-amount" type="number" placeholder="0"></div>
+            <div class="form-group"><label for="clf-name">고객명</label><input id="clf-name" placeholder="고객명"></div>
+            <div class="form-group"><label for="clf-type">보험 종류</label><select id="clf-type"><option>실손의료</option><option>암보험</option><option>상해보험</option><option>종신보험</option><option>치아보험</option></select></div>
+            <div class="form-group"><label for="clf-amount">청구 금액 (원)</label><input id="clf-amount" type="number" placeholder="0"></div>
           </div>
           <div class="form-row col2">
-            <div class="form-group"><label>진단명</label><input id="clf-diag" placeholder="진단명"></div>
-            <div class="form-group"><label>입원기간</label><input id="clf-period" placeholder="2025.05.01 ~ 2025.05.05"></div>
+            <div class="form-group"><label for="clf-diag">진단명</label><input id="clf-diag" placeholder="진단명"></div>
+            <div class="form-group"><label for="clf-period">입원기간</label><input id="clf-period" placeholder="2025.05.01 ~ 2025.05.05"></div>
           </div>
-          <div class="form-group"><label>서류 목록</label><textarea id="clf-docs" placeholder="진단서, 영수증, 입퇴원확인서 등"></textarea></div>
+          <div class="form-group"><label for="clf-docs">서류 목록</label><textarea id="clf-docs" placeholder="진단서, 영수증, 입퇴원확인서 등"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="saveClaim()">청구 접수</button><button class="btn btn-secondary" onclick="toggleForm('claim-form')">취소</button></div>
         </div>
         <div class="grid-4 mb20">
@@ -666,15 +669,15 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20" id="db-form" style="display:none">
           <div class="card-title">DB 신청</div>
           <div class="form-row col3">
-            <div class="form-group"><label>DB 유형</label><select id="dbf-type"><option>신계약 DB</option><option>전환계약 DB</option><option>추가계약 DB</option><option>실효부활 DB</option></select></div>
-            <div class="form-group"><label>대상 연령대</label><select id="dbf-age"><option>20대</option><option>30대</option><option>40대</option><option>50대</option><option>전체</option></select></div>
-            <div class="form-group"><label>신청 수량</label><input id="dbf-qty" type="number" placeholder="개수" min="1" max="100"></div>
+            <div class="form-group"><label for="dbf-type">DB 유형</label><select id="dbf-type"><option>신계약 DB</option><option>전환계약 DB</option><option>추가계약 DB</option><option>실효부활 DB</option></select></div>
+            <div class="form-group"><label for="dbf-age">대상 연령대</label><select id="dbf-age"><option>20대</option><option>30대</option><option>40대</option><option>50대</option><option>전체</option></select></div>
+            <div class="form-group"><label for="dbf-qty">신청 수량</label><input id="dbf-qty" type="number" placeholder="개수" min="1" max="100"></div>
           </div>
           <div class="form-row col2">
-            <div class="form-group"><label>희망 지역</label><select id="dbf-region"><option>서울</option><option>경기</option><option>인천</option><option>부산</option><option>전국</option></select></div>
-            <div class="form-group"><label>관심 상품군</label><select id="dbf-product"><option>생명보험</option><option>손해보험</option><option>건강보험</option><option>전체</option></select></div>
+            <div class="form-group"><label for="dbf-region">희망 지역</label><select id="dbf-region"><option>서울</option><option>경기</option><option>인천</option><option>부산</option><option>전국</option></select></div>
+            <div class="form-group"><label for="dbf-product">관심 상품군</label><select id="dbf-product"><option>생명보험</option><option>손해보험</option><option>건강보험</option><option>전체</option></select></div>
           </div>
-          <div class="form-group"><label>요청사항</label><textarea id="dbf-note" placeholder="추가 요청사항"></textarea></div>
+          <div class="form-group"><label for="dbf-note">요청사항</label><textarea id="dbf-note" placeholder="추가 요청사항"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="saveDBReq()">신청</button><button class="btn btn-secondary" onclick="toggleForm('db-form')">취소</button></div>
         </div>
         <div class="card"><div class="card-title">내 DB 신청 현황</div>
@@ -718,10 +721,10 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20">
           <div class="card-title">📢 공지사항 등록</div>
           <div class="form-row col2">
-            <div class="form-group"><label>제목</label><input id="adm-notice-title" placeholder="공지 제목"></div>
-            <div class="form-group"><label>유형</label><select id="adm-notice-type"><option value="gen">일반</option><option value="imp">중요</option></select></div>
+            <div class="form-group"><label for="adm-notice-title">제목</label><input id="adm-notice-title" placeholder="공지 제목"></div>
+            <div class="form-group"><label for="adm-notice-type">유형</label><select id="adm-notice-type"><option value="gen">일반</option><option value="imp">중요</option></select></div>
           </div>
-          <div class="form-group"><label>내용</label><textarea id="adm-notice-body" placeholder="공지 내용"></textarea></div>
+          <div class="form-group"><label for="adm-notice-body">내용</label><textarea id="adm-notice-body" placeholder="공지 내용"></textarea></div>
           <div class="btn-group"><button class="btn btn-primary" onclick="addNotice()">공지 등록</button></div>
         </div>
         <div class="card">
@@ -742,7 +745,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="chat-header">
         <span style="font-size:18px">💬</span>
         <span class="chat-header-title">팀 채팅</span>
-        <button class="chat-close" onclick="toggleChat()">✕</button>
+        <button class="chat-close" onclick="toggleChat()" aria-label="채팅 닫기">✕</button>
       </div>
       <div class="chat-rooms" id="chat-rooms">
         <button class="chat-room-btn active" onclick="switchRoom('전체',this)">전체</button>
@@ -753,7 +756,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input-row">
         <textarea class="chat-input" id="chat-input" placeholder="메시지 입력..." rows="1" onkeydown="chatKeydown(event)"></textarea>
-        <button class="chat-send" onclick="sendChat()">➤</button>
+        <button class="chat-send" onclick="sendChat()" aria-label="메시지 전송">➤</button>
       </div>
     </div>
     <button class="chat-fab" onclick="toggleChat()">
@@ -993,8 +996,12 @@ function goPage(id, el) {
   closeSidebar();
 }
 function switchTab(el) {
-  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.hasAttribute('aria-selected')) t.setAttribute('aria-selected', 'false');
+  });
   el.classList.add('active');
+  if (el.hasAttribute('aria-selected')) el.setAttribute('aria-selected', 'true');
 }
 function toggleForm(id) {
   const f = document.getElementById(id);
@@ -1226,7 +1233,7 @@ function renderCoverages(filter='') {
               <td>${escapeHtml(covCurrency(r.current, r.unit))}</td>
               <td>${escapeHtml(covCurrency(r.recommend, r.unit))}</td>
               <td>${escapeHtml(covCurrency(r.shortfall, r.unit))}</td>
-              <td><div class="progress-bar"><div class="progress-fill" style="width:${Number(r.rate)||0}%${r.rate>=100?';background:var(--success)':''}"></div></div><small>${Number(r.rate)||0}%</small></td>
+              <td><div class="progress-bar" role="progressbar" aria-label="${escapeHtml(r.item)} 충족률" aria-valuenow="${Number(r.rate)||0}" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" style="width:${Number(r.rate)||0}%${r.rate>=100?';background:var(--success)':''}"></div></div><small>${Number(r.rate)||0}%</small></td>
               <td><span class="tag ${safeTag}">${escapeHtml(r.status)}</span></td>
             </tr>`;
     }).join('');
@@ -1234,9 +1241,10 @@ function renderCoverages(filter='') {
     <div class="card mb20">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
         <span>${escapeHtml(c.name)} 님 보장분석 <span class="file-meta" style="font-weight:400">· 📎 ${escapeHtml(c.file)} · ${escapeHtml(c.date)}</span></span>
-        <button class="btn btn-danger btn-sm no-print" onclick="deleteCoverage(${Number(c.id)})" title="삭제">🗑️ 삭제</button>
+        <button class="btn btn-danger btn-sm no-print" onclick="deleteCoverage(${Number(c.id)})" title="삭제" aria-label="${escapeHtml(c.name)} 님 보장분석표 삭제">🗑️ 삭제</button>
       </div>
       <div class="tbl-wrap"><table>
+        <caption class="sr-only">${escapeHtml(c.name)} 님 보장분석표 · ${escapeHtml(c.date)}</caption>
         <thead><tr><th>보장항목</th><th>현재 보장</th><th>권장 보장</th><th>부족액</th><th>충족률</th><th>상태</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
@@ -1423,7 +1431,7 @@ function renderDirectory(filter='') {
     const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : '#1e5ef3';
     return `
     <div class="dir-card" style="position:relative">
-      <button onclick="deleteStaff(${Number(s.id)})" title="삭제" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px">✕</button>
+      <button onclick="deleteStaff(${Number(s.id)})" title="삭제" aria-label="${escapeHtml(s.name)} 직원 삭제" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px">✕</button>
       <div class="dir-avatar" style="background:${safeColor}">${escapeHtml(s.name ? s.name[0] : '?')}</div>
       <div class="dir-name">${escapeHtml(s.name)}</div>
       <div class="dir-role">${escapeHtml(s.role)}</div>
