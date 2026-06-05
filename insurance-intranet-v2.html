@@ -602,7 +602,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card mb20 no-print">
           <div class="card-title">📝 보장분석 작성</div>
           <div class="form-row col2">
-            <div class="form-group"><label>고객명</label><input id="cov-name" placeholder="고객명"></div>
+            <div class="form-group"><label>고객명</label><input id="cov-name" placeholder="고객명" maxlength="50"></div>
             <div class="form-group"><label>가입제안서 업로드</label><input id="cov-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls" onchange="onProposalChange()"></div>
           </div>
           <div id="cov-file-info" class="file-meta" style="margin:-4px 0 14px">선택된 파일이 없습니다.</div>
@@ -776,12 +776,23 @@ const USERS = {
 let currentUser = null;
 let currentRoom = '전체';
 
+/* ── XSS 방어: HTML 엔티티 이스케이프 ── */
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ── localStorage helpers ── */
 function ls(key, def) {
   try { const v = localStorage.getItem('in_'+key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
 function lsSet(key, val) {
-  try { localStorage.setItem('in_'+key, JSON.stringify(val)); } catch {}
+  try { localStorage.setItem('in_'+key, JSON.stringify(val)); return true; } catch { return false; }
 }
 
 /* ── Seed initial data if empty ── */
@@ -1009,12 +1020,12 @@ function renderNotices() {
   if (!el) return;
   el.innerHTML = notices.map(n => `
     <div class="notice-item">
-      <div class="notice-icon ${n.type}">${n.type==='imp'?'🔴':'📘'}</div>
+      <div class="notice-icon ${n.type==='imp'?'imp':'gen'}">${n.type==='imp'?'🔴':'📘'}</div>
       <div>
-        <div class="notice-title">${n.title}</div>
+        <div class="notice-title">${escapeHtml(n.title)}</div>
         <div class="notice-meta">
           <span class="tag ${n.type==='imp'?'tag-red':'tag-blue'}" style="margin-right:6px">${n.type==='imp'?'중요':'일반'}</span>
-          ${n.author} · ${n.date}
+          ${escapeHtml(n.author)} · ${escapeHtml(n.date)}
         </div>
       </div>
     </div>`).join('');
@@ -1043,12 +1054,12 @@ function renderCustomers(filter='') {
   if (!tb) return;
   tb.innerHTML = data.map(c => `
     <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.dob}</td>
-      <td>${c.tel}</td>
-      <td>${c.fc}</td>
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${escapeHtml(c.dob)}</td>
+      <td>${escapeHtml(c.tel)}</td>
+      <td>${escapeHtml(c.fc)}</td>
       <td><span class="tag tag-green">정상</span></td>
-      <td>${c.date}</td>
+      <td>${escapeHtml(c.date)}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">등록된 고객이 없습니다</td></tr>';
 }
 function saveCustomer() {
@@ -1086,12 +1097,12 @@ function renderMedicals(filter='') {
   if (!tb) return;
   tb.innerHTML = data.map(m => `
     <tr>
-      <td><strong>${m.name}</strong></td>
-      <td>${m.disease}</td>
-      <td>${m.date}</td>
-      <td><span class="tag ${statusTag[m.status]||'tag-gray'}">${m.status}</span></td>
-      <td><span class="tag ${impactTag[m.impact]||'tag-gray'}">${m.impact}</span></td>
-      <td>${m.reg}</td>
+      <td><strong>${escapeHtml(m.name)}</strong></td>
+      <td>${escapeHtml(m.disease)}</td>
+      <td>${escapeHtml(m.date)}</td>
+      <td><span class="tag ${statusTag[m.status]||'tag-gray'}">${escapeHtml(m.status)}</span></td>
+      <td><span class="tag ${impactTag[m.impact]||'tag-gray'}">${escapeHtml(m.impact)}</span></td>
+      <td>${escapeHtml(m.reg)}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">등록된 병력이 없습니다</td></tr>';
 }
 function filterMed(v) { renderMedicals(v); }
@@ -1174,9 +1185,11 @@ function createCoverage() {
   if (!name) return showToast('danger','오류','고객명을 입력하세요.');
   if (!covProposal) return showToast('danger','오류','가입제안서 파일을 먼저 업로드하세요.');
   const rows = buildCoverageRows(name, covProposal);
-  const list = ls('coverages', []);
+  // 동일한 name+file 조합이 이미 있으면 제거 후 맨 앞에 갱신
+  let list = ls('coverages', []).filter(c => !(c.name === name && c.file === covProposal.name));
   list.unshift({ id:Date.now(), name, file:covProposal.name, date:today(), rows });
-  lsSet('coverages', list);
+  const saved = lsSet('coverages', list);
+  if (!saved) return showToast('danger','저장 실패','저장 공간이 부족합니다. 일부 항목을 삭제 후 다시 시도하세요.');
   resetCoverage();
   renderCoverages();
   showToast('success','✅ 작성 완료',`${name} 님 보장분석표가 작성되었습니다.`);
@@ -1191,6 +1204,9 @@ function resetCoverage() {
   if (info) { info.textContent = '선택된 파일이 없습니다.'; info.style.color = ''; }
 }
 
+/* 허용된 tag CSS 클래스 화이트리스트 */
+const ALLOWED_COV_TAGS = new Set(['tag-green','tag-yellow','tag-red','tag-blue','tag-gray','tag-purple']);
+
 function renderCoverages(filter='') {
   const wrap = document.getElementById('cov-result');
   if (!wrap) return;
@@ -1200,27 +1216,43 @@ function renderCoverages(filter='') {
       📊 작성된 보장분석표가 없습니다.<br><small>가입제안서를 업로드하고 <strong>보장분석표 작성</strong> 버튼을 눌러보세요.</small></div>`;
     return;
   }
-  wrap.innerHTML = data.map(c => `
+  wrap.innerHTML = data.map(c => {
+    const rows = Array.isArray(c.rows) ? c.rows : [];
+    const rowsHtml = rows.map(r => {
+      const safeTag = ALLOWED_COV_TAGS.has(r.tag) ? r.tag : 'tag-gray';
+      return `
+            <tr>
+              <td>${escapeHtml(r.item)}</td>
+              <td>${escapeHtml(covCurrency(r.current, r.unit))}</td>
+              <td>${escapeHtml(covCurrency(r.recommend, r.unit))}</td>
+              <td>${escapeHtml(covCurrency(r.shortfall, r.unit))}</td>
+              <td><div class="progress-bar"><div class="progress-fill" style="width:${Number(r.rate)||0}%${r.rate>=100?';background:var(--success)':''}"></div></div><small>${Number(r.rate)||0}%</small></td>
+              <td><span class="tag ${safeTag}">${escapeHtml(r.status)}</span></td>
+            </tr>`;
+    }).join('');
+    return `
     <div class="card mb20">
-      <div class="card-title">${c.name} 님 보장분석 <span class="file-meta" style="font-weight:400">· 📎 ${c.file} · ${c.date}</span></div>
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>${escapeHtml(c.name)} 님 보장분석 <span class="file-meta" style="font-weight:400">· 📎 ${escapeHtml(c.file)} · ${escapeHtml(c.date)}</span></span>
+        <button class="btn btn-danger btn-sm no-print" onclick="deleteCoverage(${Number(c.id)})" title="삭제">🗑️ 삭제</button>
+      </div>
       <div class="tbl-wrap"><table>
         <thead><tr><th>보장항목</th><th>현재 보장</th><th>권장 보장</th><th>부족액</th><th>충족률</th><th>상태</th></tr></thead>
-        <tbody>
-          ${c.rows.map(r => `
-            <tr>
-              <td>${r.item}</td>
-              <td>${covCurrency(r.current, r.unit)}</td>
-              <td>${covCurrency(r.recommend, r.unit)}</td>
-              <td>${covCurrency(r.shortfall, r.unit)}</td>
-              <td><div class="progress-bar"><div class="progress-fill" style="width:${r.rate}%${r.rate>=100?';background:var(--success)':''}"></div></div><small>${r.rate}%</small></td>
-              <td><span class="tag ${r.tag}">${r.status}</span></td>
-            </tr>`).join('')}
-        </tbody>
+        <tbody>${rowsHtml}</tbody>
       </table></div>
       <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:10px;font-size:13px;color:var(--muted)">
-        💡 <strong style="color:var(--navy)">종합 의견:</strong> ${coverageOpinion(c.rows)}
+        💡 <strong style="color:var(--navy)">종합 의견:</strong> ${escapeHtml(coverageOpinion(rows))}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function deleteCoverage(id) {
+  if (!confirm('이 보장분석표를 삭제하시겠습니까?')) return;
+  const list = ls('coverages', []).filter(c => c.id !== id);
+  lsSet('coverages', list);
+  renderCoverages();
+  showToast('info','🗑️ 삭제됨','보장분석표가 삭제되었습니다.');
 }
 
 /* ═══════════════════════════════════════
@@ -1233,12 +1265,12 @@ function renderClaims() {
   if (!tb) return;
   tb.innerHTML = data.map((c,i) => `
     <tr>
-      <td style="font-family:'DM Mono',monospace;font-size:12px">${c.id}</td>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.type}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${escapeHtml(c.id)}</td>
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${escapeHtml(c.type)}</td>
       <td>₩${Number(c.amount).toLocaleString()}</td>
-      <td>${c.date}</td>
-      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
+      <td>${escapeHtml(c.date)}</td>
+      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${escapeHtml(c.status)}</span></td>
       <td>
         <select onchange="updateClaimStatus(${i},this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px;font-size:11px">
           ${['접수','심사중','완료','반려'].map(s=>`<option${c.status===s?' selected':''}>${s}</option>`).join('')}
@@ -1273,10 +1305,10 @@ function renderDashClaims() {
   const data = ls('claims',[]).slice(0,5);
   tb.innerHTML = data.map(c => `
     <tr>
-      <td>${c.name}</td>
-      <td>${c.type}</td>
+      <td>${escapeHtml(c.name)}</td>
+      <td>${escapeHtml(c.type)}</td>
       <td>₩${Number(c.amount).toLocaleString()}</td>
-      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${c.status}</span></td>
+      <td><span class="tag ${claimStatusTag[c.status]||'tag-gray'}">${escapeHtml(c.status)}</span></td>
     </tr>`).join('');
 }
 function saveClaim() {
@@ -1312,9 +1344,9 @@ function renderDBReqs() {
   if (!tb) return;
   tb.innerHTML = data.map(d => `
     <tr>
-      <td>${d.id}</td><td>${d.type}</td><td>${d.qty}건</td>
-      <td>${d.region}</td><td>${d.date}</td>
-      <td><span class="tag ${dbrStatusTag[d.status]||'tag-gray'}">${d.status}</span></td>
+      <td>${escapeHtml(d.id)}</td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(String(d.qty))}건</td>
+      <td>${escapeHtml(d.region)}</td><td>${escapeHtml(d.date)}</td>
+      <td><span class="tag ${dbrStatusTag[d.status]||'tag-gray'}">${escapeHtml(d.status)}</span></td>
     </tr>`).join('');
 }
 function saveDBReq() {
@@ -1351,16 +1383,16 @@ function renderDBAssign() {
   if (el) el.textContent = waiting;
   tb.innerHTML = DBPOOL.map((d,i) => `
     <tr>
-      <td>${d.id}</td><td>${d.name}</td><td>${d.tel}</td><td>${d.type}</td><td>${d.region}</td>
+      <td>${escapeHtml(d.id)}</td><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.tel)}</td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(d.region)}</td>
       <td>
         ${d.status==='대기'
           ? `<select id="dba-fc-${i}" style="border:1px solid var(--border);border-radius:6px;padding:4px;font-size:12px">
                <option value="">미배정</option>
-               ${['김철수','이영희','윤지아','박민수'].map(n=>`<option${d.fc===n?' selected':''}>${n}</option>`).join('')}
+               ${['김철수','이영희','윤지아','박민수'].map(n=>`<option${d.fc===n?' selected':''}>${escapeHtml(n)}</option>`).join('')}
              </select>`
-          : `<span style="font-size:13px">${d.fc}</span>`}
+          : `<span style="font-size:13px">${escapeHtml(d.fc)}</span>`}
       </td>
-      <td><span class="tag ${dbaStatusTag[d.status]||'tag-gray'}">${d.status}</span></td>
+      <td><span class="tag ${dbaStatusTag[d.status]||'tag-gray'}">${escapeHtml(d.status)}</span></td>
       <td>
         ${d.status==='대기'
           ? `<button class="btn btn-primary btn-sm" onclick="assignDB(${i})">배정</button>`
@@ -1387,15 +1419,18 @@ function renderDirectory(filter='') {
   const g = document.getElementById('dir-grid');
   if (!g) return;
   const deptTag = {'영업1팀':'tag-blue','영업2팀':'tag-yellow','관리팀':'tag-gray','HR팀':'tag-gray','IT팀':'tag-gray'};
-  g.innerHTML = data.map((s,i) => `
+  g.innerHTML = data.map((s,i) => {
+    const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : '#1e5ef3';
+    return `
     <div class="dir-card" style="position:relative">
-      <button onclick="deleteStaff(${s.id})" title="삭제" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px">✕</button>
-      <div class="dir-avatar" style="background:${s.color}">${s.name[0]}</div>
-      <div class="dir-name">${s.name}</div>
-      <div class="dir-role">${s.role}</div>
-      <div><span class="tag ${deptTag[s.dept]||'tag-gray'}">${s.dept}</span></div>
-      <div style="font-size:11px;color:var(--muted)">📞 ${s.tel}</div>
-    </div>`).join('') || '<div style="text-align:center;padding:30px;color:var(--muted);grid-column:1/-1">등록된 직원이 없습니다</div>';
+      <button onclick="deleteStaff(${Number(s.id)})" title="삭제" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px">✕</button>
+      <div class="dir-avatar" style="background:${safeColor}">${escapeHtml(s.name ? s.name[0] : '?')}</div>
+      <div class="dir-name">${escapeHtml(s.name)}</div>
+      <div class="dir-role">${escapeHtml(s.role)}</div>
+      <div><span class="tag ${deptTag[s.dept]||'tag-gray'}">${escapeHtml(s.dept)}</span></div>
+      <div style="font-size:11px;color:var(--muted)">📞 ${escapeHtml(s.tel)}</div>
+    </div>`;
+  }).join('') || '<div style="text-align:center;padding:30px;color:var(--muted);grid-column:1/-1">등록된 직원이 없습니다</div>';
 }
 function filterDir(v) { renderDirectory(v); }
 function saveStaff() {
@@ -1440,10 +1475,10 @@ function renderDocs(filter='', tag='전체') {
     <div class="file-item">
       <div class="file-icon">${d.icon}</div>
       <div>
-        <div class="file-name">${d.name}</div>
-        <div class="file-meta">${d.author} · ${d.date} · ${d.size}</div>
+        <div class="file-name">${escapeHtml(d.name)}</div>
+        <div class="file-meta">${escapeHtml(d.author)} · ${escapeHtml(d.date)} · ${escapeHtml(d.size)}</div>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="showToast('success','⬇ 다운로드','${d.name} 다운로드 시작')">⬇ 다운로드</button>
+      <button class="btn btn-secondary btn-sm" onclick="showToast('success','⬇ 다운로드',${JSON.stringify(escapeHtml(d.name)+' 다운로드 시작')})">⬇ 다운로드</button>
     </div>`).join('') || '<div style="text-align:center;padding:30px;color:var(--muted)">검색 결과가 없습니다</div>';
 }
 let docTagFilter = '전체';
@@ -1469,7 +1504,11 @@ function buildCalendar() {
     const isToday = d === today;
     const isSun = (startDay + d - 1) % 7 === 0;
     let evHtml = '';
-    if (events[d]) events[d].forEach(e => { evHtml += `<div class="cal-event ${e.cls}">${e.text}</div>`; });
+    const ALLOWED_CAL_CLS = new Set(['','green','yellow']);
+    if (events[d]) events[d].forEach(e => {
+      const safeCls = ALLOWED_CAL_CLS.has(e.cls) ? e.cls : '';
+      evHtml += `<div class="cal-event ${safeCls}">${escapeHtml(e.text)}</div>`;
+    });
     cells += `<div class="cal-cell ${isToday?'today':''}"><div class="cal-num ${isSun?'sun':''}">${d}</div>${evHtml}</div>`;
   }
   grid.innerHTML = cells;
@@ -1513,10 +1552,10 @@ function renderNotifPanel() {
   if (!el) return;
   const typeIcon = {info:'📘',warning:'⚠️',success:'✅',danger:'🚨'};
   el.innerHTML = notifs.length ? notifs.map(n => `
-    <div class="notif-item ${n.read?'':'unread'}" onclick="markRead(${n.id})">
-      <div class="notif-title">${typeIcon[n.type]||'🔔'} ${n.title}</div>
-      <div class="notif-time">${n.msg}</div>
-      <div class="notif-time" style="margin-top:2px">${n.time}</div>
+    <div class="notif-item ${n.read?'':'unread'}" onclick="markRead(${Number(n.id)})">
+      <div class="notif-title">${typeIcon[n.type]||'🔔'} ${escapeHtml(n.title)}</div>
+      <div class="notif-time">${escapeHtml(n.msg)}</div>
+      <div class="notif-time" style="margin-top:2px">${escapeHtml(n.time)}</div>
     </div>`).join('') : '<div class="notif-empty">알림이 없습니다</div>';
 }
 function markRead(id) {
@@ -1556,7 +1595,7 @@ function showToast(type, title, msg, duration=4000) {
   div.id = id;
   div.innerHTML = `
     <div class="toast-icon">${icons[type]||'🔔'}</div>
-    <div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>
+    <div class="toast-body"><div class="toast-title">${escapeHtml(title)}</div><div class="toast-msg">${escapeHtml(msg)}</div></div>
     <button class="toast-close" onclick="closeToast('${id}')">✕</button>`;
   document.getElementById('toast-container').appendChild(div);
   setTimeout(() => closeToast(id), duration);
@@ -1592,25 +1631,25 @@ function globalSearch(v) {
   const customers = ls('customers',[]).filter(c => c.name.includes(v) || c.tel.includes(v));
   const claims = ls('claims',[]).filter(c => c.name.includes(v) || c.id.includes(v));
 
-  let html = `<div class="sr-header">검색 결과: "${v}"</div>`;
+  let html = `<div class="sr-header">검색 결과: &quot;${escapeHtml(v)}&quot;</div>`;
   if (pages.length) {
     pages.forEach(p => {
       html += `<div class="sr-item" onclick="goPageByName('${p.page}')">
         <div class="sr-icon">${p.icon}</div>
-        <div><div class="sr-name">${p.name}</div><div class="sr-desc">${p.type}</div></div>
+        <div><div class="sr-name">${escapeHtml(p.name)}</div><div class="sr-desc">${escapeHtml(p.type)}</div></div>
       </div>`;
     });
   }
   customers.forEach(c => {
     html += `<div class="sr-item" onclick="goPageByName('customer')">
       <div class="sr-icon">🧑‍💼</div>
-      <div><div class="sr-name">${c.name}</div><div class="sr-desc">고객 · ${c.tel}</div></div>
+      <div><div class="sr-name">${escapeHtml(c.name)}</div><div class="sr-desc">고객 · ${escapeHtml(c.tel)}</div></div>
     </div>`;
   });
   claims.forEach(c => {
     html += `<div class="sr-item" onclick="goPageByName('claim')">
       <div class="sr-icon">💰</div>
-      <div><div class="sr-name">${c.name} – ${c.id}</div><div class="sr-desc">청구 · ${c.status}</div></div>
+      <div><div class="sr-name">${escapeHtml(c.name)} – ${escapeHtml(c.id)}</div><div class="sr-desc">청구 · ${escapeHtml(c.status)}</div></div>
     </div>`;
   });
   if (!pages.length && !customers.length && !claims.length) {
@@ -1651,13 +1690,14 @@ function renderChat() {
   if (!el) return;
   el.innerHTML = msgs.map(m => {
     const isMine = m.user === currentUser?.name;
+    const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(m.color) ? m.color : '#1e5ef3';
     return `
     <div class="msg ${isMine?'mine':''}">
-      <div class="msg-avatar" style="background:${m.color}">${m.avatar}</div>
+      <div class="msg-avatar" style="background:${safeColor}">${escapeHtml(m.avatar)}</div>
       <div class="msg-body">
-        ${!isMine?`<div class="msg-name">${m.user}</div>`:''}
-        <div class="msg-bubble">${m.msg}</div>
-        <div class="msg-time">${m.time}</div>
+        ${!isMine?`<div class="msg-name">${escapeHtml(m.user)}</div>`:''}
+        <div class="msg-bubble">${escapeHtml(m.msg)}</div>
+        <div class="msg-time">${escapeHtml(m.time)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1693,6 +1733,7 @@ function exportPDF(pageId, filename) {
   const content = document.getElementById(pageId);
   if (!content) return;
   const printWin = window.open('','_blank','width=900,height=700');
+  if (!printWin) return showToast('warning','팝업 차단됨','브라우저 팝업 차단을 해제한 후 다시 시도하세요.');
   printWin.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8"><title>${filename}</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
@@ -1764,7 +1805,7 @@ function toggleOrgEdit() {
 function addOrgNode() {
   const nodes = ls('orgNodes', []);
   const newId = 'n' + Date.now();
-  const parentOptions = nodes.map(n => `<option value="${n.id}">${n.label}</option>`).join('');
+  const parentOptions = nodes.map(n => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.label)}</option>`).join('');
   const editorEl = document.getElementById('org-node-editor');
   editorEl.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1777,7 +1818,7 @@ function addOrgNode() {
       </select></div>
     </div>
     <div class="btn-group" style="margin-top:0">
-      <button class="btn btn-primary btn-sm" onclick="confirmAddOrgNode('${newId}')">추가</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmAddOrgNode(${JSON.stringify(newId)})">추가</button>
       <button class="btn btn-secondary btn-sm" onclick="cancelOrgEdit()">취소</button>
     </div>`;
   document.getElementById('org-edit-panel').style.display = 'block';
@@ -1814,12 +1855,12 @@ function selectOrgNode(id) {
   const nodes = ls('orgNodes', []);
   const node = nodes.find(n => n.id === id);
   if (!node) return;
-  const parentOptions = nodes.filter(n => n.id !== id).map(n => `<option value="${n.id}"${n.id===node.parentId?' selected':''}>${n.label}</option>`).join('');
+  const parentOptions = nodes.filter(n => n.id !== id).map(n => `<option value="${escapeHtml(n.id)}"${n.id===node.parentId?' selected':''}>${escapeHtml(n.label)}</option>`).join('');
   const colorKey = Object.entries(orgColorMap).find(([k,v]) => v.fill === node.fill)?.[0] || 'blue';
   document.getElementById('org-node-editor').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div class="form-group"><label>노드명</label><input id="on-label" value="${node.label}"></div>
-      <div class="form-group"><label>담당자</label><input id="on-sub" value="${node.sub || ''}"></div>
+      <div class="form-group"><label>노드명</label><input id="on-label" value="${escapeHtml(node.label)}"></div>
+      <div class="form-group"><label>담당자</label><input id="on-sub" value="${escapeHtml(node.sub || '')}"></div>
       <div class="form-group"><label>상위 노드</label><select id="on-parent"><option value="">없음 (최상위)</option>${parentOptions}</select></div>
       <div class="form-group"><label>색상 테마</label><select id="on-fill">
         <option value="blue"${colorKey==='blue'?' selected':''}>파랑</option>
@@ -1830,8 +1871,8 @@ function selectOrgNode(id) {
       </select></div>
     </div>
     <div class="btn-group" style="margin-top:0">
-      <button class="btn btn-primary btn-sm" onclick="saveOrgNode('${id}')">저장</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteOrgNode('${id}')">삭제</button>
+      <button class="btn btn-primary btn-sm" onclick="saveOrgNode(${JSON.stringify(id)})">저장</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteOrgNode(${JSON.stringify(id)})">삭제</button>
       <button class="btn btn-secondary btn-sm" onclick="cancelOrgEdit()">취소</button>
     </div>`;
   renderOrgChart();
@@ -1920,7 +1961,8 @@ function renderOrgChart() {
     if (!n.parentId || !pos[n.id] || !pos[n.parentId]) return;
     const p = pos[n.parentId]; const c = pos[n.id];
     const midY = p.cy + nodeH / 2 + vGap / 2;
-    lines += `<path d="M${p.cx},${p.cy + nodeH/2} L${p.cx},${midY} L${c.cx},${midY} L${c.cx},${c.cy - nodeH/2}" fill="none" stroke="${n.stroke}" stroke-width="1.4" stroke-opacity="0.45"/>`;
+    const safeStroke = /^#[0-9a-fA-F]{3,8}$/.test(n.stroke) ? n.stroke : '#1e5ef3';
+    lines += `<path d="M${p.cx},${p.cy + nodeH/2} L${p.cx},${midY} L${c.cx},${midY} L${c.cx},${c.cy - nodeH/2}" fill="none" stroke="${safeStroke}" stroke-width="1.4" stroke-opacity="0.45"/>`;
   });
 
   /* SVG nodes */
@@ -1933,12 +1975,15 @@ function renderOrgChart() {
     const editCursor = orgEditMode ? 'cursor:pointer' : '';
     const highlight = isSelected ? `stroke-width="2.5"` : `stroke-width="1.2"`;
     const selRing = isSelected ? `<rect x="${x-2}" y="${y-2}" width="${nodeW+4}" height="${nodeH+4}" rx="11" fill="none" stroke="#1e5ef3" stroke-width="2" stroke-dasharray="4 2"/>` : '';
+    const safeNodeFill      = /^#[0-9a-fA-F]{3,8}$/.test(n.fill)      ? n.fill      : '#e0eaff';
+    const safeNodeStroke    = /^#[0-9a-fA-F]{3,8}$/.test(n.stroke)    ? n.stroke    : '#1e5ef3';
+    const safeNodeTextColor = /^#[0-9a-fA-F]{3,8}$/.test(n.textColor) ? n.textColor : '#1e5ef3';
     nodesSvg += `
-      <g onclick="selectOrgNode('${n.id}')" style="${editCursor}">
+      <g onclick="selectOrgNode(${JSON.stringify(n.id)})" style="${editCursor}">
         ${selRing}
-        <rect x="${x}" y="${y}" width="${nodeW}" height="${nodeH}" rx="9" fill="${n.fill}" stroke="${n.stroke}" ${highlight}/>
-        <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="13" font-weight="700" fill="${n.textColor}">${n.label}</text>
-        <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="11" fill="#6b7a99">${n.sub || ''}</text>
+        <rect x="${x}" y="${y}" width="${nodeW}" height="${nodeH}" rx="9" fill="${safeNodeFill}" stroke="${safeNodeStroke}" ${highlight}/>
+        <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="13" font-weight="700" fill="${safeNodeTextColor}">${escapeHtml(n.label)}</text>
+        <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-family="Noto Sans KR,sans-serif" font-size="11" fill="#6b7a99">${escapeHtml(n.sub || '')}</text>
       </g>`;
   });
 
