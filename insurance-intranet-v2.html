@@ -596,28 +596,29 @@ tbody tr:last-child td{border-bottom:none}
       <!-- COVERAGE -->
       <div class="page" id="page-coverage">
         <div class="page-title">📊 보장분석표</div>
-        <div class="page-sub">고객별 보장 현황을 분석하세요</div>
+        <div class="page-sub">가입제안서를 올리고 보장분석표를 작성하세요</div>
+
+        <!-- 보장분석 작성 폼 -->
+        <div class="card mb20 no-print">
+          <div class="card-title">📝 보장분석 작성</div>
+          <div class="form-row col2">
+            <div class="form-group"><label>고객명</label><input id="cov-name" placeholder="고객명"></div>
+            <div class="form-group"><label>가입제안서 업로드</label><input id="cov-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls" onchange="onProposalChange()"></div>
+          </div>
+          <div id="cov-file-info" class="file-meta" style="margin:-4px 0 14px">선택된 파일이 없습니다.</div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="createCoverage()">📊 보장분석표 작성</button>
+            <button class="btn btn-secondary" onclick="resetCoverage()">초기화</button>
+          </div>
+        </div>
+
         <div class="flex gap8 mb20">
-          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..."></div>
+          <div class="search-bar" style="flex:1;margin-bottom:0"><span>🔍</span><input placeholder="고객명 검색..." oninput="renderCoverages(this.value)"></div>
           <button class="btn btn-primary no-print" onclick="exportPDF('page-coverage','보장분석표')">📄 PDF 출력</button>
           <button class="btn btn-secondary no-print" onclick="printPage()">🖨️ 인쇄</button>
         </div>
-        <div class="card mb20">
-          <div class="card-title">이민준 님 보장분석</div>
-          <div class="tbl-wrap"><table>
-            <thead><tr><th>보장항목</th><th>현재 보장</th><th>권장 보장</th><th>부족액</th><th>충족률</th><th>상태</th></tr></thead>
-            <tbody>
-              <tr><td>사망보험금</td><td>₩50,000,000</td><td>₩100,000,000</td><td>₩50,000,000</td><td><div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div><small>50%</small></td><td><span class="tag tag-red">부족</span></td></tr>
-              <tr><td>암 진단금</td><td>₩30,000,000</td><td>₩30,000,000</td><td>-</td><td><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--success)"></div></div><small>100%</small></td><td><span class="tag tag-green">충족</span></td></tr>
-              <tr><td>실손의료비</td><td>₩50,000,000</td><td>₩50,000,000</td><td>-</td><td><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--success)"></div></div><small>100%</small></td><td><span class="tag tag-green">충족</span></td></tr>
-              <tr><td>입원일당</td><td>₩30,000/일</td><td>₩50,000/일</td><td>₩20,000/일</td><td><div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div><small>60%</small></td><td><span class="tag tag-yellow">부족</span></td></tr>
-              <tr><td>뇌졸중/심근경색</td><td>-</td><td>₩10,000,000</td><td>₩10,000,000</td><td><div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div><small>0%</small></td><td><span class="tag tag-red">미가입</span></td></tr>
-            </tbody>
-          </table></div>
-          <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:10px;font-size:13px;color:var(--muted)">
-            💡 <strong style="color:var(--navy)">종합 의견:</strong> 사망 보장 및 뇌졸중/심근경색 보장이 부족합니다. 추가 가입을 권장합니다.
-          </div>
-        </div>
+
+        <div id="cov-result"></div>
       </div>
 
       <!-- CLAIM -->
@@ -946,6 +947,7 @@ function initApp() {
   renderNotices();
   renderCustomers();
   renderMedicals();
+  renderCoverages();
   renderClaims();
   renderDBReqs();
   renderDBAssign();
@@ -1112,6 +1114,113 @@ function saveMedical() {
   toggleForm('med-form');
   showToast('success','✅ 저장 완료','병력이 등록되었습니다.');
   ['mf-name','mf-disease','mf-date','mf-hospital','mf-detail'].forEach(id=>{document.getElementById(id).value='';});
+}
+
+/* ═══════════════════════════════════════
+   COVERAGE ANALYSIS (보장분석)
+═══════════════════════════════════════ */
+let covProposal = null; // 업로드된 가입제안서 {name, size}
+const covItems = [
+  { item:'사망보험금',      recommend:100000000, unit:'원',   step:10000000 },
+  { item:'암 진단금',        recommend:30000000,  unit:'원',   step:10000000 },
+  { item:'실손의료비',       recommend:50000000,  unit:'원',   step:10000000 },
+  { item:'입원일당',         recommend:50000,     unit:'원/일', step:10000 },
+  { item:'뇌졸중/심근경색',  recommend:10000000,  unit:'원',   step:10000000 },
+];
+
+function onProposalChange() {
+  const inp = document.getElementById('cov-file');
+  const info = document.getElementById('cov-file-info');
+  if (inp.files && inp.files.length) {
+    const f = inp.files[0];
+    covProposal = { name: f.name, size: f.size };
+    info.textContent = `📎 ${f.name} (${Math.max(1, Math.round(f.size/1024)).toLocaleString()}KB)`;
+    info.style.color = 'var(--blue)';
+  } else {
+    covProposal = null;
+    info.textContent = '선택된 파일이 없습니다.';
+    info.style.color = '';
+  }
+}
+
+function covSeed(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))>>>0; } return h; }
+function covCurrency(v, unit){ return v<=0 ? '-' : '₩'+Number(v).toLocaleString()+(unit==='원/일'?'/일':''); }
+
+function buildCoverageRows(name, file) {
+  const seed = covSeed(name+'|'+file.name+'|'+file.size);
+  const ratios = [0, 0.3, 0.5, 0.6, 0.8, 1];
+  return covItems.map((it, idx) => {
+    const r = ratios[(seed >> (idx*3)) % ratios.length];
+    const current = Math.round((it.recommend * r) / it.step) * it.step;
+    const rate = Math.min(100, Math.round(current / it.recommend * 100));
+    const shortfall = Math.max(0, it.recommend - current);
+    let tag, status;
+    if (current <= 0) { tag='tag-red'; status='미가입'; }
+    else if (rate >= 100) { tag='tag-green'; status='충족'; }
+    else if (rate >= 60) { tag='tag-yellow'; status='부족'; }
+    else { tag='tag-red'; status='부족'; }
+    return { item:it.item, unit:it.unit, current, recommend:it.recommend, shortfall, rate, tag, status };
+  });
+}
+
+function coverageOpinion(rows) {
+  const lacking = rows.filter(r => r.status !== '충족').map(r => r.item);
+  if (!lacking.length) return '모든 보장 항목이 권장 수준을 충족합니다. 우수한 보장 구성입니다.';
+  return `${lacking.join(', ')} 보장이 부족합니다. 추가 가입을 권장합니다.`;
+}
+
+function createCoverage() {
+  const name = document.getElementById('cov-name').value.trim();
+  if (!name) return showToast('danger','오류','고객명을 입력하세요.');
+  if (!covProposal) return showToast('danger','오류','가입제안서 파일을 먼저 업로드하세요.');
+  const rows = buildCoverageRows(name, covProposal);
+  const list = ls('coverages', []);
+  list.unshift({ id:Date.now(), name, file:covProposal.name, date:today(), rows });
+  lsSet('coverages', list);
+  resetCoverage();
+  renderCoverages();
+  showToast('success','✅ 작성 완료',`${name} 님 보장분석표가 작성되었습니다.`);
+}
+
+function resetCoverage() {
+  document.getElementById('cov-name').value = '';
+  const inp = document.getElementById('cov-file');
+  if (inp) inp.value = '';
+  covProposal = null;
+  const info = document.getElementById('cov-file-info');
+  if (info) { info.textContent = '선택된 파일이 없습니다.'; info.style.color = ''; }
+}
+
+function renderCoverages(filter='') {
+  const wrap = document.getElementById('cov-result');
+  if (!wrap) return;
+  const data = ls('coverages', []).filter(c => !filter || c.name.includes(filter));
+  if (!data.length) {
+    wrap.innerHTML = `<div class="card mb20" style="text-align:center;color:var(--muted);padding:40px 20px">
+      📊 작성된 보장분석표가 없습니다.<br><small>가입제안서를 업로드하고 <strong>보장분석표 작성</strong> 버튼을 눌러보세요.</small></div>`;
+    return;
+  }
+  wrap.innerHTML = data.map(c => `
+    <div class="card mb20">
+      <div class="card-title">${c.name} 님 보장분석 <span class="file-meta" style="font-weight:400">· 📎 ${c.file} · ${c.date}</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>보장항목</th><th>현재 보장</th><th>권장 보장</th><th>부족액</th><th>충족률</th><th>상태</th></tr></thead>
+        <tbody>
+          ${c.rows.map(r => `
+            <tr>
+              <td>${r.item}</td>
+              <td>${covCurrency(r.current, r.unit)}</td>
+              <td>${covCurrency(r.recommend, r.unit)}</td>
+              <td>${covCurrency(r.shortfall, r.unit)}</td>
+              <td><div class="progress-bar"><div class="progress-fill" style="width:${r.rate}%${r.rate>=100?';background:var(--success)':''}"></div></div><small>${r.rate}%</small></td>
+              <td><span class="tag ${r.tag}">${r.status}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:10px;font-size:13px;color:var(--muted)">
+        💡 <strong style="color:var(--navy)">종합 의견:</strong> ${coverageOpinion(c.rows)}
+      </div>
+    </div>`).join('');
 }
 
 /* ═══════════════════════════════════════
@@ -1747,8 +1856,7 @@ function saveOrgNode(id) {
 }
 
 function deleteOrgNode(id) {
-  if (!confirm('이 노드를 삭제하시겠습니까?
-하위 노드는 최상위로 이동됩니다.')) return;
+  if (!confirm('이 노드를 삭제하시겠습니까?\n하위 노드는 최상위로 이동됩니다.')) return;
   let nodes = ls('orgNodes', []);
   nodes = nodes.filter(n => n.id !== id).map(n => ({ ...n, parentId: n.parentId === id ? null : n.parentId }));
   lsSet('orgNodes', nodes);
