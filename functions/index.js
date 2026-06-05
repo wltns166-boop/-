@@ -25,7 +25,9 @@ exports.api = onRequest(
     // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.
     if (body.driveProxy) {
       const target = String(body.url || "");
-      if (!/^https:\/\/script\.google\.com\//.test(target)) {
+      let host = "";
+      try { const u = new URL(target); if (u.protocol === "https:") host = u.hostname; } catch (e) {}
+      if (host !== "script.google.com") {
         res.status(400).json({ error: { message: "invalid drive url" } });
         return;
       }

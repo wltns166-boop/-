@@ -170,6 +170,8 @@ function _waCreateSheet(body, out) {
   SpreadsheetApp.flush();
 
   var file = DriveApp.getFileById(ssId);
+  // 인트라넷 임베드에서 팀원이 직접 보고/편집할 수 있도록 링크 공유(편집).
+  //  ※ 더 엄격히 하려면 Permission.VIEW(보기전용) 또는 Access.DOMAIN(도메인 한정)으로 변경.
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT); } catch (e) {}
   out.setContent(JSON.stringify({
     ok: true, id: ssId, url: ss.getUrl(),
@@ -182,6 +184,11 @@ function _waCreateSheet(body, out) {
 function _waExportXlsx(body, out) {
   var id = String(body.id || '').trim();
   if (!id) { out.setContent(JSON.stringify({ error: 'id required' })); return out; }
+  // 보안: 임의 시트 ID 내보내기 방지 — '보장분석표' 파일만 허용
+  try {
+    var chk = DriveApp.getFileById(id);
+    if (chk.getName().indexOf('보장분석표') < 0) { out.setContent(JSON.stringify({ error: 'not_allowed' })); return out; }
+  } catch (e) { out.setContent(JSON.stringify({ error: 'not_found' })); return out; }
   var resp = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx',
     { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
   if (resp.getResponseCode() !== 200) { out.setContent(JSON.stringify({ error: 'export ' + resp.getResponseCode() })); return out; }
