@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-1';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-2';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -37,13 +37,15 @@ function doPost(e) {
 
     // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
     if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable'
-        || body.action === 'waTemplate' || body.action === 'waCreate' || body.action === 'waExport') {
+        || body.action === 'waRegister' || body.action === 'waGrid'
+        || body.action === 'waCreate' || body.action === 'waExport') {
       var lock = LockService.getScriptLock();
       try { lock.waitLock(50000); } catch (e) {}
       try {
         if (body.action === 'claimFile') return _saveClaimFile(body, out);
         if (body.action === 'custTable') return _saveCustTable(body, out);
-        if (body.action === 'waTemplate') return _waSaveTemplate(body, out);
+        if (body.action === 'waRegister') return _waRegisterTemplate(body, out);
+        if (body.action === 'waGrid')     return _waTemplateGrid(body, out);
         if (body.action === 'waCreate')   return _waCreateSheet(body, out);
         if (body.action === 'waExport')   return _waExportXlsx(body, out);
         return _saveCustFile(body, out);
@@ -105,41 +107,43 @@ function doGet(e) {
 
 // ===== 보장분석표 — 구글 스프레드시트 방식 =====
 
-// xlsx(base64)를 구글시트로 변환해 지정 폴더에 만들고 시트 ID 반환 (Drive REST, 고급서비스 불필요)
-function _xlsxToGoogleSheet(b64, title, folderId) {
-  var boundary = 'tops' + Date.now();
-  var meta = JSON.stringify({ name: title, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [folderId] });
-  var pre = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
-            '\r\n--' + boundary + '\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n';
-  var post = '\r\n--' + boundary + '--';
-  var bytes = Utilities.newBlob(pre).getBytes()
-                .concat(Utilities.base64Decode(b64))
-                .concat(Utilities.newBlob(post).getBytes());
-  var resp = UrlFetchApp.fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
-      method: 'post',
-      contentType: 'multipart/related; boundary=' + boundary,
-      payload: bytes,
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-      muteHttpExceptions: true
-    });
-  var code = resp.getResponseCode();
-  if (code < 200 || code >= 300) throw new Error('convert failed ' + code + ': ' + resp.getContentText().slice(0, 200));
-  return JSON.parse(resp.getContentText()).id;
+// 구글시트 URL/ID에서 시트 ID만 추출
+function _extractSheetId(s) {
+  s = String(s || '').trim();
+  var m = s.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;   // ID를 그대로 넣은 경우
+  return '';
 }
 
-// 공용 양식 폴더(없으면 생성)
-function _waTplFolder() { return _getChildFolder(_getFolder(), '_양식'); }
-
-// 관리자 양식(xlsx) → 구글시트 양식으로 변환·등록 (이후 고객별로 이걸 복사해서 작성)
-function _waSaveTemplate(body, out) {
-  var b64 = body.b64 || '';
-  if (!b64) { out.setContent(JSON.stringify({ error: 'b64 required' })); return out; }
-  var tplFolder = _waTplFolder();
-  var ex = tplFolder.getFilesByName('보장분석_양식'); while (ex.hasNext()) ex.next().setTrashed(true);
-  var id = _xlsxToGoogleSheet(b64, '보장분석_양식', tplFolder.getId());
+// 관리자: 공용 드라이브에 만들어 둔 "구글시트 양식"의 주소(URL/ID)를 등록
+//   (이후 고객별로 이 양식을 복사해서 작성한다 — 변환 단계 없음)
+function _waRegisterTemplate(body, out) {
+  var id = _extractSheetId(body.url || body.id || '');
+  if (!id) { out.setContent(JSON.stringify({ error: 'invalid_url' })); return out; }
+  try { SpreadsheetApp.openById(id).getName(); }    // 열리는지(접근권한) 확인
+  catch (e) { out.setContent(JSON.stringify({ error: 'cannot_open' })); return out; }
   PropertiesService.getScriptProperties().setProperty('WA_TPL_ID', id);
   out.setContent(JSON.stringify({ ok: true, templateId: id }));
+  return out;
+}
+
+// 등록된 양식의 각 시트(탭)를 2차원 표(표시값)로 반환 — 클라이언트가 AI 프롬프트·좌표에 사용
+function _waTemplateGrid(body, out) {
+  var tplId = PropertiesService.getScriptProperties().getProperty('WA_TPL_ID');
+  if (!tplId) { out.setContent(JSON.stringify({ error: 'no_template' })); return out; }
+  var ss;
+  try { ss = SpreadsheetApp.openById(tplId); }
+  catch (e) { out.setContent(JSON.stringify({ error: 'cannot_open' })); return out; }
+  var sheets = ss.getSheets();
+  var grids = [];
+  for (var i = 0; i < sheets.length && i < 5; i++) {
+    var sh = sheets[i];
+    var lastR = sh.getLastRow(), lastC = sh.getLastColumn();
+    var vals = (lastR > 0 && lastC > 0) ? sh.getRange(1, 1, lastR, lastC).getDisplayValues() : [];
+    grids.push({ name: sh.getName(), grid: vals });
+  }
+  out.setContent(JSON.stringify({ ok: true, sheets: grids }));
   return out;
 }
 
