@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-2';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-3';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -169,7 +169,8 @@ function _waCreateSheet(body, out) {
     var e = edits[i]; if (!e) continue;
     var sheet = sheets[(e.s | 0)]; if (!sheet) continue;
     var r = (e.r | 0) + 1, c = (e.c | 0) + 1; if (r < 1 || c < 1) continue;
-    try { sheet.getRange(r, c).setValue(e.v); } catch (_e) {}
+    // 값 기입 + 기입한 칸은 노란색으로 표시(어떤 칸을 AI가 채웠는지 한눈에)
+    try { var cell = sheet.getRange(r, c); cell.setValue(e.v); cell.setBackground('#ffe599'); } catch (_e) {}
   }
   SpreadsheetApp.flush();
 
