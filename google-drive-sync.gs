@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-8';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-9';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -38,7 +38,7 @@ function doPost(e) {
     // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
     if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable'
         || body.action === 'waRegister' || body.action === 'waGrid'
-        || body.action === 'waCreate' || body.action === 'waExport') {
+        || body.action === 'waCreate' || body.action === 'waExport' || body.action === 'waOpen') {
       var lock = LockService.getScriptLock();
       try { lock.waitLock(50000); } catch (e) {}
       try {
@@ -48,6 +48,7 @@ function doPost(e) {
         if (body.action === 'waGrid')     return _waTemplateGrid(body, out);
         if (body.action === 'waCreate')   return _waCreateSheet(body, out);
         if (body.action === 'waExport')   return _waExportXlsx(body, out);
+        if (body.action === 'waOpen')     return _waOpenSheet(body, out);
         return _saveCustFile(body, out);
       } finally {
         try { lock.releaseLock(); } catch (e) {}
@@ -295,6 +296,24 @@ function _waCreateSheet(body, out) {
   out.setContent(JSON.stringify({
     ok: true, id: ssId, url: ss.getUrl(),
     embedUrl: 'https://docs.google.com/spreadsheets/d/' + ssId + '/edit?rm=embedded&widget=true&headers=false'
+  }));
+  return out;
+}
+
+// 고객명으로 이미 저장된 "{고객}님 보장분석표"를 찾아 임베드 주소 반환(없으면 not_found)
+//   → 전(前) 작성 후, 같은 고객의 표를 불러와 후(後)를 이어서 작성할 때 사용
+function _waOpenSheet(body, out) {
+  var member = String(body.member || '미지정').trim() || '미지정';
+  var cust   = String(body.cust   || '').trim();
+  if (!cust) { out.setContent(JSON.stringify({ error: 'cust required' })); return out; }
+  var custFolder = _resolveFolderPath(_getFolder(), member, ['보장분석표', cust]);
+  var ex = custFolder.getFilesByName(cust + '님 보장분석표');
+  if (!ex.hasNext()) { out.setContent(JSON.stringify({ ok: false, error: 'not_found' })); return out; }
+  var f = ex.next(), id = f.getId();
+  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT); } catch (e) {}
+  out.setContent(JSON.stringify({
+    ok: true, id: id, url: f.getUrl(),
+    embedUrl: 'https://docs.google.com/spreadsheets/d/' + id + '/edit?rm=embedded&widget=true&headers=false'
   }));
   return out;
 }
