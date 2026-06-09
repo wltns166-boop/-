@@ -1,0 +1,20 @@
+# Render.com 배포 설정 (Blueprint)
+# https://render.com → New → Blueprint → 이 저장소 선택하면 자동 구성됩니다.
+services:
+  - type: web
+    name: insurenet
+    runtime: node
+    plan: free
+    rootDir: server            # 서버 폴더에서 install/start 실행
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true    # 안전한 비밀 키 자동 생성
+      - key: DATA_DIR
+        value: /var/data       # 아래 영속 디스크 경로
+    disk:
+      name: insurenet-data     # 재배포해도 db.json(고객·청구 등) 유지
+      mountPath: /var/data
+      sizeGB: 1

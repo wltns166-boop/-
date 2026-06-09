@@ -15,7 +15,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const ROOT = path.join(__dirname, '..');          // 프로젝트 루트 (HTML 위치)
-const DATA_DIR = path.join(__dirname, 'data');
+// 배포 시 영속 디스크 경로를 DATA_DIR 환경변수로 지정할 수 있음 (재배포해도 데이터 유지)
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const PORT = process.env.PORT || 4000;
@@ -68,19 +69,36 @@ function loadDB() {
 }
 
 let saveTimer = null;
+let dirty = false;
+
+/* 실제 디스크 쓰기 (원자적: temp 작성 후 rename) */
+function flushDB() {
+  if (!dirty) return;
+  clearTimeout(saveTimer); saveTimer = null;
+  try {
+    const tmp = DB_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
+    fs.renameSync(tmp, DB_FILE);
+    dirty = false;
+  } catch (e) {
+    console.error('[DB] 저장 실패:', e.message);
+  }
+}
+
 function saveDB() {
   // 잦은 쓰기를 묶어 디스크 부담 완화 (200ms 디바운스)
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      const tmp = DB_FILE + '.tmp';
-      fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-      fs.renameSync(tmp, DB_FILE);
-    } catch (e) {
-      console.error('[DB] 저장 실패:', e.message);
-    }
-  }, 200);
+  dirty = true;
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; flushDB(); }, 200);
 }
+
+/* 종료 시 디바운스 대기 중인 변경을 반드시 디스크에 기록 (재배포 시 데이터 유실 방지) */
+function gracefulExit(signal) {
+  flushDB();
+  process.exit(0);
+}
+process.on('SIGTERM', () => gracefulExit('SIGTERM'));
+process.on('SIGINT', () => gracefulExit('SIGINT'));
 
 /* ═══════════════════════════════════════
    인증 미들웨어
