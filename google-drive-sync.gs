@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-11';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-12';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -195,17 +195,23 @@ function _waCreateSheet(body, out) {
     var rEnd = Math.min(CR2, maxR), cEnd = Math.min(CC2, maxC);
     if (rEnd < HR1 || cEnd < CC1) return;
 
-    // A) 제품 영역(G4:T93) 값 비우기 — 이전 실행 누적 제거(양식이 비어있으므로 안전)
-    try { sheet.getRange(HR1, CC1, rEnd - HR1 + 1, cEnd - CC1 + 1).clearContent(); } catch (_e) {}
-
-    // B) 이번 edits 기입(빈값 ''은 칸 비우기)
+    // A+B) 제품 영역(G4:T93)은 "빈 배열을 만들어 edits를 얹어 한 번에" 기입한다.
+    //   → 이전 누적 제거(clear 효과) + 셀 하나씩 쓰던 것을 1회 setValues로 → 대폭 속도 향상.
+    //   그 밖(보장합산 D열·헤더 등 G~T 밖)의 값은 개별 기입(소수).
+    var W = cEnd - CC1 + 1, Hh = rEnd - HR1 + 1;
+    var area = [];
+    for (var ai = 0; ai < Hh; ai++) { var rowA = []; for (var aj = 0; aj < W; aj++) rowA.push(''); area.push(rowA); }
+    var outside = [];
     var list = bySheet[sk];
     for (var j = 0; j < list.length; j++) {
       var ed = list[j];
       var r = (ed.r | 0) + 1, c = (ed.c | 0) + 1; if (r < 1 || c < 1) continue;
       var v = ed.v, hasVal = (v !== '' && v !== null && v !== undefined);
-      try { sheet.getRange(r, c).setValue(hasVal ? v : ''); } catch (_e) {}
+      if (r >= HR1 && r <= rEnd && c >= CC1 && c <= cEnd) { area[r - HR1][c - CC1] = hasVal ? v : ''; }
+      else if (hasVal) { outside.push({ r: r, c: c, v: v }); }   // 보장합산 D열 등 제품영역 밖
     }
+    try { sheet.getRange(HR1, CC1, Hh, W).setValues(area); } catch (_e) {}
+    for (var oi = 0; oi < outside.length; oi++) { try { sheet.getRange(outside[oi].r, outside[oi].c).setValue(outside[oi].v); } catch (_e) {} }
     SpreadsheetApp.flush();
 
     // C) 라벨로 보험료/납기/총납입 행, 보장합산 열 찾기 (A~T 스캔)
