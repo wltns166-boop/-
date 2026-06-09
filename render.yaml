@@ -1,20 +1,18 @@
 # Render.com 배포 설정 (Blueprint)
 # https://render.com → New → Blueprint → 이 저장소 선택하면 자동 구성됩니다.
+#
+# ⚠ 현재는 무료 플랜 설정입니다. 무료 플랜은 영속 디스크를 지원하지 않아,
+#   서버가 재시작/재배포되면 입력한 데이터(고객·청구 등)가 초기화됩니다.
+#   데이터를 영구 보관하려면 아래 plan을 starter로 바꾸고 disk 블록을 추가하세요.
 services:
   - type: web
     name: insurenet
     runtime: node
-    plan: starter              # 영속 디스크 사용을 위해 유료 플랜(월 $7 수준)
+    plan: free                 # 무료 플랜 (체험용, 데이터 비영속)
     rootDir: server            # 서버 폴더에서 install/start 실행
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: JWT_SECRET
-        generateValue: true    # 안전한 비밀 키 자동 생성
-      - key: DATA_DIR
-        value: /var/data       # 아래 영속 디스크 경로
-    disk:
-      name: insurenet-data     # 재배포해도 db.json(고객·청구 등) 유지
-      mountPath: /var/data
-      sizeGB: 1
+        generateValue: true    # 안전한 비밀 키 자동 생성 (재시작해도 유지)
