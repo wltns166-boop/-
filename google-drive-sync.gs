@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-6';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-7';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -201,6 +201,22 @@ function _waCreateSheet(body, out) {
     var r2 = Math.min(CR2, sheet.getMaxRows()), c2 = Math.min(CC2, sheet.getMaxColumns());
     if (r2 < CR1 || c2 < CC1) return;
     var nR = r2 - CR1 + 1, nC = c2 - CC1 + 1;
+
+    // ★ 조건부 서식이 우리 배경색(노랑)을 덮어쓰지 못하도록, 이 구역(G12:T93)에 걸린 규칙을 제거
+    try {
+      var rules = sheet.getConditionalFormatRules(), kept = [];
+      for (var ri = 0; ri < rules.length; ri++) {
+        var rgs = rules[ri].getRanges(), hit = false;
+        for (var qi = 0; qi < rgs.length; qi++) {
+          var g = rgs[qi];
+          var gr1 = g.getRow(), gc1 = g.getColumn(), gr2 = gr1 + g.getNumRows() - 1, gc2 = gc1 + g.getNumColumns() - 1;
+          if (!(gr2 < CR1 || gr1 > r2 || gc2 < CC1 || gc1 > c2)) { hit = true; break; }
+        }
+        if (!hit) kept.push(rules[ri]);
+      }
+      if (kept.length !== rules.length) sheet.setConditionalFormatRules(kept);
+    } catch (_e) {}
+
     var rng = sheet.getRange(CR1, CC1, nR, nC);
     var vals; try { vals = rng.getValues(); } catch (_e) { return; }
     var bg = [];
