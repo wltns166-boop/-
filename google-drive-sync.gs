@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-10';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-11';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -141,7 +141,11 @@ function _waTemplateGrid(body, out) {
   for (var i = 0; i < sheets.length && i < 5; i++) {
     var sh = sheets[i];
     var lastR = sh.getLastRow(), lastC = sh.getLastColumn();
-    var vals = (lastR > 0 && lastC > 0) ? sh.getRange(1, 1, lastR, lastC).getDisplayValues() : [];
+    // ★ 상품 칸(G~T)·보장행(~93)이 양식에서 비어 있어도 AI가 그 칸의 존재를 알도록
+    //   항상 최소 93행 × 20열(T)까지 읽는다(시트 실제 크기 내로 제한).
+    var rr = Math.min(Math.max(lastR, 93), sh.getMaxRows());
+    var cc = Math.min(Math.max(lastC, 20), sh.getMaxColumns());
+    var vals = (rr > 0 && cc > 0) ? sh.getRange(1, 1, rr, cc).getDisplayValues() : [];
     grids.push({ name: sh.getName(), grid: vals });
   }
   out.setContent(JSON.stringify({ ok: true, sheets: grids }));
