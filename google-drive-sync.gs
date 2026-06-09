@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-12';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-13';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -213,6 +213,21 @@ function _waCreateSheet(body, out) {
     try { sheet.getRange(HR1, CC1, Hh, W).setValues(area); } catch (_e) {}
     for (var oi = 0; oi < outside.length; oi++) { try { sheet.getRange(outside[oi].r, outside[oi].c).setValue(outside[oi].v); } catch (_e) {} }
     SpreadsheetApp.flush();
+
+    // B2) 후(시트1) 작성 시: 전(시트0)의 "첫 상품 열 = 실손(G·H)"을 그대로 가져온다.
+    //   → 리모델링 후 표의 1번 칸은 항상 전(前)의 실손, 제안서 상품은 2번 칸(I)부터.
+    if ((sk | 0) === 1 && sheets[0]) {
+      try {
+        var rLim = Math.min(CR2, sheets[0].getMaxRows(), maxR);
+        var cLim = Math.min(CC1 + 1, sheets[0].getMaxColumns(), maxC);   // G·H 두 칸
+        if (rLim >= HR1 && cLim >= CC1) {
+          var nC2 = cLim - CC1 + 1, nR2 = rLim - HR1 + 1;
+          var src = sheets[0].getRange(HR1, CC1, nR2, nC2).getValues();
+          sheet.getRange(HR1, CC1, nR2, nC2).setValues(src);
+          SpreadsheetApp.flush();
+        }
+      } catch (_e) {}
+    }
 
     // C) 라벨로 보험료/납기/총납입 행, 보장합산 열 찾기 (A~T 스캔)
     var rBoryo = -1, rNapgi = -1, rTotal = -1, cHapsan = -1;
