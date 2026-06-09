@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-9';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-10';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -288,6 +288,16 @@ function _waCreateSheet(body, out) {
     }
   });
   SpreadsheetApp.flush();
+
+  // 고객 "이름 / 나이"를 D2에 기입 — 전(0)·후(1) 두 시트 모두 동일하게
+  var nameAge = String(body.nameAge || '').trim();
+  if (nameAge) {
+    for (var di = 0; di < 2; di++) {
+      var sh2 = sheets[di];
+      if (sh2) { try { sh2.getRange(2, 4).setValue(nameAge); } catch (_e) {} }
+    }
+    SpreadsheetApp.flush();
+  }
 
   var file = DriveApp.getFileById(ssId);
   // 인트라넷 임베드에서 팀원이 직접 보고/편집할 수 있도록 링크 공유(편집).
