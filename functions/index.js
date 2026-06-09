@@ -1,15 +1,18 @@
-// TEAM TOPS — Claude API 중계 함수
+// TEAM TOPS — AI API 중계 함수 (구글 Gemini / Anthropic Claude)
 // 프론트엔드(index.html)의 보장분석 기능이 호출하는 /api/analyze 엔드포인트.
 // API 키를 브라우저에 노출하지 않기 위해 서버(Cloud Functions)에서 중계한다.
+// 모델 이름으로 분기: "gemini-*" → 구글 Gemini, "claude-*" → Anthropic Claude.
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 
-// Firebase 시크릿에 저장한 Anthropic API 키
-//   설정: firebase functions:secrets:set ANTHROPIC_API_KEY
+// Firebase 시크릿에 저장한 API 키
+//   설정: firebase functions:secrets:set GEMINI_API_KEY   (구글 AI Studio 키)
+//        firebase functions:secrets:set ANTHROPIC_API_KEY (선택: 클로드도 쓸 때)
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 exports.api = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "256MiB", timeoutSeconds: 120 },
+  { secrets: [GEMINI_API_KEY, ANTHROPIC_API_KEY], region: "us-central1", memory: "256MiB", timeoutSeconds: 120 },
   async (req, res) => {
     // 호스팅 rewrite로 같은 도메인에서 호출되므로 CORS는 기본적으로 불필요하지만 방어적으로 허용
     res.set("Access-Control-Allow-Origin", "*");
@@ -47,11 +50,45 @@ exports.api = onRequest(
       return;
     }
 
-    const model = body.model || "claude-haiku-4-5-20251001";
+    const model = body.model || "gemini-2.0-flash";
     const maxTokens = body.max_tokens || 4000;
     const prompt = body.prompt || "";
     if (!prompt) { res.status(400).json({ error: { message: "prompt is required" } }); return; }
 
+    // ── 구글 Gemini 분기 (model 이 "gemini-*") ──────────────────
+    //   응답을 Anthropic과 같은 형태 { content:[{text}] } 로 정규화 → 프론트는 그대로 사용.
+    if (/^gemini/i.test(model)) {
+      try {
+        const gUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
+          + encodeURIComponent(model) + ":generateContent?key=" + GEMINI_API_KEY.value();
+        const r = await fetch(gUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: maxTokens, temperature: 0 }
+          })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          const msg = (data && data.error && data.error.message) || ("Gemini 오류 " + r.status);
+          res.status(r.status).json({ error: { message: msg } });
+          return;
+        }
+        let text = "";
+        try {
+          const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+          text = parts.map(function (p) { return (p && p.text) || ""; }).join("");
+        } catch (e) { text = ""; }
+        res.status(200).json({ content: [{ type: "text", text: text }] });
+      } catch (e) {
+        console.error("gemini proxy error:", e);
+        res.status(500).json({ error: { message: String((e && e.message) || e) } });
+      }
+      return;
+    }
+
+    // ── Anthropic Claude 분기 (model 이 "claude-*") ─────────────
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
