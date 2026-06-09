@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-7';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-8';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -166,13 +166,15 @@ function _waCreateSheet(body, out) {
   var ss = SpreadsheetApp.openById(ssId);
   var sheets = ss.getSheets();
 
-  // ── 색칠 규칙 ─────────────────────────────────────────────
-  //  · 노란색(#ffe599): G12:T93에서 "값이 들어있는 칸"
-  //  · 빨간색(#ff0000): 같은 범위에서 G~T 한 줄이 통째로 비면 그 줄 전체
-  //  · 그 밖(라벨 B·C열, 보장합산 D열, 상단 헤더)은 절대 색칠하지 않음
-  //  ※ 편집 추적이 아니라 "셀의 실제 최종값"을 직접 읽어 색칠 → 양식·경로에 상관없이 확실
+  // ── 기입·중복제거·색칠 (모두 서버에서 결정론적으로 처리) ──────────────
+  //  · 매 작성마다 제품영역(G4:T93)을 비워 이전 실행 누적을 제거
+  //  · 같은 상품(보험료+납기/만기 동일)이 여러 열이면 뒤 열을 비움
+  //  · 보장합산 "총 납입보험료"는 남은 상품 열로 다시 합산
+  //  · 색칠: 값 있는 칸=노랑, G~T 통째로 빈 줄=빨강(조건부서식 제거 후 우리 색이 이김)
   var YELLOW = '#ffe599', REDFILL = '#ff0000', WHITE = '#ffffff';
-  var CR1 = 12, CR2 = 93, CC1 = 7, CC2 = 20;   // G12:T93 (1기준: 행 12~93, 열 G(7)~T(20))
+  var CR1 = 12, CR2 = 93, CC1 = 7, CC2 = 20;   // 색칠 구역 G12:T93
+  var HR1 = 4;                                   // 제품 데이터 시작 행(가입회사) — 헤더+보장 전체
+  var P0 = 7, PSTRIDE = 2;                       // 상품 열: G(7)부터 2칸 간격(좌=데이터/납기, 우=만기)
 
   // 시트별로 edits 묶기
   var bySheet = {};
@@ -182,9 +184,16 @@ function _waCreateSheet(body, out) {
     bySheet[si].push(e);
   }
 
-  // 1) 값 기입(빈값 ''은 칸 비우기)
   Object.keys(bySheet).forEach(function (sk) {
     var sheet = sheets[sk | 0]; if (!sheet) return;
+    var maxR = sheet.getMaxRows(), maxC = sheet.getMaxColumns();
+    var rEnd = Math.min(CR2, maxR), cEnd = Math.min(CC2, maxC);
+    if (rEnd < HR1 || cEnd < CC1) return;
+
+    // A) 제품 영역(G4:T93) 값 비우기 — 이전 실행 누적 제거(양식이 비어있으므로 안전)
+    try { sheet.getRange(HR1, CC1, rEnd - HR1 + 1, cEnd - CC1 + 1).clearContent(); } catch (_e) {}
+
+    // B) 이번 edits 기입(빈값 ''은 칸 비우기)
     var list = bySheet[sk];
     for (var j = 0; j < list.length; j++) {
       var ed = list[j];
@@ -192,45 +201,90 @@ function _waCreateSheet(body, out) {
       var v = ed.v, hasVal = (v !== '' && v !== null && v !== undefined);
       try { sheet.getRange(r, c).setValue(hasVal ? v : ''); } catch (_e) {}
     }
-  });
-  SpreadsheetApp.flush();
+    SpreadsheetApp.flush();
 
-  // 2) 색칠: G12:T93의 실제 최종값을 읽어 한 번에 적용
-  Object.keys(bySheet).forEach(function (sk) {
-    var sheet = sheets[sk | 0]; if (!sheet) return;
-    var r2 = Math.min(CR2, sheet.getMaxRows()), c2 = Math.min(CC2, sheet.getMaxColumns());
-    if (r2 < CR1 || c2 < CC1) return;
-    var nR = r2 - CR1 + 1, nC = c2 - CC1 + 1;
+    // C) 라벨로 보험료/납기/총납입 행, 보장합산 열 찾기 (A~T 스캔)
+    var rBoryo = -1, rNapgi = -1, rTotal = -1, cHapsan = -1;
+    try {
+      var head = sheet.getRange(1, 1, rEnd, cEnd).getValues();
+      for (var hr = 0; hr < head.length; hr++) {
+        for (var hc = 0; hc < head[hr].length; hc++) {
+          var t = String(head[hr][hc] == null ? '' : head[hr][hc]).replace(/\s/g, '');
+          if (!t) continue;
+          if (t === '보험료' && rBoryo < 0) rBoryo = hr + 1;
+          if (t.indexOf('납기') >= 0 && rNapgi < 0) rNapgi = hr + 1;
+          if (t.indexOf('총') >= 0 && t.indexOf('납입') >= 0 && rTotal < 0) rTotal = hr + 1;
+          if (t.indexOf('보장합산') >= 0 && cHapsan < 0) cHapsan = hc + 1;
+        }
+      }
+    } catch (_e) {}
 
-    // ★ 조건부 서식이 우리 배경색(노랑)을 덮어쓰지 못하도록, 이 구역(G12:T93)에 걸린 규칙을 제거
+    // D) 같은 상품(보험료+납기/만기 동일) 중복 열 제거 — 뒤 열을 통째로 비움
+    if (rBoryo > 0) {
+      var seen = {};
+      for (var pc = P0; pc <= cEnd; pc += PSTRIDE) {
+        var bo = '';
+        try { bo = String(sheet.getRange(rBoryo, pc).getValue() || '').replace(/[^\d]/g, ''); } catch (_e) {}
+        if (!bo) continue;                       // 보험료 없는 빈 상품 열 건너뜀
+        var na = '';
+        if (rNapgi > 0) {
+          try { na = (String(sheet.getRange(rNapgi, pc).getValue() || '') + '/' + String(sheet.getRange(rNapgi, pc + 1).getValue() || '')).replace(/\s/g, ''); } catch (_e) {}
+        }
+        var id = bo + '|' + na;
+        if (seen[id]) { try { sheet.getRange(HR1, pc, rEnd - HR1 + 1, 2).clearContent(); } catch (_e) {} }
+        else seen[id] = 1;
+      }
+      SpreadsheetApp.flush();
+    }
+
+    // E) 보장합산 "총 납입보험료" 다시 합산(중복 제거 후 남은 상품 열만)
+    if (rTotal > 0 && cHapsan > 0) {
+      var sum = 0, any = false;
+      for (var pc2 = P0; pc2 <= cEnd; pc2 += PSTRIDE) {
+        var tv; try { tv = sheet.getRange(rTotal, pc2).getValue(); } catch (_e) { tv = ''; }
+        var sv = String(tv == null ? '' : tv).replace(/\s/g, '');
+        if (sv === '') continue;
+        var n = Number(sv.replace(/[^\d.\-]/g, ''));
+        if (!isNaN(n)) { sum += n; any = true; }
+      }
+      if (any) { try { sheet.getRange(rTotal, cHapsan).setValue(sum); } catch (_e) {} }
+    }
+
+    // F) 조건부 서식 제거(G12:T93에 걸린 규칙) → 우리 배경색(노랑)이 이김
     try {
       var rules = sheet.getConditionalFormatRules(), kept = [];
       for (var ri = 0; ri < rules.length; ri++) {
         var rgs = rules[ri].getRanges(), hit = false;
         for (var qi = 0; qi < rgs.length; qi++) {
-          var g = rgs[qi];
-          var gr1 = g.getRow(), gc1 = g.getColumn(), gr2 = gr1 + g.getNumRows() - 1, gc2 = gc1 + g.getNumColumns() - 1;
-          if (!(gr2 < CR1 || gr1 > r2 || gc2 < CC1 || gc1 > c2)) { hit = true; break; }
+          var gg = rgs[qi];
+          var gr1 = gg.getRow(), gc1 = gg.getColumn(), gr2 = gr1 + gg.getNumRows() - 1, gc2 = gc1 + gg.getNumColumns() - 1;
+          if (!(gr2 < CR1 || gr1 > rEnd || gc2 < CC1 || gc1 > cEnd)) { hit = true; break; }
         }
         if (!hit) kept.push(rules[ri]);
       }
       if (kept.length !== rules.length) sheet.setConditionalFormatRules(kept);
     } catch (_e) {}
 
-    var rng = sheet.getRange(CR1, CC1, nR, nC);
-    var vals; try { vals = rng.getValues(); } catch (_e) { return; }
-    var bg = [];
-    for (var i2 = 0; i2 < nR; i2++) {
-      var rowEmpty = true;
-      for (var k = 0; k < nC; k++) { var cv = vals[i2][k]; if (cv !== '' && cv !== null) { rowEmpty = false; break; } }
-      var rowBg = [];
-      for (var k2 = 0; k2 < nC; k2++) {
-        var cv2 = vals[i2][k2], filled = (cv2 !== '' && cv2 !== null);
-        rowBg.push(filled ? YELLOW : (rowEmpty ? REDFILL : WHITE));
+    // G) 색칠: G12:T93의 실제 최종값 기준
+    var nR = rEnd - CR1 + 1, nC = cEnd - CC1 + 1;
+    if (nR >= 1 && nC >= 1) {
+      var rng = sheet.getRange(CR1, CC1, nR, nC);
+      var vals; try { vals = rng.getValues(); } catch (_e) { vals = null; }
+      if (vals) {
+        var bg = [];
+        for (var i2 = 0; i2 < nR; i2++) {
+          var rowEmpty = true;
+          for (var k = 0; k < nC; k++) { var cv = vals[i2][k]; if (cv !== '' && cv !== null) { rowEmpty = false; break; } }
+          var rowBg = [];
+          for (var k2 = 0; k2 < nC; k2++) {
+            var cv2 = vals[i2][k2], filled = (cv2 !== '' && cv2 !== null);
+            rowBg.push(filled ? YELLOW : (rowEmpty ? REDFILL : WHITE));
+          }
+          bg.push(rowBg);
+        }
+        try { rng.setBackgrounds(bg); } catch (_e) {}
       }
-      bg.push(rowBg);
     }
-    try { rng.setBackgrounds(bg); } catch (_e) {}
   });
   SpreadsheetApp.flush();
 
