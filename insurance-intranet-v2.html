@@ -2,8 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>InsureNet v2 — 사내 인트라넷</title>
+<!-- PWA: 폰 홈 화면 설치형 앱 지원 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1f3d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InsureNet">
+<link rel="apple-touch-icon" href="app-icon.svg">
+<link rel="icon" href="app-icon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -775,13 +784,138 @@ const USERS = {
 let currentUser = null;
 let currentRoom = '전체';
 
-/* ── localStorage helpers ── */
+/* ── localStorage helpers (로컬 캐시) ── */
 function ls(key, def) {
   try { const v = localStorage.getItem('in_'+key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
-function lsSet(key, val) {
+/* 순수 로컬 저장 — 서버 푸시 없음 (서버에서 받은 데이터를 캐시에 넣을 때 사용) */
+function lsSetLocal(key, val) {
   try { localStorage.setItem('in_'+key, JSON.stringify(val)); } catch {}
 }
+/* 앱에서 데이터를 저장할 때 호출 — 로컬 캐시에 쓰고 서버에도 동기화 */
+function lsSet(key, val) {
+  lsSetLocal(key, val);
+  SYNC.push(key, val);
+}
+
+/* ═══════════════════════════════════════
+   SYNC — PC/모바일 데이터 동기화 계층
+   서버가 있으면 공유 데이터를 자동 동기화하고,
+   서버에 연결할 수 없으면 로컬(localStorage)만으로 동작합니다.
+═══════════════════════════════════════ */
+const SYNC_KEYS = ['customers','medicals','claims','dbreqs','notices','calEvents','chats','staff','orgNodes','notifs'];
+const SYNC = {
+  online: false,
+  token: localStorage.getItem('in_token') || null,
+  version: -1,
+  pollTimer: null,
+
+  base() {
+    const stored = localStorage.getItem('in_apiBase');
+    if (stored) return stored.replace(/\/$/, '');
+    if (location.protocol.startsWith('http')) return location.origin;
+    return 'http://localhost:4000';   // file://로 직접 열었을 때 기본값
+  },
+
+  async req(path, opts = {}) {
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
+    let res;
+    try {
+      res = await fetch(this.base() + path, Object.assign({}, opts, { headers }));
+    } catch (e) {
+      const err = new Error('서버에 연결할 수 없습니다');
+      err.offline = true; throw err;
+    }
+    if (res.status === 401) {
+      this.token = null; localStorage.removeItem('in_token');
+      const err = new Error('인증 필요'); err.unauthorized = true; throw err;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const err = new Error(data.error || ('오류 ' + res.status)); err.status = res.status; throw err; }
+    return data;
+  },
+
+  /* 서버 로그인. 성공 시 사용자 객체 반환. 서버 미연결 시 err.offline=true */
+  async login(id, pw) {
+    const data = await this.req('/api/login', { method: 'POST', body: JSON.stringify({ id, pw }) });
+    this.token = data.token;
+    this.online = true;
+    localStorage.setItem('in_token', data.token);
+    return data.user;
+  },
+
+  /* 저장된 토큰으로 자동 로그인 시도 */
+  async resume() {
+    if (!this.token) return null;
+    try {
+      const data = await this.req('/api/me');
+      this.online = true;
+      return data.user;
+    } catch (e) {
+      if (e.offline) this.online = false;   // 오프라인이면 토큰 유지
+      return null;
+    }
+  },
+
+  /* 서버의 전체 공유 데이터를 로컬 캐시로 내려받음. 서버 version 반환(-1=오프라인) */
+  async pullAll() {
+    try {
+      const data = await this.req('/api/state');
+      this.online = true;
+      this.version = data.version;
+      const state = data.data || {};
+      for (const key of SYNC_KEYS) {
+        if (key in state) lsSetLocal(key, state[key]);
+      }
+      return data.version;
+    } catch (e) {
+      this.online = false;
+      return -1;
+    }
+  },
+
+  /* 현재 로컬 캐시의 모든 키를 서버로 업로드 (최초 시드 공유용) */
+  async pushAll() {
+    if (!this.online) return;
+    const payload = {};
+    for (const key of SYNC_KEYS) {
+      const v = ls(key, null);
+      if (v !== null) payload[key] = v;
+    }
+    try {
+      const r = await this.req('/api/state', { method: 'PUT', body: JSON.stringify({ data: payload }) });
+      this.version = r.version;
+    } catch (e) { /* 오프라인이면 무시 */ }
+  },
+
+  /* 한 키를 서버로 동기화 (fire-and-forget) */
+  async push(key, val) {
+    if (!this.online || !this.token) return;
+    if (!SYNC_KEYS.includes(key)) return;
+    try {
+      const r = await this.req('/api/state/' + key, { method: 'PUT', body: JSON.stringify({ value: val }) });
+      this.version = r.version;   // 내 변경분이므로 폴링 시 재렌더 방지
+    } catch (e) { /* 오프라인이면 로컬에만 남고 다음 동기화 때 반영 */ }
+  },
+
+  /* 다른 기기의 변경을 감지하기 위한 주기적 폴링 */
+  startPolling(onRemoteChange) {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    if (!this.online) return;
+    this.pollTimer = setInterval(async () => {
+      try {
+        const { version } = await this.req('/api/state/version');
+        if (version !== this.version) {
+          await this.pullAll();
+          onRemoteChange && onRemoteChange();
+        }
+      } catch (e) { /* 일시적 오프라인 — 다음 주기에 재시도 */ }
+    }, 4000);
+  },
+
+  stopPolling() { if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; } },
+};
 
 /* ── Seed initial data if empty ── */
 function initData() {
@@ -892,25 +1026,49 @@ const DBPOOL = [
 /* ═══════════════════════════════════════
    LOGIN / LOGOUT
 ═══════════════════════════════════════ */
-function doLogin() {
+/* 로그인 성공 후 화면 전환 + 앱 진입 공통 처리 */
+function enterApp() {
+  document.getElementById('login-err').style.display = 'none';
+  document.getElementById('login-screen').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    initApp();
+  }, 400);
+}
+
+async function doLogin() {
   const id = document.getElementById('login-id').value.trim();
   const pw = document.getElementById('login-pw').value;
-  const u = USERS[id];
-  if (u && u.pw === pw) {
-    currentUser = { id, ...u };
-    document.getElementById('login-err').style.display = 'none';
-    document.getElementById('login-screen').style.opacity = '0';
-    setTimeout(() => {
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').classList.add('active');
-      initApp();
-    }, 400);
-  } else {
-    document.getElementById('login-err').style.display = 'block';
+  const errEl = document.getElementById('login-err');
+  try {
+    // 1순위: 서버 인증 (PC/모바일 공유 데이터)
+    const user = await SYNC.login(id, pw);
+    currentUser = user;
+    enterApp();
+  } catch (e) {
+    if (e.offline) {
+      // 서버 미연결 → 로컬 계정으로 오프라인 로그인 (단독 사용)
+      const u = USERS[id];
+      if (u && u.pw === pw) {
+        SYNC.online = false;
+        currentUser = { id, ...u };
+        enterApp();
+      } else {
+        errEl.textContent = '아이디 또는 비밀번호를 확인하세요. (오프라인 모드)';
+        errEl.style.display = 'block';
+      }
+    } else {
+      errEl.textContent = e.message || '로그인에 실패했습니다.';
+      errEl.style.display = 'block';
+    }
   }
 }
 function doLogout() {
   currentUser = null;
+  SYNC.stopPolling();
+  SYNC.token = null;
+  localStorage.removeItem('in_token');
   document.getElementById('app').classList.remove('active');
   document.getElementById('login-screen').style.opacity='1';
   document.getElementById('login-screen').style.display='flex';
@@ -918,11 +1076,30 @@ function doLogout() {
 }
 document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
+/* 저장된 토큰이 있으면 자동 로그인 (폰에서 매번 비밀번호 입력 불필요) */
+async function tryAutoLogin() {
+  const user = await SYNC.resume();
+  if (user) { currentUser = user; enterApp(); }
+}
+window.addEventListener('DOMContentLoaded', tryAutoLogin);
+
+/* PWA 서비스워커 등록 (https 또는 localhost에서만 동작) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* 미지원 환경은 무시 */ });
+  });
+}
+
 /* ═══════════════════════════════════════
    INIT APP
 ═══════════════════════════════════════ */
-function initApp() {
+async function initApp() {
+  // 1) 서버의 공유 데이터를 로컬 캐시로 내려받기 (오프라인이면 -1)
+  const serverVersion = await SYNC.pullAll();
+  // 2) 비어있는 항목은 기본 데이터로 시드 (최초 실행/오프라인)
   initData();
+  // 3) 서버가 비어 있던 최초 실행이면, 시드 데이터를 공유 저장소로 업로드
+  if (SYNC.online && serverVersion === 0) await SYNC.pushAll();
 
   // Header
   const u = currentUser;
@@ -943,6 +1120,18 @@ function initApp() {
   }
 
   // Render all sections
+  refreshAllViews();
+
+  // 다른 기기(폰/PC)에서 변경이 생기면 자동으로 화면 갱신
+  SYNC.startPolling(refreshAllViews);
+
+  // Scheduled notifications (simulate deadline alert)
+  setTimeout(() => showToast('warning','⏰ 마감 알림','5월 22일 월보 제출 마감이 7일 남았습니다.'), 3000);
+  setTimeout(() => showToast('info','📋 DB 신청','DBR-0048 신청이 검토중입니다.'), 6000);
+}
+
+/* 로컬 캐시 데이터로 모든 화면을 다시 그림 (최초 진입 + 동기화 갱신 공용) */
+function refreshAllViews() {
   renderNotices();
   renderCustomers();
   renderMedicals();
@@ -959,14 +1148,10 @@ function initApp() {
   updateNotifBadge();
 
   // Admin stats
-  if (u.role === 'admin') {
+  if (currentUser && currentUser.role === 'admin') {
     document.getElementById('admin-newcust').textContent = ls('customers',[]).length;
     document.getElementById('admin-totalclaim').textContent = ls('claims',[]).length;
   }
-
-  // Scheduled notifications (simulate deadline alert)
-  setTimeout(() => showToast('warning','⏰ 마감 알림','5월 22일 월보 제출 마감이 7일 남았습니다.'), 3000);
-  setTimeout(() => showToast('info','📋 DB 신청','DBR-0048 신청이 검토중입니다.'), 6000);
 }
 
 /* ═══════════════════════════════════════
@@ -1747,8 +1932,7 @@ function saveOrgNode(id) {
 }
 
 function deleteOrgNode(id) {
-  if (!confirm('이 노드를 삭제하시겠습니까?
-하위 노드는 최상위로 이동됩니다.')) return;
+  if (!confirm('이 노드를 삭제하시겠습니까?\n하위 노드는 최상위로 이동됩니다.')) return;
   let nodes = ls('orgNodes', []);
   nodes = nodes.filter(n => n.id !== id).map(n => ({ ...n, parentId: n.parentId === id ? null : n.parentId }));
   lsSet('orgNodes', nodes);
