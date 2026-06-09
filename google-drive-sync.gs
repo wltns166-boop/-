@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-4';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-5';             // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -170,7 +170,7 @@ function _waCreateSheet(body, out) {
   //  · 노란색(#ffe599): G12:T93 범위에서 "값이 채워진 칸"만
   //  · 빨간색(#f4cccc): 같은 범위에서 G~T 한 줄이 통째로 비면 그 줄 전체
   //  · 그 밖(라벨 B·C열, 보장합산 D열, 상단 헤더)은 절대 색칠하지 않음
-  var YELLOW = '#ffe599', REDFILL = '#f4cccc';
+  var YELLOW = '#ffe599', REDFILL = '#ff0000';   // 미입력 줄은 진한 빨강으로 확실히 표시
   var CR1 = 12, CR2 = 93, CC1 = 7, CC2 = 20;   // G12:T93 (1기준: 행 12~93, 열 G(7)~T(20))
 
   // 시트별로 edits 묶기
@@ -191,16 +191,17 @@ function _waCreateSheet(body, out) {
     // 1) 색칠 구역(G12:T93) 초기화 — 이전 작성/구버전 색을 지움
     try { sheet.getRange(CR1, CC1, r2 - CR1 + 1, nC).setBackground(null); } catch (_e) {}
 
-    // 2) 값 기입 + 채운 칸은 노란색, 값이 들어간 행을 기록
+    // 2) 값 기입 + 값이 채워진 칸만 노란색. 빈값('')은 칸을 비우고 색칠하지 않음(중복 열 제거용).
     var rowHasVal = {};
     var list = bySheet[si];
     for (var j = 0; j < list.length; j++) {
       var ed = list[j];
       var r = (ed.r | 0) + 1, c = (ed.c | 0) + 1; if (r < 1 || c < 1) continue;
+      var v = ed.v, hasVal = (v !== '' && v !== null && v !== undefined);
       try {
         var cell = sheet.getRange(r, c);
-        cell.setValue(ed.v);
-        if (c >= CC1 && c <= c2 && r >= CR1 && r <= r2) { cell.setBackground(YELLOW); rowHasVal[r] = true; }
+        cell.setValue(hasVal ? v : '');
+        if (hasVal && c >= CC1 && c <= c2 && r >= CR1 && r <= r2) { cell.setBackground(YELLOW); rowHasVal[r] = true; }
       } catch (_e) {}
     }
 
