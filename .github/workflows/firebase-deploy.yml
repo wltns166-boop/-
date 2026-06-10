@@ -30,7 +30,7 @@ jobs:
           cat > "$RUNNER_TEMP/gcp-sa.json" <<'EOF'
           ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           EOF
-      - name: Deploy Firestore rules
-        run: npx -y firebase-tools@13 deploy --only firestore:rules --project team-tops-intranet --non-interactive --force
+      - name: Deploy Firestore & Storage rules
+        run: npx -y firebase-tools@13 deploy --only firestore:rules,storage --project team-tops-intranet --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
