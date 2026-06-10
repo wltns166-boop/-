@@ -23,3 +23,14 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: team-tops-intranet
           channelId: live
+
+      # Firestore 보안 규칙(firestore.rules)도 함께 배포 — push_tokens 등 모든 컬렉션 허용 보장
+      - name: Write service account key
+        run: |
+          cat > "$RUNNER_TEMP/gcp-sa.json" <<'EOF'
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EOF
+      - name: Deploy Firestore rules
+        run: npx -y firebase-tools@13 deploy --only firestore:rules --project team-tops-intranet --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
