@@ -1,0 +1,40 @@
+name: Deploy Functions
+
+# functions/ 코드가 바뀌어 푸시되면 Cloud Functions(/api)를 자동 배포한다.
+# 호스팅 자동배포(firebase-deploy.yml)와 같은 FIREBASE_SERVICE_ACCOUNT 비밀키를 사용.
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+    paths:
+      - "functions/**"
+      - ".github/workflows/firebase-functions.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install functions dependencies
+        run: npm install
+        working-directory: functions
+
+      - name: Write service account key
+        run: |
+          cat > "$RUNNER_TEMP/gcp-sa.json" <<'EOF'
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EOF
+
+      - name: Deploy to Firebase Functions
+        run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
