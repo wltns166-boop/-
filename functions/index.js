@@ -9,13 +9,11 @@ if (!admin.apps.length) admin.initializeApp();
 
 // Firebase 시크릿에 저장한 API 키
 //   설정: firebase functions:secrets:set ANTHROPIC_API_KEY (Claude 키 — 현재 사용 중)
-//        firebase functions:secrets:set GEMINI_API_KEY   (Gemini 쓸 때만. 등록 후 아래 secrets 배열에 추가)
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
+// 참고: Gemini 키는 아직 미등록이라 defineSecret 선언을 빼둔다(선언만 있어도 배포가 입력을 요구함).
+//   Gemini 를 쓸 때 GEMINI_API_KEY 를 환경변수/시크릿으로 등록하면 process.env 로 자동 인식됨.
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 exports.api = onRequest(
-  // GEMINI_API_KEY 는 아직 등록 전이라 필수 목록에서 제외(자동배포가 멈추지 않도록).
-  // Gemini 를 쓸 때 secrets:set GEMINI_API_KEY 후 배열에 GEMINI_API_KEY 를 추가하세요.
   { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "256MiB", timeoutSeconds: 120 },
   async (req, res) => {
     // 호스팅 rewrite로 같은 도메인에서 호출되므로 CORS는 기본적으로 불필요하지만 방어적으로 허용
@@ -112,8 +110,7 @@ exports.api = onRequest(
     //   응답을 Anthropic과 같은 형태 { content:[{text}] } 로 정규화 → 프론트는 그대로 사용.
     if (/^gemini/i.test(model)) {
       try {
-        let gKey = "";
-        try { gKey = GEMINI_API_KEY.value(); } catch (e) { gKey = process.env.GEMINI_API_KEY || ""; }
+        const gKey = process.env.GEMINI_API_KEY || "";
         if (!gKey) { res.status(400).json({ error: { message: "Gemini API 키가 설정되지 않았습니다. (현재 Claude 사용 중)" } }); return; }
         const gUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
           + encodeURIComponent(model) + ":generateContent?key=" + gKey;
