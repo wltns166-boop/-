@@ -4,6 +4,8 @@
 // 모델 이름으로 분기: "gemini-*" → 구글 Gemini, "claude-*" → Anthropic Claude.
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
+if (!admin.apps.length) admin.initializeApp();
 
 // Firebase 시크릿에 저장한 API 키
 //   설정: firebase functions:secrets:set GEMINI_API_KEY   (구글 AI Studio 키)
@@ -45,6 +47,55 @@ exports.api = onRequest(
         let j; try { j = JSON.parse(txt); } catch (e) { j = { raw: txt.slice(0, 500) }; }
         res.status(200).json(j);
       } catch (e) {
+        res.status(500).json({ error: { message: String((e && e.message) || e) } });
+      }
+      return;
+    }
+
+    // ── 웹 푸시 알림 전송 (body.push) ──────────────────────────
+    //   to: "ALL" | "ADMIN" | [이름,...]  →  push_tokens 컬렉션에서 토큰 조회 후 FCM 발송.
+    if (body.push) {
+      try {
+        const to = body.to;
+        const title = String(body.title || "TEAM TOPS");
+        const text = String(body.body || "");
+        const link = String(body.link || "/");
+        const col = admin.firestore().collection("push_tokens");
+        let docs = [];
+        if (to === "ALL") {
+          docs = (await col.get()).docs;
+        } else if (to === "ADMIN") {
+          docs = (await col.where("admin", "==", true).get()).docs;
+        } else if (Array.isArray(to)) {
+          const names = to.filter(Boolean);
+          const seen = {};
+          for (let i = 0; i < names.length; i += 10) {
+            const chunk = names.slice(i, i + 10);
+            const s = await col.where("name", "in", chunk).get();
+            s.docs.forEach((d) => { if (!seen[d.id]) { seen[d.id] = 1; docs.push(d); } });
+          }
+        }
+        const tokens = docs.map((d) => d.id);
+        if (!tokens.length) { res.status(200).json({ ok: true, sent: 0 }); return; }
+        const resp = await admin.messaging().sendEachForMulticast({
+          tokens: tokens,
+          data: { title: title, body: text, link: link },
+          webpush: { headers: { Urgency: "high" }, fcmOptions: { link: link } }
+        });
+        // 만료/무효 토큰 정리
+        const dels = [];
+        resp.responses.forEach((r, i) => {
+          if (!r.success) {
+            const code = (r.error && r.error.code) || "";
+            if (/not-registered|invalid-argument|invalid-registration/.test(code)) {
+              dels.push(col.doc(tokens[i]).delete().catch(() => {}));
+            }
+          }
+        });
+        await Promise.all(dels);
+        res.status(200).json({ ok: true, sent: resp.successCount, failed: resp.failureCount });
+      } catch (e) {
+        console.error("push error:", e);
         res.status(500).json({ error: { message: String((e && e.message) || e) } });
       }
       return;
