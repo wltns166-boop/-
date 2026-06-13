@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-13';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-14';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -214,19 +214,56 @@ function _waCreateSheet(body, out) {
     for (var oi = 0; oi < outside.length; oi++) { try { sheet.getRange(outside[oi].r, outside[oi].c).setValue(outside[oi].v); } catch (_e) {} }
     SpreadsheetApp.flush();
 
-    // B2) 후(시트1) 작성 시: 전(시트0)의 "첫 상품 열 = 실손(G·H)"을 그대로 가져온다.
-    //   → 리모델링 후 표의 1번 칸은 항상 전(前)의 실손, 제안서 상품은 2번 칸(I)부터.
+    // B2) 후(시트1) 작성 시: 전(시트0)의 "첫 상품 열 = 실손(G·H)"을 후 표로 가져온다.
+    //   ★ 함정 A 방지: 행을 "절대 위치(인덱스)"로 그대로 복사하면 전/후 탭의 행 구성이
+    //      조금만 달라도(헤더 줄 수·담보 줄 위치 차이) 전(前)의 '보험료' 행 값이 후(後)의
+    //      '실손의료비' 행에 들어가는 등 항목이 통째로 어긋난다.
+    //   → 각 행의 "라벨(항목명, 상품열 왼쪽 A~F의 첫 글자 셀)"을 키로 맞춰
+    //      전의 실손 값을 후의 "같은 라벨" 행에 넣는다(인덱스 매핑 → 항목 매핑).
     if ((sk | 0) === 1 && sheets[0]) {
       try {
-        var rLim = Math.min(CR2, sheets[0].getMaxRows(), maxR);
-        var cLim = Math.min(CC1 + 1, sheets[0].getMaxColumns(), maxC);   // G·H 두 칸
-        if (rLim >= HR1 && cLim >= CC1) {
-          var nC2 = cLim - CC1 + 1, nR2 = rLim - HR1 + 1;
-          var src = sheets[0].getRange(HR1, CC1, nR2, nC2).getValues();
-          sheet.getRange(HR1, CC1, nR2, nC2).setValues(src);
+        var src0 = sheets[0];
+        var rEnd2 = Math.min(CR2, src0.getMaxRows(), maxR);
+        var labW = CC1 - 1;                 // 라벨 열: 상품 첫 열(G) 왼쪽의 A(1)~F(6)
+        if (rEnd2 >= HR1 && labW >= 1) {
+          var nR3 = rEnd2 - HR1 + 1;
+          // 한 행의 "라벨" = 라벨 열들 중 첫 비어있지 않은 셀(공백 제거)
+          var _firstLabel = function (rowArr) {
+            for (var x = 0; x < rowArr.length; x++) {
+              var t = String(rowArr[x] == null ? '' : rowArr[x]).replace(/\s/g, '');
+              if (t) return t;
+            }
+            return '';
+          };
+          var srcLab = src0.getRange(HR1, 1, nR3, labW).getValues();
+          var dstLab = sheet.getRange(HR1, 1, nR3, labW).getValues();
+          // 후 표: 라벨 → 행오프셋(먼저 나온 행 우선)
+          var labelToOff = {};
+          for (var dq = 0; dq < dstLab.length; dq++) {
+            var dl = _firstLabel(dstLab[dq]);
+            if (dl && !(dl in labelToOff)) labelToOff[dl] = dq;
+          }
+          var srcGH = src0.getRange(HR1, CC1, nR3, 2).getValues();   // 전(前)의 실손 열 G·H
+          var dstGH = sheet.getRange(HR1, CC1, nR3, 2).getValues();  // 후(後)의 현재 G·H(보통 빈칸)
+          for (var sq = 0; sq < srcGH.length; sq++) {
+            var sl = _firstLabel(srcLab[sq]);
+            var off;
+            if (sl) {
+              off = (sl in labelToOff) ? labelToOff[sl] : -1;           // 라벨 있으면 같은 라벨 행, 후에 없으면 건너뜀
+            } else {
+              // 라벨 없는 구조 행(빈줄·간격)은 같은 위치 유지.
+              //   단, 그 위치의 후 행이 "라벨 있는 데이터 행"이면 덮어쓰지 않는다
+              //   (라벨 매핑으로 이미 채워진 칸을 빈 구조행이 지우는 함정 A 재발 방지).
+              off = (_firstLabel(dstLab[sq]) === '') ? sq : -1;
+            }
+            if (off < 0 || off >= dstGH.length) continue;
+            dstGH[off][0] = srcGH[sq][0];
+            dstGH[off][1] = srcGH[sq][1];
+          }
+          sheet.getRange(HR1, CC1, nR3, 2).setValues(dstGH);
           SpreadsheetApp.flush();
         }
-      } catch (_e) {}
+      } catch (_e) { try { Logger.log('WA 실손 carry(라벨매핑) 실패: ' + _e); } catch (_e2) {} }
     }
 
     // C) 라벨로 보험료/납기/총납입 행, 보장합산 열 찾기 (A~T 스캔)
