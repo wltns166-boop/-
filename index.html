@@ -2960,10 +2960,7 @@ function rNotices(){
     </div>`;
   }).join('');
 }
-function toggleNotice(i,el){
-  const c=document.getElementById('nc_'+i);
-  if(c) c.style.display=c.style.display==='none'?'block':'none';
-}
+// (폐기) 공지 인라인 펼침 → 새 창(openNoticeDetail)으로 대체되어 toggleNotice 제거됨
 // a = 인정실적(인정P), ay = 영수실적(영수P)
 function getAgg(){const a={};prf.forEach(p=>{if(!a[p.m])a[p.m]={c:0,a:0,ay:0};a[p.m].c+=+p.c;a[p.m].a+=(+p.a||0);a[p.m].ay+=(+p.ay||0);});return a;}
 function rkItem(name,main,sub,i){
@@ -6796,9 +6793,9 @@ function rNoticePage(){
     var dt=n.datetime||n.date||'-';
     var author=n.author||'-';
     return '<tr style="cursor:pointer" onclick="openNoticeDetail('+i+')">'
-      +'<td style="font-size:14px;white-space:nowrap">'+dt+'</td>'
-      +'<td style="font-size:14px">'+author+'</td>'
-      +'<td><span style="font-weight:500">'+n.title+'</span>'+(ri===0&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(dt)+'</td>'
+      +'<td style="font-size:14px">'+_esc(author)+'</td>'
+      +'<td><span style="font-weight:500">'+_esc(n.title)+'</span>'+(ri===0&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
       +(n.files&&n.files.length?'<i class="ti ti-paperclip" style="font-size:13px;color:#8090bb;margin-left:4px"></i>':'')+'</td>'
       +'<td>'+(cu&&cu.admin?'<div style="display:flex;gap:5px;justify-content:flex-end">'
           +'<button class="be" onclick="event.stopPropagation();openNoticeEdit('+i+')" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>'
@@ -6857,23 +6854,26 @@ function _noticeFilesPopupHtml(files){
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   // data 속성(2중따옴표)용: & ' " 이스케이프
   var attrJson=function(arr){ return JSON.stringify(arr).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); };
+  // http(s)/data/blob 만 허용 (javascript: 등 차단) — 방어적
+  var safeUrl=function(u){ u=String(u||''); return /^(https?:|data:|blob:)/i.test(u)?u:''; };
   var html='<div class="nv-files">';
   files.forEach(function(f){
     var name=(typeof f==='string')?f:(f.name||'첨부파일');
     var type=(typeof f==='string')?'':(f.type||'');
-    var src=_noticeFileSrc(f);
+    var src=safeUrl(_noticeFileSrc(f));
     var isImg=/^image\//.test(type)||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
     var isPdf=/pdf/i.test(type)||/\.pdf$/i.test(name);
     var pages=(typeof f==='object' && Array.isArray(f.pages))?f.pages:null;
     if(!src){ html+='<div class="nv-old">📎 '+esc(name)+' (옛 방식으로 등록되어 다운로드 불가 — 다시 등록해 주세요)</div>'; return; }
     html+='<div class="nv-file">';
     html+='<a class="nv-dl" href="'+esc(src)+'" target="_blank" rel="noopener" download="'+esc(name)+'">📎 '+esc(name)+' &nbsp;<span class="nv-dlt">⬇ 다운로드</span></a>';
-    var imgs=(pages&&pages.length)?pages:(isImg?[src]:null);
+    var imgs=(pages&&pages.length)?pages.map(safeUrl).filter(Boolean):(isImg&&src?[src]:null);
+    if(imgs&&!imgs.length) imgs=null;
     if(imgs){
       html+='<div class="nv-carousel" data-imgs="'+attrJson(imgs)+'">'
         +'<div class="nv-stage"><img class="nv-img" alt=""></div>'
         +(imgs.length>1?'<button class="nv-arrow nv-prev" type="button" aria-label="이전 페이지">‹</button><button class="nv-arrow nv-next" type="button" aria-label="다음 페이지">›</button>':'')
-        +'<div class="nv-ind"></div>'
+        +(imgs.length>1?'<div class="nv-ind"></div>':'')
         +'</div>';
     } else if(isPdf){
       html+='<div><iframe class="nv-pdf" src="'+esc(src)+'"></iframe></div>';
@@ -6908,7 +6908,7 @@ function openNoticeDetail(i){
     +'.nv-ind{margin-top:8px;font-size:14px;color:#555;font-weight:600}'
     +'.nv-pdf{width:100%;height:78vh;min-height:480px;border:1px solid #e2e4ee;border-radius:8px}'
     +'.nv-old{color:#999;margin-bottom:8px}';
-  var script='<scr'+'ipt>(function(){var cs=[].slice.call(document.querySelectorAll(".nv-carousel"));cs.forEach(function(c){var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}if(!imgs.length)return;var idx=0,img=c.querySelector(".nv-img"),ind=c.querySelector(".nv-ind");function show(){img.src=imgs[idx];if(ind)ind.textContent=(idx+1)+" / "+imgs.length;}var p=c.querySelector(".nv-prev"),nx=c.querySelector(".nv-next");if(p)p.onclick=function(){idx=(idx-1+imgs.length)%imgs.length;show();};if(nx)nx.onclick=function(){idx=(idx+1)%imgs.length;show();};c._prev=function(){idx=(idx-1+imgs.length)%imgs.length;show();};c._next=function(){idx=(idx+1)%imgs.length;show();};show();});document.addEventListener("keydown",function(e){if(!cs.length)return;if(e.key==="ArrowLeft"&&cs[0]._prev)cs[0]._prev();else if(e.key==="ArrowRight"&&cs[0]._next)cs[0]._next();});})();</scr'+'ipt>';
+  var script='<scr'+'ipt>(function(){var cs=[].slice.call(document.querySelectorAll(".nv-carousel"));var active=null;cs.forEach(function(c){var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}if(!imgs.length)return;if(!active)active=c;var idx=0,img=c.querySelector(".nv-img"),ind=c.querySelector(".nv-ind");function show(){img.src=imgs[idx];if(ind)ind.textContent=(idx+1)+" / "+imgs.length;}var p=c.querySelector(".nv-prev"),nx=c.querySelector(".nv-next");if(p)p.onclick=function(){active=c;idx=(idx-1+imgs.length)%imgs.length;show();};if(nx)nx.onclick=function(){active=c;idx=(idx+1)%imgs.length;show();};c._prev=function(){idx=(idx-1+imgs.length)%imgs.length;show();};c._next=function(){idx=(idx+1)%imgs.length;show();};show();});document.addEventListener("keydown",function(e){if(!active)return;if(e.key==="ArrowLeft"&&active._prev)active._prev();else if(e.key==="ArrowRight"&&active._next)active._next();});})();</scr'+'ipt>';
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(n.title)+'</title><style>'+css+'</style></head><body>'
     +'<h2>'+esc(n.title)+'</h2>'
     +'<div class="meta">작성자: '+esc(n.author||'-')+' &nbsp;|&nbsp; 등록일: '+esc(n.datetime||n.date||'-')+'</div>'
