@@ -392,6 +392,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <button class="ao" onclick="exportData()" style="font-size:13px;color:#60c080;cursor:pointer;padding:4px 10px;border:1px solid rgba(60,180,80,.3);border-radius:6px;background:rgba(40,160,60,.1);font-family:inherit;white-space:nowrap" title="데이터 백업"><i class="ti ti-download"></i> 백업</button>
     <label class="ao" style="font-size:13px;color:#6090cc;cursor:pointer;padding:4px 10px;border:1px solid rgba(60,100,220,.3);border-radius:6px;background:rgba(40,80,200,.1);white-space:nowrap" title="데이터 복원"><i class="ti ti-upload"></i> 복원<input type="file" id="import_file" accept=".json" onchange="importData(event)" style="display:none"></label>
     <button class="ao" onclick="manualDriveFolderSync()" style="font-size:13px;color:#d08020;cursor:pointer;padding:4px 10px;border:1px solid rgba(220,140,40,.35);border-radius:6px;background:rgba(220,140,40,.1);font-family:inherit;white-space:nowrap" title="구글드라이브 고객별 폴더 다시 정리"><i class="ti ti-folder-cog"></i> 드라이브 정리</button>
+    <div class="tbo" id="tb_profile" onclick="openMyProfile()" title="내 정보·비밀번호 변경"><i class="ti ti-user-edit"></i> 개인정보수정</div>
     <div class="tbo" id="tbo">로그아웃</div>
   </div>
 
@@ -1675,6 +1676,24 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" id="m_mem_cancel">취소</button><button class="bco" id="m_mem_save">저장</button></div>
 </div></div>
 
+<!-- 개인정보 수정 (본인) -->
+<div class="mb" id="m_myprofile"><div class="mo" style="width:460px">
+  <div class="mth">개인정보 수정<span class="mc" onclick="g('m_myprofile').classList.remove('open')">×</span></div>
+  <div id="mp_info" style="background:rgba(70,90,220,.07);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#8088c0;line-height:1.6"></div>
+  <div id="mp_editbox">
+    <div class="fg"><div class="fl">핸드폰번호</div><input class="fi" id="mp_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
+    <div class="fg"><div class="fl">집주소</div><input class="fi" id="mp_addr" placeholder="주소를 입력하세요"></div>
+    <div style="border-top:1px solid rgba(120,130,200,.18);margin:14px 0 12px;padding-top:12px;font-size:13px;font-weight:700;color:#8890d0"><i class="ti ti-lock"></i> 비밀번호 변경 <span style="font-weight:400;color:#6068a0">(변경할 때만 입력)</span></div>
+    <div class="fg"><div class="fl">현재 비밀번호</div><input class="fi" type="password" id="mp_cpw" placeholder="현재 비밀번호" autocomplete="current-password"></div>
+    <div class="fr">
+      <div class="fg"><div class="fl">새 비밀번호</div><input class="fi" type="password" id="mp_npw" placeholder="4자 이상" autocomplete="new-password"></div>
+      <div class="fg"><div class="fl">새 비밀번호 확인</div><input class="fi" type="password" id="mp_npw2" placeholder="재입력" autocomplete="new-password"></div>
+    </div>
+    <div id="mp_msg" style="display:none;font-size:13px;margin-top:6px"></div>
+  </div>
+  <div class="mf"><button class="bca" onclick="g('m_myprofile').classList.remove('open')">닫기</button><button class="bco" id="mp_save" onclick="saveMyProfile()">저장</button></div>
+</div></div>
+
 <div class="mb" id="m_notice"><div class="mo" style="width:560px">
   <div class="mth"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()">×</span></div>
   <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500"></div>
@@ -2640,6 +2659,71 @@ function logout(){
   g('ls').style.display='flex';
   g('app').style.display='none';
   g('lid').value='';g('lpw').value='';g('lerr').style.display='none';
+}
+
+// ===== 개인정보 수정 (본인) =====
+// 본인 mem 레코드 찾기: 로그인 코드 → 아이디(lid) → 이름 순으로 안전하게 (code가 가장 고유)
+function _myMemRec(){
+  if(!cu) return null;
+  var list=mem||[];
+  var r = cu.code ? list.find(function(x){return x&&x.code===cu.code;}) : null;
+  if(r) return r;
+  r = cu.id ? list.find(function(x){return x&&x.lid===cu.id;}) : null;
+  if(r) return r;
+  return (cu.name ? list.find(function(x){return x&&x.name&&x.name===cu.name;}) : null) || null;
+}
+function _mpMsg(t,ok){ var e=g('mp_msg'); if(!e) return; e.textContent=t||''; e.style.display=t?'block':'none'; e.style.color=ok?'#50c878':'#ff8080'; }
+function openMyProfile(){
+  if(!cu){ toast('로그인 정보를 확인할 수 없습니다.'); return; }
+  _mpMsg('');
+  ['mp_cpw','mp_npw','mp_npw2'].forEach(function(id){ var e=g(id); if(e) e.value=''; });
+  var info=g('mp_info'), edit=g('mp_editbox'), saveBtn=g('mp_save');
+  // 관리자: 계정 정보·비밀번호가 코드에 고정되어 본인 수정 불가 (기존 비번변경 정책과 동일)
+  if(cu.admin){
+    if(info) info.innerHTML='<b style="color:#a8b0d8">'+_esc(cu.name||'')+'</b> · '+_esc(cu.role||'관리자')
+      +'<br><span style="color:#6068a0;font-size:12.5px">관리자 계정의 정보·비밀번호 변경은 담당자에게 문의해 주세요.</span>';
+    if(edit) edit.style.display='none';
+    if(saveBtn) saveBtn.style.display='none';
+    g('m_myprofile').classList.add('open');
+    return;
+  }
+  var m=_myMemRec();
+  if(!m){
+    if(info) info.innerHTML='본인 계정 정보를 찾지 못했습니다. 관리자에게 문의해 주세요.';
+    if(edit) edit.style.display='none';
+    if(saveBtn) saveBtn.style.display='none';
+    g('m_myprofile').classList.add('open');
+    return;
+  }
+  if(info) info.innerHTML='<b style="color:#a8b0d8">'+_esc(m.name||('('+(m.code||'')+')'))+'</b>'+(m.rank?' · '+_esc(m.rank):'')
+    +'<br>코드 '+_esc(m.code||m.lid||'')+' · 아이디 '+_esc(m.lid||m.code||'')
+    +'<br><span style="color:#6068a0;font-size:12.5px">이름·직급·소속은 관리자가 관리합니다. 연락처·주소·비밀번호만 변경할 수 있어요.</span>';
+  if(edit) edit.style.display='';
+  if(saveBtn) saveBtn.style.display='';
+  if(g('mp_phone')) g('mp_phone').value=m.phone||'';
+  if(g('mp_addr'))  g('mp_addr').value=m.address||'';
+  g('m_myprofile').classList.add('open');
+}
+function saveMyProfile(){
+  if(!cu || cu.admin) return;
+  var m=_myMemRec();
+  if(!m){ _mpMsg('본인 계정을 찾지 못했습니다.'); return; }
+  // 로그인은 비밀번호를 trim 후 비교(doLogin)하므로, 저장도 trim해 정합성 유지(공백 포함 시 로그인 불가 방지)
+  var cpw=(g('mp_cpw')||{value:''}).value.trim(), npw=(g('mp_npw')||{value:''}).value.trim(), npw2=(g('mp_npw2')||{value:''}).value.trim();
+  var wantPw = !!(npw||npw2);   // 새 비밀번호를 입력했을 때만 변경 시도로 본다
+  if(wantPw){
+    if(!cpw){ _mpMsg('현재 비밀번호를 입력하세요.'); return; }
+    if(cpw!==(m.lpw||'')){ _mpMsg('현재 비밀번호가 올바르지 않습니다.'); return; }
+    if(npw.length<4){ _mpMsg('새 비밀번호는 4자 이상 입력하세요.'); return; }
+    if(npw!==npw2){ _mpMsg('새 비밀번호가 일치하지 않습니다.'); return; }
+  }
+  m.phone=(g('mp_phone')||{value:''}).value.trim();
+  m.address=(g('mp_addr')||{value:''}).value.trim();
+  if(wantPw) m.lpw=npw;
+  sv('tops_mem',mem);
+  try{ if(typeof rMem==='function') rMem(); }catch(e){}
+  toast(wantPw?'정보와 비밀번호가 변경되었습니다.':'정보가 변경되었습니다.');
+  g('m_myprofile').classList.remove('open');
 }
 function setAdmin(){
   const isAdmin = cu && cu.admin;
