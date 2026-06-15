@@ -2949,15 +2949,14 @@ function rNotices(){
   if(!not.length){el.innerHTML='<div class="em">공지사항이 없습니다.</div>';return;}
   el.innerHTML=not.slice().reverse().map((n,ri)=>{
     const i=not.length-1-ri; // 실제 인덱스
-    return `<div style="border-bottom:1px solid rgba(80,80,180,.1);padding:8px 0;cursor:pointer" onclick="toggleNotice(${i},this)">
+    return `<div style="border-bottom:1px solid rgba(80,80,180,.1);padding:8px 0;cursor:pointer" onclick="openNoticeDetail(${i})" title="클릭하면 새 창에서 봅니다">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="nt">${n.title}${ri===0?'<span class="bnew">NEW</span>':''}</div>
+        <div class="nt">${n.title}${ri===0?'<span class="bnew">NEW</span>':''}${n.files&&n.files.length?' <i class="ti ti-paperclip" style="font-size:12px;color:#8090bb"></i>':''}</div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="nd">${n.date}</span>
           ${cu&&cu.admin?`<button class="be" onclick="event.stopPropagation();openNoticeEdit(${i})" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>`:''}
         </div>
       </div>
-      <div id="nc_${i}" style="display:none;margin-top:8px;font-size:15px;color:#3a3a5a;white-space:pre-wrap;background:#f5f6ff;border-radius:6px;padding:10px">${n.content||''}${_noticeFilesHtml(n.files)}</div>
     </div>`;
   }).join('');
 }
@@ -6852,21 +6851,70 @@ function _noticeFilesHtml(files){
   html+='</div>';
   return html;
 }
+// (새 창 전용) 첨부 → 한 장씩 보는 캐러셀(좌/우 화살표·키보드·페이지표시) HTML
+function _noticeFilesPopupHtml(files){
+  if(!files||!files.length) return '';
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  // data 속성(2중따옴표)용: & ' " 이스케이프
+  var attrJson=function(arr){ return JSON.stringify(arr).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); };
+  var html='<div class="nv-files">';
+  files.forEach(function(f){
+    var name=(typeof f==='string')?f:(f.name||'첨부파일');
+    var type=(typeof f==='string')?'':(f.type||'');
+    var src=_noticeFileSrc(f);
+    var isImg=/^image\//.test(type)||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+    var isPdf=/pdf/i.test(type)||/\.pdf$/i.test(name);
+    var pages=(typeof f==='object' && Array.isArray(f.pages))?f.pages:null;
+    if(!src){ html+='<div class="nv-old">📎 '+esc(name)+' (옛 방식으로 등록되어 다운로드 불가 — 다시 등록해 주세요)</div>'; return; }
+    html+='<div class="nv-file">';
+    html+='<a class="nv-dl" href="'+esc(src)+'" target="_blank" rel="noopener" download="'+esc(name)+'">📎 '+esc(name)+' &nbsp;<span class="nv-dlt">⬇ 다운로드</span></a>';
+    var imgs=(pages&&pages.length)?pages:(isImg?[src]:null);
+    if(imgs){
+      html+='<div class="nv-carousel" data-imgs="'+attrJson(imgs)+'">'
+        +'<div class="nv-stage"><img class="nv-img" alt=""></div>'
+        +(imgs.length>1?'<button class="nv-arrow nv-prev" type="button" aria-label="이전 페이지">‹</button><button class="nv-arrow nv-next" type="button" aria-label="다음 페이지">›</button>':'')
+        +'<div class="nv-ind"></div>'
+        +'</div>';
+    } else if(isPdf){
+      html+='<div><iframe class="nv-pdf" src="'+esc(src)+'"></iframe></div>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+  return html;
+}
 function openNoticeDetail(i){
   var n=not[i];
   if(!n) return;
-  var w=window.open('','_blank','width=900,height=820');
-  var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+n.title+'</title>'
-    +'<style>body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:30px;color:#111}'
-    +'h2{font-size:22px;font-weight:700;margin-bottom:6px}'
-    +'.meta{font-size:14px;color:#666;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #eee}'
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var w=window.open('','_blank','width=920,height=860,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  var css=''
+    +'body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:26px;color:#111;margin:0 auto;max-width:880px}'
+    +'h2{font-size:22px;font-weight:700;margin:0 0 6px}'
+    +'.meta{font-size:14px;color:#666;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #eee}'
     +'.cont{font-size:16px;line-height:1.8;white-space:pre-wrap}'
     +'a{word-break:break-all}'
-    +'</style></head><body>'
-    +'<h2>'+n.title+'</h2>'
-    +'<div class="meta">작성자: '+(n.author||'-')+' &nbsp;|&nbsp; 등록일: '+(n.datetime||n.date||'-')+'</div>'
-    +'<div class="cont">'+(n.content||'')+'</div>'
-    +_noticeFilesHtml(n.files)
+    +'.nv-files{margin-top:20px;border-top:1px solid #eee;padding-top:16px}'
+    +'.nv-file{margin-bottom:22px}'
+    +'.nv-dl{display:inline-block;color:#2840cc;font-weight:600;text-decoration:none;margin-bottom:10px}'
+    +'.nv-dlt{font-size:13px;color:#1a8050}'
+    +'.nv-carousel{position:relative;background:#f4f5fa;border:1px solid #e2e4ee;border-radius:10px;padding:10px;text-align:center}'
+    +'.nv-stage{display:flex;align-items:center;justify-content:center;min-height:200px}'
+    +'.nv-img{max-width:100%;max-height:78vh;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.12)}'
+    +'.nv-arrow{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:66px;border:none;border-radius:8px;background:rgba(20,30,80,.55);color:#fff;font-size:32px;line-height:1;cursor:pointer}'
+    +'.nv-arrow:hover{background:rgba(20,30,80,.82)}'
+    +'.nv-prev{left:10px}.nv-next{right:10px}'
+    +'.nv-ind{margin-top:8px;font-size:14px;color:#555;font-weight:600}'
+    +'.nv-pdf{width:100%;height:78vh;min-height:480px;border:1px solid #e2e4ee;border-radius:8px}'
+    +'.nv-old{color:#999;margin-bottom:8px}';
+  var script='<scr'+'ipt>(function(){var cs=[].slice.call(document.querySelectorAll(".nv-carousel"));cs.forEach(function(c){var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}if(!imgs.length)return;var idx=0,img=c.querySelector(".nv-img"),ind=c.querySelector(".nv-ind");function show(){img.src=imgs[idx];if(ind)ind.textContent=(idx+1)+" / "+imgs.length;}var p=c.querySelector(".nv-prev"),nx=c.querySelector(".nv-next");if(p)p.onclick=function(){idx=(idx-1+imgs.length)%imgs.length;show();};if(nx)nx.onclick=function(){idx=(idx+1)%imgs.length;show();};c._prev=function(){idx=(idx-1+imgs.length)%imgs.length;show();};c._next=function(){idx=(idx+1)%imgs.length;show();};show();});document.addEventListener("keydown",function(e){if(!cs.length)return;if(e.key==="ArrowLeft"&&cs[0]._prev)cs[0]._prev();else if(e.key==="ArrowRight"&&cs[0]._next)cs[0]._next();});})();</scr'+'ipt>';
+  var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(n.title)+'</title><style>'+css+'</style></head><body>'
+    +'<h2>'+esc(n.title)+'</h2>'
+    +'<div class="meta">작성자: '+esc(n.author||'-')+' &nbsp;|&nbsp; 등록일: '+esc(n.datetime||n.date||'-')+'</div>'
+    +'<div class="cont">'+esc(n.content||'')+'</div>'
+    +_noticeFilesPopupHtml(n.files)
+    +script
     +'</body></html>';
   w.document.write(body);
   w.document.close();
