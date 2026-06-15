@@ -1694,6 +1694,23 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" onclick="g('m_myprofile').classList.remove('open')">닫기</button><button class="bco" id="mp_save" onclick="saveMyProfile()">저장</button></div>
 </div></div>
 
+<!-- DB 종류 정보 추가/수정 (관리자) -->
+<div class="mb" id="m_dbinfo"><div class="mo" style="width:540px">
+  <div class="mth"><span id="m_dbinfo_t">DB 정보 추가</span><span class="mc" onclick="g('m_dbinfo').classList.remove('open')">×</span></div>
+  <div class="fr">
+    <div class="fg"><div class="fl">DB 종류 *</div><input class="fi" id="dbi_kind" placeholder="예: KJ, 동방, VIP 1차"></div>
+    <div class="fg"><div class="fl">가격 (원)</div><input class="fi" type="number" id="dbi_price" placeholder="0"></div>
+  </div>
+  <div class="fg"><div class="fl">설명</div><input class="fi" id="dbi_desc" placeholder="DB 설명"></div>
+  <div class="fg"><div class="fl">비고</div><input class="fi" id="dbi_note" placeholder="비고 (선택)"></div>
+  <input type="hidden" id="dbi_edit_idx">
+  <div class="mf"><button class="bco" onclick="saveDbInfo()">저장</button></div>
+  <div style="border-top:1px solid rgba(120,130,200,.18);margin-top:16px;padding-top:12px">
+    <div style="font-size:13px;font-weight:700;color:#8890d0;margin-bottom:8px">등록된 DB 종류</div>
+    <div id="dbi_list"></div>
+  </div>
+</div></div>
+
 <div class="mb" id="m_notice"><div class="mo" style="width:560px">
   <div class="mth"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()">×</span></div>
   <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500"></div>
@@ -4840,18 +4857,37 @@ async function _dbRecFinish(){
   _dbRenderCallBody();
 }
 
-function openDbInfoModal(){
+// DB 종류 마스터(dbInfo) 폼 초기화(추가 모드로)
+function _resetDbInfoForm(){
   ['dbi_kind','dbi_price','dbi_desc','dbi_note'].forEach(id=>{const el=g(id);if(el)el.value='';});
-  g('dbi_edit_idx').value='';
-  g('m_dbinfo_t').textContent='DB 정보 추가';
+  var ix=g('dbi_edit_idx'); if(ix) ix.value='';
+  var t=g('m_dbinfo_t'); if(t) t.textContent='DB 정보 추가';
+}
+// 등록된 DB 종류 목록(원본 순서 그대로 → 인덱스가 editDbInfo/deleteDbInfo와 일치, 함정 A 안전)
+function _renderDbInfoList(){
+  var el=g('dbi_list'); if(!el) return;
+  var list=(Array.isArray(dbInfo)&&dbInfo.length)?dbInfo:DB_DEFAULTS;
+  if(!list.length){ el.innerHTML='<div style="font-size:13px;color:#8088c0">등록된 항목이 없습니다.</div>'; return; }
+  el.innerHTML=list.map(function(d,i){
+    var price=(Number(d.price)||0).toLocaleString();
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(80,90,180,.14)">'
+      +'<div style="flex:1;min-width:0;color:#b8c0e0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:#a8b0d8">'+_esc(d.kind)+'</b> · '+price+'원'+(d.desc?' <span style="color:#8088c0">— '+_esc(d.desc)+'</span>':'')+'</div>'
+      +'<button onclick="editDbInfo('+i+')" style="flex-shrink:0;padding:4px 10px;font-size:12px;background:rgba(50,70,200,.2);border:1px solid rgba(70,90,220,.3);border-radius:6px;color:#a8b0d8;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> 수정</button>'
+      +'<button onclick="deleteDbInfo('+i+')" style="flex-shrink:0;padding:4px 9px;font-size:12px;background:rgba(200,60,60,.12);border:1px solid rgba(220,80,80,.32);border-radius:6px;color:#ff9090;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>'
+      +'</div>';
+  }).join('');
+}
+function openDbInfoModal(){
+  _resetDbInfoForm();
+  _renderDbInfoList();
   document.getElementById('m_dbinfo').classList.add('open');
 }
 
 function editDbInfo(i){
-  const list=dbInfo.length?dbInfo:DB_DEFAULTS;
-  const d=list[i];
-  g('dbi_kind').value=d.kind;
-  g('dbi_price').value=d.price;
+  const list=(Array.isArray(dbInfo)&&dbInfo.length)?dbInfo:DB_DEFAULTS;
+  const d=list[i]; if(!d) return;
+  g('dbi_kind').value=d.kind||'';
+  g('dbi_price').value=(d.price!=null?d.price:'');
   g('dbi_desc').value=d.desc||'';
   g('dbi_note').value=d.note||'';
   g('dbi_edit_idx').value=i;
@@ -4860,22 +4896,30 @@ function editDbInfo(i){
 }
 
 function saveDbInfo(){
-  const kind=g('dbi_kind').value;
-  if(!kind){toast('DB 종류를 선택하세요.');return;}
-  const obj={kind,price:+g('dbi_price').value||0,desc:g('dbi_desc').value,note:g('dbi_note').value};
-  // 기본값에서 편집 중이면 dbInfo로 복사 후 수정
+  const kind=(g('dbi_kind').value||'').trim();
+  if(!kind){toast('DB 종류를 입력하세요.');return;}
+  const obj={kind,price:+g('dbi_price').value||0,desc:(g('dbi_desc').value||'').trim(),note:(g('dbi_note').value||'').trim()};
+  // 기본값(DB_DEFAULTS)에서 편집 시작했으면 dbInfo로 복사 후 수정(이후부터 실제 dbInfo 사용)
   if(!dbInfo.length) dbInfo=[...DB_DEFAULTS];
   const idx=g('dbi_edit_idx').value;
   if(idx!=='')dbInfo[+idx]=obj;else dbInfo.push(obj);
   sv('tops_dbInfo',dbInfo);
-  document.getElementById('m_dbinfo').classList.remove('open');
-  rDbInfo();toast('저장되었습니다.');
+  // 모달은 유지하고 폼·목록만 갱신 → 연속으로 추가/관리 가능
+  _resetDbInfoForm();
+  _renderDbInfoList();
+  try{ rDbInfo(); }catch(e){}
+  toast(idx!==''?'수정되었습니다.':'추가되었습니다.');
 }
 
 function deleteDbInfo(i){
   if(confirm('삭제하시겠습니까?')){
     if(!dbInfo.length)dbInfo=[...DB_DEFAULTS];
-    dbInfo.splice(i,1);sv('tops_dbInfo',dbInfo);rDbInfo();toast('삭제되었습니다.');
+    dbInfo.splice(i,1);
+    sv('tops_dbInfo',dbInfo);
+    _resetDbInfoForm();
+    _renderDbInfoList();
+    try{ rDbInfo(); }catch(e){}
+    toast('삭제되었습니다.');
   }
 }
 
