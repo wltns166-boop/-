@@ -4750,7 +4750,7 @@ function openDbCallLog(ri){
 function closeDbCallModal(){
   if(_dbRec&&_dbRec.recorder){ dbRecStop(); }
   var mb=g('m_dbcall'); if(mb) mb.classList.remove('open');
-  if(typeof rDbInfo==='function'){ try{ rDbInfo(); }catch(e){} }   // 통화횟수/최근시각 갱신
+  if(typeof rDbInfo==='function'){ try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); } }   // 통화횟수/최근시각 갱신
 }
 function _dbRenderCallBody(){
   var ri=_dbCallRi;
@@ -4878,6 +4878,7 @@ function _renderDbInfoList(){
   }).join('');
 }
 function openDbInfoModal(){
+  if(typeof _isAdmin==='function' && !_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   _resetDbInfoForm();
   _renderDbInfoList();
   document.getElementById('m_dbinfo').classList.add('open');
@@ -4907,7 +4908,7 @@ function saveDbInfo(){
   // 모달은 유지하고 폼·목록만 갱신 → 연속으로 추가/관리 가능
   _resetDbInfoForm();
   _renderDbInfoList();
-  try{ rDbInfo(); }catch(e){}
+  try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
   toast(idx!==''?'수정되었습니다.':'추가되었습니다.');
 }
 
@@ -4918,7 +4919,7 @@ function deleteDbInfo(i){
     sv('tops_dbInfo',dbInfo);
     _resetDbInfoForm();
     _renderDbInfoList();
-    try{ rDbInfo(); }catch(e){}
+    try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
     toast('삭제되었습니다.');
   }
 }
