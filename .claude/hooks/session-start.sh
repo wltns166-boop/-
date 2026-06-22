@@ -22,7 +22,7 @@ echo "── TEAM TOPS 인트라넷 작업 하네스 ─────────
 # 1) Firebase Functions 의존성 설치 (있을 때만, 실패해도 세션은 계속)
 if [ -f functions/package.json ]; then
   echo "• functions 의존성 설치 중…"
-  if npm install --prefix functions --no-audit --no-fund --loglevel=error; then
+  if npm install --prefix functions --no-audit --no-fund --no-package-lock --loglevel=error; then
     echo "  ✅ functions 의존성 준비 완료"
   else
     echo "  ⚠️ functions 의존성 설치 실패(네트워크?) — index.html 작업에는 영향 없음"
