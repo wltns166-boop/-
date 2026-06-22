@@ -1947,7 +1947,7 @@ let cu=null;
 let mem=JSON.parse(localStorage.getItem('tops_mem'));
 // ===== 권한 헬퍼 =====
 function _myRank(){ try{ if(cu&&cu.admin) return 'ADMIN'; var m=(mem||[]).find(function(x){return x&&x.name===(cu&&cu.name);}); return m?m.rank:''; }catch(e){ return ''; } }
-function _isLeader(){ return !!(cu&&cu.admin)||['TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // TL 이상(관리자 포함)
+function _isLeader(){ return !!(cu&&cu.admin)||['FA(예비팀장)','TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // 예비팀장·TL 이상(관리자 포함)
 function _isAdmin(){ return !!(cu&&cu.admin); }
 function _isChongmu(){ return !!(cu&&cu.role==='총무'); }   // 총무 전용 권한
 // ===== 실비계산기 (4세대 기준, 참고용) =====
@@ -3100,7 +3100,7 @@ function rMemTeam(){
   var el=g('mem_team_cards'); if(!el) return;
   var visible=_memVisible();
   if(!visible.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">등록된 구성원이 없습니다.</div></div>'; return; }
-  var LEAD=['TL','BM','SBM','RM','SRM'];
+  var LEAD=['FA(예비팀장)','TL','BM','SBM','RM','SRM'];
   var leaders=visible.filter(function(m){return LEAD.indexOf(m.rank)>=0;})
     .sort(function(a,b){return (LEAD.indexOf(b.rank)-LEAD.indexOf(a.rank))||((+a.code||0)-(+b.code||0));});
   if(!leaders.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">TL 이상 구성원이 없습니다.</div></div>'; return; }
