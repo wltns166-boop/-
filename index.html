@@ -7774,9 +7774,9 @@ function rWClose(){
   var roster=mem.filter(function(m){ if(!m.name||!m.name.trim()) return false; if(myTeam===null) return true; return myTeam.includes(m.name); }).map(function(m){return m.name;});
   if(myName&&roster.indexOf(myName)<0) roster.unshift(myName);   // 본인이 mem에 없어도 항상 포함
   var ttl=g('wc_list_title'); if(ttl) ttl.textContent=(roster.length>1)?'팀 제출 현황':'내 제출 내역';
-  // 수정 권한 = 팀 목록 가시성과 동일 기준(belong): 관리자이거나 산하 팀원이 있는 사람(=팀장).
-  //   직급(_isLeader)이 아니라 실제 소속 관계로 판정해야 Task2(팀목록 belong 기반)와 일치한다.
-  var canEdit=(myTeam===null)||(roster.length>1);
+  // 수정 권한 = 예비팀장 이상 직급(_isLeader) OR 관리자 OR 산하 팀원 보유(belong).
+  //   직급(예비팀장↑)과 실제 소속관계(팀장) 둘 다 허용해 누구든 자기 팀을 수정할 수 있게 한다.
+  var canEdit=((typeof _isLeader==='function')&&_isLeader())||(myTeam===null)||(roster.length>1);
   var thead=g('wc_thead');
   if(thead) thead.innerHTML='<tr><th style="text-align:left;min-width:90px">이름</th>'+WC_FIELDS.map(function(f){return '<th style="min-width:64px;text-align:center;font-size:13px">'+f.label+'</th>';}).join('')+'<th style="text-align:center">상태</th>'+(canEdit?'<th style="text-align:center">관리</th>':'')+'</tr>';
   var tb=g('wcl_tb'); if(!tb) return;
