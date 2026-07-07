@@ -439,7 +439,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
       <!-- 탭 -->
       <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid rgba(80,80,200,.15)">
-        <button id="mem_tab_all" onclick="switchMemTab('all')" style="padding:8px 20px;font-size:15px;font-weight:600;background:none;border:none;border-bottom:2px solid #4858cc;color:#4858cc;cursor:pointer;margin-bottom:-2px;font-family:inherit">전체 인원</button>
+        <button id="mem_tab_all" onclick="switchMemTab('all')" style="padding:8px 20px;font-size:15px;font-weight:600;background:none;border:none;border-bottom:2px solid #4858cc;color:#4858cc;cursor:pointer;margin-bottom:-2px;font-family:inherit">전체 인원 <span id="mem_tab_all_cnt" style="font-weight:700"></span></button>
         <button id="mem_tab_branch" onclick="switchMemTab('branch')" style="padding:8px 20px;font-size:15px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#8888bb;cursor:pointer;margin-bottom:-2px;font-family:inherit">탑스 1지점</button>
         <button id="mem_tab_team" onclick="switchMemTab('team')" style="padding:8px 20px;font-size:15px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#8888bb;cursor:pointer;margin-bottom:-2px;font-family:inherit">팀별 인원</button>
       </div>
@@ -3080,6 +3080,7 @@ function rMem(){
     return myTeam.includes(m.name);
   }).sort((a,b)=>(+a.code||0)-(+b.code||0));
   const mc=g('mem_count'); if(mc) mc.textContent=done.length;
+  const tc=g('mem_tab_all_cnt'); if(tc) tc.textContent=done.length?('('+done.length+'명)'):'';   // 탭 라벨 옆 인원수
   if(!done.length){
     tb.innerHTML='<tr><td colspan="7" class="em" style="color:#aaaacc;padding:40px">등록된 구성원이 없습니다.<br><span style="font-size:14px;margin-top:6px;display:block">코드생성 버튼으로 팀원을 추가하세요.</span></td></tr>';
     return;
