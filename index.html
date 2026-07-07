@@ -4468,7 +4468,7 @@ function deleteMedByIdx(i){
 }
 
 // ── 고지사항(계약 전 알릴의무) 자동 추출 ──
-// 정리된 병력(note, 마크다운 표)에서 최근 5년 이내 ①입원·수술 ②통원 7회 이상 ③약제처방 30회(일) 이상을 뽑는다.
+// 정리된 병력(note, 마크다운 표)에서 최근 5년 이내 ①입원·수술 ②통원 7회 이상 ③약 처방일수 30일 이상을 뽑는다.
 function _medNoticeItems(note){
   var rows=[];
   String(note||'').split('\n').forEach(function(line){
@@ -4542,7 +4542,7 @@ function viewMedNotice(i){
     +'<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 판정 기준: 최근 5년 ('+fmt(cutoff)+' ~ 오늘)</div>'
     +sec('1. 5년 이내 입원·수술 내역', nt.hosp, function(r){ return r.hosp; })
     +sec('2. 5년 이내 통원치료 7회 이상', nt.visit, function(r){ return '통원 '+r.visit+'회'; })
-    +sec('3. 5년 이내 약제처방 30회(일) 이상 투약', nt.drug, function(r){ return '약제처방 '+r.drug+'회'; })
+    +sec('3. 5년 이내 약 처방일수 30일 이상 투약', nt.drug, function(r){ return '총 '+r.drug+'일'; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
                +([].concat(nt.hosp,nt.visit,nt.drug).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [상세보기]로 원문을 확인해 주세요.</div>')
@@ -5594,7 +5594,7 @@ function _cleanMedText(t){
   return t;
 }
 
-// 같은 상병코드끼리 행을 묶어 기간(최초~최근)·통원·약제 횟수를 합산
+// 같은 상병코드끼리 행을 묶어 기간(최초~최근)·통원 횟수·약 처방일수를 합산
 function _mergeMedRowsByCode(rows){
   function num(s){ var m=String(s||'').match(/\d+/); return m?parseInt(m[0],10):0; }
   function dates(period){ // "2024.04.01~2024.04.08" → [start,end] (숫자 YYYYMMDD)
@@ -5627,7 +5627,7 @@ function _mergeMedRowsByCode(rows){
     else if(g.opCnt) hosp='수술 '+g.opCnt+'회';
     else if(g.hospRaw.length) hosp=g.hospRaw[0];
     var period=(g.start===g.end)?fmt(g.start):(fmt(g.start)+'~'+fmt(g.end));
-    return '| '+period+' | '+g.name+' | '+g.code+' | '+g.visit+'회 | '+hosp+' | '+g.drug+'회 |';
+    return '| '+period+' | '+g.name+' | '+g.code+' | '+g.visit+'회 | '+hosp+' | '+g.drug+'일 |';
   }).sort(function(a,b){
     var da=(a.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0], db=(b.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0];
     return da<db?-1:(da>db?1:0);
@@ -5763,15 +5763,15 @@ async function analyzeMedical(){
       pl.push('  2) ★★중요: 만약 자료에 상병코드·진단명이 없고 "약 처방/조제 내역(약품명·성분명)"만 있으면, 절대 전부 "미상"으로 두지 말고, 처방된 약(성분)을 근거로 환자의 질병을 추정하여 정리하세요.');
       pl.push('     - 같은 질환을 치료하는 약들은 하나의 병력으로 묶고, 대표 질병명과 대표 상병코드(ICD-10)를 추정 기재(병명 뒤에 "(추정)" 표기).');
       pl.push('     - 성분 기준 추정 예: 탐스로신→전립선증식증(N40), 솔리페나신→과민성방광/배뇨장애(N32), 텔미사르탄·암로디핀·카르베딜롤·히드로클로로티아지드→본태성고혈압(I10), 다파글리플로진·리나글립틴→2형당뇨병(E11), 클로피도그렐·아스피린·니트로글리세린설하정→허혈성심장질환·협심증(I20~I25), 에제티미브·로수바스타틴→고지혈증(E78), 도르졸라미드 등 점안액→녹내장(H40), 레보세티리진·베포타스틴·히드록시진→알레르기비염·두드러기(J30/L50), 파모티딘·라푸티딘·모사프리드→위염·위장질환(K29), 모메타손·클로베타솔 등 스테로이드 연고→피부염(L20~L30).');
-      pl.push('     - 추정 시 진료기간은 그 질환 약이 처방된 최초~최근 날짜 범위, 약제처방횟수는 그 질환 처방 건수로 적으세요.');
-      pl.push('  3) 약국 처방/조제도 약제처방횟수에 포함');
+      pl.push('     - 추정 시 진료기간은 그 질환 약이 처방된 최초~최근 날짜 범위, 약 처방일수는 그 질환으로 처방된 약의 총 투약일수(투여일수)로 적으세요.');
+      pl.push('  3) ★약 처방일수 = 처방·조제된 약의 총 투약일수(투여일수) 합계로 기재. 자료에 투약일수(예: 30일분·60일분)가 있으면 그 합을 일수로, 투약일수 표기가 없으면 처방 건수를 일수로 간주. 약국 조제도 포함.');
       pl.push('  5) ★수술 판정: "세부진료정보" 또는 "진료내역"의 "코드명/진료행위명"에 "절제술" 단어가 포함되면 그 진료는 수술로 분류. "수술" 단어가 직접 적힌 경우도 수술. 수술 횟수를 정확히 셈.');
       pl.push('  6) 입원 판정: "입원" 또는 "재원일수" 표기가 있으면 입원으로 분류 (일수 명시).');
       pl.push('  7) "입원/수술여부" 칸 작성 규칙: 둘 다 없으면 "없음" / 입원만 있으면 "입원 N일" / 수술만 있으면 "수술 N회" / 둘 다 있으면 "입원 N일·수술 N회"');
       pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
-      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |');
+      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약 처방일수 |');
       pl.push('|---|---|---|---|---|---|');
-      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음 또는 수술 N회 또는 입원 N일 | N회 |');
+      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음 또는 수술 N회 또는 입원 N일 | N일 |');
       var prompt = pl.join('\n');
 
       try {
@@ -5819,11 +5819,11 @@ async function analyzeMedical(){
       throw new Error('분석 결과 없음. ' + (chunkErrors.join(' / ') || ''));
     }
 
-    // 같은 상병코드끼리 묶어 기간(최초~최근)·통원·약제 횟수 합산
+    // 같은 상병코드끼리 묶어 기간(최초~최근)·통원 횟수·약 처방일수 합산
     var mergedRows = _mergeMedRowsByCode(allRows);
 
     var finalLines = [
-      '| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |',
+      '| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약 처방일수 |',
       '|---|---|---|---|---|---|'
     ].concat(mergedRows);
     if(chunks.length > 1){
@@ -5843,7 +5843,7 @@ async function analyzeMedical(){
   }catch(err){
     document.getElementById('med_result_text').innerHTML =
       '<div style="color:#cc4040;margin-bottom:12px">⚠ '+err.message+'</div>' +
-      '<pre style="font-size:15px;color:#333">| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약제처방횟수 |\n|---|---|---|---|---|---|\n|  |  |  |  |  |  |</pre>';
+      '<pre style="font-size:15px;color:#333">| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원/수술여부 | 약 처방일수 |\n|---|---|---|---|---|---|\n|  |  |  |  |  |  |</pre>';
     resultEl.style.display='block';
     toast('오류: '+err.message);
   }
