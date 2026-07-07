@@ -5667,17 +5667,24 @@ function _mergeMedRowsByCode(rows){
     var pm=String(name).match(/\(추정(?:[,，]\s*([^)]+))?\)/);
     if(pm){ if(pm[1] && !hospName) hospName=pm[1]; }
     name=String(name).replace(/\s*\(\s*추정[^)]*\)/g,'').replace(/\s*추정\s*$/,'').trim();
-    // 그룹 결정: 상병코드 앞부분이 같거나(예: K29.x) 정규화한 병명이 같으면 같은 병력
+    // 그룹 결정: 상병코드 앞부분이 같으면(예: K29.x) 같은 병력. 병명이 같아도
+    // 코드 계열이 서로 다르면 다른 질환일 수 있으므로 병합하지 않는다(예: "급성 위염" K29 vs J45)
     var ck=codeBase(code), nk=nameNorm(name);
-    var key=(ck&&byCode[ck])||(nk&&byName[nk]);
+    var key='';
+    if(ck && byCode[ck]) key=byCode[ck];
+    else if(nk && byName[nk]){
+      var cand=byName[nk], candBase=codeBase(groups[cand].code);
+      if(!ck || !candBase || candBase===ck) key=cand;   // 어느 한쪽이 코드 미상이거나 같은 계열일 때만 병명 병합
+    }
     if(!key){ key=ck?('C:'+ck):(nk?('N:'+nk):('R:'+order.length)); groups[key]={name:name,code:code,start:0,end:0,visit:0,drug:0,inDays:0,opCnt:0,hosps:[]}; order.push(key); }
-    if(ck) byCode[ck]=key;
-    if(nk) byName[nk]=key;
+    if(ck && !byCode[ck]) byCode[ck]=key;
+    if(nk && !byName[nk]) byName[nk]=key;               // 먼저 등록된 그룹 우선(뒤집힘 방지)
     var g=groups[key];
     var d=dates(period); if(d[0] && (!g.start||d[0]<g.start)) g.start=d[0]; if(d[1]>g.end) g.end=d[1];
     g.visit+=num(visit);
     if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
-    if(code && (!g.code||g.code.length>code.length)) g.code=code; // 더 짧은(대표) 코드 유지
+    // 대표 코드는 같은 계열 안에서만 더 짧은(상위) 코드로 교체 — 무관한 코드로 덮어쓰기 금지
+    if(code && (!g.code || (codeBase(g.code)===ck && g.code.length>code.length))) g.code=code;
     String(hospName||'').split(/[·,，]/).forEach(function(hn){ hn=hn.trim(); if(hn && g.hosps.indexOf(hn)===-1) g.hosps.push(hn); });
     var opTxt;
     if(cells.length>=7){
