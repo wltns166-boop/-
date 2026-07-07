@@ -616,8 +616,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <div class="fg" style="margin:0"><div class="fl">PDF 비밀번호 (잠긴 경우)</div><input class="fi" type="password" id="pdf_pw" placeholder="비밀번호가 없으면 비워두세요"></div>
         </div>
 
-        <!-- PDF 3칸 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
+        <!-- PDF 3칸 (세부기록 칸은 비용 절감을 위해 숨김 — 다시 켜려면 아래 med_zone3_wrap 의 display:none 제거 + 열 1fr 1fr 1fr) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
           <div>
             <div style="font-size:14px;font-weight:700;color:#5060cc;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-file-medical"></i> 기본진료기록</div>
             <div id="zone1" style="border:2px dashed rgba(60,80,200,.28);border-radius:10px;padding:16px;text-align:center;background:#fafbff;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
@@ -634,7 +634,7 @@ table.dt tr:last-child td{border-bottom:none;}
               <input type="file" id="f2" accept=".pdf" style="font-size:14px;cursor:pointer;max-width:100%" onchange="medFilePick(this,'2')">
             </div>
           </div>
-          <div>
+          <div id="med_zone3_wrap" style="display:none">
             <div style="font-size:14px;font-weight:700;color:#2090a0;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-clipboard-list"></i> 세부기록</div>
             <div id="zone3" style="border:2px dashed rgba(60,80,200,.28);border-radius:10px;padding:16px;text-align:center;background:#fafbff;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
               <i class="ti ti-upload" style="font-size:30px;color:#8090cc"></i>
@@ -5897,7 +5897,7 @@ async function analyzeMedical(){
       pl.push('  3) ★★약 처방일수(정확 기재): "처방조제정보"·"처방조제" 표는 열이 [순번|진료시작일|병·의원&약국|처방/조제|약품명|성분명|1회투약량|1일투여횟수|총투약일수] 순서다. 행 끝에 숫자 3개가 연달아 나오면 순서대로 1회투약량/1일투여횟수/총투약일수이며, "약 처방일수"에는 반드시 마지막 숫자(총투약일수)를 쓸 것(예: "1 1 189" → 189일. 1회투약량·1일투여횟수를 일수로 쓰지 말 것).');
       pl.push('     - 같은 질병으로 여러 번 처방받았으면 각 처방의 총투약일수를 전부 더해 기재(예: 189일+30일=219일). 처방 "건수"를 일수로 적지 말 것 — 총투약일수 표기가 전혀 없을 때만 건수로 간주. 약국 조제 행도 포함.');
       pl.push('     - "병원명" 칸에는 그 병력을 진료한 병·의원 이름만 기재할 것(기본진료정보·처방조제정보의 "병·의원&약국" 칸 참조). ★★약국명("…약국")은 절대 기재 금지 — 약국 조제 내역은 그 약을 처방한 병·의원 이름으로 기재하고, 처방 병원을 알 수 없으면 "-"로 둘 것. 여러 병원이면 "·"로 이어서 기재. 병명 칸에는 병원명을 넣지 말 것.');
-      pl.push('  4) ★★수술 판정(누락 금지): "세부진료정보"의 "코드명"(진료행위명)에 "절제"라는 단어가 포함되면(예: "결장경하 종양 수술-폴립절제술", "폴립 절제") 그 진료는 반드시 수술로 분류 — 진료구분이 "처치 및 수술"·"외래(통원)"이어도 절제면 수술이다. "수술" 단어가 직접 적힌 경우도 수술. 이 경우 "수술횟수" 칸을 절대 "없음"으로 두지 말고 "N회"로 기재하고, 병력(질병명) 뒤에 수술명을 괄호로 남길 것(예: "결장 폴립(폴립절제술)").');
+      pl.push('  4) ★★수술 판정(누락 금지): 자료 어디든(진료과목·진료행위명·코드명·처방명 등) "절제"라는 단어가 포함되면(예: "결장경하 종양 수술-폴립절제술", "폴립 절제") 그 진료는 반드시 수술로 분류 — 진료구분이 "처치 및 수술"·"외래(통원)"이어도 절제면 수술이다. "수술" 단어가 직접 적힌 경우도 수술. 이 경우 "수술횟수" 칸을 절대 "없음"으로 두지 말고 "N회"로 기재하고, 병력(질병명) 뒤에 수술명을 괄호로 남길 것(예: "결장 폴립(폴립절제술)").');
       pl.push('     - ★수술 횟수는 "수술한 날짜 수"로 셈: 같은 날에 절제·수술 항목이 여러 개(여러 부위, 여러 행위코드, 폴립 여러 개 절제)라도 그날은 수술 1회로 계산. 다른 날 수술만 횟수를 더함.');
       pl.push('  5) ★★입원 판정(정확 기재): "기본진료정보" 표에서 "입원/외래(진료구분)" 칸이 "입원"인 행이 입원이다. 입원일수는 그 행의 "내원일수" 칸 숫자를 그대로 쓸 것(예: 입원 + 내원일수 3 → 입원일수 3일). "재원일수" 표기가 있으면 그 값도 입원일수. 같은 질병으로 입원이 여러 번이면 각 입원의 내원일수를 합산.');
       pl.push('  6) 칸 작성 규칙: "입원일수" 칸 — 입원 없으면 "없음", 있으면 "N일" / "수술횟수" 칸 — 수술 없으면 "없음", 있으면 "N회". 두 칸을 절대 합쳐 쓰지 말 것.');
