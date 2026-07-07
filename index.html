@@ -4467,16 +4467,16 @@ function deleteMedByIdx(i){
   }
 }
 
-// 병력정리 표 행 파싱 공통 헬퍼 — 순번 칸이 앞에 붙은 행은 보정하고, 6/7칸이 아니면 버린다.
+// 병력정리 표 행 파싱 공통 헬퍼 — 순번 칸이 앞에 붙은 행은 보정하고, 6~8칸이 아니면 버린다.
 // (칸 수가 어긋난 행을 고정 인덱스로 읽으면 진료기간·병명·일수가 조용히 엉뚱한 칸으로 밀려 오염되므로 폐기가 안전)
+// 칸 수별 형식: 8칸=[…코드,병원명,통원…] / 7칸=[…코드,통원…] / 6칸=구형(입원/수술여부 통합)
 function _medRowCells(line){
   line=String(line||'').trim();
   if(line.charAt(0)!=='|') return null;
   var cells=line.replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();});
-  if(cells.length===8 && /^\d+$/.test(cells[0])) cells.shift();   // AI가 순번 칸을 붙인 경우 잘라내고 복구
-  if(cells.length!==6 && cells.length!==7) return null;
-  // 첫 칸이 순번처럼 순수 숫자이고 둘째 칸이 날짜면 칸이 밀린 행 — 복구 불가이므로 폐기
-  if(/^\d+$/.test(cells[0]) && /\d{4}[.\-\/]\d{1,2}/.test(cells[1])) return null;
+  // 첫 칸이 순수 숫자(순번)이고 둘째 칸이 날짜(진료기간)면 AI가 순번 칸을 붙인 것 — 잘라내고 복구
+  if(/^\d+$/.test(cells[0]) && /\d{4}[.\-\/]\d{1,2}/.test(cells[1])) cells.shift();
+  if(cells.length<6 || cells.length>8) return null;
   return cells;
 }
 // ── 고지사항(계약 전 알릴의무) 자동 추출 ──
@@ -4498,15 +4498,18 @@ function _medNoticeItems(note){
     if(/^-+$/.test(cells[0])||!cells.some(Boolean)) return;   // 구분선·빈 행
     // 횟수는 첫 번째 숫자만 사용 — "7~10회" 같은 범위 표기가 710으로 붙는 오파싱 방지(보수적으로 최솟값)
     var num=function(v){ var m2=String(v==null?'':v).match(/\d+/); return m2?parseInt(m2[0],10):0; };
-    var hosp;
-    if(cells.length===7){                               // 신형: [.,.,.,통원,입원일수,수술횟수,약처방일수]
-      var parts=[]; var inD=num(cells[4]), opC=num(cells[5]);
+    var hosp, hospital='';
+    if(cells.length>=7){                                // 신형: 7칸=[…통원,입원일수,수술횟수,약] / 8칸=병원명 포함
+      var off=(cells.length===8)?1:0;                   // 8칸이면 cells[3]=병원명, 이후 칸이 한 칸씩 밀림
+      if(off) hospital=cells[3];
+      var parts=[]; var inD=num(cells[4+off]), opC=num(cells[5+off]);
       if(inD) parts.push('입원 '+inD+'일');
       if(opC) parts.push('수술 '+opC+'회');
-      hosp=parts.join('·')||(/절제술/.test(cells[5])?cells[5]:'없음');   // 숫자 없이 절제술 텍스트만 있는 칸 보존
-
-    }else{ hosp=cells[4]; }                             // 구형: 통합 "입원/수술여부" 칸
-    rows.push({period:cells[0],disease:cells[1],code:cells[2],visit:num(cells[3]),hosp:hosp,drug:num(last)});
+      hosp=parts.join('·')||(/절제술/.test(cells[5+off])?cells[5+off]:'없음');   // 숫자 없이 절제술 텍스트만 있는 칸 보존
+      rows.push({period:cells[0],disease:cells[1],code:cells[2],hospital:hospital,visit:num(cells[3+off]),hosp:hosp,drug:num(last)});
+    }else{                                              // 구형: 통합 "입원/수술여부" 칸
+      rows.push({period:cells[0],disease:cells[1],code:cells[2],hospital:'',visit:num(cells[3]),hosp:cells[4],drug:num(last)});
+    }
   });
   var cutoff=new Date(); cutoff.setFullYear(cutoff.getFullYear()-5); cutoff.setHours(0,0,0,0);
   function latestDate(period){
@@ -4555,8 +4558,8 @@ function viewMedNotice(i){
   var sec=function(title, list, valFn){
     var h='<h3>'+title+' <span class="cnt '+(list.length?'y':'n')+'">'+(list.length?list.length+'건':'해당 없음')+'</span></h3>';
     if(list.length){
-      h+='<table><tr><th>진료기간</th><th>병력(질병명)</th><th>상병코드</th><th>내용</th></tr>'
-        +list.map(function(r){ return '<tr><td>'+esc(r.period)+'</td><td>'+esc(r.disease)+'</td><td>'+esc(r.code)+'</td><td class="hl">'+esc(valFn(r))+'</td></tr>'; }).join('')
+      h+='<table><tr><th>진료기간</th><th>병력(질병명)</th><th>상병코드</th><th>병원명</th><th>내용</th></tr>'
+        +list.map(function(r){ return '<tr><td>'+esc(r.period)+'</td><td>'+esc(r.disease)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.hospital||'-')+'</td><td class="hl">'+esc(valFn(r))+'</td></tr>'; }).join('')
         +'</table>';
     }
     return h;
@@ -5633,7 +5636,8 @@ function _cleanMedText(t){
   return t;
 }
 
-// 같은 상병코드끼리 행을 묶어 기간(최초~최근)·통원 횟수·약 처방일수를 합산
+// 비슷한 상병코드(예: K29.1≈K29.9) 또는 사실상 같은 병명끼리 하나의 병력으로 묶어
+// 기간(최초~최근)·병원명·통원 횟수·입원일수·수술횟수·약 처방일수를 합산한다
 function _mergeMedRowsByCode(rows){
   function num(s){ var m=String(s||'').match(/\d+/); return m?parseInt(m[0],10):0; }
   function dates(period){ // "2024.04.01~2024.04.08" → [start,end] (숫자 YYYYMMDD)
@@ -5642,30 +5646,50 @@ function _mergeMedRowsByCode(rows){
     return ns.length?[Math.min.apply(null,ns),Math.max.apply(null,ns)]:[0,0];
   }
   function fmt(n){ if(!n) return ''; var s=String(n); return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8); }
-  var groups={}, order=[];
+  function codeBase(c){ var m=String(c||'').toUpperCase().replace(/\s/g,'').match(/[A-Z]+\d+/); return m?m[0]:''; }   // K29.1→K29
+  function nameNorm(n){                                                          // 병명 유사 비교용 정규화
+    return String(n||'').replace(/\([^)]*\)/g,'')                                // 괄호 안(추정·병원·수술명) 제거
+      .replace(/추정|상세불명의|상세불명|기타|양방|한방/g,'')
+      .replace(/[^가-힣a-zA-Z0-9]/g,'');
+  }
+  var groups={}, order=[], byCode={}, byName={};
   rows.forEach(function(line){
-    var cells=_medRowCells(line);        // 순번 보정 + 6/7칸 강제 (칸 밀림 오염 방지, _medNoticeItems와 동일 규칙)
+    var cells=_medRowCells(line);        // 순번 보정 + 6~8칸 강제 (칸 밀림 오염 방지, _medNoticeItems와 동일 규칙)
     if(!cells) return;
     if(/진료기간/.test(cells[0])) return; // 헤더 스킵
-    // 7칸(신형: 입원일수/수술횟수 분리) vs 6칸(구형: 입원/수술여부 통합) 모두 지원
-    var period=cells[0], name=cells[1], code=cells[2], visit=cells[3];
-    var key=(code||'').replace(/\s/g,'')||('NAME:'+name);
-    if(!groups[key]){ groups[key]={name:name,code:code,start:0,end:0,visit:0,drug:0,inDays:0,opCnt:0}; order.push(key); }
+    // 8칸(병원명 포함) / 7칸(이전 신형) / 6칸(구형: 입원/수술여부 통합) 모두 지원
+    var period=cells[0], name=cells[1], code=cells[2];
+    var hospName='', visit, inTxt, opTxt2, drugTxt, hospOld='';
+    if(cells.length===8){ hospName=cells[3]; visit=cells[4]; inTxt=cells[5]; opTxt2=cells[6]; drugTxt=cells[7]; }
+    else if(cells.length===7){ visit=cells[3]; inTxt=cells[4]; opTxt2=cells[5]; drugTxt=cells[6]; }
+    else { visit=cells[3]; hospOld=cells[4]; drugTxt=cells[5]; }
+    // 병명의 "(추정)"/"(추정, 병원명)" 표기 정리 — 병원명은 병원 칸으로 옮기고 추정 문구는 제거
+    var pm=String(name).match(/\(추정(?:[,，]\s*([^)]+))?\)/);
+    if(pm){ if(pm[1] && !hospName) hospName=pm[1]; }
+    name=String(name).replace(/\s*\(\s*추정[^)]*\)/g,'').replace(/\s*추정\s*$/,'').trim();
+    // 그룹 결정: 상병코드 앞부분이 같거나(예: K29.x) 정규화한 병명이 같으면 같은 병력
+    var ck=codeBase(code), nk=nameNorm(name);
+    var key=(ck&&byCode[ck])||(nk&&byName[nk]);
+    if(!key){ key=ck?('C:'+ck):(nk?('N:'+nk):('R:'+order.length)); groups[key]={name:name,code:code,start:0,end:0,visit:0,drug:0,inDays:0,opCnt:0,hosps:[]}; order.push(key); }
+    if(ck) byCode[ck]=key;
+    if(nk) byName[nk]=key;
     var g=groups[key];
     var d=dates(period); if(d[0] && (!g.start||d[0]<g.start)) g.start=d[0]; if(d[1]>g.end) g.end=d[1];
     g.visit+=num(visit);
     if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
+    if(code && (!g.code||g.code.length>code.length)) g.code=code; // 더 짧은(대표) 코드 유지
+    String(hospName||'').split(/[·,，]/).forEach(function(hn){ hn=hn.trim(); if(hn && g.hosps.indexOf(hn)===-1) g.hosps.push(hn); });
     var opTxt;
-    if(cells.length===7){
-      g.drug+=num(cells[6]);
-      g.inDays+=num(cells[4]);                                       // "N일"·"없음"(=0)
-      var opN=num(cells[5]); opTxt=cells[5];
+    if(cells.length>=7){
+      g.drug+=num(drugTxt);
+      g.inDays+=num(inTxt);                                          // "N일"·"없음"(=0)
+      var opN=num(opTxt2); opTxt=opTxt2;
       if(opN>0) g.opCnt+=opN;
     }else{
-      g.drug+=num(cells[5]);
-      var hosp=cells[4]; opTxt=hosp;
-      var inM=String(hosp).match(/입원\s*(\d+)\s*일/); if(inM) g.inDays+=parseInt(inM[1],10);
-      var opM=String(hosp).match(/수술\s*(\d+)\s*회/); if(opM && parseInt(opM[1],10)>0) g.opCnt+=parseInt(opM[1],10);
+      g.drug+=num(drugTxt);
+      opTxt=hospOld;
+      var inM=String(hospOld).match(/입원\s*(\d+)\s*일/); if(inM) g.inDays+=parseInt(inM[1],10);
+      var opM=String(hospOld).match(/수술\s*(\d+)\s*회/); if(opM && parseInt(opM[1],10)>0) g.opCnt+=parseInt(opM[1],10);
       else opM=null;
       if(opM) opTxt='';                                              // 이미 산입됐으면 절제술 안전망 생략
     }
@@ -5678,7 +5702,7 @@ function _mergeMedRowsByCode(rows){
     var g=groups[key];
     if(!g.opCnt && g.resect) g.opCnt=1;   // 절제술 텍스트만 있고 수술 횟수 미기재 → 그룹당 1회 보정
     var period=(g.start===g.end)?fmt(g.start):(fmt(g.start)+'~'+fmt(g.end));
-    return '| '+period+' | '+g.name+' | '+g.code+' | '+g.visit+'회 | '+(g.inDays?g.inDays+'일':'없음')+' | '+(g.opCnt?g.opCnt+'회':'없음')+' | '+g.drug+'일 |';
+    return '| '+period+' | '+g.name+' | '+g.code+' | '+(g.hosps.join('·')||'-')+' | '+g.visit+'회 | '+(g.inDays?g.inDays+'일':'없음')+' | '+(g.opCnt?g.opCnt+'회':'없음')+' | '+g.drug+'일 |';
   }).sort(function(a,b){
     var da=(a.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0], db=(b.match(/\d{4}\.\d{2}\.\d{2}/)||[''])[0];
     return da<db?-1:(da>db?1:0);
@@ -5810,21 +5834,21 @@ async function analyzeMedical(){
       }
       pl.push('중요: 이 부분의 모든 진료내역을 누락 없이 포함해야 합니다.');
       pl.push('규칙:');
-      pl.push('  1) 자료에 상병코드·진단명(상병기호)이 직접 있으면 그 값을 그대로 사용하고, 서로 다른 코드는 행을 나눌 것. 병력(질병명)은 기록의 상병명을 그대로 기재(예: "상세불명의 급성 상기도감염"). "기타질환" 같은 포괄 분류 금지.');
+      pl.push('  1) 자료에 상병코드·진단명(상병기호)이 직접 있으면 그 값을 그대로 사용. 병력(질병명)은 기록의 상병명을 그대로 기재(예: "상세불명의 급성 상기도감염"). "기타질환" 같은 포괄 분류 금지. ★상병코드가 비슷하거나(예: K29.1과 K29.9) 병명이 사실상 같은 질환이면 행을 나누지 말고 하나의 병력으로 합칠 것.');
       pl.push('  2) ★★중요: 만약 자료에 상병코드·진단명이 없고 "약 처방/조제 내역(약품명·성분명)"만 있으면, 절대 전부 "미상"으로 두지 말고, 처방된 약(성분)을 근거로 환자의 질병을 추정하여 정리하세요.');
-      pl.push('     - 같은 질환을 치료하는 약들은 하나의 병력으로 묶고, 대표 질병명과 대표 상병코드(ICD-10)를 추정 기재(병명 뒤에 "(추정)" 표기).');
+      pl.push('     - 같은 질환을 치료하는 약들은 하나의 병력으로 묶고, 대표 질병명과 대표 상병코드(ICD-10)를 기재. ★병명에 "(추정)"·"추정" 같은 표기는 절대 붙이지 말 것 — 병명만 깔끔하게 쓸 것.');
       pl.push('     - 성분 기준 추정 예: 레보티록신(씬지로이드)→갑상선기능저하증(E03), 탐스로신→전립선증식증(N40), 솔리페나신→과민성방광/배뇨장애(N32), 텔미사르탄·암로디핀·카르베딜롤·히드로클로로티아지드→본태성고혈압(I10), 다파글리플로진·리나글립틴→2형당뇨병(E11), 클로피도그렐·아스피린·니트로글리세린설하정→허혈성심장질환·협심증(I20~I25), 에제티미브·로수바스타틴→고지혈증(E78), 도르졸라미드 등 점안액→녹내장(H40), 레보세티리진·베포타스틴·히드록시진→알레르기비염·두드러기(J30/L50), 파모티딘·라푸티딘·모사프리드→위염·위장질환(K29), 모메타손·클로베타솔 등 스테로이드 연고→피부염(L20~L30).');
       pl.push('     - 추정 시 진료기간은 그 질환 약이 처방된 최초~최근 날짜 범위, 약 처방일수는 그 질환으로 처방된 약의 총 투약일수(투여일수)로 적으세요.');
       pl.push('  3) ★★약 처방일수(정확 기재): "처방조제정보"·"처방조제" 표는 열이 [순번|진료시작일|병·의원&약국|처방/조제|약품명|성분명|1회투약량|1일투여횟수|총투약일수] 순서다. 행 끝에 숫자 3개가 연달아 나오면 순서대로 1회투약량/1일투여횟수/총투약일수이며, "약 처방일수"에는 반드시 마지막 숫자(총투약일수)를 쓸 것(예: "1 1 189" → 189일. 1회투약량·1일투여횟수를 일수로 쓰지 말 것).');
       pl.push('     - 같은 질병으로 여러 번 처방받았으면 각 처방의 총투약일수를 전부 더해 기재(예: 189일+30일=219일). 처방 "건수"를 일수로 적지 말 것 — 총투약일수 표기가 전혀 없을 때만 건수로 간주. 약국 조제 행도 포함.');
-      pl.push('     - 처방조제 내역은 "병·의원&약국" 칸의 기관명으로 같은 병원·같은 질병끼리 묶고, 병력(질병명) 뒤에 처방 병·의원명을 괄호로 기재할 것(예: "갑상선기능저하증(추정, 충북대학교병원)"). 병원명이 없고 약국명만 있으면 약국명을 기재.');
+      pl.push('     - "병원명" 칸에는 그 병력을 진료·처방한 병·의원 이름을 기재할 것(기본진료정보·처방조제정보의 "병·의원&약국" 칸 참조). 병원명이 없고 약국명만 있으면 약국명을 기재. 여러 병원이면 "·"로 이어서 기재. 병명 칸에는 병원명을 넣지 말 것.');
       pl.push('  4) ★★수술 판정(누락 금지): "세부진료정보"의 "코드명"(진료행위명)에 "절제술"이 포함되면(예: "결장경하 종양 수술-폴립절제술") 그 진료는 반드시 수술로 분류 — 진료구분이 "처치 및 수술"·"외래(통원)"이어도 절제술이면 수술이다. "수술" 단어가 직접 적힌 경우도 수술. 이 경우 "수술횟수" 칸을 절대 "없음"으로 두지 말고 "N회"로 기재하고, 병력(질병명) 뒤에 수술명을 괄호로 남길 것(예: "결장 폴립(폴립절제술)"). 수술 횟수를 정확히 셈.');
       pl.push('  5) ★★입원 판정(정확 기재): "기본진료정보" 표에서 "입원/외래(진료구분)" 칸이 "입원"인 행이 입원이다. 입원일수는 그 행의 "내원일수" 칸 숫자를 그대로 쓸 것(예: 입원 + 내원일수 3 → 입원일수 3일). "재원일수" 표기가 있으면 그 값도 입원일수. 같은 질병으로 입원이 여러 번이면 각 입원의 내원일수를 합산.');
       pl.push('  6) 칸 작성 규칙: "입원일수" 칸 — 입원 없으면 "없음", 있으면 "N일" / "수술횟수" 칸 — 수술 없으면 "없음", 있으면 "N회". 두 칸을 절대 합쳐 쓰지 말 것.');
       pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
-      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
-      pl.push('|---|---|---|---|---|---|---|');
-      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | N회 | 없음 또는 N일 | 없음 또는 N회 | N일 |');
+      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
+      pl.push('|---|---|---|---|---|---|---|---|');
+      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | 병·의원명 | N회 | 없음 또는 N일 | 없음 또는 N회 | N일 |');
       var prompt = pl.join('\n');
 
       try {
@@ -5876,8 +5900,8 @@ async function analyzeMedical(){
     var mergedRows = _mergeMedRowsByCode(allRows);
 
     var finalLines = [
-      '| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |',
-      '|---|---|---|---|---|---|---|'
+      '| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |',
+      '|---|---|---|---|---|---|---|---|'
     ].concat(mergedRows);
     if(chunks.length > 1){
       finalLines.push('');
@@ -5896,7 +5920,7 @@ async function analyzeMedical(){
   }catch(err){
     document.getElementById('med_result_text').innerHTML =
       '<div style="color:#cc4040;margin-bottom:12px">⚠ '+err.message+'</div>' +
-      '<pre style="font-size:15px;color:#333">| 진료기간 | 병력(질병명) | 상병코드 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |\n|---|---|---|---|---|---|---|\n|  |  |  |  |  |  |  |</pre>';
+      '<pre style="font-size:15px;color:#333">| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |\n|---|---|---|---|---|---|---|---|\n|  |  |  |  |  |  |  |  |</pre>';
     resultEl.style.display='block';
     toast('오류: '+err.message);
   }
