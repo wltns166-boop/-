@@ -2480,7 +2480,9 @@ async function loadFromFirestore(){
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
-    try{ _wcloseFixNames(); }catch(e){}   // '(코드)'로 저장된 주마감보고 1회 마이그레이션
+    // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
+    //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
+    try{ if(typeof _isAdmin==='function'&&_isAdmin()) _wcloseFixNames(); }catch(e){}
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -2515,7 +2517,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
-    try{ if(d.mem) _cuFixName(); }catch(e){}   // 구성원 갱신 시 세션 이름 보정(모바일에서 이름 나중 입력된 경우)
+    try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
@@ -2864,7 +2866,8 @@ function setAdmin(){
       const validAdm=ADMINS.find(a=>a.id===cu.id);
       const validMem=mem.find(x=>x.lid===cu.id);
       if(validAdm||validMem){
-        _cuFixName();   // 세션에 '(코드)' 이름이 굳어 있으면 실명으로 보정
+        // 이름 보정(_cuFixName)은 여기서 하지 않는다 — 이 시점의 mem은 낡은 로컬 캐시라
+        //   재사용된 코드에 엉뚱한 실명을 붙일 수 있음. 클라우드 로드(최신 mem) 후에 보정된다.
         // F5 복원은 스크립트/DOM 초기화가 끝난 뒤 실행해야 렌더 함수들이 정상 동작(수동 로그인과 동일 타이밍)
         if(document.readyState==='complete'){ login(); }
         else { window.addEventListener('load', function(){ login(); }, { once:true }); }
