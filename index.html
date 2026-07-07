@@ -4471,12 +4471,17 @@ function deleteMedByIdx(i){
 // 정리된 병력(note, 마크다운 표)에서 최근 5년 이내 ①입원·수술 ②통원 7회 이상 ③약 처방일수 30일 이상을 뽑는다.
 function _medNoticeItems(note){
   var rows=[];
+  var drugUnit='일';   // 약제 컬럼 단위 — 신버전 "약 처방일수"=일 / 구버전 "약제처방횟수"=회 (하위호환)
   String(note||'').split('\n').forEach(function(line){
     line=line.trim();
     if(line.charAt(0)!=='|'||line.charAt(line.length-1)!=='|') return;
     var cells=line.slice(1,-1).split('|').map(function(c){return c.trim();});
     if(cells.length<6) return;
-    if(/진료기간/.test(cells[0])) return;              // 헤더
+    if(/진료기간/.test(cells[0])){                      // 헤더 — 저장된 기록의 약제 컬럼 단위 판별
+      if(/횟수/.test(cells[5])) drugUnit='회';          // 구버전 기록: 처방 "건수"
+      else if(/일수/.test(cells[5])) drugUnit='일';     // 신버전 기록: 총 투약"일수"
+      return;
+    }
     if(/^-+$/.test(cells[0])||!cells.some(Boolean)) return;   // 구분선·빈 행
     // 횟수는 첫 번째 숫자만 사용 — "7~10회" 같은 범위 표기가 710으로 붙는 오파싱 방지(보수적으로 최솟값)
     var num=function(v){ var m2=String(v==null?'':v).match(/\d+/); return m2?parseInt(m2[0],10):0; };
@@ -4502,6 +4507,7 @@ function _medNoticeItems(note){
   }
   return {
     parsed: rows.length,
+    drugUnit: drugUnit,
     hosp:  rows.filter(function(r){ return in5y(r) && hospPositive(r.hosp); }),
     visit: rows.filter(function(r){ return in5y(r) && r.visit>=7; }),
     drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; })
@@ -4542,7 +4548,7 @@ function viewMedNotice(i){
     +'<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 판정 기준: 최근 5년 ('+fmt(cutoff)+' ~ 오늘)</div>'
     +sec('1. 5년 이내 입원·수술 내역', nt.hosp, function(r){ return r.hosp; })
     +sec('2. 5년 이내 통원치료 7회 이상', nt.visit, function(r){ return '통원 '+r.visit+'회'; })
-    +sec('3. 5년 이내 약 처방일수 30일 이상 투약', nt.drug, function(r){ return '총 '+r.drug+'일'; })
+    +sec('3. 5년 이내 '+(nt.drugUnit==='회'?'약 처방 30회':'약 처방일수 30일')+' 이상 투약', nt.drug, function(r){ return '총 '+r.drug+nt.drugUnit; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
                +([].concat(nt.hosp,nt.visit,nt.drug).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [상세보기]로 원문을 확인해 주세요.</div>')
