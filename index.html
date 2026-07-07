@@ -326,7 +326,6 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="nch" id="nch_team">
       <div class="ns"><div class="ni" id="n_hierarchy">계보도</div></div>
       <div class="ns"><div class="ni" id="n_exam">시험신청</div></div>
-      <div class="ns"><div class="ni" id="n_3w">3W관리</div></div>
       <div class="ns"><div class="ni" id="n_meeting">팀 미팅</div></div>
       <div class="ns"><div class="ni" id="n_wclose">주마감보고</div></div>
       <div class="ns"><div class="ni" id="n_bizplan">사업계획서</div></div>
@@ -912,27 +911,6 @@ table.dt tr:last-child td{border-bottom:none;}
           </thead>
           <tbody id="exam_tb"></tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- 3W관리 -->
-    <div class="pg" id="pg_3w">
-      <div class="sh">
-        <div class="st"><i class="ti ti-list-check"></i>3W관리</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="bp bsm" onclick="w3Shift(-1)"><i class="ti ti-chevron-left"></i></button>
-          <span id="w3_week_label" style="font-size:15px;color:#4a5090;font-weight:700;min-width:170px;text-align:center"></span>
-          <button class="bp bsm" onclick="w3Shift(1)"><i class="ti ti-chevron-right"></i></button>
-        </div>
-      </div>
-      <div class="sg" id="w3_stats"></div>
-      <div class="card">
-        <div style="overflow-x:auto">
-          <table class="dt" id="w3_table" style="min-width:max-content">
-            <thead id="w3_thead"></thead>
-            <tbody id="w3_tb"></tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -2945,7 +2923,6 @@ g('n_prom').addEventListener('click',function(){showPage('prom');});
 g('n_team_menu').addEventListener('click',function(){tnav('team');});
 g('n_hierarchy').addEventListener('click',function(){showPage('hierarchy');});
 g('n_exam').addEventListener('click',function(){showPage('exam');});
-g('n_3w').addEventListener('click',function(){showPage('3w');});
 g('n_meeting').addEventListener('click',function(){showPage('meeting');});
 g('n_wclose').addEventListener('click',function(){showPage('wclose');});
 g('n_bizplan').addEventListener('click',function(){showPage('bizplan');});
@@ -2985,7 +2962,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   tops:'TOPS',members:'구성원',hierarchy:'계보도',
   cust_apply:'고객등록 및 신청',cust_status:'고객등록 현황',
   prom:'진급평가',
-  exam:'시험신청','3w':'3W관리',meeting:'팀 미팅',
+  exam:'시험신청',meeting:'팀 미팅',
   wclose:'주마감보고',bizplan:'사업계획서',expect:'예상계약건 계산',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
@@ -3004,7 +2981,7 @@ function showPage(name){
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -3269,12 +3246,6 @@ g('m_mem_save').addEventListener('click',()=>{
     if(ADMINS.some(a=>String(a.id)===newCode)){toast('관리자 계정과 겹치는 코드입니다.');return;}
     mem[idx].code=newCode;
     mem[idx].lid=newCode;   // 로그인 아이디 = 코드 규칙 유지
-    // 3W관리 이력은 코드를 키로 저장 — 함께 이관(옛 코드 재사용 시 전임자 이력 오귀속 방지)
-    try{
-      var w3ch=false;
-      w3.forEach(function(r){ if(r&&String(r.code)===String(codeKey)){ r.code=newCode; w3ch=true; } });
-      if(w3ch) sv('tops_w3',w3);
-    }catch(e){}
     // 당사자에게 인앱 알림 — 다음 로그인부터 새 아이디 사용(락아웃 예방)
     try{ pushAlert(null,'계정변경','로그인 코드/아이디가 '+newCode+'(으)로 변경되었습니다. 다음 로그인부터 새 아이디를 사용하세요. (비밀번호 동일)',{toName:name}); }catch(e){}
   }
@@ -7930,7 +7901,7 @@ function rWClose(){
   }).join('');
   var form=g('wc_form'); if(form) form.innerHTML=fh;
   // 직급(_isLeader)과 무관하게 "본인 + 산하 팀원(belong 재귀)"의 작성 내역을 모두 표시.
-  //   getMyTeam(): null=전체(관리자) / 배열=본인+산하. (3W관리·실적 등 다른 화면과 동일 기준)
+  //   getMyTeam(): null=전체(관리자) / 배열=본인+산하. (실적 등 다른 화면과 동일 기준)
   var myTeam=(typeof getMyTeam==='function')?getMyTeam():null;
   var roster=mem.filter(function(m){ if(!m.name||!m.name.trim()) return false; if(myTeam===null) return true; return myTeam.includes(m.name); }).map(function(m){return m.name;});
   if(myName&&roster.indexOf(myName)<0) roster.unshift(myName);   // 본인이 mem에 없어도 항상 포함
@@ -8701,98 +8672,6 @@ function _esc(v){ if(v==null) return ''; return (''+v).replace(/&/g,'&amp;').rep
 
 // ===== 시험신청 =====
 var exams = JSON.parse(localStorage.getItem('tops_exams')||'[]');
-
-// ===== 3W관리 (주간 3건 달성) =====
-var w3=[];
-try{ w3=JSON.parse(localStorage.getItem('tops_w3')||'[]'); }catch(e){ w3=[]; }
-var W3_TARGET=3;
-function w3Monday(d){var x=new Date(d);var day=x.getDay();var diff=(day===0?-6:1-day);x.setDate(x.getDate()+diff);x.setHours(0,0,0,0);return x;}
-function w3Key(d){var m=w3Monday(d);return m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0')+'-'+String(m.getDate()).padStart(2,'0');}
-var _w3Cur=w3Key(new Date());
-var _w3Year=new Date().getFullYear();
-function w3Shift(delta){_w3Year=(_w3Year||new Date().getFullYear())+delta;r3W();}
-function w3Label(key){
-  var s=new Date(key),e=new Date(key);e.setDate(e.getDate()+6);
-  var fmt=function(x){return (x.getMonth()+1)+'.'+x.getDate();};
-  return fmt(s)+' ~ '+fmt(e)+(key===w3Key(new Date())?' (이번 주)':'');
-}
-function w3Rec(code,week){return w3.find(function(r){return r.code===code&&r.week===week;});}
-function w3Streak(code,week){
-  var n=0,cur=new Date(week);
-  while(true){var r=w3Rec(code,w3Key(cur));if(r&&+r.count>=W3_TARGET){n++;cur.setDate(cur.getDate()-7);}else break;}
-  return n;
-}
-function r3W(){
-  try{ w3=JSON.parse(localStorage.getItem('tops_w3')||'[]'); }catch(e){ w3=[]; }
-  var tb=g('w3_tb'); if(!tb) return;
-  var thead=g('w3_thead');
-  if(!_w3Year) _w3Year=new Date().getFullYear();
-  var lbl=g('w3_week_label'); if(lbl) lbl.textContent=_w3Year+'년';
-  // 연초 1주차 ~ (올해면 이번 주 / 지난해면 연말)까지 주차 목록
-  var week1=w3Monday(new Date(_w3Year,0,1));
-  var endMon=(_w3Year===new Date().getFullYear())?w3Monday(new Date()):w3Monday(new Date(_w3Year,11,31));
-  var weeks=[],cur=new Date(week1);
-  while(cur<=endMon){ weeks.push(w3Key(cur)); cur.setDate(cur.getDate()+7); if(weeks.length>60) break; }
-  function wkShort(key){var s=new Date(key);return (s.getMonth()+1)+'/'+s.getDate();}
-  // 본인 산하 팀원만 표시 (관리자는 전체)
-  var myTeamFor3W=getMyTeam();
-  var roster=mem.filter(function(m){
-    if(!m.name||!m.name.trim()) return false;
-    if(myTeamFor3W===null) return true;
-    return myTeamFor3W.includes(m.name);
-  });
-  // 통계 — 이번 주 기준
-  var achieved=0,total=roster.length,sum=0;
-  roster.forEach(function(m){var r=w3Rec(m.code,_w3Cur);var c=r?+r.count:0;sum+=c;if(c>=W3_TARGET)achieved++;});
-  var rate=total?Math.round(achieved/total*100):0;
-  var stats=g('w3_stats');
-  if(stats) stats.innerHTML=
-     '<div class="sc"><div class="sl">이번 주 달성률</div><div class="sv">'+rate+'%</div><div class="su">'+achieved+'/'+total+'명</div></div>'
-    +'<div class="sc"><div class="sl">달성 인원</div><div class="sv">'+achieved+'</div><div class="su">3건 이상</div></div>'
-    +'<div class="sc"><div class="sl">미달 인원</div><div class="sv">'+(total-achieved)+'</div><div class="su">3건 미만</div></div>'
-    +'<div class="sc"><div class="sl">이번 주 총 건수</div><div class="sv">'+sum+'</div><div class="su">팀 합계</div></div>';
-  if(thead){
-    thead.innerHTML='<tr><th style="position:sticky;left:0;background:#eef0fb;z-index:2;min-width:120px;text-align:left">이름</th>'
-      +weeks.map(function(k,i){return '<th style="min-width:50px;text-align:center;padding:6px 2px"><div>'+(i+1)+'주</div><div style="font-size:11px;color:#99a;font-weight:400">'+wkShort(k)+'</div></th>';}).join('')
-      +'<th style="min-width:60px;text-align:center;background:#eef0fb">합계</th></tr>';
-  }
-  if(!roster.length){ tb.innerHTML='<tr><td colspan="'+(weeks.length+2)+'" class="em" style="padding:30px">등록된 팀원이 없습니다. 구성원에서 이름을 먼저 등록하세요.</td></tr>'; return; }
-  var isAdmin=cu&&cu.admin;
-  var thisWeek=w3Key(new Date());
-  tb.innerHTML=roster.map(function(m){
-    var canEdit=isAdmin; // 수정은 관리자만
-    var rowTotal=0;
-    var cells=weeks.map(function(k){
-      var rec=w3Rec(m.code,k);var c=rec?+rec.count:0;rowTotal+=c;
-      var done=c>=W3_TARGET;
-      var bg=done?'rgba(30,160,80,.14)':(c>0?'rgba(72,88,204,.06)':'transparent');
-      var ring=(k===thisWeek)?'box-shadow:inset 0 0 0 2px rgba(72,88,204,.35);':'';
-      if(canEdit){
-        return '<td style="text-align:center;padding:3px 2px;'+ring+'background:'+bg+'"><input type="number" min="0" value="'+c+'" id="w3_in_'+m.code+'_'+k+'" onchange="w3Save(\''+m.code+'\',\''+k+'\')" style="width:42px;padding:3px 2px;background:#fff;border:1px solid rgba(45,65,170,.2);border-radius:5px;font-family:inherit;font-size:14px;text-align:center;color:#1a1a2e"></td>';
-      }
-      return '<td style="text-align:center;padding:3px 2px;'+ring+'background:'+bg+';font-size:15px;font-weight:'+(done?'700':'500')+';color:'+(done?'#1a7040':'#2a2a4a')+'">'+c+'</td>';
-    }).join('');
-    return '<tr>'
-      +'<td style="position:sticky;left:0;background:#fff;z-index:1;font-weight:600;border-right:1px solid rgba(25,45,130,.1)">'+m.name+(m.rank?' <span style="color:#8080b0;font-weight:400;font-size:14px">('+m.rank+')</span>':'')+'</td>'
-      +cells
-      +'<td style="text-align:center;font-weight:700;color:#3848cc;background:rgba(72,88,204,.06)">'+rowTotal+'</td>'
-      +'</tr>';
-  }).join('');
-}
-function w3Save(code,week){
-  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
-  week=week||_w3Cur;
-  var el=g('w3_in_'+code+'_'+week)||g('w3_in_'+code); if(!el) return;
-  var c=parseInt(el.value,10); if(isNaN(c)||c<0)c=0;
-  var m=mem.find(function(x){return x.code===code;});
-  var r=w3Rec(code,week);
-  if(r){ r.count=c; r.name=m?m.name:''; }
-  else { w3.push({week:week,code:code,name:m?m.name:'',count:c}); }
-  _lsSet('tops_w3',JSON.stringify(w3));
-  try{sv('tops_w3',w3);}catch(e){}
-  r3W();
-  toast('저장되었습니다.');
-}
 
 function rExam(){
   try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){ exams=[]; }
