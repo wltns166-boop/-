@@ -941,15 +941,15 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh">
         <div class="st"><i class="ti ti-users-group"></i>팀 미팅</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <select id="mt_year" onchange="rMeeting()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
-          <select id="mt_month" onchange="rMeeting()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <select id="mt_year" onchange="mtYmChange()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <select id="mt_month" onchange="mtYmChange()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
         </div>
       </div>
       <!-- 표1: 팀원 주마감보고 확인 + 특이사항 -->
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-clipboard-text"></i> 팀원 주마감보고 확인</div>
-          <select id="mt_mem" onchange="rMeetingSec1()" style="padding:6px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-width:150px"></select>
+          <select id="mt_mem" onchange="mtMemChange()" style="padding:6px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-width:150px"></select>
         </div>
         <div style="overflow-x:auto">
           <table class="dt" id="mt_wc_table" style="min-width:780px">
@@ -7943,6 +7943,33 @@ function _mtWeeksOf(ym){
   while(d.getMonth()===mo-1){ keys.push(wcKey(d)); d.setDate(d.getDate()+7); }
   return keys;
 }
+// 미저장 특이사항 보호: 마지막으로 불러온(저장한) 값과 현재 선택 상태
+var _mtLoadedNote='', _mtSel={y:'',m:'',mem:''};
+function _mtNoteDirty(){
+  var ta=g('mt_note');
+  return !!(ta && !ta.disabled && ta.value!==_mtLoadedNote);
+}
+function _mtGuardUnsaved(){
+  if(!_mtNoteDirty()) return true;
+  return confirm('저장하지 않은 특이사항이 있습니다.\n이동하면 입력한 내용이 사라집니다. 계속할까요?');
+}
+// 년/월 변경 — 미저장 내용이 있으면 확인 후 이동(취소 시 이전 선택 복원)
+function mtYmChange(){
+  if(!_mtGuardUnsaved()){
+    if(g('mt_year')) g('mt_year').value=_mtSel.y;
+    if(g('mt_month')) g('mt_month').value=_mtSel.m;
+    return;
+  }
+  rMeeting();
+}
+// 팀원 변경 — 동일 보호
+function mtMemChange(){
+  if(!_mtGuardUnsaved()){
+    if(g('mt_mem')) g('mt_mem').value=_mtSel.mem;
+    return;
+  }
+  rMeetingSec1();
+}
 function rMeeting(){
   // 년(2026~) / 월(1~12) 드롭다운 채우기 — 최초 1회
   var ys=g('mt_year'),ms=g('mt_month');
@@ -7994,7 +8021,9 @@ function rMeetingSec1(){
     ta.value=(rec&&rec.note)||'';
     ta.disabled=!name;
     ta.placeholder=name?(_mtYmLabel(ym)+' 미팅에서 나눈 내용·특이사항을 입력하세요.'):'먼저 위에서 팀원을 선택하세요.';
+    _mtLoadedNote=ta.value;   // 미저장 감지 기준값 갱신
   }
+  _mtSel={y:g('mt_year')?g('mt_year').value:'', m:g('mt_month')?g('mt_month').value:'', mem:name};   // 취소 시 복원용
 }
 // 표2: 팀원별 미팅 진행 여부 / 미팅내용 보기
 function rMeetingList(){
@@ -8030,6 +8059,7 @@ function mtSaveNote(){
   var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
   if(i>=0) meetings[i]=obj; else meetings.push(obj);
   sv('tops_meetings',meetings);
+  var ta=g('mt_note'); if(ta) _mtLoadedNote=ta.value;   // 저장됨 → 미저장 상태 해제
   toast(name+'님 '+_mtYmLabel(ym)+' 미팅 내용이 저장되었습니다.');
   rMeetingList();
 }
@@ -8049,6 +8079,7 @@ function mtToggleDone(name){
 }
 // 미팅내용 보기 — 새 창
 function mtView(name){
+  if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }   // 저장/토글과 동일한 방어 가드
   if(_mtRoster().indexOf(name)<0){ toast('내 팀원 미팅만 볼 수 있습니다.'); return; }
   var ym=_mtYm(), rec=mtRec(name,ym);
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
