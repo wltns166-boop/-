@@ -1691,8 +1691,11 @@ function rSchedulePage(){
 <div class="mb" id="m_mem"><div class="mo">
   <div class="mth"><span id="m_mem_t">프로필 입력</span><span class="mc" id="m_mem_c">×</span></div>
   <div style="background:rgba(70,90,220,.07);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#5060a0">
-    코드: <strong id="mm_code_display" style="color:#3848cc;font-size:16px"></strong>
-    &nbsp;|&nbsp; 아이디: <strong id="mm_id_display" style="color:#3848cc"></strong>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      코드: <input class="fi" id="mm_code" maxlength="10" placeholder="코드" style="width:110px;padding:5px 10px;font-size:15px;font-weight:700">
+      <span>&nbsp;|&nbsp; 아이디(로그인): <strong id="mm_id_display" style="color:#8f9fe8"></strong></span>
+    </div>
+    <div style="font-size:12.5px;margin-top:6px;color:#5a68a8">코드를 바꾸면 로그인 아이디도 같은 값으로 바뀝니다. (영문·숫자 2~10자)</div>
   </div>
   <div class="fr">
     <div class="fg"><div class="fl">이름 *</div><input class="fi" id="mm_name" placeholder="이름"></div>
@@ -3256,6 +3259,16 @@ g('m_mem_save').addEventListener('click',()=>{
   const codeKey=g('mm_idx').value;
   const idx=mem.findIndex(x=>String(x.code||x.lid)===String(codeKey));
   if(idx<0){toast('저장 대상을 찾을 수 없습니다. 창을 닫고 다시 열어주세요.');return;}
+  // 코드 수정 처리 — 형식·중복 검사 후 코드와 로그인 아이디(lid)를 함께 변경
+  const newCode=(g('mm_code')?g('mm_code').value:'').trim();
+  if(!newCode){toast('코드를 입력하세요.');return;}
+  if(!/^[A-Za-z0-9]{2,10}$/.test(newCode)){toast('코드는 영문·숫자 2~10자로 입력하세요.');return;}
+  if(String(newCode)!==String(codeKey)){
+    if(mem.some((x,i2)=>i2!==idx&&(String(x.code)===newCode||String(x.lid)===newCode))){toast('이미 존재하는 코드입니다: '+newCode);return;}
+    if(ADMINS.some(a=>String(a.id)===newCode)){toast('관리자 계정과 겹치는 코드입니다.');return;}
+    mem[idx].code=newCode;
+    mem[idx].lid=newCode;   // 로그인 아이디 = 코드 규칙 유지
+  }
   const pw=g('mm_pw').value;
   mem[idx].name=name;
   mem[idx].rank=g('mm_rank').value;
@@ -3268,12 +3281,12 @@ g('m_mem_save').addEventListener('click',()=>{
   sv('tops_mem',mem);
   g('m_mem').classList.remove('open');
   rMem();
-  toast('프로필이 저장되었습니다.');
+  toast(String(newCode)!==String(codeKey)?'저장됨 · 코드/아이디가 '+newCode+'(으)로 변경되었습니다 (비밀번호 유지)':'프로필이 저장되었습니다.');
 });
 function editMem(i){
   const m=mem[i];
   g('m_mem_t').textContent='팀원 프로필 입력';
-  g('mm_code_display').textContent=m.code||m.lid;
+  g('mm_code').value=m.code||m.lid||'';
   g('mm_id_display').textContent=m.lid||m.code;
   g('mm_name').value=m.name||'';
   g('mm_rank').value=m.rank||'';
