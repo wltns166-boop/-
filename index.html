@@ -4478,7 +4478,9 @@ function _medNoticeItems(note){
     if(cells.length<6) return;
     if(/진료기간/.test(cells[0])) return;              // 헤더
     if(/^-+$/.test(cells[0])||!cells.some(Boolean)) return;   // 구분선·빈 행
-    rows.push({period:cells[0],disease:cells[1],code:cells[2],visit:parseInt(String(cells[3]).replace(/[^0-9]/g,''),10)||0,hosp:cells[4],drug:parseInt(String(cells[5]).replace(/[^0-9]/g,''),10)||0});
+    // 횟수는 첫 번째 숫자만 사용 — "7~10회" 같은 범위 표기가 710으로 붙는 오파싱 방지(보수적으로 최솟값)
+    var num=function(v){ var m2=String(v==null?'':v).match(/\d+/); return m2?parseInt(m2[0],10):0; };
+    rows.push({period:cells[0],disease:cells[1],code:cells[2],visit:num(cells[3]),hosp:cells[4],drug:num(cells[5])});
   });
   var cutoff=new Date(); cutoff.setFullYear(cutoff.getFullYear()-5); cutoff.setHours(0,0,0,0);
   function latestDate(period){
@@ -4487,10 +4489,20 @@ function _medNoticeItems(note){
     var p=ms[ms.length-1].match(/(\d{4})[.\-\/](\d{1,2})(?:[.\-\/](\d{1,2}))?/);
     return new Date(+p[1], +p[2]-1, p[3]?+p[3]:1);
   }
-  function in5y(r){ var d=latestDate(r.period); return d===null ? true : d>=cutoff; }   // 날짜 미상은 포함(고지 안전 우선)
+  rows.forEach(function(r){ r.noDate = latestDate(r.period)===null; });   // 날짜 미상 표시(안내 문구용)
+  function in5y(r){ return r.noDate ? true : latestDate(r.period)>=cutoff; }   // 날짜 미상은 포함(고지 안전 우선)
+  // 입원·수술 양성 판정: "입원 5일(수술은 없음)"처럼 '없음'이 섞여도 실제 내역은 놓치지 않는다
+  function hospPositive(h){
+    h=String(h||'').trim();
+    if(!h||h==='-'||h==='없음') return false;
+    if(/입원\s*[0-9]|수술\s*[0-9]/.test(h)) return true;               // 수치가 명시된 입원/수술
+    if(!/(입원|수술)/.test(h)) return false;
+    var stripped=h.replace(/입원\s*없음|수술\s*없음|없음/g,'');          // 부정 표현 제거 후에도 언급이 남으면 포함(안전)
+    return /(입원|수술)/.test(stripped);
+  }
   return {
     parsed: rows.length,
-    hosp:  rows.filter(function(r){ return in5y(r) && /(입원|수술)/.test(r.hosp||'') && !/없음/.test(r.hosp||''); }),
+    hosp:  rows.filter(function(r){ return in5y(r) && hospPositive(r.hosp); }),
     visit: rows.filter(function(r){ return in5y(r) && r.visit>=7; }),
     drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; })
   };
@@ -4532,7 +4544,7 @@ function viewMedNotice(i){
     +sec('2. 5년 이내 통원치료 7회 이상', nt.visit, function(r){ return '통원 '+r.visit+'회'; })
     +sec('3. 5년 이내 약제처방 30회(일) 이상 투약', nt.drug, function(r){ return '약제처방 '+r.drug+'회'; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
-               +(String(m.note||'').match(/(\d{4})[.\-\/]\d{1,2}/)?'':' 진료기간에 날짜가 없는 항목은 안전을 위해 포함했습니다.')+'</div>'
+               +([].concat(nt.hosp,nt.visit,nt.drug).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [상세보기]로 원문을 확인해 주세요.</div>')
     +'</body></html>';
   w.document.write(body); w.document.close();
