@@ -1992,6 +1992,7 @@ function _myRank(){ try{ if(cu&&cu.admin) return 'ADMIN'; var m=(mem||[]).find(f
 function _isLeader(){ return !!(cu&&cu.admin)||['FA(예비팀장)','TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // 예비팀장·TL 이상(관리자 포함)
 function _isAdmin(){ return !!(cu&&cu.admin); }
 function _isChongmu(){ return !!(cu&&cu.role==='총무'); }   // 총무 전용 권한
+function _isTreeAdmin(){ return !!(cu&&cu.admin&&(cu.name==='백동현'||cu.name==='박지순')); }   // 계보도 열람 권한(두 관리자만)
 // ===== 실비계산기 (4세대 기준, 참고용) =====
 function rCalc(){ ['calc_pay','calc_nonpay'].forEach(function(id){ var e=g(id); if(e) e.value=''; }); calcSilbi(); }
 // 실손 세대별 자기부담률·통원 최소공제 자동 입력 (일반 기준, 수정 가능)
@@ -2897,11 +2898,13 @@ function setAdmin(){
   });
   // TL 이상 전용 nav 항목 (계보도·시험신청·팀실적·요청관리·신입관리)
   var isLeader=_isLeader();
-  var leaderNavIds=['n_hierarchy','n_exam','n_team_perf','n_req_menu','n_new_menu'];
+  var leaderNavIds=['n_exam','n_team_perf','n_req_menu','n_new_menu'];
   leaderNavIds.forEach(function(id){
     var el=g(id); if(!el) return;
     el.style.display=isLeader?'':'none';
   });
+  // 계보도 메뉴는 백동현·박지순 관리자에게만 노출
+  var hn=g('n_hierarchy'); if(hn) hn.style.display=_isTreeAdmin()?'':'none';
   // 요청관리 하위 nav 항목은 통합 페이지 사용으로 숨김
   ['n_edu_apply','n_goods_apply','n_suggestion'].forEach(function(id){
     var el=g(id); if(!el) return;
@@ -3053,7 +3056,10 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트'};
 function showPage(name){
   // 페이지 접근 권한 가드
-  if(['hierarchy','exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+  if(name==='hierarchy' && !_isTreeAdmin()){
+    toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
+  }
+  if(['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   window._curPage = name;
@@ -3382,7 +3388,7 @@ function editMem(i){
 
 // TREE — 소속 기반 동적 마인드맵 (드래그 가능)
 function rTree(){
-  if(!_isLeader()){ g('tree_wrap').innerHTML='<div class="em" style="padding:40px">TL 이상만 볼 수 있습니다.</div>'; return; }
+  if(!_isTreeAdmin()){ g('tree_wrap').innerHTML='<div class="em" style="padding:40px">계보도는 백동현·박지순 관리자만 볼 수 있습니다.</div>'; return; }
   const wrap = g('tree_wrap');
 
   // ── 노드 정의 ─────────────────────────────────────────────
