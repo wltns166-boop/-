@@ -6946,6 +6946,9 @@ function rNoticePage(){
     tb.innerHTML='<tr><td colspan="4" class="em">'+((fy||fm)?'해당 기간 공지가 없습니다.':'등록된 공지사항이 없습니다.')+'</td></tr>';
     return;
   }
+  // 열람 배지 집계 대상 = 현재 인원(관리자+이름 등록 팀원) — 열람 현황 팝업과 동일 기준
+  var _rdNames={};
+  try{ ADMINS.forEach(function(a){ _rdNames[a.name]=1; }); mem.forEach(function(m){ if(m.name&&m.name.trim()) _rdNames[m.name]=1; }); }catch(e){}
   tb.innerHTML=items.slice().reverse().map(function(o,ri){
     var n=o.n, i=o.i;
     var dt=n.datetime||n.date||'-';
@@ -6956,7 +6959,7 @@ function rNoticePage(){
       +'<td><span style="font-weight:500">'+_esc(n.title)+'</span>'+(ri===0&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
       +(n.files&&n.files.length?'<i class="ti ti-paperclip" style="font-size:13px;color:#8090bb;margin-left:4px"></i>':'')+'</td>'
       +'<td>'+(cu&&cu.admin?'<div style="display:flex;gap:5px;justify-content:flex-end">'
-          +(n.trackRead&&n.nid?'<button onclick="event.stopPropagation();openNoticeReads('+i+')" title="열람 현황" style="padding:2px 9px;font-size:12.5px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.32);border-radius:6px;color:#1a7a40;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye-check"></i> 열람 '+(function(){var s={};notreads.forEach(function(r){if(r&&r.nid===n.nid)s[r.name]=1;});return Object.keys(s).length;})()+'</button>':'')
+          +(n.trackRead&&n.nid?'<button onclick="event.stopPropagation();openNoticeReads('+i+')" title="열람 현황" style="padding:2px 9px;font-size:12.5px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.32);border-radius:6px;color:#1a7a40;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye-check"></i> 열람 '+(function(){var s={};notreads.forEach(function(r){if(r&&r.nid===n.nid&&_rdNames[r.name])s[r.name]=1;});return Object.keys(s).length;})()+'</button>':'')
           +'<button class="be" onclick="event.stopPropagation();openNoticeEdit('+i+')" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>'
           +'<button class="bd" onclick="event.stopPropagation();deleteNoticeAt('+i+')" style="padding:2px 7px;font-size:13px"><i class="ti ti-trash"></i></button>'
           +'</div>':'')+'</td>'
@@ -7086,8 +7089,18 @@ function openNoticeDetail(i){
   try{
     if(n.trackRead && n.nid && cu && cu.name){
       if(!notreads.some(function(r){return r.nid===n.nid && r.name===cu.name;})){
-        notreads.push({nid:n.nid, name:cu.name, ts:Date.now()});
-        sv('tops_notreads',notreads);
+        var rec={nid:n.nid, name:cu.name, ts:Date.now()};
+        notreads.push(rec);
+        _lsSet('tops_notreads', JSON.stringify(notreads));
+        // 동시 열람 경합 방지: 전체 배열 덮어쓰기(sv) 대신 서버에 새 기록 1건만 병합(arrayUnion)
+        var unioned=false;
+        try{
+          if(window.FS_DOC && typeof firebase!=='undefined' && firebase.firestore && firebase.firestore.FieldValue && firebase.firestore.FieldValue.arrayUnion){
+            window.FS_DOC.set({notreads: firebase.firestore.FieldValue.arrayUnion(rec)}, {merge:true}).catch(function(e){ console.warn('열람기록 저장 실패:', e); });
+            unioned=true;
+          }
+        }catch(e){}
+        if(!unioned) sv('tops_notreads',notreads);   // Firestore 미연결 시 폴백
         rNoticePage();   // 관리자 화면의 열람 카운트 갱신
       }
     }
