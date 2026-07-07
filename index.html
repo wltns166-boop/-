@@ -8358,10 +8358,17 @@ function _bizFormHtml(){
     +'<div style="margin-top:8px"><button class="bp bsm" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   return h+g1+g2+g3;
 }
-// 제출 건이 귀속되는 달 'YYYY-MM' — 작성 폼의 월(form.month) 우선, 없으면 제출시각 기준.
-//   연말에 다음 해 1월 계획을 제출하는 경우(제출월과 계획월이 크게 어긋남)는 해를 보정한다.
+// 계획월(1~12) → 'YYYY-MM' — 지금 시점 기준으로 해를 보정(연말에 다음 해 1월 계획 제출 등)
+function _bizYmFor(fm){
+  var d=new Date(), y=d.getFullYear(), m=d.getMonth()+1;
+  if(fm>=1&&fm<=12){ if(fm<m-6) y+=1; else if(fm>m+6) y-=1; m=fm; }
+  return y+'-'+String(m).padStart(2,'0');
+}
+// 제출 건이 귀속되는 달 'YYYY-MM' — 저장 시 기록된 s.ym 최우선(정확),
+//   구버전 레코드는 작성 폼의 월(form.month)/제출시각으로 추정.
 function _bizSubYm(s){
   try{
+    if(s&&typeof s.ym==='string'&&/^\d{4}-\d{2}$/.test(s.ym)) return s.ym;
     var d=new Date(s.ts||Date.now());
     var y=d.getFullYear(), m=d.getMonth()+1;
     var fm=s.form&&+s.form.month;
@@ -8419,9 +8426,10 @@ function rBizPlan(keepForm){
     if(leader){
       var myTeam=(typeof getMyTeam==='function')?getMyTeam():null;
       var roster=mem.filter(function(m){ if(!m.name||!m.name.trim()) return false; if(myTeam===null) return true; return myTeam.includes(m.name); });
-      // 월 드롭다운: 제출 데이터가 있는 달 + 이번달, 최신순
+      // 월 드롭다운: 내 팀(roster) 제출 데이터가 있는 달 + 이번달, 최신순
       var curYm=(typeof _curYm==='function')?_curYm():(new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
-      var ymSet={}; bizplan.subs.forEach(function(x){ var k=_bizSubYm(x); if(k) ymSet[k]=1; }); ymSet[curYm]=1;
+      var rosterNames={}; roster.forEach(function(m){ rosterNames[m.name]=1; });
+      var ymSet={}; bizplan.subs.forEach(function(x){ if(!rosterNames[x.m]) return; var k=_bizSubYm(x); if(k) ymSet[k]=1; }); ymSet[curYm]=1;
       var yms=Object.keys(ymSet).sort().reverse();
       var viewYm=_bizViewYm||curYm;
       if(yms.indexOf(viewYm)<0){ viewYm=curYm; _bizViewYm=null; }
@@ -8450,7 +8458,8 @@ function rBizPlan(keepForm){
       var total=roster.length;
       g('bp_leader_stats').innerHTML=
          '<div class="sc"><div class="sl">제출 완료</div><div class="sv">'+subbed+'</div><div class="su">/ '+total+'명</div></div>'
-        +'<div class="sc"><div class="sl">미제출</div><div class="sv">'+(total-subbed)+'</div><div class="su">명</div></div>';
+        +'<div class="sc"><div class="sl">미제출</div><div class="sv">'+(total-subbed)+'</div><div class="su">명</div></div>'
+        +'<div style="grid-column:1/-1;font-size:12.5px;color:#8888aa">※ 팀원별 최신 제출 1건 기준입니다. 새 달 계획을 제출하면 이전 달 기록은 대체됩니다.</div>';
     }
   }
 }
@@ -8592,7 +8601,7 @@ async function saveBizPlan(){
     try{ fileObj=await _uploadNoticeFile(picked); }
     catch(e){ toast('파일 업로드 실패: '+((e&&e.message)||e)); return; }
   }
-  var obj={m:myName,link:link,memo:memo,ts:Date.now()};
+  var obj={m:myName,link:link,memo:memo,ts:Date.now(),ym:(typeof _curYm==='function')?_curYm():_bizYmFor(0)};   // 링크/파일 제출은 제출 시점 달로 귀속
   if(fileObj){ obj.file=fileObj; obj.fileUrl=fileObj.url||''; obj.fileName=fileObj.name||''; }
   else if(prev){ if(prev.file) obj.file=prev.file; if(prev.fileUrl){ obj.fileUrl=prev.fileUrl; obj.fileName=prev.fileName; } }
   if(prev&&prev.form) obj.form=prev.form;   // 앱에서 작성한 양식 데이터 보존
@@ -8615,10 +8624,16 @@ async function saveBizForm(){
   if(!form.name) form.name=myName;
   form.prospects=(form.prospects||[]).filter(_bizProspectNonEmpty);  // 빈 줄 제외 저장
   form.recruits=(form.recruits||[]).filter(_bizRecruitNonEmpty);
+  // 폼의 월이 이번 달과 다르면 확인 — 지난 제출 때 입력한 월이 남아 엉뚱한 달로 제출되는 사고 방지
+  var fm=+form.month, curM=new Date().getMonth()+1;
+  if(fm>=1&&fm<=12&&fm!==curM){
+    if(!confirm(fm+'월 계획서로 제출됩니다. (이번 달은 '+curM+'월)\n계속할까요?\n\n※ 이번 달 계획이라면 [취소] 후 양식 상단의 월을 고쳐주세요.')) return;
+  }
   var ts=Date.now();
   var prev=bizplan.subs.find(function(s){return s.m===myName;});
   var obj=prev?Object.assign({},prev):{m:myName,link:'',memo:''};
   obj.m=myName; obj.form=form; obj.ts=ts;
+  obj.ym=_bizYmFor(fm);   // 귀속 월을 제출 시점에 확정 기록(월별 현황의 기준)
   if(prev){ bizplan.subs[bizplan.subs.indexOf(prev)]=obj; } else { bizplan.subs.push(obj); }
   sv('tops_bizplan',bizplan);
   try{ _driveSaveBizForm(myName, form, ts); }catch(e){ console.warn('biz form drive err:', e); }
