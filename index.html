@@ -2757,6 +2757,7 @@ function setAdmin(){
     if(!isAdmin){ el.style.display='none'; return; }
     const tag = el.tagName.toLowerCase();
     if(tag==='button') el.style.display='inline-flex';
+    else if(tag==='select') el.style.display='inline-block';
     else if(tag==='th'||tag==='td') el.style.display='table-cell';
     else if(tag==='div'||tag==='span') el.style.display='flex';
     else el.style.display='block';
@@ -2974,7 +2975,7 @@ function rNotices(){
 // ── 실적 월(月) 유틸 ─────────────────────────────────────────
 // prf 항목 = {m,c,a,ay,d,ym?}. 월(ym)이 있으면 그걸, 없으면 날짜 d("YYYY-MM-DD")에서 추출,
 // 그것도 없으면 이번달. 기존 데이터는 마지막 업로드(전체교체) 한 달치라 날짜로 잡으면 이번달로 들어온다.
-function _curYm(){ return new Date().toISOString().slice(0,7); }        // 이번달 "YYYY-MM"
+function _curYm(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }   // 이번달 "YYYY-MM" (로컬시간 — UTC 쓰면 매달 1일 00~09시에 전달로 오분류)
 function _perfMonth(p){ if(p&&p.ym) return String(p.ym); if(p&&p.d&&/^\d{4}-\d{2}/.test(p.d)) return String(p.d).slice(0,7); return _curYm(); }
 function _ymLabel(ym){ var q=String(ym||'').split('-'); return (q.length===2)?(q[0]+'년 '+(+q[1])+'월'):String(ym||''); }
 var _perfViewYm=_curYm();   // '현재 실적' 화면에서 보고 있는 월(관리자 드롭다운으로 변경)
@@ -3418,7 +3419,9 @@ function onPerfYmChange(v){ _perfViewYm=v||_curYm(); rPerf(); }
 function rPerf(){
   const tb=g('perf_tb'),st=g('perf_stats');
   // 보는 월: 관리자만 드롭다운으로 변경 가능, 그 외/기본은 이번달
-  const ym=(typeof cu!=='undefined'&&cu&&cu.admin)?(_perfViewYm||_curYm()):_curYm();
+  let ym=(typeof cu!=='undefined'&&cu&&cu.admin)?(_perfViewYm||_curYm()):_curYm();
+  // 보던 달 데이터가 전부 지워져 목록에서 사라졌으면 이번달로 복귀(드롭다운 표시와 실제 조회 불일치 방지)
+  if(_perfMonthsAvailable().indexOf(ym)<0){ ym=_curYm(); _perfViewYm=ym; }
   _perfRenderYmSelect(ym);
   // 이 달의 실적만 대상으로
   const list=prf.filter(p=>_perfMonth(p)===ym);
@@ -3504,16 +3507,17 @@ function rPerf(){
     g('mp_amt_ay').value=data.ay||0;
     g('mp_date').value=td();
     g('mp_edit_name').value=name;
-    g('m_perf_t').textContent='실적 수정';
+    g('m_perf_t').textContent='실적 수정 · '+_ymLabel(_perfViewYm||_curYm());   // 어느 달에 저장되는지 표시
     g('m_perf').classList.add('open');
   }));
   // 삭제 - global 함수로 처리
   setAdmin();
 }
-g('btn_perf').addEventListener('click',()=>{fillSel('mp_mem');g('mp_cnt').value='';g('mp_amt').value='';g('mp_amt_ay').value='';g('mp_date').value=td();g('m_perf').classList.add('open');});
+g('btn_perf').addEventListener('click',()=>{fillSel('mp_mem');g('mp_cnt').value='';g('mp_amt').value='';g('mp_amt_ay').value='';g('mp_date').value=td();g('m_perf_t').textContent='실적 입력 · '+_ymLabel(_perfViewYm||_curYm());g('m_perf').classList.add('open');});
 g('m_perf_c').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf_t').textContent='실적 입력';g('mp_mem').disabled=false;g('m_perf').classList.remove('open');});
 g('m_perf_cancel').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf_t').textContent='실적 입력';g('mp_mem').disabled=false;g('m_perf').classList.remove('open');});
 g('m_perf_save').addEventListener('click',()=>{
+  if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
   const editName=g('mp_edit_name').value;
   const _ym=_perfViewYm||_curYm();   // 지금 보고 있는 월에 기록
   if(editName){
@@ -3858,7 +3862,9 @@ function rProm(){
       });
     }
     addSubs(parentName);
-    return prf.filter(p=>team.includes(p.m)).reduce((s,p)=>s+(+p.a||0),0);
+    // 이번달 실적만 합산 — 과거 달 보존(월별 관리) 이후 이월누적 방지
+    var ym=_curYm();
+    return prf.filter(p=>team.includes(p.m)&&_perfMonth(p)===ym).reduce((s,p)=>s+(+p.a||0),0);
   }
 
   tb.innerHTML=prm.map((p,i)=>{
@@ -5070,17 +5076,18 @@ function saveConsult(){
 }
 
 function deletePerfByName(name){
-  if(window._delPerfName===name){
-    var _ym=_perfViewYm||_curYm();
+  if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var _ym=_perfViewYm||_curYm();
+  if(window._delPerfName===name && window._delPerfYm===_ym){   // 이름+달이 모두 일치할 때만 확정 삭제
     prf=prf.filter(p=>!(p.m===name && _perfMonth(p)===_ym));   // 보는 달 항목만 삭제(다른 달 보존)
     sv('tops_prf',prf);
     rPerf();
     toast(name+' '+_ymLabel(_ym)+' 실적이 삭제되었습니다.');
-    window._delPerfName=null;
+    window._delPerfName=null; window._delPerfYm=null;
   } else {
-    window._delPerfName=name;
-    toast('한 번 더 누르면 삭제됩니다.');
-    setTimeout(function(){window._delPerfName=null;},3000);
+    window._delPerfName=name; window._delPerfYm=_ym;
+    toast('한 번 더 누르면 '+_ymLabel(_ym)+' 실적이 삭제됩니다.');
+    setTimeout(function(){window._delPerfName=null;window._delPerfYm=null;},3000);
   }
 }
 
