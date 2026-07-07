@@ -3419,15 +3419,20 @@ function rTree(){
   });
 
   // ── 초기 레이아웃 계산 ────────────────────────────────────
-  const BW=124, BH=50, GAP_X=18, GAP_Y=82, PAD=60;
+  const BW=124, BH=50, GAP_X=18, GAP_Y=82, PAD=60, ROOT_GAP=90;   // ROOT_GAP: 왼쪽(박지순 계보)과 오른쪽(직할) 사이 간격
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
   NODES.forEach(n=>{ if(!n.isRoot){ const p=parentMap[n.key]; if(p&&childMap[p]) childMap[p].push(n.key); }});
+  // 백동현 기준: 왼쪽 = 박지순 계보, 오른쪽 = 직할(나머지 전부)
+  if(childMap['백동현']){
+    const rc=childMap['백동현'];
+    childMap['백동현']=rc.filter(k=>k==='박지순').concat(rc.filter(k=>k!=='박지순'));
+  }
   const subW = {};
-  function calcSub(key){ const ch=childMap[key]||[]; if(!ch.length){subW[key]=BW;return BW;} const t=ch.reduce((s,c)=>s+calcSub(c)+GAP_X,0)-GAP_X; subW[key]=Math.max(BW,t); return subW[key]; }
+  function calcSub(key){ const ch=childMap[key]||[]; if(!ch.length){subW[key]=BW;return BW;} let t=ch.reduce((s,c)=>s+calcSub(c)+GAP_X,0)-GAP_X; if(key==='백동현'&&ch.length>1) t+=ROOT_GAP; subW[key]=Math.max(BW,t); return subW[key]; }
   calcSub('백동현');
   const initPos = {};
-  function layout(key,cx,y){ initPos[key]={x:cx-BW/2,y}; const ch=childMap[key]||[]; if(!ch.length)return; const tw=ch.reduce((s,c)=>s+subW[c]+GAP_X,0)-GAP_X; let sx=cx-tw/2; ch.forEach(ck=>{layout(ck,sx+subW[ck]/2,y+BH+GAP_Y);sx+=subW[ck]+GAP_X;}); }
+  function layout(key,cx,y){ initPos[key]={x:cx-BW/2,y}; const ch=childMap[key]||[]; if(!ch.length)return; let tw=ch.reduce((s,c)=>s+subW[c]+GAP_X,0)-GAP_X; if(key==='백동현'&&ch.length>1) tw+=ROOT_GAP; let sx=cx-tw/2; ch.forEach((ck,ci)=>{ layout(ck,sx+subW[ck]/2,y+BH+GAP_Y); sx+=subW[ck]+GAP_X+((key==='백동현'&&ci===0&&ch.length>1)?ROOT_GAP:0); }); }
   const rootW = subW['백동현'];
   const canvasW = Math.max(rootW+PAD*2, 800);
   layout('백동현', canvasW/2, PAD);
@@ -3442,66 +3447,74 @@ function rTree(){
   const maxY = Math.max(...Object.values(pos).map(p=>p.y)) + BH + PAD;
   const canvasH = Math.max(maxY, 500);
 
-  // ── Canvas 생성 ──────────────────────────────────────────
+  // ── Canvas 생성 (확대/축소 배율 적용) ─────────────────────
+  const Z=Math.min(2,Math.max(0.4,window._treeZoom||1));
+  const btnS='padding:5px 12px;background:rgba(70,90,200,.15);border:1px solid rgba(70,90,200,.28);border-radius:6px;color:#7888cc;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap';
   wrap.innerHTML = `
-    <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;align-items:center">
-      <button onclick="resetTreePos()" style="padding:5px 12px;background:rgba(70,90,200,.15);border:1px solid rgba(70,90,200,.28);border-radius:6px;color:#7888cc;font-size:14px;cursor:pointer;font-family:inherit">↺ 위치 초기화</button>
+    <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="resetTreePos()" style="${btnS}">↺ 위치 초기화</button>
+      <button onclick="zoomTree(-0.15)" title="축소" style="${btnS}">－ 축소</button>
+      <span style="font-size:13.5px;color:#7888cc;font-weight:700;min-width:44px;text-align:center">${Math.round(Z*100)}%</span>
+      <button onclick="zoomTree(0.15)" title="확대" style="${btnS}">＋ 확대</button>
+      <button onclick="printTree()" style="${btnS}"><i class="ti ti-printer"></i> 출력</button>
+      <button onclick="saveTreePdf()" style="${btnS}"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
       <span style="font-size:13px;color:#9090bb">노드를 드래그해서 위치를 조정하세요</span>
     </div>
-    <canvas id="tree_canvas" width="${canvasW}" height="${canvasH}" style="display:block;cursor:grab;border-radius:10px;background:#ffffff;border:1px solid rgba(0,0,0,0.08)"></canvas>`;
+    <div style="overflow:auto;border-radius:10px"><canvas id="tree_canvas" width="${Math.round(canvasW*Z)}" height="${Math.round(canvasH*Z)}" style="display:block;cursor:grab;border-radius:10px;background:#ffffff;border:1px solid rgba(0,0,0,0.08)"></canvas></div>`;
 
   const canvas = document.getElementById('tree_canvas');
   const ctx = canvas.getContext('2d');
   const nodeMap = {};
   NODES.forEach(n=>nodeMap[n.key]=n);
 
-  // ── 그리기 ─────────────────────────────────────────────
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    // 연결선 먼저 — 검은색
+  // ── 그리기 (c: 대상 컨텍스트, scale: 배율, whiteBg: 출력/PDF용 흰 배경) ──
+  function render(c, scale, whiteBg){
+    c.setTransform(scale,0,0,scale,0,0);
+    c.clearRect(0,0,canvasW,canvasH);
+    if(whiteBg){ c.fillStyle='#ffffff'; c.fillRect(0,0,canvasW,canvasH); }
+    // 연결선 먼저 — 직각(ㄱ자) 꺾임
     NODES.forEach(n=>{
       if(n.isRoot) return;
       const p=parentMap[n.key]; if(!p||!pos[p]||!pos[n.key]) return;
       const x1=pos[p].x+BW/2, y1b=pos[p].y+BH;
       const x2=pos[n.key].x+BW/2, y2b=pos[n.key].y;
       const my=(y1b+y2b)/2;
-      ctx.beginPath();
-      ctx.moveTo(x1,y1b);
-      ctx.bezierCurveTo(x1,my,x2,my,x2,y2b);
-      ctx.strokeStyle='rgba(0,0,0,0.75)';
-      ctx.lineWidth=1.8;
-      ctx.stroke();
+      c.beginPath();
+      c.moveTo(x1,y1b);
+      c.lineTo(x1,my);
+      c.lineTo(x2,my);
+      c.lineTo(x2,y2b);
+      c.strokeStyle='rgba(0,0,0,0.75)';
+      c.lineWidth=1.8;
+      c.stroke();
     });
     // 노드 박스
     NODES.forEach(n=>{
       if(!pos[n.key]) return;
       const {x,y}=pos[n.key];
       const rnd=n.isRoot?14:n.isMem?7:10;
-      // 그림자
-      ctx.shadowColor='rgba(0,0,0,0.4)';
-      ctx.shadowBlur=10;
-      // 배경
-      ctx.beginPath();
-      ctx.roundRect(x,y,BW,BH,rnd);
-      ctx.fillStyle=n.bg;
-      ctx.fill();
-      ctx.shadowBlur=0;
-      // 테두리
-      ctx.strokeStyle=n.color;
-      ctx.lineWidth=n.isRoot?2:1.5;
-      ctx.stroke();
-      // 이름
-      ctx.fillStyle='#111133';
-      ctx.font=`${n.isRoot?'700':'600'} ${n.isRoot?14:13}px "Noto Sans KR",sans-serif`;
-      ctx.textAlign='center';
-      ctx.fillText(n.name, x+BW/2, y+19);
-      // 직급 (2pt 크게 → 13px)
-      ctx.fillStyle=n.color;
-      ctx.font=`600 13px "Noto Sans KR",sans-serif`;
-      ctx.fillText(n.role, x+BW/2, y+38);
+      c.shadowColor='rgba(0,0,0,0.4)';
+      c.shadowBlur=10;
+      c.beginPath();
+      c.roundRect(x,y,BW,BH,rnd);
+      c.fillStyle=n.bg;
+      c.fill();
+      c.shadowBlur=0;
+      c.strokeStyle=n.color;
+      c.lineWidth=n.isRoot?2:1.5;
+      c.stroke();
+      c.fillStyle='#111133';
+      c.font=`${n.isRoot?'700':'600'} ${n.isRoot?14:13}px "Noto Sans KR",sans-serif`;
+      c.textAlign='center';
+      c.fillText(n.name, x+BW/2, y+19);
+      c.fillStyle=n.color;
+      c.font=`600 13px "Noto Sans KR",sans-serif`;
+      c.fillText(n.role, x+BW/2, y+38);
     });
-    ctx.textAlign='left';
+    c.textAlign='left';
+    c.setTransform(1,0,0,1,0,0);
   }
+  function draw(){ render(ctx, Z); }
   draw();
 
   // ── 드래그 ────────────────────────────────────────────────
@@ -3512,8 +3525,9 @@ function rTree(){
   }
   function evXY(e){
     const r=canvas.getBoundingClientRect();
-    if(e.touches) return {x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
-    return {x:e.clientX-r.left,y:e.clientY-r.top};
+    // 배율(Z) 보정 — 캔버스 픽셀은 확대돼 있어도 노드 좌표는 논리 좌표계
+    if(e.touches) return {x:(e.touches[0].clientX-r.left)/Z,y:(e.touches[0].clientY-r.top)/Z};
+    return {x:(e.clientX-r.left)/Z,y:(e.clientY-r.top)/Z};
   }
 
   canvas.addEventListener('mousedown',e=>{
@@ -3524,8 +3538,8 @@ function rTree(){
   canvas.addEventListener('mousemove',e=>{
     const {x,y}=evXY(e);
     if(dragging){
-      pos[dragging.key].x=Math.max(0,Math.min(canvas.width-BW,x-offX));
-      pos[dragging.key].y=Math.max(0,Math.min(canvas.height-BH,y-offY));
+      pos[dragging.key].x=Math.max(0,Math.min(canvasW-BW,x-offX));
+      pos[dragging.key].y=Math.max(0,Math.min(canvasH-BH,y-offY));
       draw();
     } else {
       canvas.style.cursor=getNodeAt(x,y)?'grab':'default';
@@ -3545,8 +3559,8 @@ function rTree(){
   canvas.addEventListener('touchmove',e=>{
     if(!dragging)return;
     const {x,y}=evXY(e);
-    pos[dragging.key].x=Math.max(0,Math.min(canvas.width-BW,x-offX));
-    pos[dragging.key].y=Math.max(0,Math.min(canvas.height-BH,y-offY));
+    pos[dragging.key].x=Math.max(0,Math.min(canvasW-BW,x-offX));
+    pos[dragging.key].y=Math.max(0,Math.min(canvasH-BH,y-offY));
     draw(); e.preventDefault();
   },{passive:false});
   canvas.addEventListener('touchend',()=>{ if(dragging){saveTreePos();dragging=null;} });
@@ -3558,6 +3572,52 @@ function rTree(){
     localStorage.removeItem('tops_tree_pos');
     rTree();
     toast('계보도 위치가 초기화되었습니다.');
+  };
+  // 확대/축소 — 배율 변경 후 다시 그림 (40%~200%)
+  window.zoomTree=function(d){
+    window._treeZoom=Math.min(2,Math.max(0.4,(window._treeZoom||1)+d));
+    rTree();
+  };
+  // 고해상도 스냅샷(흰 배경, 2배) — 출력·PDF 공용
+  function _treeSnapshot(){
+    const t=document.createElement('canvas');
+    t.width=Math.round(canvasW*2); t.height=Math.round(canvasH*2);
+    render(t.getContext('2d'), 2, true);
+    return t;
+  }
+  // 출력 — 새 창에 이미지로 띄우고 인쇄 대화상자
+  window.printTree=function(){
+    try{
+      const url=_treeSnapshot().toDataURL('image/png');
+      const w=window.open('','_blank');
+      if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+      w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>TEAM TOPS 계보도</title>'
+        +'<style>body{margin:0;text-align:center}img{max-width:100%}@page{size:landscape}</style></head>'
+        +'<body><img src="'+url+'" onload="setTimeout(function(){window.print();},150)"></body></html>');
+      w.document.close();
+    }catch(e){ toast('출력 준비 실패: '+((e&&e.message)||e)); }
+  };
+  // PDF 저장 — A4 가로 한 장에 맞춰 저장
+  window.saveTreePdf=async function(){
+    try{
+      if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
+      const url=_treeSnapshot().toDataURL('image/png');
+      const pdf=await PDFLib.PDFDocument.create();
+      const png=await pdf.embedPng(url);
+      const pageW=842, pageH=595;   // A4 가로(pt)
+      const r=Math.min((pageW-40)/png.width,(pageH-40)/png.height);
+      const w2=png.width*r, h2=png.height*r;
+      const page=pdf.addPage([pageW,pageH]);
+      page.drawImage(png,{x:(pageW-w2)/2, y:(pageH-h2)/2, width:w2, height:h2});
+      const bytes=await pdf.save();
+      const blob=new Blob([bytes],{type:'application/pdf'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='TEAM_TOPS_계보도_'+td().replace(/-/g,'')+'.pdf';
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+      toast('계보도 PDF가 저장되었습니다.');
+    }catch(e){ toast('PDF 저장 실패: '+((e&&e.message)||e)); }
   };
 }
 
