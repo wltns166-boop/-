@@ -1445,6 +1445,10 @@ table.dt tr:last-child td{border-bottom:none;}
 <div class="mb" id="m_codesel"><div class="mo">
   <div class="mth"><span>코드 선택</span><span class="mc" onclick="g('m_codesel').classList.remove('open')">×</span></div>
   <div class="fg"><input class="fi" id="code_search" placeholder="코드 또는 이름 검색" oninput="filterCodes()"></div>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+    <input class="fi" id="code_new" placeholder="새 코드 직접 입력 (영문·숫자 2~10자)" maxlength="10" style="flex:1" onkeydown="if(event.key==='Enter')createCustomCode()">
+    <button class="bco" onclick="createCustomCode()" style="white-space:nowrap"><i class="ti ti-plus"></i> 코드 만들기</button>
+  </div>
   <div id="code_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:55vh;overflow-y:auto;margin-top:8px"></div>
 </div></div>
 
@@ -4583,6 +4587,23 @@ function selectCode(code){
   if(idx<0)return;
   g('m_codesel').classList.remove('open');
   editMem(idx);
+}
+// 코드 직접 입력해 새로 만들기 — 기존 계정과 동일 형식(lid=코드, 초기 비밀번호 0000)
+function createCustomCode(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  const inp=g('code_new'); if(!inp) return;
+  const code=(inp.value||'').trim();
+  if(!code){ toast('만들 코드를 입력하세요.'); return; }
+  if(!/^[A-Za-z0-9]{2,10}$/.test(code)){ toast('코드는 영문·숫자 2~10자로 입력하세요.'); return; }
+  // 코드·로그인ID 양쪽 모두 중복 검사 (lid로 로그인하므로 충돌 금지)
+  if(mem.some(m=>String(m.code)===code||String(m.lid)===code)){ toast('이미 존재하는 코드입니다: '+code); return; }
+  if(ADMINS.some(a=>String(a.id)===code)){ toast('관리자 계정과 겹치는 코드입니다.'); return; }
+  mem.push({code:code, lid:code, lpw:'0000', isTeam:true, name:'', rank:'', phone:'', address:'', joinDate:''});
+  sv('tops_mem',mem);
+  inp.value='';
+  toast('코드 '+code+' 생성 완료 (초기 비밀번호 0000)');
+  g('m_codesel').classList.remove('open');
+  editMem(mem.length-1);   // 방금 push한 원본 인덱스 — 바로 프로필 입력으로 이어짐
 }
 // m_codesel close via onclick
 
