@@ -4467,6 +4467,18 @@ function deleteMedByIdx(i){
   }
 }
 
+// 병력정리 표 행 파싱 공통 헬퍼 — 순번 칸이 앞에 붙은 행은 보정하고, 6/7칸이 아니면 버린다.
+// (칸 수가 어긋난 행을 고정 인덱스로 읽으면 진료기간·병명·일수가 조용히 엉뚱한 칸으로 밀려 오염되므로 폐기가 안전)
+function _medRowCells(line){
+  line=String(line||'').trim();
+  if(line.charAt(0)!=='|') return null;
+  var cells=line.replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();});
+  if(cells.length===8 && /^\d+$/.test(cells[0])) cells.shift();   // AI가 순번 칸을 붙인 경우 잘라내고 복구
+  if(cells.length!==6 && cells.length!==7) return null;
+  // 첫 칸이 순번처럼 순수 숫자이고 둘째 칸이 날짜면 칸이 밀린 행 — 복구 불가이므로 폐기
+  if(/^\d+$/.test(cells[0]) && /\d{4}[.\-\/]\d{1,2}/.test(cells[1])) return null;
+  return cells;
+}
 // ── 고지사항(계약 전 알릴의무) 자동 추출 ──
 // 정리된 병력(note, 마크다운 표)에서 최근 5년 이내 ①입원·수술 ②통원 7회 이상 ③약 처방일수 30일 이상을 뽑는다.
 function _medNoticeItems(note){
@@ -4474,9 +4486,9 @@ function _medNoticeItems(note){
   var drugUnit='일';   // 약제 컬럼 단위 — 신버전 "약 처방일수"=일 / 구버전 "약제처방횟수"=회 (하위호환)
   String(note||'').split('\n').forEach(function(line){
     line=line.trim();
-    if(line.charAt(0)!=='|'||line.charAt(line.length-1)!=='|') return;
-    var cells=line.slice(1,-1).split('|').map(function(c){return c.trim();});
-    if(cells.length<6) return;
+    if(line.charAt(line.length-1)!=='|') return;
+    var cells=_medRowCells(line);
+    if(!cells) return;
     var last=cells[cells.length-1];                     // 약제 컬럼은 항상 마지막 칸
     if(/진료기간/.test(cells[0])){                      // 헤더 — 저장된 기록의 약제 컬럼 단위 판별
       if(/횟수/.test(last)) drugUnit='회';              // 구버전 기록: 처방 "건수"
@@ -4487,7 +4499,7 @@ function _medNoticeItems(note){
     // 횟수는 첫 번째 숫자만 사용 — "7~10회" 같은 범위 표기가 710으로 붙는 오파싱 방지(보수적으로 최솟값)
     var num=function(v){ var m2=String(v==null?'':v).match(/\d+/); return m2?parseInt(m2[0],10):0; };
     var hosp;
-    if(cells.length>=7){                                // 신형: [.,.,.,통원,입원일수,수술횟수,약처방일수]
+    if(cells.length===7){                               // 신형: [.,.,.,통원,입원일수,수술횟수,약처방일수]
       var parts=[]; var inD=num(cells[4]), opC=num(cells[5]);
       if(inD) parts.push('입원 '+inD+'일');
       if(opC) parts.push('수술 '+opC+'회');
@@ -5632,8 +5644,8 @@ function _mergeMedRowsByCode(rows){
   function fmt(n){ if(!n) return ''; var s=String(n); return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8); }
   var groups={}, order=[];
   rows.forEach(function(line){
-    var cells=String(line).replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();});
-    if(cells.length<6) return;
+    var cells=_medRowCells(line);        // 순번 보정 + 6/7칸 강제 (칸 밀림 오염 방지, _medNoticeItems와 동일 규칙)
+    if(!cells) return;
     if(/진료기간/.test(cells[0])) return; // 헤더 스킵
     // 7칸(신형: 입원일수/수술횟수 분리) vs 6칸(구형: 입원/수술여부 통합) 모두 지원
     var period=cells[0], name=cells[1], code=cells[2], visit=cells[3];
@@ -5644,7 +5656,7 @@ function _mergeMedRowsByCode(rows){
     g.visit+=num(visit);
     if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
     var opTxt;
-    if(cells.length>=7){
+    if(cells.length===7){
       g.drug+=num(cells[6]);
       g.inDays+=num(cells[4]);                                       // "N일"·"없음"(=0)
       var opN=num(cells[5]); opTxt=cells[5];
