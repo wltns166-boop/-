@@ -938,8 +938,41 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 팀 미팅 -->
     <div class="pg" id="pg_meeting">
-      <div class="sh"><div class="st"><i class="ti ti-users-group"></i>팀 미팅</div></div>
-      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다.</div></div>
+      <div class="sh">
+        <div class="st"><i class="ti ti-users-group"></i>팀 미팅</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="mt_year" onchange="rMeeting()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <select id="mt_month" onchange="rMeeting()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+        </div>
+      </div>
+      <!-- 표1: 팀원 주마감보고 확인 + 특이사항 -->
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-clipboard-text"></i> 팀원 주마감보고 확인</div>
+          <select id="mt_mem" onchange="rMeetingSec1()" style="padding:6px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-width:150px"></select>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="dt" id="mt_wc_table" style="min-width:780px">
+            <thead id="mt_wc_thead"></thead>
+            <tbody id="mt_wc_tb"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-weight:600;font-size:14px;color:#3a3a5a;margin-bottom:6px"><i class="ti ti-pencil"></i> 특이사항 (미팅 내용)</div>
+          <textarea id="mt_note" rows="4" style="width:100%;resize:vertical;padding:10px 13px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#1a1f3a;font-size:15px;line-height:1.6;outline:none;font-family:inherit;box-sizing:border-box"></textarea>
+          <div style="text-align:right;margin-top:10px"><button class="bp" onclick="mtSaveNote()"><i class="ti ti-device-floppy"></i> 저장</button></div>
+        </div>
+      </div>
+      <!-- 표2: 팀원별 미팅 현황 -->
+      <div class="card">
+        <div id="mt_list_ttl" style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-users"></i> 팀원별 미팅 현황</div>
+        <div style="overflow-x:auto">
+          <table class="dt" style="min-width:520px">
+            <thead><tr><th style="text-align:left">이름</th><th style="text-align:center">직급</th><th style="text-align:center">미팅 진행 여부</th><th style="text-align:center">미팅내용</th></tr></thead>
+            <tbody id="mt_list_tb"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- 주마감보고 -->
@@ -2434,6 +2467,7 @@ async function loadFromFirestore(){
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } }
     if(d.consults&&d.consults.length){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } }
     if(d.wclose&&d.wclose.length){ wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} }
+    if(d.meetings&&d.meetings.length){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
@@ -2466,6 +2500,7 @@ function startRealtimeSync(){
     if(d.consults){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } changed=true; }
     if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
     if(d.wclose)  { wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} changed=true; }
+    if(d.meetings){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} changed=true; }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
@@ -2913,8 +2948,8 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트'};
 function showPage(name){
   // 페이지 접근 권한 가드
-  if(['hierarchy','exam','team_perf','req_unified','join_prep','edu_prep','new_check'].indexOf(name)>=0 && !_isLeader()){
-    toast('TL 이상만 접근할 수 있습니다.'); return;
+  if(['hierarchy','exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+    toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   window._curPage = name;
   closeSidebar(); // 모바일: 메뉴 선택 시 서랍 닫기
@@ -2922,7 +2957,7 @@ function showPage(name){
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,'3w':r3W,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -7878,6 +7913,180 @@ function saveWCEdit(){
   g('m_wcedit').classList.remove('open');
   toast(name+'님 보고가 수정되었습니다.');
   rWClose();
+}
+
+// ===== 팀 미팅 =====
+// 레코드: {m:팀원명, ym:'YYYY-MM', done:진행여부, note:특이사항, by:작성자, ts:저장시각}
+var meetings; try{ meetings=JSON.parse(localStorage.getItem('tops_meetings')||'[]'); }catch(e){ meetings=[]; }
+if(!Array.isArray(meetings)) meetings=[];
+function mtRec(name,ym){ return meetings.find(function(r){ return r.m===name&&r.ym===ym; }); }
+// 대상 인원: 관리자=전체 구성원, 리더(예비팀장 이상)=본인 하부 인원만(본인 제외)
+function _mtRoster(){
+  var names=mem.filter(function(m){return m.name&&m.name.trim();}).map(function(m){return m.name;});
+  var team=(typeof getMyTeam==='function')?getMyTeam():null;
+  if(team===null) return names;   // 관리자: 전체
+  var myName=cu?cu.name:'';
+  return names.filter(function(n){ return team.indexOf(n)>=0 && n!==myName; });
+}
+function _mtYm(){
+  var y=g('mt_year'),m=g('mt_month'),now=new Date();
+  var yy=(y&&y.value)?+y.value:now.getFullYear();
+  var mm=(m&&m.value)?+m.value:(now.getMonth()+1);
+  return yy+'-'+String(mm).padStart(2,'0');
+}
+function _mtYmLabel(ym){ var p=ym.split('-'); return (+p[0])+'년 '+(+p[1])+'월'; }
+// 해당 월에 월요일이 속한 주차 키 목록 (주마감보고 주차 기준과 동일)
+function _mtWeeksOf(ym){
+  var p=ym.split('-'),y=+p[0],mo=+p[1];
+  var keys=[],d=new Date(y,mo-1,1);
+  while(d.getDay()!==1) d.setDate(d.getDate()+1);
+  while(d.getMonth()===mo-1){ keys.push(wcKey(d)); d.setDate(d.getDate()+7); }
+  return keys;
+}
+function rMeeting(){
+  // 년(2026~) / 월(1~12) 드롭다운 채우기 — 최초 1회
+  var ys=g('mt_year'),ms=g('mt_month');
+  if(ys&&!ys.options.length){
+    var nowY=new Date().getFullYear(), selY=Math.max(nowY,2026), maxY=Math.max(nowY+1,2026), yh='';
+    for(var y=2026;y<=maxY;y++) yh+='<option value="'+y+'"'+(y===selY?' selected':'')+'>'+y+'년</option>';
+    ys.innerHTML=yh;
+    var nowM=new Date().getMonth()+1, mh='';
+    for(var mo=1;mo<=12;mo++) mh+='<option value="'+mo+'"'+(mo===nowM?' selected':'')+'>'+mo+'월</option>';
+    if(ms) ms.innerHTML=mh;
+  }
+  // 팀원 선택 채우기 (구성원 변경 대비 매번 갱신, 기존 선택은 유지)
+  var sel=g('mt_mem');
+  if(sel){
+    var keep=sel.value, names=_mtRoster();
+    sel.innerHTML='<option value="">팀원 선택</option>'+names.map(function(n){
+      var mm=mem.find(function(x){return x.name===n;});
+      return '<option value="'+_esc(n)+'"'+(n===keep?' selected':'')+'>'+_esc(n)+((mm&&mm.rank)?' ('+_esc(mm.rank)+')':'')+'</option>';
+    }).join('');
+  }
+  rMeetingSec1();
+  rMeetingList();
+}
+// 표1: 선택한 팀원의 해당 월 주마감보고(주차별) + 특이사항 입력
+function rMeetingSec1(){
+  var name=g('mt_mem')?g('mt_mem').value:'';
+  var ym=_mtYm();
+  var thead=g('mt_wc_thead');
+  if(thead) thead.innerHTML='<tr><th style="text-align:left;min-width:120px">주차</th>'+WC_FIELDS.map(function(f){return '<th style="min-width:64px;text-align:center;font-size:13px">'+f.label+'</th>';}).join('')+'<th style="text-align:center">상태</th></tr>';
+  var tb=g('mt_wc_tb');
+  if(tb){
+    if(!name){
+      tb.innerHTML='<tr><td colspan="'+(WC_FIELDS.length+2)+'" class="em" style="padding:22px">팀원을 선택하면 '+_mtYmLabel(ym)+' 주마감보고 내용이 표시됩니다.</td></tr>';
+    } else {
+      var weeks=_mtWeeksOf(ym);
+      tb.innerHTML=weeks.map(function(wk){
+        var r=wcRec(name,wk);
+        var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
+        var wlbl=(s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
+        var cells=WC_FIELDS.map(function(f){return '<td style="text-align:center">'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('');
+        return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'+cells
+          +'<td style="text-align:center">'+(r?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td></tr>';
+      }).join('')||'<tr><td colspan="'+(WC_FIELDS.length+2)+'" class="em">해당 월에 주차가 없습니다.</td></tr>';
+    }
+  }
+  var ta=g('mt_note');
+  if(ta){
+    var rec=name?mtRec(name,ym):null;
+    ta.value=(rec&&rec.note)||'';
+    ta.disabled=!name;
+    ta.placeholder=name?(_mtYmLabel(ym)+' 미팅에서 나눈 내용·특이사항을 입력하세요.'):'먼저 위에서 팀원을 선택하세요.';
+  }
+}
+// 표2: 팀원별 미팅 진행 여부 / 미팅내용 보기
+function rMeetingList(){
+  var tb=g('mt_list_tb'); if(!tb) return;
+  var ym=_mtYm(), names=_mtRoster();
+  var ttl=g('mt_list_ttl'); if(ttl) ttl.innerHTML='<i class="ti ti-users"></i> 팀원별 미팅 현황 · '+_mtYmLabel(ym);
+  if(!names.length){ tb.innerHTML='<tr><td colspan="4" class="em" style="padding:24px">표시할 팀원이 없습니다.</td></tr>'; return; }
+  tb.innerHTML=names.map(function(nm){
+    var mm=mem.find(function(x){return x.name===nm;});
+    var rec=mtRec(nm,ym), done=!!(rec&&rec.done);
+    // 함정 A: 핸들러에 배열 인덱스가 아닌 고유 식별자(이름)를 넘긴다.
+    var ocT=('mtToggleDone('+JSON.stringify(nm)+')').replace(/"/g,'&quot;');
+    var ocV=('mtView('+JSON.stringify(nm)+')').replace(/"/g,'&quot;');
+    return '<tr>'
+      +'<td style="font-weight:600;text-align:left">'+_esc(nm)+'</td>'
+      +'<td style="text-align:center">'+_esc((mm&&mm.rank)||'-')+'</td>'
+      +'<td style="text-align:center"><button onclick="'+ocT+'" title="클릭하면 진행 여부가 바뀝니다" style="padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+(done?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40':'background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);color:#c04040')+'">'+(done?'진행완료':'미진행')+'</button></td>'
+      +'<td style="text-align:center"><button onclick="'+ocV+'" style="padding:4px 14px;font-size:12.5px;background:rgba(80,80,200,.12);border:1px solid rgba(80,80,200,.32);border-radius:6px;color:#3a40cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye"></i> 보기</button></td>'
+      +'</tr>';
+  }).join('');
+}
+// 특이사항(미팅 내용) 저장
+function mtSaveNote(){
+  if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  var name=g('mt_mem')?g('mt_mem').value:'';
+  if(!name){ toast('팀원을 먼저 선택하세요.'); return; }
+  if(_mtRoster().indexOf(name)<0){ toast('내 팀원만 저장할 수 있습니다.'); return; }
+  var ym=_mtYm();
+  var prev=mtRec(name,ym);
+  var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false};
+  obj.note=g('mt_note')?g('mt_note').value.trim():'';
+  obj.by=cu?cu.name:''; obj.ts=Date.now();
+  var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
+  if(i>=0) meetings[i]=obj; else meetings.push(obj);
+  sv('tops_meetings',meetings);
+  toast(name+'님 '+_mtYmLabel(ym)+' 미팅 내용이 저장되었습니다.');
+  rMeetingList();
+}
+// 미팅 진행 여부 토글
+function mtToggleDone(name){
+  if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  if(_mtRoster().indexOf(name)<0){ toast('내 팀원만 변경할 수 있습니다.'); return; }
+  var ym=_mtYm();
+  var prev=mtRec(name,ym);
+  var obj=prev?Object.assign({},prev):{m:name,ym:ym,note:''};
+  obj.done=!obj.done;
+  obj.by=cu?cu.name:''; obj.ts=Date.now();
+  var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
+  if(i>=0) meetings[i]=obj; else meetings.push(obj);
+  sv('tops_meetings',meetings);
+  rMeetingList();
+}
+// 미팅내용 보기 — 새 창
+function mtView(name){
+  if(_mtRoster().indexOf(name)<0){ toast('내 팀원 미팅만 볼 수 있습니다.'); return; }
+  var ym=_mtYm(), rec=mtRec(name,ym);
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var w=window.open('','_blank','width=880,height=780,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  var done=!!(rec&&rec.done);
+  var weeks=_mtWeeksOf(ym);
+  var wcHead='<tr><th style="text-align:left">주차</th>'+WC_FIELDS.map(function(f){return '<th>'+esc(f.label)+'</th>';}).join('')+'<th>상태</th></tr>';
+  var wcRows=weeks.map(function(wk){
+    var r=wcRec(name,wk);
+    var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
+    var wlbl=(s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
+    return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'
+      +WC_FIELDS.map(function(f){return '<td>'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('')
+      +'<td>'+(r?'<span class="ok">제출완료</span>':'<span class="no">미제출</span>')+'</td></tr>';
+  }).join('');
+  var css='body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:26px;color:#111;margin:0 auto;max-width:840px}'
+    +'h2{font-size:21px;font-weight:700;margin:0 0 6px}'
+    +'.meta{font-size:14px;color:#666;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #eee}'
+    +'.badge{display:inline-block;padding:2px 12px;border-radius:12px;font-size:13px;font-weight:700}'
+    +'.b-ok{background:#e4f4ea;color:#1a7a40}.b-no{background:#fbe9e9;color:#c04040}'
+    +'h3{font-size:16px;margin:22px 0 8px}'
+    +'.note{white-space:pre-wrap;font-size:15px;line-height:1.8;background:#f7f8fc;border:1px solid #e2e4ee;border-radius:8px;padding:14px 16px;min-height:40px}'
+    +'table{border-collapse:collapse;width:100%;font-size:13.5px}'
+    +'th,td{border:1px solid #dde;padding:6px 8px;text-align:center}'
+    +'th{background:#f2f3fa}'
+    +'.ok{color:#1a7a40;font-weight:700}.no{color:#c04040}';
+  var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(name)+'님 팀 미팅 · '+esc(_mtYmLabel(ym))+'</title><style>'+css+'</style></head><body>'
+    +'<h2>'+esc(name)+'님 팀 미팅 <span class="badge '+(done?'b-ok':'b-no')+'">'+(done?'진행완료':'미진행')+'</span></h2>'
+    +'<div class="meta">'+esc(_mtYmLabel(ym))
+      +(rec&&rec.by?' &nbsp;|&nbsp; 작성자: '+esc(rec.by):'')
+      +(rec&&rec.ts?' &nbsp;|&nbsp; 저장: '+esc(new Date(rec.ts).toLocaleString('ko-KR')):'')+'</div>'
+    +'<h3>📝 특이사항 (미팅 내용)</h3>'
+    +'<div class="note">'+(rec&&rec.note?esc(rec.note):'<span style="color:#999">작성된 미팅 내용이 없습니다.</span>')+'</div>'
+    +'<h3>📋 '+esc(_mtYmLabel(ym))+' 주마감보고</h3>'
+    +'<div style="overflow-x:auto"><table>'+wcHead+wcRows+'</table></div>'
+    +'</body></html>';
+  w.document.write(body); w.document.close();
 }
 
 // ===== 사업계획서 =====
