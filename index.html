@@ -1744,6 +1744,9 @@ function rSchedulePage(){
 <div class="mb" id="m_notice"><div class="mo" style="width:560px">
   <div class="mth"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()">×</span></div>
   <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500"></div>
+  <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#8f9fe8;font-weight:600;padding:2px 0">
+    <input type="checkbox" id="mn_track" style="width:17px;height:17px;accent-color:#4858cc;cursor:pointer">열람내역 확인 <span style="font-weight:400;color:#5a68a8;font-size:13px">(누가 언제 읽었는지 기록)</span>
+  </label></div>
   <div class="fg"><div class="fl">제목</div><input class="fi" id="mn_title" placeholder="공지 제목을 입력하세요"></div>
   <div class="fg"><div class="fl">내용</div><textarea class="fi" id="mn_cont" rows="5" placeholder="공지 내용을 입력하세요" style="resize:vertical"></textarea></div>
   <div class="fg"><div class="fl">이미지 / 파일 첨부</div>
@@ -2456,6 +2459,7 @@ async function loadFromFirestore(){
     if(d.consults&&d.consults.length){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } }
     if(d.wclose&&d.wclose.length){ wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} }
     if(d.meetings&&d.meetings.length){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} }
+    if(Array.isArray(d.notreads)&&d.notreads.length){ notreads=d.notreads; try{ localStorage.setItem('tops_notreads',JSON.stringify(notreads)); }catch(e){} }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
@@ -2493,6 +2497,7 @@ function startRealtimeSync(){
     if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
     if(d.wclose)  { wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} changed=true; }
     if(d.meetings){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} changed=true; }
+    if(Array.isArray(d.notreads)){ notreads=d.notreads; try{ localStorage.setItem('tops_notreads',JSON.stringify(notreads)); }catch(e){} }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
@@ -5763,10 +5768,14 @@ function openNoticeAddPage(){
   g('mn_title').value='';
   g('mn_cont').value='';
   g('mn_edit_idx').value='';
+  var tk=g('mn_track'); if(tk) tk.checked=false;
   g('mn_del_btn').style.display='none';
   g('m_not_title').textContent='공지사항 등록';
   g('m_notice').classList.add('open');
 }
+// 공지 열람 기록: [{nid:공지 고유id, name:열람자, ts:열람시각}]
+var notreads; try{ notreads=JSON.parse(localStorage.getItem('tops_notreads')||'[]'); }catch(e){ notreads=[]; }
+if(!Array.isArray(notreads)) notreads=[];
 
 // PDF 파일(File)을 페이지별 JPEG Blob 배열로 변환 (PDF.js, 최대 20쪽)
 async function _pdfToImages(file){
@@ -5849,7 +5858,10 @@ async function saveNotice(){
     date:tds(),
     datetime:dateStr,
     author:cu?cu.name:'',
-    files:files
+    files:files,
+    trackRead:!!(g('mn_track')&&g('mn_track').checked),
+    // 공지 고유 id — 열람 기록 매칭용(편집 시 기존 id 유지, 없으면 새로 발급)
+    nid:(idx!==''&&not[+idx]&&not[+idx].nid)?not[+idx].nid:('n'+Date.now()+Math.random().toString(36).slice(2,6))
   };
   if(idx!=='') not[+idx]=obj; else { not.push(obj); try{ pushNotify('ALL', '새 공지사항', t, '/'); }catch(e){} }
   sv('tops_not',not);
@@ -5879,6 +5891,7 @@ function openNoticeEdit(i){
   g('mn_title').value=n.title||'';
   g('mn_date').value=n.datetime||n.date||'';
   g('mn_cont').value=n.content||'';
+  var tk=g('mn_track'); if(tk) tk.checked=!!n.trackRead;
   g('mn_edit_idx').value=i;
   g('mn_del_btn').style.display=cu&&cu.admin?'inline-flex':'none';
   g('m_not_title').textContent='공지사항 수정';
@@ -6943,6 +6956,7 @@ function rNoticePage(){
       +'<td><span style="font-weight:500">'+_esc(n.title)+'</span>'+(ri===0&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
       +(n.files&&n.files.length?'<i class="ti ti-paperclip" style="font-size:13px;color:#8090bb;margin-left:4px"></i>':'')+'</td>'
       +'<td>'+(cu&&cu.admin?'<div style="display:flex;gap:5px;justify-content:flex-end">'
+          +(n.trackRead&&n.nid?'<button onclick="event.stopPropagation();openNoticeReads('+i+')" title="열람 현황" style="padding:2px 9px;font-size:12.5px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.32);border-radius:6px;color:#1a7a40;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye-check"></i> 열람 '+(function(){var s={};notreads.forEach(function(r){if(r&&r.nid===n.nid)s[r.name]=1;});return Object.keys(s).length;})()+'</button>':'')
           +'<button class="be" onclick="event.stopPropagation();openNoticeEdit('+i+')" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>'
           +'<button class="bd" onclick="event.stopPropagation();deleteNoticeAt('+i+')" style="padding:2px 7px;font-size:13px"><i class="ti ti-trash"></i></button>'
           +'</div>':'')+'</td>'
@@ -7068,6 +7082,55 @@ function openNoticeDetail(i){
     +'</body></html>';
   w.document.write(body);
   w.document.close();
+  // 열람내역 확인 공지면 열람 기록(1인 1회, 최초 열람 시각 보존)
+  try{
+    if(n.trackRead && n.nid && cu && cu.name){
+      if(!notreads.some(function(r){return r.nid===n.nid && r.name===cu.name;})){
+        notreads.push({nid:n.nid, name:cu.name, ts:Date.now()});
+        sv('tops_notreads',notreads);
+        rNoticePage();   // 관리자 화면의 열람 카운트 갱신
+      }
+    }
+  }catch(e){}
+}
+// 열람 현황 보기 (관리자 전용) — 새 창: 전 인원의 열람 여부·시각
+function openNoticeReads(i){
+  if(!_isAdmin()){ toast('관리자만 볼 수 있습니다.'); return; }
+  var n=not[i]; if(!n) return;
+  if(!n.nid){ toast('열람 기록이 없는 공지입니다.'); return; }
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var reads={}; notreads.forEach(function(r){ if(r&&r.nid===n.nid&&reads[r.name]==null) reads[r.name]=r.ts; });
+  // 대상 = 관리자 + 이름 등록된 팀원 전원
+  var people=[];
+  ADMINS.forEach(function(a){ people.push({name:a.name, role:a.role||'관리자'}); });
+  mem.forEach(function(m){ if(m.name&&m.name.trim()&&!people.some(function(p){return p.name===m.name;})) people.push({name:m.name, role:m.rank||'-'}); });
+  var done=people.filter(function(p){return reads[p.name]!=null;}).sort(function(a,b){return reads[a.name]-reads[b.name];});
+  var pending=people.filter(function(p){return reads[p.name]==null;});
+  var w=window.open('','_blank','width=640,height=760,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+  var fmt=function(ts){ try{ return new Date(ts).toLocaleString('ko-KR'); }catch(e){ return '-'; } };
+  var rows=done.map(function(p){
+    return '<tr><td style="font-weight:600">'+esc(p.name)+'</td><td>'+esc(p.role)+'</td><td><span class="ok">열람</span></td><td>'+esc(fmt(reads[p.name]))+'</td></tr>';
+  }).join('')+pending.map(function(p){
+    return '<tr style="background:#fdf3f3"><td style="font-weight:600">'+esc(p.name)+'</td><td>'+esc(p.role)+'</td><td><span class="no">미열람</span></td><td style="color:#bbb">-</td></tr>';
+  }).join('');
+  var css='body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:26px;color:#111;margin:0 auto;max-width:600px}'
+    +'h2{font-size:20px;font-weight:700;margin:0 0 4px}'
+    +'.meta{font-size:14px;color:#666;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #eee}'
+    +'.sum{display:flex;gap:10px;margin-bottom:14px}'
+    +'.sum div{flex:1;border:1px solid #e2e4ee;border-radius:8px;padding:10px;text-align:center;font-size:14px}'
+    +'.sum strong{display:block;font-size:22px;margin-top:2px}'
+    +'table{border-collapse:collapse;width:100%;font-size:14px}'
+    +'th,td{border:1px solid #dde;padding:7px 10px;text-align:left}'
+    +'th{background:#f2f3fa}'
+    +'.ok{color:#1a7a40;font-weight:700}.no{color:#c04040;font-weight:700}';
+  var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>열람 현황 · '+esc(n.title)+'</title><style>'+css+'</style></head><body>'
+    +'<h2>📋 열람 현황</h2>'
+    +'<div class="meta">'+esc(n.title)+' &nbsp;|&nbsp; 등록: '+esc(n.datetime||n.date||'-')+'</div>'
+    +'<div class="sum"><div>열람<strong style="color:#1a7a40">'+done.length+'</strong></div><div>미열람<strong style="color:#c04040">'+pending.length+'</strong></div><div>전체<strong>'+people.length+'</strong></div></div>'
+    +'<table><tr><th>이름</th><th>직급</th><th>상태</th><th>열람 시각</th></tr>'+rows+'</table>'
+    +'</body></html>';
+  w.document.write(body); w.document.close();
 }
 
 // ===== 고객등록 =====
