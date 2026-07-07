@@ -4499,16 +4499,19 @@ function _medNoticeItems(note){
   // 입원·수술 양성 판정: "입원 5일(수술은 없음)"처럼 '없음'이 섞여도 실제 내역은 놓치지 않는다
   function hospPositive(h){
     h=String(h||'').trim();
+    if(/절제술/.test(h)) return true;                                  // 절제술 = 수술로 간주
     if(!h||h==='-'||h==='없음') return false;
     if(/입원\s*[0-9]|수술\s*[0-9]/.test(h)) return true;               // 수치가 명시된 입원/수술
     if(!/(입원|수술)/.test(h)) return false;
     var stripped=h.replace(/입원\s*없음|수술\s*없음|없음/g,'');          // 부정 표현 제거 후에도 언급이 남으면 포함(안전)
     return /(입원|수술)/.test(stripped);
   }
+  // 병명 칸에만 "절제술"이 적힌 행(예: "결장 폴립(폴립절제술)" + 입원/수술 "없음")도 수술 내역으로 포함
+  function hospIncl(r){ return hospPositive(r.hosp) || /절제술/.test(String(r.disease||'')); }
   return {
     parsed: rows.length,
     drugUnit: drugUnit,
-    hosp:  rows.filter(function(r){ return in5y(r) && hospPositive(r.hosp); }),
+    hosp:  rows.filter(function(r){ return in5y(r) && hospIncl(r); }),
     visit: rows.filter(function(r){ return in5y(r) && r.visit>=7; }),
     drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; })
   };
@@ -4546,7 +4549,11 @@ function viewMedNotice(i){
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>고지사항 · '+esc(m.cust)+'</title><style>'+css+'</style></head><body>'
     +'<h2>📋 고지사항 확인 — '+esc(m.cust)+'</h2>'
     +'<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 판정 기준: 최근 5년 ('+fmt(cutoff)+' ~ 오늘)</div>'
-    +sec('1. 5년 이내 입원·수술 내역', nt.hosp, function(r){ return r.hosp; })
+    +sec('1. 5년 이내 입원·수술 내역', nt.hosp, function(r){
+        var h=String(r.hosp||'').trim();
+        if((!h||h==='없음'||h==='-')&&/절제술/.test(String(r.disease||''))) return '절제술 시행(수술로 간주)';
+        return r.hosp;
+      })
     +sec('2. 5년 이내 통원치료 7회 이상', nt.visit, function(r){ return '통원 '+r.visit+'회'; })
     +sec('3. 5년 이내 '+(nt.drugUnit==='회'?'약 처방 30회':'약 처방일수 30일')+' 이상 투약', nt.drug, function(r){ return '총 '+r.drug+nt.drugUnit; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
@@ -5623,6 +5630,8 @@ function _mergeMedRowsByCode(rows){
     if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
     var inM=String(hosp).match(/입원\s*(\d+)\s*일/); if(inM) g.inDays+=parseInt(inM[1],10);
     var opM=String(hosp).match(/수술\s*(\d+)\s*회/); if(opM) g.opCnt+=parseInt(opM[1],10);
+    // 안전망: AI가 "수술 N회"로 못 잡아도 행에 "절제술"이 보이면 수술 1회로 산입(고지 누락 방지)
+    else if(/절제술/.test(String(hosp)+' '+String(name))) g.opCnt+=1;
     if(hosp && hosp!=='없음') g.hospRaw.push(hosp);
   });
   return order.map(function(key){
@@ -5771,7 +5780,7 @@ async function analyzeMedical(){
       pl.push('     - 성분 기준 추정 예: 탐스로신→전립선증식증(N40), 솔리페나신→과민성방광/배뇨장애(N32), 텔미사르탄·암로디핀·카르베딜롤·히드로클로로티아지드→본태성고혈압(I10), 다파글리플로진·리나글립틴→2형당뇨병(E11), 클로피도그렐·아스피린·니트로글리세린설하정→허혈성심장질환·협심증(I20~I25), 에제티미브·로수바스타틴→고지혈증(E78), 도르졸라미드 등 점안액→녹내장(H40), 레보세티리진·베포타스틴·히드록시진→알레르기비염·두드러기(J30/L50), 파모티딘·라푸티딘·모사프리드→위염·위장질환(K29), 모메타손·클로베타솔 등 스테로이드 연고→피부염(L20~L30).');
       pl.push('     - 추정 시 진료기간은 그 질환 약이 처방된 최초~최근 날짜 범위, 약 처방일수는 그 질환으로 처방된 약의 총 투약일수(투여일수)로 적으세요.');
       pl.push('  3) ★약 처방일수 = 처방·조제된 약의 총 투약일수(투여일수) 합계로 기재. 자료에 투약일수(예: 30일분·60일분)가 있으면 그 합을 일수로, 투약일수 표기가 없으면 처방 건수를 일수로 간주. 약국 조제도 포함.');
-      pl.push('  5) ★수술 판정: "세부진료정보" 또는 "진료내역"의 "코드명/진료행위명"에 "절제술" 단어가 포함되면 그 진료는 수술로 분류. "수술" 단어가 직접 적힌 경우도 수술. 수술 횟수를 정확히 셈.');
+      pl.push('  5) ★★수술 판정(누락 금지): 진료행위명·코드명·처방명 어디든 "절제술"이 포함되면(예: "결장경하 종양 수술-폴립절제술") 그 진료는 반드시 수술로 분류 — 진료구분이 "처치 및 수술"·"외래(통원)"이어도 절제술이면 수술이다. "수술" 단어가 직접 적힌 경우도 수술. 이 경우 "입원/수술여부" 칸을 절대 "없음"으로 두지 말고 "수술 N회"로 기재하고, 병력(질병명) 뒤에 수술명을 괄호로 남길 것(예: "결장 폴립(폴립절제술)"). 수술 횟수를 정확히 셈.');
       pl.push('  6) 입원 판정: "입원" 또는 "재원일수" 표기가 있으면 입원으로 분류 (일수 명시).');
       pl.push('  7) "입원/수술여부" 칸 작성 규칙: 둘 다 없으면 "없음" / 입원만 있으면 "입원 N일" / 수술만 있으면 "수술 N회" / 둘 다 있으면 "입원 N일·수술 N회"');
       pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
