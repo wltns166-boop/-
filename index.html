@@ -487,7 +487,12 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- DB 배정 -->
     <div class="pg" id="pg_db_assign">
-      <div class="sh"><div class="st"><i class="ti ti-database-import"></i>DB 배정현황</div><button class="bp ao" id="btn_dbs" onclick="openDbs()"><i class="ti ti-plus"></i> 배정 추가</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-database-import"></i>DB 배정현황</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="dbs_month" onchange="window._dbsViewYm=this.value;rDbs()" title="월 선택" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <button class="bp ao" id="btn_dbs" onclick="openDbs()"><i class="ti ti-plus"></i> 배정 추가</button>
+        </div>
+      </div>
       <div class="card"><table class="dt"><thead><tr><th>배정일</th><th>신청인</th><th>DB종류</th><th>지역</th><th>구매수량</th><th>배정수량</th><th>잔여수량</th><th class="ao">관리</th></tr></thead><tbody id="dbs_tb"></tbody></table></div>
     </div>
 
@@ -4283,30 +4288,36 @@ function rDbs(){
   const tb=g('dbs_tb');
   const isAdmin = cu && cu.admin;
   const myTeamDbs = getMyTeam();
-  const visible = myTeamDbs===null ? dbs : dbs.filter(d=>myTeamDbs.includes(d.m));
+  let visible = myTeamDbs===null ? dbs : dbs.filter(d=>myTeamDbs.includes(d.m));
+  // 월 드롭다운: 배정 데이터가 있는 달 + 이번달 (최신순)
+  const curYm=(typeof _curYm==='function')?_curYm():(new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
+  const ymSet={};
+  visible.forEach(d=>{ const k=String(d.dt||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(k)) ymSet[k]=1; });
+  ymSet[curYm]=1;
+  const yms=Object.keys(ymSet).sort().reverse();
+  let viewYm=window._dbsViewYm||curYm;
+  if(yms.indexOf(viewYm)<0){ viewYm=curYm; window._dbsViewYm=null; }
+  const msel=g('dbs_month');
+  if(msel) msel.innerHTML=yms.map(k=>{ const p=k.split('-'); return '<option value="'+k+'"'+(k===viewYm?' selected':'')+'>'+(+p[0])+'년 '+(+p[1])+'월'+(k===curYm?' (이번달)':'')+'</option>'; }).join('');
+  // 선택한 달의 배정만 표시
+  visible=visible.filter(d=>String(d.dt||'').slice(0,7)===viewYm);
   if(!visible.length){
-    tb.innerHTML='<tr><td colspan="8" class="em">'+(isAdmin?'배정 데이터가 없습니다.':'배정된 DB가 없습니다.')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="8" class="em">'+(isAdmin?'해당 월 배정 데이터가 없습니다.':'해당 월 배정된 DB가 없습니다.')+'</td></tr>';
     setAdmin();return;
   }
 
-  // DB종류+지역 조합별 구매수량 집계 (신청현황 기준)
+  // DB종류별 구매수량 집계 — 신청현황(dba) 기준.
+  //   (신청/배정 모달의 지역 목록이 서로 달라 지역 조합 매칭은 항상 어긋남 → 종류 기준으로 계산)
   const buyQty={};
-  dba.forEach(d=>{
-    const key=d.k+'||'+(d.region||'');
-    buyQty[key]=(buyQty[key]||0)+(+d.q||0);
-  });
-  // DB종류+지역 조합별 전체 배정수량 집계
+  dba.forEach(d=>{ buyQty[d.k]=(buyQty[d.k]||0)+(+d.q||0); });
+  // DB종류별 전체 배정수량 집계 (월 무관 누적 — 잔여는 총구매-총배정)
   const assignQty={};
-  dbs.forEach(d=>{
-    const key=d.k+'||'+(d.region||'');
-    assignQty[key]=(assignQty[key]||0)+(+d.q||0);
-  });
+  dbs.forEach(d=>{ assignQty[d.k]=(assignQty[d.k]||0)+(+d.q||0); });
 
   tb.innerHTML=visible.map((d)=>{
     const i=dbs.indexOf(d);
-    const key=d.k+'||'+(d.region||'');
-    const bought = buyQty[key]||0;
-    const assigned = assignQty[key]||0;
+    const bought = buyQty[d.k]||0;
+    const assigned = assignQty[d.k]||0;
     const remain = Math.max(0, bought - assigned);
     const remainColor = remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
     return `<tr>
