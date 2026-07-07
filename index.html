@@ -1014,7 +1014,10 @@ table.dt tr:last-child td{border-bottom:none;}
         </div>
       </details>
       <div class="card" id="bp_leader_card" style="display:none">
-        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-users"></i> 팀원 제출 현황 <span style="font-size:13px;color:#8888aa;font-weight:400">(팀장 이상 전용)</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원 제출 현황 <span style="font-size:13px;color:#8888aa;font-weight:400">(팀장 이상 전용)</span></div>
+          <select id="bp_month_sel" onchange="bpMonthChange(this.value)" title="월 선택" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+        </div>
         <div class="sg" id="bp_leader_stats" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px"></div>
         <div style="overflow-x:auto">
           <table class="dt" id="bp_leader_table" style="min-width:560px">
@@ -8355,6 +8358,22 @@ function _bizFormHtml(){
     +'<div style="margin-top:8px"><button class="bp bsm" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   return h+g1+g2+g3;
 }
+// 제출 건이 귀속되는 달 'YYYY-MM' — 작성 폼의 월(form.month) 우선, 없으면 제출시각 기준.
+//   연말에 다음 해 1월 계획을 제출하는 경우(제출월과 계획월이 크게 어긋남)는 해를 보정한다.
+function _bizSubYm(s){
+  try{
+    var d=new Date(s.ts||Date.now());
+    var y=d.getFullYear(), m=d.getMonth()+1;
+    var fm=s.form&&+s.form.month;
+    if(fm>=1&&fm<=12){
+      if(fm<m-6) y+=1; else if(fm>m+6) y-=1;
+      m=fm;
+    }
+    return y+'-'+String(m).padStart(2,'0');
+  }catch(e){ return (typeof _curYm==='function')?_curYm():''; }
+}
+var _bizViewYm=null;   // 팀원 제출 현황에서 보는 달 (null=이번달)
+function bpMonthChange(v){ _bizViewYm=v; rBizPlan(true); }
 function rBizPlan(keepForm){
   if(!bizplan||typeof bizplan!=='object') bizplan={url:'',subs:[]};
   if(!Array.isArray(bizplan.subs)) bizplan.subs=[];
@@ -8400,9 +8419,18 @@ function rBizPlan(keepForm){
     if(leader){
       var myTeam=(typeof getMyTeam==='function')?getMyTeam():null;
       var roster=mem.filter(function(m){ if(!m.name||!m.name.trim()) return false; if(myTeam===null) return true; return myTeam.includes(m.name); });
+      // 월 드롭다운: 제출 데이터가 있는 달 + 이번달, 최신순
+      var curYm=(typeof _curYm==='function')?_curYm():(new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
+      var ymSet={}; bizplan.subs.forEach(function(x){ var k=_bizSubYm(x); if(k) ymSet[k]=1; }); ymSet[curYm]=1;
+      var yms=Object.keys(ymSet).sort().reverse();
+      var viewYm=_bizViewYm||curYm;
+      if(yms.indexOf(viewYm)<0){ viewYm=curYm; _bizViewYm=null; }
+      var msel=g('bp_month_sel');
+      if(msel) msel.innerHTML=yms.map(function(k){ var p=k.split('-'); return '<option value="'+k+'"'+(k===viewYm?' selected':'')+'>'+(+p[0])+'년 '+(+p[1])+'월'+(k===curYm?' (이번달)':'')+'</option>'; }).join('');
       var subbed=0;
       var rows=roster.map(function(m){
         var s=bizplan.subs.find(function(x){return x.m===m.name;});
+        if(s && _bizSubYm(s)!==viewYm) s=null;   // 선택한 달의 제출만 인정
         if(s)subbed++;
         var linkCell='-';
         if(s){ var parts=[];
