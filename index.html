@@ -500,7 +500,7 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 현재 실적 -->
     <div class="pg" id="pg_pc">
-      <div class="sh"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
+      <div class="sh"><div style="display:flex;align-items:center;gap:10px"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><select class="ao" id="perf_ym" onchange="onPerfYmChange(this.value)" title="월 선택(관리자)" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer"></select></div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
       <div class="sg" id="perf_stats" style="grid-template-columns:repeat(6,1fr)"></div>
       <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>인정실적</th><th>영수실적</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
     </div>
@@ -2971,7 +2971,15 @@ function rNotices(){
 }
 // (폐기) 공지 인라인 펼침 → 새 창(openNoticeDetail)으로 대체되어 toggleNotice 제거됨
 // a = 인정실적(인정P), ay = 영수실적(영수P)
-function getAgg(){const a={};prf.forEach(p=>{if(!a[p.m])a[p.m]={c:0,a:0,ay:0};a[p.m].c+=+p.c;a[p.m].a+=(+p.a||0);a[p.m].ay+=(+p.ay||0);});return a;}
+// ── 실적 월(月) 유틸 ─────────────────────────────────────────
+// prf 항목 = {m,c,a,ay,d,ym?}. 월(ym)이 있으면 그걸, 없으면 날짜 d("YYYY-MM-DD")에서 추출,
+// 그것도 없으면 이번달. 기존 데이터는 마지막 업로드(전체교체) 한 달치라 날짜로 잡으면 이번달로 들어온다.
+function _curYm(){ return new Date().toISOString().slice(0,7); }        // 이번달 "YYYY-MM"
+function _perfMonth(p){ if(p&&p.ym) return String(p.ym); if(p&&p.d&&/^\d{4}-\d{2}/.test(p.d)) return String(p.d).slice(0,7); return _curYm(); }
+function _ymLabel(ym){ var q=String(ym||'').split('-'); return (q.length===2)?(q[0]+'년 '+(+q[1])+'월'):String(ym||''); }
+var _perfViewYm=_curYm();   // '현재 실적' 화면에서 보고 있는 월(관리자 드롭다운으로 변경)
+// 이번달 실적만 집계 — 목표/명예의전당/루키 등 '현재 실적' 계열이 공통으로 사용
+function getAgg(){const a={};const ym=_curYm();prf.forEach(p=>{if(_perfMonth(p)!==ym)return;if(!a[p.m])a[p.m]={c:0,a:0,ay:0};a[p.m].c+=+p.c;a[p.m].a+=(+p.a||0);a[p.m].ay+=(+p.ay||0);});return a;}
 function rkItem(name,main,sub,i){
   const numBg=['rgba(255,215,0,.15)','rgba(180,180,180,.12)'];
   const sizes=['15px','14px','13px'];
@@ -3394,12 +3402,30 @@ g('btn_notice_add') && g('btn_notice_add').addEventListener('click',()=>{g('mn_t
 // handled via onclick
 
 // PERF
+// 실적이 있는 월 목록(최신월 먼저) + 이번달은 항상 포함
+function _perfMonthsAvailable(){
+  var set={}; prf.forEach(function(p){ set[_perfMonth(p)]=1; }); set[_curYm()]=1;
+  return Object.keys(set).sort().reverse();
+}
+// 월 선택 드롭다운 채우기(관리자 전용 요소) — 현재 보는 월을 selected 로
+function _perfRenderYmSelect(cur){
+  var sel=g('perf_ym'); if(!sel) return;
+  sel.innerHTML=_perfMonthsAvailable().map(function(m){
+    return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+_ymLabel(m)+(m===_curYm()?' (이번달)':'')+'</option>';
+  }).join('');
+}
+function onPerfYmChange(v){ _perfViewYm=v||_curYm(); rPerf(); }
 function rPerf(){
   const tb=g('perf_tb'),st=g('perf_stats');
-  if(!prf.length){tb.innerHTML='<tr><td colspan="8" class="em" style="color:#9090c0">실적 데이터가 없습니다.</td></tr>';st.innerHTML='';return;}
+  // 보는 월: 관리자만 드롭다운으로 변경 가능, 그 외/기본은 이번달
+  const ym=(typeof cu!=='undefined'&&cu&&cu.admin)?(_perfViewYm||_curYm()):_curYm();
+  _perfRenderYmSelect(ym);
+  // 이 달의 실적만 대상으로
+  const list=prf.filter(p=>_perfMonth(p)===ym);
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="em" style="color:#9090c0">'+_ymLabel(ym)+' 실적 데이터가 없습니다.</td></tr>';st.innerHTML='';return;}
   // 집계: 구성원별 건수+금액 합산
   const agg={};
-  prf.forEach(p=>{
+  list.forEach(p=>{
     if(!agg[p.m])agg[p.m]={c:0,a:0,ay:0};
     agg[p.m].c+=+p.c;agg[p.m].a+=(+p.a||0);agg[p.m].ay+=(+p.ay||0);
   });
@@ -3421,9 +3447,9 @@ function rPerf(){
   const allNames = Object.keys(agg);
   const directNames = allNames.filter(n=>headTeamNames.includes(n) && !branch1Names.includes(n));
 
-  const tc=prf.reduce((a,b)=>a+(+b.c),0);
-  const ta=prf.reduce((a,b)=>a+(+b.a||0),0);
-  const tay=prf.reduce((a,b)=>a+(+b.ay||0),0);
+  const tc=list.reduce((a,b)=>a+(+b.c),0);
+  const ta=list.reduce((a,b)=>a+(+b.a||0),0);
+  const tay=list.reduce((a,b)=>a+(+b.ay||0),0);
   const ta1 = branch1Names.reduce((s,n)=>s+(agg[n]?agg[n].a:0),0);
   const tay1 = branch1Names.reduce((s,n)=>s+(agg[n]?agg[n].ay:0),0);
   const taDirect = directNames.reduce((s,n)=>s+(agg[n]?agg[n].a:0),0);
@@ -3489,16 +3515,17 @@ g('m_perf_c').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf
 g('m_perf_cancel').addEventListener('click',()=>{g('mp_edit_name').value='';g('m_perf_t').textContent='실적 입력';g('mp_mem').disabled=false;g('m_perf').classList.remove('open');});
 g('m_perf_save').addEventListener('click',()=>{
   const editName=g('mp_edit_name').value;
+  const _ym=_perfViewYm||_curYm();   // 지금 보고 있는 월에 기록
   if(editName){
-    // 수정 모드: 해당 구성원 기존 실적 전체 삭제 후 새 값으로 교체
-    prf=prf.filter(p=>p.m!==editName);
-    prf.push({m:editName,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value});
+    // 수정 모드: 이 달(_ym)의 해당 구성원 실적만 삭제 후 새 값으로 교체(다른 달은 보존)
+    prf=prf.filter(p=>!(p.m===editName && _perfMonth(p)===_ym));
+    prf.push({m:editName,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value,ym:_ym});
     g('mp_edit_name').value='';
     g('m_perf_t').textContent='실적 입력';
     g('mp_mem').disabled=false;
     toast('실적이 수정되었습니다.');
   } else {
-    prf.push({m:g('mp_mem').value,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value});
+    prf.push({m:g('mp_mem').value,c:g('mp_cnt').value||0,a:g('mp_amt').value||0,ay:g('mp_amt_ay').value||0,d:g('mp_date').value,ym:_ym});
     toast('실적이 입력되었습니다.');
   }
   sv('tops_prf',prf);g('m_perf').classList.remove('open');rPerf();
@@ -3595,13 +3622,16 @@ function finishPerfImport(agg,errcnt){
   const names=Object.keys(agg);
   if(!names.length){ toast('파일에서 실적을 찾지 못했습니다. (건/인정P/영수P 또는 설계사 열 확인)'); return; }
   const d=td();
-  const out=names.map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,ay:agg[n].ay,d:d}; });
+  const ym=_curYm();   // 업로드는 이번달 실적으로 취급
+  const out=names.map(function(n){ return {m:n,c:agg[n].c,a:agg[n].a,ay:agg[n].ay,d:d,ym:ym}; });
   const totalC=out.reduce(function(s,x){return s+(+x.c||0);},0);
   const totalAj=out.reduce(function(s,x){return s+(+x.a||0);},0);
   const totalAy=out.reduce(function(s,x){return s+(+x.ay||0);},0);
-  if(!confirm('실적을 파일 데이터로 전체 교체합니다.\n인원 '+out.length+'명 · '+totalC+'건\n인정실적 '+totalAj.toLocaleString()+'원 · 영수실적 '+totalAy.toLocaleString()+'원\n계속하시겠습니까?')) return;
-  prf=out; sv('tops_prf',prf); rPerf();
-  toast('실적이 최신화되었습니다. ('+out.length+'명 · '+totalC+'건)'+(errcnt?' · 일부 파일 오류 '+errcnt+'개':''));
+  if(!confirm(_ymLabel(ym)+' 실적을 파일 데이터로 교체합니다. (다른 달 실적은 그대로 유지)\n인원 '+out.length+'명 · '+totalC+'건\n인정실적 '+totalAj.toLocaleString()+'원 · 영수실적 '+totalAy.toLocaleString()+'원\n계속하시겠습니까?')) return;
+  // 이번달 기존 실적만 새 데이터로 교체(과거 월은 보존)
+  prf=prf.filter(function(p){ return _perfMonth(p)!==ym; }).concat(out);
+  _perfViewYm=ym; sv('tops_prf',prf); rPerf();
+  toast(_ymLabel(ym)+' 실적이 최신화되었습니다. ('+out.length+'명 · '+totalC+'건)'+(errcnt?' · 일부 파일 오류 '+errcnt+'개':''));
 }
 
 // GOALS
@@ -5041,10 +5071,11 @@ function saveConsult(){
 
 function deletePerfByName(name){
   if(window._delPerfName===name){
-    prf=prf.filter(p=>p.m!==name);
+    var _ym=_perfViewYm||_curYm();
+    prf=prf.filter(p=>!(p.m===name && _perfMonth(p)===_ym));   // 보는 달 항목만 삭제(다른 달 보존)
     sv('tops_prf',prf);
     rPerf();
-    toast(name+' 실적이 삭제되었습니다.');
+    toast(name+' '+_ymLabel(_ym)+' 실적이 삭제되었습니다.');
     window._delPerfName=null;
   } else {
     window._delPerfName=name;
@@ -8257,8 +8288,8 @@ async function saveBizForm(){
 // ===== 예상계약건 계산 =====
 function _myCurrentPerf(){
   var myName=cu?cu.name:'';
-  var a=0,c=0;
-  prf.forEach(function(p){ if(p.m===myName){ a+=(+p.a||0); c+=(+p.c||0); } });
+  var a=0,c=0; var ym=_curYm();
+  prf.forEach(function(p){ if(p.m===myName && _perfMonth(p)===ym){ a+=(+p.a||0); c+=(+p.c||0); } });
   return {a:a,c:c};
 }
 var _exRows=null, _exOwner=null;
@@ -8652,9 +8683,10 @@ function rTeamPerf(){
   var wrap = g('team_perf_wrap');
   if(!wrap) return;
 
-  // 집계: 구성원별 건수+금액
-  var agg={};
+  // 집계: 구성원별 건수+금액 (이번달만)
+  var agg={}; var _tpYm=_curYm();
   prf.forEach(function(p){
+    if(_perfMonth(p)!==_tpYm) return;
     if(!agg[p.m]) agg[p.m]={c:0,a:0,ay:0};
     agg[p.m].c+=+p.c; agg[p.m].a+=(+p.a||0); agg[p.m].ay+=(+p.ay||0);
   });
