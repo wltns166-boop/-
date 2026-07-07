@@ -3252,7 +3252,10 @@ g('m_mem_cancel').addEventListener('click',()=>g('m_mem').classList.remove('open
 g('m_mem_save').addEventListener('click',()=>{
   const name=g('mm_name').value.trim();
   if(!name){toast('이름을 입력하세요.');return;}
-  const idx=+g('mm_idx').value;
+  // mm_idx에는 코드가 들어있음 — 저장 시점의 mem에서 재탐색(실시간 mem 교체 대비)
+  const codeKey=g('mm_idx').value;
+  const idx=mem.findIndex(x=>String(x.code||x.lid)===String(codeKey));
+  if(idx<0){toast('저장 대상을 찾을 수 없습니다. 창을 닫고 다시 열어주세요.');return;}
   const pw=g('mm_pw').value;
   mem[idx].name=name;
   mem[idx].rank=g('mm_rank').value;
@@ -3279,7 +3282,9 @@ function editMem(i){
   g('mm_salesstart').value=m.salesStart||'';
   g('mm_addr').value=m.address||'';
   g('mm_pw').value='';
-  g('mm_idx').value=i;
+  // 함정 A: 인덱스 대신 코드(고유 식별자) 저장 — 모달이 열린 사이 실시간 동기화로
+  //   mem 배열이 통째로 교체돼도 저장 시 엉뚱한 팀원을 덮어쓰지 않도록 저장 시점에 재탐색한다.
+  g('mm_idx').value=m.code||m.lid||'';
   // 소속 select 채우기: 관리자 + 이름 입력된 팀원 (본인 제외)
   const sel=g('mm_belong');
   sel.innerHTML='<option value="">선택 안함</option>';
