@@ -431,10 +431,16 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_members">
       <div class="sh">
         <div class="st"><i class="ti ti-users"></i>구성원 관리</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span style="font-size:14px;color:#8888bb">총 <strong id="mem_count">0</strong>명 등록</span>
-          <button class="bp ao" id="btn_mem_add" onclick="openMemAdd()" style="background:rgba(40,160,100,.18);border-color:rgba(60,200,120,.3);color:#30bb70"><i class="ti ti-user-plus"></i> 코드생성</button>
-          <button class="bp ao" id="btn_mem_edit_all" onclick="openMemEditAll()" style="font-size:14px"><i class="ti ti-edit"></i> 수정</button>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:14px;color:#8888bb">총 <strong id="mem_count">0</strong>명 등록</span>
+            <button class="bp ao" id="btn_mem_add" onclick="openMemAdd()" style="background:rgba(40,160,100,.18);border-color:rgba(60,200,120,.3);color:#30bb70"><i class="ti ti-user-plus"></i> 코드생성</button>
+            <button class="bp ao" id="btn_mem_edit_all" onclick="openMemEditAll()" style="font-size:14px"><i class="ti ti-edit"></i> 수정</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="bp ao" onclick="exportMemExcel()" style="font-size:14px;background:rgba(20,140,60,.18);border-color:rgba(30,180,80,.3);color:#18a050"><i class="ti ti-table-export"></i> 엑셀저장</button>
+            <button class="bp ao" onclick="exportMemPdf()" style="font-size:14px;background:rgba(180,60,60,.14);border-color:rgba(200,80,80,.3);color:#cc5050"><i class="ti ti-file-type-pdf"></i> PDF저장</button>
+          </div>
         </div>
       </div>
       <!-- 탭 -->
@@ -4776,6 +4782,88 @@ function createCustomCode(){
   editMem(mem.length-1);   // 방금 push한 원본 인덱스 — 바로 프로필 입력으로 이어짐
 }
 // m_codesel close via onclick
+
+// ===== 구성원 명단 내보내기 (엑셀/PDF) =====
+function _memExportRows(){
+  return mem.filter(function(m){return m.name&&m.name.trim();}).sort(function(a,b){return (+a.code||0)-(+b.code||0);});
+}
+function exportMemExcel(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var rows=_memExportRows();
+  if(!rows.length){ toast('내보낼 구성원이 없습니다.'); return; }
+  var BOM='\ufeff';   // 엑셀 한글 정상 표시
+  var q=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
+  var csv=BOM+'TEAM TOPS 구성원 명단\r\n생성일,'+td()+'\r\n총원,'+rows.length+'명\r\n\r\n';
+  csv+='코드,이름,직급,소속,핸드폰번호,입사일,집주소\r\n';
+  rows.forEach(function(m){
+    csv+=[q(m.code||m.lid||''),q(m.name),q(m.rank||''),q(m.belong||''),q(m.phone||''),q(m.joinDate||''),q(m.address||'')].join(',')+'\r\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='TEAM_TOPS_구성원_'+td().replace(/-/g,'')+'.csv';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  toast('구성원 명단이 엑셀(CSV)로 저장되었습니다.');
+}
+async function exportMemPdf(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
+  var rows=_memExportRows();
+  if(!rows.length){ toast('내보낼 구성원이 없습니다.'); return; }
+  try{
+    // 캔버스에 표를 그려(한글 지원) PNG→PDF. A4 세로, 페이지당 28행.
+    var cols=[{k:'code',t:'코드',w:64},{k:'name',t:'이름',w:88},{k:'rank',t:'직급',w:96},{k:'belong',t:'소속',w:88},{k:'phone',t:'핸드폰번호',w:126},{k:'joinDate',t:'입사일',w:100},{k:'address',t:'집주소',w:238}];
+    var W=cols.reduce(function(s,c){return s+c.w;},0)+40, RH=32, TOP=70;
+    var perPage=28, chunks=[];
+    for(var i=0;i<rows.length;i+=perPage) chunks.push(rows.slice(i,i+perPage));
+    var pdf=await PDFLib.PDFDocument.create();
+    for(var pi=0;pi<chunks.length;pi++){
+      var pageRows=chunks[pi];
+      var H=TOP+RH*(pageRows.length+1)+26, S=2;
+      var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+      var c=cv.getContext('2d'); c.setTransform(S,0,0,S,0,0);
+      c.fillStyle='#ffffff'; c.fillRect(0,0,W,H);
+      c.textAlign='left'; c.fillStyle='#111133';
+      c.font='700 19px "Noto Sans KR",sans-serif';
+      c.fillText('TEAM TOPS 구성원 명단', 20, 32);
+      c.font='400 12px "Noto Sans KR",sans-serif'; c.fillStyle='#667';
+      c.fillText('생성일 '+td()+' · 총 '+rows.length+'명'+(chunks.length>1?(' · '+(pi+1)+'/'+chunks.length+'페이지'):''), 20, 52);
+      var y=TOP, x=20;
+      c.fillStyle='#eef0fa'; c.fillRect(20,y,W-40,RH);
+      c.strokeStyle='#c8cce0'; c.strokeRect(20,y,W-40,RH);
+      c.fillStyle='#222244'; c.font='700 13px "Noto Sans KR",sans-serif';
+      cols.forEach(function(col){ c.fillText(col.t, x+8, y+21); x+=col.w; });
+      y+=RH;
+      c.font='400 13px "Noto Sans KR",sans-serif';
+      pageRows.forEach(function(m,ri){
+        if(ri%2){ c.fillStyle='#f7f8fc'; c.fillRect(20,y,W-40,RH); }
+        c.strokeStyle='#dde0ee'; c.strokeRect(20,y,W-40,RH);
+        c.fillStyle='#222233';
+        var x2=20;
+        cols.forEach(function(col){
+          var v=(col.k==='code')?String(m.code||m.lid||''):String(m[col.k]||'');
+          while(c.measureText(v).width>col.w-16 && v.length>1) v=v.slice(0,-1)+'…';   // 칸 넘침 말줄임
+          c.fillText(v, x2+8, y+21); x2+=col.w;
+        });
+        y+=RH;
+      });
+      var png=await pdf.embedPng(cv.toDataURL('image/png'));
+      var pw=595, ph=842;   // A4 세로(pt)
+      var r=Math.min((pw-40)/png.width,(ph-40)/png.height);
+      var pg=pdf.addPage([pw,ph]);
+      pg.drawImage(png,{x:(pw-png.width*r)/2, y:ph-20-png.height*r, width:png.width*r, height:png.height*r});
+    }
+    var bytes=await pdf.save();
+    var blob=new Blob([bytes],{type:'application/pdf'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='TEAM_TOPS_구성원_'+td().replace(/-/g,'')+'.pdf';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+    toast('구성원 명단 PDF가 저장되었습니다.');
+  }catch(e){ toast('PDF 저장 실패: '+((e&&e.message)||e)); }
+}
 
 // ===== DB 신청현황 엑셀 다운로드 =====
 function exportDbaExcel(){
