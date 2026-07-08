@@ -3525,6 +3525,12 @@ function rTree(){
   activeMem.forEach(m=>{
     parentMap[m.name] = (m.belong&&m.belong.trim()) ? m.belong : '백동현';
   });
+  // 소속 순환(자기 자신·서로 맞물림) 데이터 방어 — 순환이면 루트 직할로 보정(무한 재귀 방지)
+  Object.keys(parentMap).forEach(k0=>{
+    const seen={}; let k=k0;
+    while(k && parentMap[k] && !seen[k]){ seen[k]=1; k=parentMap[k]; }
+    if(k && seen[k]) parentMap[k0]='백동현';
+  });
 
   // ── 좌우 마인드맵 레이아웃: 중앙 백동현, 왼쪽 박지순 계보, 오른쪽 직할 ──
   const BW=124, BH=50, GAP_H=64, GAP_V=18, PAD=60;   // GAP_H: 단계(가로) 간격, GAP_V: 형제(세로) 간격
@@ -3566,14 +3572,27 @@ function rTree(){
   //   v2: 좌우 마인드맵 개편으로 키를 올려 예전(상하 트리) 저장 위치는 자동 무시
   let savedPos = {};
   try{ savedPos = JSON.parse(localStorage.getItem('tops_tree_pos_v2')||'{}'); }catch(e){}
+  // 저장 위치 검증 — 범위 밖·비정상 값은 오염으로 보고 계산 위치로 대체.
+  //   (검증 없이 쓰면 캔버스가 저장 위치만큼 무한정 커져 브라우저 메모리 초과(Out of Memory)로 탭이 죽는다)
+  const POS_MAX=6000;
   const pos = {};
-  NODES.forEach(n=>{ pos[n.key] = savedPos[n.key] ? {...savedPos[n.key]} : {...initPos[n.key]}; });
-  // 저장 위치가 캔버스 밖이면 캔버스를 넓혀 수용
+  NODES.forEach(n=>{
+    const sp=savedPos[n.key], ip=initPos[n.key]||{x:PAD,y:PAD};
+    const spOk=sp && isFinite(sp.x) && isFinite(sp.y) && sp.x>=0 && sp.x<=POS_MAX && sp.y>=0 && sp.y<=POS_MAX;
+    pos[n.key] = spOk ? {x:sp.x, y:sp.y} : {x:ip.x, y:ip.y};
+  });
+  // 저장 위치가 캔버스 밖이면 캔버스를 넓혀 수용 (단, 상한까지만)
   canvasW=Math.max(canvasW, Math.max.apply(null,Object.values(pos).map(p=>p.x))+BW+PAD);
   canvasH=Math.max(canvasH, Math.max.apply(null,Object.values(pos).map(p=>p.y))+BH+PAD);
+  if(!isFinite(canvasW)) canvasW=800;
+  if(!isFinite(canvasH)) canvasH=500;
+  canvasW=Math.min(canvasW, POS_MAX+BW+PAD);
+  canvasH=Math.min(canvasH, POS_MAX+BH+PAD);
 
-  // ── Canvas 생성 (확대/축소 배율 적용) ─────────────────────
-  const Z=Math.min(2,Math.max(0.4,window._treeZoom||1));
+  // ── Canvas 생성 (확대/축소 배율 적용, 총 픽셀 상한으로 메모리 보호) ─────────────────────
+  let Z=Math.min(2,Math.max(0.4,window._treeZoom||1));
+  const _zCap=Math.sqrt(24e6/Math.max(1,canvasW*canvasH));   // 캔버스 최대 2,400만 픽셀(약 96MB)
+  if(Z>_zCap) Z=_zCap;
   const btnS='padding:5px 12px;background:rgba(70,90,200,.15);border:1px solid rgba(70,90,200,.28);border-radius:6px;color:#7888cc;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap';
   wrap.innerHTML = `
     <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
