@@ -493,6 +493,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <button class="bp ao" id="btn_dbs" onclick="openDbs()"><i class="ti ti-plus"></i> 배정 추가</button>
         </div>
       </div>
+      <!-- DB종류별 요약 — 신청현황과 동일 (관리자만) -->
+      <div id="dbs_summary" class="ao" style="display:none;margin-bottom:16px"></div>
       <div class="card"><table class="dt"><thead><tr><th>배정일</th><th>신청인</th><th>DB종류</th><th>지역</th><th>구매수량</th><th>배정수량</th><th>잔여수량</th><th class="ao">관리</th></tr></thead><tbody id="dbs_tb"></tbody></table></div>
     </div>
 
@@ -4335,55 +4337,56 @@ g('m_prom_save').addEventListener('click',()=>{
 });
 
 // DB
-function rDba(){
-  const tb=g('dba_tb');
-  // DB종류별 요약 — 모든 DB종류 항상 표시 (수량 0 포함)
+// DB종류별 요약 카드 HTML — 신청현황(dba) 기준. 신청현황·배정현황 페이지 공용.
+function _dbaSummaryHTML(){
+  // 모든 DB종류 항상 표시 (수량 0 포함)
   const ALL_KINDS = ['KJ','KS','동방','VIP 1차','굿데이터','VIP 간병'];
   const ALL_REGIONS = ['수도권','충청도','경상도','강원도','전라도'];
-  const PRICES = {'KJ':100000,'KS':70000,'동방':100000,'VIP 1차':30000,'굿데이터':80000,'VIP 간병':35000};
+  // DB종류별 전체 + 지역별 집계
+  const summary={};
+  const regionSummary={}; // summary[kind][region]
+  ALL_KINDS.forEach(k=>{
+    summary[k]={qty:0,total:0};
+    regionSummary[k]={};
+    ALL_REGIONS.forEach(r=>{ regionSummary[k][r]=0; });
+  });
+  dba.forEach(d=>{
+    if(!summary[d.k])summary[d.k]={qty:0,total:0};
+    summary[d.k].qty+=+d.q||0;
+    summary[d.k].total+=+d.total||0;
+    if(!regionSummary[d.k])regionSummary[d.k]={};
+    const r=d.region||'기타';
+    regionSummary[d.k][r]=(regionSummary[d.k][r]||0)+(+d.q||0);
+  });
+  return `
+    <div style="display:grid;grid-template-columns:repeat(${ALL_KINDS.length},minmax(0,1fr));gap:10px;margin-bottom:4px;width:100%">
+      ${ALL_KINDS.map(k=>{
+        const v=summary[k];
+        const hasData=v.qty>0;
+        const rMap=regionSummary[k]||{};
+        // 수량 있는 지역만 표시
+        const regionRows=ALL_REGIONS.filter(r=>(rMap[r]||0)>0)
+          .map(r=>`<div style="display:flex;justify-content:space-between;font-size:13px;color:#555;padding:1px 0">
+            <span style="color:#7080aa">${r}</span>
+            <span style="font-weight:600;color:#2040aa">${rMap[r].toLocaleString()}건</span>
+          </div>`).join('');
+        return `<div style="background:#fff;border:1px solid ${hasData?'rgba(40,100,220,.2)':'rgba(180,180,220,.2)'};border-radius:10px;padding:12px;box-shadow:0 2px 8px rgba(0,0,80,.05);min-width:0">
+          <div style="font-size:14px;font-weight:700;color:${hasData?'#3848cc':'#9090bb'};margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${k}</div>
+          ${hasData && regionRows ? `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.08)">${regionRows}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#333;margin-bottom:3px">
+            <span>총 수량</span><strong style="color:${hasData?'#1a1a8a':'#aaaacc'}">${v.qty.toLocaleString()}건</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#333;flex-wrap:wrap">
+            <span>총 금액</span><strong style="color:${hasData?'#1a8a3a':'#aaaacc'}">${v.total.toLocaleString()}원</strong>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+function rDba(){
+  const tb=g('dba_tb');
   const sumEl=g('dba_summary');
-  if(sumEl){
-    // DB종류별 전체 + 지역별 집계
-    const summary={};
-    const regionSummary={}; // summary[kind][region]
-    ALL_KINDS.forEach(k=>{
-      summary[k]={qty:0,total:0};
-      regionSummary[k]={};
-      ALL_REGIONS.forEach(r=>{ regionSummary[k][r]=0; });
-    });
-    dba.forEach(d=>{
-      if(!summary[d.k])summary[d.k]={qty:0,total:0};
-      summary[d.k].qty+=+d.q||0;
-      summary[d.k].total+=+d.total||0;
-      if(!regionSummary[d.k])regionSummary[d.k]={};
-      const r=d.region||'기타';
-      regionSummary[d.k][r]=(regionSummary[d.k][r]||0)+(+d.q||0);
-    });
-    sumEl.innerHTML=`
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px">
-        ${ALL_KINDS.map(k=>{
-          const v=summary[k];
-          const hasData=v.qty>0;
-          const rMap=regionSummary[k]||{};
-          // 수량 있는 지역만 표시
-          const regionRows=ALL_REGIONS.filter(r=>(rMap[r]||0)>0)
-            .map(r=>`<div style="display:flex;justify-content:space-between;font-size:14px;color:#555;padding:1px 0">
-              <span style="color:#7080aa">${r}</span>
-              <span style="font-weight:600;color:#2040aa">${rMap[r].toLocaleString()}건</span>
-            </div>`).join('');
-          return `<div style="background:#fff;border:1px solid ${hasData?'rgba(40,100,220,.2)':'rgba(180,180,220,.2)'};border-radius:10px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,80,.05)">
-            <div style="font-size:15px;font-weight:700;color:${hasData?'#3848cc':'#9090bb'};margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.1)">${k}</div>
-            ${hasData && regionRows ? `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.08)">${regionRows}</div>` : ''}
-            <div style="display:flex;justify-content:space-between;font-size:15px;color:#333;margin-bottom:3px">
-              <span>총 수량</span><strong style="color:${hasData?'#1a1a8a':'#aaaacc'}">${v.qty.toLocaleString()}건</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:15px;color:#333">
-              <span>총 금액</span><strong style="color:${hasData?'#1a8a3a':'#aaaacc'}">${v.total.toLocaleString()}원</strong>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
-  }
+  if(sumEl) sumEl.innerHTML=_dbaSummaryHTML();
   const myTeamDba = getMyTeam();
   const visibleDba = myTeamDba===null ? dba : dba.filter(d=>myTeamDba.includes(d.m));
   if(!visibleDba.length){tb.innerHTML='<tr><td colspan="7" class="em">신청 데이터가 없습니다.</td></tr>';setAdmin();return;}
@@ -4405,6 +4408,9 @@ function rDba(){
 function rDbs(){
   const tb=g('dbs_tb');
   const isAdmin = cu && cu.admin;
+  // DB종류별 요약 카드 — 신청현황과 동일 내용 (관리자 전용, 월 필터와 무관)
+  const dbsSumEl=g('dbs_summary');
+  if(dbsSumEl) dbsSumEl.innerHTML=_dbaSummaryHTML();
   const myTeamDbs = getMyTeam();
   let visible = myTeamDbs===null ? dbs : dbs.filter(d=>myTeamDbs.includes(d.m));
   // 월 드롭다운: 배정 데이터가 있는 달 + 이번달 (최신순)
@@ -4424,18 +4430,19 @@ function rDbs(){
     setAdmin();return;
   }
 
-  // DB종류별 구매수량 집계 — 신청현황(dba) 기준.
-  //   (신청/배정 모달의 지역 목록이 서로 달라 지역 조합 매칭은 항상 어긋남 → 종류 기준으로 계산)
+  // 신청인별×DB종류별 구매수량 집계 — 신청현황(dba) 기준. 잔여는 개인 구매-개인 배정.
+  //   (신청/배정 모달의 지역 목록이 서로 달라 지역 조합 매칭은 항상 어긋남 → 이름+종류 기준으로 계산)
   const buyQty={};
-  dba.forEach(d=>{ buyQty[d.k]=(buyQty[d.k]||0)+(+d.q||0); });
-  // DB종류별 전체 배정수량 집계 (월 무관 누적 — 잔여는 총구매-총배정)
+  dba.forEach(d=>{ const key=d.m+'|'+d.k; buyQty[key]=(buyQty[key]||0)+(+d.q||0); });
+  // 신청인별×DB종류별 배정수량 집계 (월 무관 누적 — 잔여는 개인 총구매-개인 총배정)
   const assignQty={};
-  dbs.forEach(d=>{ assignQty[d.k]=(assignQty[d.k]||0)+(+d.q||0); });
+  dbs.forEach(d=>{ const key=d.m+'|'+d.k; assignQty[key]=(assignQty[key]||0)+(+d.q||0); });
 
   tb.innerHTML=visible.map((d)=>{
     const i=dbs.indexOf(d);
-    const bought = buyQty[d.k]||0;
-    const assigned = assignQty[d.k]||0;
+    const key=d.m+'|'+d.k;
+    const bought = buyQty[key]||0;
+    const assigned = assignQty[key]||0;
     const remain = Math.max(0, bought - assigned);
     const remainColor = remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
     return `<tr>
