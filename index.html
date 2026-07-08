@@ -1709,6 +1709,22 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" id="m_mem_cancel">취소</button><button class="bco" id="m_mem_save">저장</button></div>
 </div></div>
 
+<!-- 관리자 정보 수정 (관리자끼리 연락처·입사일·주소 수정) -->
+<div class="mb" id="m_admedit"><div class="mo">
+  <div class="mth"><span>관리자 정보 수정</span><span class="mc" id="m_admedit_c">×</span></div>
+  <div style="background:rgba(70,90,220,.07);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:#8f9fe8">
+    <b id="mae_name"></b> · <span id="mae_role"></span>
+    <div style="font-size:12.5px;margin-top:6px;color:#8088c0">아이디(코드)·비밀번호는 본인만 우측 상단 개인정보수정에서 변경할 수 있습니다.</div>
+  </div>
+  <div class="fr">
+    <div class="fg"><div class="fl">핸드폰번호</div><input class="fi" id="mae_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
+    <div class="fg"><div class="fl">입사일</div><input class="fi" type="date" id="mae_join"></div>
+  </div>
+  <div class="fg"><div class="fl">집주소</div><input class="fi" id="mae_addr" placeholder="주소를 입력하세요"></div>
+  <input type="hidden" id="mae_key">
+  <div class="mf"><button class="bca" id="m_admedit_cancel">취소</button><button class="bco" id="m_admedit_save">저장</button></div>
+</div></div>
+
 <!-- 개인정보 수정 (본인) -->
 <div class="mb" id="m_myprofile"><div class="mo" style="width:460px">
   <div class="mth">개인정보 수정<span class="mc" onclick="g('m_myprofile').classList.remove('open')">×</span></div>
@@ -1978,14 +1994,17 @@ function rSchedulePage(){
 const ADMINS = [
   {id:'2331535', pw:'3399', name:'백동현',   role:'BM'},
   {id:'2331538', pw:'3399', name:'박지순',   role:'BM'},
-  {id:'2331536', pw:'3399', name:'이영현 총무', role:'총무'},
+  {id:'2331536', pw:'3399', name:'이영현', role:'총무'},
 ];
 // 관리자 계정 오버라이드 — 개인정보수정에서 바꾼 아이디(코드)/비밀번호를 이름 키로 저장(동기화됨).
 //   로그인·검증은 항상 _admList()(기본값+오버라이드 병합)를 사용한다.
 var admov; try{ admov=JSON.parse(localStorage.getItem('tops_admov')||'{}'); }catch(e){ admov={}; }
 if(!admov||typeof admov!=='object'||Array.isArray(admov)) admov={};
+// 관리자 이름 변경 이력 — 옛 이름 키로 저장된 오버라이드를 새 이름에서도 읽을 수 있게 함
+var _ADM_ALIAS={'이영현':'이영현 총무'};
+function _admOv(name){ return (admov&&(admov[name]||admov[_ADM_ALIAS[name]]))||null; }
 function _admList(){
-  try{ return ADMINS.map(function(a){ var o=admov&&admov[a.name]; return o?Object.assign({},a,{id:(o.id||a.id),pw:(o.pw||a.pw)}):a; }); }
+  try{ return ADMINS.map(function(a){ var o=_admOv(a.name); return o?Object.assign({},a,{id:(o.id||a.id),pw:(o.pw||a.pw)}):a; }); }
   catch(e){ return ADMINS; }
 }
 
@@ -2798,7 +2817,7 @@ function openMyProfile(){
   // 관리자·총무: 본인 아이디(코드)·연락처·주소·비밀번호 변경 가능 (오버라이드 admov에 저장·동기화)
   if(cu.admin){
     var eff=_admList().find(function(a){return a.name===cu.name;})||{};
-    var ov=(admov&&admov[cu.name])||{};
+    var ov=_admOv(cu.name)||{};
     if(info) info.innerHTML='<b style="color:#a8b0d8">'+_esc(cu.name||'')+'</b> · '+_esc(cu.role||'관리자')
       +'<br>아이디(코드) '+_esc(eff.id||'')
       +'<br><span style="color:#8088c0;font-size:12.5px">아이디(코드)·연락처·주소·비밀번호를 변경할 수 있습니다. 아이디/비밀번호 변경 시 현재 비밀번호 입력이 필요합니다.</span>';
@@ -2849,7 +2868,7 @@ function saveMyProfileAdmin(){
     if(npw.length<4){ _mpMsg('새 비밀번호는 4자 이상 입력하세요.'); return; }
     if(npw!==npw2){ _mpMsg('새 비밀번호가 일치하지 않습니다.'); return; }
   }
-  var o=Object.assign({},(admov&&admov[cu.name])||{});
+  var o=Object.assign({},_admOv(cu.name)||{});
   if(wantId) o.id=newId;
   if(wantPw) o.pw=npw;
   o.phone=((g('mp_phone')||{}).value||'').trim();
@@ -3169,12 +3188,55 @@ function rRankCnt(){
 }
 
 // MEMBERS
+// 관리자 정보 수정 — 관리자끼리 서로의 연락처·입사일·주소를 수정 (아이디/비밀번호는 본인만 개인정보수정에서)
+function openAdmEdit(name){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var a=_admList().find(function(x){return x.name===name;});
+  if(!a){ toast('관리자 계정을 찾을 수 없습니다.'); return; }
+  var ov=_admOv(name)||{};
+  g('mae_name').textContent=a.name;
+  g('mae_role').textContent=a.role;
+  g('mae_phone').value=ov.phone||'';
+  g('mae_join').value=ov.join||'';
+  g('mae_addr').value=ov.addr||'';
+  g('mae_key').value=a.name;
+  g('m_admedit').classList.add('open');
+}
+g('m_admedit_c').addEventListener('click',function(){g('m_admedit').classList.remove('open');});
+g('m_admedit_cancel').addEventListener('click',function(){g('m_admedit').classList.remove('open');});
+g('m_admedit_save').addEventListener('click',function(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var name=g('mae_key').value;
+  if(!ADMINS.some(function(a){return a.name===name;})){ toast('저장 대상을 찾을 수 없습니다. 창을 닫고 다시 열어주세요.'); return; }
+  var o=Object.assign({},_admOv(name)||{});   // 기존 id/pw 오버라이드 보존
+  o.phone=(g('mae_phone').value||'').trim();
+  o.join=(g('mae_join').value||'').trim();
+  o.addr=(g('mae_addr').value||'').trim();
+  admov[name]=o;
+  // 동시 수정 경합 방지: 해당 이름 키만 서버에 병합 (saveMyProfileAdmin과 동일 패턴)
+  _lsSet('tops_admov', JSON.stringify(admov));
+  var merged=false;
+  try{
+    if(window.FS_DOC && typeof firebase!=='undefined' && firebase.firestore && firebase.firestore.FieldPath){
+      window.FS_DOC.update(new firebase.firestore.FieldPath('admov', name), o)
+        .catch(function(){ try{ sv('tops_admov',admov); }catch(e){} });   // 필드 미존재 등 실패 시 전체 저장 폴백
+      merged=true;
+    }
+  }catch(e){}
+  if(!merged) sv('tops_admov',admov);
+  g('m_admedit').classList.remove('open');
+  rMem();
+  toast('관리자 정보가 저장되었습니다.');
+});
 // 관리자·총무 계정을 구성원 표에 표시할 행으로 변환 (mem에 같은 이름 프로필이 있으면 중복 방지로 제외)
 function _memAdminRows(){
   var names={};
   mem.forEach(function(m){ if(m.name&&m.name.trim()) names[m.name.trim()]=1; });
   return _admList().filter(function(a){ return !names[a.name]; })
-    .map(function(a){ return {code:a.id, name:a.name, rank:a.role}; });
+    .map(function(a){
+      var ov=_admOv(a.name)||{};
+      return {code:a.id, name:a.name, rank:a.role, phone:ov.phone||'', joinDate:ov.join||'', address:ov.addr||''};
+    });
 }
 function rMem(){
   const tb=g('mem_tb');
@@ -3199,10 +3261,10 @@ function rMem(){
       <td style="font-size:16px;font-weight:600;color:#1a1a3a">${a.name}</td>
       <td><span class="rb">${a.rank}</span></td>
       <td style="font-size:15px;color:#3848cc;font-weight:600">-</td>
-      <td style="font-size:15px;color:#444466">-</td>
-      <td style="font-size:15px;color:#6666aa">-</td>
-      <td style="font-size:15px;color:#6666aa">-</td>
-      <td class="ao"><span style="font-size:12px;color:#9a9ac0">관리자</span></td>
+      <td style="font-size:15px;color:#444466">${a.phone||'-'}</td>
+      <td style="font-size:15px;color:#6666aa">${a.joinDate||'-'}</td>
+      <td style="font-size:15px;color:#6666aa">${a.address||'-'}</td>
+      <td class="ao"><button class="be" data-ea="${_esc(a.name)}"><i class="ti ti-edit"></i></button></td>
     </tr>`).join('');
   tb.innerHTML=admHtml+done.map((m,i)=>{
     const realIdx=mem.indexOf(m);
@@ -3217,6 +3279,8 @@ function rMem(){
       <td class="ao"><button class="be" data-ei="${realIdx}"><i class="ti ti-edit"></i></button><button class="bd" data-di="${realIdx}" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
+  // 함정 A: 관리자 행은 인덱스 대신 이름(고유 식별자)으로 식별
+  tb.querySelectorAll('[data-ea]').forEach(b=>b.addEventListener('click',()=>openAdmEdit(b.getAttribute('data-ea'))));
   tb.querySelectorAll('[data-ei]').forEach(b=>b.addEventListener('click',()=>editMem(+b.dataset.ei)));
   tb.querySelectorAll('[data-di]').forEach(b=>b.addEventListener('click',()=>{
     if(confirm('이 구성원의 프로필을 삭제하시겠습니까?\n(코드는 유지됩니다)')){
@@ -3429,11 +3493,11 @@ function rTree(){
     {key:'박지순',   name:'박지순',   role:'BM',  color:'#2050ee', bg:'#eaefff'},
     {key:'임예린',       name:'임예린',       role:'TL',  color:'#0880cc', bg:'#e8f4fc'},
     {key:'방정식',       name:'방정식',       role:'TL',  color:'#0880cc', bg:'#e8f4fc'},
-    {key:'이영현 총무', name:'이영현 총무', role:'총무',color:'#108060', bg:'#e8f8f0'},
+    {key:'이영현', name:'이영현', role:'총무',color:'#108060', bg:'#e8f8f0'},
   ];
   const FIXED_PARENT = {
     '박지순':'백동현','임예린':'백동현',
-    '방정식':'백동현','이영현 총무':'백동현',
+    '방정식':'백동현','이영현':'백동현',
   };
   // 비관리자면 본인 산하 이름 목록으로 필터
   const myTeamForTree = getMyTeam(); // null=전체(관리자), 배열=본인산하
