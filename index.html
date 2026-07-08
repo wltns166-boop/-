@@ -2104,6 +2104,15 @@ let mhx=JSON.parse(localStorage.getItem('tops_mhx')||'[]');
 let clm=JSON.parse(localStorage.getItem('tops_clm')||'[]');
 let wst=JSON.parse(localStorage.getItem('tops_wst')||'[]');
 let dbInfo=JSON.parse(localStorage.getItem('tops_dbInfo')||'[]');
+// DB종류 기본값 — dbInfo가 비어 있을 때 사용. (참조 함수들보다 위에 선언해 TDZ 방지)
+const DB_DEFAULTS = [
+  {kind:'KJ',      price:100000, desc:'KJ DB — 고품질 보험 DB', note:''},
+  {kind:'KS',      price:70000,  desc:'KS DB', note:''},
+  {kind:'동방',    price:100000, desc:'동방 DB', note:''},
+  {kind:'VIP 1차', price:30000,  desc:'VIP 1차 DB', note:''},
+  {kind:'굿데이터',price:80000,  desc:'굿데이터 DB', note:''},
+  {kind:'VIP 간병',price:35000,  desc:'VIP 간병 DB', note:''},
+];
 let consults=JSON.parse(localStorage.getItem('tops_consults')||'[]');
 let wclose=JSON.parse(localStorage.getItem('tops_wclose')||'[]');           // 주마감보고
 let bizplan=JSON.parse(localStorage.getItem('tops_bizplan')||'{"url":"","subs":[]}'); // 사업계획서
@@ -5180,15 +5189,6 @@ function exportDbaExcel(){
 }
 
 // ===== DB 정보 =====
-const DB_DEFAULTS = [
-  {kind:'KJ',      price:100000, desc:'KJ DB — 고품질 보험 DB', note:''},
-  {kind:'KS',      price:70000,  desc:'KS DB', note:''},
-  {kind:'동방',    price:100000, desc:'동방 DB', note:''},
-  {kind:'VIP 1차', price:30000,  desc:'VIP 1차 DB', note:''},
-  {kind:'굿데이터',price:80000,  desc:'굿데이터 DB', note:''},
-  {kind:'VIP 간병',price:35000,  desc:'VIP 간병 DB', note:''},
-];
-
 function rDbInfo(){
   const el=g('db_info_cards');
 
@@ -5578,7 +5578,9 @@ function saveDbInfo(){
   _resetDbInfoForm();
   _renderDbInfoList();
   try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
-  try{ rDba(); rDbs(); }catch(e){ console.warn('요약 갱신 오류:', e); } // 신청/배정현황 요약 카드에 즉시 반영
+  // 신청/배정현황 요약 카드에 즉시 반영 (한쪽이 실패해도 다른쪽은 갱신되게 분리)
+  try{ rDba(); }catch(e){ console.warn('신청현황 갱신 오류:', e); }
+  try{ rDbs(); }catch(e){ console.warn('배정현황 갱신 오류:', e); }
   toast(idx!==''?'수정되었습니다.':'추가되었습니다.');
 }
 
@@ -5590,7 +5592,9 @@ function deleteDbInfo(i){
     _resetDbInfoForm();
     _renderDbInfoList();
     try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
-    try{ rDba(); rDbs(); }catch(e){ console.warn('요약 갱신 오류:', e); } // 신청/배정현황 요약 카드에 즉시 반영
+    // 신청/배정현황 요약 카드에 즉시 반영 (한쪽이 실패해도 다른쪽은 갱신되게 분리)
+  try{ rDba(); }catch(e){ console.warn('신청현황 갱신 오류:', e); }
+  try{ rDbs(); }catch(e){ console.warn('배정현황 갱신 오류:', e); }
     toast('삭제되었습니다.');
   }
 }
