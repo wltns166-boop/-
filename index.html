@@ -3525,11 +3525,12 @@ function rTree(){
   activeMem.forEach(m=>{
     parentMap[m.name] = (m.belong&&m.belong.trim()) ? m.belong : '백동현';
   });
-  // 소속 순환(자기 자신·서로 맞물림) 데이터 방어 — 순환이면 루트 직할로 보정(무한 재귀 방지)
+  // 소속 순환(자기 자신·서로 맞물림) 데이터 방어 — 순환이 닫힌 노드만 루트 직할로 보정(무한 재귀 방지).
+  //   출발점(k0)이 아니라 재방문된 노드(k)를 끊어야 순환에 무관한 상위 체인이 보존된다.
   Object.keys(parentMap).forEach(k0=>{
     const seen={}; let k=k0;
     while(k && parentMap[k] && !seen[k]){ seen[k]=1; k=parentMap[k]; }
-    if(k && seen[k]) parentMap[k0]='백동현';
+    if(k && seen[k]) parentMap[k]='백동현';
   });
 
   // ── 좌우 마인드맵 레이아웃: 중앙 백동현, 왼쪽 박지순 계보, 오른쪽 직할 ──
@@ -3537,7 +3538,8 @@ function rTree(){
   const STEP=BW+GAP_H;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
-  NODES.forEach(n=>{ if(!n.isRoot){ const p=parentMap[n.key]; if(p&&childMap[p]) childMap[p].push(n.key); }});
+  // 부모가 현재 노드 목록에 없으면(퇴사자·옛 이름 등) 루트 직할로 편입 — 미배치로 (60,60)에 겹치는 것 방지
+  NODES.forEach(n=>{ if(!n.isRoot){ let p=parentMap[n.key]; if(!p||!childMap[p]){ p='백동현'; parentMap[n.key]=p; } childMap[p].push(n.key); }});
   const rootCh=childMap['백동현']||[];
   const leftRoots=rootCh.filter(k=>k==='박지순');        // 왼쪽: 박지순 계보
   const rightRoots=rootCh.filter(k=>k!=='박지순');       // 오른쪽: 직할
@@ -3578,7 +3580,8 @@ function rTree(){
   const pos = {};
   NODES.forEach(n=>{
     const sp=savedPos[n.key], ip=initPos[n.key]||{x:PAD,y:PAD};
-    const spOk=sp && isFinite(sp.x) && isFinite(sp.y) && sp.x>=0 && sp.x<=POS_MAX && sp.y>=0 && sp.y<=POS_MAX;
+    // 상한은 드래그 클램프 최대치(canvasW-BW = POS_MAX+PAD)와 일치시켜 정상 드래그 저장이 무효화되지 않게 함
+    const spOk=sp && isFinite(sp.x) && isFinite(sp.y) && sp.x>=0 && sp.x<=POS_MAX+PAD && sp.y>=0 && sp.y<=POS_MAX+PAD;
     pos[n.key] = spOk ? {x:sp.x, y:sp.y} : {x:ip.x, y:ip.y};
   });
   // 저장 위치가 캔버스 밖이면 캔버스를 넓혀 수용 (단, 상한까지만)
