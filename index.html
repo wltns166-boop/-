@@ -2018,6 +2018,18 @@ let cu=null;
   }
 })();
 let mem=JSON.parse(localStorage.getItem('tops_mem'));
+// 관리자 이름 변경 마이그레이션 — 옛 이름으로 저장된 소속(belong)을 새 이름으로 정규화
+//   (메모리 정규화 후 각 로드 지점에서 localStorage에 함께 반영, 클라우드엔 다음 일반 저장 때 자연 반영)
+function _memFixBelong(){
+  try{
+    if(!Array.isArray(mem)) return;
+    Object.keys(_ADM_ALIAS).forEach(function(nw){
+      var old=_ADM_ALIAS[nw];
+      mem.forEach(function(m){ if(m&&m.belong===old) m.belong=nw; });
+    });
+  }catch(e){}
+}
+_memFixBelong();
 // ===== 권한 헬퍼 =====
 function _myRank(){ try{ if(cu&&cu.admin) return 'ADMIN'; var m=(mem||[]).find(function(x){return x&&x.name===(cu&&cu.name);}); return m?m.rank:''; }catch(e){ return ''; } }
 function _isLeader(){ return !!(cu&&cu.admin)||['FA(예비팀장)','TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // 예비팀장·TL 이상(관리자 포함)
@@ -2485,7 +2497,7 @@ async function loadFromFirestore(){
     if(!doc.exists) return false;
     const d = doc.data();
     const map = {mem,not,prf,gls,prm,dba,dbs,ana,mhx,clm,wst,dbInfo,consults};
-    if(d.mem&&d.mem.length)    { mem=d.mem;     try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); } }
+    if(d.mem&&d.mem.length)    { mem=d.mem;     _memFixBelong(); try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); } }
     if(d.not&&d.not.length)    { not=d.not;     try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
     if(d.prf&&d.prf.length)    { prf=d.prf;     try{ localStorage.setItem('tops_prf',JSON.stringify(prf)); }catch(e){ console.warn('localStorage tops_prf 저장 실패:',e); } }
     if(d.gls&&d.gls.length)    { gls=d.gls;     try{ localStorage.setItem('tops_gls',JSON.stringify(gls)); }catch(e){ console.warn('localStorage tops_gls 저장 실패:',e); } }
@@ -2528,7 +2540,7 @@ function startRealtimeSync(){
     if(!doc.exists||!cu) return;
     const d = doc.data();
     let changed = false;
-    if(d.mem)     { mem=d.mem;      try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); }      changed=true; }
+    if(d.mem)     { mem=d.mem;      _memFixBelong(); try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); }      changed=true; }
     if(d.prf)     { prf=d.prf;      try{ localStorage.setItem('tops_prf',JSON.stringify(prf)); }catch(e){ console.warn('localStorage tops_prf 저장 실패:',e); }      changed=true; }
     if(d.gls)     { gls=d.gls;      try{ localStorage.setItem('tops_gls',JSON.stringify(gls)); }catch(e){ console.warn('localStorage tops_gls 저장 실패:',e); }      changed=true; }
     if(d.prm)     { prm=d.prm;      try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); }      changed=true; }
@@ -5615,6 +5627,7 @@ function importData(event){
       keys.forEach(k=>{ if(data[k]!==undefined && data[k]!==null) _lsSet(k, JSON.stringify(data[k])); });
       // 변수 재로드
       mem=JSON.parse(localStorage.getItem('tops_mem')||'[]');
+      _memFixBelong();
       not=JSON.parse(localStorage.getItem('tops_not')||'[]');
       prf=JSON.parse(localStorage.getItem('tops_prf')||'[]');
       gls=JSON.parse(localStorage.getItem('tops_gls')||'[]');
