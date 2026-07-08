@@ -242,6 +242,11 @@ table.dt tr:last-child td{border-bottom:none;}
   .bp{white-space:nowrap;}
   /* 표 셀: 줄바꿈 없이 유지 (넘치면 .card 가로 스크롤로 해결) */
   table.dt th,table.dt td{white-space:nowrap;}
+  /* 페이지 머리의 버튼 그룹(인라인 flex div)도 화면 안에서 줄바꿈 */
+  .sh>div{flex-wrap:wrap;}
+  /* DB 신청/배정현황 요약 카드: 한 줄 강제 대신 2열 그리드 (inline style 오버라이드) */
+  .dba-sum-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+  .dba-sum-grid>div{padding:10px 12px!important;}
   /* 탭 알약 가로 스크롤 */
   .tb{overflow-x:auto;max-width:100%;flex-wrap:nowrap;}
   /* 로그인 박스 */
@@ -4431,7 +4436,7 @@ function _dbaSummaryHTML(){
   });
   if(!ALL_KINDS.length) return '<div style="font-size:13px;color:#8088c0;background:#fff;border-radius:10px;padding:12px">업체관리에서 DB 종류를 등록하면 요약이 표시됩니다.</div>';
   return `
-    <div style="display:grid;grid-template-columns:repeat(${ALL_KINDS.length},minmax(0,1fr));gap:10px;margin-bottom:4px;width:100%">
+    <div class="dba-sum-grid" style="display:grid;grid-template-columns:repeat(${ALL_KINDS.length},minmax(0,1fr));gap:10px;margin-bottom:4px;width:100%">
       ${ALL_KINDS.map(k=>{
         const v=summary[k];
         const hasData=v.qty>0;
