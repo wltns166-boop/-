@@ -3273,9 +3273,9 @@ function rMem(){
       <td style="font-size:16px;font-weight:600;color:#1a1a3a">${a.name}</td>
       <td><span class="rb">${a.rank}</span></td>
       <td style="font-size:15px;color:#3848cc;font-weight:600">-</td>
-      <td style="font-size:15px;color:#444466">${a.phone||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${a.joinDate||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${a.address||'-'}</td>
+      <td style="font-size:15px;color:#444466">${_esc(a.phone)||'-'}</td>
+      <td style="font-size:15px;color:#6666aa">${_esc(a.joinDate)||'-'}</td>
+      <td style="font-size:15px;color:#6666aa">${_esc(a.address)||'-'}</td>
       <td class="ao"><button class="be" data-ea="${_esc(a.name)}"><i class="ti ti-edit"></i></button></td>
     </tr>`).join('');
   tb.innerHTML=admHtml+done.map((m,i)=>{
@@ -4912,7 +4912,8 @@ function rAlerts(){
   var my=(Array.isArray(nalerts)?nalerts:[]).filter(function(a){
     if(!a) return false;
     var matchRole=a.toRole && cu.role && a.toRole===cu.role;
-    var matchName=a.toName && cu.name && a.toName===cu.name;
+    var matchName=a.toName && cu.name && (a.toName===cu.name || a.toName===_ADM_ALIAS[cu.name]);   // 옛 이름 앞으로 온 알림도 수신
+
     if(!matchRole && !matchName) return false;
     if(a.deliverAt && a.deliverAt>_now) return false;   // 지연 알림: 노출 시각 전엔 숨김
     return true;
