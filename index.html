@@ -1091,6 +1091,7 @@ table.dt tr:last-child td{border-bottom:none;}
           <div id="trip_cal"></div>
         </div>
         <div class="card" style="flex:1;min-width:340px;overflow-x:auto">
+          <div id="trip_month_lbl" style="font-weight:700;font-size:15px;color:#2a2a5a;margin-bottom:8px"></div>
           <table class="dt"><thead><tr><th>신청일</th><th>신청인</th><th>기간</th><th>출장 사유</th><th>장소</th><th>관리</th></tr></thead><tbody id="trip_tb"></tbody></table>
         </div>
       </div>
@@ -5232,12 +5233,18 @@ function _rTripCal(visible){
 }
 function rTrip(){
   var tb=g('trip_tb'); if(!tb) return;
+  if(window._tripCalY==null){ var n=new Date(); window._tripCalY=n.getFullYear(); window._tripCalM=n.getMonth(); }
   // 가시성: 관리자=전체(null), 팀장·예비팀장=본인+하부 인원(belong 재귀), 팀원=본인만
   var myTeam=getMyTeam();
   var visible = myTeam===null ? trips : trips.filter(function(t){ return myTeam.indexOf(t.m)>=0; });
   _rTripCal(visible);
-  if(!visible.length){ tb.innerHTML='<tr><td colspan="6" class="em">출장 신청 내역이 없습니다.</td></tr>'; return; }
-  tb.innerHTML=visible.slice().reverse().map(function(t){
+  // 월별 보기 — 캘린더에 표시된 달의 신청만 리스트에 표시 (출장 일시 t.when 기준, ‹› 로 월 이동)
+  var viewYm=window._tripCalY+'-'+String(window._tripCalM+1).padStart(2,'0');
+  var lbl=g('trip_month_lbl');
+  if(lbl) lbl.textContent=window._tripCalY+'년 '+(window._tripCalM+1)+'월 출장 신청 내역';
+  var monthly=visible.filter(function(t){ return String(t.when||'').slice(0,7)===viewYm; });
+  if(!monthly.length){ tb.innerHTML='<tr><td colspan="6" class="em">해당 월 출장 신청이 없습니다.</td></tr>'; return; }
+  tb.innerHTML=monthly.slice().reverse().map(function(t){
     var i=trips.indexOf(t); // 원본 인덱스 — 객체 참조로 재탐색 (함정 A 안전)
     var canDel=(cu&&cu.admin)||(cu&&cu.name===t.m); // 삭제: 관리자 또는 본인
     // 확인: 관리자 또는 상급자(가시 목록에서 본인이 아닌 행 = 하부 인원의 신청)
