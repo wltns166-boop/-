@@ -1976,9 +1976,9 @@ function rSchedulePage(){
 
 // ADMIN ACCOUNTS
 const ADMINS = [
-  {id:'0001', pw:'3399', name:'백동현',   role:'BM'},
+  {id:'2331535', pw:'3399', name:'백동현',   role:'BM'},
   {id:'2331538', pw:'3399', name:'박지순',   role:'BM'},
-  {id:'0003', pw:'3399', name:'이영현 총무', role:'총무'},
+  {id:'2331536', pw:'3399', name:'이영현 총무', role:'총무'},
 ];
 // 관리자 계정 오버라이드 — 개인정보수정에서 바꾼 아이디(코드)/비밀번호를 이름 키로 저장(동기화됨).
 //   로그인·검증은 항상 _admList()(기본값+오버라이드 병합)를 사용한다.
@@ -3169,6 +3169,13 @@ function rRankCnt(){
 }
 
 // MEMBERS
+// 관리자·총무 계정을 구성원 표에 표시할 행으로 변환 (mem에 같은 이름 프로필이 있으면 중복 방지로 제외)
+function _memAdminRows(){
+  var names={};
+  mem.forEach(function(m){ if(m.name&&m.name.trim()) names[m.name.trim()]=1; });
+  return _admList().filter(function(a){ return !names[a.name]; })
+    .map(function(a){ return {code:a.id, name:a.name, rank:a.role}; });
+}
 function rMem(){
   const tb=g('mem_tb');
   // 프로필 완료된 팀원만 표시 (팀원은 산하만)
@@ -3178,13 +3185,26 @@ function rMem(){
     if(myTeam===null) return true; // 관리자: 전체
     return myTeam.includes(m.name);
   }).sort((a,b)=>(+a.code||0)-(+b.code||0));
-  const mc=g('mem_count'); if(mc) mc.textContent=done.length;
-  const tc=g('mem_tab_all_cnt'); if(tc) tc.textContent=done.length?('('+done.length+'명)'):'';   // 탭 라벨 옆 인원수
-  if(!done.length){
+  // 관리자·총무는 전체 인원(관리자 화면)에서만 함께 표시
+  const admRows = (myTeam===null) ? _memAdminRows() : [];
+  const total = admRows.length + done.length;
+  const mc=g('mem_count'); if(mc) mc.textContent=total;
+  const tc=g('mem_tab_all_cnt'); if(tc) tc.textContent=total?('('+total+'명)'):'';   // 탭 라벨 옆 인원수
+  if(!total){
     tb.innerHTML='<tr><td colspan="7" class="em" style="color:#aaaacc;padding:40px">등록된 구성원이 없습니다.<br><span style="font-size:14px;margin-top:6px;display:block">코드생성 버튼으로 팀원을 추가하세요.</span></td></tr>';
     return;
   }
-  tb.innerHTML=done.map((m,i)=>{
+  const admHtml=admRows.map(a=>`<tr style="background:rgba(72,88,204,.05)">
+      <td style="font-weight:700;color:#4858cc;font-size:15px">${a.code}</td>
+      <td style="font-size:16px;font-weight:600;color:#1a1a3a">${a.name}</td>
+      <td><span class="rb">${a.rank}</span></td>
+      <td style="font-size:15px;color:#3848cc;font-weight:600">-</td>
+      <td style="font-size:15px;color:#444466">-</td>
+      <td style="font-size:15px;color:#6666aa">-</td>
+      <td style="font-size:15px;color:#6666aa">-</td>
+      <td class="ao"><span style="font-size:12px;color:#9a9ac0">관리자</span></td>
+    </tr>`).join('');
+  tb.innerHTML=admHtml+done.map((m,i)=>{
     const realIdx=mem.indexOf(m);
     return `<tr>
       <td style="font-weight:700;color:#4858cc;font-size:15px">${m.code||m.lid}</td>
@@ -4924,7 +4944,10 @@ function createCustomCode(){
 
 // ===== 구성원 명단 내보내기 (엑셀/PDF) =====
 function _memExportRows(){
-  return mem.filter(function(m){return m.name&&m.name.trim();}).sort(function(a,b){return (+a.code||0)-(+b.code||0);});
+  // 표시 화면(rMem)과 동일하게 관리자·총무를 맨 위에 포함
+  return _memAdminRows().concat(
+    mem.filter(function(m){return m.name&&m.name.trim();}).sort(function(a,b){return (+a.code||0)-(+b.code||0);})
+  );
 }
 function exportMemExcel(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
