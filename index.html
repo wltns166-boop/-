@@ -5210,16 +5210,26 @@ function rTrip(){
   });
 }
 function openTripReq(){
-  fillSel('trip_mem');
   var sel=g('trip_mem');
+  // 신청인 선택 범위: 관리자=전체, 팀장·예비팀장=본인+하부 인원(대리 신청 가능), 팀원=본인 고정
+  var myTeam=getMyTeam(); // null=관리자(전체)
+  if(myTeam===null){
+    fillSel('trip_mem');
+  }else{
+    sel.innerHTML=myTeam.map(function(n){
+      var mm=null;
+      for(var j=0;j<mem.length;j++){ if(mem[j].name===n){ mm=mem[j]; break; } }
+      return '<option value="'+_esc(n)+'">'+_esc(n)+(mm&&(mm.rank||mm.code)?' ('+_esc(mm.rank||mm.code)+')':'')+'</option>';
+    }).join('');
+  }
   // 본인 이름 자동 선택 (목록에 없으면 맨 앞에 추가)
   if(cu&&cu.name){
     var found=false;
     for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===cu.name){ sel.selectedIndex=i; found=true; break; } }
     if(!found){ var opt=document.createElement('option'); opt.value=cu.name; opt.textContent=cu.name; sel.insertBefore(opt,sel.firstChild); sel.selectedIndex=0; }
   }
-  // 관리자가 아니면 신청인 변경 불가(본인 고정)
-  sel.disabled=!(cu&&cu.admin);
+  // 선택지가 본인뿐이면 잠금(하부 인원 없는 팀원)
+  sel.disabled=!(myTeam===null || (myTeam&&myTeam.length>1));
   sel.style.opacity=sel.disabled?'.7':'';
   g('trip_when').value=''; g('trip_reason').value=''; g('trip_place').value='';
   g('m_trip').classList.add('open');
