@@ -1079,7 +1079,14 @@ table.dt tr:last-child td{border-bottom:none;}
           <button class="bp" onclick="openTripReq()" style="background:rgba(30,130,80,.2);border-color:rgba(50,180,100,.3);color:#30cc80"><i class="ti ti-send"></i> 신청</button>
         </div>
       </div>
-      <div class="card"><table class="dt"><thead><tr><th>신청일</th><th>신청인</th><th>기간</th><th>출장 사유</th><th>장소</th><th>관리</th></tr></thead><tbody id="trip_tb"></tbody></table></div>
+      <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div class="card" style="flex:0 0 380px;min-width:300px;max-width:100%">
+          <div id="trip_cal"></div>
+        </div>
+        <div class="card" style="flex:1;min-width:340px;overflow-x:auto">
+          <table class="dt"><thead><tr><th>신청일</th><th>신청인</th><th>기간</th><th>출장 사유</th><th>장소</th><th>관리</th></tr></thead><tbody id="trip_tb"></tbody></table>
+        </div>
+      </div>
     </div>
 
     <!-- 팀실적 -->
@@ -5185,27 +5192,72 @@ function _tripFmt(v){
   if(!m) return v?String(v):'-';
   return m[2]+'월 '+m[3]+'일 '+m[4]+'시 '+m[5]+'분';
 }
+// 출장 캘린더 월 이동
+function tripCalNav(d){
+  var m=(window._tripCalM==null?new Date().getMonth():window._tripCalM)+d;
+  var y=(window._tripCalY==null?new Date().getFullYear():window._tripCalY);
+  if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+  window._tripCalM=m; window._tripCalY=y; rTrip();
+}
+// 출장 캘린더 (페이지 좌측) — 확인됨=초록, 대기=파랑
+function _rTripCal(visible){
+  var el=g('trip_cal'); if(!el) return;
+  if(window._tripCalY==null){ var n=new Date(); window._tripCalY=n.getFullYear(); window._tripCalM=n.getMonth(); }
+  var y=window._tripCalY, mo=window._tripCalM;
+  var today=new Date(), fd=new Date(y,mo,1).getDay(), days=new Date(y,mo+1,0).getDate();
+  var byDate={};
+  visible.forEach(function(t){ var d=String(t.when||'').slice(0,10); (byDate[d]=byDate[d]||[]).push(t); });
+  var h='<div class="cn"><button onclick="tripCalNav(-1)">‹</button><span>'+y+'년 '+(mo+1)+'월</span><button onclick="tripCalNav(1)">›</button></div>';
+  h+='<div class="cg"><div class="ch">일</div><div class="ch">월</div><div class="ch">화</div><div class="ch">수</div><div class="ch">목</div><div class="ch">금</div><div class="ch">토</div>';
+  for(var i=0;i<fd;i++) h+='<div class="cd"></div>';
+  for(var d=1;d<=days;d++){
+    var ds=y+'-'+String(mo+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var evs=byDate[ds]||[];
+    var isToday=(d===today.getDate()&&mo===today.getMonth()&&y===today.getFullYear());
+    var evHtml=evs.map(function(t){
+      var hm=String(t.when||'').slice(11,16);
+      var col=t.okBy?'#18a050':'#2a3aaa', bg=t.okBy?'rgba(30,160,80,.14)':'rgba(80,100,220,.16)';
+      return '<div style="font-size:11px;background:'+bg+';color:'+col+';border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||''))+'">'+_esc(t.m||'')+'</div>';
+    }).join('');
+    h+='<div class="cd'+(isToday?' td':'')+'"'+(evs.length?' style="background:rgba(80,100,220,.05)"':'')+'>'+d+evHtml+'</div>';
+  }
+  el.innerHTML=h+'</div>';
+}
 function rTrip(){
   var tb=g('trip_tb'); if(!tb) return;
   // 가시성: 관리자=전체(null), 팀장·예비팀장=본인+하부 인원(belong 재귀), 팀원=본인만
   var myTeam=getMyTeam();
   var visible = myTeam===null ? trips : trips.filter(function(t){ return myTeam.indexOf(t.m)>=0; });
+  _rTripCal(visible);
   if(!visible.length){ tb.innerHTML='<tr><td colspan="6" class="em">출장 신청 내역이 없습니다.</td></tr>'; return; }
   tb.innerHTML=visible.slice().reverse().map(function(t){
     var i=trips.indexOf(t); // 원본 인덱스 — 객체 참조로 재탐색 (함정 A 안전)
     var canDel=(cu&&cu.admin)||(cu&&cu.name===t.m); // 삭제: 관리자 또는 본인
+    // 확인: 관리자 또는 상급자(가시 목록에서 본인이 아닌 행 = 하부 인원의 신청)
+    var canOk=(cu&&cu.admin)||(myTeam!==null&&cu&&t.m!==cu.name);
+    var okHtml = t.okBy
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#18a050;font-weight:700;white-space:nowrap'+(canOk?';cursor:pointer':'')+'"'+(canOk?' data-tripok="'+i+'" title="누르면 확인 취소"':'')+'><i class="ti ti-circle-check"></i>확인('+_esc(t.okBy)+')</span>'
+      : (canOk?'<button data-tripok="'+i+'" style="padding:4px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-check"></i> 확인</button>':'');
     return '<tr>'
       +'<td>'+_esc(t.dt||'-')+'</td>'
       +'<td style="font-weight:600">'+_esc(t.m||'-')+'</td>'
       +'<td style="color:#2040cc;font-weight:600">'+_esc(_tripFmt(t.when))+'</td>'
       +'<td style="color:#444">'+_esc(t.reason||'-')+'</td>'
       +'<td style="color:#444">'+_esc(t.place||'-')+'</td>'
-      +'<td>'+(canDel?'<button class="bd" data-tripi="'+i+'"><i class="ti ti-trash"></i></button>':'')+'</td>'
+      +'<td><div style="display:flex;gap:6px;align-items:center">'+okHtml+(canDel?'<button class="bd" data-tripi="'+i+'"><i class="ti ti-trash"></i></button>':'')+'</div></td>'
     +'</tr>';
   }).join('');
   tb.querySelectorAll('[data-tripi]').forEach(function(b){
     b.addEventListener('click',function(){
       if(confirm('출장 신청을 삭제하시겠습니까?')){ trips.splice(+b.dataset.tripi,1); sv('tops_trips',trips); rTrip(); }
+    });
+  });
+  tb.querySelectorAll('[data-tripok]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var i=+b.getAttribute('data-tripok'); var t=trips[i]; if(!t) return;
+      if(t.okBy){ if(!confirm('확인을 취소하시겠습니까?')) return; delete t.okBy; delete t.okDt; }
+      else { t.okBy=(cu&&cu.name)||''; t.okDt=td(); }
+      sv('tops_trips',trips); rTrip();
     });
   });
 }
