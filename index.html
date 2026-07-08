@@ -330,6 +330,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="ns"><div class="ni" id="n_wclose">주마감보고</div></div>
       <div class="ns"><div class="ni" id="n_bizplan">사업계획서</div></div>
       <div class="ns"><div class="ni" id="n_expect">예상계약건 계산</div></div>
+      <div class="ns"><div class="ni" id="n_trip">출장보고</div></div>
     </div>
 
     <div class="ni" id="n_perf"><i class="ti ti-chart-bar"></i>실적관리<i class="ti ti-chevron-down nc" id="nc_perf"></i></div>
@@ -1070,6 +1071,17 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
 
+    <!-- 출장보고 -->
+    <div class="pg" id="pg_trip">
+      <div class="sh">
+        <div class="st"><i class="ti ti-plane"></i>출장보고</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="bp" onclick="openTripReq()" style="background:rgba(30,130,80,.2);border-color:rgba(50,180,100,.3);color:#30cc80"><i class="ti ti-send"></i> 신청</button>
+        </div>
+      </div>
+      <div class="card"><table class="dt"><thead><tr><th>신청일</th><th>신청인</th><th>기간</th><th>출장 사유</th><th>장소</th><th>관리</th></tr></thead><tbody id="trip_tb"></tbody></table></div>
+    </div>
+
     <!-- 팀실적 -->
     <div class="pg" id="pg_team_perf">
       <div class="sh"><div class="st"><i class="ti ti-chart-bar"></i>팀실적</div></div>
@@ -1463,6 +1475,19 @@ table.dt tr:last-child td{border-bottom:none;}
   <div class="mf">
     <button class="bca" onclick="g('m_dbreq').classList.remove('open')">취소</button>
     <button class="bco" id="m_dbreq_save">신청</button>
+  </div>
+</div></div>
+
+<!-- 출장 신청 모달 -->
+<div class="mb" id="m_trip"><div class="mo">
+  <div class="mth"><span>출장 신청</span><span class="mc" onclick="g('m_trip').classList.remove('open')">×</span></div>
+  <div class="fg"><div class="fl">신청인</div><select class="fs" id="trip_mem"></select></div>
+  <div class="fg"><div class="fl">기간 (00월 00일 00시 00분)</div><input class="fi" type="datetime-local" id="trip_when" style="color-scheme:dark"></div>
+  <div class="fg"><div class="fl">출장 사유</div><input class="fi" id="trip_reason" placeholder="출장 사유를 입력하세요"></div>
+  <div class="fg"><div class="fl">장소</div><input class="fi" id="trip_place" placeholder="출장 장소를 입력하세요"></div>
+  <div class="mf">
+    <button class="bca" onclick="g('m_trip').classList.remove('open')">취소</button>
+    <button class="bco" onclick="submitTrip()">신청</button>
   </div>
 </div></div>
 
@@ -2117,6 +2142,7 @@ let consults=JSON.parse(localStorage.getItem('tops_consults')||'[]');
 let wclose=JSON.parse(localStorage.getItem('tops_wclose')||'[]');           // 주마감보고
 let bizplan=JSON.parse(localStorage.getItem('tops_bizplan')||'{"url":"","subs":[]}'); // 사업계획서
 let expects=JSON.parse(localStorage.getItem('tops_expects')||'[]');         // 예상계약건
+let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // 출장보고
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
@@ -2527,6 +2553,7 @@ async function loadFromFirestore(){
     if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; try{ localStorage.setItem('tops_admov',JSON.stringify(admov)); }catch(e){} }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
+    if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
@@ -2566,6 +2593,7 @@ function startRealtimeSync(){
     if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; try{ localStorage.setItem('tops_admov',JSON.stringify(admov)); }catch(e){} }
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
+    if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
@@ -2581,6 +2609,7 @@ function startRealtimeSync(){
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
         db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,wm:rWm,
+        trip:(typeof rTrip==='function'?rTrip:null),
         cust_apply:(typeof rCustList==='function'?rCustList:null),
         cust_status:(typeof rCustStatus==='function'?rCustStatus:null),
         claim_apply:(typeof rClaimApply==='function'?rClaimApply:null),
@@ -3065,6 +3094,7 @@ g('n_meeting').addEventListener('click',function(){showPage('meeting');});
 g('n_wclose').addEventListener('click',function(){showPage('wclose');});
 g('n_bizplan').addEventListener('click',function(){showPage('bizplan');});
 g('n_expect').addEventListener('click',function(){showPage('expect');});
+g('n_trip').addEventListener('click',function(){showPage('trip');});
 g('n_perf').addEventListener('click',function(){tnav('perf');});
 g('n_pc').addEventListener('click',function(){showPage('pc');});
 g('n_team_perf').addEventListener('click',function(){showPage('team_perf');});
@@ -3101,7 +3131,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   cust_apply:'고객등록 및 신청',cust_status:'고객등록 현황',
   prom:'진급평가',
   exam:'시험신청',meeting:'팀 미팅',
-  wclose:'주마감보고',bizplan:'사업계획서',expect:'예상계약건 계산',
+  wclose:'주마감보고',bizplan:'사업계획서',expect:'예상계약건 계산',trip:'출장보고',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
@@ -3122,7 +3152,7 @@ function showPage(name){
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -5146,6 +5176,65 @@ async function exportMemPdf(){
     setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
     toast('구성원 명단 PDF가 저장되었습니다.');
   }catch(e){ toast('PDF 저장 실패: '+((e&&e.message)||e)); }
+}
+
+// ===== 출장보고 =====
+// "2026-07-15T14:30" → "07월 15일 14시 30분"
+function _tripFmt(v){
+  var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) return v?String(v):'-';
+  return m[2]+'월 '+m[3]+'일 '+m[4]+'시 '+m[5]+'분';
+}
+function rTrip(){
+  var tb=g('trip_tb'); if(!tb) return;
+  // 가시성: 관리자=전체(null), 팀장·예비팀장=본인+하부 인원(belong 재귀), 팀원=본인만
+  var myTeam=getMyTeam();
+  var visible = myTeam===null ? trips : trips.filter(function(t){ return myTeam.indexOf(t.m)>=0; });
+  if(!visible.length){ tb.innerHTML='<tr><td colspan="6" class="em">출장 신청 내역이 없습니다.</td></tr>'; return; }
+  tb.innerHTML=visible.slice().reverse().map(function(t){
+    var i=trips.indexOf(t); // 원본 인덱스 — 객체 참조로 재탐색 (함정 A 안전)
+    var canDel=(cu&&cu.admin)||(cu&&cu.name===t.m); // 삭제: 관리자 또는 본인
+    return '<tr>'
+      +'<td>'+_esc(t.dt||'-')+'</td>'
+      +'<td style="font-weight:600">'+_esc(t.m||'-')+'</td>'
+      +'<td style="color:#2040cc;font-weight:600">'+_esc(_tripFmt(t.when))+'</td>'
+      +'<td style="color:#444">'+_esc(t.reason||'-')+'</td>'
+      +'<td style="color:#444">'+_esc(t.place||'-')+'</td>'
+      +'<td>'+(canDel?'<button class="bd" data-tripi="'+i+'"><i class="ti ti-trash"></i></button>':'')+'</td>'
+    +'</tr>';
+  }).join('');
+  tb.querySelectorAll('[data-tripi]').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(confirm('출장 신청을 삭제하시겠습니까?')){ trips.splice(+b.dataset.tripi,1); sv('tops_trips',trips); rTrip(); }
+    });
+  });
+}
+function openTripReq(){
+  fillSel('trip_mem');
+  var sel=g('trip_mem');
+  // 본인 이름 자동 선택 (목록에 없으면 맨 앞에 추가)
+  if(cu&&cu.name){
+    var found=false;
+    for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===cu.name){ sel.selectedIndex=i; found=true; break; } }
+    if(!found){ var opt=document.createElement('option'); opt.value=cu.name; opt.textContent=cu.name; sel.insertBefore(opt,sel.firstChild); sel.selectedIndex=0; }
+  }
+  // 관리자가 아니면 신청인 변경 불가(본인 고정)
+  sel.disabled=!(cu&&cu.admin);
+  sel.style.opacity=sel.disabled?'.7':'';
+  g('trip_when').value=''; g('trip_reason').value=''; g('trip_place').value='';
+  g('m_trip').classList.add('open');
+}
+function submitTrip(){
+  var when=g('trip_when').value;
+  var reason=(g('trip_reason').value||'').trim();
+  var place=(g('trip_place').value||'').trim();
+  if(!when){ toast('기간(일시)을 선택하세요.'); return; }
+  if(!reason){ toast('출장 사유를 입력하세요.'); return; }
+  if(!place){ toast('장소를 입력하세요.'); return; }
+  trips.push({ m:g('trip_mem').value, when:when, reason:reason, place:place, dt:td(), ts:Date.now() });
+  sv('tops_trips',trips);
+  g('m_trip').classList.remove('open');
+  rTrip(); toast('출장 신청이 접수되었습니다.');
 }
 
 // ===== DB 신청현황 엑셀 다운로드 =====
