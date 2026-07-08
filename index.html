@@ -4339,8 +4339,13 @@ g('m_prom_save').addEventListener('click',()=>{
 // DB
 // DB종류별 요약 카드 HTML — 신청현황(dba) 기준. 신청현황·배정현황 페이지 공용.
 function _dbaSummaryHTML(){
-  // 모든 DB종류 항상 표시 (수량 0 포함)
-  const ALL_KINDS = ['KJ','KS','동방','VIP 1차','굿데이터','VIP 간병'];
+  // 표시할 DB종류: 업체관리(dbInfo) 등록 목록 기준 (없으면 기본값). 수량 0도 항상 표시.
+  // 같은 이름이 중복 등록돼 있으면 카드 1개로 합치고, 업체 삭제 등으로 목록에 없지만
+  // 신청 데이터에 남아 있는 종류도 누락 없이 뒤에 붙인다.
+  const srcList=(Array.isArray(dbInfo)&&dbInfo.length)?dbInfo:DB_DEFAULTS;
+  const ALL_KINDS=[];
+  srcList.forEach(d=>{ const k=(d&&d.kind!=null)?String(d.kind).trim():''; if(k&&ALL_KINDS.indexOf(k)<0) ALL_KINDS.push(k); });
+  dba.forEach(d=>{ const k=(d&&d.k!=null)?String(d.k).trim():''; if(k&&ALL_KINDS.indexOf(k)<0) ALL_KINDS.push(k); });
   const ALL_REGIONS = ['수도권','충청도','경상도','강원도','전라도'];
   // DB종류별 전체 + 지역별 집계
   const summary={};
@@ -4351,13 +4356,14 @@ function _dbaSummaryHTML(){
     ALL_REGIONS.forEach(r=>{ regionSummary[k][r]=0; });
   });
   dba.forEach(d=>{
-    if(!summary[d.k])summary[d.k]={qty:0,total:0};
-    summary[d.k].qty+=+d.q||0;
-    summary[d.k].total+=+d.total||0;
-    if(!regionSummary[d.k])regionSummary[d.k]={};
+    const k=(d&&d.k!=null)?String(d.k).trim():'';
+    if(!summary[k])return; // 종류 미입력 레코드만 건너뜀 (나머지는 ALL_KINDS에 전부 포함됨)
+    summary[k].qty+=+d.q||0;
+    summary[k].total+=+d.total||0;
     const r=d.region||'기타';
-    regionSummary[d.k][r]=(regionSummary[d.k][r]||0)+(+d.q||0);
+    regionSummary[k][r]=(regionSummary[k][r]||0)+(+d.q||0);
   });
+  if(!ALL_KINDS.length) return '<div style="font-size:13px;color:#8088c0;background:#fff;border-radius:10px;padding:12px">업체관리에서 DB 종류를 등록하면 요약이 표시됩니다.</div>';
   return `
     <div style="display:grid;grid-template-columns:repeat(${ALL_KINDS.length},minmax(0,1fr));gap:10px;margin-bottom:4px;width:100%">
       ${ALL_KINDS.map(k=>{
@@ -4371,7 +4377,7 @@ function _dbaSummaryHTML(){
             <span style="font-weight:600;color:#2040aa">${rMap[r].toLocaleString()}건</span>
           </div>`).join('');
         return `<div style="background:#fff;border:1px solid ${hasData?'rgba(40,100,220,.2)':'rgba(180,180,220,.2)'};border-radius:10px;padding:12px;box-shadow:0 2px 8px rgba(0,0,80,.05);min-width:0">
-          <div style="font-size:14px;font-weight:700;color:${hasData?'#3848cc':'#9090bb'};margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${k}</div>
+          <div style="font-size:14px;font-weight:700;color:${hasData?'#3848cc':'#9090bb'};margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(k)}</div>
           ${hasData && regionRows ? `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(80,100,220,.08)">${regionRows}</div>` : ''}
           <div style="display:flex;justify-content:space-between;font-size:13px;color:#333;margin-bottom:3px">
             <span>총 수량</span><strong style="color:${hasData?'#1a1a8a':'#aaaacc'}">${v.qty.toLocaleString()}건</strong>
@@ -5572,6 +5578,7 @@ function saveDbInfo(){
   _resetDbInfoForm();
   _renderDbInfoList();
   try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
+  try{ rDba(); rDbs(); }catch(e){ console.warn('요약 갱신 오류:', e); } // 신청/배정현황 요약 카드에 즉시 반영
   toast(idx!==''?'수정되었습니다.':'추가되었습니다.');
 }
 
@@ -5583,6 +5590,7 @@ function deleteDbInfo(i){
     _resetDbInfoForm();
     _renderDbInfoList();
     try{ rDbInfo(); }catch(e){ console.warn('rDbInfo 오류:', e); }
+    try{ rDba(); rDbs(); }catch(e){ console.warn('요약 갱신 오류:', e); } // 신청/배정현황 요약 카드에 즉시 반영
     toast('삭제되었습니다.');
   }
 }
