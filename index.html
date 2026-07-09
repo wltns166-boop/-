@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-9</div>
   </div>
 </div>
 
@@ -8664,6 +8664,8 @@ function _custBirthGender(rrn){
   return {birth:pre+y+'.'+m+'.'+d, gender:gender};
 }
 function _maskRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(rrn.length<7) return rrn||'-'; return rrn.slice(0,6)+'-'+rrn[6]+'••••••'; }
+// 주민번호 전체 표시(하이픈 정리) — 고객정보 모달용. 모달 자체가 총무·담당자만 열람 가능.
+function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) return '-'; return rrn.length>6 ? rrn.slice(0,6)+'-'+rrn.slice(6) : rrn; }
 // 요청명(예: "홍길동" 또는 "철수 (홍길동님 자녀)")으로 custs에서 고객/가족 찾기
 function _findCustByReqName(reqName){
   // 클라우드에서 받은 최신 사본(window._custs) 우선 — rCustList와 동일 패턴.
@@ -8710,7 +8712,7 @@ function openCustInfo(reqName){
   if(fm) row('관계', c.name+'님 '+(fm.rel||'가족'));
   row('생년월일', bg.birth);
   row('성별', bg.gender);
-  if(who.rrn) row('주민번호', _maskRrn(who.rrn));
+  if(who.rrn) row('주민번호', _fullRrn(who.rrn));
   row('연락처', who.phone);
   row('통신사', who.carrier);
   row('지역', who.region);
