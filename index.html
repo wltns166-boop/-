@@ -1765,7 +1765,8 @@ function rSchedulePage(){
   </div>
   <div class="fr">
     <div class="fg"><div class="fl">영업시작일</div><input class="fi" type="date" id="mm_salesstart"></div>
-    <div class="fg"><div class="fl">&nbsp;</div></div>
+    <!-- 근무형태: 관리자에게만 표시(editMem에서 토글) -->
+    <div class="fg" id="mm_worktype_wrap" style="display:none"><div class="fl">근무형태</div><select class="fs" id="mm_worktype"><option value="">선택</option><option>전업</option><option>부업</option></select></div>
   </div>
   <div class="fg"><div class="fl">집주소</div><input class="fi" id="mm_addr" placeholder="주소를 입력하세요"></div>
   <div class="fg"><div class="fl">소속</div><select class="fs" id="mm_belong"><option value="">선택 안함</option></select></div>
@@ -3450,7 +3451,7 @@ function rMem(){
   tb.querySelectorAll('[data-di]').forEach(b=>b.addEventListener('click',()=>{
     if(confirm('이 구성원의 프로필을 삭제하시겠습니까?\n(코드는 유지됩니다)')){
       const idx=+b.dataset.di;
-      mem[idx].name='';mem[idx].rank='';mem[idx].phone='';mem[idx].joinDate='';mem[idx].address='';mem[idx].belong='';
+      mem[idx].name='';mem[idx].rank='';mem[idx].phone='';mem[idx].joinDate='';mem[idx].address='';mem[idx].belong='';mem[idx].workType='';
       sv('tops_mem',mem);rMem();toast('프로필이 삭제되었습니다.');
     }
   }));
@@ -3604,6 +3605,7 @@ g('m_mem_save').addEventListener('click',()=>{
   mem[idx].phone=g('mm_phone').value;
   mem[idx].joinDate=g('mm_join').value;
   mem[idx].salesStart=g('mm_salesstart').value;   // 영업시작일(루키 대상 판정 기준)
+  mem[idx].workType=(g('mm_worktype')?g('mm_worktype').value:'')||'';   // 근무형태(전업/부업, 관리자 전용 입력)
   mem[idx].address=g('mm_addr').value;
   mem[idx].belong=g('mm_belong').value;
   if(pw) mem[idx].lpw=pw;
@@ -3622,6 +3624,10 @@ function editMem(i){
   g('mm_phone').value=m.phone||'';
   g('mm_join').value=m.joinDate||'';
   g('mm_salesstart').value=m.salesStart||'';
+  // 근무형태(전업/부업)는 관리자에게만 표시
+  var wtw=g('mm_worktype_wrap');
+  if(wtw) wtw.style.display=_isAdmin()?'':'none';
+  if(g('mm_worktype')) g('mm_worktype').value=m.workType||'';
   g('mm_addr').value=m.address||'';
   g('mm_pw').value='';
   // 함정 A: 인덱스 대신 코드(고유 식별자) 저장 — 모달이 열린 사이 실시간 동기화로
