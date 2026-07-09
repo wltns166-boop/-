@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-4</div>
   </div>
 </div>
 
@@ -3542,8 +3542,11 @@ function rMemTeam(){
   var visible=_memVisible();
   if(!visible.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">등록된 구성원이 없습니다.</div></div>'; return; }
   var LEAD=['FA(예비팀장)','TL','BM','SBM','RM','SRM'];
-  var leaders=visible.filter(function(m){return LEAD.indexOf(m.rank)>=0;})
-    .sort(function(a,b){return (LEAD.indexOf(b.rank)-LEAD.indexOf(a.rank))||((+a.code||0)-(+b.code||0));});
+  // 카드 대상: 리더 직급 또는 직속 산하가 있는 인원
+  //   (FA라도 밑에 인원이 있으면 카드 생성 — 산하의 산하가 누락되지 않게)
+  var leaders=visible.filter(function(m){
+    return LEAD.indexOf(m.rank)>=0 || visible.some(function(x){return x.belong===m.name;});
+  }).sort(function(a,b){return (LEAD.indexOf(b.rank)-LEAD.indexOf(a.rank))||((+a.code||0)-(+b.code||0));});
   if(!leaders.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">리더(예비팀장 이상) 구성원이 없습니다.</div></div>'; return; }
   el.innerHTML=leaders.map(function(L){
     var subs=visible.filter(function(m){return m.belong===L.name;});
