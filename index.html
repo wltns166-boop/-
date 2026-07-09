@@ -167,8 +167,9 @@ table.dt tr:last-child td{border-bottom:none;}
 .mc{cursor:pointer;color:#383870;font-size:22px;}
 .mc:hover{color:#8888cc;}
 .mf{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
-.bco{padding:9px 19px;background:rgba(50,70,200,.2);border:1px solid rgba(70,90,220,.3);border-radius:8px;color:#a8b0d8;font-size:15px;cursor:pointer;font-family:inherit;}
-.bco:hover{background:rgba(70,90,220,.28);}
+.bco{padding:9px 19px;background:#4858cc;border:1px solid #4858cc;border-radius:8px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}   /* 저장/확인 버튼 — 진한색(요청) */
+.bco:hover{background:#5a6ae0;}
+.bpd{background:#4858cc !important;color:#fff !important;border:1px solid #4858cc !important;}   /* .bp 강조판 — 주요 동작 버튼 */
 .bca{padding:9px 19px;background:transparent;border:1px solid rgba(45,65,170,.18);border-radius:8px;color:#5868a0;font-size:15px;cursor:pointer;font-family:inherit;}
 
 /* UTIL MODALS */
@@ -295,7 +296,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-16</div>
   </div>
 </div>
 
@@ -568,7 +569,7 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 진급평가 -->
     <div class="pg" id="pg_prom">
-      <div class="sh"><div class="st"><i class="ti ti-award"></i>진급평가</div><button class="bp ao" id="btn_prom"><i class="ti ti-plus"></i> 평가 추가</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-award"></i>진급평가</div><button class="bp bpd ao" id="btn_prom"><i class="ti ti-plus"></i> 평가 추가</button></div>
       <div class="card"><table class="dt"><thead><tr><th>이름</th><th>현재직급</th><th>목표직급</th><th>평가월</th><th>평가차수</th><th>평가실적</th><th>현재 인정실적</th><th>달성률</th><th>달성여부</th><th>관리</th></tr></thead><tbody id="prom_tb"></tbody></table></div>
     </div>
 
@@ -780,7 +781,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_cust_apply">
       <div class="sh">
         <div class="st"><i class="ti ti-user-plus"></i>고객등록 및 신청</div>
-        <button class="bp" id="btn_cust_toggle" onclick="toggleCustForm()"><i class="ti ti-plus"></i> 고객등록</button>
+        <button class="bp bpd" id="btn_cust_toggle" onclick="toggleCustForm()"><i class="ti ti-plus"></i> 고객등록</button>
       </div>
       <!-- 검색 -->
       <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -814,7 +815,10 @@ table.dt tr:last-child td{border-bottom:none;}
             <div class="fg"><div class="fl">키 (cm)</div><input class="fi" type="number" id="cust_height" placeholder="170"></div>
             <div class="fg"><div class="fl">몸무게 (kg)</div><input class="fi" type="number" id="cust_weight" placeholder="65"></div>
           </div>
-          <div class="fg"><div class="fl">직업</div><input class="fi" id="cust_job" placeholder="직업 (예: 회사원, 자영업, 주부 등)"></div>
+          <div class="fr">
+            <div class="fg" style="flex:2"><div class="fl">직업</div><input class="fi" id="cust_job" placeholder="직업 (예: 회사원, 자영업, 주부 등)"></div>
+            <div class="fg" style="flex:1"><div class="fl">운전여부</div><select class="fs" id="cust_drive"><option value="">선택</option><option>운전안함</option><option>승용차</option><option>영업용</option></select></div>
+          </div>
           <div class="fr">
             <div class="fg" style="flex:1"><div class="fl">은행명</div>
               <select class="fs" id="cust_bank_name"><option value="">선택</option><option>국민은행</option><option>신한은행</option><option>우리은행</option><option>하나은행</option><option>농협은행</option><option>기업은행</option><option>SC제일은행</option><option>씨티은행</option><option>카카오뱅크</option><option>케이뱅크</option><option>토스뱅크</option><option>새마을금고</option><option>신협</option><option>우체국</option><option>부산은행</option><option>대구은행</option><option>경남은행</option><option>광주은행</option><option>전북은행</option><option>제주은행</option></select>
@@ -824,7 +828,7 @@ table.dt tr:last-child td{border-bottom:none;}
           <div class="fg"><div class="fl">병력사항</div><textarea class="fi" id="cust_disease" rows="2" placeholder="특이 병력사항" style="resize:vertical"></textarea></div>
           <div class="fr">
           <div class="fg" style="flex:2"><div class="fl">특이사항</div><input class="fi" id="cust_note" placeholder="기타 특이사항"></div>
-          <div class="fg" style="flex:1"><div class="fl">메리츠 가설동</div><div style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" id="cust_meritz" style="width:18px;height:18px;accent-color:#C9A84C"><label for="cust_meritz" style="font-size:15px;color:#555;cursor:pointer">신청</label><button onclick="requestMeritz()" class="bp" style="font-size:14px;padding:5px 12px"><i class="ti ti-send"></i> 요청</button></div></div>
+          <!-- 메리츠 가설동 신청칸은 요청으로 제거(2026-07-09) — 목록의 가설동 버튼은 유지 -->
         </div>
           <div class="fg">
             <div class="fl">가족구성원 수</div>
@@ -866,7 +870,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_exam">
       <div class="sh">
         <div class="st"><i class="ti ti-file-text"></i>시험신청</div>
-        <button class="bp" id="btn_exam_toggle" onclick="toggleExamForm()"><i class="ti ti-plus"></i> 신청</button>
+        <button class="bp bpd" id="btn_exam_toggle" onclick="toggleExamForm()"><i class="ti ti-plus"></i> 신청</button>
       </div>
 
       <!-- 인라인 신청 폼 -->
@@ -982,7 +986,7 @@ table.dt tr:last-child td{border-bottom:none;}
         <div style="margin-top:14px">
           <div style="font-weight:600;font-size:14px;color:#3a3a5a;margin-bottom:6px"><i class="ti ti-pencil"></i> 특이사항 (미팅 내용)</div>
           <textarea id="mt_note" rows="4" style="width:100%;resize:vertical;padding:10px 13px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#1a1f3a;font-size:15px;line-height:1.6;outline:none;font-family:inherit;box-sizing:border-box"></textarea>
-          <div style="text-align:right;margin-top:10px"><button class="bp" onclick="mtSaveNote()"><i class="ti ti-device-floppy"></i> 저장</button></div>
+          <div style="text-align:right;margin-top:10px"><button class="bp bpd" onclick="mtSaveNote()"><i class="ti ti-device-floppy"></i> 저장</button></div>
         </div>
       </div>
       <!-- 표2: 팀원별 미팅 현황 -->
@@ -1011,7 +1015,7 @@ table.dt tr:last-child td{border-bottom:none;}
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:12px"><i class="ti ti-pencil"></i> 이번 주 마감 보고 작성</div>
         <div class="sg" id="wc_form" style="grid-template-columns:repeat(4,1fr);gap:12px"></div>
         <div style="text-align:right;margin-top:14px">
-          <button class="bp" onclick="saveWClose()"><i class="ti ti-device-floppy"></i> 저장</button>
+          <button class="bp bpd" onclick="saveWClose()"><i class="ti ti-device-floppy"></i> 저장</button>
         </div>
       </div>
       <div class="card">
@@ -1038,7 +1042,7 @@ table.dt tr:last-child td{border-bottom:none;}
         </div>
         <div id="bp_form_area"></div>
         <div style="text-align:right;margin-top:14px">
-          <button class="bp" onclick="saveBizForm()"><i class="ti ti-device-floppy"></i> 저장 (제출)</button>
+          <button class="bp bpd" onclick="saveBizForm()"><i class="ti ti-device-floppy"></i> 저장 (제출)</button>
         </div>
         <div id="bp_my_status" style="margin-top:12px"></div>
       </div>
@@ -8270,7 +8274,7 @@ function toggleCustForm(){
     var title = document.getElementById('cust_form_title');
     if(title) title.textContent = '고객등록';
     ['cust_name','cust_rrn','cust_phone','cust_addr','cust_note','cust_job','cust_bank_num'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-    ['cust_carrier','cust_region','cust_bank_name'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+    ['cust_carrier','cust_region','cust_bank_name','cust_drive'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
     var fc=document.getElementById('cust_family_cnt');if(fc)fc.value='';
     var ff=document.getElementById('cust_family_fields');if(ff)ff.innerHTML='';
     var ei=document.getElementById('cust_edit_idx');if(ei)ei.value='';
@@ -8298,7 +8302,7 @@ function editCust(idx){
   g('m_cust_title').textContent='고객정보 수정';
   var fields={cust_name:'name',cust_rrn:'rrn',cust_phone:'phone',cust_addr:'addr',cust_note:'note',cust_job:'job',cust_bank_num:'bankNum'};
   Object.keys(fields).forEach(function(id){var el=g(id);if(el)el.value=c[fields[id]]||'';});
-  var sels={cust_carrier:'carrier',cust_region:'region',cust_bank_name:'bankName'};
+  var sels={cust_carrier:'carrier',cust_region:'region',cust_bank_name:'bankName',cust_drive:'drive'};
   Object.keys(sels).forEach(function(id){var el=g(id);if(el)el.value=c[sels[id]]||'';});
   ['cust_height','cust_weight'].forEach(function(id){var el=g(id);if(el)el.value=c[id.replace('cust_','')]||'';});
   var fc=g('cust_family_cnt');if(fc){fc.value=c.familyCnt||0;renderFamilyFields();}
@@ -8402,6 +8406,7 @@ function saveCust(){
     height:(g('cust_height')||{value:''}).value,
     weight:(g('cust_weight')||{value:''}).value,
     job:(g('cust_job')||{value:''}).value.trim(),
+    drive:(g('cust_drive')||{value:''}).value,
     bankName:(g('cust_bank_name')||{value:''}).value,
     bankNum:(g('cust_bank_num')||{value:''}).value.trim(),
     disease:(g('cust_disease')||{value:''}).value.trim(),
@@ -8738,6 +8743,7 @@ function openCustInfo(reqName){
   row('지역', who.region);
   row('주소', who.addr);
   row('직업', who.job);
+  row('운전여부', who.drive);
   if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
   row('병력', who.disease);
   row('담당자', c.m);
@@ -9398,7 +9404,7 @@ function _bizFormHtml(){
     +'<tr>'+heads.map(function(h2){return '<td style="'+cap+'">'+h2+'</td>';}).join('')+'<td style="'+cap+';width:42px"></td></tr>'
     +rowsHtml
     +'</table></div>'
-    +'<div style="margin-top:8px"><button class="bp bsm" onclick="bizAddRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
+    +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   var rHeads=['구분','이름','나이','직업','TA 일시','만남 일시','만남 여부','입과 여부'];
   var recHtml=f.recruits.map(function(p,i){
     var inp=function(field,extra){ return '<td style="'+cell+'"><input value="'+_esc(p[field])+'" oninput="bizFR('+i+',\''+field+'\',this.value)" style="'+ist+(extra||'')+'"></td>'; };
@@ -9419,7 +9425,7 @@ function _bizFormHtml(){
     +'<tr>'+rHeads.map(function(h2){return '<td style="'+cap+'">'+h2+'</td>';}).join('')+'<td style="'+cap+';width:42px"></td></tr>'
     +recHtml
     +'</table></div>'
-    +'<div style="margin-top:8px"><button class="bp bsm" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
+    +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   return h+g1+g2+g3;
 }
 // 계획월(1~12) → 'YYYY-MM' — 지금 시점 기준으로 해를 보정(연말에 다음 해 1월 계획 제출 등)
