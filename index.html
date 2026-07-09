@@ -1667,6 +1667,9 @@ table.dt tr:last-child td{border-bottom:none;}
     if(!firebase.apps.length) firebase.initializeApp(cfg);
     window.db = firebase.firestore();
     window.FS_DOC = window.db.collection('tops').doc('data');
+    // 로그인 전용 경량 문서 — 계정 정보(mem 축약본·admov id/pw)만 보관.
+    // 로그인 전 사전 로드는 이 문서만 읽는다(전체 업무 데이터가 로그인 전에 노출되지 않게).
+    window.FS_AUTH = window.db.collection('tops').doc('auth');
     // 보안 규칙(인증된 사용자만 접근)을 위해 앱 로드 시 익명 인증으로 자동 로그인.
     // 인증이 완료되면 window._fbAuthReady(Promise)가 resolve 된다.
     window._fbAuthErr = null;   // 익명 인증 실패 시 원인 보관 → 사용자 안내에 사용
@@ -2257,6 +2260,24 @@ function _lsSet(k, v){
   catch(e){ console.warn('localStorage 저장 실패(quota 등): '+k, e); return false; }
 }
 
+// 로그인 전용 경량 문서(tops/auth) 최신화 — 계정 필드만 추려 저장.
+//   로그인 전 사전 로드(_fetchAuthData)가 전체 데이터 문서 대신 이 문서만 읽게 하기 위함.
+//   mem/admov가 바뀔 때(sv·관리자 병합 저장)와 클라우드 로드 직후 호출된다(멱등).
+function _authDocSync(){
+  try{
+    if(!window.FS_AUTH) return;
+    var slimMem=(Array.isArray(mem)?mem:[]).map(function(m){
+      return {lid:String((m&&m.lid)||''), lpw:String((m&&m.lpw)||''), code:String((m&&m.code)||''), name:(m&&m.name)||''};
+    });
+    var slimAdmov={};
+    Object.keys(admov||{}).forEach(function(n){
+      var o=admov[n]||{};
+      if(o.id||o.pw){ slimAdmov[n]={}; if(o.id)slimAdmov[n].id=o.id; if(o.pw)slimAdmov[n].pw=o.pw; }
+    });
+    window.FS_AUTH.set({mem:slimMem, admov:slimAdmov}).catch(function(e){ console.warn('auth doc sync err:',e); });
+  }catch(e){}
+}
+
 // 저장: localStorage + Firestore 동시
 function sv(k,v){
   // localStorage 에는 슬림 버전(무거운 필드 제거)으로 저장
@@ -2273,6 +2294,8 @@ function sv(k,v){
   const fsKey = k.replace('tops_','');
   // Firestore 에는 원본(noteHtml 포함) 그대로 저장
   FS_DOC.set({[fsKey]: v}, {merge:true}).catch(function(e){console.warn('FS save err:',e);});
+  // 계정 정보 변경 시 로그인 전용 문서(tops/auth)도 함께 최신화
+  if(fsKey==='mem'||fsKey==='admov'){ try{ _authDocSync(); }catch(e){} }
 }
 
 // ===== 구글드라이브(구글 시트) 자동 동기화 =====
@@ -2602,6 +2625,9 @@ async function loadFromFirestore(){
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _wcloseFixNames(); }catch(e){}
+    // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
+    //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
+    try{ _authDocSync(); }catch(e){}
     return true;
   }catch(e){ console.warn('FS load err:',e); return false; }
 }
@@ -2791,7 +2817,9 @@ function pushNotify(to, title, bodyText, link){
 })();
 
 // AUTH
-// 클라우드에서 계정 정보(mem·admov)만 미리/다시 불러오기.
+// 클라우드에서 계정 정보만 미리/다시 불러오기 — 로그인 전용 경량 문서(tops/auth)만 읽는다.
+//   (전체 데이터 문서 FS_DOC 를 로그인 전에 읽으면 청구·상담 등 업무 데이터가
+//    로그인하지 않은 방문자에게도 전송되므로 반드시 FS_AUTH 만 사용할 것)
 //   코드(아이디)·비밀번호를 바꾼 사람이 다른 기기(낡은 로컬 캐시·첫 접속)에서도
 //   새 아이디로 로그인할 수 있게 한다. force=true 면 캐시를 무시하고 새로 가져온다.
 function _fetchAuthData(force){
@@ -2799,12 +2827,18 @@ function _fetchAuthData(force){
   var p=(async function(){
     try{
       if(window._fbAuthReady) await window._fbAuthReady;
-      if(!window.FS_DOC) return false;
-      var doc=await FS_DOC.get();
+      if(!window.FS_AUTH) return false;
+      var doc=await window.FS_AUTH.get();
       if(!doc.exists) return false;
       var d=doc.data();
-      if(d.mem&&d.mem.length){ mem=d.mem; _memFixBelong(); _lsSet('tops_mem',JSON.stringify(mem)); }
-      if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; _lsSet('tops_admov',JSON.stringify(admov)); }
+      // 팀원 축약본은 전역 mem을 덮지 않고 로그인 조회용으로만 보관
+      //   (mem엔 직급·소속 등 전체 필드가 필요 — 로그인 후 loadFromFirestore가 채움)
+      if(d.mem&&d.mem.length){ window._authMem=d.mem; }
+      // 관리자 오버라이드는 이름별 병합(캐시된 연락처 등 유지, id/pw만 최신화)
+      if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){
+        Object.keys(d.admov).forEach(function(n){ admov[n]=Object.assign({},admov[n]||{},d.admov[n]); });
+        _lsSet('tops_admov',JSON.stringify(admov));
+      }
       return true;
     }catch(e){ console.warn('계정 정보 사전 로드 실패:',e); return false; }
   })();
@@ -2816,8 +2850,8 @@ function _tryLogin(id,pw){
   // 관리자 체크 (오버라이드 반영된 유효 계정 목록 기준)
   const adm=_admList().find(a=>a.id===id&&a.pw===pw);
   if(adm){cu={id,name:adm.name,role:adm.role,admin:true};saveSession();login();return true;}
-  // 팀원 체크
-  const m=mem.find(x=>x.lid===id&&x.lpw===pw);
+  // 팀원 체크 — 로컬 캐시(mem) 우선, 없으면 클라우드 사전 로드본(_authMem)에서 조회
+  const m=mem.find(x=>x.lid===id&&x.lpw===pw)||(window._authMem||[]).find(x=>x.lid===id&&x.lpw===pw);
   if(m){cu={id,name:m.name||'('+m.code+')',admin:false,code:m.code};saveSession();login();return true;}
   return false;
 }
@@ -3006,6 +3040,7 @@ function saveMyProfileAdmin(){
       window.FS_DOC.update(new firebase.firestore.FieldPath('admov', cu.name), o)
         .catch(function(){ try{ sv('tops_admov',admov); }catch(e){} });   // 필드 미존재 등 실패 시 전체 저장 폴백
       merged=true;
+      try{ _authDocSync(); }catch(e){}   // 로그인 전용 문서에도 id/pw 변경 반영
     }
   }catch(e){}
   if(!merged) sv('tops_admov',admov);
@@ -3350,6 +3385,7 @@ g('m_admedit_save').addEventListener('click',function(){
       window.FS_DOC.update(new firebase.firestore.FieldPath('admov', name), o)
         .catch(function(){ try{ sv('tops_admov',admov); }catch(e){} });   // 필드 미존재 등 실패 시 전체 저장 폴백
       merged=true;
+      try{ _authDocSync(); }catch(e){}   // 로그인 전용 문서에도 id/pw 변경 반영
     }
   }catch(e){}
   if(!merged) sv('tops_admov',admov);
