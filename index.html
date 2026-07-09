@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-3</div>
   </div>
 </div>
 
@@ -3521,11 +3521,16 @@ function subNamesOf(rootName){
   return out;
 }
 // 지점 = 박지순 산하 인원만
+//   열람 권한: 지점 소속원(박지순 산하) 본인 또는 관리자만. 그 외에는 안내만 표시.
+//   표시 대상: 지점 전체 명단 중 근무형태 '부업' 제외(미지정은 전업 취급 — 명단 공백 방지).
 function rMemBranch(){
   var el=g('mem_branch_cards'); if(!el) return;
-  var visible=_memVisible();
   var subNames=subNamesOf('박지순');
-  var list=visible.filter(function(m){return subNames.indexOf(m.name)>=0;});
+  var canView=_isAdmin()||(cu&&subNames.indexOf(cu.name)>=0);
+  if(!canView){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">탑스 1지점 소속 인원만 볼 수 있습니다.</div></div>'; return; }
+  var list=mem.filter(function(m){
+    return m.name&&m.name.trim()&&subNames.indexOf(m.name)>=0&&m.workType!=='부업';
+  }).sort(function(a,b){return (+a.code||0)-(+b.code||0);});
   if(!list.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">박지순 산하 구성원이 없습니다.</div></div>'; return; }
   el.innerHTML='<div style="font-size:15px;color:#5a5a9a;font-weight:700;margin-bottom:12px">탑스 1지점 · 박지순 산하 · 총 '+list.length+'명</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px">'
