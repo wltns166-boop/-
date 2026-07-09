@@ -16,6 +16,8 @@ var messaging = firebase.messaging();
 
 // 앱이 꺼져 있거나 백그라운드일 때 — 데이터 메시지를 받아 직접 알림 표시
 messaging.onBackgroundMessage(function (payload) {
+  // notification 페이로드가 있으면 SDK가 자동 표시 — 여기서 또 띄우면 중복이라 건너뜀
+  if (payload && payload.notification) return;
   var d = payload.data || {};
   self.registration.showNotification(d.title || 'TEAM TOPS', {
     body: d.body || '',

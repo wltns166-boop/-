@@ -155,7 +155,7 @@ table.dt tr:last-child td{border-bottom:none;}
 .alert-type{font-size:11px;background:rgba(120,90,240,.4);color:#d8c8ff;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:5px;letter-spacing:.5px;font-weight:700;}
 .alert-body{flex:1;line-height:1.4;}
 .alert-meta{font-size:12px;color:#9aa0d0;margin-top:5px;}
-.alert-close{cursor:pointer;color:#8a8ab8;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0;font-weight:700;}
+.alert-close{cursor:pointer;color:#8a8ab8;font-size:18px;line-height:1;padding:6px 8px;margin:-6px -8px 0 0;flex-shrink:0;font-weight:700;}   /* 패딩으로 모바일 터치 영역 확보 */
 .alert-close:hover{color:#fff;}
 
 /* MODALS */
@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-10</div>
   </div>
 </div>
 
@@ -5120,9 +5120,17 @@ function notifyChongmuReg(custName, count){
     pushAlert('총무','고객등록', msg, {deliverAt:_nextDeliverTime(new Date())});
   }catch(e){ console.warn('notifyChongmuReg err:', e); }
 }
+// 이 기기에서 닫은 알림 id 목록 (로컬 전용)
+function _dismissedAlertIds(){ try{ return JSON.parse(localStorage.getItem('tops_alerts_dismissed')||'[]'); }catch(e){ return []; } }
 function dismissAlert(id){
   if(!Array.isArray(nalerts)) nalerts=[];
   nalerts=nalerts.filter(function(a){return a.id!==id;});
+  // 닫은 알림을 로컬에도 기록 — 다른 기기가 전체 배열을 덮어써 클라우드에 되살아나거나
+  // 클라우드 저장이 실패해도, 이 기기에서는 다시 안 뜨게 한다(닫기 무한 반복 방지).
+  try{
+    var ds=_dismissedAlertIds();
+    if(id && ds.indexOf(id)<0){ ds.push(id); if(ds.length>300) ds=ds.slice(-300); _lsSet('tops_alerts_dismissed', JSON.stringify(ds)); }
+  }catch(e){}
   try{sv('tops_nalerts', nalerts);}catch(e){console.warn('alert save:',e);}
   rAlerts();
 }
@@ -5131,8 +5139,10 @@ function rAlerts(){
   if(!box) return;
   if(typeof cu==='undefined' || !cu){ box.innerHTML=''; return; }
   var _now=Date.now();
+  var _ds=_dismissedAlertIds();   // 이 기기에서 이미 닫은 알림은 다시 표시하지 않음
   var my=(Array.isArray(nalerts)?nalerts:[]).filter(function(a){
     if(!a) return false;
+    if(a.id && _ds.indexOf(a.id)>=0) return false;
     var matchRole=a.toRole && cu.role && a.toRole===cu.role;
     var matchName=a.toName && cu.name && (a.toName===cu.name || a.toName===_ADM_ALIAS[cu.name]);   // 옛 이름 앞으로 온 알림도 수신
 

@@ -77,10 +77,21 @@ exports.api = onRequest(
         }
         const tokens = docs.map((d) => d.id);
         if (!tokens.length) { res.status(200).json({ ok: true, sent: 0 }); return; }
+        // notification 페이로드 포함(FCM 표준 형태) — data 전용 + fcmOptions.link 조합은
+        // 규격 위반으로 전송이 거부될 수 있고, iOS 웹푸시도 notification이 있어야 안정적으로 표시됨.
         const resp = await admin.messaging().sendEachForMulticast({
           tokens: tokens,
+          notification: { title: title, body: text },
           data: { title: title, body: text, link: link },
-          webpush: { headers: { Urgency: "high" }, fcmOptions: { link: link } }
+          webpush: {
+            headers: { Urgency: "high" },
+            notification: { title: title, body: text, icon: "https://team-tops-intranet.web.app/icon-192.png" },
+            fcmOptions: { link: link }
+          }
+        });
+        // 전송 실패 원인을 Functions 로그에 남김 (알림 미수신 진단용)
+        resp.responses.forEach((r, i) => {
+          if (!r.success) console.warn("push fail:", (r.error && r.error.code) || "", (r.error && r.error.message) || "");
         });
         // 만료/무효 토큰 정리
         const dels = [];
