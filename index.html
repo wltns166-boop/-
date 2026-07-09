@@ -153,7 +153,8 @@ table.dt tr:last-child td{border-bottom:none;}
 #alerts_box{position:fixed;top:62px;right:20px;z-index:998;display:flex;flex-direction:column;gap:10px;max-width:360px;width:max-content;pointer-events:none;}
 .alert-card{background:rgba(18,28,98,.98);border:1px solid rgba(110,130,255,.45);border-radius:11px;padding:12px 14px;color:#dde2ff;font-size:14px;box-shadow:0 6px 22px rgba(0,0,40,.55);display:flex;align-items:flex-start;gap:10px;animation:si .3s ease;pointer-events:auto;}
 .alert-type{font-size:11px;background:rgba(120,90,240,.4);color:#d8c8ff;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:5px;letter-spacing:.5px;font-weight:700;}
-.alert-body{flex:1;line-height:1.4;}
+.alert-body{flex:1;line-height:1.4;overflow-wrap:anywhere;}   /* 긴 보험사 나열 등도 카드 안에서 줄바꿈 */
+.alert-card{cursor:pointer;}   /* 카드 전체 탭으로 닫기 */
 .alert-meta{font-size:12px;color:#9aa0d0;margin-top:5px;}
 .alert-close{cursor:pointer;color:#8a8ab8;font-size:18px;line-height:1;padding:6px 8px;margin:-6px -8px 0 0;flex-shrink:0;font-weight:700;}   /* 패딩으로 모바일 터치 영역 확보 */
 .alert-close:hover{color:#fff;}
@@ -258,7 +259,7 @@ table.dt tr:last-child td{border-bottom:none;}
   /* 모달 여백 축소 */
   .mo{padding:18px;}
   /* 알림 박스 폭 제한 */
-  #alerts_box{right:10px;left:10px;max-width:none;}
+  #alerts_box{right:10px;left:10px;max-width:none;width:auto;}   /* width:max-content 해제 — 카드가 화면 밖으로 넘쳐 ✕가 안 보이던 문제 */
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -293,7 +294,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-12</div>
   </div>
 </div>
 
@@ -5156,7 +5157,7 @@ function rAlerts(){
   box.innerHTML=my.map(function(a){
     var dt=new Date(a.ts||Date.now());
     var when=pad(dt.getMonth()+1)+'.'+pad(dt.getDate())+' '+pad(dt.getHours())+':'+pad(dt.getMinutes());
-    return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'">'
+    return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="dismissAlert(\''+_alertEsc(a.id)+'\')" title="누르면 닫힙니다">'
       +'<div class="alert-body">'
       +'<span class="alert-type">'+_alertEsc(a.type||'알림')+'</span>'
       +'<div>'+_alertEsc(a.msg||'')+'</div>'
