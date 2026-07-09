@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-6</div>
   </div>
 </div>
 
@@ -6832,6 +6832,7 @@ function openNoticeEdit(i){
 function closeCalModal(){
   document.getElementById('m_cal_add').classList.remove('open');
   document.getElementById('cal_edit_idx').value='';
+  window._calEditRef=null;   // 새 일정 등록 — 이전 편집 참조 제거
   document.getElementById('cal_del_btn').style.display='none';
   document.getElementById('cal_modal_title').textContent='일정 등록';
 }
@@ -6844,6 +6845,7 @@ function openCalAdd(){
   document.getElementById('cal_time_input').value='';
   document.querySelectorAll('input[name="cal_color"]').forEach(function(r){if(r.value==='')r.checked=true;});
   document.getElementById('cal_edit_idx').value='';
+  window._calEditRef=null;   // 새 일정 등록 — 이전 편집 참조 제거
   document.getElementById('cal_del_btn').style.display='none';
   document.getElementById('cal_modal_title').textContent='일정 등록';
 }
@@ -6864,27 +6866,43 @@ function openCalEdit(idx){
   document.getElementById('cal_time_input').value=timeVal||'';
   var colorEl=document.querySelector('input[name="cal_color"][value="'+(ev.color||'')+'"]');
   if(colorEl) colorEl.checked=true;
+  // 함정 A 예방: 편집 대상을 인덱스가 아닌 고유 id(+내용 스냅샷)로 기억.
+  //   모달이 열린 사이 실시간 동기화로 배열이 통째로 교체돼도 저장/삭제 시점에 재탐색한다.
+  if(!ev.cid) ev.cid=_calNewId();
+  window._calEditRef={cid:ev.cid, date:ev.date, title:ev.title, time:ev.time||''};
   document.getElementById('cal_edit_idx').value=idx;
   document.getElementById('cal_del_btn').style.display='inline-flex';
   document.getElementById('cal_modal_title').textContent='일정 수정';
   document.getElementById('m_cal_add').classList.add('open');
 }
+// 일정 고유 id 발급
+function _calNewId(){ return 'c'+Date.now()+Math.random().toString(36).slice(2,6); }
+// 편집 중인 일정을 현재 배열에서 재탐색 — id 우선, 없으면 열 때의 내용(날짜+제목+시간)으로.
+//   실시간 동기화로 배열이 교체·순서변경돼도 엉뚱한 일정을 건드리지 않게 한다. 못 찾으면 -1.
+function _calFindEditIdx(){
+  var r=window._calEditRef; if(!r) return -1;
+  var arr=window._calEvents||[];
+  for(var i=0;i<arr.length;i++){ if(arr[i]&&r.cid&&arr[i].cid===r.cid) return i; }
+  for(var j=0;j<arr.length;j++){ var e=arr[j]; if(e&&e.date===r.date&&e.title===r.title&&(e.time||'')===(r.time||'')) return j; }
+  return -1;
+}
 function deleteCalEvent(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
-  var idx=parseInt(document.getElementById('cal_edit_idx').value);
-  if(isNaN(idx)) return;
+  if(document.getElementById('cal_edit_idx').value==='') return;
   if(!window._calEvents) return;
-  if(window._delCalIdx===idx){
-    window._calEvents.splice(idx,1);
+  if(window._delCalArmed){
+    window._delCalArmed=false;
+    var ti=_calFindEditIdx();
+    if(ti<0){ toast('이 일정이 다른 기기에서 변경/삭제되었습니다. 캘린더에서 다시 열어주세요.'); closeCalModal(); rCal(); return; }
+    window._calEvents.splice(ti,1);
     sv('tops_cal',window._calEvents);   // 클라우드 동기화 — 팀원 기기에도 반영
     closeCalModal();rCal();
     try{ if(window._curPage==='schedule') rSchedulePage(); }catch(e){}
     toast('삭제되었습니다.');
-    window._delCalIdx=null;
   } else {
-    window._delCalIdx=idx;
+    window._delCalArmed=true;
     toast('한 번 더 누르면 삭제됩니다.');
-    setTimeout(function(){window._delCalIdx=null;},3000);
+    setTimeout(function(){window._delCalArmed=false;},3000);
   }
 }
 function saveCalEvent(){
@@ -6900,8 +6918,16 @@ function saveCalEvent(){
   if(!window._calEvents) window._calEvents=JSON.parse(localStorage.getItem('tops_cal')||'[]');
   var editIdx=document.getElementById('cal_edit_idx').value;
   var obj={date:date,title:title,time:time,color:color};
-  if(editIdx!=='') window._calEvents[parseInt(editIdx)]=obj;
-  else window._calEvents.push(obj);
+  if(editIdx!==''){
+    // 함정 A 예방: 저장 시점에 id로 재탐색 (모달 열린 사이 실시간 교체 대비)
+    var ti=_calFindEditIdx();
+    if(ti<0){ toast('이 일정이 다른 기기에서 변경/삭제되었습니다. 캘린더에서 다시 열어주세요.'); closeCalModal(); rCal(); return; }
+    obj.cid=(window._calEditRef&&window._calEditRef.cid)||_calNewId();
+    window._calEvents[ti]=obj;
+  } else {
+    obj.cid=_calNewId();
+    window._calEvents.push(obj);
+  }
   sv('tops_cal',window._calEvents);   // 클라우드 동기화 — 팀원 기기에도 반영
   closeCalModal();rCal();
   try{ if(window._curPage==='schedule') rSchedulePage(); }catch(e){}
