@@ -296,7 +296,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-18</div>
   </div>
 </div>
 
@@ -1572,6 +1572,8 @@ table.dt tr:last-child td{border-bottom:none;}
     <span style="font-size:13px;color:#6070aa;font-weight:600">페이지</span>
     <div id="cc_tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     <span style="flex:1"></span>
+    <span style="font-size:13px;color:#6070aa;font-weight:600">미리보기 데이터</span>
+    <select id="cc_data_sel" onchange="ccSelectData()" title="작성된 청구건을 선택하면 실제 값으로 미리보기" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:200px"><option value="">샘플 (홍길동)</option></select>
     <button class="bp" id="cc_preview_btn" onclick="ccTogglePreview()" style="font-size:13px;padding:5px 10px" title="실제 들어갈 글자를 흐리게 미리보기"><i class="ti ti-eye"></i> 미리보기 끄기</button>
     <button class="bp" id="cc_labels_btn" onclick="ccToggleLabels()" style="font-size:13px;padding:5px 10px" title="칩의 항목 제목 글자를 숨겨 미리보기가 가려지지 않게 함"><i class="ti ti-tag"></i> 제목 안보이기</button>
     <button class="bp" onclick="ccExport()" style="font-size:13px;padding:5px 10px"><i class="ti ti-copy"></i> 내보내기</button>
@@ -11917,6 +11919,7 @@ function openClaimCal(){
   g('m_claimcal').classList.add('open');
   if(typeof window._ccShowPreview==='undefined') window._ccShowPreview=true;
   ccNudgeSetup();
+  ccPopulateDataSel();   // 작성된 청구건 목록 → 미리보기 데이터 선택
   ccPopulateInsurers().then(function(){
     var sel=g('cc_insurer');
     if(sel && !window._ccInsurer){ sel.value='DB손해보험'; }
@@ -12162,6 +12165,59 @@ var CC_PREVIEW_SAMPLES = {
   p5Y:'2026', p5Y2:'26', p5M:'05', p5D:'28',
   p5Name:'홍길동', p5Sign:'서명'
 };
+// ── 작성된 청구건으로 미리보기 (실시간) ──────────────────────
+// 드롭다운에서 청구건을 고르면 실제 생성(drawClaimFields)과 같은 값 매핑으로 미리보기를 그린다.
+function ccPopulateDataSel(){
+  var sel=g('cc_data_sel'); if(!sel) return;
+  var list=(typeof claims!=='undefined'&&Array.isArray(claims))?claims:[];
+  var opts=['<option value="">샘플 (홍길동)</option>'];
+  list.forEach(function(c,i){
+    if(!c) return;
+    var nm=c.custName||c.insName||c.name||'(이름없음)';
+    var dt=c.dt||c.date||'';
+    opts.push('<option value="'+i+'">'+_alertEsc(nm)+(dt?(' · '+_alertEsc(dt)):'')+(c.agent?(' ('+_alertEsc(c.agent)+')'):'')+'</option>');
+  });
+  var cur=sel.value;
+  sel.innerHTML=opts.join('');
+  if(cur && sel.querySelector('option[value="'+cur+'"]')) sel.value=cur;
+}
+function ccSelectData(){
+  var sel=g('cc_data_sel');
+  var idx=sel?sel.value:'';
+  var list=(typeof claims!=='undefined'&&Array.isArray(claims))?claims:[];
+  window._ccDataClaim=(idx!==''&&list[+idx])?list[+idx]:null;
+  ccPlacePreviews();
+}
+// drawClaimFields의 ctx와 동일한 규칙으로 청구건 → 값 컨텍스트 생성
+function ccBuildCtx(c){
+  var now=new Date();
+  return {
+    insName:(c.insName||c.custName||'').slice(0,20),
+    insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    insPhone:String(c.phone||'').replace(/[^0-9]/g,''),
+    insAddr:(c.addr||''),
+    ctName:(c.ctName||c.contractorName||c.insName||c.custName||'').slice(0,20),
+    ctRrn:(c.ctRrn||c.contractorRrn||c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
+    ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
+    yy:String(now.getFullYear()), yy2:String(now.getFullYear()).slice(-2),
+    mm:('0'+(now.getMonth()+1)).slice(-2), dd:('0'+now.getDate()).slice(-2)
+  };
+}
+// 실제 생성과 같은 규칙으로 항목(bk)의 표시 텍스트 계산 (이미지 서명은 [서명]으로 표기)
+function ccRealText(bk, co, c, ctx, META){
+  var m=META[bk]; if(!m) return '';
+  try{
+    if(m.cond && !m.cond(c)) return '';
+    if(m.t==='chk') return 'V';
+    if(m.t==='img'||m.t==='imgCt') return '[서명]';
+    if(m.t==='rrn') return ctx.insRrn?(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6)):'';
+    if(m.t==='rrnCt') return ctx.ctRrn?(ctx.ctRrn.slice(0,6)+'-'+ctx.ctRrn.slice(6)):'';
+    var v=m.v?m.v(c,ctx):'';
+    if(co && co.fmt==='yy2' && /^\d{4}$/.test(String(v))) v=String(v).slice(2);
+    return v?String(v):'';
+  }catch(e){ return ''; }
+}
 function ccPlacePreviews(){
   var ov=g('cc_overlay'); if(!ov) return;
   // 기존 preview 제거
@@ -12169,12 +12225,15 @@ function ccPlacePreviews(){
   if(!window._ccShowPreview) return;
   var sc=window._ccScale, H=window._ccPageH, pageIdx=window._ccPage-1;
   var META=(typeof claimMeta==='function')?claimMeta():{};
+  var realC=window._ccDataClaim||null;
+  var realCtx=realC?ccBuildCtx(realC):null;
   Object.keys(window._ccWork||{}).forEach(function(key){
     var co=window._ccWork[key]; if(!co || co.on===false) return;
     var bk=ccBaseKey(key);
     var fpage=(typeof co.page==='number')?co.page:0;
     if(fpage!==pageIdx) return;
-    var text=CC_PREVIEW_SAMPLES[bk]; if(!text) return;
+    var text=realC ? ccRealText(bk, co, realC, realCtx, META) : CC_PREVIEW_SAMPLES[bk];
+    if(!text) return;
     var meta=META[bk]||{};
     var size=(typeof co.size==='number'&&co.size>0)?co.size:(meta.s||9);
     var pitch=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:(meta.pitch||0);
