@@ -260,6 +260,7 @@ table.dt tr:last-child td{border-bottom:none;}
   .mo{padding:18px;}
   /* 알림 박스 폭 제한 */
   #alerts_box{right:10px;left:10px;max-width:none;width:auto;}   /* width:max-content 해제 — 카드가 화면 밖으로 넘쳐 ✕가 안 보이던 문제 */
+  #med_zones{grid-template-columns:1fr !important;}   /* 병력정리 PDF 3칸 — 모바일은 세로 배치 */
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -294,7 +295,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-13</div>
   </div>
 </div>
 
@@ -649,8 +650,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <div class="fg" style="margin:0"><div class="fl">PDF 비밀번호 (잠긴 경우)</div><input class="fi" type="password" id="pdf_pw" placeholder="비밀번호가 없으면 비워두세요"></div>
         </div>
 
-        <!-- PDF 3칸 (세부기록 칸은 비용 절감을 위해 숨김 — 다시 켜려면 아래 med_zone3_wrap 의 display:none 제거 + 열 1fr 1fr 1fr) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <!-- PDF 3칸 (기본진료기록 / 처방기록 / 세부기록) -->
+        <div id="med_zones" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
           <div>
             <div style="font-size:14px;font-weight:700;color:#5060cc;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-file-medical"></i> 기본진료기록</div>
             <div id="zone1" style="border:2px dashed rgba(60,80,200,.28);border-radius:10px;padding:16px;text-align:center;background:#fafbff;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
@@ -667,7 +668,7 @@ table.dt tr:last-child td{border-bottom:none;}
               <input type="file" id="f2" accept=".pdf" style="font-size:14px;cursor:pointer;max-width:100%" onchange="medFilePick(this,'2')">
             </div>
           </div>
-          <div id="med_zone3_wrap" style="display:none">
+          <div id="med_zone3_wrap">
             <div style="font-size:14px;font-weight:700;color:#2090a0;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-clipboard-list"></i> 세부기록</div>
             <div id="zone3" style="border:2px dashed rgba(60,80,200,.28);border-radius:10px;padding:16px;text-align:center;background:#fafbff;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
               <i class="ti ti-upload" style="font-size:30px;color:#8090cc"></i>
