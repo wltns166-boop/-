@@ -292,6 +292,8 @@ table.dt tr:last-child td{border-bottom:none;}
         <span class="llink" id="ll3">비밀번호 변경</span>
       </div>
     </div>
+    <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-2</div>
   </div>
 </div>
 
@@ -2870,10 +2872,17 @@ function doLogin(){
   // 로컬 캐시에 없으면 클라우드 최신 계정 정보로 1회 재확인
   //   (다른 기기에서 코드·비밀번호를 바꾼 직후, 또는 이 기기 첫 접속 대응)
   if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }
-  _fetchAuthData(true).then(function(){
-    if(!_tryLogin(id,pw)) g('lerr').style.display='block';
+  _fetchAuthData(true).then(function(ok){
+    if(_tryLogin(id,pw)) return;
+    var le=g('lerr');
+    if(le){
+      // 클라우드 확인까지 됐는데 불일치 = 진짜 오타 / 클라우드 확인 실패 = 네트워크·인증 문제 구분 안내
+      le.textContent = ok ? '아이디 또는 비밀번호를 확인하세요.'
+                          : '계정 확인 실패 — 인터넷 연결을 확인한 뒤 다시 시도하세요.';
+      le.style.display='block';
+    }
   }).catch(function(){
-    g('lerr').style.display='block';
+    var le=g('lerr'); if(le){ le.textContent='아이디 또는 비밀번호를 확인하세요.'; le.style.display='block'; }
   }).finally(function(){
     if(btn){ btn.disabled=false; btn.textContent='로그인'; }
   });

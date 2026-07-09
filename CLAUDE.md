@@ -85,6 +85,17 @@
 - **고객 데이터 가시성**: 기본은 **본인 것만**. 총무만 전체(`_isChongmu()`).
   - 고객 목록(`rCustList`)·고객등록 현황(`rCustStatus`) 모두 이 규칙.
 
+## 3.5 로그인 흐름 (2026-07 개편)
+
+- 팀원 로그인: `mem[]`의 `lid/lpw` 검증. 관리자: `_admList()`(ADMINS 기본값 + `admov` 오버라이드).
+- **로그인 전 사전 로드**: `_fetchAuthData()`가 Firestore **경량 문서 `tops/auth`** 만 읽음
+  (mem 축약본 lid/lpw/code/name + admov id/pw). ⚠️ 로그인 전에 전체 문서(`tops/data`)를 읽으면
+  업무 데이터가 미로그인 방문자에게 노출되므로 **FS_AUTH 외 읽기 금지**.
+- 축약본은 전역 `mem`을 덮지 않고 `window._authMem`에만 보관(함정 C 예방). `_tryLogin()`이 mem → _authMem 순 조회.
+- `tops/auth` 최신화: `_authDocSync()` — `sv('tops_mem'/'tops_admov')`, 관리자 병합 저장 2곳, `loadFromFirestore` 성공 직후 자동 호출(멱등).
+- 호스팅 캐시: firebase.json `Cache-Control: no-cache` — 배포 즉시 반영.
+- **로그인 화면 좌하단 버전 표시 `#lver`** — 기기가 옛 캐시 버전인지 판별용. **배포용 커밋마다 `v2026.07.09-2` 형식으로 갱신할 것.**
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.
