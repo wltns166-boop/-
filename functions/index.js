@@ -114,12 +114,16 @@ exports.api = onRequest(
         if (!gKey) { res.status(400).json({ error: { message: "Gemini API 키가 설정되지 않았습니다. (현재 Claude 사용 중)" } }); return; }
         const gUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
           + encodeURIComponent(model) + ":generateContent?key=" + gKey;
+        // 2.5 Flash 계열은 기본으로 '생각(thinking)'을 켜서 출력 토큰을 잡아먹으므로 끈다
+        //   (2.5 Pro는 thinkingBudget 0을 허용하지 않아 flash 계열에만 적용)
+        const genCfg = { maxOutputTokens: maxTokens, temperature: 0 };
+        if (/2\.5-flash/i.test(model)) genCfg.thinkingConfig = { thinkingBudget: 0 };
         const r = await fetch(gUrl, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: maxTokens, temperature: 0 }
+            generationConfig: genCfg
           })
         });
         const data = await r.json();
