@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-11</div>
   </div>
 </div>
 
@@ -6947,6 +6947,14 @@ function saveCalEvent(){
   sv('tops_cal',window._calEvents);   // 클라우드 동기화 — 팀원 기기에도 반영
   closeCalModal();rCal();
   try{ if(window._curPage==='schedule') rSchedulePage(); }catch(e){}
+  // 새 일정 등록 시 전 팀원에게 푸시 알림 (수정은 발송 안 함 — 알림 과다 방지)
+  if(editIdx===''){
+    try{
+      var dp=String(date).split('-');
+      var dlabel=(dp.length===3)?((+dp[1])+'월 '+(+dp[2])+'일'):date;
+      pushNotify('ALL', '지점일정 등록', dlabel+(time?' '+time:'')+' · '+title, '/');
+    }catch(e){}
+  }
   toast(editIdx!==''?'수정되었습니다.':'일정이 등록되었습니다.');
 }
 
