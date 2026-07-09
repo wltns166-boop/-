@@ -106,7 +106,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .bsm{padding:5px 10px;font-size:14px;}
 table.dt{width:100%;border-collapse:collapse;font-size:15px;}
 table.dt th{padding:9px 13px;text-align:left;color:#4a5090;border-bottom:2px solid rgba(25,45,150,.15);font-size:14px;letter-spacing:1px;font-weight:700;background:#f5f6ff;}
-table.dt td{padding:9px 13px;border-bottom:1px solid rgba(25,45,150,.08);color:#222244;font-size:16px;}
+table.dt td{padding:9px 13px;border-bottom:1px solid rgba(25,45,150,.08);color:#111;font-size:16px;}
 table.dt tr:hover td{background:rgba(80,100,220,.05);}
 table.dt tr:last-child td{border-bottom:none;}
 .fg{margin-bottom:12px;}
@@ -296,7 +296,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-17</div>
   </div>
 </div>
 
@@ -505,10 +505,10 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh">
         <div class="st"><i class="ti ti-file-plus"></i>DB 신청현황</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="bp" id="btn_dba_req" onclick="openDbaReq()" style="background:rgba(30,130,80,.2);border-color:rgba(50,180,100,.3);color:#30cc80"><i class="ti ti-send"></i> 신청하기</button>
-          <button class="bp ao" onclick="openDbInfoModal()" style="background:rgba(80,90,200,.16);border-color:rgba(90,110,220,.3);color:#7888dd"><i class="ti ti-building-store"></i> 업체관리</button>
-          <button class="bp" onclick="clearDba()" style="background:rgba(180,50,50,.12);border-color:rgba(200,60,60,.25);color:#cc4040"><i class="ti ti-trash"></i> 목록 초기화</button>
-          <button class="bp ao" onclick="exportDbaExcel()" style="background:rgba(20,140,60,.18);border-color:rgba(30,180,80,.3);color:#18a050"><i class="ti ti-table-export"></i> 엑셀 다운로드</button>
+          <button class="bp bpd" id="btn_dba_req" onclick="openDbaReq()"><i class="ti ti-send"></i> 신청하기</button>
+          <button class="bp bpd ao" onclick="openDbInfoModal()"><i class="ti ti-building-store"></i> 업체관리</button>
+          <button class="bp bpd" onclick="clearDba()"><i class="ti ti-trash"></i> 목록 초기화</button>
+          <button class="bp bpd ao" onclick="exportDbaExcel()"><i class="ti ti-table-export"></i> 엑셀 다운로드</button>
         </div>
       </div>
       <!-- DB종류별 요약 (관리자만) -->
@@ -521,7 +521,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh"><div class="st"><i class="ti ti-database-import"></i>DB 배정현황</div>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="dbs_month" onchange="window._dbsViewYm=this.value;rDbs()" title="월 선택" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
-          <button class="bp ao" id="btn_dbs" onclick="openDbs()"><i class="ti ti-plus"></i> 배정 추가</button>
+          <button class="bp bpd ao" id="btn_dbs" onclick="openDbs()"><i class="ti ti-plus"></i> 배정 추가</button>
         </div>
       </div>
       <!-- DB종류별 요약 — 신청현황과 동일 (관리자만) -->
@@ -535,8 +535,8 @@ table.dt tr:last-child td{border-bottom:none;}
         <div class="st"><i class="ti ti-info-circle"></i>DB 정보</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <select id="dbinfo_month" onchange="rDbInfo()" title="월별 보기" style="padding:8px 10px;border:1px solid rgba(80,90,180,.3);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;color:#334;cursor:pointer"></select>
-          <button class="bp" onclick="exportDbInfoExcel()" style="background:rgba(20,140,60,.18);border-color:rgba(30,180,80,.3);color:#18a050"><i class="ti ti-table-export"></i> 엑셀로 저장</button>
-          <button class="bp ao" onclick="openDbInfoModal()"><i class="ti ti-plus"></i> DB 정보 추가</button>
+          <button class="bp bpd" onclick="exportDbInfoExcel()"><i class="ti ti-table-export"></i> 엑셀로 저장</button>
+          <button class="bp bpd ao" onclick="openDbInfoModal()"><i class="ti ti-plus"></i> DB 정보 추가</button>
         </div>
       </div>
       <div id="db_info_cards" style="width:100%"></div>
@@ -544,26 +544,26 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 현재 실적 -->
     <div class="pg" id="pg_pc">
-      <div class="sh"><div style="display:flex;align-items:center;gap:10px"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><select class="ao" id="perf_ym" onchange="onPerfYmChange(this.value)" title="월 선택(관리자)" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer"></select></div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
+      <div class="sh"><div style="display:flex;align-items:center;gap:10px"><div class="st"><i class="ti ti-chart-line"></i>현재 실적</div><select class="ao" id="perf_ym" onchange="onPerfYmChange(this.value)" title="월 선택(관리자)" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer"></select></div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_perf_xlsx" onclick="importPerfExcel()" style="background:#18a050;color:#fff;border:1px solid #18a050"><i class="ti ti-file-spreadsheet"></i> 실적 엑셀 업로드</button><button class="bp bpd ao" id="btn_perf"><i class="ti ti-plus"></i> 실적 입력</button></div></div>
       <div class="sg" id="perf_stats" style="grid-template-columns:repeat(6,1fr)"></div>
       <div class="card"><table class="dt"><thead><tr><th>순위</th><th>이름</th><th>직급</th><th>구분</th><th>건수</th><th>인정실적</th><th>영수실적</th><th>관리</th></tr></thead><tbody id="perf_tb"></tbody></table></div>
     </div>
 
     <!-- 월간 목표 -->
     <div class="pg" id="pg_pm">
-      <div class="sh"><div class="st"><i class="ti ti-target"></i>월간 목표 실적</div><div style="display:flex;gap:8px"><button class="bp ao" id="btn_gm" onclick="openGoal('monthly')"><i class="ti ti-plus"></i> 목표 설정</button></div></div>
+      <div class="sh"><div class="st"><i class="ti ti-target"></i>월간 목표 실적</div><div style="display:flex;gap:8px"><button class="bp bpd ao" id="btn_gm" onclick="openGoal('monthly')"><i class="ti ti-plus"></i> 목표 설정</button></div></div>
       <div class="card" style="padding:0;overflow:hidden" id="goal_monthly"></div>
     </div>
 
     <!-- 주간 목표 -->
     <div class="pg" id="pg_pw">
-      <div class="sh"><div class="st"><i class="ti ti-calendar-week"></i>주간 목표 실적</div><button class="bp ao" id="btn_gw"><i class="ti ti-plus"></i> 목표 설정</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-calendar-week"></i>주간 목표 실적</div><button class="bp bpd ao" id="btn_gw"><i class="ti ti-plus"></i> 목표 설정</button></div>
       <div class="card" id="goal_weekly"></div>
     </div>
 
     <!-- 주간 업무 -->
     <div class="pg" id="pg_ps">
-      <div class="sh"><div class="st"><i class="ti ti-list-check"></i>주간 업무 현황</div><button class="bp ao" id="btn_ws"><i class="ti ti-plus"></i> 업무 추가</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-list-check"></i>주간 업무 현황</div><button class="bp bpd ao" id="btn_ws"><i class="ti ti-plus"></i> 업무 추가</button></div>
       <div class="card"><table class="dt"><thead><tr><th>구성원</th><th>업무내용</th><th>진행상태</th><th>기간</th><th class="ao">관리</th></tr></thead><tbody id="ws_tb"></tbody></table></div>
     </div>
 
@@ -1083,7 +1083,6 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
           <div style="font-weight:700;font-size:16px;color:#2a2a4a">예상 계약 목록 <span style="font-size:13px;color:#8888aa;font-weight:400">(칸에 바로 입력하세요)</span></div>
-          <button class="bp bsm" onclick="exAddRow()"><i class="ti ti-plus"></i> 줄 추가</button>
         </div>
         <div style="overflow-x:auto">
           <table class="dt" id="expect_table" style="min-width:680px">
@@ -1099,7 +1098,7 @@ table.dt tr:last-child td{border-bottom:none;}
           </table>
         </div>
         <div style="margin-top:10px">
-          <button class="bp bsm" onclick="exAddRow()"><i class="ti ti-plus"></i> 줄 추가</button>
+          <button class="bp bsm bpd" onclick="exAddRow()"><i class="ti ti-plus"></i> 줄 추가</button>
         </div>
       </div>
     </div>
@@ -1109,7 +1108,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh">
         <div class="st"><i class="ti ti-plane"></i>출장보고</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="bp" onclick="openTripReq()" style="background:rgba(30,130,80,.2);border-color:rgba(50,180,100,.3);color:#30cc80"><i class="ti ti-send"></i> 신청</button>
+          <button class="bp bpd" onclick="openTripReq()"><i class="ti ti-send"></i> 신청</button>
         </div>
       </div>
       <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
@@ -1163,7 +1162,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="sh">
         <div class="st"><i class="ti ti-receipt"></i>청구신청</div>
         <button class="ao" onclick="uploadDBClaimTemplate()" style="font-size:13px;padding:4px 12px;background:rgba(0,100,200,.1);border:1px solid rgba(0,100,200,.3);border-radius:6px;color:#0060cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-upload"></i> 청구서 업로드</button>
-        <button class="bp" id="btn_claim_toggle" onclick="toggleClaimForm()"><i class="ti ti-plus"></i> 신청</button>
+        <button class="bp bpd" id="btn_claim_toggle" onclick="toggleClaimForm()"><i class="ti ti-plus"></i> 신청</button>
       </div>
 
       <!-- 인라인 신청 폼 -->
@@ -4760,10 +4759,10 @@ function rWm(){
     <td style="white-space:nowrap">${m.dt}</td>
     <td style="font-weight:600">${m.cust}</td>
     <td style="text-align:center">
-      <button class="be" onclick="viewMedDetail(${i})" style="padding:4px 10px;font-size:14px"><i class="ti ti-eye"></i> 상세보기</button>
+      <button class="be bpd" onclick="viewMedDetail(${i})" style="padding:4px 10px;font-size:14px"><i class="ti ti-eye"></i> 상세보기</button>
     </td>
     <td style="text-align:center">
-      <button onclick="viewMedNotice(${i})" style="padding:4px 10px;font-size:14px;background:rgba(160,80,200,.12);border:1px solid rgba(160,80,200,.3);border-radius:6px;color:#8040bb;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-alert-circle"></i> 상세보기</button>
+      <button class="bpd" onclick="viewMedNotice(${i})" style="padding:4px 10px;font-size:14px;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-alert-circle"></i> 상세보기</button>
     </td>
     <td style="text-align:center;white-space:nowrap">
       <button onclick="saveMedPdfByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(200,40,40,.12);border:1px solid rgba(200,50,50,.25);border-radius:6px;color:#cc3030;cursor:pointer;font-family:inherit;margin-right:4px" title="전체 병력 PDF로 저장"><i class="ti ti-file-type-pdf"></i> 전체</button>
