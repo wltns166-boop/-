@@ -33,3 +33,17 @@ const rows2 = [
 console.log('\n=== 시험 2: 여러 날짜·중복·누락 ===');
 formatPrescriptionLines(summarizePrescriptions(rows2)).forEach(l=>console.log(l));
 // 기대: 11/3 청주삼성내과 30일, 11/3 온누리약국 30일, 12/1 청주삼성내과 60일 (중복행 무시, null 무해)
+
+// [시험 3] 30일 이상 복용 판정 — 확정 규칙: 기록된 총일수 그대로, 합산 없음
+const { flagLongPrescriptions } = require('./prescription-summarize.js');
+console.log('\n=== 시험 3: 30일 이상 복용 판정 ===');
+const f1 = flagLongPrescriptions(summarizePrescriptions(rows));   // 전부 7일 → 없음
+console.log('시험1 데이터(전부 7일):', f1.length===0 ? '해당 없음 ✅' : '❌ '+JSON.stringify(f1));
+const f2 = flagLongPrescriptions(summarizePrescriptions(rows2));  // 30,30,60 → 3건
+console.log('시험2 데이터(30·30·60일):', f2.length===3 ? '3건 해당 ✅' : '❌');
+formatPrescriptionLines(f2).forEach(l=>console.log('  →', l));
+const f3 = flagLongPrescriptions(summarizePrescriptions([
+  {date:'2025-01-05', place:'A내과', drug:'약', days:28},
+  {date:'2025-02-05', place:'A내과', drug:'약', days:28},   // 28+28=56이지만 합산 안 함 → 미해당
+]));
+console.log('28일 처방 2회(합산 안 함):', f3.length===0 ? '해당 없음 ✅ (확정 규칙대로)' : '❌');

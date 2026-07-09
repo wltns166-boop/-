@@ -44,4 +44,12 @@ function formatPrescriptionLines(summary){
   });
 }
 
-if(typeof module !== 'undefined') module.exports = { summarizePrescriptions, fmtKoreanDate, formatPrescriptionLines };
+// ── 30일 이상 복용 판정 (사용자 확정 규칙 2026-07-09) ──
+//   기록된 "약 처방 총일수" 그대로만 본다: 병원·약국 짝 맞추기 없음, 방문 간 합산 없음.
+//   중복 정리된 방문의 대표 일수(가장 긴 총투약일수)가 minDays 이상이면 해당.
+function flagLongPrescriptions(summary, minDays){
+  var th = (typeof minDays === 'number' && minDays > 0) ? minDays : 30;
+  return (summary||[]).filter(function(g){ return g && g.days >= th; });
+}
+
+if(typeof module !== 'undefined') module.exports = { summarizePrescriptions, fmtKoreanDate, formatPrescriptionLines, flagLongPrescriptions };
