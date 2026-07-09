@@ -74,7 +74,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .cn button:hover{color:#8888ff;}
 .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:13px;}
 .ch{text-align:center;padding:6px 3px;color:#5060a0;font-weight:700;}
-.cd{text-align:center;padding:4px 2px;border-radius:3px;cursor:pointer;color:#4a5a90;min-height:44px;}
+.cd{text-align:center;padding:4px 2px;border-radius:3px;cursor:pointer;color:#111;min-height:44px;}   /* 캘린더 날짜 숫자 — 검정 */
 .cd:hover{background:rgba(70,90,220,.13);}
 .cd.td{background:rgba(70,90,220,.2);color:#3040cc;font-weight:700;}
 /* 지점일정 페이지 캘린더 크게 */
@@ -295,7 +295,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-15</div>
   </div>
 </div>
 
@@ -418,11 +418,9 @@ table.dt tr:last-child td{border-bottom:none;}
     <i class="ti ti-menu-2" id="mtoggle" onclick="toggleSidebar()"></i>
     <div class="tbt" id="tbt">홈</div>
     <div class="tbu"><i class="ti ti-user-circle"></i><span id="tbu"></span><span id="admin_badge" class="admin-badge" style="display:none">관리자</span></div>
-    <i class="ti ti-bell-off" id="push_btn" onclick="enablePush()" style="font-size:20px;color:#a0a8cc;cursor:pointer;padding:4px 6px" title="알림 켜기 (눌러서 켜기)"></i>
-    <button class="ao" onclick="uploadToFirestore()" style="font-size:13px;color:#a060ff;cursor:pointer;padding:4px 10px;border:1px solid rgba(140,60,255,.3);border-radius:6px;background:rgba(120,40,255,.1);font-family:inherit;white-space:nowrap" title="Firebase에 업로드"><i class="ti ti-cloud-upload"></i> 클라우드 업로드</button>
-    <button class="ao" onclick="exportData()" style="font-size:13px;color:#60c080;cursor:pointer;padding:4px 10px;border:1px solid rgba(60,180,80,.3);border-radius:6px;background:rgba(40,160,60,.1);font-family:inherit;white-space:nowrap" title="데이터 백업"><i class="ti ti-download"></i> 백업</button>
-    <label class="ao" style="font-size:13px;color:#6090cc;cursor:pointer;padding:4px 10px;border:1px solid rgba(60,100,220,.3);border-radius:6px;background:rgba(40,80,200,.1);white-space:nowrap" title="데이터 복원"><i class="ti ti-upload"></i> 복원<input type="file" id="import_file" accept=".json" onchange="importData(event)" style="display:none"></label>
-    <button class="ao" onclick="manualDriveFolderSync()" style="font-size:13px;color:#d08020;cursor:pointer;padding:4px 10px;border:1px solid rgba(220,140,40,.35);border-radius:6px;background:rgba(220,140,40,.1);font-family:inherit;white-space:nowrap" title="구글드라이브 고객별 폴더 다시 정리"><i class="ti ti-folder-cog"></i> 드라이브 정리</button>
+    <span id="push_btn" onclick="enablePush()" style="font-size:20px;cursor:pointer;padding:4px 6px;color:#ff5060" title="알림 켜기 (눌러서 켜기)"><i class="ti ti-bell-off"></i></span>
+    <!-- 유지보수 버튼(클라우드 업로드/백업/복원/드라이브 정리)은 요청으로 제거 (2026-07-09).
+         기능 자체는 남아 있음 — 필요 시 콘솔에서 uploadToFirestore()/exportData()/manualDriveFolderSync() 호출 -->
     <div class="tbo" id="tb_profile" onclick="openMyProfile()" title="내 정보·비밀번호 변경"><i class="ti ti-user-edit"></i> 개인정보수정</div>
     <div class="tbo" id="tbo">로그아웃</div>
   </div>
@@ -449,11 +447,11 @@ table.dt tr:last-child td{border-bottom:none;}
       <!-- 공지사항 + 일정표 -->
       <div class="hg">
         <div class="hc">
-          <div class="hct"><span><i class="ti ti-bell"></i> 공지사항</span><button class="bp bsm ao" id="btn_notice_add"><i class="ti ti-plus"></i></button></div>
+          <div class="hct"><span><i class="ti ti-bell"></i> 공지사항</span><button class="bp bsm ao" id="btn_notice_add" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 공지등록</button></div>
           <div id="notice_list"></div>
         </div>
         <div class="hc">
-          <div class="hct"><i class="ti ti-calendar"></i> 월간 일정표<button class="bp bsm ao" onclick="openCalAdd()" style="margin-left:auto;padding:3px 8px;font-size:13px"><i class="ti ti-plus"></i> 일정등록</button></div>
+          <div class="hct"><i class="ti ti-calendar"></i> 월간 일정표<button class="bp bsm ao" onclick="openCalAdd()" style="margin-left:auto;padding:3px 10px;font-size:13px;background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 일정등록</button></div>
           <div id="cal_wrap"></div>
         </div>
       </div>
@@ -774,7 +772,7 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 지점일정 페이지 -->
     <div class="pg" id="pg_schedule">
-      <div class="sh"><div class="st"><i class="ti ti-calendar-event"></i>지점일정</div><button class="bp ao" onclick="openCalAdd()"><i class="ti ti-plus"></i> 일정등록</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-calendar-event"></i>지점일정</div><button class="bp ao" onclick="openCalAdd()" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 일정등록</button></div>
       <div class="card"><div id="cal_wrap2" style="font-size:15px"></div></div>
     </div>
 
@@ -2778,9 +2776,10 @@ async function enablePush(){
 function _updatePushBtn(){
   var b=g('push_btn'); if(!b) return;
   var on = ('Notification' in window) && Notification.permission==='granted';
+  // 종 1개: 켜짐=초록 벨 / 꺼짐=빨간 벨(빗금 X)
   b.innerHTML = on ? '<i class="ti ti-bell-ringing"></i>' : '<i class="ti ti-bell-off"></i>';
-  b.title = on ? '알림 켜짐' : '알림 켜기 (눌러서 켜기)';
-  b.style.color = on ? '#5ad08a' : '#a0a8cc';
+  b.title = on ? '알림 켜짐' : '알림 꺼짐 — 눌러서 켜기';
+  b.style.color = on ? '#37d67a' : '#ff5060';
 }
 // 알림 전송 — to: 'ALL' | 'ADMIN' | [이름,...]
 function pushNotify(to, title, bodyText, link){
@@ -3451,9 +3450,9 @@ function rMem(){
       <td style="font-size:16px;font-weight:600;color:#1a1a3a">${a.name}</td>
       <td><span class="rb">${a.rank}</span></td>
       <td style="font-size:15px;color:#3848cc;font-weight:600">-</td>
-      <td style="font-size:15px;color:#444466">${_esc(a.phone)||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${_esc(a.joinDate)||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${_esc(a.address)||'-'}</td>
+      <td style="font-size:15px;color:#111">${_esc(a.phone)||'-'}</td>
+      <td style="font-size:15px;color:#111">${_esc(a.joinDate)||'-'}</td>
+      <td style="font-size:15px;color:#111">${_esc(a.address)||'-'}</td>
       <td class="ao"><button class="be" data-ea="${_esc(a.name)}"><i class="ti ti-edit"></i></button></td>
     </tr>`).join('');
   tb.innerHTML=admHtml+done.map((m,i)=>{
@@ -3463,9 +3462,9 @@ function rMem(){
       <td style="font-size:16px;font-weight:600;color:#1a1a3a">${m.name}</td>
       <td>${m.rank?`<span class="rb">${m.rank}</span>`:'-'}</td>
       <td style="font-size:15px;color:#3848cc;font-weight:600">${m.belong||'-'}</td>
-      <td style="font-size:15px;color:#444466">${m.phone||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${m.joinDate||'-'}</td>
-      <td style="font-size:15px;color:#6666aa">${m.address||'-'}</td>
+      <td style="font-size:15px;color:#111">${m.phone||'-'}</td>
+      <td style="font-size:15px;color:#111">${m.joinDate||'-'}</td>
+      <td style="font-size:15px;color:#111">${m.address||'-'}</td>
       <td class="ao"><button class="be" data-ei="${realIdx}"><i class="ti ti-edit"></i></button><button class="bd" data-di="${realIdx}" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
