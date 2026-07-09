@@ -293,7 +293,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-5</div>
   </div>
 </div>
 
@@ -2615,6 +2615,10 @@ async function loadFromFirestore(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
+    // 지점일정(cal): 클라우드 → 메모리·로컬. 클라우드에 아직 없으면(과거엔 로컬 전용이었음)
+    //   관리자 기기의 기존 로컬 일정을 1회 업로드해 팀 전체에 공유(마이그레이션).
+    if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} }
+    else { try{ if(typeof _isAdmin==='function'&&_isAdmin()){ var _lc=JSON.parse(localStorage.getItem('tops_cal')||'[]'); if(Array.isArray(_lc)&&_lc.length) sv('tops_cal',_lc); } }catch(e){} }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
@@ -2658,7 +2662,8 @@ function startRealtimeSync(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
-    if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } }
+    if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} changed=true; }
+    if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
@@ -2673,6 +2678,8 @@ function startRealtimeSync(){
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
         db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,wm:rWm,
+        notice:(typeof rNoticePage==='function'?rNoticePage:null),
+        schedule:(typeof rSchedulePage==='function'?rSchedulePage:null),
         trip:(typeof rTrip==='function'?rTrip:null),
         cust_apply:(typeof rCustList==='function'?rCustList:null),
         cust_status:(typeof rCustStatus==='function'?rCustStatus:null),
@@ -6869,8 +6876,10 @@ function deleteCalEvent(){
   if(!window._calEvents) return;
   if(window._delCalIdx===idx){
     window._calEvents.splice(idx,1);
-    _lsSet('tops_cal',JSON.stringify(window._calEvents));
-    closeCalModal();rCal();toast('삭제되었습니다.');
+    sv('tops_cal',window._calEvents);   // 클라우드 동기화 — 팀원 기기에도 반영
+    closeCalModal();rCal();
+    try{ if(window._curPage==='schedule') rSchedulePage(); }catch(e){}
+    toast('삭제되었습니다.');
     window._delCalIdx=null;
   } else {
     window._delCalIdx=idx;
@@ -6893,8 +6902,9 @@ function saveCalEvent(){
   var obj={date:date,title:title,time:time,color:color};
   if(editIdx!=='') window._calEvents[parseInt(editIdx)]=obj;
   else window._calEvents.push(obj);
-  _lsSet('tops_cal',JSON.stringify(window._calEvents));
+  sv('tops_cal',window._calEvents);   // 클라우드 동기화 — 팀원 기기에도 반영
   closeCalModal();rCal();
+  try{ if(window._curPage==='schedule') rSchedulePage(); }catch(e){}
   toast(editIdx!==''?'수정되었습니다.':'일정이 등록되었습니다.');
 }
 
