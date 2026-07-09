@@ -2791,20 +2791,57 @@ function pushNotify(to, title, bodyText, link){
 })();
 
 // AUTH
+// 클라우드에서 계정 정보(mem·admov)만 미리/다시 불러오기.
+//   코드(아이디)·비밀번호를 바꾼 사람이 다른 기기(낡은 로컬 캐시·첫 접속)에서도
+//   새 아이디로 로그인할 수 있게 한다. force=true 면 캐시를 무시하고 새로 가져온다.
+function _fetchAuthData(force){
+  if(!force && window._authPreloadP) return window._authPreloadP;
+  var p=(async function(){
+    try{
+      if(window._fbAuthReady) await window._fbAuthReady;
+      if(!window.FS_DOC) return false;
+      var doc=await FS_DOC.get();
+      if(!doc.exists) return false;
+      var d=doc.data();
+      if(d.mem&&d.mem.length){ mem=d.mem; _memFixBelong(); _lsSet('tops_mem',JSON.stringify(mem)); }
+      if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; _lsSet('tops_admov',JSON.stringify(admov)); }
+      return true;
+    }catch(e){ console.warn('계정 정보 사전 로드 실패:',e); return false; }
+  })();
+  window._authPreloadP=p;
+  return p;
+}
+// 아이디·비밀번호로 계정을 찾아 로그인(성공 시 true)
+function _tryLogin(id,pw){
+  // 관리자 체크 (오버라이드 반영된 유효 계정 목록 기준)
+  const adm=_admList().find(a=>a.id===id&&a.pw===pw);
+  if(adm){cu={id,name:adm.name,role:adm.role,admin:true};saveSession();login();return true;}
+  // 팀원 체크
+  const m=mem.find(x=>x.lid===id&&x.lpw===pw);
+  if(m){cu={id,name:m.name||'('+m.code+')',admin:false,code:m.code};saveSession();login();return true;}
+  return false;
+}
 function doLogin(){
+  var btn=g('lbtn');
+  if(btn&&btn.disabled) return;   // 클라우드 재확인 중 중복 실행 방지(Enter 연타 등)
   const id=g('lid').value.trim(), pw=g('lpw').value.trim();
   if(g('sidc').checked && id){
     _lsSet('tops_sid', id);
   } else if(!g('sidc').checked){
     localStorage.removeItem('tops_sid');
   }
-  // 관리자 체크 (오버라이드 반영된 유효 계정 목록 기준)
-  const adm=_admList().find(a=>a.id===id&&a.pw===pw);
-  if(adm){cu={id,name:adm.name,role:adm.role,admin:true};saveSession();login();return;}
-  // 팀원 체크
-  const m=mem.find(x=>x.lid===id&&x.lpw===pw);
-  if(m){cu={id,name:m.name||'('+m.code+')',admin:false,code:m.code};saveSession();login();return;}
-  g('lerr').style.display='block';
+  g('lerr').style.display='none';
+  if(_tryLogin(id,pw)) return;
+  // 로컬 캐시에 없으면 클라우드 최신 계정 정보로 1회 재확인
+  //   (다른 기기에서 코드·비밀번호를 바꾼 직후, 또는 이 기기 첫 접속 대응)
+  if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }
+  _fetchAuthData(true).then(function(){
+    if(!_tryLogin(id,pw)) g('lerr').style.display='block';
+  }).catch(function(){
+    g('lerr').style.display='block';
+  }).finally(function(){
+    if(btn){ btn.disabled=false; btn.textContent='로그인'; }
+  });
 }
 // 세션 이름 보정: 프로필 이름이 비어있던 시점에 로그인하면 cu.name이 '(코드)'로 굳는다.
 //   최신 mem에서 코드로 실명을 찾아 cu.name을 맞추고, 저장된 세션(session/keep)도 갱신한다.
@@ -3061,8 +3098,12 @@ function setAdmin(){
         return;
       }
     }catch(e){}
+    cu=null;   // 복원 실패 시 파싱된 세션이 남지 않게 정리(아래 사전 로드 판단에도 사용)
     sessionStorage.removeItem('tops_session');
   }
+  // 로그인 화면이 뜨는 경우: 클라우드 계정 정보(mem·admov)를 미리 받아
+  // 다른 기기에서 바꾼 코드(아이디)·비밀번호로도 바로 로그인되게 한다.
+  try{ _fetchAuthData(); }catch(e){}
 })();
 
 // Events
