@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.10-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.10-8</div>
   </div>
 </div>
 
@@ -643,7 +643,12 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <!-- 병력정리 -->
     <div class="pg" id="pg_wm">
-      <div class="sh"><div class="st"><i class="ti ti-heart-rate-monitor"></i>병력정리</div></div>
+      <div class="sh"><div class="st"><i class="ti ti-heart-rate-monitor"></i>병력정리</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="bp" onclick="window.open('https://www.hira.or.kr/main.do','_blank')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-file-certificate"></i> 서류발급하기</button>
+          <button class="bp" onclick="openHiraGuide()" style="background:#fff;color:#3a48cc;border:1px solid rgba(72,88,204,.4)"><i class="ti ti-help-circle"></i> 발급 방법</button>
+        </div>
+      </div>
 
       <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:22px;margin-bottom:16px">
 
@@ -1885,6 +1890,20 @@ function rSchedulePage(){
   <div class="mf"><button onclick="closeCustInfo()" style="padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button></div>
 </div></div>
 
+<!-- 병력정리 → 서류 발급 방법 안내 (밝은 모달 — 함정 D: 인라인으로 배경/글씨색 오버라이드) -->
+<div class="mb" id="m_hira"><div class="mo" style="width:720px;max-height:88vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+  <div class="mth" style="color:#1a1a2e"><span>📄 서류 발급 방법</span><span class="mc" onclick="g('m_hira').classList.remove('open')" style="color:#555">×</span></div>
+  <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <button id="hira_tab_internet" onclick="hiraTab('internet')" style="flex:1;min-width:180px;padding:9px 12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">💻 인터넷을 통한 발급방법</button>
+    <button id="hira_tab_phone" onclick="hiraTab('phone')" style="flex:1;min-width:180px;padding:9px 12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📱 핸드폰을 통한 발급방법</button>
+  </div>
+  <div id="hira_admin_bar" style="display:none;margin-bottom:10px;align-items:center;gap:8px">
+    <button onclick="uploadHiraImg()" style="padding:6px 14px;background:rgba(40,160,100,.14);border:1px solid rgba(40,160,100,.4);border-radius:7px;color:#14713e;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📷 사진 추가 (관리자)</button>
+    <span style="font-size:12px;color:#888">지금 보고 있는 탭에 발급 방법 사진이 순서대로 등록됩니다.</span>
+  </div>
+  <div id="hira_body" style="color:#1a1a2e"></div>
+</div></div>
+
 <div class="mb" id="m_perf"><div class="mo">
   <div class="mth"><span id="m_perf_t">실적 입력</span><span class="mc" id="m_perf_c">×</span></div>
   <div class="fg"><div class="fl">구성원</div><select class="fs" id="mp_mem"></select></div>
@@ -2642,6 +2661,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
+    if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -2689,6 +2709,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
+    if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -9001,6 +9022,103 @@ function deleteAllCustReq(name, agent){
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   rCustStatus();
   toast(name+' 님 전체 삭제되었습니다.');
+}
+
+// ===== 병력정리 — 서류 발급 방법 안내 (건강보험심사평가원) =====
+// 사진 원본은 Firebase Storage(hira_guide/)에 두고, 로컬/클라우드에는 URL 메타데이터만 저장 (함정 B)
+function _hiraData(){
+  if(window._hiraGuide && typeof window._hiraGuide==='object') return window._hiraGuide;
+  try{ window._hiraGuide=JSON.parse(localStorage.getItem('tops_hira_guide')||'{}'); }catch(e){ window._hiraGuide={}; }
+  if(!window._hiraGuide || typeof window._hiraGuide!=='object') window._hiraGuide={};
+  return window._hiraGuide;
+}
+function openHiraGuide(){
+  window._hiraTab=window._hiraTab||'internet';
+  var bar=g('hira_admin_bar'); if(bar) bar.style.display=_isAdmin()?'flex':'none';
+  renderHiraGuide();
+  var mb=g('m_hira'); if(mb) mb.classList.add('open');
+}
+function hiraTab(k){ window._hiraTab=(k==='phone')?'phone':'internet'; renderHiraGuide(); }
+function renderHiraGuide(){
+  var body=g('hira_body'); if(!body) return;
+  var k=window._hiraTab||'internet';
+  ['internet','phone'].forEach(function(t){
+    var b=g('hira_tab_'+t); if(!b) return;
+    b.style.background=(t===k)?'#4858cc':'#f0f1f8';
+    b.style.color=(t===k)?'#fff':'#2a2a4a';
+    b.style.border=(t===k)?'1px solid #4858cc':'1px solid #ccd0e8';
+  });
+  var d=_hiraData(); var list=Array.isArray(d[k])?d[k]:[];
+  if(!list.length){
+    body.innerHTML='<div style="text-align:center;color:#999;padding:40px 10px;font-size:14px">아직 등록된 안내 사진이 없습니다.'
+      +(_isAdmin()?'<br>위 [📷 사진 추가] 버튼으로 발급 방법 사진을 올려주세요.':'')+'</div>';
+    return;
+  }
+  body.innerHTML=list.map(function(it,i){
+    if(!it||!it.url) return '';
+    var oc=('openHiraFull('+JSON.stringify(k)+','+(it.ts||0)+')').replace(/"/g,'&quot;');
+    var del=_isAdmin()
+      ?'<div onclick="'+('delHiraImg('+JSON.stringify(k)+','+(it.ts||0)+')').replace(/"/g,'&quot;')+'" style="position:absolute;top:8px;right:8px;background:rgba(200,40,40,.85);color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">삭제</div>'
+      :'';
+    return '<div style="position:relative;margin-bottom:12px;border:1px solid #e3e6f3;border-radius:10px;overflow:hidden;background:#fafbff">'
+      +'<div style="font-size:12px;color:#8890bb;padding:5px 10px;border-bottom:1px solid #eef0f8;font-weight:600">STEP '+(i+1)+'</div>'
+      +'<img src="'+it.url+'" onclick="'+oc+'" title="크게 보기" style="width:100%;display:block;cursor:zoom-in">'
+      +del+'</div>';
+  }).join('');
+}
+function openHiraFull(k,ts){
+  var d=_hiraData(); var it=(Array.isArray(d[k])?d[k]:[]).find(function(x){return x&&x.ts===ts;});
+  if(it&&it.url) window.open(it.url,'_blank');
+}
+function uploadHiraImg(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var k=window._hiraTab||'internet';
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+  inp.onchange=async function(){
+    var files=Array.prototype.slice.call(inp.files||[]); if(!files.length) return;
+    if(typeof firebase==='undefined'||!firebase.storage){ toast('Storage 미연결 — 사진을 올릴 수 없습니다.'); return; }
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    toast('사진 업로드 중...');
+    var d=_hiraData(); if(!Array.isArray(d[k])) d[k]=[];
+    var okCnt=0;
+    for(var i=0;i<files.length;i++){
+      var f=files[i];
+      if(f.size>10*1024*1024){ toast(f.name+' — 10MB 이하 이미지만 올릴 수 있습니다.'); continue; }
+      try{
+        var ts=Date.now()+i;
+        var ref=firebase.storage().ref('hira_guide/'+k+'/'+ts);
+        await ref.put(f,{contentType:f.type||'image/jpeg'});
+        var url=await ref.getDownloadURL();
+        d[k].push({ts:ts,url:url,name:f.name||''});
+        okCnt++;
+      }catch(e){ console.warn('hira upload err:',e); toast('업로드 실패: '+e.message); }
+    }
+    if(okCnt){
+      window._hiraGuide=d;
+      try{ sv('tops_hira_guide', d); }catch(e){}
+      renderHiraGuide();
+      toast('사진 '+okCnt+'장이 등록되었습니다.');
+    }
+  };
+  inp.click();
+}
+function delHiraImg(k,ts){
+  if(!_isAdmin()) return;
+  var key='hira_'+k+'_'+ts;
+  if(window._delHiraConfirm!==key){
+    window._delHiraConfirm=key;
+    toast('한 번 더 누르면 삭제됩니다.');
+    setTimeout(function(){window._delHiraConfirm=null;},3000);
+    return;
+  }
+  window._delHiraConfirm=null;
+  var d=_hiraData(); if(!Array.isArray(d[k])) return;
+  d[k]=d[k].filter(function(x){ return !(x&&x.ts===ts); });
+  window._hiraGuide=d;
+  try{ sv('tops_hira_guide', d); }catch(e){}
+  try{ firebase.storage().ref('hira_guide/'+k+'/'+ts).delete().catch(function(){}); }catch(e){}
+  renderHiraGuide();
+  toast('삭제되었습니다.');
 }
 
 function requestMeritz(){
