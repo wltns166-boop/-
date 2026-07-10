@@ -296,7 +296,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.09-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.10-1</div>
   </div>
 </div>
 
@@ -2643,6 +2643,8 @@ async function loadFromFirestore(){
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _wcloseFixNames(); }catch(e){}
+    // '(코드)' 고객등록 요청 담당자 마이그레이션 — 위와 동일한 이유로 관리자 기기에서만(멱등)
+    try{ if(typeof _isAdmin==='function'&&_isAdmin()) _custReqsFixNames(); }catch(e){}
     // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
     //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
     try{ _authDocSync(); }catch(e){}
@@ -2937,6 +2939,33 @@ function _wcloseFixNames(){
       if(!dup){ r.m=real; changed=true; }
     });
     if(changed) sv('tops_wclose',wclose);
+  }catch(e){}
+}
+// 담당자 표기 보정: '(코드)'로 저장된 담당자를 최신 mem의 실명으로 변환(표시용 — 저장은 안 함).
+//   실명이 아직 등록 전이면 받은 값 그대로 돌려준다.
+function _agentReal(agent){
+  try{
+    var s=String(agent==null?'':agent).trim();
+    var mt=/^\((.+)\)$/.exec(s);
+    if(!mt||!Array.isArray(mem)) return s;
+    var p=mem.find(function(x){return String(x.code)===mt[1];});
+    return (p&&p.name&&p.name.trim())?p.name.trim():s;
+  }catch(e){ return String(agent==null?'':agent); }
+}
+// 고객등록 요청 이름 마이그레이션: '(코드)'로 저장된 담당자(agent)를 실명으로 1회 보정.
+//   (팀원이 이름 등록 전에 로그인해 요청하면 agent가 '(3345)' 형태로 굳는 사고 방지 — _wcloseFixNames와 동일 패턴)
+//   실명이 아직 없으면 건드리지 않고, 변경이 있을 때만 저장(멱등).
+function _custReqsFixNames(){
+  try{
+    if(!Array.isArray(mem)) return;
+    if(!Array.isArray(window.custReqs)){ try{ window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]'); }catch(e){ return; } }
+    var changed=false;
+    window.custReqs.forEach(function(r){
+      if(!r) return;
+      var real=_agentReal(r.agent);
+      if(real && real!==String(r.agent||'').trim()){ r.agent=real; changed=true; }
+    });
+    if(changed) sv('tops_cust_reqs', window.custReqs);
   }catch(e){}
 }
 function saveSession(){
@@ -5121,7 +5150,7 @@ function pushAlert(toRole, type, msg, opts){
 // 고객등록 요청 → 총무에게만, 업무시간 규칙에 맞춰 알림
 function notifyChongmuReg(custName, count){
   try{
-    var agent=(cu&&cu.name)||'담당자';
+    var agent=_agentReal((cu&&cu.name)||'담당자');   // '(코드)' 세션이어도 실명으로 알림
     var msg=agent+'님이 '+custName+' 고객의 고객등록'+(count>1?' '+count+'개사':'')+'을 요청했습니다.';
     pushAlert('총무','고객등록', msg, {deliverAt:_nextDeliverTime(new Date())});
   }catch(e){ console.warn('notifyChongmuReg err:', e); }
@@ -8259,7 +8288,7 @@ function requestCustRegFam(custIdx, famIdx){
   if(!c.ins||!c.ins.length){ toast('등록할 보험사를 먼저 선택하세요.'); return; }
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   c.ins.forEach(function(ins){
-    window.custReqs.push({name:f.name+' ('+c.name+'님 '+( f.rel||'가족')+')', ins:ins, note:'', done:false, regDate:tds(), agent:(cu&&cu.name)?cu.name:(window._lastAgent||'')});
+    window.custReqs.push({name:f.name+' ('+c.name+'님 '+( f.rel||'가족')+')', ins:ins, note:'', done:false, regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   });
   try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs', window.custReqs);}catch(e){}
@@ -8501,7 +8530,7 @@ function sendCustReq(idx){
   if(!selected.length){toast('보험사를 1개 이상 선택하세요.');return;}
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   selected.forEach(function(ins){
-    window.custReqs.push({name:c.name, ins:ins, note:c.note||'', done:false, reason:'', regDate:tds(), agent:(cu&&cu.name)?cu.name:(window._lastAgent||'')});
+    window.custReqs.push({name:c.name, ins:ins, note:c.note||'', done:false, reason:'', regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
@@ -8520,7 +8549,12 @@ function rCustStatus(){
 
   // 필터: 총무는 전체, 그 외는 본인 요청만
   var allReqs=window.custReqs||[];
-  var reqs=isAdmin ? allReqs : allReqs.filter(function(r){ return cu && r.agent===cu.name; });
+  // 본인 판정: 저장된 agent가 '(코드)'거나 세션 이름이 '(코드)'여도 실명으로 풀어 비교
+  var reqs=isAdmin ? allReqs : allReqs.filter(function(r){
+    if(!cu||!r) return false;
+    var a=String(r.agent||'');
+    return a===cu.name || _agentReal(a)===_agentReal(cu.name);
+  });
 
   // 최신순 정렬 (regDate 기준)
   var sorted=reqs.slice().sort(function(a,b){
@@ -8547,7 +8581,7 @@ function rCustStatus(){
     var idxs=groups[name];
     var note=allReqs[idxs[0]]?allReqs[idxs[0]].note||'':'';
     var hasNote=allReqs[idxs[0]]?allReqs[idxs[0]].hasNote||false:false;
-    var agent=allReqs[idxs[0]]?allReqs[idxs[0]].agent||'-':'-';
+    var agent=_agentReal(allReqs[idxs[0]]?allReqs[idxs[0]].agent||'-':'-')||'-';   // '(코드)' → 실명 표시
     var regDate=allReqs[idxs[0]]?allReqs[idxs[0]].regDate||'':'';
 
     // 날짜 포맷: 0월0일00시00분
@@ -8781,7 +8815,8 @@ function sendCustDoneAlert(name, agent){
   if(!agent || agent==='-'){ toast('담당자 정보가 없어 알림을 보낼 수 없습니다.'); return; }
   var all=window.custReqs||[];
   // 동명이인 방지: 이름 + 담당자(agent) 모두 일치하는 요청만
-  var grp=all.filter(function(r){ return r && r.name===name && (r.agent||'')===agent; });
+  //   화면의 agent는 실명으로 보정된 값이므로, 저장값이 '(코드)'여도 매칭되게 양쪽 모두 보정해 비교
+  var grp=all.filter(function(r){ return r && r.name===name && ((r.agent||'')===agent || _agentReal(r.agent||'')===agent); });
   var insList=Array.from(new Set(grp.map(function(r){return r.ins;}).filter(Boolean)));
   var dispName=name.indexOf('(')>0?name.slice(0,name.indexOf('(')).trim():name;
   var insStr=insList.join('·');
@@ -8922,7 +8957,7 @@ function requestMeritz(){
   var checked=document.getElementById('cust_meritz');
   if(!checked||!checked.checked){toast('메리츠 가설동 신청을 체크해주세요.');return;}
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-  window.custReqs.push({name:name, ins:'메리츠 가설동', note:'', done:false, reason:'', regDate:tds(), agent:(cu&&cu.name)?cu.name:(window._lastAgent||'')});
+  window.custReqs.push({name:name, ins:'메리츠 가설동', note:'', done:false, reason:'', regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   notifyChongmuReg(name, 1);
@@ -8933,7 +8968,7 @@ function requestMeritz(){
 function requestMeritzFromList(idx){
   var c=custs[idx]; if(!c) return;
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-  window.custReqs.push({name:c.name, ins:'메리츠 가설동', note:c.note||'', done:false, reason:'', regDate:tds(), agent:(cu&&cu.name)?cu.name:(window._lastAgent||'')});
+  window.custReqs.push({name:c.name, ins:'메리츠 가설동', note:c.note||'', done:false, reason:'', regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   notifyChongmuReg(c.name, 1);
@@ -8945,7 +8980,7 @@ function requestMeritzFam(custIdx, famIdx){
   var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   var name=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
-  window.custReqs.push({name:name, ins:'메리츠 가설동', note:'', done:false, reason:'', regDate:tds(), agent:(cu&&cu.name)?cu.name:(window._lastAgent||'')});
+  window.custReqs.push({name:name, ins:'메리츠 가설동', note:'', done:false, reason:'', regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   notifyChongmuReg(f.name, 1);
