@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.10-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.10-7</div>
   </div>
 </div>
 
@@ -8578,12 +8578,15 @@ function rCustStatus(){
     return;
   }
 
-  // 고객명 기준 그룹핑 (정렬 순서 유지)
+  // 고객명+담당자 기준 그룹핑 (정렬 순서 유지) — 동명이인 고객(담당자가 다른 같은 이름)의
+  //   요청이 한 묶음으로 합쳐져 전체완료/삭제가 남의 건까지 처리되는 사고 방지
+  var _gkey=function(r){ return r.name+'\u0001'+_agentReal(r.agent||''); };   // 구분자: 이름에 못 들어가는 제어문자
   var order=[]; var groups={};
   sorted.forEach(function(r){
     var globalIdx=allReqs.indexOf(r);
-    if(!groups[r.name]){groups[r.name]=[];order.push(r.name);}
-    groups[r.name].push(globalIdx);
+    var k=_gkey(r);
+    if(!groups[k]){groups[k]=[];order.push(k);}
+    groups[k].push(globalIdx);
   });
 
   // 총무 화면 일일 정리: 전부 완료된 고객 그룹은 완료한 날까지만 보이고 다음날부터 숨김
@@ -8615,11 +8618,13 @@ function rCustStatus(){
   var BOX='width:110px;min-width:110px;max-width:110px;font-size:13px;padding:5px 4px;border:1px solid;border-radius:7px;display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin:2px;box-sizing:border-box;text-align:center;cursor:pointer;';
 
   var rows=[];
-  order.forEach(function(name,ni){
-    var idxs=groups[name];
+  order.forEach(function(gkey,ni){
+    var idxs=groups[gkey];
+    var name=allReqs[idxs[0]]?allReqs[idxs[0]].name||'':'';
     var note=allReqs[idxs[0]]?allReqs[idxs[0]].note||'':'';
     var hasNote=allReqs[idxs[0]]?allReqs[idxs[0]].hasNote||false:false;
-    var agent=_agentReal(allReqs[idxs[0]]?allReqs[idxs[0]].agent||'-':'-')||'-';   // '(코드)' → 실명 표시
+    var agentKey=_agentReal((allReqs[idxs[0]]&&allReqs[idxs[0]].agent)||'');       // 그룹 매칭용(빈값 가능)
+    var agent=agentKey||'-';                                                        // '(코드)' → 실명 표시
     var regDate=allReqs[idxs[0]]?allReqs[idxs[0]].regDate||'':'';
 
     // 날짜 포맷: 0월0일 00시00분 — regTs(실제 요청 시각)가 있을 때만 시간 표시.
@@ -8656,10 +8661,10 @@ function rCustStatus(){
     // 특이사항 + 전체완료 버튼
     var noteCell;
     if(isAdmin){
-      var _nm=('completeAllCsr('+JSON.stringify(name)+')').replace(/"/g,'&quot;');
+      var _nm=('completeAllCsr('+JSON.stringify(name)+','+JSON.stringify(agentKey)+')').replace(/"/g,'&quot;');
       noteCell='<div style="display:flex;flex-direction:column;gap:5px">'
         +'<button onclick="'+_nm+'" style="font-size:13px;padding:3px 8px;background:#1a9050;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">✅ 전체완료</button>'
-        +'<div data-action="note" data-name="'+_alertEsc(name)+'" class="csr_note_btn" style="font-size:12px;padding:2px 8px;border-radius:4px;cursor:pointer;border:1px solid;display:inline-block;'
+        +'<div data-action="note" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_note_btn" style="font-size:12px;padding:2px 8px;border-radius:4px;cursor:pointer;border:1px solid;display:inline-block;'
         +(hasNote?'background:rgba(30,160,80,.15);border-color:rgba(30,160,80,.4);color:#1a7040':'background:#f5f5fa;border-color:#ccc;color:#888')
         +'">'+( hasNote?'✅ 있음':'⬜ 없음')+'</div>'
         +(hasNote&&note?'<span style="font-size:13px;color:#555">'+note+'</span>':'')
@@ -8669,7 +8674,7 @@ function rCustStatus(){
       noteCell='<span style="font-size:14px;color:#777">'+(hasNote?(note||'-'):'-')+'</span>';
     }
 
-    var delBtn=isAdmin?'<div data-action="del" data-name="'+_alertEsc(name)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
+    var delBtn=isAdmin?'<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
 
     rows.push('<tr style="border-bottom:1px solid rgba(80,80,200,.08)">'
       +'<td style="vertical-align:middle;white-space:nowrap">'
@@ -8745,9 +8750,9 @@ function rCustStatus(){
         toast(reason?('[미완료 사유] '+allReqs[idx2].ins+': '+reason):(allReqs[idx2].ins+': 미완료 사유 없음'));
       }
     } else if(notebtn&&isAdmin){
-      toggleHasNote(notebtn.getAttribute('data-name'));
+      toggleHasNote(notebtn.getAttribute('data-name'), notebtn.getAttribute('data-agent'));
     } else if(delbtn&&isAdmin){
-      deleteAllCustReq(delbtn.getAttribute('data-name'));
+      deleteAllCustReq(delbtn.getAttribute('data-name'), delbtn.getAttribute('data-agent'));
     }
   };
 }
@@ -8863,12 +8868,16 @@ function sendCustDoneAlert(name, agent){
   toast(agent+' 담당자님에게 알림을 보냈습니다.');
 }
 
-function completeAllCsr(name){
+function completeAllCsr(name, agent){
   if(!name) return;
   if(!Array.isArray(window.custReqs)) return;
+  // 동명이인 방지: 같은 고객명이라도 담당자(agent)가 일치하는 요청만 완료 처리
+  agent=(agent==null?'':String(agent));
   var changed=false;
   window.custReqs.forEach(function(r){
-    if(r.name===name&&!r.done){ r.done=true; r.reason=''; r.doneTs=Date.now(); changed=true; }
+    if(!r||r.name!==name||r.done) return;
+    if(_agentReal(r.agent||'')!==agent) return;
+    r.done=true; r.reason=''; r.doneTs=Date.now(); changed=true;
   });
   if(changed){
     try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
@@ -8952,11 +8961,12 @@ function custReqClick(idx, action, isAdmin){
   rCustStatus();
 }
 
-function toggleHasNote(name){
+function toggleHasNote(name, agent){
   if(!name) return;
   if(!Array.isArray(window.custReqs)) return;
+  agent=(agent==null?'':String(agent));
   var idxs=[];
-  window.custReqs.forEach(function(r,i){if(r.name===name)idxs.push(i);});
+  window.custReqs.forEach(function(r,i){if(r&&r.name===name&&_agentReal(r.agent||'')===agent)idxs.push(i);});
   if(!idxs.length) return;
   var cur=window.custReqs[idxs[0]].hasNote||false;
   var newVal=!cur;
@@ -8973,10 +8983,11 @@ function toggleHasNote(name){
   rCustStatus();
 }
 
-function deleteAllCustReq(name){
+function deleteAllCustReq(name, agent){
   if(!name) return;
   if(!Array.isArray(window.custReqs)) return;
-  var key='req_'+name;
+  agent=(agent==null?'':String(agent));
+  var key='req_'+name+'|'+agent;
   if(window._delReqConfirm!==key){
     window._delReqConfirm=key;
     toast('한 번 더 누르면 '+name+' 전체 삭제됩니다.');
@@ -8984,7 +8995,8 @@ function deleteAllCustReq(name){
     return;
   }
   window._delReqConfirm=null;
-  window.custReqs=window.custReqs.filter(function(r){return r.name!==name;});
+  // 동명이인 방지: 담당자까지 일치하는 요청만 삭제
+  window.custReqs=window.custReqs.filter(function(r){return !(r&&r.name===name&&_agentReal(r.agent||'')===agent);});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   rCustStatus();
