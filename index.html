@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.13-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.13-4</div>
   </div>
 </div>
 
@@ -2447,7 +2447,7 @@ function _driveSaveClaimFiles(claim, packagePDFs){
 // ===== 팀원별 폴더 저장 =====
 //   TEAM TOPS 자료 / {팀원=담당자} / ...
 //     고객리스트            → 시트 1개(고객 1명당 1행, 가로)
-//     병력정리/{고객}/...   → 문서(고객별 폴더)
+//     병력정리/{고객}/...   → 시트(정리된 표, 고객별 폴더)
 //     DB배정/DB리스트       → 시트 1개(리드 1명당 1행, 가로)
 //     보험청구서/{고객}/... → 청구 PDF(고객별 폴더)
 //     보장분석표/{고객}/보장분석표 → 문서(고객별 폴더)
@@ -2550,8 +2550,30 @@ function _driveSyncFoldersCore(k, arr){
     arr.forEach(function(d){ if(!d || !Array.isArray(d.notes)) return; var mn=_memberName(d.m); d.notes.forEach(function(n){ if(n && n.name) (byDb[mn]=byDb[mn]||[]).push(_dbTableRow(d,n)); }); });
     Object.keys(byDb).forEach(function(mn){ _driveSaveTable(mn, ['DB배정'], 'DB리스트', _DB_TABLE_HEADERS, byDb[mn]); });
   }else if(k==='tops_mhx'){
-    // 2) 병력정리: 병력정리/{고객명}/ 고객별 폴더 안에 문서 저장
-    arr.forEach(function(m){ if(m && m.cust) _driveSaveDoc(_memberName(m.m), ['병력정리', m.cust], m.cust+'님 병력분석', (m.note||m.items||'')); });
+    // 2) 병력정리: 병력정리/{고객명}/ 폴더에 정리된 표 그대로 구글시트로 저장.
+    //    (표 행이 하나도 없으면 예전처럼 텍스트 문서로 폴백)
+    var MED_SHEET_HEADERS=['진료기간','병력(질병명)','상병코드','병원명','통원치료횟수','입원일수','수술횟수','약 처방일수'];
+    arr.forEach(function(m){
+      if(!m || !m.cust) return;
+      var mn=_memberName(m.m), txt=String(m.note||m.items||'');
+      var rows=[];
+      txt.split('\n').forEach(function(line){
+        var t=line.trim();
+        if(/^\|\s*진료기간/.test(t)) return;                                   // 헤더 행 제외
+        var c=_medRowCells(t);
+        if(!c) return;
+        if(c.every(function(x){ return /^[-:\s]*$/.test(x); })) return;        // 구분선 행 제외
+        if(c.length===7) c.splice(3,0,'-');                                    // 병원명 누락(7칸) 보정
+        else if(c.length===6) c=[c[0],c[1],c[2],'-',c[3],c[4],'-',c[5]];       // 구형 6칸 근사 매핑
+        rows.push(c);
+      });
+      if(rows.length){
+        rows.push(['작성일: '+(m.dt||''),'담당: '+(m.m||''),'','','','','','']);
+        _driveSaveTable(mn, ['병력정리', m.cust], m.cust+'님 병력분석', MED_SHEET_HEADERS, rows);
+      }else{
+        _driveSaveDoc(mn, ['병력정리', m.cust], m.cust+'님 병력분석', txt);
+      }
+    });
   }else if(k==='tops_ana'){
     // 5) 보장분석표: 보장분석표/{고객}/보장분석표 문서(고객별 폴더)
     arr.forEach(function(a){ if(a && a.cust) _driveSaveDoc(_memberName(a.m), ['보장분석표', a.cust], '보장분석표', _anaText(a)); });
@@ -2602,7 +2624,7 @@ function manualDriveFolderSync(){
 // 고객별 폴더 자동 백필(로그인 후 1회). 폴더 구성/담당자 로직 바뀌면 버전(v#) 올리면 자동 재실행.
 function _driveFolderBackfill(){
   if(!_driveSyncUrl()) return;
-  var FLAG='tops_drive_folderbackfill_v7';   // v7: 병력정리를 고객별 폴더(병력정리/{고객명}/)로 이동
+  var FLAG='tops_drive_folderbackfill_v8';   // v8: 병력정리를 텍스트 문서 → 정리된 표(구글시트)로 저장
   try{ if(localStorage.getItem(FLAG)==='1') return; }catch(e){}
   setTimeout(function(){
     try{ driveSaveAllCustFiles(); }catch(e){}
