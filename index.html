@@ -2558,10 +2558,9 @@ function _driveSyncFoldersCore(k, arr){
       var mn=_memberName(m.m), txt=String(m.note||m.items||'');
       var rows=[];
       txt.split('\n').forEach(function(line){
-        var t=line.trim();
-        if(/^\|\s*진료기간/.test(t)) return;                                   // 헤더 행 제외
-        var c=_medRowCells(t);
+        var c=_medRowCells(line.trim());
         if(!c) return;
+        if(/진료기간/.test(c[0]) || /진료기간/.test(c[1]||'')) return;         // 헤더 행 제외(순번 칸이 붙은 헤더 포함)
         if(c.every(function(x){ return /^[-:\s]*$/.test(x); })) return;        // 구분선 행 제외
         if(c.length===7) c.splice(3,0,'-');                                    // 병원명 누락(7칸) 보정
         else if(c.length===6) c=[c[0],c[1],c[2],'-',c[3],c[4],'-',c[5]];       // 구형 6칸 근사 매핑
