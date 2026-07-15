@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-20</div>
   </div>
 </div>
 
@@ -610,6 +610,10 @@ table.dt tr:last-child td{border-bottom:none;}
         <div style="font-size:12px;color:#8890b8;margin-top:8px;line-height:1.6">
           발송 설정(최초 1회): <b>developers.kakao.com</b>에서 무료 앱 생성 → [앱 키]의 <b>JavaScript 키</b>를 위에 입력 → 앱의 [플랫폼]에 Web 도메인 <b>https://team-tops-intranet.web.app</b> 등록.<br>
           발송 버튼을 누르면 파일이 클라우드에 저장되고 카카오톡 공유창이 열립니다 — 받는 사람에서 <b>"나와의 채팅"</b>을 선택하면 내 카톡으로 전송됩니다.
+        </div>
+        <div id="dr_send_result" style="display:none;margin-top:10px;padding:10px 12px;background:#f6f7ff;border:1px solid #dde0f5;border-radius:8px;font-size:13px;color:#333">
+          공유창이 열리지 않았다면: <a id="dr_send_link" href="#" target="_blank" rel="noopener" style="color:#2a4ab0;font-weight:700">파일 열기</a>
+          <button type="button" id="dr_send_copy" style="margin-left:8px;padding:4px 10px;font-size:12px;background:#fff;border:1px solid #ccd;border-radius:6px;color:#444;cursor:pointer;font-family:inherit">링크 복사</button>
         </div>
       </div>
       <div class="card" style="overflow-x:auto"><div id="dr_paper"></div></div>
@@ -4888,10 +4892,13 @@ function _drAggFor(ym){
   });
   return a;
 }
-function _drSubTeam(parentName){
+function _drSubTeam(parentName,_seen){
+  _seen=_seen||{};
+  if(_seen[parentName]) return []; // belong 순환(데이터 실수) 시 무한 재귀 방지
+  _seen[parentName]=1;
   var result=[parentName];
   mem.filter(function(m){return m.name&&m.belong===parentName;}).forEach(function(m){
-    _drSubTeam(m.name).forEach(function(n){ if(result.indexOf(n)<0) result.push(n); });
+    _drSubTeam(m.name,_seen).forEach(function(n){ if(result.indexOf(n)<0) result.push(n); });
   });
   return result;
 }
@@ -4944,6 +4951,7 @@ function drSaveCfg(){
 }
 function drBuild(){
   var paper=g('dr_paper'); if(!paper) return;
+  try{ _dsnapRecord(); }catch(e){} // "새로 생성" 시 스냅샷도 최신화 (변동 없으면 내부에서 스킵)
   var ym=_curYm(), today=_drToday();
   var mo=+ym.slice(5,7);
   var now=new Date();
@@ -5010,6 +5018,10 @@ function drBuild(){
     ? '직전 스냅샷('+mmdd(prevS.d)+') '+(prevS.ym===ym?('누적 '+won(prevSum.a)+' / '+prevSum.c+'건 대비'):'(전월 데이터) 이후')
       +(tdSum.a||tdSum.c?' 반영분입니다.':' 변동 없음. 오늘 신규 반영된 계약이 없습니다.')
     : '오늘부터 일일 스냅샷 집계를 시작했습니다. 다음 보고서부터 일일 변동이 표시됩니다.';
+  if(prevS){
+    var gapDays=Math.round((new Date(today+'T00:00:00')-new Date(prevS.d+'T00:00:00'))/86400000);
+    if(gapDays>1) s1note+=' (직전 스냅샷이 '+gapDays+'일 전이라 여러 날 합산 반영분일 수 있습니다.)';
+  }
   var sec1=sec(1,'오늘 반영 실적',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +box('오늘 반영 인정실적',won(tdSum.a),'')
@@ -5200,6 +5212,17 @@ async function drSend(type){
     var refT=firebase.storage().ref(base+'thumb.jpg');
     await refT.putString(_drThumb(canvas),'data_url');
     var thumbUrl=await refT.getDownloadURL();
+    // 팝업/딥링크가 차단될 수 있으므로(특히 iOS·인앱 브라우저) 폴백 링크를 항상 함께 표시
+    var res=g('dr_send_result');
+    if(res){
+      res.style.display='block';
+      var lk=g('dr_send_link'); lk.href=fileUrl; lk.textContent=label+' 파일 열기 ('+dateStr+')';
+      var cp=g('dr_send_copy');
+      cp.onclick=function(){
+        try{ navigator.clipboard.writeText(fileUrl).then(function(){ toast('링크가 복사되었습니다. 카톡에 붙여넣어 보내세요.'); }); }
+        catch(e){ prompt('아래 링크를 복사하세요', fileUrl); }
+      };
+    }
     window.Kakao.Share.sendDefault({
       objectType:'feed',
       content:{
@@ -5210,7 +5233,7 @@ async function drSend(type){
       },
       buttons:[{ title:label+' 열기', link:{ mobileWebUrl:fileUrl, webUrl:fileUrl } }]
     });
-    toast('공유창에서 "나와의 채팅"을 선택하면 내 카톡으로 전송됩니다.');
+    toast('공유창이 열리면 "나와의 채팅"을 선택하세요. 안 열리면 아래 폴백 링크를 이용하세요.');
   }catch(e){ console.warn('일일보고 발송 실패:',e); toast('발송 실패: '+(e&&e.message||e)); }
 }
 
