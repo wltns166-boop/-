@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-10</div>
   </div>
 </div>
 
@@ -574,7 +574,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <!-- 진급평가 -->
     <div class="pg" id="pg_prom">
       <div class="sh"><div class="st"><i class="ti ti-award"></i>진급평가</div><div style="display:flex;gap:8px"><button class="bp bpd ao" id="btn_prom"><i class="ti ti-plus"></i> 평가 추가</button><button class="bp bpd ao" id="btn_promcrit"><i class="ti ti-settings"></i> 평가기준수정</button></div></div>
-      <div class="card"><table class="dt"><thead><tr><th>이름</th><th>현재직급</th><th>목표직급</th><th>평가월</th><th>평가차수</th><th>평가실적</th><th>현재 인정실적</th><th>달성률</th><th>달성여부</th><th>관리</th></tr></thead><tbody id="prom_tb"></tbody></table></div>
+      <div class="card"><table class="dt"><thead><tr><th>이름</th><th>현재직급</th><th>목표직급</th><th style="text-align:center">1차 평가</th><th style="text-align:center">2차 평가</th><th style="text-align:center">3차 평가</th><th>현재 인정실적</th><th>달성률</th><th>관리</th></tr></thead><tbody id="prom_tb"></tbody></table></div>
       <!-- 진급 기준 (가로 표 — 기준 추가 시 열이 늘어남) -->
       <div class="card" style="margin-top:14px">
         <div style="font-weight:800;color:#1a1a3a;font-size:16px;margin-bottom:10px"><i class="ti ti-list-check" style="color:#4050cc"></i> 진급 기준</div>
@@ -1975,9 +1975,9 @@ function rSchedulePage(){
     <div class="fg"><div class="fl">평가 차수</div>
       <select class="fs" id="mpr_round">
         <option value="">선택</option>
-        <option value="1차">1차</option>
-        <option value="2차">2차</option>
-        <option value="3차">3차</option>
+        <option value="1차">1차 평가</option>
+        <option value="2차">2차 평가</option>
+        <option value="3차">3차 평가</option>
       </select>
     </div>
     <div class="fg"><div class="fl">달성여부</div>
@@ -4541,41 +4541,61 @@ function rProm(){
     return prf.filter(p=>team.includes(p.m)&&_perfMonth(p)===ym).reduce((s,p)=>s+(+p.a||0),0);
   }
 
-  tb.innerHTML=prm.map((p,i)=>{
-    const isDone=p.st==='달성';
-    const isGoing=p.st==='진행중';
-    const badgeBg=isDone?'rgba(30,150,70,.15)':isGoing?'rgba(40,80,220,.12)':'rgba(200,50,50,.1)';
-    const badgeColor=isDone?'#1a8a40':isGoing?'#2848cc':'#cc3020';
-    // 현재실적 = 해당 인원 + 산하 팀원 실적 합계
-    const curNum=getTeamTotal(p.m); // 원 단위 (prf.a가 원 단위로 저장됨)
-    const goalNum=+(p.goal||0);     // 원 단위
+  // 같은 사람(이름+목표직급)의 1·2·3차 평가를 한 줄로 묶어 차수별 칸에 배치
+  var groups=[], gmap={};
+  prm.forEach(function(p){
+    var k=(p.m||'')+'|'+(p.tg||'');
+    if(!gmap[k]){ gmap[k]={m:p.m,cr:p.cr,tg:p.tg,items:[]}; groups.push(gmap[k]); }
+    if(p.cr) gmap[k].cr=p.cr;
+    gmap[k].items.push(p);
+  });
+  function stBadge(st,small){
+    var isDone=st==='달성', isGoing=st==='진행중';
+    var bg=isDone?'rgba(30,150,70,.15)':isGoing?'rgba(40,80,220,.12)':'rgba(200,50,50,.1)';
+    var col=isDone?'#1a8a40':isGoing?'#2848cc':'#cc3020';
+    return '<span style="padding:'+(small?'1px 8px':'3px 10px')+';border-radius:12px;font-size:'+(small?'12.5px':'14px')+';font-weight:700;background:'+bg+';color:'+col+'">'+_esc(st||'진행중')+'</span>';
+  }
+  tb.innerHTML=groups.map(function(gr){
+    // 현재실적 = 해당 인원 + 산하 팀원 실적 합계 (원 단위)
+    const curNum=getTeamTotal(gr.m);
+    // 달성률 기준: 진행중인 차수(뒤에 등록된 것 우선), 없으면 마지막 등록 차수
+    var act=null;
+    gr.items.forEach(function(p){ if(p.st==='진행중') act=p; });
+    if(!act) act=gr.items[gr.items.length-1];
+    const goalNum=+((act&&act.goal)||0);
     const rate=goalNum>0?Math.round((curNum/goalNum)*1000)/10:null;
     const rateColor=rate===null?'#888':rate>=100?'#1a8a40':rate>=70?'#2040cc':'#cc4020';
-    return `<tr>
-      <td style="font-weight:600;color:#1a1a3a">${p.m}</td>
-      <td><span class="rb">${p.cr||'-'}</span></td>
-      <td><span class="rb" style="background:rgba(80,40,200,.12);color:#5030cc">${p.tg||'-'}</span></td>
-      <td style="color:#444;font-size:14px">${p.evalMonth||'-'}</td>
-      <td style="color:#444">${p.round||'-'}</td>
-      <td style="color:#2040cc;font-weight:600">${goalNum?goalNum.toLocaleString()+'원':'-'}</td>
-      <td style="font-weight:700;color:${rateColor}">${curNum?curNum.toLocaleString()+'원':'-'}</td>
-      <td style="text-align:center;font-weight:800;font-size:17px;color:${rateColor}">
-        ${rate!==null?rate+'%':'<span style="color:#ccc">-</span>'}
-      </td>
-      <td>
-        <span style="padding:3px 10px;border-radius:12px;font-size:14px;font-weight:700;
-          background:${badgeBg};
-          color:${badgeColor}">
-          ${p.st||'진행중'}
-        </span>
-      </td>
-      <td style="white-space:nowrap">
-        ${cu&&cu.admin?`
-        <button class="be" data-ei="${i}" style="margin-right:4px"><i class="ti ti-edit"></i> 수정</button>
-        <button class="bd" onclick="deletePromItem(${i})"><i class="ti ti-trash"></i> 삭제</button>
-        `:''}
-      </td>
-    </tr>`;
+    // 차수별 칸: 세로로 평가월 / 00만 / 달성여부
+    var roundCells=['1차','2차','3차'].map(function(rd){
+      var list=gr.items.filter(function(p){ return p.round===rd; });
+      if(!list.length) return '<td style="text-align:center;color:#ccc">-</td>';
+      return '<td style="text-align:center">'+list.map(function(p){
+        var gN=+(p.goal||0);
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 0">'
+          +'<span style="color:#444">'+_esc(p.evalMonth||'-')+'</span>'
+          +'<span style="color:#2040cc;font-weight:700">'+(gN?(gN/10000).toLocaleString()+'만':'-')+'</span>'
+          +stBadge(p.st,true)
+        +'</div>';
+      }).join('<div style="border-top:1px dashed #dde;margin:3px 10px"></div>')+'</td>';
+    }).join('');
+    // 관리: 등록된 차수별로 수정/삭제 — 원본 인덱스는 객체 참조로 재탐색 (함정 A 안전)
+    var mgHtml=cu&&cu.admin?gr.items.map(function(p){
+      var i=prm.indexOf(p);
+      return '<div style="white-space:nowrap;margin:2px 0">'
+        +'<span style="font-size:12px;color:#888;margin-right:4px">'+_esc(p.round||'-')+'</span>'
+        +'<button class="be" data-ei="'+i+'" style="margin-right:4px"><i class="ti ti-edit"></i> 수정</button>'
+        +'<button class="bd" onclick="deletePromItem('+i+')"><i class="ti ti-trash"></i> 삭제</button>'
+      +'</div>';
+    }).join(''):'';
+    return '<tr>'
+      +'<td style="font-weight:600;color:#1a1a3a">'+_esc(gr.m)+'</td>'
+      +'<td><span class="rb">'+_esc(gr.cr||'-')+'</span></td>'
+      +'<td><span class="rb" style="background:rgba(80,40,200,.12);color:#5030cc">'+_esc(gr.tg||'-')+'</span></td>'
+      +roundCells
+      +'<td style="font-weight:700;color:'+rateColor+'">'+(curNum?curNum.toLocaleString()+'원':'-')+'</td>'
+      +'<td style="text-align:center;font-weight:800;font-size:17px;color:'+rateColor+'">'+(rate!==null?rate+'%':'<span style="color:#ccc">-</span>')+'</td>'
+      +'<td>'+mgHtml+'</td>'
+    +'</tr>';
   }).join('');
   tb.querySelectorAll('[data-ei]').forEach(b=>b.addEventListener('click',()=>{
     const i=+b.dataset.ei; const p=prm[i];
