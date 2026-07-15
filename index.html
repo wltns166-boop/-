@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-32</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-33</div>
   </div>
 </div>
 
@@ -5228,11 +5228,14 @@ function drBuild(){
   function emptyMsg(t){ return '<div style="padding:8px 0;color:#8890b8;font-size:13px">'+t+'</div>'; }
   function okTag(v,okTxt,noTxt){ return v?'<span style="color:#0fa658;font-weight:700">'+okTxt+'</span>':'<span style="color:#cc3020;font-weight:700">'+noTxt+'</span>'; }
   function srcContent(src){
-    if(src==='trip'){ // 출장보고 — 이번 달 신청
-      var tl=(Array.isArray(trips)?trips:[]).filter(function(t){ return String(t.when||'').slice(0,7)===ym; });
-      return {t:'출장보고 ('+mo+'월)', h:tl.length?tbl(['이름','일시','사유','장소','확인'],
+    if(src==='trip'){ // 출장보고 — 다음날(기준일+1일) 출장 대상자만
+      var nd=new Date(D+'T00:00:00'); nd.setDate(nd.getDate()+1);
+      var ndStr=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0')+'-'+String(nd.getDate()).padStart(2,'0');
+      var ndLbl=(nd.getMonth()+1)+'월 '+nd.getDate()+'일';
+      var tl=(Array.isArray(trips)?trips:[]).filter(function(t){ return String(t.when||'').slice(0,10)===ndStr; });
+      return {t:'출장보고 — 익일 '+ndLbl, h:tl.length?tbl(['이름','일시','사유','장소','확인'],
         tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-']; }))
-        :emptyMsg(mo+'월 출장 신청이 없습니다.')};
+        :emptyMsg('다음날('+ndLbl+') 출장 일정이 없습니다.')};
     }
     if(src==='exam'){ // 시험신청 — 전체 신청 내역 (실시간 동기화는 localStorage만 갱신하므로 렌더 시 재로드)
       try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){}
@@ -5262,18 +5265,26 @@ function drBuild(){
         }))
         :emptyMsg('입사준비에 등록된 신입이 없습니다.')};
     }
-    if(src==='rookie'){ // 루키대상자 — 홈 화면 루키 기준과 동일
-      var nowD=new Date();
+    if(src==='rookie'){ // 루키대상자 — 입사일 6개월 이내 전원 + 루키 목표(100만) 달성 현황
+      var nowD=new Date(), ROOKIE_GOAL=1000000;
       var rookies=mem.filter(function(m){
-        if(!m.name||!m.salesStart) return false;
-        var start=new Date(m.salesStart); if(isNaN(start.getTime())) return false;
+        if(!m.name) return false;
+        var jd=m.joinDate||m.salesStart; if(!jd) return false;
+        var start=new Date(jd); if(isNaN(start.getTime())) return false;
         var limit=new Date(start.getFullYear(),start.getMonth()+6,start.getDate());
-        return nowD<=limit && agg[m.name] && agg[m.name].a>=1000000;
+        return nowD<=limit;
       }).sort(function(x,y2){ return ((agg[y2.name]&&agg[y2.name].a)||0)-((agg[x.name]&&agg[x.name].a)||0); });
-      return {t:'루키대상자', h:(rookies.length?tbl(['이름','영업시작일','인정실적','영수실적'],
-        rookies.map(function(m){ return [_esc(m.name),_esc(m.salesStart||'-'),won(agg[m.name].a),won(agg[m.name].ay||0)]; }))
-        :emptyMsg('해당자 없음'))
-        +note('기준: 영업시작 6개월 이내 + 인정실적 100만원 이상')};
+      return {t:'루키대상자', h:(rookies.length?tbl(['이름','입사일','인정실적','영수실적','건수','달성률','달성여부'],
+        rookies.map(function(m){
+          var v=agg[m.name]||{c:0,a:0,ay:0};
+          var rate=Math.round((v.a||0)/ROOKIE_GOAL*1000)/10;
+          var st=(v.a||0)>=ROOKIE_GOAL
+            ?'<span style="color:#0fa658;font-weight:700">달성</span>'
+            :'<span style="color:#2848cc;font-weight:700">진행중</span>';
+          return [_esc(m.name),_esc(m.joinDate||m.salesStart||'-'),won(v.a),won(v.ay),(v.c||0)+'건',rate+'%',st];
+        }))
+        :emptyMsg('입사 6개월 이내 대상자가 없습니다.'))
+        +note('기준: 입사일로부터 6개월 이내 · 루키 목표 인정실적 100만원 (달성률=인정실적÷100만원)')};
     }
     return null;
   }
