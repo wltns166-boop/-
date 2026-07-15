@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-26</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-27</div>
   </div>
 </div>
 
@@ -5007,34 +5007,36 @@ function drBuild(){
   function mmdd(d){ return d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):''; }
   function mdLabel(d){ return d?(+d.slice(5,7))+'월 '+(+d.slice(8,10))+'일':''; }
   function box(label,val,unit,color){
-    return '<div style="flex:1;min-width:140px;border:1px solid #e3e6f5;border-radius:8px;padding:12px 8px;text-align:center">'
-      +'<div style="font-size:11.5px;color:#7a80b0;letter-spacing:1px;margin-bottom:6px">'+label+'</div>'
-      +'<div style="font-size:20px;font-weight:800;color:'+(color||'#20265a')+';word-break:keep-all">'+val+'</div>'
-      +(unit?'<div style="font-size:11.5px;color:#9095c0;margin-top:2px">'+unit+'</div>':'')+'</div>';
+    return '<div style="flex:1;min-width:140px;border:1px solid #e6e2fb;background:#fbfaff;border-radius:11px;padding:12px 8px;text-align:center">'
+      +'<div style="font-size:11.5px;color:#8b7fe0;letter-spacing:1px;margin-bottom:6px">'+label+'</div>'
+      +'<div style="font-size:20px;font-weight:800;color:'+(color||'#4a3fd8')+';word-break:keep-all">'+val+'</div>'
+      +(unit?'<div style="font-size:11.5px;color:#a9a3d8;margin-top:2px">'+unit+'</div>':'')+'</div>';
   }
   function sec(no,title,inner){
-    return '<div style="border:1px solid #e6e8f5;border-radius:10px;margin-bottom:14px;overflow:hidden">'
-      +'<div style="background:#f4f5fd;padding:10px 14px;font-weight:800;color:#2a2f66;font-size:15px">'+no+'. '+title+'</div>'
+    return '<div style="border:1px solid #eae5fb;border-radius:12px;margin-bottom:14px;overflow:hidden">'
+      +'<div style="background:linear-gradient(90deg,#eef1ff,#f9f0ff);padding:10px 14px;font-weight:800;color:#4a3fd8;font-size:15px">'
+        +'<span style="display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:50%;background:linear-gradient(135deg,#5b6cf5,#a45cf6);color:#fff;text-align:center;font-size:12.5px;margin-right:8px">'+no+'</span>'
+        +title+'</div>'
       +'<div style="padding:14px">'+inner+'</div></div>';
   }
-  function note(t){ return '<div style="font-size:11.5px;color:#8890b8;margin-top:10px;line-height:1.55">'+t+'</div>'; }
+  function note(t){ return '<div style="font-size:11.5px;color:#968ecb;margin-top:10px;line-height:1.55">'+t+'</div>'; }
   function tbl(heads,rows,tail){
-    var thS='padding:7px 10px;background:#f6f7fc;color:#4a5090;font-size:12px;font-weight:700;text-align:left;border-bottom:2px solid #e3e6f5;white-space:nowrap';
+    var thS='padding:7px 10px;background:#f0f1ff;color:#5a4fd0;font-size:12px;font-weight:700;text-align:left;border-bottom:2px solid #e2ddf8;white-space:nowrap';
     var h='<table style="width:100%;border-collapse:collapse;margin-top:8px"><tr>'+heads.map(function(x,i){
       return '<th style="'+thS+(i>=heads.length-3?';text-align:right':'')+'">'+x+'</th>';
     }).join('')+'</tr>';
     rows.forEach(function(r){
       h+='<tr>'+r.map(function(c,i){
-        return '<td style="padding:7px 10px;font-size:13px;color:#222;border-bottom:1px solid #eef0f8;white-space:nowrap'+(i>=r.length-3?';text-align:right':'')+'">'+c+'</td>';
+        return '<td style="padding:7px 10px;font-size:13px;color:#333;border-bottom:1px solid #f1eefb;white-space:nowrap'+(i>=r.length-3?';text-align:right':'')+'">'+c+'</td>';
       }).join('')+'</tr>';
     });
     if(tail) h+='<tr>'+tail.map(function(c,i){
-      return '<td style="padding:7px 10px;font-size:13px;font-weight:800;color:#20265a;background:#fafbff;white-space:nowrap'+(i>=tail.length-3?';text-align:right':'')+'">'+c+'</td>';
+      return '<td style="padding:7px 10px;font-size:13px;font-weight:800;color:#4a3fd8;background:#f8f6ff;white-space:nowrap'+(i>=tail.length-3?';text-align:right':'')+'">'+c+'</td>';
     }).join('')+'</tr>';
     return h+'</table>';
   }
   // ── 1. 오늘(기준일) 반영 실적 — 수치는 초록색 강조
-  var GREEN='#1a8a40';
+  var GREEN='#0fa658';
   var todayDiff=null, tdSum={c:0,a:0,ay:0};
   if(dS){
     var base=(prevS&&prevS.ym===ym)?prevS.agg:{};
@@ -5098,7 +5100,7 @@ function drBuild(){
   var sec4=sec(4,'월 목표 대비 (목표 '+won(goal)+')',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +box('월 누적 인정실적',won(ta),'')+box('달성률',gRate+'%','')+box('잔여',won(remain),'')+'</div>'
-    +'<div style="height:10px;background:#eef0f8;border-radius:6px;margin-top:12px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,gRate)+'%;background:#4858ee"></div></div>'
+    +'<div style="height:10px;background:#edeffc;border-radius:6px;margin-top:12px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,gRate)+'%;background:linear-gradient(90deg,#5b6cf5,#a45cf6)"></div></div>'
     +tbl(['구분','건수','인정실적','영수실적'],sec4rows)
     +(teamRows.length?('<div style="font-size:12.5px;color:#5560a0;margin-top:12px;font-weight:700">팀별</div>'+tbl(['팀','건수','인정실적','영수실적'],teamRows)):'')
     +note('팀 합계는 팀장 하위 인원 포함 재귀 합산이라, 팀장이 다른 팀 하위에 있으면 상위 팀에 중복 계상될 수 있습니다.'));
@@ -5135,13 +5137,13 @@ function drBuild(){
   // ── 조립
   paper.innerHTML=
     '<div style="width:800px;background:#fff;color:#222;padding:4px">'
-    +'<div style="background:#232a5c;color:#fff;border-radius:10px;padding:16px 18px;margin-bottom:14px">'
+    +'<div style="background:linear-gradient(135deg,#4a55e8,#8a4fe0);color:#fff;border-radius:12px;padding:16px 18px;margin-bottom:14px">'
       +'<div style="font-size:20px;font-weight:800">탑스 1지점 일일보고 ('+(+D.slice(5,7))+'/'+(+D.slice(8,10))+' '+yoil+')</div>'
-      +'<div style="font-size:12px;color:#aeb6e8;margin-top:4px">'+ym.slice(0,4)+'년 '+mo+'월 누적 기준 · 인트라넷 실적관리 집계 · '
+      +'<div style="font-size:12px;color:#e2e6ff;margin-top:4px">'+ym.slice(0,4)+'년 '+mo+'월 누적 기준 · 인트라넷 실적관리 집계 · '
       +(isToday?('작성 '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')):('조회 기준 '+mdLabel(D)+' 스냅샷'))+'</div>'
     +'</div>'
     +sec1+sec2+sec3+sec4+sec5+sec6
-    +'<div style="text-align:center;font-size:11px;color:#a0a5c8;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
+    +'<div style="text-align:center;font-size:11px;color:#b3addd;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
     +'</div>';
   // 발송용 이미지 사전 생성 — 버튼을 누르는 즉시 공유창이 뜨도록 미리 준비 (iOS 제스처 제한 대응)
   // 세대 번호를 올려 진행 중인 캡처가 낡은 화면을 캐시에 쓰지 못하게 한다 (오발송 방지)
