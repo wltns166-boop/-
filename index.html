@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-23</div>
   </div>
 </div>
 
@@ -4885,6 +4885,8 @@ g('btn_promcrit').addEventListener('click',function(){
 // 일별 스냅샷: {d:'YYYY-MM-DD', ym:'YYYY-MM', agg:{이름:[건수,인정,영수]}} — 오늘 반영/어제 실적 계산용
 // 오늘 날짜(로컬 기준) — td()는 UTC라 KST 00~09시에 전날로 잡히므로 스냅샷 매칭엔 이걸 쓴다
 function _drToday(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// 드롭다운에서 선택된 조회 기준일 — 저장/발송 파일명·라벨도 이 날짜를 쓴다
+function _drSelDate(){ var el=g('dr_date'); return (el&&el.value)||_drToday(); }
 function _drAggFor(ym){
   var a={};
   prf.forEach(function(p){
@@ -5067,7 +5069,7 @@ function drBuild(){
     +box('인정실적',won(ta),'')
     +box('영수실적',won(tay),'')
     +box('건수',tc+'건','')
-    +'</div>'+note(mo+'월 누적 — 실적관리 [현재실적] 화면과 동일한 집계입니다.'));
+    +'</div>'+note(mo+'월 누적 — '+(isToday?'실적관리 [현재실적] 화면과 동일한 집계입니다.':mdLabel(D)+' 스냅샷 기준 집계입니다.')));
   // ── 3. 전날실적 (직전 스냅샷 구간)
   var sec3inner, sec3title='전날실적';
   if(prevS&&prevS.ym===ym){
@@ -5185,7 +5187,7 @@ async function drSaveImg(){
     toast('이미지 생성 중…');
     var c=await _drCanvas();
     var a=document.createElement('a');
-    a.href=c.toDataURL('image/png'); a.download='탑스_일일보고_'+_drToday()+'.png';
+    a.href=c.toDataURL('image/png'); a.download='탑스_일일보고_'+_drSelDate()+'.png';
     document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ console.warn(e); toast('이미지 생성 실패: '+(e&&e.message||e)); }
 }
@@ -5193,7 +5195,7 @@ async function drSavePdf(){
   try{
     toast('PDF 생성 중…');
     var c=await _drCanvas();
-    _drPdfFromCanvas(c).save('탑스_일일보고_'+_drToday()+'.pdf');
+    _drPdfFromCanvas(c).save('탑스_일일보고_'+_drSelDate()+'.pdf');
   }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
 }
 // ── 카카오톡 발송 (공유창 → "나와의 채팅" 선택 시 내 카톡으로 전송)
@@ -5216,7 +5218,7 @@ async function drSend(type){
     toast((type==='pdf'?'PDF':'이미지')+' 생성·업로드 중…');
     var canvas=await _drCanvas();
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
-    var dateStr=_drToday(), stamp=Date.now();
+    var dateStr=_drSelDate(), stamp=Date.now();
     var base='daily_reports/'+dateStr+'/'+stamp+'_';
     var fileUrl, label;
     if(type==='pdf'){
