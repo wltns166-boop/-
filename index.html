@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-27</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-28</div>
   </div>
 </div>
 
@@ -5009,12 +5009,12 @@ function drBuild(){
   function box(label,val,unit,color){
     return '<div style="flex:1;min-width:140px;border:1px solid #e6e2fb;background:#fbfaff;border-radius:11px;padding:12px 8px;text-align:center">'
       +'<div style="font-size:11.5px;color:#8b7fe0;letter-spacing:1px;margin-bottom:6px">'+label+'</div>'
-      +'<div style="font-size:20px;font-weight:800;color:'+(color||'#4a3fd8')+';word-break:keep-all">'+val+'</div>'
+      +'<div style="font-size:20px;font-weight:800;color:'+(color||'#222')+';word-break:keep-all">'+val+'</div>'
       +(unit?'<div style="font-size:11.5px;color:#a9a3d8;margin-top:2px">'+unit+'</div>':'')+'</div>';
   }
   function sec(no,title,inner){
     return '<div style="border:1px solid #eae5fb;border-radius:12px;margin-bottom:14px;overflow:hidden">'
-      +'<div style="background:linear-gradient(90deg,#eef1ff,#f9f0ff);padding:10px 14px;font-weight:800;color:#4a3fd8;font-size:15px">'
+      +'<div style="padding:10px 14px;font-weight:800;color:#4a3fd8;font-size:15px;border-bottom:1px solid #f0ecfb">'
         +'<span style="display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:50%;background:linear-gradient(135deg,#5b6cf5,#a45cf6);color:#fff;text-align:center;font-size:12.5px;margin-right:8px">'+no+'</span>'
         +title+'</div>'
       +'<div style="padding:14px">'+inner+'</div></div>';
@@ -5027,11 +5027,11 @@ function drBuild(){
     }).join('')+'</tr>';
     rows.forEach(function(r){
       h+='<tr>'+r.map(function(c,i){
-        return '<td style="padding:7px 10px;font-size:13px;color:#333;border-bottom:1px solid #f1eefb;white-space:nowrap'+(i>=r.length-3?';text-align:right':'')+'">'+c+'</td>';
+        return '<td style="padding:7px 10px;font-size:13px;color:#222;border-bottom:1px solid #f1eefb;white-space:nowrap'+(i>=r.length-3?';text-align:right':'')+'">'+c+'</td>';
       }).join('')+'</tr>';
     });
     if(tail) h+='<tr>'+tail.map(function(c,i){
-      return '<td style="padding:7px 10px;font-size:13px;font-weight:800;color:#4a3fd8;background:#f8f6ff;white-space:nowrap'+(i>=tail.length-3?';text-align:right':'')+'">'+c+'</td>';
+      return '<td style="padding:7px 10px;font-size:13px;font-weight:800;color:#222;background:#f8f6ff;white-space:nowrap'+(i>=tail.length-3?';text-align:right':'')+'">'+c+'</td>';
     }).join('')+'</tr>';
     return h+'</table>';
   }
@@ -5096,13 +5096,13 @@ function drBuild(){
     ['1지점',s1j.c+'건',won(s1j.a),won(s1j.ay)],
     ['직할',sDir.c+'건',won(sDir.a),won(sDir.ay)]
   ];
-  var teamRows=teams.map(function(t){ return [_esc(t.name)+' 팀 ('+t.size+'명)',t.s.c+'건',won(t.s.a),won(t.s.ay)]; });
+  var teamRows=teams.map(function(t){ return [_esc(t.name)+' 팀',_esc(rankMap[t.name]||'-'),t.size+'명',t.s.c+'건',won(t.s.a),won(t.s.ay)]; });
   var sec4=sec(4,'월 목표 대비 (목표 '+won(goal)+')',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +box('월 누적 인정실적',won(ta),'')+box('달성률',gRate+'%','')+box('잔여',won(remain),'')+'</div>'
     +'<div style="height:10px;background:#edeffc;border-radius:6px;margin-top:12px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,gRate)+'%;background:linear-gradient(90deg,#5b6cf5,#a45cf6)"></div></div>'
     +tbl(['구분','건수','인정실적','영수실적'],sec4rows)
-    +(teamRows.length?('<div style="font-size:12.5px;color:#5560a0;margin-top:12px;font-weight:700">팀별</div>'+tbl(['팀','건수','인정실적','영수실적'],teamRows)):'')
+    +(teamRows.length?('<div style="font-size:12.5px;color:#5560a0;margin-top:12px;font-weight:700">팀별</div>'+tbl(['팀','직급','인원','건수','인정실적','영수실적'],teamRows)):'')
     +note('팀 합계는 팀장 하위 인원 포함 재귀 합산이라, 팀장이 다른 팀 하위에 있으면 상위 팀에 중복 계상될 수 있습니다.'));
   // ── 5. DB 현황 (기준일이 속한 달, 기준일까지)
   var dbaM=dba.filter(function(x){var t=String(x.dt||''); return t.slice(0,7)===ym && t<=D;});
