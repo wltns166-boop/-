@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-31</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-32</div>
   </div>
 </div>
 
@@ -5234,7 +5234,8 @@ function drBuild(){
         tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-']; }))
         :emptyMsg(mo+'월 출장 신청이 없습니다.')};
     }
-    if(src==='exam'){ // 시험신청 — 전체 신청 내역
+    if(src==='exam'){ // 시험신청 — 전체 신청 내역 (실시간 동기화는 localStorage만 갱신하므로 렌더 시 재로드)
+      try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){}
       var el2=Array.isArray(exams)?exams:[];
       return {t:'시험신청', h:el2.length?tbl(['이름','소속','접수과목','합격과목','시험일','접수'],
         el2.map(function(e){ return [_esc(e.name||'-'),_esc(e.belong||'-'),_esc((e.apply||[]).join(', ')||'-'),_esc((e.pass||[]).join(', ')||'-'),_esc(e.examDate||'-'),okTag(e.done,'완료','미완료')]; }))
