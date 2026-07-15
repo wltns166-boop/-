@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-18</div>
   </div>
 </div>
 
@@ -422,6 +422,8 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="ns"><div class="ni" id="n_edu_prep">교육준비</div></div>
       <div class="ns"><div class="ni" id="n_new_check">신입체크리스트</div></div>
     </div>
+
+    <div class="ni ao" id="n_dreport"><i class="ti ti-report-analytics"></i>일일보고서</div>
   </nav>
 
   <div id="sb_overlay" onclick="closeSidebar()"></div>
@@ -586,6 +588,31 @@ table.dt tr:last-child td{border-bottom:none;}
         <div style="font-weight:800;color:#1a1a3a;font-size:16px;margin-bottom:10px"><i class="ti ti-list-check" style="color:#4050cc"></i> 진급 기준</div>
         <div id="promcrit_wrap" style="overflow-x:auto"></div>
       </div>
+    </div>
+
+    <!-- 일일보고서 (관리자 전용) -->
+    <div class="pg" id="pg_dreport">
+      <div class="sh"><div class="st"><i class="ti ti-report-analytics"></i>일일보고서</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="drBuild()" style="padding:9px 14px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-refresh"></i> 새로 생성</button>
+          <button onclick="drSaveImg()" style="padding:9px 14px;font-size:13px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.35);border-radius:7px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-photo-down"></i> 이미지 저장</button>
+          <button onclick="drSavePdf()" style="padding:9px 14px;font-size:13px;background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);border-radius:7px;color:#b03030;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
+          <button onclick="drSend('img')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> 이미지 발송</button>
+          <button onclick="drSend('pdf')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> PDF 발송</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div class="fg" style="margin:0;width:170px"><div class="fl" style="color:#5560a0">월 목표 (원)</div><input class="fi" id="dr_goal" type="number" style="background:#fff;color:#111;border:1px solid #ccd" placeholder="10000000"></div>
+          <div class="fg" style="margin:0;flex:1;min-width:240px"><div class="fl" style="color:#5560a0">카카오 JavaScript 키 (발송용 · 1회 설정)</div><input class="fi" id="dr_kkey" style="background:#fff;color:#111;border:1px solid #ccd" placeholder="developers.kakao.com 앱의 JavaScript 키"></div>
+          <button onclick="drSaveCfg()" style="padding:9px 16px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700">설정 저장</button>
+        </div>
+        <div style="font-size:12px;color:#8890b8;margin-top:8px;line-height:1.6">
+          발송 설정(최초 1회): <b>developers.kakao.com</b>에서 무료 앱 생성 → [앱 키]의 <b>JavaScript 키</b>를 위에 입력 → 앱의 [플랫폼]에 Web 도메인 <b>https://team-tops-intranet.web.app</b> 등록.<br>
+          발송 버튼을 누르면 파일이 클라우드에 저장되고 카카오톡 공유창이 열립니다 — 받는 사람에서 <b>"나와의 채팅"</b>을 선택하면 내 카톡으로 전송됩니다.
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto"><div id="dr_paper"></div></div>
     </div>
 
     <!-- 보장분석 -->
@@ -2211,6 +2238,8 @@ let prf=JSON.parse(localStorage.getItem('tops_prf')||'[]');
 let gls=JSON.parse(localStorage.getItem('tops_gls')||'[]');
 let prm=JSON.parse(localStorage.getItem('tops_prm')||'[]');
 let promCrit=JSON.parse(localStorage.getItem('tops_promcrit')||'[]'); // 진급 평가기준 (가로 표, 열 단위 추가)
+let dsnap=JSON.parse(localStorage.getItem('tops_dsnap')||'[]');       // 일일보고서용 실적 일별 스냅샷
+let drCfg=JSON.parse(localStorage.getItem('tops_drcfg')||'{}');       // 일일보고서 설정(월 목표·카카오 키)
 let dba=JSON.parse(localStorage.getItem('tops_dba')||'[]');
 let dbs=JSON.parse(localStorage.getItem('tops_dbs')||'[]');
 let ana=JSON.parse(localStorage.getItem('tops_ana')||'[]');
@@ -2685,6 +2714,8 @@ async function loadFromFirestore(){
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
+    if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
+    if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
     // 지점일정(cal): 클라우드 → 메모리·로컬. 클라우드에 아직 없으면(과거엔 로컬 전용이었음)
     //   관리자 기기의 기존 로컬 일정을 1회 업로드해 팀 전체에 공유(마이그레이션).
     if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} }
@@ -2736,6 +2767,8 @@ function startRealtimeSync(){
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
+    if(Array.isArray(d.dsnap)){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
+    if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
     if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} changed=true; }
     if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
@@ -3356,6 +3389,7 @@ g('n_new_menu').addEventListener('click',function(){tnav('new');});
 g('n_join_prep').addEventListener('click',function(){showPage('join_prep');});
 g('n_edu_prep').addEventListener('click',function(){showPage('edu_prep');});
 g('n_new_check').addEventListener('click',function(){showPage('new_check');});
+g('n_dreport') && g('n_dreport').addEventListener('click',function(){showPage('dreport');});
 
 const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   tops:'TOPS',members:'구성원',hierarchy:'계보도',
@@ -3368,7 +3402,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
   wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
-  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트'};
+  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서'};
 function showPage(name){
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
@@ -3377,13 +3411,16 @@ function showPage(name){
   if(['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
+  if(name==='dreport' && !_isAdmin()){
+    toast('일일보고서는 관리자만 볼 수 있습니다.'); return;
+  }
   window._curPage = name;
   closeSidebar(); // 모바일: 메뉴 선택 시 서랍 닫기
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   const pg=g('pg_'+name);if(pg)pg.classList.add('active');
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -3414,6 +3451,8 @@ function rHome(){
   [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie].forEach(function(f){
     try{ f(); }catch(e){ console.warn('rHome 렌더 오류:', (f&&f.name)||'', e); }
   });
+  // 일일보고서용 실적 스냅샷 — 관리자가 접속만 해도 그날 기록이 쌓인다 (내부에서 관리자·변동 여부 확인)
+  try{ if(typeof _dsnapRecord==='function') _dsnapRecord(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -4835,6 +4874,343 @@ g('btn_promcrit').addEventListener('click',function(){
   _pcrRender();
   g('m_promcrit').classList.add('open');
 });
+
+// ===== 일일보고서 (관리자 전용) =====
+// 일별 스냅샷: {d:'YYYY-MM-DD', ym:'YYYY-MM', agg:{이름:[건수,인정,영수]}} — 오늘 반영/어제 실적 계산용
+function _drAggFor(ym){
+  var a={};
+  prf.forEach(function(p){
+    if(_perfMonth(p)!==ym) return;
+    if(!a[p.m]) a[p.m]={c:0,a:0,ay:0};
+    a[p.m].c+=+p.c||0; a[p.m].a+=+p.a||0; a[p.m].ay+=+p.ay||0;
+  });
+  return a;
+}
+function _drSubTeam(parentName){
+  var result=[parentName];
+  mem.filter(function(m){return m.name&&m.belong===parentName;}).forEach(function(m){
+    _drSubTeam(m.name).forEach(function(n){ if(result.indexOf(n)<0) result.push(n); });
+  });
+  return result;
+}
+function _dsnapRecord(){
+  try{
+    if(!cu||!cu.admin) return; // 기록은 관리자 기기에서만 (동시 쓰기 최소화)
+    var ym=_curYm(), d=td();
+    var agg=_drAggFor(ym), slim={};
+    Object.keys(agg).forEach(function(n){ slim[n]=[agg[n].c,agg[n].a,agg[n].ay]; });
+    var idx=-1;
+    dsnap.forEach(function(s,i){ if(s.d===d) idx=i; });
+    if(idx>=0){
+      if(dsnap[idx].ym===ym && JSON.stringify(dsnap[idx].agg)===JSON.stringify(slim)) return; // 변동 없음
+      dsnap[idx].ym=ym; dsnap[idx].agg=slim;
+    }else{
+      dsnap.push({d:d,ym:ym,agg:slim});
+    }
+    dsnap.sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:0; });
+    while(dsnap.length>60) dsnap.shift(); // 최근 60일만 보관
+    sv('tops_dsnap',dsnap);
+  }catch(e){ console.warn('dsnap 기록 실패:',e); }
+}
+function _dsnapSum(agg){
+  var r={c:0,a:0,ay:0};
+  Object.keys(agg||{}).forEach(function(n){ var v=agg[n]||[0,0,0]; r.c+=v[0]||0; r.a+=v[1]||0; r.ay+=v[2]||0; });
+  return r;
+}
+function _dsnapDiff(cur,prev){
+  var out={}, names={};
+  Object.keys(cur||{}).forEach(function(n){names[n]=1;});
+  Object.keys(prev||{}).forEach(function(n){names[n]=1;});
+  Object.keys(names).forEach(function(n){
+    var c=(cur&&cur[n])||[0,0,0], p=(prev&&prev[n])||[0,0,0];
+    var d=[(c[0]||0)-(p[0]||0),(c[1]||0)-(p[1]||0),(c[2]||0)-(p[2]||0)];
+    if(d[0]||d[1]||d[2]) out[n]=d;
+  });
+  return out;
+}
+function rDreport(){
+  if(!_isAdmin()) return;
+  _dsnapRecord();
+  var gEl=g('dr_goal'); if(gEl&&!gEl.value) gEl.value=drCfg.goal||10000000;
+  var kEl=g('dr_kkey'); if(kEl&&!kEl.value) kEl.value=drCfg.kakaoKey||'';
+  drBuild();
+}
+function drSaveCfg(){
+  drCfg={ goal:+(g('dr_goal').value||10000000), kakaoKey:(g('dr_kkey').value||'').trim() };
+  sv('tops_drcfg',drCfg);
+  toast('설정이 저장되었습니다.'); drBuild();
+}
+function drBuild(){
+  var paper=g('dr_paper'); if(!paper) return;
+  var ym=_curYm(), today=td();
+  var mo=+ym.slice(5,7);
+  var now=new Date();
+  var yoil=['일','월','화','수','목','금','토'][now.getDay()];
+  // ── 월 누적 집계 및 구분(1지점/직할)
+  var agg=_drAggFor(ym);
+  var rankMap={}; mem.forEach(function(m){ if(m.name) rankMap[m.name]=m.rank; });
+  ADMINS.forEach(function(a){ rankMap[a.name]=a.role; });
+  var branch1=_drSubTeam('박지순'), headAll=_drSubTeam('백동현');
+  function gubun(n){ return branch1.indexOf(n)>=0?'1지점':(headAll.indexOf(n)>=0?'직할':'-'); }
+  var names=Object.keys(agg);
+  var sorted=names.map(function(n){return [n,agg[n]];}).sort(function(a,b){return b[1].a-a[1].a;});
+  var tc=0,ta=0,tay=0; sorted.forEach(function(e){tc+=e[1].c;ta+=e[1].a;tay+=e[1].ay;});
+  function sumNames(list){ var r={c:0,a:0,ay:0}; list.forEach(function(n){ var v=agg[n]; if(v){r.c+=v.c;r.a+=v.a;r.ay+=v.ay;} }); return r; }
+  var s1j=sumNames(names.filter(function(n){return gubun(n)==='1지점';}));
+  var sDir=sumNames(names.filter(function(n){return gubun(n)==='직할';}));
+  // ── 스냅샷 (오늘/직전/그 이전)
+  var snaps=dsnap.slice().sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});
+  var todayS=null,prevS=null,prev2=null;
+  snaps.forEach(function(s){ if(s.d===today) todayS=s; });
+  for(var i=snaps.length-1;i>=0;i--){
+    if(snaps[i].d<today){ if(!prevS) prevS=snaps[i]; else { prev2=snaps[i]; break; } }
+  }
+  // ── 공용 HTML 조각
+  function won(n){ return (n||0).toLocaleString()+'원'; }
+  function mmdd(d){ return d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):''; }
+  function box(label,val,unit){
+    return '<div style="flex:1;min-width:140px;border:1px solid #e3e6f5;border-radius:8px;padding:12px 8px;text-align:center">'
+      +'<div style="font-size:11.5px;color:#7a80b0;letter-spacing:1px;margin-bottom:6px">'+label+'</div>'
+      +'<div style="font-size:20px;font-weight:800;color:#20265a;word-break:keep-all">'+val+'</div>'
+      +(unit?'<div style="font-size:11.5px;color:#9095c0;margin-top:2px">'+unit+'</div>':'')+'</div>';
+  }
+  function sec(no,title,inner){
+    return '<div style="border:1px solid #e6e8f5;border-radius:10px;margin-bottom:14px;overflow:hidden">'
+      +'<div style="background:#f4f5fd;padding:10px 14px;font-weight:800;color:#2a2f66;font-size:15px">'+no+'. '+title+'</div>'
+      +'<div style="padding:14px">'+inner+'</div></div>';
+  }
+  function note(t){ return '<div style="font-size:11.5px;color:#8890b8;margin-top:10px;line-height:1.55">'+t+'</div>'; }
+  function tbl(heads,rows,tail){
+    var thS='padding:7px 10px;background:#f6f7fc;color:#4a5090;font-size:12px;font-weight:700;text-align:left;border-bottom:2px solid #e3e6f5;white-space:nowrap';
+    var h='<table style="width:100%;border-collapse:collapse;margin-top:8px"><tr>'+heads.map(function(x,i){
+      return '<th style="'+thS+(i>=heads.length-3?';text-align:right':'')+'">'+x+'</th>';
+    }).join('')+'</tr>';
+    rows.forEach(function(r){
+      h+='<tr>'+r.map(function(c,i){
+        return '<td style="padding:7px 10px;font-size:13px;color:#222;border-bottom:1px solid #eef0f8;white-space:nowrap'+(i>=r.length-3?';text-align:right':'')+'">'+c+'</td>';
+      }).join('')+'</tr>';
+    });
+    if(tail) h+='<tr>'+tail.map(function(c,i){
+      return '<td style="padding:7px 10px;font-size:13px;font-weight:800;color:#20265a;background:#fafbff;white-space:nowrap'+(i>=tail.length-3?';text-align:right':'')+'">'+c+'</td>';
+    }).join('')+'</tr>';
+    return h+'</table>';
+  }
+  // ── 1. 오늘 반영 실적
+  var todayDiff=null, tdSum={c:0,a:0,ay:0};
+  if(todayS){
+    var base=(prevS&&prevS.ym===ym)?prevS.agg:{};
+    todayDiff=_dsnapDiff(todayS.agg,base);
+    Object.keys(todayDiff).forEach(function(n){ var v=todayDiff[n]; tdSum.c+=v[0]; tdSum.a+=v[1]; tdSum.ay+=v[2]; });
+  }
+  var prevSum=prevS?_dsnapSum(prevS.agg):null;
+  var upPct=(prevS&&prevS.ym===ym&&prevSum&&prevSum.a>0)?Math.round(tdSum.a/prevSum.a*1000)/10:null;
+  var s1note = prevS
+    ? '직전 스냅샷('+mmdd(prevS.d)+') '+(prevS.ym===ym?('누적 '+won(prevSum.a)+' / '+prevSum.c+'건 대비'):'(전월 데이터) 이후')
+      +(tdSum.a||tdSum.c?' 반영분입니다.':' 변동 없음. 오늘 신규 반영된 계약이 없습니다.')
+    : '오늘부터 일일 스냅샷 집계를 시작했습니다. 다음 보고서부터 일일 변동이 표시됩니다.';
+  var sec1=sec(1,'오늘 반영 실적',
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    +box('오늘 반영 인정실적',won(tdSum.a),'')
+    +box('오늘 반영 건수',(tdSum.c||0)+'건','')
+    +box('직전 대비 상승률',upPct===null?'-':(upPct+'%'),'')
+    +'</div>'+note(s1note));
+  // ── 2. 계약 반영 인원
+  var sec2inner;
+  var diffNames=todayDiff?Object.keys(todayDiff):[];
+  if(diffNames.length){
+    var dRows=diffNames.map(function(n){ return {n:n,v:todayDiff[n]}; }).sort(function(a,b){return b.v[1]-a.v[1];});
+    sec2inner='<div style="font-size:12.5px;color:#5560a0">오늘 실적이 반영된 인원입니다.</div>'
+      +tbl(['이름','직급','구분','오늘 건수','오늘 인정실적','오늘 영수실적'],
+        dRows.map(function(r){ return [_esc(r.n),_esc(rankMap[r.n]||'-'),gubun(r.n),r.v[0]+'건',won(r.v[1]),won(r.v[2])]; }));
+  }else{
+    sec2inner='<div style="font-size:12.5px;color:#5560a0">오늘 증감 없음 — 아래는 '+mo+'월 월 누적 기여자입니다.</div>'
+      +tbl(['이름','직급','구분','월 건수','월 인정실적','월 영수실적'],
+        sorted.map(function(e){ return [_esc(e[0]),_esc(rankMap[e[0]]||'-'),gubun(e[0]),e[1].c+'건',won(e[1].a),won(e[1].ay)]; }));
+  }
+  var sec2=sec(2,'계약 반영 인원',sec2inner);
+  // ── 3. 어제(직전 구간) 실적
+  var sec3inner;
+  if(prevS&&prevS.ym===ym){
+    var yBase=(prev2&&prev2.ym===ym)?prev2.agg:{};
+    var yd=_dsnapDiff(prevS.agg,yBase);
+    var ydSum={c:0,a:0,ay:0}, yd1={c:0,a:0,ay:0}, ydD={c:0,a:0,ay:0};
+    Object.keys(yd).forEach(function(n){
+      var v=yd[n]; ydSum.c+=v[0]; ydSum.a+=v[1]; ydSum.ay+=v[2];
+      var gb=gubun(n); var t=gb==='1지점'?yd1:(gb==='직할'?ydD:null);
+      if(t){ t.c+=v[0]; t.a+=v[1]; t.ay+=v[2]; }
+    });
+    var rangeTxt=(prev2&&prev2.ym===ym)?(mmdd(prev2.d)+' 이후 ~ '+mmdd(prevS.d)):(mo+'월 초 ~ '+mmdd(prevS.d)+' 누적');
+    sec3inner='<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      +box('인정실적',won(ydSum.a),'')+box('영수실적',won(ydSum.ay),'')+box('건수',ydSum.c+'건','')+'</div>'
+      +tbl(['구분','건수','인정실적','영수실적'],[
+        ['1지점',yd1.c+'건',won(yd1.a),won(yd1.ay)],
+        ['직할',ydD.c+'건',won(ydD.a),won(ydD.ay)]
+      ],['합계',ydSum.c+'건',won(ydSum.a),won(ydSum.ay)])
+      +note('집계 구간: '+rangeTxt+'. 스냅샷 간격이 하루보다 크면 여러 영업일 합산 실적입니다.');
+  }else{
+    sec3inner='<div class="em" style="padding:6px 0;color:#8890b8;font-size:13px">직전 실적 비교를 위한 스냅샷이 아직 없습니다. 내일부터 표시됩니다.</div>';
+  }
+  var sec3=sec(3,'어제 실적',sec3inner);
+  // ── 4. 월 목표 대비
+  var goal=+(drCfg.goal||10000000);
+  var gRate=goal>0?Math.round(ta/goal*1000)/10:0;
+  var remain=Math.max(0,goal-ta);
+  var leaders=mem.filter(function(m){ return m.name && mem.some(function(x){return x.belong===m.name;}); });
+  var teams=leaders.map(function(L){
+    var tn=_drSubTeam(L.name);
+    return {name:L.name,size:tn.length,s:sumNames(tn)};
+  }).sort(function(a,b){return b.s.a-a.s.a;});
+  var sec4rows=[
+    ['1지점',s1j.c+'건',won(s1j.a),won(s1j.ay)],
+    ['직할',sDir.c+'건',won(sDir.a),won(sDir.ay)]
+  ];
+  var teamRows=teams.map(function(t){ return [_esc(t.name)+' 팀 ('+t.size+'명)',t.s.c+'건',won(t.s.a),won(t.s.ay)]; });
+  var sec4=sec(4,'월 목표 대비 (목표 '+won(goal)+')',
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    +box('월 누적 인정실적',won(ta),'')+box('달성률',gRate+'%','')+box('잔여',won(remain),'')+'</div>'
+    +'<div style="height:10px;background:#eef0f8;border-radius:6px;margin-top:12px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,gRate)+'%;background:#4858ee"></div></div>'
+    +tbl(['구분','건수','인정실적','영수실적'],sec4rows)
+    +(teamRows.length?('<div style="font-size:12.5px;color:#5560a0;margin-top:12px;font-weight:700">팀별</div>'+tbl(['팀','건수','인정실적','영수실적'],teamRows)):'')
+    +note('팀 합계는 팀장 하위 인원 포함 재귀 합산이라, 팀장이 다른 팀 하위에 있으면 상위 팀에 중복 계상될 수 있습니다.'));
+  // ── 5. DB 현황 (이번 달)
+  var dbaM=dba.filter(function(x){return String(x.dt||'').slice(0,7)===ym;});
+  var dbsM=dbs.filter(function(x){return String(x.dt||'').slice(0,7)===ym;});
+  var dbsT=dbs.filter(function(x){return x.dt===today;});
+  function qsum(list){ return list.reduce(function(s,x){return s+(+x.q||0);},0); }
+  var kinds=[];
+  (Array.isArray(dbInfo)?dbInfo:[]).forEach(function(d){ var k=(d&&d.kind!=null)?String(d.kind).trim():''; if(k&&kinds.indexOf(k)<0) kinds.push(k); });
+  dbaM.concat(dbsM).forEach(function(x){ var k=String(x.k||'').trim(); if(k&&kinds.indexOf(k)<0) kinds.push(k); });
+  var dbRows=kinds.map(function(k){
+    var aL=dbaM.filter(function(x){return String(x.k||'').trim()===k;});
+    var sL=dbsM.filter(function(x){return String(x.k||'').trim()===k;});
+    var tL=dbsT.filter(function(x){return String(x.k||'').trim()===k;});
+    var amt=aL.reduce(function(s,x){return s+(+x.total||0);},0);
+    return [_esc(k),qsum(aL)+'건',won(amt),qsum(sL)+'건',qsum(tL)+'건'];
+  });
+  var sec5=sec(5,'DB 현황 ('+mo+'월)',
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    +box('오늘 배정 DB',qsum(dbsT)+'건','')+box('이번달 배정',qsum(dbsM)+'건','')+box('이번달 신청',qsum(dbaM)+'건','')+'</div>'
+    +(dbRows.length?tbl(['업체','신청 수량','신청 금액','배정 수량','오늘 배정'],dbRows)
+      :'<div style="padding:8px 0;color:#8890b8;font-size:13px">'+mo+'월 신청·배정 데이터가 없습니다.</div>'));
+  // ── 6. 실적 순위
+  var medalBg=['#e8b800','#9aa0b4','#b0763a'];
+  var rankRows=sorted.map(function(e,i){
+    var badge=i<3?('<span style="display:inline-block;width:20px;height:20px;line-height:20px;border-radius:50%;background:'+medalBg[i]+';color:#fff;font-size:11px;font-weight:800;text-align:center">'+(i+1)+'</span>')
+      :('<span style="color:#8888bb;font-weight:700">'+(i+1)+'</span>');
+    return [badge,_esc(e[0]),_esc(rankMap[e[0]]||'-'),gubun(e[0]),e[1].c+'건',won(e[1].a),won(e[1].ay)];
+  });
+  var sec6=sec(6,'실적 순위 (인정실적)',
+    tbl(['순위','이름','직급','구분','건수','인정실적','영수실적'],rankRows,
+      ['','합계','','',tc+'건',won(ta),won(tay)]));
+  // ── 조립
+  paper.innerHTML=
+    '<div style="width:800px;background:#fff;color:#222;padding:4px">'
+    +'<div style="background:#232a5c;color:#fff;border-radius:10px;padding:16px 18px;margin-bottom:14px">'
+      +'<div style="font-size:20px;font-weight:800">탑스 1지점 일일보고 ('+(now.getMonth()+1)+'/'+now.getDate()+' '+yoil+')</div>'
+      +'<div style="font-size:12px;color:#aeb6e8;margin-top:4px">'+ym.slice(0,4)+'년 '+mo+'월 누적 기준 · 인트라넷 실적관리 집계 · 작성 '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+'</div>'
+    +'</div>'
+    +sec1+sec2+sec3+sec4+sec5+sec6
+    +'<div style="text-align:center;font-size:11px;color:#a0a5c8;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
+    +'</div>';
+}
+// ── PDF/이미지 생성 (라이브러리 지연 로드)
+function _drLoadScript(src){
+  return new Promise(function(res,rej){
+    var s=document.createElement('script'); s.src=src;
+    s.onload=res; s.onerror=function(){ rej(new Error('스크립트 로드 실패: '+src)); };
+    document.head.appendChild(s);
+  });
+}
+async function _drEnsureLibs(){
+  if(!window.html2canvas) await _drLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if(!(window.jspdf&&window.jspdf.jsPDF)) await _drLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+}
+async function _drCanvas(){
+  await _drEnsureLibs();
+  var el=g('dr_paper');
+  if(!el||!el.firstChild) drBuild();
+  return await html2canvas(g('dr_paper'),{scale:2,backgroundColor:'#ffffff',useCORS:true});
+}
+function _drPdfFromCanvas(canvas){
+  var pdf=new window.jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4'});
+  var margin=8, pw=210-margin*2, ph=297-margin*2;
+  var pxPerMm=canvas.width/pw;
+  var pageHpx=Math.floor(ph*pxPerMm);
+  var pages=Math.max(1,Math.ceil(canvas.height/pageHpx));
+  for(var i=0;i<pages;i++){
+    var sliceH=Math.min(pageHpx,canvas.height-i*pageHpx);
+    var tmp=document.createElement('canvas'); tmp.width=canvas.width; tmp.height=sliceH;
+    tmp.getContext('2d').drawImage(canvas,0,i*pageHpx,canvas.width,sliceH,0,0,canvas.width,sliceH);
+    if(i>0) pdf.addPage();
+    pdf.addImage(tmp.toDataURL('image/jpeg',0.92),'JPEG',margin,margin,pw,sliceH/pxPerMm);
+  }
+  return pdf;
+}
+async function drSaveImg(){
+  try{
+    toast('이미지 생성 중…');
+    var c=await _drCanvas();
+    var a=document.createElement('a');
+    a.href=c.toDataURL('image/png'); a.download='탑스_일일보고_'+td()+'.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ console.warn(e); toast('이미지 생성 실패: '+(e&&e.message||e)); }
+}
+async function drSavePdf(){
+  try{
+    toast('PDF 생성 중…');
+    var c=await _drCanvas();
+    _drPdfFromCanvas(c).save('탑스_일일보고_'+td()+'.pdf');
+  }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
+}
+// ── 카카오톡 발송 (공유창 → "나와의 채팅" 선택 시 내 카톡으로 전송)
+async function _drKakaoEnsure(){
+  var key=(drCfg.kakaoKey||'').trim();
+  if(!key) throw new Error('카카오 JavaScript 키가 설정되지 않았습니다. 위 설정칸에 입력 후 저장하세요.');
+  if(!window.Kakao) await _drLoadScript('https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js');
+  if(!window.Kakao.isInitialized()) window.Kakao.init(key);
+}
+function _drThumb(canvas){
+  var w=canvas.width, h=Math.min(canvas.height,Math.round(w*0.6));
+  var tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  var ctx=tmp.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(canvas,0,0,w,h,0,0,w,h);
+  return tmp.toDataURL('image/jpeg',0.85);
+}
+async function drSend(type){
+  try{
+    await _drKakaoEnsure(); // 키 미설정이면 여기서 안내 후 중단
+    toast((type==='pdf'?'PDF':'이미지')+' 생성·업로드 중…');
+    var canvas=await _drCanvas();
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var dateStr=td(), stamp=Date.now();
+    var base='daily_reports/'+dateStr+'/'+stamp+'_';
+    var fileUrl, label;
+    if(type==='pdf'){
+      var blob=_drPdfFromCanvas(canvas).output('blob');
+      var refP=firebase.storage().ref(base+'report.pdf');
+      await refP.put(blob,{contentType:'application/pdf'});
+      fileUrl=await refP.getDownloadURL(); label='PDF';
+    }else{
+      var refI=firebase.storage().ref(base+'report.png');
+      await refI.putString(canvas.toDataURL('image/png'),'data_url');
+      fileUrl=await refI.getDownloadURL(); label='이미지';
+    }
+    var refT=firebase.storage().ref(base+'thumb.jpg');
+    await refT.putString(_drThumb(canvas),'data_url');
+    var thumbUrl=await refT.getDownloadURL();
+    window.Kakao.Share.sendDefault({
+      objectType:'feed',
+      content:{
+        title:'탑스 일일보고 ('+dateStr+')',
+        description:label+' 보고서 — 아래 버튼을 눌러 확인하세요.',
+        imageUrl:thumbUrl,
+        link:{ mobileWebUrl:fileUrl, webUrl:fileUrl }
+      },
+      buttons:[{ title:label+' 열기', link:{ mobileWebUrl:fileUrl, webUrl:fileUrl } }]
+    });
+    toast('공유창에서 "나와의 채팅"을 선택하면 내 카톡으로 전송됩니다.');
+  }catch(e){ console.warn('일일보고 발송 실패:',e); toast('발송 실패: '+(e&&e.message||e)); }
+}
 
 // DB
 // DB종류별 요약 카드 HTML — 신청현황(dba) 기준. 신청현황·배정현황 페이지 공용.
