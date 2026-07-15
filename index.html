@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-12</div>
   </div>
 </div>
 
@@ -1961,31 +1961,21 @@ function rSchedulePage(){
         <option>SBM</option><option>RM</option><option>SRM</option>
       </select>
     </div>
-    <div class="fg"><div class="fl">평가월</div>
-      <select class="fs" id="mpr_eval_month">
-        <option value="">선택</option>
-        <option>1월</option><option>2월</option><option>3월</option>
-        <option>4월</option><option>5월</option><option>6월</option>
-        <option>7월</option><option>8월</option><option>9월</option>
-        <option>10월</option><option>11월</option><option>12월</option>
-      </select>
-    </div>
   </div>
-  <div class="fr">
-    <div class="fg"><div class="fl">평가 차수</div>
-      <select class="fs" id="mpr_round">
-        <option value="">선택</option>
-        <option value="1차">1차 평가</option>
-        <option value="2차">2차 평가</option>
-        <option value="3차">3차 평가</option>
-      </select>
-    </div>
-    <div class="fg"><div class="fl">달성여부</div>
-      <select class="fs" id="mpr_st">
-        <option value="진행중">진행중</option>
-        <option value="달성">달성</option>
-        <option value="미달성">미달성</option>
-      </select>
+  <div class="fg"><div class="fl">차수별 평가 — 월을 선택한 차수만 등록됩니다 (아래: 평가월 / 달성여부)</div>
+    <div class="fr" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="fg"><div class="fl">1차 평가</div>
+        <select class="fs" id="mpr_m1"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
+        <select class="fs" id="mpr_st1" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
+      </div>
+      <div class="fg"><div class="fl">2차 평가</div>
+        <select class="fs" id="mpr_m2"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
+        <select class="fs" id="mpr_st2" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
+      </div>
+      <div class="fg"><div class="fl">3차 평가</div>
+        <select class="fs" id="mpr_m3"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
+        <select class="fs" id="mpr_st3" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
+      </div>
     </div>
   </div>
   <div class="fr">
@@ -2002,7 +1992,6 @@ function rSchedulePage(){
     </div>
     <div class="fg"><div class="fl">현재실적 (자동계산)</div><input class="fi" id="mpr_current" readonly style="background:#f5f6ff;color:#3040cc;font-weight:700" placeholder="산하 포함 자동합산"></div>
   </div>
-  <input type="hidden" id="mpr_edit_idx">
   <div class="mf"><button class="bca" id="m_prom_cancel">취소</button><button class="bco" id="m_prom_save">저장</button></div>
 </div></div>
 
@@ -4580,15 +4569,12 @@ function rProm(){
         +'</div>';
       }).join('<div style="border-top:1px dashed #dde;margin:3px 10px"></div>')+'</td>';
     }).join('');
-    // 관리: 등록된 차수별로 수정/삭제 — 원본 인덱스는 객체 참조로 재탐색 (함정 A 안전)
-    var mgHtml=cu&&cu.admin?gr.items.map(function(p){
-      var i=prm.indexOf(p);
-      return '<div style="white-space:nowrap;margin:2px 0">'
-        +'<span style="font-size:12px;color:#888;margin-right:4px">'+_esc(p.round||'미지정')+'</span>'
-        +'<button class="be" data-ei="'+i+'" style="margin-right:4px"><i class="ti ti-edit"></i> 수정</button>'
-        +'<button class="bd" onclick="deletePromItem('+i+')"><i class="ti ti-trash"></i> 삭제</button>'
-      +'</div>';
-    }).join(''):'';
+    // 관리: 사람(이름+목표직급) 단위 수정/삭제 — 인덱스 대신 고유 식별자 전달 (함정 A 안전)
+    var mgHtml=cu&&cu.admin
+      ?'<div style="white-space:nowrap">'
+        +'<button class="be" data-em="'+_esc(gr.m||'')+'" data-etg="'+_esc(gr.tg||'')+'" style="margin-right:4px"><i class="ti ti-edit"></i> 수정</button>'
+        +'<button class="bd" data-dm="'+_esc(gr.m||'')+'" data-dtg="'+_esc(gr.tg||'')+'"><i class="ti ti-trash"></i> 삭제</button>'
+      +'</div>':'';
     return '<tr>'
       +'<td style="font-weight:600;color:#1a1a3a">'+_esc(gr.m)+'</td>'
       +'<td><span class="rb">'+_esc(gr.cr||'-')+'</span></td>'
@@ -4599,20 +4585,36 @@ function rProm(){
       +'<td>'+mgHtml+'</td>'
     +'</tr>';
   }).join('');
-  tb.querySelectorAll('[data-ei]').forEach(b=>b.addEventListener('click',()=>{
-    const i=+b.dataset.ei; const p=prm[i];
+  // 수정: 해당 인원의 1·2·3차 평가를 모달에 한꺼번에 불러온다
+  tb.querySelectorAll('[data-em]').forEach(b=>b.addEventListener('click',()=>{
+    var nm=b.getAttribute('data-em'), tg=b.getAttribute('data-etg');
+    var items=prm.filter(function(p){ return p.m===nm && (p.tg||'')===tg; });
+    if(!items.length) return;
     fillSel('mpr_mem');
-    const sel=g('mpr_mem');
-    for(let j=0;j<sel.options.length;j++){if(sel.options[j].value===p.m){sel.selectedIndex=j;break;}}
-    g('mpr_cur').value=p.cr||'';
-    g('mpr_tgt').value=p.tg||''; if(g('mpr_eval_month'))g('mpr_eval_month').value=p.evalMonth||'';
-    g('mpr_round').value=p.round||'';
-    g('mpr_goal').value=p.goal||'';
-    g('mpr_current').value=p.current||'';
-    g('mpr_st').value=p.st||'미달성';
-    g('mpr_edit_idx').value=i;
+    var sel=g('mpr_mem'), found=false;
+    for(let j=0;j<sel.options.length;j++){if(sel.options[j].value===nm){sel.selectedIndex=j;found=true;break;}}
+    if(!found){ var opt=document.createElement('option'); opt.value=nm; opt.textContent=nm; sel.insertBefore(opt,sel.firstChild); sel.selectedIndex=0; }
+    g('mpr_cur').value=items[items.length-1].cr||'';
+    g('mpr_tgt').value=tg;
+    var goal=''; items.forEach(function(p){ if(p.goal) goal=p.goal; });
+    g('mpr_goal').value=goal;
+    g('mpr_current').value='';
+    [['1차','mpr_m1','mpr_st1'],['2차','mpr_m2','mpr_st2'],['3차','mpr_m3','mpr_st3']].forEach(function(r){
+      var e=null; items.forEach(function(p){ if(p.round===r[0]) e=p; });
+      g(r[1]).value=e?(e.evalMonth||''):'';
+      g(r[2]).value=e?(e.st||'진행중'):'진행중';
+    });
     g('m_prom_title').textContent='진급평가 수정';
     g('m_prom').classList.add('open');
+  }));
+  // 삭제: 해당 인원(이름+목표직급)의 차수 전체 삭제
+  tb.querySelectorAll('[data-dm]').forEach(b=>b.addEventListener('click',()=>{
+    var nm=b.getAttribute('data-dm'), tg=b.getAttribute('data-dtg');
+    var cnt=prm.filter(function(p){ return p.m===nm && (p.tg||'')===tg; }).length;
+    if(!cnt) return;
+    if(!confirm(nm+' ('+(tg||'-')+') 진급평가 '+cnt+'건을 모두 삭제하시겠습니까?')) return;
+    prm=prm.filter(function(p){ return !(p.m===nm && (p.tg||'')===tg); });
+    sv('tops_prm',prm); rProm(); toast('삭제되었습니다.');
   }));
   setAdmin();
 }
@@ -4621,12 +4623,11 @@ g('btn_prom').addEventListener('click',()=>{
   fillSel('mpr_mem');
   const m=mem[0];
   g('mpr_cur').value=m?m.rank:'';
-  g('mpr_tgt').value=''; if(g('mpr_eval_month'))g('mpr_eval_month').value='';
-  g('mpr_round').value='';
+  g('mpr_tgt').value='';
   g('mpr_goal').value='';
   g('mpr_current').value='';
-  g('mpr_st').value='진행중';
-  g('mpr_edit_idx').value='';
+  ['mpr_m1','mpr_m2','mpr_m3'].forEach(function(id){ g(id).value=''; });
+  ['mpr_st1','mpr_st2','mpr_st3'].forEach(function(id){ g(id).value='진행중'; });
   g('m_prom_title').textContent='진급평가 추가';
   g('m_prom').classList.add('open');
 });
@@ -4638,17 +4639,28 @@ g('mpr_mem').addEventListener('change',function(){
 g('m_prom_c').addEventListener('click',()=>g('m_prom').classList.remove('open'));
 g('m_prom_cancel').addEventListener('click',()=>g('m_prom').classList.remove('open'));
 g('m_prom_save').addEventListener('click',()=>{
-  const obj={
-    m:g('mpr_mem').value, cr:g('mpr_cur').value, tg:g('mpr_tgt').value, evalMonth:(g('mpr_eval_month')?g('mpr_eval_month').value:''),
-    round:g('mpr_round').value, goal:g('mpr_goal').value,
-    current:g('mpr_current').value, st:g('mpr_st').value
-  };
-  // 차수 미선택 항목은 1·2·3차 어느 칸에도 표시되지 않으므로 저장 전에 막는다
-  if(!obj.round){ toast('평가 차수를 선택하세요.'); return; }
-  const idx=g('mpr_edit_idx').value;
-  if(idx!=='') prm[+idx]=obj; else prm.push(obj);
+  var nm=g('mpr_mem').value, cr=g('mpr_cur').value, tg=g('mpr_tgt').value, goal=g('mpr_goal').value;
+  if(!tg){ toast('목표 직급을 선택하세요.'); return; }
+  var rounds=[['1차','mpr_m1','mpr_st1'],['2차','mpr_m2','mpr_st2'],['3차','mpr_m3','mpr_st3']];
+  if(!rounds.some(function(r){ return g(r[1]).value; })){ toast('최소 한 차수의 평가월을 선택하세요.'); return; }
+  // 차수별 업서트: 월이 선택된 차수는 갱신/추가, 월을 비운(미등록) 차수는 삭제
+  rounds.forEach(function(r){
+    var rd=r[0], month=g(r[1]).value, st=g(r[2]).value;
+    var idxs=[];
+    prm.forEach(function(p,i){ if(p.m===nm && (p.tg||'')===(tg||'') && p.round===rd) idxs.push(i); });
+    if(month){
+      if(idxs.length){
+        var p0=prm[idxs[0]];
+        p0.cr=cr; p0.evalMonth=month; p0.goal=goal; p0.st=st;
+        for(var j=idxs.length-1;j>=1;j--) prm.splice(idxs[j],1); // 같은 차수 중복 정리
+      }else{
+        prm.push({m:nm,cr:cr,tg:tg,evalMonth:month,round:rd,goal:goal,st:st});
+      }
+    }else{
+      for(var j=idxs.length-1;j>=0;j--) prm.splice(idxs[j],1);
+    }
+  });
   sv('tops_prm',prm);
-  g('mpr_edit_idx').value='';
   g('m_prom').classList.remove('open');
   rProm();toast('저장되었습니다.');
 });
@@ -6363,19 +6375,7 @@ function deletePerfByName(name){
   }
 }
 
-function deletePromItem(i){
-  if(window._delPromIdx===i){
-    prm.splice(i,1);
-    sv('tops_prm',prm);
-    rProm();
-    toast('삭제되었습니다.');
-    window._delPromIdx=null;
-  } else {
-    window._delPromIdx=i;
-    toast('한 번 더 누르면 삭제됩니다.');
-    setTimeout(function(){window._delPromIdx=null;},3000);
-  }
-}
+// (진급평가 삭제는 rProm의 data-dm 핸들러에서 이름+목표직급 단위로 처리 — 옛 인덱스 방식 deletePromItem 제거)
 
 // ===== 병력정리 =====
 window.medFiles={f1:null,f2:null,f3:null};
