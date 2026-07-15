@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-24</div>
   </div>
 </div>
 
@@ -601,10 +601,6 @@ table.dt tr:last-child td{border-bottom:none;}
           <button onclick="drSend('img')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> 이미지 발송</button>
           <button onclick="drSend('pdf')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> PDF 발송</button>
         </div>
-      </div>
-      <div id="dr_send_result" style="display:none;margin-bottom:14px;padding:10px 12px;background:#f6f7ff;border:1px solid #dde0f5;border-radius:8px;font-size:13px;color:#333">
-        공유창이 열리지 않았다면: <a id="dr_send_link" href="#" target="_blank" rel="noopener" style="color:#2a4ab0;font-weight:700">파일 열기</a>
-        <button type="button" id="dr_send_copy" style="margin-left:8px;padding:4px 10px;font-size:12px;background:#fff;border:1px solid #ccd;border-radius:6px;color:#444;cursor:pointer;font-family:inherit">링크 복사</button>
       </div>
       <div class="card" style="overflow-x:auto"><div id="dr_paper"></div></div>
     </div>
@@ -2034,10 +2030,10 @@ function rSchedulePage(){
 <div class="mb" id="m_drcfg"><div class="mo">
   <div class="mth"><span>일일보고서 설정</span><span class="mc" onclick="g('m_drcfg').classList.remove('open')">×</span></div>
   <div class="fg"><div class="fl">월 목표 (원)</div><input class="fi" id="dr_goal" type="number" placeholder="10000000"></div>
-  <div class="fg"><div class="fl">카카오 JavaScript 키 (발송용 · 1회 설정)</div><input class="fi" id="dr_kkey" placeholder="developers.kakao.com 앱의 JavaScript 키"></div>
   <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:2px">
-    발송 설정(최초 1회): <b style="color:#aab4f0">developers.kakao.com</b>에서 무료 앱 생성 → [앱 키]의 <b style="color:#aab4f0">JavaScript 키</b>를 위에 입력 → 앱의 [플랫폼]에 Web 도메인 <b style="color:#aab4f0">https://team-tops-intranet.web.app</b> 등록.<br>
-    발송 버튼을 누르면 파일이 클라우드에 저장되고 카카오톡 공유창이 열립니다 — 받는 사람에서 <b style="color:#aab4f0">"나와의 채팅"</b>을 선택하면 내 카톡으로 전송됩니다.
+    <b style="color:#aab4f0">발송 방법</b> — 별도 설정 없이 바로 사용:<br>
+    · <b style="color:#aab4f0">휴대폰</b>: 발송 버튼 → 공유창에서 카카오톡 선택 → "나와의 채팅" 또는 채팅방 선택 → <b style="color:#aab4f0">사진/파일이 그대로 전송</b>됩니다.<br>
+    · <b style="color:#aab4f0">PC</b>: 이미지 발송 시 클립보드에 복사됩니다 — 카카오톡 채팅방에서 붙여넣기(Ctrl+V)하면 사진으로 전송됩니다. PDF는 저장 후 채팅방에 끌어다 놓으면 됩니다.
   </div>
   <div class="mf"><button class="bca" onclick="g('m_drcfg').classList.remove('open')">취소</button><button class="bco" onclick="drSaveCfg()">저장</button></div>
 </div></div>
@@ -4965,11 +4961,10 @@ function _drFillDates(){
 function drOpenCfg(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   g('dr_goal').value=drCfg.goal||10000000;
-  g('dr_kkey').value=drCfg.kakaoKey||'';
   g('m_drcfg').classList.add('open');
 }
 function drSaveCfg(){
-  drCfg={ goal:+(g('dr_goal').value||10000000), kakaoKey:(g('dr_kkey').value||'').trim() };
+  drCfg={ goal:+(g('dr_goal').value||10000000) };
   sv('tops_drcfg',drCfg);
   g('m_drcfg').classList.remove('open');
   toast('설정이 저장되었습니다.'); drBuild();
@@ -5148,6 +5143,9 @@ function drBuild(){
     +sec1+sec2+sec3+sec4+sec5+sec6
     +'<div style="text-align:center;font-size:11px;color:#a0a5c8;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
     +'</div>';
+  // 발송용 이미지 사전 생성 — 버튼을 누르는 즉시 공유창이 뜨도록 미리 준비 (iOS 제스처 제한 대응)
+  window._drCanvasCache=null; window._drImgBlob=null;
+  setTimeout(function(){ try{ _drPrecache(); }catch(e){} },50);
 }
 // ── PDF/이미지 생성 (라이브러리 지연 로드)
 function _drLoadScript(src){
@@ -5162,10 +5160,13 @@ async function _drEnsureLibs(){
   if(!(window.jspdf&&window.jspdf.jsPDF)) await _drLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 }
 async function _drCanvas(){
+  if(window._drCanvasCache) return window._drCanvasCache; // 사전 생성본 재사용
   await _drEnsureLibs();
   var el=g('dr_paper');
   if(!el||!el.firstChild) drBuild();
-  return await html2canvas(g('dr_paper'),{scale:2,backgroundColor:'#ffffff',useCORS:true});
+  var c=await html2canvas(g('dr_paper'),{scale:2,backgroundColor:'#ffffff',useCORS:true});
+  window._drCanvasCache=c;
+  return c;
 }
 function _drPdfFromCanvas(canvas){
   var pdf=new window.jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4'});
@@ -5198,65 +5199,56 @@ async function drSavePdf(){
     _drPdfFromCanvas(c).save('탑스_일일보고_'+_drSelDate()+'.pdf');
   }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
 }
-// ── 카카오톡 발송 (공유창 → "나와의 채팅" 선택 시 내 카톡으로 전송)
-async function _drKakaoEnsure(){
-  var key=(drCfg.kakaoKey||'').trim();
-  if(!key) throw new Error('카카오 JavaScript 키가 설정되지 않았습니다. 위 설정칸에 입력 후 저장하세요.');
-  if(!window.Kakao) await _drLoadScript('https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js');
-  if(!window.Kakao.isInitialized()) window.Kakao.init(key);
-}
-function _drThumb(canvas){
-  var w=canvas.width, h=Math.min(canvas.height,Math.round(w*0.6));
-  var tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
-  var ctx=tmp.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
-  ctx.drawImage(canvas,0,0,w,h,0,0,w,h);
-  return tmp.toDataURL('image/jpeg',0.85);
+// ── 발송: 이미지/PDF 파일을 그대로 전송
+//   모바일: 공유창에서 카카오톡 선택 → 사진/파일이 실제로 전송됨 (링크 카드 아님)
+//   PC: 이미지는 클립보드 복사(카톡 채팅방에 Ctrl+V), PDF는 저장 후 채팅방에 끌어다 놓기
+async function _drPrecache(){
+  if(window._drPrecaching) return; window._drPrecaching=true;
+  try{
+    await _drEnsureLibs();
+    var el=g('dr_paper');
+    if(el&&el.firstChild){
+      var c=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      window._drCanvasCache=c;
+      window._drImgBlob=await new Promise(function(r){ c.toBlob(r,'image/png'); });
+    }
+  }catch(e){ console.warn('보고서 이미지 사전 생성 실패:',e); }
+  window._drPrecaching=false;
 }
 async function drSend(type){
   try{
-    await _drKakaoEnsure(); // 키 미설정이면 여기서 안내 후 중단
-    toast((type==='pdf'?'PDF':'이미지')+' 생성·업로드 중…');
-    var canvas=await _drCanvas();
-    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
-    var dateStr=_drSelDate(), stamp=Date.now();
-    var base='daily_reports/'+dateStr+'/'+stamp+'_';
-    var fileUrl, label;
+    var canvas=window._drCanvasCache;
+    if(!canvas){ toast('보고서 이미지를 준비 중입니다. 잠시 후 다시 눌러주세요.'); _drPrecache(); return; }
+    var dateStr=_drSelDate(), file;
     if(type==='pdf'){
-      var blob=_drPdfFromCanvas(canvas).output('blob');
-      var refP=firebase.storage().ref(base+'report.pdf');
-      await refP.put(blob,{contentType:'application/pdf'});
-      fileUrl=await refP.getDownloadURL(); label='PDF';
+      var pb=_drPdfFromCanvas(canvas).output('blob');
+      file=new File([pb],'탑스_일일보고_'+dateStr+'.pdf',{type:'application/pdf'});
     }else{
-      var refI=firebase.storage().ref(base+'report.png');
-      await refI.putString(canvas.toDataURL('image/png'),'data_url');
-      fileUrl=await refI.getDownloadURL(); label='이미지';
+      var ib=window._drImgBlob||await new Promise(function(r){ canvas.toBlob(r,'image/png'); });
+      file=new File([ib],'탑스_일일보고_'+dateStr+'.png',{type:'image/png'});
     }
-    var refT=firebase.storage().ref(base+'thumb.jpg');
-    await refT.putString(_drThumb(canvas),'data_url');
-    var thumbUrl=await refT.getDownloadURL();
-    // 팝업/딥링크가 차단될 수 있으므로(특히 iOS·인앱 브라우저) 폴백 링크를 항상 함께 표시
-    var res=g('dr_send_result');
-    if(res){
-      res.style.display='block';
-      var lk=g('dr_send_link'); lk.href=fileUrl; lk.textContent=label+' 파일 열기 ('+dateStr+')';
-      var cp=g('dr_send_copy');
-      cp.onclick=function(){
-        try{ navigator.clipboard.writeText(fileUrl).then(function(){ toast('링크가 복사되었습니다. 카톡에 붙여넣어 보내세요.'); }); }
-        catch(e){ prompt('아래 링크를 복사하세요', fileUrl); }
-      };
+    // 모바일: 파일 공유 (카카오톡 선택 시 사진/파일 그대로 전송)
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({ files:[file], title:'탑스 일일보고 ('+dateStr+')' });
+      return;
     }
-    window.Kakao.Share.sendDefault({
-      objectType:'feed',
-      content:{
-        title:'탑스 일일보고 ('+dateStr+')',
-        description:label+' 보고서 — 아래 버튼을 눌러 확인하세요.',
-        imageUrl:thumbUrl,
-        link:{ mobileWebUrl:fileUrl, webUrl:fileUrl }
-      },
-      buttons:[{ title:label+' 열기', link:{ mobileWebUrl:fileUrl, webUrl:fileUrl } }]
-    });
-    toast('공유창이 열리면 "나와의 채팅"을 선택하세요. 안 열리면 아래 폴백 링크를 이용하세요.');
-  }catch(e){ console.warn('일일보고 발송 실패:',e); toast('발송 실패: '+(e&&e.message||e)); }
+    // PC: 이미지는 클립보드 복사 → 카톡 채팅방에 붙여넣기
+    if(type==='img' && navigator.clipboard && window.ClipboardItem){
+      try{
+        await navigator.clipboard.write([new ClipboardItem({'image/png': file})]);
+        toast('이미지가 복사되었습니다. 카카오톡 채팅방에서 붙여넣기(Ctrl+V)하면 사진으로 전송됩니다.');
+        return;
+      }catch(e){ /* 복사 실패 시 아래 다운로드 폴백 */ }
+    }
+    // 폴백: 파일 저장 후 채팅방에 끌어다 놓기
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(file); a.download=file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('파일이 저장되었습니다. 카카오톡 채팅방에 파일을 끌어다 놓으면 전송됩니다.');
+  }catch(e){
+    if(e && e.name==='AbortError') return; // 사용자가 공유창을 닫음 — 오류 아님
+    console.warn('일일보고 발송 실패:',e); toast('발송 실패: '+(e&&e.message||e));
+  }
 }
 
 // DB
