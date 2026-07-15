@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-28</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-29</div>
   </div>
 </div>
 
@@ -5104,7 +5104,46 @@ function drBuild(){
     +tbl(['구분','건수','인정실적','영수실적'],sec4rows)
     +(teamRows.length?('<div style="font-size:12.5px;color:#5560a0;margin-top:12px;font-weight:700">팀별</div>'+tbl(['팀','직급','인원','건수','인정실적','영수실적'],teamRows)):'')
     +note('팀 합계는 팀장 하위 인원 포함 재귀 합산이라, 팀장이 다른 팀 하위에 있으면 상위 팀에 중복 계상될 수 있습니다.'));
-  // ── 5. DB 현황 (기준일이 속한 달, 기준일까지)
+  // ── 5. 진급평가 대상자 (진급평가 메뉴 데이터 — 차수별 평가월/해당 월 실적/자동 달성판정)
+  var promHtml;
+  if(Array.isArray(prm)&&prm.length){
+    var nowYm=_curYm();
+    var pGroups=[], pMap={};
+    prm.forEach(function(p){
+      var k=(p.m||'')+'|'+(p.tg||'');
+      if(!pMap[k]){ pMap[k]={m:p.m,cr:p.cr,tg:p.tg,items:[]}; pGroups.push(pMap[k]); }
+      if(p.cr) pMap[k].cr=p.cr;
+      pMap[k].items.push(p);
+    });
+    var promYmOf=function(p){ var mm=parseInt(p&&p.evalMonth); if(!mm||mm<1||mm>12) return null; var y=parseInt(p&&p.evalYear)||+ym.slice(0,4); return y+'-'+String(mm).padStart(2,'0'); };
+    var teamTotalYm=function(name,tym){ var team=_drSubTeam(name); return prf.filter(function(x){return team.indexOf(x.m)>=0&&_perfMonth(x)===tym;}).reduce(function(s,x){return s+(+x.a||0);},0); };
+    var thP='padding:7px 8px;background:#f0f1ff;color:#5a4fd0;font-size:12px;font-weight:700;text-align:center;border-bottom:2px solid #e2ddf8;white-space:nowrap';
+    var tdP='padding:7px 8px;font-size:12.5px;color:#222;border-bottom:1px solid #f1eefb;text-align:center;white-space:nowrap';
+    var hP='<table style="width:100%;border-collapse:collapse;margin-top:2px"><tr>'
+      +['이름','현재직급','목표직급','1차 평가','2차 평가','3차 평가'].map(function(x){return '<th style="'+thP+'">'+x+'</th>';}).join('')+'</tr>';
+    pGroups.forEach(function(pg){
+      var cells=['1차','2차','3차'].map(function(rd){
+        var e=null; pg.items.forEach(function(p){ if(p.round===rd) e=p; });
+        if(!e) return '<td style="'+tdP+';color:#bbb">-</td>';
+        var tym=promYmOf(e);
+        var actual=tym?teamTotalYm(pg.m,tym):0;
+        var goal=+(e.goal||0);
+        var st=(goal>0&&actual>=goal)?'달성':(tym&&tym<nowYm&&goal>0)?'미달성':'진행중';
+        var stC=st==='달성'?'#0fa658':(st==='진행중'?'#2848cc':'#cc3020');
+        return '<td style="'+tdP+'">'+_esc(e.evalMonth||'-')
+          +'<br><b style="color:'+(st==='달성'?'#0fa658':'#222')+'">'+actual.toLocaleString()+'원</b>'
+          +'<br><span style="font-size:11.5px;font-weight:700;color:'+stC+'">'+st+'</span></td>';
+      }).join('');
+      hP+='<tr><td style="'+tdP+';font-weight:700">'+_esc(pg.m||'-')+'</td>'
+        +'<td style="'+tdP+'">'+_esc(pg.cr||'-')+'</td>'
+        +'<td style="'+tdP+'">'+_esc(pg.tg||'-')+'</td>'+cells+'</tr>';
+    });
+    promHtml=hP+'</table>';
+  }else{
+    promHtml='<div style="padding:8px 0;color:#8890b8;font-size:13px">등록된 진급평가 대상자가 없습니다.</div>';
+  }
+  var secProm=sec(5,'진급평가 대상자',promHtml);
+  // ── 6. DB 현황 (기준일이 속한 달, 기준일까지)
   var dbaM=dba.filter(function(x){var t=String(x.dt||''); return t.slice(0,7)===ym && t<=D;});
   var dbsM=dbs.filter(function(x){var t=String(x.dt||''); return t.slice(0,7)===ym && t<=D;});
   var dbsT=dbs.filter(function(x){return x.dt===D;});
@@ -5119,19 +5158,19 @@ function drBuild(){
     var amt=aL.reduce(function(s,x){return s+(+x.total||0);},0);
     return [_esc(k),qsum(aL)+'건',won(amt),qsum(sL)+'건',qsum(tL)+'건'];
   });
-  var sec5=sec(5,'DB 현황 ('+mo+'월)',
+  var sec5=sec(6,'DB 현황 ('+mo+'월)',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +box(W+' 배정 DB',qsum(dbsT)+'건','')+box('이번달 배정',qsum(dbsM)+'건','')+box('이번달 신청',qsum(dbaM)+'건','')+'</div>'
     +(dbRows.length?tbl(['업체','신청 수량','신청 금액','배정 수량',W+' 배정'],dbRows)
       :'<div style="padding:8px 0;color:#8890b8;font-size:13px">'+mo+'월 신청·배정 데이터가 없습니다.</div>'));
-  // ── 6. 실적 순위
+  // ── 7. 실적 순위
   var medalBg=['#e8b800','#9aa0b4','#b0763a'];
   var rankRows=sorted.map(function(e,i){
     var badge=i<3?('<span style="display:inline-block;width:20px;height:20px;line-height:20px;border-radius:50%;background:'+medalBg[i]+';color:#fff;font-size:11px;font-weight:800;text-align:center">'+(i+1)+'</span>')
       :('<span style="color:#8888bb;font-weight:700">'+(i+1)+'</span>');
     return [badge,_esc(e[0]),_esc(rankMap[e[0]]||'-'),gubun(e[0]),e[1].c+'건',won(e[1].a),won(e[1].ay)];
   });
-  var sec6=sec(6,'실적 순위 (인정실적)',
+  var sec6=sec(7,'실적 순위 (인정실적)',
     tbl(['순위','이름','직급','구분','건수','인정실적','영수실적'],rankRows,
       ['','합계','','',tc+'건',won(ta),won(tay)]));
   // ── 조립
@@ -5142,7 +5181,7 @@ function drBuild(){
       +'<div style="font-size:12px;color:#e2e6ff;margin-top:4px">'+ym.slice(0,4)+'년 '+mo+'월 누적 기준 · 인트라넷 실적관리 집계 · '
       +(isToday?('작성 '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')):('조회 기준 '+mdLabel(D)+' 스냅샷'))+'</div>'
     +'</div>'
-    +sec1+sec2+sec3+sec4+sec5+sec6
+    +sec1+sec2+sec3+sec4+secProm+sec5+sec6
     +'<div style="text-align:center;font-size:11px;color:#b3addd;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
     +'</div>';
   // 발송용 이미지 사전 생성 — 버튼을 누르는 즉시 공유창이 뜨도록 미리 준비 (iOS 제스처 제한 대응)
