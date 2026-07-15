@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-21</div>
   </div>
 </div>
 
@@ -594,27 +594,16 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_dreport">
       <div class="sh"><div class="st"><i class="ti ti-report-analytics"></i>일일보고서</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="drBuild()" style="padding:9px 14px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-refresh"></i> 새로 생성</button>
+          <button onclick="drOpenCfg()" style="padding:9px 14px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-settings"></i> 설정</button>
           <button onclick="drSaveImg()" style="padding:9px 14px;font-size:13px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.35);border-radius:7px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-photo-down"></i> 이미지 저장</button>
           <button onclick="drSavePdf()" style="padding:9px 14px;font-size:13px;background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);border-radius:7px;color:#b03030;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
           <button onclick="drSend('img')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> 이미지 발송</button>
           <button onclick="drSend('pdf')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> PDF 발송</button>
         </div>
       </div>
-      <div class="card" style="margin-bottom:14px">
-        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-          <div class="fg" style="margin:0;width:170px"><div class="fl" style="color:#5560a0">월 목표 (원)</div><input class="fi" id="dr_goal" type="number" style="background:#fff;color:#111;border:1px solid #ccd" placeholder="10000000"></div>
-          <div class="fg" style="margin:0;flex:1;min-width:240px"><div class="fl" style="color:#5560a0">카카오 JavaScript 키 (발송용 · 1회 설정)</div><input class="fi" id="dr_kkey" style="background:#fff;color:#111;border:1px solid #ccd" placeholder="developers.kakao.com 앱의 JavaScript 키"></div>
-          <button onclick="drSaveCfg()" style="padding:9px 16px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700">설정 저장</button>
-        </div>
-        <div style="font-size:12px;color:#8890b8;margin-top:8px;line-height:1.6">
-          발송 설정(최초 1회): <b>developers.kakao.com</b>에서 무료 앱 생성 → [앱 키]의 <b>JavaScript 키</b>를 위에 입력 → 앱의 [플랫폼]에 Web 도메인 <b>https://team-tops-intranet.web.app</b> 등록.<br>
-          발송 버튼을 누르면 파일이 클라우드에 저장되고 카카오톡 공유창이 열립니다 — 받는 사람에서 <b>"나와의 채팅"</b>을 선택하면 내 카톡으로 전송됩니다.
-        </div>
-        <div id="dr_send_result" style="display:none;margin-top:10px;padding:10px 12px;background:#f6f7ff;border:1px solid #dde0f5;border-radius:8px;font-size:13px;color:#333">
-          공유창이 열리지 않았다면: <a id="dr_send_link" href="#" target="_blank" rel="noopener" style="color:#2a4ab0;font-weight:700">파일 열기</a>
-          <button type="button" id="dr_send_copy" style="margin-left:8px;padding:4px 10px;font-size:12px;background:#fff;border:1px solid #ccd;border-radius:6px;color:#444;cursor:pointer;font-family:inherit">링크 복사</button>
-        </div>
+      <div id="dr_send_result" style="display:none;margin-bottom:14px;padding:10px 12px;background:#f6f7ff;border:1px solid #dde0f5;border-radius:8px;font-size:13px;color:#333">
+        공유창이 열리지 않았다면: <a id="dr_send_link" href="#" target="_blank" rel="noopener" style="color:#2a4ab0;font-weight:700">파일 열기</a>
+        <button type="button" id="dr_send_copy" style="margin-left:8px;padding:4px 10px;font-size:12px;background:#fff;border:1px solid #ccd;border-radius:6px;color:#444;cursor:pointer;font-family:inherit">링크 복사</button>
       </div>
       <div class="card" style="overflow-x:auto"><div id="dr_paper"></div></div>
     </div>
@@ -2038,6 +2027,18 @@ function rSchedulePage(){
   <datalist id="pcr_rank_opts"><option>FA</option><option>FA(예비팀장)</option><option>TL</option><option>BM</option><option>SBM</option><option>RM</option><option>SRM</option></datalist>
   <button type="button" onclick="pcrAdd()" style="width:100%;padding:10px;font-size:14px;font-weight:700;background:rgba(80,100,220,.14);border:1px dashed rgba(90,110,230,.45);border-radius:9px;color:#8a9af0;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 항목 추가</button>
   <div class="mf"><button class="bca" onclick="g('m_promcrit').classList.remove('open')">취소</button><button class="bco" onclick="pcrSave()">저장</button></div>
+</div></div>
+
+<!-- 일일보고서 설정 모달 -->
+<div class="mb" id="m_drcfg"><div class="mo">
+  <div class="mth"><span>일일보고서 설정</span><span class="mc" onclick="g('m_drcfg').classList.remove('open')">×</span></div>
+  <div class="fg"><div class="fl">월 목표 (원)</div><input class="fi" id="dr_goal" type="number" placeholder="10000000"></div>
+  <div class="fg"><div class="fl">카카오 JavaScript 키 (발송용 · 1회 설정)</div><input class="fi" id="dr_kkey" placeholder="developers.kakao.com 앱의 JavaScript 키"></div>
+  <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:2px">
+    발송 설정(최초 1회): <b style="color:#aab4f0">developers.kakao.com</b>에서 무료 앱 생성 → [앱 키]의 <b style="color:#aab4f0">JavaScript 키</b>를 위에 입력 → 앱의 [플랫폼]에 Web 도메인 <b style="color:#aab4f0">https://team-tops-intranet.web.app</b> 등록.<br>
+    발송 버튼을 누르면 파일이 클라우드에 저장되고 카카오톡 공유창이 열립니다 — 받는 사람에서 <b style="color:#aab4f0">"나와의 채팅"</b>을 선택하면 내 카톡으로 전송됩니다.
+  </div>
+  <div class="mf"><button class="bca" onclick="g('m_drcfg').classList.remove('open')">취소</button><button class="bco" onclick="drSaveCfg()">저장</button></div>
 </div></div>
 
 <div class="mb" id="m_db"><div class="mo" style="width:600px;max-height:90vh;overflow-y:auto">
@@ -4940,13 +4941,18 @@ function _dsnapDiff(cur,prev){
 function rDreport(){
   if(!_isAdmin()) return;
   _dsnapRecord();
-  var gEl=g('dr_goal'); if(gEl&&!gEl.value) gEl.value=drCfg.goal||10000000;
-  var kEl=g('dr_kkey'); if(kEl&&!kEl.value) kEl.value=drCfg.kakaoKey||'';
   drBuild();
+}
+function drOpenCfg(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  g('dr_goal').value=drCfg.goal||10000000;
+  g('dr_kkey').value=drCfg.kakaoKey||'';
+  g('m_drcfg').classList.add('open');
 }
 function drSaveCfg(){
   drCfg={ goal:+(g('dr_goal').value||10000000), kakaoKey:(g('dr_kkey').value||'').trim() };
   sv('tops_drcfg',drCfg);
+  g('m_drcfg').classList.remove('open');
   toast('설정이 저장되었습니다.'); drBuild();
 }
 function drBuild(){
@@ -5025,6 +5031,7 @@ function drBuild(){
   var sec1=sec(1,'오늘 반영 실적',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +box('오늘 반영 인정실적',won(tdSum.a),'')
+    +box('오늘 반영 영수실적',won(tdSum.ay),'')
     +box('오늘 반영 건수',(tdSum.c||0)+'건','')
     +box('직전 대비 상승률',upPct===null?'-':(upPct+'%'),'')
     +'</div>'+note(s1note));
