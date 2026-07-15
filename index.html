@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-24</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-25</div>
   </div>
 </div>
 
@@ -5159,12 +5159,25 @@ async function _drEnsureLibs(){
   if(!window.html2canvas) await _drLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   if(!(window.jspdf&&window.jspdf.jsPDF)) await _drLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 }
+// 전체 폭 캡처: 모바일에선 보고서가 카드 안에서 가로 스크롤로 잘려 보이므로,
+// 화면 밖에 800px 고정 폭 사본을 만들어 캡처한다 (오른쪽 잘림 방지)
+async function _drCapture(){
+  await _drEnsureLibs();
+  var src=g('dr_paper');
+  if(!src||!src.firstChild){ drBuild(); src=g('dr_paper'); }
+  var tmp=document.createElement('div');
+  tmp.style.cssText='position:absolute;left:-10000px;top:0;width:808px;background:#fff';
+  tmp.innerHTML=src.innerHTML;
+  document.body.appendChild(tmp);
+  try{
+    return await html2canvas(tmp,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:840});
+  }finally{
+    tmp.remove();
+  }
+}
 async function _drCanvas(){
   if(window._drCanvasCache) return window._drCanvasCache; // 사전 생성본 재사용
-  await _drEnsureLibs();
-  var el=g('dr_paper');
-  if(!el||!el.firstChild) drBuild();
-  var c=await html2canvas(g('dr_paper'),{scale:2,backgroundColor:'#ffffff',useCORS:true});
+  var c=await _drCapture();
   window._drCanvasCache=c;
   return c;
 }
@@ -5205,10 +5218,9 @@ async function drSavePdf(){
 async function _drPrecache(){
   if(window._drPrecaching) return; window._drPrecaching=true;
   try{
-    await _drEnsureLibs();
     var el=g('dr_paper');
     if(el&&el.firstChild){
-      var c=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      var c=await _drCapture();
       window._drCanvasCache=c;
       window._drImgBlob=await new Promise(function(r){ c.toBlob(r,'image/png'); });
     }
