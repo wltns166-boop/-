@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-15</div>
   </div>
 </div>
 
@@ -4526,16 +4526,17 @@ function rProm(){
     return prf.filter(p=>team.includes(p.m)&&_perfMonth(p)===ym).reduce((s,p)=>s+(+p.a||0),0);
   }
   var curYm=_curYm();
-  // "6월" → "YYYY-06" (올해 기준). 월 정보가 없으면 null
-  function _promMonthYm(evalMonth){
-    var mm=parseInt(evalMonth); if(!mm||mm<1||mm>12) return null;
-    return curYm.slice(0,4)+'-'+String(mm).padStart(2,'0');
+  // 평가월 → "YYYY-MM". 저장된 evalYear 우선, 없으면(옛 데이터) 올해로 간주
+  function _promMonthYm(p){
+    var mm=parseInt(p&&p.evalMonth); if(!mm||mm<1||mm>12) return null;
+    var y=parseInt(p&&p.evalYear)||parseInt(curYm.slice(0,4));
+    return y+'-'+String(mm).padStart(2,'0');
   }
   // 달성여부 자동 판정: 해당 월 실적 ≥ 목표 → 달성 / 지난 달인데 미달 → 미달성 / 그 외 진행중
   function _promStatus(p, actual){
     var goal=+(p.goal||0);
     if(goal>0 && actual>=goal) return '달성';
-    var ym=_promMonthYm(p.evalMonth);
+    var ym=_promMonthYm(p);
     if(ym && ym<curYm && goal>0) return '미달성';
     return '진행중';
   }
@@ -4560,7 +4561,7 @@ function rProm(){
     // 차수별 실적·달성여부 자동 계산 (차수 미지정 옛 항목은 표에 안 보이므로 계산에서도 제외)
     var vitems=gr.items.filter(function(p){ return p.round==='1차'||p.round==='2차'||p.round==='3차'; })
       .map(function(p){
-        var ym=_promMonthYm(p.evalMonth);
+        var ym=_promMonthYm(p);
         var actual=ym?getTeamTotal(gr.m,ym):0;
         return {p:p, actual:actual, stC:_promStatus(p,actual)};
       });
@@ -4670,6 +4671,9 @@ g('m_prom_save').addEventListener('click',()=>{
   var goalKeep=!!orig && goal===window._promGoalLoaded;
   window._promEditOrig=null; window._promGoalLoaded=null;
   // 차수별 업서트: 월이 선택된 차수는 갱신/추가, 월을 비운(미등록) 차수는 삭제
+  // 평가월의 연도 기록 — 연말에 다음 해 1~2월 평가를 등록하는 경우는 다음 해로 간주
+  var _nowD=new Date(), _nowY=_nowD.getFullYear(), _nowM=_nowD.getMonth()+1;
+  function _evalYearFor(month){ var mm=parseInt(month)||0; return (mm && mm<_nowM-6)?_nowY+1:_nowY; }
   rounds.forEach(function(r){
     var rd=r[0], month=g(r[1]).value;
     var idxs=[];
@@ -4677,11 +4681,13 @@ g('m_prom_save').addEventListener('click',()=>{
     if(month){
       if(idxs.length){
         var p0=prm[idxs[0]];
-        p0.cr=cr; p0.evalMonth=month; // 달성여부(st)는 저장하지 않음 — 표에서 실적으로 자동 판정
+        p0.cr=cr; // 달성여부(st)는 저장하지 않음 — 표에서 실적으로 자동 판정
+        if(p0.evalMonth!==month || !p0.evalYear) p0.evalYear=_evalYearFor(month); // 월 변경/연도 미기록 시 갱신
+        p0.evalMonth=month;
         if(!goalKeep || !p0.goal) p0.goal=goal;
         for(var j=idxs.length-1;j>=1;j--) prm.splice(idxs[j],1); // 같은 차수 중복 정리
       }else{
-        prm.push({m:nm,cr:cr,tg:tg,evalMonth:month,round:rd,goal:goal});
+        prm.push({m:nm,cr:cr,tg:tg,evalMonth:month,evalYear:_evalYearFor(month),round:rd,goal:goal});
       }
     }else{
       for(var j=idxs.length-1;j>=0;j--) prm.splice(idxs[j],1);
