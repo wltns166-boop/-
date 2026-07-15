@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-29</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-30</div>
   </div>
 </div>
 
@@ -2030,6 +2030,10 @@ function rSchedulePage(){
 <div class="mb" id="m_drcfg"><div class="mo">
   <div class="mth"><span>일일보고서 설정</span><span class="mc" onclick="g('m_drcfg').classList.remove('open')">×</span></div>
   <div class="fg"><div class="fl">월 목표 (원)</div><input class="fi" id="dr_goal" type="number" placeholder="10000000"></div>
+  <div class="fg" style="margin-bottom:6px"><div class="fl">보고서 추가 항목 — 보고서 맨 아래에 번호 섹션으로 표시됩니다</div>
+    <div id="drc_list" style="max-height:38vh;overflow-y:auto"></div>
+    <button type="button" onclick="drcAdd()" style="width:100%;margin-top:8px;padding:9px;font-size:13px;font-weight:700;background:rgba(80,100,220,.14);border:1px dashed rgba(90,110,230,.45);border-radius:9px;color:#8a9af0;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 항목 추가</button>
+  </div>
   <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:2px">
     <b style="color:#aab4f0">발송 방법</b> — 별도 설정 없이 바로 사용:<br>
     · <b style="color:#aab4f0">휴대폰</b>: 발송 버튼 → 공유창에서 카카오톡 선택 → "나와의 채팅" 또는 채팅방 선택 → <b style="color:#aab4f0">사진/파일이 그대로 전송</b>됩니다.<br>
@@ -4961,10 +4965,48 @@ function _drFillDates(){
 function drOpenCfg(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   g('dr_goal').value=drCfg.goal||10000000;
+  window._drcEdit=JSON.parse(JSON.stringify(drCfg.custom||[])); // 작업 사본 (정렬·필터 없음 — 인덱스 사용 안전)
+  _drcRender();
   g('m_drcfg').classList.add('open');
 }
+// 보고서 추가 항목 편집 — 작업 사본을 순서 그대로 그리므로 인덱스 사용 안전 (함정 A 예외 패턴)
+function _drcRender(){
+  var list=window._drcEdit||[];
+  g('drc_list').innerHTML=!list.length
+    ? '<div style="font-size:12px;color:#8a93c8;padding:6px 0">추가 항목이 없습니다. 아래 [항목 추가]를 누르세요.</div>'
+    : list.map(function(e,i){
+      return '<div style="border:1px solid rgba(90,110,230,.28);border-radius:10px;padding:10px;margin-top:10px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+          +'<b style="color:#8a9af0;font-size:13px">추가 항목 '+(i+1)+'</b>'
+          +'<button type="button" class="bd" onclick="drcDel('+i+')"><i class="ti ti-trash"></i> 삭제</button></div>'
+        +'<input class="fi" data-drci="'+i+'" data-drcf="t" value="'+_esc(e.t||'')+'" placeholder="항목 제목 (예: 공지사항)">'
+        +'<textarea class="fi" data-drci="'+i+'" data-drcf="c" rows="3" placeholder="내용 (줄바꿈 그대로 표시됩니다)" style="margin-top:6px;resize:vertical;min-height:64px">'+_esc(e.c||'')+'</textarea>'
+      +'</div>';
+    }).join('');
+}
+function _drcCollect(){
+  var list=window._drcEdit||[];
+  document.querySelectorAll('#drc_list [data-drci]').forEach(function(inp){
+    var i=+inp.getAttribute('data-drci'), f=inp.getAttribute('data-drcf');
+    if(list[i]) list[i][f]=inp.value;
+  });
+}
+function drcAdd(){
+  _drcCollect();
+  (window._drcEdit=window._drcEdit||[]).push({t:'',c:''});
+  _drcRender();
+  var l=g('drc_list'); l.scrollTop=l.scrollHeight;
+}
+function drcDel(i){
+  _drcCollect();
+  window._drcEdit.splice(i,1);
+  _drcRender();
+}
 function drSaveCfg(){
-  drCfg={ goal:+(g('dr_goal').value||10000000) };
+  _drcCollect();
+  var custom=(window._drcEdit||[]).filter(function(e){ return String(e.t||'').trim()!=='' || String(e.c||'').trim()!==''; })
+    .map(function(e){ return {t:String(e.t||'').trim(), c:String(e.c||'')}; });
+  drCfg={ goal:+(g('dr_goal').value||10000000), custom:custom };
   sv('tops_drcfg',drCfg);
   g('m_drcfg').classList.remove('open');
   toast('설정이 저장되었습니다.'); drBuild();
@@ -5173,6 +5215,13 @@ function drBuild(){
   var sec6=sec(7,'실적 순위 (인정실적)',
     tbl(['순위','이름','직급','구분','건수','인정실적','영수실적'],rankRows,
       ['','합계','','',tc+'건',won(ta),won(tay)]));
+  // ── 8~. 사용자 추가 항목 (설정에서 등록)
+  var customSecs='';
+  (Array.isArray(drCfg.custom)?drCfg.custom:[]).forEach(function(it,i){
+    var title=_esc(String(it.t||'').trim()||'추가 항목');
+    var body=_esc(String(it.c||'')).replace(/\n/g,'<br>');
+    customSecs+=sec(8+i,title,'<div style="font-size:13.5px;color:#222;line-height:1.75">'+(body||'-')+'</div>');
+  });
   // ── 조립
   paper.innerHTML=
     '<div style="width:800px;background:#fff;color:#222;padding:4px">'
@@ -5181,7 +5230,7 @@ function drBuild(){
       +'<div style="font-size:12px;color:#e2e6ff;margin-top:4px">'+ym.slice(0,4)+'년 '+mo+'월 누적 기준 · 인트라넷 실적관리 집계 · '
       +(isToday?('작성 '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')):('조회 기준 '+mdLabel(D)+' 스냅샷'))+'</div>'
     +'</div>'
-    +sec1+sec2+sec3+sec4+secProm+sec5+sec6
+    +sec1+sec2+sec3+sec4+secProm+sec5+sec6+customSecs
     +'<div style="text-align:center;font-size:11px;color:#b3addd;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
     +'</div>';
   // 발송용 이미지 사전 생성 — 버튼을 누르는 즉시 공유창이 뜨도록 미리 준비 (iOS 제스처 제한 대응)
