@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-33</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-34</div>
   </div>
 </div>
 
@@ -1028,7 +1028,10 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
       <!-- 표2: 팀원별 미팅 현황 -->
       <div class="card">
-        <div id="mt_list_ttl" style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-users"></i> 팀원별 미팅 현황</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <div id="mt_list_ttl" style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원별 미팅 현황</div>
+          <select id="mt_team_sel" onchange="rMeetingList()" style="padding:6px 10px;font-size:13.5px;font-weight:700;background:#fff;color:#2a2a4a;border:1px solid #ccd2ec;border-radius:7px;font-family:inherit;cursor:pointer"></select>
+        </div>
         <div style="overflow-x:auto">
           <table class="dt" style="min-width:520px">
             <thead><tr><th style="text-align:left">이름</th><th style="text-align:center">직급</th><th style="text-align:center">미팅 진행 여부</th><th style="text-align:center">미팅내용</th></tr></thead>
@@ -10366,6 +10369,20 @@ function rMeetingList(){
   var tb=g('mt_list_tb'); if(!tb) return;
   var ym=_mtYm(), names=_mtRoster();
   var ttl=g('mt_list_ttl'); if(ttl) ttl.innerHTML='<i class="ti ti-users"></i> 팀원별 미팅 현황 · '+_mtYmLabel(ym);
+  // 팀별 필터 드롭다운 — 팀장(하위 인원 보유자) 목록으로 채우고, 선택 시 그 팀(하위 포함)만 표시
+  var tSel=g('mt_team_sel');
+  if(tSel){
+    var leaders=mem.filter(function(m){ return m.name && mem.some(function(x){return x.belong===m.name;}); });
+    var curT=tSel.value;
+    tSel.innerHTML='<option value="">전체 팀</option>'+leaders.map(function(L){
+      return '<option value="'+_esc(L.name)+'">'+_esc(L.name)+' 팀</option>';
+    }).join('');
+    if(curT){ for(var si=0;si<tSel.options.length;si++){ if(tSel.options[si].value===curT){ tSel.value=curT; break; } } }
+    if(tSel.value){
+      var tset=(typeof _drSubTeam==='function')?_drSubTeam(tSel.value):[tSel.value];
+      names=names.filter(function(n){ return tset.indexOf(n)>=0; });
+    }
+  }
   if(!names.length){ tb.innerHTML='<tr><td colspan="4" class="em" style="padding:24px">표시할 팀원이 없습니다.</td></tr>'; return; }
   tb.innerHTML=names.map(function(nm){
     var mm=mem.find(function(x){return x.name===nm;});
