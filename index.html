@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-14</div>
   </div>
 </div>
 
@@ -1962,19 +1962,16 @@ function rSchedulePage(){
       </select>
     </div>
   </div>
-  <div class="fg"><div class="fl">차수별 평가 — 월을 선택한 차수만 등록됩니다 (아래: 평가월 / 달성여부)</div>
+  <div class="fg"><div class="fl">차수별 평가월 — 월을 선택한 차수만 등록됩니다 (달성여부는 해당 월 실적으로 자동 판정)</div>
     <div class="fr" style="grid-template-columns:1fr 1fr 1fr">
       <div class="fg"><div class="fl">1차 평가</div>
         <select class="fs" id="mpr_m1"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
-        <select class="fs" id="mpr_st1" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
       </div>
       <div class="fg"><div class="fl">2차 평가</div>
         <select class="fs" id="mpr_m2"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
-        <select class="fs" id="mpr_st2" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
       </div>
       <div class="fg"><div class="fl">3차 평가</div>
         <select class="fs" id="mpr_m3"><option value="">미등록</option><option>1월</option><option>2월</option><option>3월</option><option>4월</option><option>5월</option><option>6월</option><option>7월</option><option>8월</option><option>9월</option><option>10월</option><option>11월</option><option>12월</option></select>
-        <select class="fs" id="mpr_st3" style="margin-top:6px"><option value="진행중">진행중</option><option value="달성">달성</option><option value="미달성">미달성</option></select>
       </div>
     </div>
   </div>
@@ -4516,8 +4513,8 @@ function rProm(){
   const tb=g('prom_tb');
   if(!prm.length){tb.innerHTML='<tr><td colspan="9" class="em">평가 데이터가 없습니다.</td></tr>';return;}
 
-  // 구성원별 산하 팀원 포함 실적 합산
-  function getTeamTotal(parentName){
+  // 구성원별 산하 팀원 포함 실적 합산 — ym(YYYY-MM) 지정 시 해당 월, 생략 시 이번달
+  function getTeamTotal(parentName, ym){
     const team=[parentName];
     function addSubs(name){
       mem.filter(m=>m.name&&m.belong===name).forEach(m=>{
@@ -4525,9 +4522,22 @@ function rProm(){
       });
     }
     addSubs(parentName);
-    // 이번달 실적만 합산 — 과거 달 보존(월별 관리) 이후 이월누적 방지
-    var ym=_curYm();
+    ym=ym||_curYm();
     return prf.filter(p=>team.includes(p.m)&&_perfMonth(p)===ym).reduce((s,p)=>s+(+p.a||0),0);
+  }
+  var curYm=_curYm();
+  // "6월" → "YYYY-06" (올해 기준). 월 정보가 없으면 null
+  function _promMonthYm(evalMonth){
+    var mm=parseInt(evalMonth); if(!mm||mm<1||mm>12) return null;
+    return curYm.slice(0,4)+'-'+String(mm).padStart(2,'0');
+  }
+  // 달성여부 자동 판정: 해당 월 실적 ≥ 목표 → 달성 / 지난 달인데 미달 → 미달성 / 그 외 진행중
+  function _promStatus(p, actual){
+    var goal=+(p.goal||0);
+    if(goal>0 && actual>=goal) return '달성';
+    var ym=_promMonthYm(p.evalMonth);
+    if(ym && ym<curYm && goal>0) return '미달성';
+    return '진행중';
   }
 
   // 같은 사람(이름+목표직급)의 1·2·3차 평가를 한 줄로 묶어 차수별 칸에 배치
@@ -4547,27 +4557,32 @@ function rProm(){
   tb.innerHTML=groups.map(function(gr){
     // 현재실적 = 해당 인원 + 산하 팀원 실적 합계 (원 단위)
     const curNum=getTeamTotal(gr.m);
+    // 차수별 실적·달성여부 자동 계산 (차수 미지정 옛 항목은 표에 안 보이므로 계산에서도 제외)
+    var vitems=gr.items.filter(function(p){ return p.round==='1차'||p.round==='2차'||p.round==='3차'; })
+      .map(function(p){
+        var ym=_promMonthYm(p.evalMonth);
+        var actual=ym?getTeamTotal(gr.m,ym):0;
+        return {p:p, actual:actual, stC:_promStatus(p,actual)};
+      });
     // 달성률 기준: 진행중인 차수 중 가장 높은 차수, 없으면 마지막 등록 차수
-    // (차수 미지정 옛 항목은 표에 안 보이므로 계산에서도 제외 — 화면과 계산 일치)
-    var vitems=gr.items.filter(function(p){ return p.round==='1차'||p.round==='2차'||p.round==='3차'; });
     var act=null;
-    vitems.forEach(function(p){
-      if(p.st==='진행중' && (!act || (parseInt(p.round)||0)>=(parseInt(act.round)||0))) act=p;
+    vitems.forEach(function(it){
+      if(it.stC==='진행중' && (!act || (parseInt(it.p.round)||0)>=(parseInt(act.p.round)||0))) act=it;
     });
-    if(!act) act=vitems[vitems.length-1]||gr.items[gr.items.length-1];
-    const goalNum=+((act&&act.goal)||0);
+    if(!act) act=vitems[vitems.length-1]||null;
+    const goalNum=+((act&&act.p.goal)||0);
     const rate=goalNum>0?Math.round((curNum/goalNum)*1000)/10:null;
     const rateColor=rate===null?'#888':rate>=100?'#1a8a40':rate>=70?'#2040cc':'#cc4020';
-    // 차수별 칸: 세로로 평가월 / 00만 / 달성여부
+    // 차수별 칸: 세로로 평가월 / 해당 월 실제 인정실적 / 자동 달성여부
     var roundCells=['1차','2차','3차'].map(function(rd){
-      var list=gr.items.filter(function(p){ return p.round===rd; });
+      var list=vitems.filter(function(it){ return it.p.round===rd; });
       if(!list.length) return '<td style="text-align:center;color:#ccc">-</td>';
-      return '<td style="text-align:center">'+list.map(function(p){
-        var gN=+(p.goal||0);
+      return '<td style="text-align:center">'+list.map(function(it){
+        var achieved=it.stC==='달성';
         return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 0">'
-          +'<span style="color:#444">'+_esc(p.evalMonth||'-')+'</span>'
-          +'<span style="color:#2040cc;font-weight:700">'+(gN?(gN/10000).toLocaleString()+'만':'-')+'</span>'
-          +stBadge(p.st,true)
+          +'<span style="color:#444">'+_esc(it.p.evalMonth||'-')+'</span>'
+          +'<span style="font-weight:700;color:'+(achieved?'#1a8a40':'#2040cc')+'">'+it.actual.toLocaleString()+'원</span>'
+          +stBadge(it.stC,true)
         +'</div>';
       }).join('<div style="border-top:1px dashed #dde;margin:3px 10px"></div>')+'</td>';
     }).join('');
@@ -4603,10 +4618,9 @@ function rProm(){
     g('mpr_goal').value=goal;
     window._promGoalLoaded=goal; // 저장 시 "사용자가 목표를 실제로 바꿨는지" 판별용
     g('mpr_current').value='';
-    [['1차','mpr_m1','mpr_st1'],['2차','mpr_m2','mpr_st2'],['3차','mpr_m3','mpr_st3']].forEach(function(r){
+    [['1차','mpr_m1'],['2차','mpr_m2'],['3차','mpr_m3']].forEach(function(r){
       var e=null; items.forEach(function(p){ if(p.round===r[0]) e=p; });
       g(r[1]).value=e?(e.evalMonth||''):'';
-      g(r[2]).value=e?(e.st||'진행중'):'진행중';
     });
     g('m_prom_title').textContent='진급평가 수정';
     g('m_prom').classList.add('open');
@@ -4631,7 +4645,6 @@ g('btn_prom').addEventListener('click',()=>{
   g('mpr_goal').value='';
   g('mpr_current').value='';
   ['mpr_m1','mpr_m2','mpr_m3'].forEach(function(id){ g(id).value=''; });
-  ['mpr_st1','mpr_st2','mpr_st3'].forEach(function(id){ g(id).value='진행중'; });
   window._promEditOrig=null; window._promGoalLoaded=null; // 추가 모드 — 이관할 원본 없음
   g('m_prom_title').textContent='진급평가 추가';
   g('m_prom').classList.add('open');
@@ -4646,7 +4659,7 @@ g('m_prom_cancel').addEventListener('click',()=>g('m_prom').classList.remove('op
 g('m_prom_save').addEventListener('click',()=>{
   var nm=g('mpr_mem').value, cr=g('mpr_cur').value, tg=g('mpr_tgt').value, goal=g('mpr_goal').value;
   if(!tg){ toast('목표 직급을 선택하세요.'); return; }
-  var rounds=[['1차','mpr_m1','mpr_st1'],['2차','mpr_m2','mpr_st2'],['3차','mpr_m3','mpr_st3']];
+  var rounds=[['1차','mpr_m1'],['2차','mpr_m2'],['3차','mpr_m3']];
   if(!rounds.some(function(r){ return g(r[1]).value; })){ toast('최소 한 차수의 평가월을 선택하세요.'); return; }
   // 수정 중 구성원/목표직급을 바꿨으면 원본 그룹을 새 식별자로 먼저 이관 (옛 항목 잔존 → 중복 행 방지)
   var orig=window._promEditOrig;
@@ -4658,17 +4671,17 @@ g('m_prom_save').addEventListener('click',()=>{
   window._promEditOrig=null; window._promGoalLoaded=null;
   // 차수별 업서트: 월이 선택된 차수는 갱신/추가, 월을 비운(미등록) 차수는 삭제
   rounds.forEach(function(r){
-    var rd=r[0], month=g(r[1]).value, st=g(r[2]).value;
+    var rd=r[0], month=g(r[1]).value;
     var idxs=[];
     prm.forEach(function(p,i){ if(p.m===nm && (p.tg||'')===(tg||'') && p.round===rd) idxs.push(i); });
     if(month){
       if(idxs.length){
         var p0=prm[idxs[0]];
-        p0.cr=cr; p0.evalMonth=month; p0.st=st;
+        p0.cr=cr; p0.evalMonth=month; // 달성여부(st)는 저장하지 않음 — 표에서 실적으로 자동 판정
         if(!goalKeep || !p0.goal) p0.goal=goal;
         for(var j=idxs.length-1;j>=1;j--) prm.splice(idxs[j],1); // 같은 차수 중복 정리
       }else{
-        prm.push({m:nm,cr:cr,tg:tg,evalMonth:month,round:rd,goal:goal,st:st});
+        prm.push({m:nm,cr:cr,tg:tg,evalMonth:month,round:rd,goal:goal});
       }
     }else{
       for(var j=idxs.length-1;j>=0;j--) prm.splice(idxs[j],1);
