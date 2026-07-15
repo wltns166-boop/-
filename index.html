@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-25</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-26</div>
   </div>
 </div>
 
@@ -5144,6 +5144,8 @@ function drBuild(){
     +'<div style="text-align:center;font-size:11px;color:#a0a5c8;padding:6px 0 10px">TEAM TOPS 인트라넷 자동 생성 보고서</div>'
     +'</div>';
   // 발송용 이미지 사전 생성 — 버튼을 누르는 즉시 공유창이 뜨도록 미리 준비 (iOS 제스처 제한 대응)
+  // 세대 번호를 올려 진행 중인 캡처가 낡은 화면을 캐시에 쓰지 못하게 한다 (오발송 방지)
+  window._drGen=(window._drGen||0)+1;
   window._drCanvasCache=null; window._drImgBlob=null;
   setTimeout(function(){ try{ _drPrecache(); }catch(e){} },50);
 }
@@ -5216,16 +5218,26 @@ async function drSavePdf(){
 //   모바일: 공유창에서 카카오톡 선택 → 사진/파일이 실제로 전송됨 (링크 카드 아님)
 //   PC: 이미지는 클립보드 복사(카톡 채팅방에 Ctrl+V), PDF는 저장 후 채팅방에 끌어다 놓기
 async function _drPrecache(){
-  if(window._drPrecaching) return; window._drPrecaching=true;
+  if(window._drPrecaching){ window._drPrecachePending=true; return; } // 진행 중이면 끝난 뒤 재실행 예약
+  window._drPrecaching=true;
   try{
+    var myGen=window._drGen||0; // 캡처 시작 시점의 보고서 세대
     var el=g('dr_paper');
     if(el&&el.firstChild){
       var c=await _drCapture();
-      window._drCanvasCache=c;
-      window._drImgBlob=await new Promise(function(r){ c.toBlob(r,'image/png'); });
+      if(myGen===(window._drGen||0)){
+        window._drCanvasCache=c;
+        window._drImgBlob=await new Promise(function(r){ c.toBlob(r,'image/png'); });
+      }else{
+        window._drPrecachePending=true; // 캡처 도중 보고서가 다시 그려짐 — 낡은 캔버스는 버리고 재캡처
+      }
     }
   }catch(e){ console.warn('보고서 이미지 사전 생성 실패:',e); }
   window._drPrecaching=false;
+  if(window._drPrecachePending){
+    window._drPrecachePending=false;
+    setTimeout(function(){ try{ _drPrecache(); }catch(e){} },0);
+  }
 }
 async function drSend(type){
   try{
@@ -5254,8 +5266,10 @@ async function drSend(type){
     }
     // 폴백: 파일 저장 후 채팅방에 끌어다 놓기
     var a=document.createElement('a');
-    a.href=URL.createObjectURL(file); a.download=file.name;
+    var objUrl=URL.createObjectURL(file);
+    a.href=objUrl; a.download=file.name;
     document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{ URL.revokeObjectURL(objUrl); }catch(e){} },3000);
     toast('파일이 저장되었습니다. 카카오톡 채팅방에 파일을 끌어다 놓으면 전송됩니다.');
   }catch(e){
     if(e && e.name==='AbortError') return; // 사용자가 공유창을 닫음 — 오류 아님
