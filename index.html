@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-5</div>
   </div>
 </div>
 
@@ -4631,6 +4631,14 @@ g('m_prom_save').addEventListener('click',()=>{
 var PCR_NOTE_DEFAULT='실가동 기준 : 정산업적 10만원 이상자';
 // 숫자만 입력했으면 단위(명/개월)를 붙여 표시
 function _pcSuffix(v,unit){ v=(v==null?'':String(v)).trim(); if(!v) return '-'; return /^\d+(\.\d+)?$/.test(v)?v+unit:v; }
+function _pcS(v){ return (v==null?'':String(v)).trim(); } // 안전 문자열 변환
+// 유지율 표시: "90" → "90% 이상", "90%" → "90% 이상" + 회차 "13" → "13회차"
+function _pcKeepFmt(e){
+  var k=_pcS(e.keep), n=_pcS(e.keepN);
+  if(k){ if(/^\d+(\.\d+)?$/.test(k)) k+='% 이상'; else if(/^\d+(\.\d+)?%$/.test(k)) k+=' 이상'; }
+  if(n && /^\d+$/.test(n)) n+='회차';
+  return k+(k&&n?' ':'')+n;
+}
 function rPromCrit(){
   var el=g('promcrit_wrap'); if(!el) return;
   if(!promCrit.length){
@@ -4643,8 +4651,11 @@ function rPromCrit(){
     {l:'실가동인원', f:function(e){return _esc(_pcSuffix(e.act,'명'));}},
     {l:'직도입',     f:function(e){return _esc(_pcSuffix(e.rec,'명'));}},
     {l:'평가기간',   f:function(e){return _esc(_pcSuffix(e.per,'개월'));}},
-    {l:'실적기준',   f:function(e){return _esc((e.perf==null?'':String(e.perf)).trim()||'-');}},
-    {l:'유지율',     f:function(e){return _esc((e.keep==null?'':String(e.keep)).trim()||'-');}}
+    {l:'실적기준',   f:function(e){ // 실적기준 1 → 첫째 줄, 실적기준 2 → 둘째 줄
+      var lines=[_pcS(e.perf),_pcS(e.perf2)].filter(Boolean);
+      return lines.length?lines.map(_esc).join('<br>'):'-';
+    }},
+    {l:'유지율',     f:function(e){return _esc(_pcKeepFmt(e))||'-';}}
   ];
   var h='<table style="border-collapse:collapse;width:max-content;min-width:100%">';
   h+='<tr><th style="'+thS+'">직급</th>'+promCrit.map(function(e){
@@ -4655,10 +4666,11 @@ function rPromCrit(){
       return '<td style="'+tdS+'">'+r.f(e)+'</td>';
     }).join('')+'</tr>';
   });
-  // 항목(기준)마다 밑에 [ 비고 ] 표시 — 기본: 실가동 기준 안내
+  // 항목(기준)마다 밑에 [ 비고1 ]~[ 비고4 ] 를 줄 단위로 표시 — 비고1 기본: 실가동 기준 안내
   h+='<tr><th style="'+thS+'">비고</th>'+promCrit.map(function(e){
-    var n=(e.note==null?PCR_NOTE_DEFAULT:String(e.note)).trim();
-    return '<td style="'+tdS+';font-size:12.5px;color:#7050b0">'+(n?'[ '+_esc(n)+' ]':'-')+'</td>';
+    var notes=[(e.note==null?PCR_NOTE_DEFAULT:_pcS(e.note)),_pcS(e.note2),_pcS(e.note3),_pcS(e.note4)].filter(Boolean);
+    return '<td style="'+tdS+';font-size:12.5px;color:#7050b0">'
+      +(notes.length?notes.map(function(n){return '[ '+_esc(n)+' ]';}).join('<br>'):'-')+'</td>';
   }).join('')+'</tr>';
   el.innerHTML=h+'</table>';
 }
@@ -4679,11 +4691,20 @@ function _pcrRender(){
         +'</div>'
         +'<div class="fr">'
           +'<div class="fg"><div class="fl">평가기간</div><input class="fi" data-pcri="'+i+'" data-pcrf="per" value="'+_esc(e.per||'')+'" placeholder="00개월"></div>'
-          +'<div class="fg" style="flex:2"><div class="fl">실적기준</div><input class="fi" data-pcri="'+i+'" data-pcrf="perf" value="'+_esc(e.perf||'')+'" placeholder="매월 000만원 or 3개월 합산 0000만원"></div>'
+          +'<div class="fg"><div class="fl">유지율 (숫자만 쓰면 % 이상 자동)</div><input class="fi" data-pcri="'+i+'" data-pcrf="keep" value="'+_esc(e.keep||'')+'" placeholder="90 → 90% 이상"></div>'
+          +'<div class="fg"><div class="fl">회차</div><input class="fi" data-pcri="'+i+'" data-pcrf="keepN" value="'+_esc(e.keepN||'')+'" placeholder="00 → 00회차"></div>'
         +'</div>'
         +'<div class="fr">'
-          +'<div class="fg"><div class="fl">유지율</div><input class="fi" data-pcri="'+i+'" data-pcrf="keep" value="'+_esc(e.keep||'')+'" placeholder="00% 00회차"></div>'
-          +'<div class="fg" style="flex:2"><div class="fl">비고 (표의 항목 밑에 [ ] 로 표시)</div><input class="fi" data-pcri="'+i+'" data-pcrf="note" value="'+_esc(e.note==null?PCR_NOTE_DEFAULT:e.note)+'" placeholder="'+PCR_NOTE_DEFAULT+'"></div>'
+          +'<div class="fg"><div class="fl">실적기준 1 (표 첫째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="perf" value="'+_esc(e.perf||'')+'" placeholder="매월 000만원 or 3개월 합산 0000만원"></div>'
+          +'<div class="fg"><div class="fl">실적기준 2 (표 둘째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="perf2" value="'+_esc(e.perf2||'')+'" placeholder="예: 3개월 합산 0000만원"></div>'
+        +'</div>'
+        +'<div class="fr">'
+          +'<div class="fg"><div class="fl">비고1 (표 첫째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="note" value="'+_esc(e.note==null?PCR_NOTE_DEFAULT:e.note)+'" placeholder="'+PCR_NOTE_DEFAULT+'"></div>'
+          +'<div class="fg"><div class="fl">비고2 (둘째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="note2" value="'+_esc(e.note2||'')+'" placeholder="비고2"></div>'
+        +'</div>'
+        +'<div class="fr">'
+          +'<div class="fg"><div class="fl">비고3 (셋째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="note3" value="'+_esc(e.note3||'')+'" placeholder="비고3"></div>'
+          +'<div class="fg"><div class="fl">비고4 (넷째 줄)</div><input class="fi" data-pcri="'+i+'" data-pcrf="note4" value="'+_esc(e.note4||'')+'" placeholder="비고4"></div>'
         +'</div>'
       +'</div>';
     }).join('');
@@ -4698,7 +4719,7 @@ function _pcrCollect(){
 }
 function pcrAdd(){
   _pcrCollect();
-  (window._pcEdit=window._pcEdit||[]).push({rank:'',act:'',rec:'',per:'',perf:'',keep:'',note:PCR_NOTE_DEFAULT});
+  (window._pcEdit=window._pcEdit||[]).push({rank:'',act:'',rec:'',per:'',perf:'',perf2:'',keep:'',keepN:'',note:PCR_NOTE_DEFAULT,note2:'',note3:'',note4:''});
   _pcrRender();
   var l=g('pcr_list'); l.scrollTop=l.scrollHeight;
 }
@@ -4711,9 +4732,9 @@ function pcrSave(){
   _pcrCollect();
   // 전부 빈 항목은 제거
   var arr=(window._pcEdit||[]).filter(function(e){
-    return ['rank','act','rec','per','perf','keep'].some(function(f){ return String(e[f]||'').trim()!==''; });
+    return ['rank','act','rec','per','perf','perf2','keep','keepN'].some(function(f){ return String(e[f]||'').trim()!==''; });
   }).map(function(e){
-    var o={}; ['rank','act','rec','per','perf','keep','note'].forEach(function(f){ o[f]=String(e[f]||'').trim(); });
+    var o={}; ['rank','act','rec','per','perf','perf2','keep','keepN','note','note2','note3','note4'].forEach(function(f){ o[f]=String(e[f]||'').trim(); });
     return o;
   });
   promCrit=arr;
@@ -4724,7 +4745,7 @@ function pcrSave(){
 g('btn_promcrit').addEventListener('click',function(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   window._pcEdit=JSON.parse(JSON.stringify(promCrit||[]));
-  if(!window._pcEdit.length) window._pcEdit.push({rank:'',act:'',rec:'',per:'',perf:'',keep:'',note:PCR_NOTE_DEFAULT});
+  if(!window._pcEdit.length) window._pcEdit.push({rank:'',act:'',rec:'',per:'',perf:'',perf2:'',keep:'',keepN:'',note:PCR_NOTE_DEFAULT,note2:'',note3:'',note4:''});
   _pcrRender();
   g('m_promcrit').classList.add('open');
 });
