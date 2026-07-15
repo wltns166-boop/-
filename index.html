@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-30</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-31</div>
   </div>
 </div>
 
@@ -4970,17 +4970,26 @@ function drOpenCfg(){
   g('m_drcfg').classList.add('open');
 }
 // 보고서 추가 항목 편집 — 작업 사본을 순서 그대로 그리므로 인덱스 사용 안전 (함정 A 예외 패턴)
+// 항목 제목: 드롭다운 — 메뉴 연동(데이터 자동 표) 또는 직접 입력
+var DR_SRC_OPTS=[['','직접 입력'],['trip','출장보고'],['exam','시험신청'],['join','입사준비'],['edu','교육준비'],['rookie','루키대상자']];
 function _drcRender(){
   var list=window._drcEdit||[];
   g('drc_list').innerHTML=!list.length
     ? '<div style="font-size:12px;color:#8a93c8;padding:6px 0">추가 항목이 없습니다. 아래 [항목 추가]를 누르세요.</div>'
     : list.map(function(e,i){
+      var src=e.src||'';
+      var srcSel='<select class="fs" data-drci="'+i+'" data-drcf="src" onchange="_drcCollect();_drcRender()">'
+        +DR_SRC_OPTS.map(function(o){ return '<option value="'+o[0]+'"'+(src===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+        +'</select>';
+      var body=(src==='')
+        ? '<input class="fi" data-drci="'+i+'" data-drcf="t" value="'+_esc(e.t||'')+'" placeholder="항목 제목 (예: 공지사항)" style="margin-top:6px">'
+          +'<textarea class="fi" data-drci="'+i+'" data-drcf="c" rows="3" placeholder="내용 (줄바꿈 그대로 표시됩니다)" style="margin-top:6px;resize:vertical;min-height:64px">'+_esc(e.c||'')+'</textarea>'
+        : '<div style="font-size:12px;color:#8a93c8;margin-top:6px">해당 메뉴의 데이터가 보고서에 자동으로 표로 들어갑니다.</div>';
       return '<div style="border:1px solid rgba(90,110,230,.28);border-radius:10px;padding:10px;margin-top:10px">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
           +'<b style="color:#8a9af0;font-size:13px">추가 항목 '+(i+1)+'</b>'
           +'<button type="button" class="bd" onclick="drcDel('+i+')"><i class="ti ti-trash"></i> 삭제</button></div>'
-        +'<input class="fi" data-drci="'+i+'" data-drcf="t" value="'+_esc(e.t||'')+'" placeholder="항목 제목 (예: 공지사항)">'
-        +'<textarea class="fi" data-drci="'+i+'" data-drcf="c" rows="3" placeholder="내용 (줄바꿈 그대로 표시됩니다)" style="margin-top:6px;resize:vertical;min-height:64px">'+_esc(e.c||'')+'</textarea>'
+        +srcSel+body
       +'</div>';
     }).join('');
 }
@@ -5004,8 +5013,8 @@ function drcDel(i){
 }
 function drSaveCfg(){
   _drcCollect();
-  var custom=(window._drcEdit||[]).filter(function(e){ return String(e.t||'').trim()!=='' || String(e.c||'').trim()!==''; })
-    .map(function(e){ return {t:String(e.t||'').trim(), c:String(e.c||'')}; });
+  var custom=(window._drcEdit||[]).filter(function(e){ return (e.src||'')!=='' || String(e.t||'').trim()!=='' || String(e.c||'').trim()!==''; })
+    .map(function(e){ return {src:e.src||'', t:String(e.t||'').trim(), c:String(e.c||'')}; });
   drCfg={ goal:+(g('dr_goal').value||10000000), custom:custom };
   sv('tops_drcfg',drCfg);
   g('m_drcfg').classList.remove('open');
@@ -5215,12 +5224,66 @@ function drBuild(){
   var sec6=sec(7,'실적 순위 (인정실적)',
     tbl(['순위','이름','직급','구분','건수','인정실적','영수실적'],rankRows,
       ['','합계','','',tc+'건',won(ta),won(tay)]));
-  // ── 8~. 사용자 추가 항목 (설정에서 등록)
+  // ── 8~. 사용자 추가 항목 (설정에서 등록 — 메뉴 연동 또는 직접 입력)
+  function emptyMsg(t){ return '<div style="padding:8px 0;color:#8890b8;font-size:13px">'+t+'</div>'; }
+  function okTag(v,okTxt,noTxt){ return v?'<span style="color:#0fa658;font-weight:700">'+okTxt+'</span>':'<span style="color:#cc3020;font-weight:700">'+noTxt+'</span>'; }
+  function srcContent(src){
+    if(src==='trip'){ // 출장보고 — 이번 달 신청
+      var tl=(Array.isArray(trips)?trips:[]).filter(function(t){ return String(t.when||'').slice(0,7)===ym; });
+      return {t:'출장보고 ('+mo+'월)', h:tl.length?tbl(['이름','일시','사유','장소','확인'],
+        tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-']; }))
+        :emptyMsg(mo+'월 출장 신청이 없습니다.')};
+    }
+    if(src==='exam'){ // 시험신청 — 전체 신청 내역
+      var el2=Array.isArray(exams)?exams:[];
+      return {t:'시험신청', h:el2.length?tbl(['이름','소속','접수과목','합격과목','시험일','접수'],
+        el2.map(function(e){ return [_esc(e.name||'-'),_esc(e.belong||'-'),_esc((e.apply||[]).join(', ')||'-'),_esc((e.pass||[]).join(', ')||'-'),_esc(e.examDate||'-'),okTag(e.done,'완료','미완료')]; }))
+        :emptyMsg('시험 신청 내역이 없습니다.')};
+    }
+    if(src==='join'||src==='edu'){ // 입사준비/교육준비 — 신입 관리 데이터
+      try{ if(typeof jpLoad==='function') jpLoad(); }catch(e){}
+      var jp=(typeof JP!=='undefined'&&Array.isArray(JP))?JP:[];
+      if(src==='join'){
+        var prepTotal=(typeof JP_PREP!=='undefined'&&JP_PREP.length)||0;
+        return {t:'입사준비', h:jp.length?tbl(['입사일','이름','소속','서약서','준비물','설계사시험','영업캠퍼스'],
+          jp.map(function(r){
+            var pd=0; if(r.prep) Object.keys(r.prep).forEach(function(k){ if(r.prep[k]) pd++; });
+            return [_esc(r.joinDate||'-'),_esc(r.name||'-'),_esc(r.belong||'-'),okTag(r.commitDoc,'완료','미완료'),pd+'/'+(prepTotal||pd),okTag(r.examPass,'합격','미합격'),okTag(r.salesCampus,'완료','미완료')];
+          }))
+          :emptyMsg('입사준비에 등록된 신입이 없습니다.')};
+      }
+      var topics=(typeof EDU_TOPICS!=='undefined'&&Array.isArray(EDU_TOPICS))?EDU_TOPICS:[];
+      return {t:'교육준비', h:jp.length?tbl(['이름','소속','교육 완료','테스트 완료'],
+        jp.map(function(r){
+          var ed=0,ts=0;
+          topics.forEach(function(t){ var x=(r.edu&&r.edu[t[0]])||{}; if(x.edu) ed++; if(x.test) ts++; });
+          return [_esc(r.name||'-'),_esc(r.belong||'-'),ed+'/'+topics.length,ts+'/'+topics.length];
+        }))
+        :emptyMsg('입사준비에 등록된 신입이 없습니다.')};
+    }
+    if(src==='rookie'){ // 루키대상자 — 홈 화면 루키 기준과 동일
+      var nowD=new Date();
+      var rookies=mem.filter(function(m){
+        if(!m.name||!m.salesStart) return false;
+        var start=new Date(m.salesStart); if(isNaN(start.getTime())) return false;
+        var limit=new Date(start.getFullYear(),start.getMonth()+6,start.getDate());
+        return nowD<=limit && agg[m.name] && agg[m.name].a>=1000000;
+      }).sort(function(x,y2){ return ((agg[y2.name]&&agg[y2.name].a)||0)-((agg[x.name]&&agg[x.name].a)||0); });
+      return {t:'루키대상자', h:(rookies.length?tbl(['이름','영업시작일','인정실적','영수실적'],
+        rookies.map(function(m){ return [_esc(m.name),_esc(m.salesStart||'-'),won(agg[m.name].a),won(agg[m.name].ay||0)]; }))
+        :emptyMsg('해당자 없음'))
+        +note('기준: 영업시작 6개월 이내 + 인정실적 100만원 이상')};
+    }
+    return null;
+  }
   var customSecs='';
   (Array.isArray(drCfg.custom)?drCfg.custom:[]).forEach(function(it,i){
+    var no=8+i;
+    var sc=it.src?srcContent(it.src):null;
+    if(sc){ customSecs+=sec(no,sc.t,sc.h); return; } // sc.t는 내부 고정 문자열
     var title=_esc(String(it.t||'').trim()||'추가 항목');
     var body=_esc(String(it.c||'')).replace(/\n/g,'<br>');
-    customSecs+=sec(8+i,title,'<div style="font-size:13.5px;color:#222;line-height:1.75">'+(body||'-')+'</div>');
+    customSecs+=sec(no,title,'<div style="font-size:13.5px;color:#222;line-height:1.75">'+(body||'-')+'</div>');
   });
   // ── 조립
   paper.innerHTML=
