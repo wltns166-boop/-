@@ -300,7 +300,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-2</div>
   </div>
 </div>
 
@@ -1535,7 +1535,7 @@ table.dt tr:last-child td{border-bottom:none;}
     <div style="display:flex;gap:6px;align-items:center;position:relative">
       <input class="fi" id="trip_when" inputmode="numeric" placeholder="202607150915" maxlength="16" oninput="_tripWhenFmt(this)" style="flex:1">
       <button type="button" onclick="_tripWhenPick()" title="달력에서 선택" style="flex:none;padding:9px 11px;font-size:15px;background:rgba(80,100,220,.16);border:1px solid rgba(90,110,230,.35);border-radius:8px;color:#8a9af0;cursor:pointer;font-family:inherit"><i class="ti ti-calendar"></i></button>
-      <input type="datetime-local" id="trip_when_pick" tabindex="-1" aria-hidden="true" onchange="_tripWhenPickChange(this)" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;color-scheme:dark">
+      <input type="datetime-local" id="trip_when_pick" tabindex="-1" onchange="_tripWhenPickChange(this)" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;color-scheme:dark">
     </div>
   </div>
   <div class="fg"><div class="fl">출장 사유</div><input class="fi" id="trip_reason" placeholder="출장 사유를 입력하세요"></div>
@@ -5452,13 +5452,23 @@ function _tripFmt(v){
 }
 // 기간 입력: 숫자만 쭉 치면(202607150915) 2026-07-15 09:15 로 자동 포맷
 function _tripWhenFmt(el){
-  var d=String(el.value||'').replace(/\D/g,'').slice(0,12);
+  var raw=String(el.value||'');
+  var caret=el.selectionStart==null?raw.length:el.selectionStart;
+  var digitsBefore=raw.slice(0,caret).replace(/\D/g,'').length; // 커서 앞 숫자 개수 기억
+  var d=raw.replace(/\D/g,'').slice(0,12);
+  if(digitsBefore>d.length) digitsBefore=d.length;
   var out=d.slice(0,4);
   if(d.length>4) out+='-'+d.slice(4,6);
   if(d.length>6) out+='-'+d.slice(6,8);
   if(d.length>8) out+=' '+d.slice(8,10);
   if(d.length>10) out+=':'+d.slice(10,12);
   el.value=out;
+  // 커서 복원: 재조립된 문자열에서 digitsBefore번째 숫자 바로 뒤로 (중간 수정 시 끝으로 튕기지 않게)
+  var pos=0,cnt=0;
+  while(pos<out.length&&cnt<digitsBefore){ if(out.charCodeAt(pos)>=48&&out.charCodeAt(pos)<=57)cnt++; pos++; }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+  // 12자리를 다 채웠는데 유효하지 않은 일시면 즉시 빨간 테두리로 경고
+  el.style.borderColor=(d.length===12&&!_tripWhenParse(out))?'#e03050':'';
 }
 // 입력값 → 저장 형식 "YYYY-MM-DDTHH:MM" (유효하지 않으면 null)
 function _tripWhenParse(s){
@@ -5475,8 +5485,10 @@ function _tripWhenPick(){
   var p=g('trip_when_pick'); if(!p) return;
   var cur=_tripWhenParse(g('trip_when').value);
   p.value=cur||'';
-  try{ p.showPicker(); }
-  catch(e){ p.style.pointerEvents='auto'; p.focus(); try{p.click();}catch(_){ } p.style.pointerEvents='none'; }
+  if(typeof p.showPicker==='function'){
+    try{ p.showPicker(); return; }catch(e){}
+  }
+  toast('이 브라우저에선 달력을 열 수 없어요. 숫자 12자리로 직접 입력해주세요 (예: 202607150915).');
 }
 function _tripWhenPickChange(el){
   if(!el.value) return;
@@ -5580,7 +5592,7 @@ function openTripReq(){
   // 선택지가 본인뿐이면 잠금(하부 인원 없는 팀원)
   sel.disabled=!(myTeam===null || (myTeam&&myTeam.length>1));
   sel.style.opacity=sel.disabled?'.7':'';
-  g('trip_when').value=''; var _twp=g('trip_when_pick'); if(_twp)_twp.value='';
+  g('trip_when').value=''; g('trip_when').style.borderColor=''; var _twp=g('trip_when_pick'); if(_twp)_twp.value='';
   g('trip_reason').value=''; g('trip_place').value='';
   g('m_trip').classList.add('open');
 }
