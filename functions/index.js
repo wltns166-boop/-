@@ -173,6 +173,19 @@ async function _kkSendAll(kind) {
 async function _kkHandle(body, res) {
   const action = String(body.kakao || "");
   try {
+    // 인증 검사: 'link'(카카오 인가코드 자체가 자격 증명이고, 착지 페이지엔 Firebase SDK가 없음) 외
+    // 모든 액션은 Firebase ID 토큰(익명 인증 포함)을 검증한다 — 외부에서 curl 로
+    // 키 바꿔치기(savekey)·연동 해제(unlink)·스팸 발송(sendnow)을 못 하도록 최소한의 장벽.
+    if (action !== "link") {
+      try {
+        const tk = String(body.idToken || "");
+        if (!tk) throw new Error("no token");
+        await admin.auth().verifyIdToken(tk);
+      } catch (e) {
+        res.status(401).json({ error: { message: "인증이 필요합니다. 인트라넷 화면에서 다시 시도하세요." } });
+        return;
+      }
+    }
     if (action === "savekey") {
       const restKey = String(body.restKey || "").trim();
       if (!restKey) { res.status(400).json({ error: { message: "REST API 키를 입력하세요." } }); return; }
@@ -257,6 +270,14 @@ async function _kkHandle(body, res) {
       return;
     }
     if (action === "sendnow") {
+      // 수동 발송 남용 방지: 최소 1분 간격
+      const cfgSnap = await KK_CFG().get();
+      const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
+      if (cfg.lastManualTs && Date.now() - cfg.lastManualTs < 60 * 1000) {
+        res.status(429).json({ error: { message: "테스트 발송은 1분에 1회만 가능합니다. 잠시 후 다시 시도하세요." } });
+        return;
+      }
+      await KK_CFG().set({ lastManualTs: Date.now() }, { merge: true });
       const r = await _kkSendAll("test");
       res.json(r);
       return;

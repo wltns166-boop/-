@@ -2056,7 +2056,7 @@ function rSchedulePage(){
         <input class="fi" id="kk_key" placeholder="developers.kakao.com 앱의 REST API 키" style="flex:1;margin:0">
         <button type="button" class="bco" onclick="kkSaveKey()" style="white-space:nowrap">키 저장</button>
       </div>
-      <input class="fi" id="kk_secret" placeholder="Client Secret (앱에서 사용 설정한 경우만 입력)" style="margin-top:8px">
+      <input class="fi" id="kk_secret" type="password" autocomplete="new-password" placeholder="Client Secret (앱에서 사용 설정한 경우만 입력)" style="margin-top:8px">
     </div>
     <div class="fr">
       <div class="fg"><div class="fl">발송 시간 (매일)</div><input class="fi" id="kk_time" type="time" value="18:00"></div>
@@ -3131,8 +3131,6 @@ function login(){
   try{ _pushInit(); }catch(e){}   // 웹 푸시 알림 초기화
   // Firestore 데이터 로드
   showPage('home');
-  // 카톡 자동발송 [보고서 열기] 딥링크 — 로그인 후 일일보고서 화면으로 바로 이동 (관리자만)
-  try{ if(/[?&]dr=1/.test(location.search) && _isAdmin()){ setTimeout(function(){ showPage('dreport'); },500); } }catch(e){}
   loadFromFirestore().then(function(){
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
@@ -3142,9 +3140,11 @@ function login(){
     }, 300);
     startRealtimeSync();
     try{ _driveFolderBackfill(); }catch(e){}   // 로그인+데이터 로드 후 폴더 자동 정리(1회)
+    try{ _drDeepLink(); }catch(e){}            // 카톡 [보고서 열기] 딥링크 — 데이터 로드 후 이동
   }).catch(function(){
     startRealtimeSync();
     rAlerts();
+    try{ _drDeepLink(); }catch(e){}
   });
 }
 function logout(){
@@ -5064,12 +5064,25 @@ function drSaveCfg(){
   toast('설정이 저장되었습니다.'); drBuild();
 }
 
+// 카톡 [보고서 열기] 딥링크(?dr=1) — 로그인·데이터 로드 완료 후 일일보고서로 이동 (관리자만)
+function _drDeepLink(){
+  if(/[?&]dr=1/.test(location.search) && _isAdmin()) showPage('dreport');
+}
+
 // ===== 일일보고서 카톡 자동발송 (카카오 "나에게 보내기") =====
 // 설정·토큰은 서버(Cloud Functions)가 Firestore kakao_private 문서에 보관 — 클라이언트는 /api 로만 접근.
 function _kkApi(action, extra){
   var p=Object.assign({kakao:action}, extra||{});
-  return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
-    .then(function(r){ return r.json(); });
+  // 서버가 Firebase ID 토큰(익명 인증)을 검증하므로 항상 첨부
+  var tokP;
+  try{
+    var u=firebase.auth&&firebase.auth().currentUser;
+    tokP=u?u.getIdToken():Promise.resolve(null);
+  }catch(e){ tokP=Promise.resolve(null); }
+  return tokP.then(function(t){
+    if(t) p.idToken=t;
+    return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+  }).then(function(r){ return r.json(); });
 }
 function kkOpen(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
