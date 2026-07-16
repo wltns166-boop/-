@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.15-34</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.16-1</div>
   </div>
 </div>
 
@@ -596,6 +596,7 @@ table.dt tr:last-child td{border-bottom:none;}
           <select id="dr_date" onchange="drBuild()" style="padding:8px 12px;font-size:14px;font-weight:700;background:#fff;color:#1a1a3a;border:1px solid rgba(80,100,220,.3);border-radius:7px;font-family:inherit;cursor:pointer"></select></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="drOpenCfg()" style="padding:9px 14px;font-size:13px;background:rgba(40,80,200,.1);border:1px solid rgba(40,80,200,.35);border-radius:7px;color:#2a4ab0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-settings"></i> 설정</button>
+          <button onclick="kkOpen()" style="padding:9px 14px;font-size:13px;background:rgba(250,225,0,.18);border:1px solid #e0ca00;border-radius:7px;color:#8a6d00;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-clock-bolt"></i> 카톡 자동발송</button>
           <button onclick="drSaveImg()" style="padding:9px 14px;font-size:13px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.35);border-radius:7px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-photo-down"></i> 이미지 저장</button>
           <button onclick="drSavePdf()" style="padding:9px 14px;font-size:13px;background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);border-radius:7px;color:#b03030;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
           <button onclick="drSend('img')" style="padding:9px 14px;font-size:13px;background:#fee500;border:1px solid #e0ca00;border-radius:7px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:800"><i class="ti ti-send"></i> 이미지 발송</button>
@@ -2045,6 +2046,43 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" onclick="g('m_drcfg').classList.remove('open')">취소</button><button class="bco" onclick="drSaveCfg()">저장</button></div>
 </div></div>
 
+<!-- 일일보고서 카톡 자동발송 (카카오 "나에게 보내기" — 서버 스케줄 발송) -->
+<div class="mb" id="m_kkauto"><div class="mo" style="width:560px;max-height:90vh;overflow-y:auto">
+  <div class="mth"><span><i class="ti ti-clock-bolt"></i> 일일보고서 카톡 자동발송</span><span class="mc" onclick="g('m_kkauto').classList.remove('open')">×</span></div>
+  <div id="kk_loading" style="font-size:13px;color:#8a93c8;padding:8px 0">설정을 불러오는 중…</div>
+  <div id="kk_body" style="display:none">
+    <div class="fg"><div class="fl">카카오 REST API 키 <span id="kk_keyst" style="font-weight:700"></span></div>
+      <div style="display:flex;gap:8px">
+        <input class="fi" id="kk_key" placeholder="developers.kakao.com 앱의 REST API 키" style="flex:1;margin:0">
+        <button type="button" class="bco" onclick="kkSaveKey()" style="white-space:nowrap">키 저장</button>
+      </div>
+      <input class="fi" id="kk_secret" placeholder="Client Secret (앱에서 사용 설정한 경우만 입력)" style="margin-top:8px">
+    </div>
+    <div class="fr">
+      <div class="fg"><div class="fl">발송 시간 (매일)</div><input class="fi" id="kk_time" type="time" value="18:00"></div>
+      <div class="fg"><div class="fl">옵션</div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#b8c0e0;padding:9px 0;cursor:pointer"><input type="checkbox" id="kk_on" style="width:16px;height:16px"> 자동발송 사용</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#b8c0e0;cursor:pointer"><input type="checkbox" id="kk_wknd" style="width:16px;height:16px"> 주말(토·일) 제외</label>
+      </div>
+    </div>
+    <button type="button" class="bco" onclick="kkSaveCfg()" style="width:100%;margin-bottom:14px">발송 설정 저장</button>
+    <div class="fg"><div class="fl">연동된 카카오 계정 — 각자 자기 폰/PC에서 아래 버튼으로 연동하세요</div>
+      <div id="kk_users" style="font-size:13px"></div>
+      <button type="button" onclick="kkLink()" style="width:100%;margin-top:8px;padding:11px;font-size:14px;font-weight:800;background:#fee500;border:1px solid #e0ca00;border-radius:9px;color:#3c1e1e;cursor:pointer;font-family:inherit"><i class="ti ti-brand-kakao-talk"></i> 이 기기에서 내 카카오 연동하기</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button type="button" class="bca" onclick="kkTest()" style="flex:1" id="kk_testbtn"><i class="ti ti-send"></i> 지금 테스트 발송</button>
+      <button type="button" class="bca" onclick="kkLoad()" style="flex:0 0 auto"><i class="ti ti-refresh"></i> 새로고침</button>
+    </div>
+    <div class="fg"><div class="fl">최근 발송 기록</div><div id="kk_logs" style="font-size:12.5px;line-height:1.7;max-height:26vh;overflow-y:auto"></div></div>
+    <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:4px">
+      · 발송 내용: 오늘 반영 실적·월 누적·목표 대비 요약 + [보고서 열기] 버튼 (각자 카카오톡 <b style="color:#aab4f0">"나와의 채팅"</b>으로 도착)<br>
+      · 받을 사람은 카카오 개발자 앱에 <b style="color:#aab4f0">팀원으로 등록</b>돼 있어야 하며, 이 기기에서 1회만 연동하면 됩니다.<br>
+      · 서버가 매일 발송 시각에 자동 실행되므로 인트라넷을 열어두지 않아도 됩니다.
+    </div>
+  </div>
+</div></div>
+
 <div class="mb" id="m_db"><div class="mo" style="width:600px;max-height:90vh;overflow-y:auto">
   <div class="mth"><span id="m_db_t">DB 배정</span><span class="mc" id="m_db_c">×</span></div>
   <div class="fg"><div class="fl">구성원</div><select class="fs" id="mdb_mem"></select></div>
@@ -3093,6 +3131,8 @@ function login(){
   try{ _pushInit(); }catch(e){}   // 웹 푸시 알림 초기화
   // Firestore 데이터 로드
   showPage('home');
+  // 카톡 자동발송 [보고서 열기] 딥링크 — 로그인 후 일일보고서 화면으로 바로 이동 (관리자만)
+  try{ if(/[?&]dr=1/.test(location.search) && _isAdmin()){ setTimeout(function(){ showPage('dreport'); },500); } }catch(e){}
   loadFromFirestore().then(function(){
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
@@ -5022,6 +5062,93 @@ function drSaveCfg(){
   sv('tops_drcfg',drCfg);
   g('m_drcfg').classList.remove('open');
   toast('설정이 저장되었습니다.'); drBuild();
+}
+
+// ===== 일일보고서 카톡 자동발송 (카카오 "나에게 보내기") =====
+// 설정·토큰은 서버(Cloud Functions)가 Firestore kakao_private 문서에 보관 — 클라이언트는 /api 로만 접근.
+function _kkApi(action, extra){
+  var p=Object.assign({kakao:action}, extra||{});
+  return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+    .then(function(r){ return r.json(); });
+}
+function kkOpen(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  g('m_kkauto').classList.add('open');
+  kkLoad();
+}
+function kkLoad(){
+  g('kk_loading').style.display='block'; g('kk_body').style.display='none';
+  _kkApi('status').then(function(st){
+    if(!st||!st.ok){ g('kk_loading').textContent='설정을 불러오지 못했습니다: '+((st&&st.error&&st.error.message)||'서버 오류'); return; }
+    g('kk_loading').style.display='none'; g('kk_body').style.display='block';
+    _kkRender(st);
+  }).catch(function(e){ g('kk_loading').textContent='서버 통신 오류: '+e.message; });
+}
+function _kkRender(st){
+  g('kk_keyst').innerHTML=st.keySet?('<span style="color:#3fd08a">등록됨 ('+_esc(st.keyHint)+')</span>'):'<span style="color:#e0a030">미등록</span>';
+  g('kk_key').value=''; g('kk_key').placeholder=st.keySet?'변경할 때만 새 키 입력':'developers.kakao.com 앱의 REST API 키';
+  g('kk_time').value=st.sendTime||'18:00';
+  g('kk_on').checked=!!st.enabled;
+  g('kk_wknd').checked=!!st.skipWeekend;
+  g('kk_users').innerHTML=!(st.users&&st.users.length)
+    ? '<div style="color:#8a93c8;padding:5px 0">아직 연동된 계정이 없습니다.</div>'
+    : st.users.map(function(u){
+        // 카카오ID(고유 식별자)로 해제 — 표시 인덱스 사용 안 함 (함정 A)
+        var oc=('kkUnlink('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid rgba(90,110,230,.28);border-radius:9px;margin-top:6px">'
+          +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:#3fd08a"></i> <b>'+_esc(u.nick||'')+'</b>'
+          +' <span style="color:#8a93c8;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
+          +(u.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
+          +'<button type="button" class="bd" onclick="'+oc+'">해제</button></div>';
+      }).join('');
+  g('kk_logs').innerHTML=!(st.logs&&st.logs.length)
+    ? '<div style="color:#8a93c8">발송 기록이 없습니다.</div>'
+    : st.logs.map(function(l){
+        var res=(l.results||[]).map(function(r){
+          return _esc(r.nick||'')+(r.ok?' <span style="color:#3fd08a">성공</span>':' <span style="color:#e05555">실패('+_esc(r.err||'')+')</span>');
+        }).join(' · ');
+        return '<div style="border-bottom:1px solid rgba(90,110,230,.18);padding:4px 0;color:#b8c0e0">'
+          +'<span style="color:#8a9af0">'+_esc(l.t||'')+'</span> '+(l.kind==='test'?'[테스트] ':'')+res+'</div>';
+      }).join('');
+}
+function kkSaveKey(){
+  var key=g('kk_key').value.trim();
+  if(!key){ toast('REST API 키를 입력하세요.'); return; }
+  _kkApi('savekey',{restKey:key, clientSecret:g('kk_secret').value.trim()}).then(function(r){
+    if(r&&r.ok){ toast('키가 저장되었습니다.'); g('kk_secret').value=''; kkLoad(); }
+    else toast('저장 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
+  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+}
+function kkSaveCfg(){
+  _kkApi('savecfg',{enabled:g('kk_on').checked, sendTime:g('kk_time').value||'18:00', skipWeekend:g('kk_wknd').checked}).then(function(r){
+    if(r&&r.ok) toast('발송 설정이 저장되었습니다.');
+    else toast('저장 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
+  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+}
+function kkLink(){
+  _kkApi('authurl',{redirectUri:location.origin+'/kakao-link.html'}).then(function(r){
+    if(r&&r.ok&&r.url) location.href=r.url;
+    else toast(((r&&r.error&&r.error.message)||'연동 주소 생성 실패'));
+  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+}
+function kkUnlink(id){
+  if(!confirm('이 카카오 계정 연동을 해제할까요? 해제하면 자동발송을 받지 못합니다.')) return;
+  _kkApi('unlink',{id:id}).then(function(r){
+    if(r&&r.ok){ toast('연동이 해제되었습니다.'); kkLoad(); }
+    else toast('해제 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
+  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+}
+function kkTest(){
+  var b=g('kk_testbtn'); b.disabled=true; b.innerHTML='<i class="ti ti-loader-2"></i> 발송 중…';
+  _kkApi('sendnow').then(function(r){
+    b.disabled=false; b.innerHTML='<i class="ti ti-send"></i> 지금 테스트 발송';
+    if(r&&r.ok) toast('테스트 발송 완료 ('+r.sent+'명) — 카카오톡 "나와의 채팅"을 확인하세요.');
+    else toast('발송 실패: '+((r&&r.error)||((r&&r.results&&r.results[0]&&r.results[0].err))||'서버 오류'));
+    kkLoad();
+  }).catch(function(e){
+    b.disabled=false; b.innerHTML='<i class="ti ti-send"></i> 지금 테스트 발송';
+    toast('서버 통신 오류: '+e.message);
+  });
 }
 function drBuild(){
   var paper=g('dr_paper'); if(!paper) return;
