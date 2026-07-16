@@ -29,6 +29,8 @@
 <script>
 (function(){
   var card=document.getElementById('card');
+  // URL 파라미터·서버 응답을 innerHTML에 넣기 전 반드시 이스케이프 (반사형 XSS 방지)
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function show(icon,title,msg,isErr){
     card.className='card'+(isErr?' err':'');
     card.innerHTML='<div class="ic">'+icon+'</div><h1>'+title+'</h1><p>'+msg+'</p>'
@@ -39,7 +41,7 @@
     var p=kv.split('='); if(p[0]) q[decodeURIComponent(p[0])]=decodeURIComponent((p[1]||'').replace(/\+/g,' '));
   });
   if(q.error){
-    show('⚠️','연동이 취소되었습니다', (q.error_description||q.error)+'<br>다시 시도하려면 인트라넷의 [카톡 자동발송] 설정에서 연동 버튼을 눌러주세요.', true);
+    show('⚠️','연동이 취소되었습니다', esc(q.error_description||q.error)+'<br>다시 시도하려면 인트라넷의 [카톡 자동발송] 설정에서 연동 버튼을 눌러주세요.', true);
     return;
   }
   if(!q.code){
@@ -51,12 +53,12 @@
     body:JSON.stringify({kakao:'link', code:q.code, redirectUri:location.origin+location.pathname})
   }).then(function(r){return r.json();}).then(function(j){
     if(j&&j.ok){
-      show('✅','연동 완료!','<b>'+(j.nick||'')+'</b>님의 카카오톡 "나와의 채팅"으로<br>매일 일일보고서가 자동 발송됩니다.');
+      show('✅','연동 완료!','<b>'+esc(j.nick||'')+'</b>님의 카카오 계정이 연동되었습니다.<br>관리자가 [카톡 자동발송] 설정에서 <b>승인</b>하면 매일 일일보고서가 카카오톡 "나와의 채팅"으로 발송됩니다.');
     }else{
-      show('⚠️','연동 실패',(j&&j.error&&j.error.message)||'알 수 없는 오류가 발생했습니다.', true);
+      show('⚠️','연동 실패',esc((j&&j.error&&j.error.message)||'알 수 없는 오류가 발생했습니다.'), true);
     }
   }).catch(function(e){
-    show('⚠️','연동 실패','서버 통신 오류: '+e.message, true);
+    show('⚠️','연동 실패','서버 통신 오류: '+esc(e.message), true);
   });
 })();
 </script>

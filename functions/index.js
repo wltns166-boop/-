@@ -19,6 +19,9 @@ const KK_CFG = () => admin.firestore().collection("kakao_private").doc("cfg");
 const KK_TOK = () => admin.firestore().collection("kakao_private").doc("tokens");
 const KK_DATA = () => admin.firestore().collection("tops").doc("data");
 const KK_SITE = "https://team-tops-intranet.web.app";
+// OAuth Redirect URI는 서버에서 고정 — 클라이언트가 보낸 값을 쓰면 공격자가 자기 도메인으로
+// 인가 코드를 가로채는 경로가 생긴다 (카카오 앱에도 이 주소만 등록)
+const KK_REDIRECT = KK_SITE + "/kakao-link.html";
 
 function _kkPad(n) { return String(n).padStart(2, "0"); }
 // KST 현재 시각 — 이후 getUTC* 로 읽으면 한국시간이 나온다
@@ -131,9 +134,9 @@ async function _kkSendAll(kind) {
   const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
   const tok = tokSnap.exists ? (tokSnap.data() || {}) : {};
   const users = tok.users || {};
-  const ids = Object.keys(users);
+  const ids = Object.keys(users).filter((id) => users[id] && users[id].approved); // 승인된 수신자만
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
-  if (!ids.length) return { ok: false, error: "카카오 연동된 사용자가 없습니다." };
+  if (!ids.length) return { ok: false, error: "승인된 수신자가 없습니다. 연동 후 [승인]을 눌러주세요." };
 
   const text = await _kkBuildSummary();
   const link = KK_SITE + "/?dr=1";
@@ -166,7 +169,7 @@ async function _kkSendAll(kind) {
   while (logs.length > 14) logs.pop();
   await KK_CFG().set({ logs }, { merge: true }).catch(() => {});
   const sent = results.filter((r) => r.ok).length;
-  return { ok: sent > 0, sent, results, text };
+  return { ok: sent > 0, sent, results }; // 실적 요약 원문(text)은 응답에 넣지 않음 — 불필요한 노출 방지
 }
 
 // /api 의 카카오 액션 분기 처리
@@ -190,13 +193,17 @@ async function _kkHandle(body, res) {
       const restKey = String(body.restKey || "").trim();
       if (!restKey) { res.status(400).json({ error: { message: "REST API 키를 입력하세요." } }); return; }
       const set = { restKey };
-      set.clientSecret = String(body.clientSecret || "").trim(); // 빈 값이면 시크릿 미사용
+      // 시크릿은 값이 왔을 때만 갱신 — 키만 재저장할 때 기존 시크릿이 조용히 지워지는 것 방지.
+      // 삭제하려면 clearSecret:true 를 명시적으로 보낸다.
+      const sec = String(body.clientSecret || "").trim();
+      if (sec) set.clientSecret = sec;
+      else if (body.clearSecret === true) set.clientSecret = "";
       await KK_CFG().set(set, { merge: true });
       res.json({ ok: true });
       return;
     }
     if (action === "savecfg") {
-      const sendTime = /^\d{2}:\d{2}$/.test(String(body.sendTime || "")) ? body.sendTime : "18:00";
+      const sendTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.sendTime || "")) ? body.sendTime : "18:00";
       await KK_CFG().set({ enabled: !!body.enabled, sendTime, skipWeekend: !!body.skipWeekend }, { merge: true });
       res.json({ ok: true });
       return;
@@ -205,10 +212,9 @@ async function _kkHandle(body, res) {
       const cfgSnap = await KK_CFG().get();
       const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
       if (!cfg.restKey) { res.status(400).json({ error: { message: "먼저 REST API 키를 저장하세요." } }); return; }
-      const redirect = String(body.redirectUri || (KK_SITE + "/kakao-link.html"));
       const url = "https://kauth.kakao.com/oauth/authorize?response_type=code"
         + "&client_id=" + encodeURIComponent(cfg.restKey)
-        + "&redirect_uri=" + encodeURIComponent(redirect)
+        + "&redirect_uri=" + encodeURIComponent(KK_REDIRECT)
         + "&scope=" + encodeURIComponent("talk_message,profile_nickname");
       res.json({ ok: true, url });
       return;
@@ -219,10 +225,9 @@ async function _kkHandle(body, res) {
       const cfgSnap = await KK_CFG().get();
       const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
       if (!cfg.restKey) { res.status(400).json({ error: { message: "REST API 키가 등록되지 않았습니다." } }); return; }
-      const redirect = String(body.redirectUri || (KK_SITE + "/kakao-link.html"));
       const t = await _kkForm("https://kauth.kakao.com/oauth/token", {
         grant_type: "authorization_code", client_id: cfg.restKey, client_secret: cfg.clientSecret,
-        redirect_uri: redirect, code
+        redirect_uri: KK_REDIRECT, code
       });
       if (!t.ok || !t.data.access_token) {
         res.status(400).json({ error: { message: "카카오 토큰 발급 실패: " + (t.data.error_description || t.data.error || t.status) } });
@@ -237,13 +242,26 @@ async function _kkHandle(body, res) {
         || (me.properties && me.properties.nickname) || ("사용자" + kid.slice(-4));
       const tokSnap = await KK_TOK().get();
       const users = (tokSnap.exists && (tokSnap.data() || {}).users) || {};
+      // 신규 연동은 승인 대기 상태로 — 관리자가 설정 화면에서 [승인]해야 발송 대상이 된다
+      // (외부인이 임의로 자기 계정을 수신자로 등록하는 것을 막는 장치. 재연동은 기존 승인 유지)
+      const wasApproved = !!(users[kid] && users[kid].approved);
       users[kid] = {
         nick, rt: t.data.refresh_token || (users[kid] && users[kid].rt) || "",
         at: t.data.access_token, atExp: Date.now() + (t.data.expires_in || 21600) * 1000,
-        linkedAt: _kkToday(), needsRelink: false
+        linkedAt: _kkToday(), needsRelink: false, approved: wasApproved
       };
       await KK_TOK().set({ users }, { merge: true });
-      res.json({ ok: true, nick });
+      res.json({ ok: true, nick, approved: wasApproved });
+      return;
+    }
+    if (action === "approve") {
+      const kid = String(body.id || "");
+      const tokSnap = await KK_TOK().get();
+      const users = (tokSnap.exists && (tokSnap.data() || {}).users) || {};
+      if (!users[kid]) { res.status(404).json({ error: { message: "해당 연동 계정이 없습니다." } }); return; }
+      users[kid].approved = true;
+      await KK_TOK().set({ users }, { merge: true });
+      res.json({ ok: true });
       return;
     }
     if (action === "unlink") {
@@ -264,7 +282,7 @@ async function _kkHandle(body, res) {
         keyHint: cfg.restKey ? (String(cfg.restKey).slice(0, 4) + "····" + String(cfg.restKey).slice(-4)) : "",
         enabled: !!cfg.enabled, sendTime: cfg.sendTime || "18:00", skipWeekend: !!cfg.skipWeekend,
         lastSentDate: cfg.lastSentDate || "",
-        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink })),
+        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
         logs: (cfg.logs || []).slice(0, 10)
       });
       return;
@@ -303,9 +321,11 @@ exports.kakaoDaily = onSchedule(
       const day = _kkNow().getUTCDay();
       if (day === 0 || day === 6) return;
     }
-    // 중복 발송 방지를 위해 먼저 오늘 날짜를 기록하고, 전원 실패 시에만 되돌려 다음 턴에 재시도
+    // 중복 발송 방지를 위해 먼저 오늘 날짜를 기록하고, 실패(예외 포함) 시 되돌려 다음 턴에 재시도
     await KK_CFG().set({ lastSentDate: today }, { merge: true });
-    const r = await _kkSendAll("auto");
+    let r;
+    try { r = await _kkSendAll("auto"); }
+    catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
     if (!r.ok) {
       console.warn("kakaoDaily 전원 발송 실패 — 다음 턴에 재시도:", JSON.stringify(r.results || r.error));
       await KK_CFG().set({ lastSentDate: "" }, { merge: true });
