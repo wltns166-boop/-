@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.16-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.16-3</div>
   </div>
 </div>
 
@@ -5082,7 +5082,8 @@ function _kkApi(action, extra){
   }catch(e){ tokP=Promise.resolve(null); }
   return tokP.then(function(t){
     if(t) p.idToken=t;
-    return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    // 주의: 호스팅 rewrite가 '/api/**'(하위 경로 필수)라 '/api'만 쓰면 함수가 아닌 HTML이 응답됨
+    return fetch('/api/kakao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
   }).then(function(r){ return r.json(); });
 }
 function kkOpen(){
