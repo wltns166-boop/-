@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.16-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.21-1</div>
   </div>
 </div>
 
@@ -3129,7 +3129,9 @@ function login(){
   g('tbu').textContent=cu.name;
   if(g('admin_badge')) g('admin_badge').style.display=cu.admin?'inline-flex':'none';
   setAdmin();
-  try{ _pushInit(); }catch(e){}   // 웹 푸시 알림 초기화
+  // 서버 캡처 렌더 모드(?rr=1) — 푸시 초기화·드라이브 폴더 정리 같은 부수효과는 생략
+  var _rrMode=/[?&]rr=1/.test(location.search);
+  if(!_rrMode){ try{ _pushInit(); }catch(e){} }   // 웹 푸시 알림 초기화
   // Firestore 데이터 로드
   showPage('home');
   loadFromFirestore().then(function(){
@@ -3140,7 +3142,7 @@ function login(){
       });
     }, 300);
     startRealtimeSync();
-    try{ _driveFolderBackfill(); }catch(e){}   // 로그인+데이터 로드 후 폴더 자동 정리(1회)
+    if(!_rrMode){ try{ _driveFolderBackfill(); }catch(e){} }   // 로그인+데이터 로드 후 폴더 자동 정리(1회)
     try{ _drDeepLink(); }catch(e){}            // 카톡 [보고서 열기] 딥링크 — 데이터 로드 후 이동
   }).catch(function(){
     startRealtimeSync();
@@ -5477,7 +5479,9 @@ function drBuild(){
   // 세대 번호를 올려 진행 중인 캡처가 낡은 화면을 캐시에 쓰지 못하게 한다 (오발송 방지)
   window._drGen=(window._drGen||0)+1;
   window._drCanvasCache=null; window._drImgBlob=null;
-  setTimeout(function(){ try{ _drPrecache(); }catch(e){} },50);
+  // 서버 캡처(렌더 모드 ?rr=1)에서는 html2canvas 사전 생성이 불필요 — 완료 신호만 세운다
+  window._drRendered=true;
+  if(!/[?&]rr=1/.test(location.search)) setTimeout(function(){ try{ _drPrecache(); }catch(e){} },50);
 }
 // ── PDF/이미지 생성 (라이브러리 지연 로드)
 function _drLoadScript(src){

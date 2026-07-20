@@ -104,14 +104,58 @@ async function _kkBuildSummary() {
   const dt = _kkNow();
   const yoil = ["일", "월", "화", "수", "목", "금", "토"][dt.getUTCDay()];
   const head = "📊 TEAM TOPS 일일보고 " + (dt.getUTCMonth() + 1) + "/" + dt.getUTCDate() + "(" + yoil + ")";
-  const lines = [head];
+  const lines = [];
   if (prevS) lines.push("오늘 반영: 인정 " + won(diff.a) + "원 / " + diff.c + "건");
   else lines.push("오늘 반영: 집계 시작 (내일부터 표시)");
   lines.push("월 누적: 인정 " + won(cur.a) + "원 · 영수 " + won(cur.ay) + "원 · " + cur.c + "건");
   lines.push("목표 대비 " + rate + "% (목표 " + won(goal) + "원)");
-  let text = lines.join("\n");
+  let text = head + "\n" + lines.join("\n");
   if (text.length > 200) text = text.slice(0, 199) + "…"; // 카카오 텍스트 템플릿 200자 제한
-  return text;
+  return { text, title: head, desc: lines.join("\n") };
+}
+
+// ── 보고서 화면 캡처 (헤드리스 크로미움) ─────────────────────
+// 서버가 실제 인트라넷 일일보고서 페이지를 열어 #dr_paper 를 이미지로 찍는다.
+// 클라이언트와 동일한 화면이 나오므로 보고서 로직을 서버에 중복 구현할 필요가 없다.
+// ?rr=1 : 렌더 모드(푸시 초기화·드라이브 정리 등 부수효과 생략), &dr=1 : 일일보고서로 자동 이동
+async function _kkCaptureReport() {
+  const chromium = require("@sparticuz/chromium");
+  const puppeteer = require("puppeteer-core");
+  const browser = await puppeteer.launch({
+    args: [...chromium.args, "--lang=ko-KR"],
+    executablePath: await chromium.executablePath(),
+    headless: true,
+    defaultViewport: { width: 1100, height: 1400, deviceScaleFactor: 1.5 }
+  });
+  try {
+    const page = await browser.newPage();
+    await page.emulateTimezone("Asia/Seoul"); // _drToday()/_curYm() 이 KST 기준으로 계산되도록
+    // 관리자 세션 주입 — 클라이언트 복원 로직이 ADMINS 이름 매칭으로 유효 처리
+    await page.evaluateOnNewDocument(() => {
+      try { sessionStorage.setItem("tops_session", JSON.stringify({ id: "render", name: "백동현", role: "BM", admin: true })); } catch (e) {}
+    });
+    await page.goto(KK_SITE + "/?rr=1&dr=1", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForFunction("window._drRendered===true", { timeout: 90000, polling: 500 });
+    await page.evaluate(() => document.fonts.ready).catch(() => {}); // 웹폰트(Noto Sans KR) 로딩 대기 — 한글 깨짐 방지
+    await new Promise((r) => setTimeout(r, 1500)); // 레이아웃 안정화
+    const el = await page.$("#dr_paper");
+    if (!el) throw new Error("dr_paper 요소 없음");
+    return await el.screenshot({ type: "jpeg", quality: 85 });
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+// 캡처 이미지를 Storage(daily_reports/auto/)에 올리고 다운로드 토큰 URL 반환
+async function _kkUploadReport(buf) {
+  const crypto = require("crypto");
+  const token = crypto.randomUUID();
+  const name = "daily_reports/auto/" + _kkToday() + "-" + crypto.randomBytes(8).toString("hex") + ".jpg";
+  const bucket = admin.storage().bucket();
+  await bucket.file(name).save(buf, {
+    metadata: { contentType: "image/jpeg", metadata: { firebaseStorageDownloadTokens: token } }
+  });
+  return "https://firebasestorage.googleapis.com/v0/b/" + bucket.name + "/o/" + encodeURIComponent(name) + "?alt=media&token=" + token;
 }
 
 // 토큰 갱신 후 유효한 access_token 확보 (만료 10분 전이면 미리 갱신)
@@ -138,8 +182,34 @@ async function _kkSendAll(kind) {
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
   if (!ids.length) return { ok: false, error: "승인된 수신자가 없습니다. 연동 후 [승인]을 눌러주세요." };
 
-  const text = await _kkBuildSummary();
+  const sum = await _kkBuildSummary();
   const link = KK_SITE + "/?dr=1";
+  // 보고서 화면 전체를 이미지로 캡처 — 실패하면 텍스트 요약으로 자동 대체
+  let imgUrl = null;
+  try {
+    const buf = await _kkCaptureReport();
+    imgUrl = await _kkUploadReport(buf);
+  } catch (e) {
+    console.warn("보고서 캡처 실패 — 텍스트 요약으로 대체:", String((e && e.message) || e));
+  }
+  const tpl = imgUrl
+    ? JSON.stringify({
+        object_type: "feed",
+        content: {
+          title: sum.title, description: sum.desc,
+          image_url: imgUrl,
+          link: { web_url: imgUrl, mobile_web_url: imgUrl }
+        },
+        buttons: [
+          { title: "보고서 크게 보기", link: { web_url: imgUrl, mobile_web_url: imgUrl } },
+          { title: "인트라넷 열기", link: { web_url: link, mobile_web_url: link } }
+        ]
+      })
+    : JSON.stringify({
+        object_type: "text", text: sum.text + "\n(보고서 이미지 생성 실패 — 요약만 발송)",
+        link: { web_url: link, mobile_web_url: link },
+        button_title: "보고서 열기"
+      });
   const results = [];
   let tokChanged = false;
   for (const id of ids) {
@@ -152,13 +222,8 @@ async function _kkSendAll(kind) {
       continue;
     }
     if (t.upd) { Object.assign(u, t.upd); u.needsRelink = false; tokChanged = true; }
-    const tpl = JSON.stringify({
-      object_type: "text", text,
-      link: { web_url: link, mobile_web_url: link },
-      button_title: "보고서 열기"
-    });
     const s = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, t.at);
-    if (s.ok) results.push({ nick, ok: true });
+    if (s.ok) results.push({ nick, ok: true, img: !!imgUrl });
     else results.push({ nick, ok: false, err: (s.data.msg || ("전송 실패 " + s.status)) });
   }
   if (tokChanged) await KK_TOK().set({ users }, { merge: true }).catch(() => {});
@@ -309,7 +374,7 @@ async function _kkHandle(body, res) {
 
 // 매 5분: 발송 시각 도달 여부 검사 → 하루 1회 자동 발송 (KST)
 exports.kakaoDaily = onSchedule(
-  { schedule: "*/5 * * * *", timeZone: "Asia/Seoul", region: "us-central1", memory: "256MiB", timeoutSeconds: 120 },
+  { schedule: "*/5 * * * *", timeZone: "Asia/Seoul", region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
   async () => {
     const cfgSnap = await KK_CFG().get();
     const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
@@ -342,7 +407,8 @@ exports.kakaoDaily = onSchedule(
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 exports.api = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "256MiB", timeoutSeconds: 120 },
+  // memory 2GiB: 카카오 발송(sendnow)이 보고서 캡처용 헤드리스 크로미움을 띄우므로 필요
+  { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
   async (req, res) => {
     // 호스팅 rewrite로 같은 도메인에서 호출되므로 CORS는 기본적으로 불필요하지만 방어적으로 허용
     res.set("Access-Control-Allow-Origin", "*");
