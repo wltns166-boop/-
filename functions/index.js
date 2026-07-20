@@ -135,7 +135,13 @@ async function _kkCaptureReport() {
       try { sessionStorage.setItem("tops_session", JSON.stringify({ id: "render", name: "백동현", role: "BM", admin: true })); } catch (e) {}
     });
     await page.goto(KK_SITE + "/?rr=1&dr=1", { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction("window._drRendered===true", { timeout: 90000, polling: 500 });
+    // _drRendered 만으로는 부족 — 헤드리스 세션은 로컬 캐시가 없어 Firestore 로드가
+    // 실패하면 "실적 0원" 빈 보고서가 그려진다. 구성원 데이터(mem)가 실제로 로드됐는지
+    // 함께 확인해, 로드 실패 시 캡처를 포기(타임아웃)하고 텍스트 요약 폴백으로 보낸다.
+    await page.waitForFunction(
+      "window._drRendered===true && typeof mem!=='undefined' && Array.isArray(mem) && mem.length>0",
+      { timeout: 90000, polling: 500 }
+    );
     await page.evaluate(() => document.fonts.ready).catch(() => {}); // 웹폰트(Noto Sans KR) 로딩 대기 — 한글 깨짐 방지
     await new Promise((r) => setTimeout(r, 1500)); // 레이아웃 안정화
     const el = await page.$("#dr_paper");

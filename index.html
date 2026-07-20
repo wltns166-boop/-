@@ -306,7 +306,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.21-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.21-2</div>
   </div>
 </div>
 
@@ -4955,6 +4955,9 @@ function _drSubTeam(parentName,_seen){
 function _dsnapRecord(){
   try{
     if(!cu||!cu.admin) return; // 기록은 관리자 기기에서만 (동시 쓰기 최소화)
+    // 서버 캡처 렌더 모드에서는 기록 금지 — 로드 실패 시 빈 실적으로 오늘 스냅샷을
+    // 덮어쓸 수 있고, 서버(_kkBuildSummary)가 Firestore 원본 기준으로 직접 기록한다
+    if(/[?&]rr=1/.test(location.search)) return;
     var ym=_curYm(), d=_drToday();
     var agg=_drAggFor(ym), slim={};
     Object.keys(agg).forEach(function(n){ slim[n]=[agg[n].c,agg[n].a,agg[n].ay]; });
