@@ -124,7 +124,7 @@ async function _kkCaptureReport() {
   const browser = await puppeteer.launch({
     args: [...chromium.args, "--lang=ko-KR"],
     executablePath: await chromium.executablePath(),
-    headless: true,
+    headless: chromium.headless, // 공식 권장값 — 이 바이너리는 headless_shell 빌드('shell')
     defaultViewport: { width: 1100, height: 1400, deviceScaleFactor: 1.5 }
   });
   try {
@@ -142,7 +142,11 @@ async function _kkCaptureReport() {
       "window._drRendered===true && typeof mem!=='undefined' && Array.isArray(mem) && mem.length>0",
       { timeout: 90000, polling: 500 }
     );
-    await page.evaluate(() => document.fonts.ready).catch(() => {}); // 웹폰트(Noto Sans KR) 로딩 대기 — 한글 깨짐 방지
+    // 웹폰트(Noto Sans KR) 로딩 대기 — 한글 깨짐 방지 (최대 10초, 매달리지 않게 race)
+    await Promise.race([
+      page.evaluate(() => document.fonts.ready),
+      new Promise((r) => setTimeout(r, 10000))
+    ]).catch(() => {});
     await new Promise((r) => setTimeout(r, 1500)); // 레이아웃 안정화
     const el = await page.$("#dr_paper");
     if (!el) throw new Error("dr_paper 요소 없음");
@@ -161,6 +165,15 @@ async function _kkUploadReport(buf) {
   await bucket.file(name).save(buf, {
     metadata: { contentType: "image/jpeg", metadata: { firebaseStorageDownloadTokens: token } }
   });
+  // 30일 지난 자동발송 이미지 정리 (무한 누적 방지 — 실패해도 발송엔 지장 없게 베스트에포트)
+  try {
+    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const [files] = await bucket.getFiles({ prefix: "daily_reports/auto/" });
+    await Promise.all(files.filter((f) => {
+      const d = f.name.slice("daily_reports/auto/".length, "daily_reports/auto/".length + 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(d) && d < cutoff;
+    }).map((f) => f.delete().catch(() => {})));
+  } catch (e) { console.warn("오래된 보고서 이미지 정리 실패(무시):", String((e && e.message) || e)); }
   return "https://firebasestorage.googleapis.com/v0/b/" + bucket.name + "/o/" + encodeURIComponent(name) + "?alt=media&token=" + token;
 }
 
@@ -212,7 +225,9 @@ async function _kkSendAll(kind) {
         ]
       })
     : JSON.stringify({
-        object_type: "text", text: sum.text + "\n(보고서 이미지 생성 실패 — 요약만 발송)",
+        object_type: "text",
+        // 접미사 포함 총 200자 제한 준수 — 넘기면 카카오가 거부해 폴백까지 실패(무한 재시도)한다
+        text: (sum.text.slice(0, 160) + "\n(보고서 이미지 생성 실패 — 요약만 발송)").slice(0, 200),
         link: { web_url: link, mobile_web_url: link },
         button_title: "보고서 열기"
       });
