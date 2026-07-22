@@ -200,15 +200,17 @@ async function _kkAccessToken(cfg, u) {
   return { at: upd.at, upd };
 }
 
-// 연동된 전원에게 발송. kind: 'auto' | 'test'
-async function _kkSendAll(kind) {
+// 연동된 전원(또는 onlyId 한 명)에게 발송. kind: 'auto' | 'test'
+async function _kkSendAll(kind, onlyId) {
   const [cfgSnap, tokSnap] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
   const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
   const tok = tokSnap.exists ? (tokSnap.data() || {}) : {};
   const users = tok.users || {};
-  const ids = Object.keys(users).filter((id) => users[id] && users[id].approved); // 승인된 수신자만
+  const ids = Object.keys(users)
+    .filter((id) => users[id] && users[id].approved) // 승인된 수신자만
+    .filter((id) => !onlyId || id === String(onlyId)); // 개인별 테스트 발송 지원
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
-  if (!ids.length) return { ok: false, error: "승인된 수신자가 없습니다. 연동 후 [승인]을 눌러주세요." };
+  if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 없거나 미승인 상태입니다." : "승인된 수신자가 없습니다. 연동 후 [승인]을 눌러주세요." };
 
   const sum = await _kkBuildSummary();
   const link = KK_SITE + "/?dr=1";
@@ -258,10 +260,10 @@ async function _kkSendAll(kind) {
   }
   if (tokChanged) await KK_TOK().set({ users }, { merge: true }).catch(() => {});
 
-  // 발송 로그 (최근 14건)
+  // 발송 로그 (최근 31건 — 한 달치 보고서 이미지 링크 열람용. 이미지 파일 자체도 30일 보관)
   const logs = Array.isArray(cfg.logs) ? cfg.logs.slice() : [];
-  logs.unshift({ t: _kkToday() + " " + _kkHm(), kind, results });
-  while (logs.length > 14) logs.pop();
+  logs.unshift({ t: _kkToday() + " " + _kkHm(), kind, img: imgUrl || null, results });
+  while (logs.length > 31) logs.pop();
   await KK_CFG().set({ logs }, { merge: true }).catch(() => {});
   const sent = results.filter((r) => r.ok).length;
   return { ok: sent > 0, sent, results }; // 실적 요약 원문(text)은 응답에 넣지 않음 — 불필요한 노출 방지
@@ -378,26 +380,91 @@ async function _kkHandle(body, res) {
         enabled: !!cfg.enabled, sendTime: cfg.sendTime || "18:00", skipWeekend: !!cfg.skipWeekend,
         lastSentDate: cfg.lastSentDate || "",
         users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
-        logs: (cfg.logs || []).slice(0, 10)
+        logs: (cfg.logs || []).slice(0, 31)
       });
       return;
     }
     if (action === "sendnow") {
-      // 수동 발송 남용 방지: 최소 1분 간격
+      // 수동 발송 남용 방지: 대상(전체/개인)별 최소 1분 간격
+      const onlyId = String(body.id || "");
+      const rlKey = onlyId ? ("u" + onlyId) : "all";
       const cfgSnap = await KK_CFG().get();
       const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
-      if (cfg.lastManualTs && Date.now() - cfg.lastManualTs < 60 * 1000) {
-        res.status(429).json({ error: { message: "테스트 발송은 1분에 1회만 가능합니다. 잠시 후 다시 시도하세요." } });
+      const lm = (cfg.lastManual && typeof cfg.lastManual === "object") ? cfg.lastManual : {};
+      if (lm[rlKey] && Date.now() - lm[rlKey] < 60 * 1000) {
+        res.status(429).json({ error: { message: "같은 대상에게는 1분에 1회만 테스트 발송할 수 있습니다." } });
         return;
       }
-      await KK_CFG().set({ lastManualTs: Date.now() }, { merge: true });
-      const r = await _kkSendAll("test");
+      lm[rlKey] = Date.now();
+      await KK_CFG().set({ lastManual: lm }, { merge: true });
+      const r = await _kkSendAll("test", onlyId);
       res.json(r);
       return;
     }
     res.status(400).json({ error: { message: "알 수 없는 kakao 액션: " + action } });
   } catch (e) {
     console.error("kakao action error:", action, e);
+    res.status(500).json({ error: { message: String((e && e.message) || e) } });
+  }
+}
+
+// ── 병력정리 PDF 드라이브 저장 (body.medpdf) ─────────────────
+// 클라이언트가 만든 병력정리 HTML을 헤드리스 크로미움으로 진짜 PDF로 변환해
+// Apps Script(claimFile)를 통해 {담당자}/병력정리/{고객}/ 폴더에 업로드한다.
+// (구글시트 저장을 대체 — gs 서버 코드 변경 불필요)
+async function _medPdfHandle(body, res) {
+  try {
+    // 인증 — kakao 액션과 동일한 최소 장벽 (Firebase ID 토큰)
+    try {
+      const tk = String(body.idToken || "");
+      if (!tk) throw new Error("no token");
+      await admin.auth().verifyIdToken(tk);
+    } catch (e) { res.status(401).json({ error: { message: "인증이 필요합니다. 인트라넷에서 다시 시도하세요." } }); return; }
+    const html = String(body.html || "");
+    if (!html) { res.status(400).json({ error: { message: "html이 비어 있습니다." } }); return; }
+    if (html.length > 2 * 1024 * 1024) { res.status(400).json({ error: { message: "html이 너무 큽니다." } }); return; }
+    let driveHost = "";
+    try { const u = new URL(String(body.driveUrl || "")); if (u.protocol === "https:") driveHost = u.hostname; } catch (e) {}
+    if (driveHost !== "script.google.com") { res.status(400).json({ error: { message: "잘못된 드라이브 서버 주소" } }); return; }
+
+    // HTML → PDF (페이지 JS는 비활성 — 임의 HTML의 스크립트 실행·내부망 접근 방지)
+    const chromium = require("@sparticuz/chromium");
+    const puppeteer = require("puppeteer-core");
+    const browser = await puppeteer.launch({
+      args: [...chromium.args, "--lang=ko-KR"],
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      defaultViewport: { width: 900, height: 1200 }
+    });
+    let pdfB64;
+    try {
+      const page = await browser.newPage();
+      await page.setJavaScriptEnabled(false);
+      await page.setContent(html, { waitUntil: "networkidle0", timeout: 60000 }); // 웹폰트 로딩 대기 포함
+      await new Promise((r) => setTimeout(r, 800));
+      const pdf = await page.pdf({ format: "A4", printBackground: true, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } });
+      pdfB64 = Buffer.from(pdf).toString("base64");
+    } finally { await browser.close().catch(() => {}); }
+
+    // Apps Script 웹앱으로 업로드 (기존 claimFile 액션 재사용)
+    const r = await fetch(String(body.driveUrl), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "claimFile",
+        member: String(body.member || "미지정"),
+        folders: ["병력정리", String(body.cust || "(미입력)")],
+        filename: String(body.filename || "병력분석.pdf"),
+        b64: pdfB64, mime: "application/pdf"
+      }),
+      redirect: "follow"
+    });
+    const txt = await r.text();
+    let j; try { j = JSON.parse(txt); } catch (e) { j = { raw: txt.slice(0, 300) }; }
+    if (j && j.ok) res.json({ ok: true, url: j.url || "" });
+    else res.status(500).json({ error: { message: "드라이브 저장 실패: " + ((j && j.error) || (j && j.raw) || r.status) } });
+  } catch (e) {
+    console.error("medpdf error:", e);
     res.status(500).json({ error: { message: String((e && e.message) || e) } });
   }
 }
@@ -461,8 +528,11 @@ exports.api = onRequest(
     var body = req.body || {};
     if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
 
-    // 카카오톡 일일보고서 자동 발송 관련 액션 (body.kakao = 'savekey'|'savecfg'|'authurl'|'link'|'unlink'|'status'|'sendnow')
+    // 카카오톡 일일보고서 자동 발송 관련 액션 (body.kakao = 'savekey'|'savecfg'|'authurl'|'link'|'unlink'|'approve'|'status'|'sendnow')
     if (body.kakao) { await _kkHandle(body, res); return; }
+
+    // 병력정리 PDF 드라이브 저장 (HTML → PDF 변환 후 업로드)
+    if (body.medpdf) { await _medPdfHandle(body, res); return; }
 
     // 드라이브(앱스크립트) 프록시 — 브라우저는 CORS로 앱스크립트 응답을 못 읽으므로
     // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.
