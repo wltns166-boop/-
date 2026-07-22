@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.22-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.22-3</div>
   </div>
 </div>
 
@@ -7799,7 +7799,7 @@ function copyMedResult(){
 
 // 병력정리 저장/삭제는 항상 클라우드 최신본 기준으로 병합 — 낡은/빈 로컬 배열로
 // 통째 덮어써서 다른 기기의 내역이 사라지던 문제 방지 (dsnap 이력 소실과 같은 유형)
-async function _mhxCloudMerge(mutator){
+async function _mhxCloudMergeNow(mutator){
   var base=mhx;
   try{
     if(window.FS_DOC){
@@ -7810,6 +7810,14 @@ async function _mhxCloudMerge(mutator){
   }catch(e){ console.warn('mhx 클라우드 조회 실패 — 로컬 기준으로 저장:', e); }
   mhx=mutator(base.slice())||base;
   sv('tops_mhx',mhx);
+}
+// 같은 탭에서 저장/삭제가 겹치면(더블클릭·자동저장 직후 수동저장) 읽기~쓰기 사이에
+// 서로를 덮어쓸 수 있으므로 호출을 한 줄로 직렬화한다
+function _mhxCloudMerge(mutator){
+  var run=function(){ return _mhxCloudMergeNow(mutator); };
+  var p=(window._mhxChain||Promise.resolve()).then(run,run);
+  window._mhxChain=p.catch(function(){});
+  return p;
 }
 function _mhxNewEntry(text, html){
   const cust=document.getElementById('med_cust').value||'(미입력)';
@@ -7840,7 +7848,7 @@ function autoSaveMedResult(text, html){
 
 // 병력정리 PDF를 구글드라이브 {담당자}/병력정리/{고객}/ 폴더에 저장
 // (서버가 헤드리스 브라우저로 HTML→PDF 변환 후 드라이브에 업로드 — 구글시트 저장을 대체)
-function _medDrivePdfSave(m){
+function _medDrivePdfSave(m, _retried){
   var driveUrl=(typeof _driveSyncUrl==='function'?_driveSyncUrl():'')||'';
   if(!driveUrl){ console.warn('드라이브 미연결 — 병력정리 PDF 저장 생략'); return; }
   var built=_medPdfDocHtml(m,false);
@@ -7854,10 +7862,15 @@ function _medDrivePdfSave(m){
         member:(typeof _memberName==='function'?_memberName(m.m):m.m)||m.m||'미지정',
         cust:m.cust||'(미입력)',
         filename:(m.cust||'고객')+'님 병력분석 '+(m.dt||'')+'.pdf'})});
-  }).then(function(r){ return r.json(); }).then(function(j){
-    if(j&&j.ok) toast('병력정리 PDF가 구글드라이브에 저장되었습니다.');
-    else console.warn('병력정리 PDF 드라이브 저장 실패:', j&&j.error&&j.error.message);
-  }).catch(function(e){ console.warn('병력정리 PDF 드라이브 저장 오류:', e); });
+  }).then(function(r){ return r.json().then(function(j){ return {st:r.status,j:j}; }); }).then(function(o){
+    if(o.j&&o.j.ok){ toast('병력정리 PDF가 구글드라이브에 저장되었습니다.'); return; }
+    if(o.st===429&&!_retried){ setTimeout(function(){ _medDrivePdfSave(m,true); },25000); return; } // 간격 제한 — 1회 자동 재시도
+    toast('병력정리 PDF 드라이브 저장 실패 — 목록의 PDF [전체] 버튼으로 수동 저장할 수 있습니다.');
+    console.warn('병력정리 PDF 드라이브 저장 실패:', o.j&&o.j.error&&o.j.error.message);
+  }).catch(function(e){
+    toast('병력정리 PDF 드라이브 저장 오류 — 목록의 PDF [전체] 버튼으로 수동 저장할 수 있습니다.');
+    console.warn('병력정리 PDF 드라이브 저장 오류:', e);
+  });
 }
 
 function saveMedExcel(){

@@ -395,7 +395,13 @@ async function _kkHandle(body, res) {
         res.status(429).json({ error: { message: "같은 대상에게는 1분에 1회만 테스트 발송할 수 있습니다." } });
         return;
       }
+      // 대상별 제한과 별개로 전역 15초 간격 — 여러 대상 연타로 캡처(크로미움)를 무제한 돌리는 것 방지
+      if (lm._g && Date.now() - lm._g < 15 * 1000) {
+        res.status(429).json({ error: { message: "테스트 발송이 너무 잦습니다. 15초 후 다시 시도하세요." } });
+        return;
+      }
       lm[rlKey] = Date.now();
+      lm._g = Date.now();
       await KK_CFG().set({ lastManual: lm }, { merge: true });
       const r = await _kkSendAll("test", onlyId);
       res.json(r);
@@ -427,7 +433,19 @@ async function _medPdfHandle(body, res) {
     try { const u = new URL(String(body.driveUrl || "")); if (u.protocol === "https:") driveHost = u.hostname; } catch (e) {}
     if (driveHost !== "script.google.com") { res.status(400).json({ error: { message: "잘못된 드라이브 서버 주소" } }); return; }
 
-    // HTML → PDF (페이지 JS는 비활성 — 임의 HTML의 스크립트 실행·내부망 접근 방지)
+    // 호출 빈도 제한 — 크로미움 기동(2GiB·최대 60초)이 비싼 작업이라 남용(비용 DoS) 방지.
+    // 실사용(분석 저장)은 드문 이벤트라 전역 20초 간격이면 충분. 겹치면 클라이언트가 재시도.
+    const rlSnap = await KK_CFG().get();
+    const rlCfg = rlSnap.exists ? (rlSnap.data() || {}) : {};
+    if (rlCfg.medLastTs && Date.now() - rlCfg.medLastTs < 20 * 1000) {
+      res.status(429).json({ error: { message: "PDF 변환은 20초 간격으로만 가능합니다. 잠시 후 자동 재시도됩니다." } });
+      return;
+    }
+    await KK_CFG().set({ medLastTs: Date.now() }, { merge: true });
+
+    // HTML → PDF. 방어 2중: ① 페이지 JS 비활성(스크립트 실행 차단)
+    // ② 요청 가로채기 — 웹폰트(구글 폰트)와 data: 외의 모든 외부 리소스 차단
+    //    (img/iframe/css url() 등을 통한 내부망·메타데이터 서버 접근(SSRF) 방지)
     const chromium = require("@sparticuz/chromium");
     const puppeteer = require("puppeteer-core");
     const browser = await puppeteer.launch({
@@ -440,6 +458,16 @@ async function _medPdfHandle(body, res) {
     try {
       const page = await browser.newPage();
       await page.setJavaScriptEnabled(false);
+      await page.setRequestInterception(true);
+      page.on("request", (req) => {
+        try {
+          const url = req.url();
+          if (url.startsWith("data:") || url === "about:blank" || req.resourceType() === "document") { req.continue(); return; }
+          const host = new URL(url).hostname;
+          if (host === "fonts.googleapis.com" || host === "fonts.gstatic.com") { req.continue(); return; }
+          req.abort();
+        } catch (e) { try { req.abort(); } catch (e2) {} }
+      });
       await page.setContent(html, { waitUntil: "networkidle0", timeout: 60000 }); // 웹폰트 로딩 대기 포함
       await new Promise((r) => setTimeout(r, 800));
       const pdf = await page.pdf({ format: "A4", printBackground: true, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } });
