@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.22-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.22-4</div>
   </div>
 </div>
 
@@ -2855,13 +2855,13 @@ function tds(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()
 function g(id){return document.getElementById(id);}
 // 모바일 사이드바(서랍) 토글
 function toggleSidebar(){var sb=g('sb'),ov=g('sb_overlay');if(!sb)return;var open=sb.classList.toggle('open');if(ov)ov.classList.toggle('open',open);}
-// 모바일: 아래로 스크롤하면 상단바 숨김(콘텐츠 가림 방지), 위로 올리면 다시 표시
+// 아래로 스크롤하면 상단바 숨김(보고서 제목 등 콘텐츠 가림 방지), 위로 올리면 다시 표시
+// — 모든 화면 크기에 적용 (처음엔 모바일만 적용했더니 가로 모드·PC에서 여전히 가려졌음)
 (function(){
   var last=0;
   window.addEventListener('scroll',function(){
     var tb=g('tb'); if(!tb) return;
     var y=window.scrollY||window.pageYOffset||0;
-    if(window.innerWidth>760){ tb.classList.remove('tb-hide'); last=y; return; }
     if(y>60 && y>last+4) tb.classList.add('tb-hide');
     else if(y<last-4 || y<=60) tb.classList.remove('tb-hide');
     last=y;
