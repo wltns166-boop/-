@@ -5900,16 +5900,25 @@ function rWm(){
 
 function deleteMedByIdx(i){
   if(window._delMedIdx===i){
-    // 클라우드 최신본에서 동일 항목(작성일+고객+담당+요약)을 찾아 삭제 — 낡은 배열 덮어쓰기 방지
+    // 클라우드 최신본에서 동일 항목을 찾아 삭제 — 낡은 배열 덮어쓰기 방지.
+    // 신규 항목은 고유 id로, 구형 항목(id 없음)은 작성일+고객+담당+전체본문으로 매칭
+    // (items 앞 80자는 표 머리글이라 모든 분석에서 동일 — 판별에 쓰면 안 됨)
     var t=mhx[i];
     if(t){
-      var sig=JSON.stringify([t.dt,t.cust,t.m,t.items]);
+      var sig=JSON.stringify([t.dt,t.cust,t.m,t.note||t.items||'']);
+      var found=false;
       _mhxCloudMerge(function(arr){
         var idx=-1;
-        arr.forEach(function(x,j){ if(idx<0&&x&&JSON.stringify([x.dt,x.cust,x.m,x.items])===sig) idx=j; });
-        if(idx>=0) arr.splice(idx,1);
+        arr.forEach(function(x,j){
+          if(idx>=0||!x) return;
+          if(t.id ? (x.id===t.id) : (!x.id&&JSON.stringify([x.dt,x.cust,x.m,x.note||x.items||''])===sig)) idx=j;
+        });
+        if(idx>=0){ arr.splice(idx,1); found=true; }
         return arr;
-      }).then(function(){ rWm(); toast('삭제되었습니다.'); });
+      }).then(function(){
+        rWm();
+        toast(found?'삭제되었습니다.':'클라우드에서 해당 항목을 찾지 못했습니다 — 새로고침 후 다시 시도해주세요.');
+      });
     }
     window._delMedIdx=null;
   } else {
@@ -7805,7 +7814,9 @@ async function _mhxCloudMerge(mutator){
 function _mhxNewEntry(text, html){
   const cust=document.getElementById('med_cust').value||'(미입력)';
   const dt=new Date().toISOString().slice(0,10);
-  return {cust,m:cu?cu.name:'',items:text.slice(0,80),note:text,noteHtml:html,dt};
+  // id: 삭제 시 고유 식별용 — items(앞 80자)는 표 머리글이라 모든 분석에서 동일해 판별력이 없음
+  const id=Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+  return {id,cust,m:cu?cu.name:'',items:text.slice(0,80),note:text,noteHtml:html,dt};
 }
 function saveMedResult(){
   const text=document.getElementById('med_result_text').textContent;
