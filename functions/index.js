@@ -83,12 +83,14 @@ async function _kkRecordSnapshot() {
       dsnap[idx] = { d: today, ym, agg: slim }; changed = true;
     }
   } else { dsnap.push({ d: today, ym, agg: slim }); changed = true; }
+  let wrote = true; // 저장 성공 여부 — 마감 기록 게이트(lastSnapDate)가 이 값으로 판단
   if (changed) {
     dsnap.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
     while (dsnap.length > 60) dsnap.shift();
-    await KK_DATA().set({ dsnap }, { merge: true }).catch((e) => console.warn("dsnap 서버 기록 실패:", e.message));
+    try { await KK_DATA().set({ dsnap }, { merge: true }); }
+    catch (e) { wrote = false; console.warn("dsnap 서버 기록 실패:", e.message); }
   }
-  return { d, dsnap, slim, ym, today };
+  return { d, dsnap, slim, ym, today, wrote };
 }
 
 // 보고서 요약 계산 (스냅샷 최신화 포함)
@@ -410,10 +412,11 @@ exports.kakaoDaily = onSchedule(
     // ── 매일 밤 하루 마감 스냅샷 기록 (발송 여부·주말 제외 설정과 무관) ──
     // 주말·공휴일에도 그날 상태를 기록해 두어야 "오늘 반영 실적"이 항상
     // "어제 마감 대비 오늘 등록분"으로 정확히 잡힌다 (여러 날 합산 문제 방지)
-    if (_kkHm() >= "23:45" && cfg.lastSnapDate !== today) {
+    if (_kkHm() >= "23:30" && cfg.lastSnapDate !== today) {
       try {
-        await _kkRecordSnapshot();
-        await KK_CFG().set({ lastSnapDate: today }, { merge: true });
+        const rec = await _kkRecordSnapshot();
+        // 실제 저장이 성공했을 때만 완료 처리 — 실패면 다음 5분 턴에 재시도 (자정 전 6회 기회)
+        if (rec.wrote) await KK_CFG().set({ lastSnapDate: today }, { merge: true });
       } catch (e) { console.warn("마감 스냅샷 기록 실패(다음 턴 재시도):", String((e && e.message) || e)); }
     }
     // ── 이하 자동 발송 ──
