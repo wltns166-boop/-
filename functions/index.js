@@ -62,13 +62,12 @@ function _kkSum(slim) {
   return r;
 }
 
-// 일별 스냅샷 기록(서버판 _dsnapRecord) + 보고서 요약 계산.
-// 서버가 매일 기록하므로 "관리자가 접속해야 스냅샷이 쌓이는" 제약도 함께 해결된다.
-async function _kkBuildSummary() {
+// 일별 스냅샷 기록(서버판 _dsnapRecord) — 오늘 상태를 dsnap에 반영하고 관련 데이터 반환.
+// 발송 시각과 별개로 매일 밤 마감 기록(kakaoDaily)에도 사용된다.
+async function _kkRecordSnapshot() {
   const snap = await KK_DATA().get();
   const d = snap.exists ? (snap.data() || {}) : {};
   const prf = Array.isArray(d.prf) ? d.prf : [];
-  const drcfg = (d.drcfg && typeof d.drcfg === "object") ? d.drcfg : {};
   let dsnap = Array.isArray(d.dsnap) ? d.dsnap.slice() : [];
   const ym = _kkYm(), today = _kkToday();
 
@@ -89,6 +88,14 @@ async function _kkBuildSummary() {
     while (dsnap.length > 60) dsnap.shift();
     await KK_DATA().set({ dsnap }, { merge: true }).catch((e) => console.warn("dsnap 서버 기록 실패:", e.message));
   }
+  return { d, dsnap, slim, ym, today };
+}
+
+// 보고서 요약 계산 (스냅샷 최신화 포함)
+async function _kkBuildSummary() {
+  const rec = await _kkRecordSnapshot();
+  const d = rec.d, dsnap = rec.dsnap, slim = rec.slim, ym = rec.ym, today = rec.today;
+  const drcfg = (d.drcfg && typeof d.drcfg === "object") ? d.drcfg : {};
 
   // 직전 스냅샷 대비 "오늘 반영" (전월 스냅샷이면 비교 기반 없음 → 당월 전체가 신규)
   const sorted = dsnap.slice().sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
@@ -399,8 +406,18 @@ exports.kakaoDaily = onSchedule(
   async () => {
     const cfgSnap = await KK_CFG().get();
     const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
-    if (!cfg.enabled || !cfg.restKey) return;
     const today = _kkToday();
+    // ── 매일 밤 하루 마감 스냅샷 기록 (발송 여부·주말 제외 설정과 무관) ──
+    // 주말·공휴일에도 그날 상태를 기록해 두어야 "오늘 반영 실적"이 항상
+    // "어제 마감 대비 오늘 등록분"으로 정확히 잡힌다 (여러 날 합산 문제 방지)
+    if (_kkHm() >= "23:45" && cfg.lastSnapDate !== today) {
+      try {
+        await _kkRecordSnapshot();
+        await KK_CFG().set({ lastSnapDate: today }, { merge: true });
+      } catch (e) { console.warn("마감 스냅샷 기록 실패(다음 턴 재시도):", String((e && e.message) || e)); }
+    }
+    // ── 이하 자동 발송 ──
+    if (!cfg.enabled || !cfg.restKey) return;
     if (cfg.lastSentDate === today) return;                 // 오늘 이미 발송함
     if (_kkHm() < (cfg.sendTime || "18:00")) return;        // 아직 발송 시각 전
     if (cfg.skipWeekend) {
