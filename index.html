@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-5</div>
   </div>
 </div>
 
@@ -9760,22 +9760,10 @@ function requestCustReg(idx, famIdx){
     if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
     dispName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
   }
-  // 미성년 고객이면 법정대리인(부모) 선택 필수 — 후보: 가족 중 부모·배우자 관계(가족 대상이면 고객 본인 포함), 없으면 성인 가족 전체
+  // 미성년 고객이면 법정대리인(부모) 선택 필수 — 후보 규칙은 _parentOptsFor 공용 헬퍼 참조
   var isMinor=_isMinorRrn(famIdx!=null?(f.rrn||''):(c.rrn||''));
-  var parentOpts=[];
-  if(isMinor){
-    var famAdults=(c.family||[]).map(function(ff,ffi){return {f:ff,i:ffi};}).filter(function(x){
-      return x.f&&x.f.name&&!(famIdx!=null&&x.i===famIdx)&&!_isMinorRrn(x.f.rrn||'');
-    });
-    // rel은 항상 "고객 본인과의 관계" — 가족(자녀) 대상이면 아이의 부모는 고객 본인·배우자이고
-    //   rel '부모'는 아이 기준 조부모라 우선 후보에서 제외. 본인 대상이면 rel '부모'가 실제 부모.
-    var prefer=famAdults.filter(function(x){return famIdx!=null?x.f.rel==='배우자':x.f.rel==='부모';});
-    if(famIdx!=null&&!_isMinorRrn(c.rrn||'')) parentOpts.push({name:c.name, label:c.name+' (고객 본인)'});
-    (prefer.length?prefer:famAdults).forEach(function(x){
-      parentOpts.push({name:x.f.name, label:x.f.name+' (고객님의 '+(x.f.rel||'가족')+(x.f.rrn?'':' · 생년월일 미입력')+')'});
-    });
-    if(!parentOpts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
-  }
+  var parentOpts=isMinor?_parentOptsFor(c, famIdx):[];
+  if(isMinor&&!parentOpts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
   var el=document.createElement('div');
@@ -9988,7 +9976,8 @@ function rCustStatus(){
       noteCell='<span style="font-size:14px;color:#777">'+(hasNote?_esc(note||'-'):'-')+'</span>';
     }
 
-    var delBtn=isAdmin?'<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
+    // 삭제 버튼: 총무는 전체, 팀원도 본인 요청 삭제 가능 (비총무 화면엔 본인 건만 있고, 삭제는 이름+담당자 일치 건만)
+    var delBtn='<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>';
 
     rows.push('<tr style="border-bottom:1px solid rgba(80,80,200,.08)">'
       +'<td style="vertical-align:middle;white-space:nowrap">'
@@ -10066,7 +10055,7 @@ function rCustStatus(){
       }
     } else if(notebtn&&isAdmin){
       toggleHasNote(notebtn.getAttribute('data-name'), notebtn.getAttribute('data-agent'));
-    } else if(delbtn&&isAdmin){
+    } else if(delbtn){
       deleteAllCustReq(delbtn.getAttribute('data-name'), delbtn.getAttribute('data-agent'));
     }
   };
@@ -10096,6 +10085,22 @@ function _isMinorRrn(rrn){
   var age=cy-year;
   if((now.getMonth()+1)<m||((now.getMonth()+1)===m&&now.getDate()<d)) age--;
   return age<19;
+}
+// 미성년 등록 대상의 부모(법정대리인) 후보 — 고객등록요청·메리츠 가설동 공용.
+//   rel은 항상 "고객 본인과의 관계" — 가족(자녀) 대상이면 아이의 부모는 고객 본인·배우자이고
+//   rel '부모'는 아이 기준 조부모라 우선 후보에서 제외. 본인 대상이면 rel '부모'가 실제 부모.
+//   우선 후보가 없으면 성인 가족 전체로 폴백. 후보 0명이면 빈 배열(호출부에서 차단·안내).
+function _parentOptsFor(c, famIdx){
+  var parentOpts=[];
+  var famAdults=(c.family||[]).map(function(ff,ffi){return {f:ff,i:ffi};}).filter(function(x){
+    return x.f&&x.f.name&&!(famIdx!=null&&x.i===famIdx)&&!_isMinorRrn(x.f.rrn||'');
+  });
+  var prefer=famAdults.filter(function(x){return famIdx!=null?x.f.rel==='배우자':x.f.rel==='부모';});
+  if(famIdx!=null&&!_isMinorRrn(c.rrn||'')) parentOpts.push({name:c.name, label:c.name+' (고객 본인)'});
+  (prefer.length?prefer:famAdults).forEach(function(x){
+    parentOpts.push({name:x.f.name, label:x.f.name+' (고객님의 '+(x.f.rel||'가족')+(x.f.rrn?'':' · 생년월일 미입력')+')'});
+  });
+  return parentOpts;
 }
 // 주민번호 전체 표시(하이픈 정리) — 고객정보 모달용. 모달 자체가 총무·담당자만 열람 가능.
 function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) return '-'; return rrn.length>6 ? rrn.slice(0,6)+'-'+rrn.slice(6) : rrn; }
@@ -10468,26 +10473,64 @@ function requestMeritz(){
   if(checked) checked.checked=false;
 }
 
-function requestMeritzFromList(idx){
-  var c=custs[idx]; if(!c) return;
-  if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-  window.custReqs.push({name:c.name, ins:'메리츠 가설동', note:c.note||'', done:false, reason:'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
-  try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
-  try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
-  notifyChongmuReg(c.name, 1);
-  toast(c.name+' 님 메리츠 가설동 요청 완료!');
+function requestMeritzFromList(idx){ _meritzGuardianGate(idx, null); }
+
+function requestMeritzFam(custIdx, famIdx){ _meritzGuardianGate(custIdx, famIdx); }
+
+// 메리츠 가설동 공통 진입 — 미성년 고객이면 법정대리인(부모) 선택 팝업을 거쳐야 신청됨
+function _meritzGuardianGate(custIdx, famIdx){
+  var c=custs[custIdx]; if(!c) return;
+  var f=null;
+  if(famIdx!=null){
+    f=c.family&&c.family[famIdx];
+    if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
+  }
+  if(!_isMinorRrn(famIdx!=null?(f.rrn||''):(c.rrn||''))){ _pushMeritzReq(custIdx, famIdx, ''); return; }
+  var opts=_parentOptsFor(c, famIdx);
+  if(!opts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
+  var old=document.getElementById('mz_parent_popup'); if(old) old.remove();
+  var dispName=famIdx!=null?f.name:c.name;
+  var el=document.createElement('div');
+  el.id='mz_parent_popup';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:460px;max-width:94vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:4px">👨‍👩‍👧 법정대리인(부모) 선택</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:14px">'+_esc(dispName)+' 님은 미성년 고객이라 메리츠 가설동 신청에 부모 선택이 필요합니다</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;background:#fff8f0;border:1px solid rgba(220,140,40,.35);border-radius:10px;padding:12px">'
+    +opts.map(function(p){return '<label style="display:flex;align-items:center;gap:5px;font-size:14px;color:#1a1a2e;cursor:pointer;background:#fff;border:1px solid rgba(220,140,40,.25);border-radius:6px;padding:5px 10px"><input type="radio" name="mz_parent" value="'+_esc(p.name)+'"'+(opts.length===1?' checked':'')+' style="accent-color:#c07020;width:14px;height:14px"> '+_esc(p.label)+'</label>';}).join('')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+      +'<button onclick="document.getElementById(\'mz_parent_popup\').remove()" style="padding:8px 16px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">취소</button>'
+      +'<button onclick="_mzParentSend('+custIdx+(famIdx!=null?','+famIdx:'')+')" style="padding:8px 16px;background:#8a6a10;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">📨 신청</button>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(el);
 }
 
-function requestMeritzFam(custIdx, famIdx){
+function _mzParentSend(custIdx, famIdx){
+  var pr=document.querySelector('#mz_parent_popup input[name="mz_parent"]:checked');
+  if(!pr){ toast('법정대리인(부모)을 선택하세요.'); return; }
+  var p=document.getElementById('mz_parent_popup'); if(p) p.remove();
+  _pushMeritzReq(custIdx, famIdx!=null?famIdx:null, pr.value);
+}
+
+// 메리츠 가설동 요청 저장 공용 — 본인/가족 + 법정대리인(parent) 필드
+function _pushMeritzReq(custIdx, famIdx, parentName){
   var c=custs[custIdx]; if(!c) return;
-  var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
+  var name, notiName, note;
+  if(famIdx!=null){
+    var f=c.family&&c.family[famIdx];
+    if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
+    name=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')'; notiName=f.name; note='';
+  } else {
+    name=c.name; notiName=c.name; note=c.note||'';
+  }
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-  var name=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
-  window.custReqs.push({name:name, ins:'메리츠 가설동', note:'', done:false, reason:'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
+  window.custReqs.push({name:name, ins:'메리츠 가설동', note:note, done:false, reason:'', parent:parentName||'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
-  notifyChongmuReg(f.name, 1);
-  toast(f.name+' 님 메리츠 가설동 요청 완료!');
+  notifyChongmuReg(notiName, 1);
+  toast(notiName+' 님 메리츠 가설동 요청 완료!');
 }
 
 // ===== 주마감보고 =====
