@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-4</div>
   </div>
 </div>
 
@@ -9767,9 +9767,13 @@ function requestCustReg(idx, famIdx){
     var famAdults=(c.family||[]).map(function(ff,ffi){return {f:ff,i:ffi};}).filter(function(x){
       return x.f&&x.f.name&&!(famIdx!=null&&x.i===famIdx)&&!_isMinorRrn(x.f.rrn||'');
     });
-    var prefer=famAdults.filter(function(x){return x.f.rel==='부모'||x.f.rel==='배우자';});
-    if(famIdx!=null) parentOpts.push({name:c.name, label:c.name+' (고객 본인)'});
-    (prefer.length?prefer:famAdults).forEach(function(x){ parentOpts.push({name:x.f.name, label:x.f.name+' ('+(x.f.rel||'가족')+')'}); });
+    // rel은 항상 "고객 본인과의 관계" — 가족(자녀) 대상이면 아이의 부모는 고객 본인·배우자이고
+    //   rel '부모'는 아이 기준 조부모라 우선 후보에서 제외. 본인 대상이면 rel '부모'가 실제 부모.
+    var prefer=famAdults.filter(function(x){return famIdx!=null?x.f.rel==='배우자':x.f.rel==='부모';});
+    if(famIdx!=null&&!_isMinorRrn(c.rrn||'')) parentOpts.push({name:c.name, label:c.name+' (고객 본인)'});
+    (prefer.length?prefer:famAdults).forEach(function(x){
+      parentOpts.push({name:x.f.name, label:x.f.name+' (고객님의 '+(x.f.rel||'가족')+(x.f.rrn?'':' · 생년월일 미입력')+')'});
+    });
     if(!parentOpts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
   }
   var popup=document.getElementById('req_ins_popup');
@@ -9838,8 +9842,7 @@ function sendCustReq(idx, famIdx){
     var pr=document.querySelector('#req_ins_popup input[name="req_parent"]:checked');
     if(!pr){ toast('법정대리인(부모)을 선택하세요.'); return; }
     parentName=pr.value;
-    if(famIdx!=null) reqName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+' · 부모 '+parentName+')';
-    else reqName=c.name+' (부모 '+parentName+')';
+    // reqName은 현황 그룹핑·전체완료·삭제의 매칭 키라 변경 금지 — 부모는 parent 필드로만 저장·표시
   }
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
@@ -9935,6 +9938,8 @@ function rCustStatus(){
     var agentKey=_agentReal((allReqs[idxs[0]]&&allReqs[idxs[0]].agent)||'');       // 그룹 매칭용(빈값 가능)
     var agent=agentKey||'-';                                                        // '(코드)' → 실명 표시
     var regDate=allReqs[idxs[0]]?allReqs[idxs[0]].regDate||'':'';
+    var parentNm='';   // 미성년 요청의 법정대리인 — 그룹 내 첫 번째 값
+    idxs.some(function(i){ var r=allReqs[i]; if(r&&r.parent){parentNm=r.parent; return true;} return false; });
 
     // 날짜 포맷: 0월0일 00시00분 — regTs(실제 요청 시각)가 있을 때만 시간 표시.
     //   구 데이터(regDate만, 날짜 문자열)는 시간 정보가 없으므로 날짜만 표시
@@ -10014,7 +10019,8 @@ function rCustStatus(){
           } else {
             nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(name)+'</div>';
           }
-          return wrapO+nameInner+'</div>';
+          return wrapO+nameInner+'</div>'
+            +(parentNm?'<div style="font-size:12px;color:#a05a10;margin-top:3px;white-space:nowrap">👨‍👩‍👧 법정대리인: '+_esc(parentNm)+'</div>':'');
         })()
       +'</td>'
       +'<td style="vertical-align:middle"><div style="display:flex;flex-wrap:wrap;padding:4px 0">'+tags+'</div>'
