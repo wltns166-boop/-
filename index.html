@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-6</div>
   </div>
 </div>
 
@@ -10336,20 +10336,29 @@ function deleteAllCustReq(name, agent){
   if(!name) return;
   if(!Array.isArray(window.custReqs)) return;
   agent=(agent==null?'':String(agent));
+  var chongmu=_isChongmu();
+  // 권한 가드: 총무가 아니면 본인 담당 건만 (화면 밖 콘솔 직접 호출 방어)
+  if(!chongmu && (!cu || !cu.name || _agentReal(agent)!==_agentReal(cu.name))) return;
+  var match=function(r){ return r&&r.name===name&&_agentReal(r.agent||'')===agent; };
+  // 비총무는 완료 건(총무 처리 이력) 보존 — 미완료 건만 삭제
+  var targets=window.custReqs.filter(match);
+  var dels=chongmu?targets:targets.filter(function(r){return !r.done;});
+  if(!dels.length){ toast(targets.length?'완료된 요청은 총무만 삭제할 수 있습니다.':'삭제할 요청이 없습니다.'); return; }
+  var keptNote=(!chongmu&&targets.length>dels.length)?' (완료 건은 유지)':'';
   var key='req_'+name+'|'+agent;
   if(window._delReqConfirm!==key){
     window._delReqConfirm=key;
-    toast('한 번 더 누르면 '+name+' 전체 삭제됩니다.');
+    toast('한 번 더 누르면 '+name+' 님 요청 '+dels.length+'건이 삭제됩니다.'+(chongmu&&dels.length>1?' (완료 포함 전체)':keptNote));
     setTimeout(function(){window._delReqConfirm=null;},3000);
     return;
   }
   window._delReqConfirm=null;
   // 동명이인 방지: 담당자까지 일치하는 요청만 삭제
-  window.custReqs=window.custReqs.filter(function(r){return !(r&&r.name===name&&_agentReal(r.agent||'')===agent);});
+  window.custReqs=window.custReqs.filter(function(r){ return !(match(r)&&(chongmu||!r.done)); });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   rCustStatus();
-  toast(name+' 님 전체 삭제되었습니다.');
+  toast(name+' 님 요청 '+dels.length+'건 삭제되었습니다.'+keptNote);
 }
 
 // ===== 병력정리 — 서류 발급 방법 안내 (건강보험심사평가원) =====
