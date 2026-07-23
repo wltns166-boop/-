@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.22-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-1</div>
   </div>
 </div>
 
@@ -9564,17 +9564,10 @@ function deleteFamRow(custIdx, famIdx){
 }
 
 function requestCustRegFam(custIdx, famIdx){
+  // 본인 요청과 동일하게 보험사 선택 팝업 사용 (구 방식은 폼에서 사라진 c.ins에 의존해 무반응이었음)
   var c=custs[custIdx]; if(!c) return;
   var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
-  if(!c.ins||!c.ins.length){ toast('등록할 보험사를 먼저 선택하세요.'); return; }
-  if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-  c.ins.forEach(function(ins){
-    window.custReqs.push({name:f.name+' ('+c.name+'님 '+( f.rel||'가족')+')', ins:ins, note:'', done:false, regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
-  });
-  try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
-  try{sv('tops_cust_reqs', window.custReqs);}catch(e){}
-  notifyChongmuReg(f.name, c.ins.length);
-  toast(f.name+' 님 고객등록 요청 완료! ('+c.ins.length+'개사)');
+  requestCustReg(custIdx, famIdx);
 }
 
 function toggleCustForm(){
@@ -9759,8 +9752,13 @@ function closeCustModal(){
   cancelCustForm();
 }
 
-function requestCustReg(idx){
+function requestCustReg(idx, famIdx){
   var c=custs[idx]; if(!c) return;
+  var dispName=c.name;
+  if(famIdx!=null){
+    var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
+    dispName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
+  }
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
   var el=document.createElement('div');
@@ -9768,7 +9766,7 @@ function requestCustReg(idx){
   el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
   el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:680px;max-width:96vw;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
     +'<div style="font-size:17px;font-weight:700;margin-bottom:4px;color:#1a1a2e">📋 발송 보험사 선택</div>'
-    +'<div style="font-size:14px;color:#888;margin-bottom:16px">'+c.name+' 님 &nbsp;|&nbsp; 보낼 보험사를 선택하세요</div>'
+    +'<div style="font-size:14px;color:#888;margin-bottom:16px">'+_esc(dispName)+' 님 &nbsp;|&nbsp; 보낼 보험사를 선택하세요</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
       +'<div style="background:#f5f6ff;border-radius:10px;padding:14px">'
         +'<div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(80,80,200,.15)">🏢 손해보험사</div>'
@@ -9786,7 +9784,7 @@ function requestCustReg(idx){
       +'</div>'
       +'<div style="display:flex;gap:8px">'
         +'<button onclick="document.getElementById(\'req_ins_popup\').remove()" style="padding:8px 18px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">취소</button>'
-        +'<button onclick="sendCustReq('+idx+')" style="padding:8px 18px;background:#4858cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">📨 발송</button>'
+        +'<button onclick="sendCustReq('+idx+(famIdx!=null?','+famIdx:'')+')" style="padding:8px 18px;background:#4858cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">📨 발송</button>'
       +'</div>'
     +'</div>'
   +'</div>';
@@ -9798,8 +9796,15 @@ function selectAllReqIns(checked){
 }
 
 
-function sendCustReq(idx){
+function sendCustReq(idx, famIdx){
   var c=custs[idx]; if(!c) return;
+  var reqName=c.name, reqNote=c.note||'', notiName=c.name;
+  if(famIdx!=null){
+    var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
+    reqName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
+    reqNote='';
+    notiName=f.name;
+  }
   var allIns=['삼성화재','현대해상','DB손해보험','KB손해보험','메리츠화재','한화손해보험','롯데손해보험','흥국화재','MG손해보험','라이나손해보험','하나손해보험','AXA손해보험','삼성생명','한화생명','교보생명','신한라이프','NH농협생명','흥국생명','동양생명','AIA생명','푸본현대생명','DB생명','KDB생명','미래에셋생명','라이나생명','처브라이프','ABL생명','IM라이프','메트라이프','카디프생명'];
   var selected=[];
   allIns.forEach(function(ins){
@@ -9812,12 +9817,12 @@ function sendCustReq(idx){
   if(!selected.length){toast('보험사를 1개 이상 선택하세요.');return;}
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   selected.forEach(function(ins){
-    window.custReqs.push({name:c.name, ins:ins, note:c.note||'', done:false, reason:'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
+    window.custReqs.push({name:reqName, ins:ins, note:reqNote, done:false, reason:'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
-  notifyChongmuReg(c.name, selected.length);
-  toast(c.name+' 님 '+selected.length+'개사 고객등록 요청 완료!');
+  notifyChongmuReg(notiName, selected.length);
+  toast(notiName+' 님 '+selected.length+'개사 고객등록 요청 완료!');
 }
 
 // ===== 고객등록 현황 =====
