@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-2</div>
   </div>
 </div>
 
@@ -9756,7 +9756,8 @@ function requestCustReg(idx, famIdx){
   var c=custs[idx]; if(!c) return;
   var dispName=c.name;
   if(famIdx!=null){
-    var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
+    var f=c.family&&c.family[famIdx];
+    if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
     dispName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
   }
   var popup=document.getElementById('req_ins_popup');
@@ -9800,7 +9801,8 @@ function sendCustReq(idx, famIdx){
   var c=custs[idx]; if(!c) return;
   var reqName=c.name, reqNote=c.note||'', notiName=c.name;
   if(famIdx!=null){
-    var f=c.family&&c.family[famIdx]; if(!f||!f.name) return;
+    var f=c.family&&c.family[famIdx];
+    if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
     reqName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
     reqNote='';
     notiName=f.name;
@@ -9948,11 +9950,11 @@ function rCustStatus(){
         +'<div data-action="note" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_note_btn" style="font-size:12px;padding:2px 8px;border-radius:4px;cursor:pointer;border:1px solid;display:inline-block;'
         +(hasNote?'background:rgba(30,160,80,.15);border-color:rgba(30,160,80,.4);color:#1a7040':'background:#f5f5fa;border-color:#ccc;color:#888')
         +'">'+( hasNote?'✅ 있음':'⬜ 없음')+'</div>'
-        +(hasNote&&note?'<span style="font-size:13px;color:#555">'+note+'</span>':'')
+        +(hasNote&&note?'<span style="font-size:13px;color:#555">'+_esc(note)+'</span>':'')
         +'<button onclick="'+('sendCustDoneAlert('+JSON.stringify(name)+','+JSON.stringify(agent)+')').replace(/"/g,'&quot;')+'" style="font-size:12px;padding:3px 8px;background:rgba(72,88,204,.12);border:1px solid rgba(72,88,204,.35);border-radius:5px;color:#3a40cc;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600"><i class="ti ti-bell"></i> 알림발송</button>'
         +'</div>';
     } else {
-      noteCell='<span style="font-size:14px;color:#777">'+(hasNote?(note||'-'):'-')+'</span>';
+      noteCell='<span style="font-size:14px;color:#777">'+(hasNote?_esc(note||'-'):'-')+'</span>';
     }
 
     var delBtn=isAdmin?'<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
@@ -9980,11 +9982,11 @@ function rCustStatus(){
             var mainN=name.slice(0,parenIdx).trim();
             var subN=name.slice(parenIdx+1).replace(')','').trim();
             var sp=subN.split(' ');
-            nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+mainN+'</div>'
-              +(sp[0]?'<div style="font-size:13px;color:#8888bb;margin-top:2px">'+sp[0]+'</div>':'')
-              +(sp.slice(1).join(' ')?'<div style="font-size:13px;color:#8888bb">'+sp.slice(1).join(' ')+'</div>':'');
+            nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(mainN)+'</div>'
+              +(sp[0]?'<div style="font-size:13px;color:#8888bb;margin-top:2px">'+_esc(sp[0])+'</div>':'')
+              +(sp.slice(1).join(' ')?'<div style="font-size:13px;color:#8888bb">'+_esc(sp.slice(1).join(' '))+'</div>':'');
           } else {
-            nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+name+'</div>';
+            nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(name)+'</div>';
           }
           return wrapO+nameInner+'</div>';
         })()
