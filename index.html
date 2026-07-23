@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-3</div>
   </div>
 </div>
 
@@ -9760,6 +9760,18 @@ function requestCustReg(idx, famIdx){
     if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.'); return; }
     dispName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+')';
   }
+  // 미성년 고객이면 법정대리인(부모) 선택 필수 — 후보: 가족 중 부모·배우자 관계(가족 대상이면 고객 본인 포함), 없으면 성인 가족 전체
+  var isMinor=_isMinorRrn(famIdx!=null?(f.rrn||''):(c.rrn||''));
+  var parentOpts=[];
+  if(isMinor){
+    var famAdults=(c.family||[]).map(function(ff,ffi){return {f:ff,i:ffi};}).filter(function(x){
+      return x.f&&x.f.name&&!(famIdx!=null&&x.i===famIdx)&&!_isMinorRrn(x.f.rrn||'');
+    });
+    var prefer=famAdults.filter(function(x){return x.f.rel==='부모'||x.f.rel==='배우자';});
+    if(famIdx!=null) parentOpts.push({name:c.name, label:c.name+' (고객 본인)'});
+    (prefer.length?prefer:famAdults).forEach(function(x){ parentOpts.push({name:x.f.name, label:x.f.name+' ('+(x.f.rel||'가족')+')'}); });
+    if(!parentOpts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
+  }
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
   var el=document.createElement('div');
@@ -9778,6 +9790,11 @@ function requestCustReg(idx, famIdx){
         +'<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_삼성생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_삼성생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">삼성생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_한화생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_한화생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">한화생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_교보생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_교보생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">교보생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_신한라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_신한라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">신한라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_NH농협생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_NH농협생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">NH농협생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_흥국생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_흥국생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">흥국생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_동양생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_동양생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">동양생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_AIA생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_AIA생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">AIA생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_푸본현대생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_푸본현대생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">푸본현대생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_DB생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_DB생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">DB생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_KDB생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_KDB생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">KDB생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_미래에셋생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_미래에셋생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">미래에셋생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_라이나생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_라이나생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">라이나생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_처브라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_처브라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">처브라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_ABL생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_ABL생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">ABL생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_IM라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_IM라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">IM라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_메트라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_메트라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">메트라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_카디프생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_카디프생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">카디프생명</label></div>'
       +'</div>'
     +'</div>'
+    +(isMinor?('<div style="margin-top:14px;background:#fff8f0;border:1px solid rgba(220,140,40,.35);border-radius:10px;padding:12px">'
+      +'<div style="font-size:14px;font-weight:700;color:#a05a10;margin-bottom:8px">👨‍👩‍👧 법정대리인(부모) 선택 <span style="font-weight:400;font-size:12px;color:#c08040">— 미성년 고객은 필수입니다</span></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      +parentOpts.map(function(p){return '<label style="display:flex;align-items:center;gap:5px;font-size:14px;color:#1a1a2e;cursor:pointer;background:#fff;border:1px solid rgba(220,140,40,.25);border-radius:6px;padding:5px 10px"><input type="radio" name="req_parent" value="'+_esc(p.name)+'"'+(parentOpts.length===1?' checked':'')+' style="accent-color:#c07020;width:14px;height:14px"> '+_esc(p.label)+'</label>';}).join('')
+      +'</div></div>'):'')
     +'<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:16px">'
       +'<div>'
         +'<button onclick="selectAllReqIns(true)" style="font-size:13px;padding:4px 10px;border:1px solid #aaa;border-radius:5px;cursor:pointer;font-family:inherit;margin-right:4px">전체선택</button>'
@@ -9814,12 +9831,21 @@ function sendCustReq(idx, famIdx){
     var cb=document.getElementById('reqins_'+sid);
     if(cb&&cb.checked) selected.push(ins);
   });
+  // 검증은 팝업을 닫기 전에 — 실패해도 선택 상태 유지
+  if(!selected.length){toast('보험사를 1개 이상 선택하세요.');return;}
+  var parentName='';
+  if(_isMinorRrn(famIdx!=null?(f.rrn||''):(c.rrn||''))){
+    var pr=document.querySelector('#req_ins_popup input[name="req_parent"]:checked');
+    if(!pr){ toast('법정대리인(부모)을 선택하세요.'); return; }
+    parentName=pr.value;
+    if(famIdx!=null) reqName=f.name+' ('+c.name+'님 '+(f.rel||'가족')+' · 부모 '+parentName+')';
+    else reqName=c.name+' (부모 '+parentName+')';
+  }
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
-  if(!selected.length){toast('보험사를 1개 이상 선택하세요.');return;}
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   selected.forEach(function(ins){
-    window.custReqs.push({name:reqName, ins:ins, note:reqNote, done:false, reason:'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
+    window.custReqs.push({name:reqName, ins:ins, note:reqNote, done:false, reason:'', parent:parentName, regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
@@ -10050,6 +10076,21 @@ function _custBirthGender(rrn){
   return {birth:pre+y+'.'+m+'.'+d, gender:gender};
 }
 function _maskRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(rrn.length<7) return rrn||'-'; return rrn.slice(0,6)+'-'+rrn[6]+'••••••'; }
+// 만 19세 미만(미성년) 판별 — 7번째 자리가 있으면 세기 확정, 없으면 올해 기준 추정. 판별 불가 시 false(성인 취급)
+function _isMinorRrn(rrn){
+  rrn=String(rrn||'').replace(/[^0-9]/g,'');
+  if(rrn.length<6) return false;
+  var yy=parseInt(rrn.slice(0,2),10), m=parseInt(rrn.slice(2,4),10), d=parseInt(rrn.slice(4,6),10);
+  if(isNaN(yy)||isNaN(m)||isNaN(d)||m<1||m>12||d<1||d>31) return false;
+  var now=new Date(), cy=now.getFullYear();
+  var g7=rrn.length>=7?rrn[6]:'', year;
+  if(g7==='1'||g7==='2'||g7==='5'||g7==='6') year=1900+yy;
+  else if(g7==='3'||g7==='4'||g7==='7'||g7==='8') year=2000+yy;
+  else year=(2000+yy<=cy)?2000+yy:1900+yy;
+  var age=cy-year;
+  if((now.getMonth()+1)<m||((now.getMonth()+1)===m&&now.getDate()<d)) age--;
+  return age<19;
+}
 // 주민번호 전체 표시(하이픈 정리) — 고객정보 모달용. 모달 자체가 총무·담당자만 열람 가능.
 function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) return '-'; return rrn.length>6 ? rrn.slice(0,6)+'-'+rrn.slice(6) : rrn; }
 // 요청명(예: "홍길동" 또는 "철수 (홍길동님 자녀)")으로 custs에서 고객/가족 찾기
