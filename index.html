@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-7</div>
   </div>
 </div>
 
@@ -820,7 +820,10 @@ table.dt tr:last-child td{border-bottom:none;}
     <div class="pg" id="pg_cust_apply">
       <div class="sh">
         <div class="st"><i class="ti ti-user-plus"></i>고객등록 및 신청</div>
-        <button class="bp bpd" id="btn_cust_toggle" onclick="toggleCustForm()"><i class="ti ti-plus"></i> 고객등록</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="bp" id="btn_reqins_edit" onclick="openReqInsEdit()" style="display:none"><i class="ti ti-list-check"></i> 고객등록 보험사 수정</button>
+          <button class="bp bpd" id="btn_cust_toggle" onclick="toggleCustForm()"><i class="ti ti-plus"></i> 고객등록</button>
+        </div>
       </div>
       <!-- 검색 -->
       <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2780,6 +2783,7 @@ async function loadFromFirestore(){
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
+    if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -2832,6 +2836,7 @@ function startRealtimeSync(){
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
+    if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -9460,6 +9465,8 @@ function rCustList(){
   else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
   var tb=g('cust_tb'); if(!tb) return;
   var chongmu=_isChongmu();
+  // 관리자 전용: 발송 보험사 목록 수정 버튼
+  var rib=g('btn_reqins_edit'); if(rib) rib.style.display=(typeof _isAdmin==='function'&&_isAdmin())?'':'none';
   // 총무 전용 담당자 필터(선택/입력 겸용) 표시 + 옵션 채우기
   var agentInput=g('cust_agent_filter');
   if(agentInput){
@@ -9752,6 +9759,95 @@ function closeCustModal(){
   cancelCustForm();
 }
 
+// ===== 발송 보험사 목록 (관리자 수정 가능 — tops_reqins) =====
+var _REQINS_DEFAULT={
+  son:['삼성화재','현대해상','DB손해보험','KB손해보험','메리츠화재','한화손해보험','롯데손해보험','흥국화재','MG손해보험','라이나손해보험','하나손해보험','AXA손해보험'],
+  life:['삼성생명','한화생명','교보생명','신한라이프','NH농협생명','흥국생명','동양생명','AIA생명','푸본현대생명','DB생명','KDB생명','미래에셋생명','라이나생명','처브라이프','ABL생명','IM라이프','메트라이프','카디프생명']
+};
+function _reqInsLists(){
+  var v=window._reqIns;
+  if(!v){ try{ v=JSON.parse(localStorage.getItem('tops_reqins')||'null'); }catch(e){ v=null; } }
+  if(!v||typeof v!=='object'||Array.isArray(v)) v=null;
+  var son=v&&Array.isArray(v.son)?v.son.filter(Boolean):null;
+  var life=v&&Array.isArray(v.life)?v.life.filter(Boolean):null;
+  // 저장본이 아예 없거나 둘 다 비어있으면 기본값 (한쪽만 비운 건 관리자 의도로 존중)
+  if(son==null&&life==null||((son&&!son.length)&&(life&&!life.length))) return {son:_REQINS_DEFAULT.son.slice(), life:_REQINS_DEFAULT.life.slice()};
+  return {son:(son||_REQINS_DEFAULT.son).slice(), life:(life||_REQINS_DEFAULT.life).slice()};
+}
+function _reqInsBoxes(arr){
+  return arr.map(function(ins){
+    var sid=String(ins).replace(/\s/g,'_');
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_'+_esc(sid)+'" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_'+_esc(sid)+'" style="font-size:14px;cursor:pointer;color:#1a1a2e">'+_esc(ins)+'</label></div>';
+  }).join('');
+}
+
+// ===== 발송 보험사 목록 편집 (관리자 전용) =====
+function _rieRow(name){
+  return '<div class="rie_row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center">'
+    +'<input class="rie_in" value="'+_esc(name)+'" placeholder="보험사명" style="flex:1;font-size:14px;padding:5px 8px;border:1px solid #ccc;border-radius:5px;color:#1a1a2e;background:#fff;font-family:inherit">'
+    +'<button onclick="this.parentNode.remove()" title="삭제" style="font-size:13px;padding:4px 8px;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit">✕</button>'
+    +'</div>';
+}
+function _rieAddRow(colId){
+  var col=document.getElementById(colId); if(!col) return;
+  col.insertAdjacentHTML('beforeend', _rieRow(''));
+  var ins=col.querySelectorAll('.rie_in');
+  if(ins.length) ins[ins.length-1].focus();
+}
+function _rieFill(cfg){
+  var s=document.getElementById('rie_son'), l=document.getElementById('rie_life');
+  if(s) s.innerHTML=cfg.son.map(_rieRow).join('');
+  if(l) l.innerHTML=cfg.life.map(_rieRow).join('');
+}
+function openReqInsEdit(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var old=document.getElementById('reqins_edit_popup'); if(old) old.remove();
+  var el=document.createElement('div');
+  el.id='reqins_edit_popup';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:640px;max-width:96vw;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="font-size:17px;font-weight:700;margin-bottom:4px;color:#1a1a2e">📋 고객등록 보험사 수정</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:16px">고객등록요청 [발송 보험사 선택] 팝업에 나오는 목록입니다. 저장하면 팀 전체에 적용됩니다.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+      +'<div style="background:#f5f6ff;border-radius:10px;padding:12px">'
+        +'<div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(80,80,200,.15)">🏢 손해보험사</div>'
+        +'<div id="rie_son"></div>'
+        +'<button onclick="_rieAddRow(\'rie_son\')" style="font-size:13px;padding:4px 10px;margin-top:4px;border:1px dashed rgba(48,64,170,.4);border-radius:5px;cursor:pointer;font-family:inherit;background:#fff;color:#3040aa;width:100%">+ 추가</button>'
+      +'</div>'
+      +'<div style="background:#f5fff8;border-radius:10px;padding:12px">'
+        +'<div style="font-size:14px;font-weight:700;color:#208050;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(40,160,80,.15)">🏦 생명보험사</div>'
+        +'<div id="rie_life"></div>'
+        +'<button onclick="_rieAddRow(\'rie_life\')" style="font-size:13px;padding:4px 10px;margin-top:4px;border:1px dashed rgba(32,128,80,.4);border-radius:5px;cursor:pointer;font-family:inherit;background:#fff;color:#208050;width:100%">+ 추가</button>'
+      +'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:16px">'
+      +'<button onclick="_rieFillDefault()" style="font-size:13px;padding:5px 12px;border:1px solid #aaa;border-radius:5px;cursor:pointer;font-family:inherit;background:#f5f5fa;color:#555">기본값 복원</button>'
+      +'<div style="display:flex;gap:8px">'
+        +'<button onclick="document.getElementById(\'reqins_edit_popup\').remove()" style="padding:8px 18px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">취소</button>'
+        +'<button onclick="saveReqInsEdit()" style="padding:8px 18px;background:#4858cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">💾 저장</button>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(el);
+  _rieFill(_reqInsLists());
+}
+function _rieFillDefault(){ _rieFill({son:_REQINS_DEFAULT.son.slice(), life:_REQINS_DEFAULT.life.slice()}); toast('기본값으로 채웠습니다. [저장]을 눌러야 반영됩니다.'); }
+function saveReqInsEdit(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var read=function(id){
+    var out=[];
+    document.querySelectorAll('#'+id+' .rie_in').forEach(function(inp){ var v=inp.value.trim(); if(v&&out.indexOf(v)<0) out.push(v); });
+    return out;
+  };
+  var son=read('rie_son'), life=read('rie_life');
+  if(!son.length&&!life.length){ toast('보험사를 1개 이상 입력하세요.'); return; }
+  var cfg={son:son, life:life};
+  window._reqIns=cfg;
+  sv('tops_reqins', cfg);
+  var p=document.getElementById('reqins_edit_popup'); if(p) p.remove();
+  toast('보험사 목록 저장 완료! (손해 '+son.length+'개 · 생명 '+life.length+'개)');
+}
+
 function requestCustReg(idx, famIdx){
   var c=custs[idx]; if(!c) return;
   var dispName=c.name;
@@ -9764,6 +9860,7 @@ function requestCustReg(idx, famIdx){
   var isMinor=_isMinorRrn(famIdx!=null?(f.rrn||''):(c.rrn||''));
   var parentOpts=isMinor?_parentOptsFor(c, famIdx):[];
   if(isMinor&&!parentOpts.length){ toast('미성년 고객은 부모(법정대리인) 선택이 필요합니다. 고객정보 수정에서 부모를 가족으로 먼저 등록해주세요.'); return; }
+  var L=_reqInsLists();
   var popup=document.getElementById('req_ins_popup');
   if(popup) popup.remove();
   var el=document.createElement('div');
@@ -9775,11 +9872,11 @@ function requestCustReg(idx, famIdx){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
       +'<div style="background:#f5f6ff;border-radius:10px;padding:14px">'
         +'<div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(80,80,200,.15)">🏢 손해보험사</div>'
-        +'<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_삼성화재" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_삼성화재" style="font-size:14px;cursor:pointer;color:#1a1a2e">삼성화재</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_현대해상" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_현대해상" style="font-size:14px;cursor:pointer;color:#1a1a2e">현대해상</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_DB손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_DB손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">DB손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_KB손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_KB손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">KB손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_메리츠화재" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_메리츠화재" style="font-size:14px;cursor:pointer;color:#1a1a2e">메리츠화재</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_한화손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_한화손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">한화손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_롯데손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_롯데손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">롯데손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_흥국화재" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_흥국화재" style="font-size:14px;cursor:pointer;color:#1a1a2e">흥국화재</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_MG손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_MG손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">MG손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_라이나손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_라이나손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">라이나손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_하나손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_하나손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">하나손해보험</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_AXA손해보험" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_AXA손해보험" style="font-size:14px;cursor:pointer;color:#1a1a2e">AXA손해보험</label></div>'
+        +_reqInsBoxes(L.son)
       +'</div>'
       +'<div style="background:#f5fff8;border-radius:10px;padding:14px">'
         +'<div style="font-size:14px;font-weight:700;color:#208050;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(40,160,80,.15)">🏦 생명보험사</div>'
-        +'<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_삼성생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_삼성생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">삼성생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_한화생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_한화생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">한화생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_교보생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_교보생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">교보생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_신한라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_신한라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">신한라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_NH농협생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_NH농협생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">NH농협생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_흥국생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_흥국생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">흥국생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_동양생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_동양생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">동양생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_AIA생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_AIA생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">AIA생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_푸본현대생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_푸본현대생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">푸본현대생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_DB생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_DB생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">DB생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_KDB생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_KDB생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">KDB생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_미래에셋생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_미래에셋생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">미래에셋생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_라이나생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_라이나생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">라이나생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_처브라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_처브라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">처브라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_ABL생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_ABL생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">ABL생명</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_IM라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_IM라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">IM라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_메트라이프" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_메트라이프" style="font-size:14px;cursor:pointer;color:#1a1a2e">메트라이프</label></div><div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_카디프생명" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_카디프생명" style="font-size:14px;cursor:pointer;color:#1a1a2e">카디프생명</label></div>'
+        +_reqInsBoxes(L.life)
       +'</div>'
     +'</div>'
     +(isMinor?('<div style="margin-top:14px;background:#fff8f0;border:1px solid rgba(220,140,40,.35);border-radius:10px;padding:12px">'
@@ -9816,7 +9913,8 @@ function sendCustReq(idx, famIdx){
     reqNote='';
     notiName=f.name;
   }
-  var allIns=['삼성화재','현대해상','DB손해보험','KB손해보험','메리츠화재','한화손해보험','롯데손해보험','흥국화재','MG손해보험','라이나손해보험','하나손해보험','AXA손해보험','삼성생명','한화생명','교보생명','신한라이프','NH농협생명','흥국생명','동양생명','AIA생명','푸본현대생명','DB생명','KDB생명','미래에셋생명','라이나생명','처브라이프','ABL생명','IM라이프','메트라이프','카디프생명'];
+  var _L=_reqInsLists();
+  var allIns=_L.son.concat(_L.life);
   var selected=[];
   allIns.forEach(function(ins){
     var sid=ins.replace(/\s/g,'_');
