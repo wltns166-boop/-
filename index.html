@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.27-1</div>
   </div>
 </div>
 
@@ -10286,13 +10286,12 @@ function _renderCustInfoModal(c, fm){
   var bg=_custBirthGender(who.rrn);
   var rowsArr=[];
   var row=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rowsArr.push('<tr><th style="text-align:left;width:96px;background:#f3f5fc;color:#5060aa;font-weight:600;padding:8px 10px;border:1px solid #e3e6f3;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #e3e6f3;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
-  row('이름', who.name);
-  if(fm) row('관계', c.name+'님 '+(fm.rel||'가족'));
-  // 미성년 고객이면 법정대리인 표시 — 고객 레코드의 영구 필드(parent) 우선,
+  // 미성년 고객의 법정대리인 이름 — 고객 레코드의 영구 필드(parent) 우선,
   //   없으면 구버전 데이터 폴백으로 등록요청 큐(custReqs)의 최근 건 조회
+  var _grd='';
   try{
     if(_isMinorRrn(who.rrn||'')){
-      var _grd=who.parent||'';
+      _grd=who.parent||'';
       if(!_grd && c.m){   // 폴백은 담당자 있는 고객만 — 담당자 미기록이면 동명이인 오표시 위험이라 생략
         var _grdName=fm?(fm.name+' ('+c.name+'님 '+(fm.rel||'가족')+')'):c.name;
         var _grdReqs=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
@@ -10304,22 +10303,65 @@ function _renderCustInfoModal(c, fm){
         });
         if(_grdBest) _grd=_grdBest.parent;
       }
-      if(_grd) row('법정대리인', _grd);
     }
   }catch(e){}
-  row('생년월일', bg.birth);
-  row('성별', bg.gender);
-  if(who.rrn) row('주민번호', _fullRrn(who.rrn));
-  row('연락처', who.phone);
-  row('통신사', who.carrier);
-  row('지역', who.region);
-  row('주소', who.addr);
-  row('직업', who.job);
-  row('운전여부', who.drive);
-  if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
-  row('병력', who.disease);
-  row('담당자', c.m);
-  row('특이사항', c.note);
+  // 법정대리인 상세 레코드(고객 본인 또는 같은 고객의 가족에서 이름으로 조회)
+  var _grdP=null, _grdRel='';
+  if(_grd){
+    if(c.name===_grd){ _grdP=c; _grdRel='고객 본인'; }
+    else if(Array.isArray(c.family)){
+      var _gf=c.family.find(function(f){return f&&f.name===_grd;});
+      if(_gf){ _grdP=_gf; _grdRel=c.name+'님 '+(_gf.rel||'가족'); }
+    }
+  }
+  var minorFam=!!(fm && _isMinorRrn(who.rrn||''));
+  if(minorFam){
+    // 자녀(미성년 가족)는 핵심 정보만: 이름·주민번호·핸드폰·직업·키·몸무게 (+관계·담당자)
+    row('이름', who.name);
+    row('관계', c.name+'님 '+(fm.rel||'가족'));
+    if(who.rrn) row('주민번호', _fullRrn(who.rrn));
+    row('연락처', who.phone);
+    row('직업', who.job);
+    if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
+    row('담당자', c.m);
+    if(_grd && !_grdP) row('법정대리인', _grd);   // 상세 레코드를 못 찾으면 이름만이라도
+  } else {
+    row('이름', who.name);
+    if(fm) row('관계', c.name+'님 '+(fm.rel||'가족'));
+    if(_grd && !_grdP) row('법정대리인', _grd);
+    row('생년월일', bg.birth);
+    row('성별', bg.gender);
+    if(who.rrn) row('주민번호', _fullRrn(who.rrn));
+    row('연락처', who.phone);
+    row('통신사', who.carrier);
+    row('지역', who.region);
+    row('주소', who.addr);
+    row('직업', who.job);
+    row('운전여부', who.drive);
+    if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
+    row('병력', who.disease);
+    row('담당자', c.m);
+    row('특이사항', c.note);
+  }
+  // 법정대리인 전체 정보 섹션 (상세 레코드를 찾은 경우)
+  var grdHtml='';
+  if(_grdP){
+    var rows2=[];
+    var row2=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rows2.push('<tr><th style="text-align:left;width:96px;background:#fdf6ec;color:#a05a10;font-weight:600;padding:8px 10px;border:1px solid #f0e3cc;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #f0e3cc;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
+    var bg2=_custBirthGender(_grdP.rrn);
+    row2('이름', _grdP.name);
+    row2('관계', _grdRel);
+    row2('생년월일', bg2.birth);
+    row2('성별', bg2.gender);
+    if(_grdP.rrn) row2('주민번호', _fullRrn(_grdP.rrn));
+    row2('연락처', _grdP.phone);
+    row2('통신사', _grdP.carrier);
+    row2('지역', _grdP.region);
+    row2('주소', _grdP.addr);
+    row2('직업', _grdP.job);
+    grdHtml='<div style="font-weight:700;color:#a05a10;margin:14px 0 6px;font-size:14px">👨‍👩‍👧 법정대리인 정보</div>'
+      +'<table style="border-collapse:collapse;width:100%">'+rows2.join('')+'</table>';
+  }
   // 가족(주고객을 볼 때만 목록 표시)
   var famHtml='';
   if(!fm && Array.isArray(c.family) && c.family.filter(function(f){return f&&f.name;}).length){
@@ -10339,7 +10381,7 @@ function _renderCustInfoModal(c, fm){
       +'</table>';
   }
   if(t) t.textContent=(who.name||'고객')+' 고객정보';
-  body.innerHTML='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+famHtml;
+  body.innerHTML='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+grdHtml+famHtml;
   mb.classList.add('open');
 }
 function closeCustInfo(){ var mb=g('m_custinfo'); if(mb) mb.classList.remove('open'); }
