@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-10</div>
   </div>
 </div>
 
@@ -9729,6 +9729,16 @@ function saveCust(){
   var idx=(g('cust_edit_idx')||{value:''}).value;
   // 수정 시 기존 담당자 유지(없을 때만 현재 사용자)
   if(idx!=='' && Array.isArray(custs) && custs[+idx] && custs[+idx].m) obj.m=custs[+idx].m;
+  // 수정 시 폼에 없는 보존 필드 승계 — 법정대리인(parent)은 등록요청 때 기록됨 (가족은 이름 기준 매칭)
+  if(idx!=='' && Array.isArray(custs) && custs[+idx]){
+    var _oldC=custs[+idx];
+    if(_oldC.parent) obj.parent=_oldC.parent;
+    if(Array.isArray(_oldC.family)) family.forEach(function(f){
+      if(!f.name) return;
+      var om=_oldC.family.find(function(x){return x&&x.name===f.name;});
+      if(om&&om.parent) f.parent=om.parent;
+    });
+  }
   if(idx!=='') custs[+idx]=obj; else { if(!Array.isArray(custs)) custs=[]; custs.push(obj); }
   try{ localStorage.setItem('tops_custs',JSON.stringify(custs)); }catch(e){ console.warn('tops_custs 저장 실패(quota):', e); }
   window._custs = custs;
@@ -9942,6 +9952,7 @@ function sendCustReq(idx, famIdx){
   });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
+  _saveGuardian(idx, famIdx!=null?famIdx:null, parentName);
   notifyChongmuReg(notiName, selected.length);
   toast(notiName+' 님 '+selected.length+'개사 고객등록 요청 완료!');
 }
@@ -10204,6 +10215,19 @@ function _parentOptsFor(c, famIdx){
   });
   return parentOpts;
 }
+// 법정대리인 영구 기록 — 요청 큐(custReqs)가 정리(삭제)돼도 고객정보 모달에서 계속 보이도록
+//   고객 레코드(family[i].parent / c.parent)에 저장. 요청명 매칭과 무관해 관계(rel) 수정에도 안전.
+function _saveGuardian(custIdx, famIdx, parentName){
+  if(!parentName) return;
+  try{
+    var c=custs[custIdx]; if(!c) return;
+    if(famIdx!=null){ if(!c.family||!c.family[famIdx]) return; c.family[famIdx].parent=parentName; }
+    else c.parent=parentName;
+    try{ localStorage.setItem('tops_custs',JSON.stringify(custs)); }catch(e){ console.warn('tops_custs 저장 실패(quota):', e); }
+    window._custs=custs;
+    try{ sv('tops_custs',custs); }catch(e){}
+  }catch(e){}
+}
 // 주민번호 전체 표시(하이픈 정리) — 고객정보 모달용. 모달 자체가 총무·담당자만 열람 가능.
 function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) return '-'; return rrn.length>6 ? rrn.slice(0,6)+'-'+rrn.slice(6) : rrn; }
 // 요청명(예: "홍길동" 또는 "철수 (홍길동님 자녀)")으로 custs에서 고객/가족 찾기
@@ -10264,18 +10288,23 @@ function _renderCustInfoModal(c, fm){
   var row=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rowsArr.push('<tr><th style="text-align:left;width:96px;background:#f3f5fc;color:#5060aa;font-weight:600;padding:8px 10px;border:1px solid #e3e6f3;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #e3e6f3;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
   row('이름', who.name);
   if(fm) row('관계', c.name+'님 '+(fm.rel||'가족'));
-  // 미성년 고객이면 등록요청 때 선택한 법정대리인(최근 건) 표시
+  // 미성년 고객이면 법정대리인 표시 — 고객 레코드의 영구 필드(parent) 우선,
+  //   없으면 구버전 데이터 폴백으로 등록요청 큐(custReqs)의 최근 건 조회
   try{
     if(_isMinorRrn(who.rrn||'')){
-      var _grdName=fm?(fm.name+' ('+c.name+'님 '+(fm.rel||'가족')+')'):c.name;
-      var _grdReqs=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-      var _grdBest=null;
-      _grdReqs.forEach(function(r){
-        if(!r||!r.parent||r.name!==_grdName) return;
-        if(c.m && _agentReal(r.agent||'')!==_agentReal(c.m)) return;   // 동명이인 방지: 담당자 일치 건만
-        if(!_grdBest||(r.regTs||0)>(_grdBest.regTs||0)) _grdBest=r;
-      });
-      if(_grdBest) row('법정대리인', _grdBest.parent);
+      var _grd=who.parent||'';
+      if(!_grd && c.m){   // 폴백은 담당자 있는 고객만 — 담당자 미기록이면 동명이인 오표시 위험이라 생략
+        var _grdName=fm?(fm.name+' ('+c.name+'님 '+(fm.rel||'가족')+')'):c.name;
+        var _grdReqs=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
+        var _grdBest=null;
+        _grdReqs.forEach(function(r){
+          if(!r||!r.parent||r.name!==_grdName) return;
+          if(_agentReal(r.agent||'')!==_agentReal(c.m)) return;   // 동명이인 방지: 담당자 일치 건만
+          if(!_grdBest||(r.regTs||0)>(_grdBest.regTs||0)) _grdBest=r;
+        });
+        if(_grdBest) _grd=_grdBest.parent;
+      }
+      if(_grd) row('법정대리인', _grd);
     }
   }catch(e){}
   row('생년월일', bg.birth);
@@ -10654,6 +10683,7 @@ function _pushMeritzReq(custIdx, famIdx, parentName){
   window.custReqs.push({name:name, ins:'메리츠 가설동', note:note, done:false, reason:'', parent:parentName||'', regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
+  _saveGuardian(custIdx, famIdx, parentName);
   notifyChongmuReg(notiName, 1);
   toast(notiName+' 님 메리츠 가설동 요청 완료!');
 }
