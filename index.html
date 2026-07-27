@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-9</div>
   </div>
 </div>
 
@@ -10264,6 +10264,20 @@ function _renderCustInfoModal(c, fm){
   var row=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rowsArr.push('<tr><th style="text-align:left;width:96px;background:#f3f5fc;color:#5060aa;font-weight:600;padding:8px 10px;border:1px solid #e3e6f3;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #e3e6f3;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
   row('이름', who.name);
   if(fm) row('관계', c.name+'님 '+(fm.rel||'가족'));
+  // 미성년 고객이면 등록요청 때 선택한 법정대리인(최근 건) 표시
+  try{
+    if(_isMinorRrn(who.rrn||'')){
+      var _grdName=fm?(fm.name+' ('+c.name+'님 '+(fm.rel||'가족')+')'):c.name;
+      var _grdReqs=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
+      var _grdBest=null;
+      _grdReqs.forEach(function(r){
+        if(!r||!r.parent||r.name!==_grdName) return;
+        if(c.m && _agentReal(r.agent||'')!==_agentReal(c.m)) return;   // 동명이인 방지: 담당자 일치 건만
+        if(!_grdBest||(r.regTs||0)>(_grdBest.regTs||0)) _grdBest=r;
+      });
+      if(_grdBest) row('법정대리인', _grdBest.parent);
+    }
+  }catch(e){}
   row('생년월일', bg.birth);
   row('성별', bg.gender);
   if(who.rrn) row('주민번호', _fullRrn(who.rrn));
