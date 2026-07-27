@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.27-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.27-2</div>
   </div>
 </div>
 
@@ -10310,7 +10310,9 @@ function _renderCustInfoModal(c, fm){
   if(_grd){
     if(c.name===_grd){ _grdP=c; _grdRel='고객 본인'; }
     else if(Array.isArray(c.family)){
-      var _gf=c.family.find(function(f){return f&&f.name===_grd;});
+      // 동명이인 대비: 이름 일치 중 성인(주민번호상)을 우선 채택 — 대리인은 항상 성인
+      var _gfs=c.family.filter(function(f){return f&&f.name===_grd;});
+      var _gf=_gfs.find(function(f){return !_isMinorRrn(f.rrn||'');})||_gfs[0];
       if(_gf){ _grdP=_gf; _grdRel=c.name+'님 '+(_gf.rel||'가족'); }
     }
   }
