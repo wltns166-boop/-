@@ -307,7 +307,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.23-8</div>
   </div>
 </div>
 
@@ -9777,7 +9777,8 @@ function _reqInsLists(){
 function _reqInsBoxes(arr){
   return arr.map(function(ins){
     var sid=String(ins).replace(/\s/g,'_');
-    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_'+_esc(sid)+'" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_'+_esc(sid)+'" style="font-size:14px;cursor:pointer;color:#1a1a2e">'+_esc(ins)+'</label></div>';
+    // data-ins가 발송(sendCustReq)의 기준 — id는 라벨 연결용
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_'+_esc(sid)+'" data-ins="'+_esc(ins)+'" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_'+_esc(sid)+'" style="font-size:14px;cursor:pointer;color:#1a1a2e">'+_esc(ins)+'</label></div>';
   }).join('');
 }
 
@@ -9841,6 +9842,9 @@ function saveReqInsEdit(){
   };
   var son=read('rie_son'), life=read('rie_life');
   if(!son.length&&!life.length){ toast('보험사를 1개 이상 입력하세요.'); return; }
+  // 손해·생명 교차 중복 차단 — 같은 이름이 양쪽에 있으면 체크박스 id 충돌(함정 E)
+  var dup=son.filter(function(s){ return life.indexOf(s)>=0; });
+  if(dup.length){ toast('손해·생명 양쪽에 같은 이름이 있습니다: '+dup.join(', ')+' — 한쪽에서 지워주세요.'); return; }
   var cfg={son:son, life:life};
   window._reqIns=cfg;
   sv('tops_reqins', cfg);
@@ -9913,13 +9917,13 @@ function sendCustReq(idx, famIdx){
     reqNote='';
     notiName=f.name;
   }
-  var _L=_reqInsLists();
-  var allIns=_L.son.concat(_L.life);
+  // 팝업에 실제 렌더된 체크박스(data-ins)를 그대로 읽음 — 목록 재조회 시점 차이로
+  //   (팝업 열린 사이 다른 기기에서 목록 수정) 선택이 조용히 누락되는 레이스 방지
   var selected=[];
-  allIns.forEach(function(ins){
-    var sid=ins.replace(/\s/g,'_');
-    var cb=document.getElementById('reqins_'+sid);
-    if(cb&&cb.checked) selected.push(ins);
+  document.querySelectorAll('#req_ins_popup input[data-ins]').forEach(function(cb){
+    if(!cb.checked) return;
+    var v=cb.getAttribute('data-ins');
+    if(v&&selected.indexOf(v)<0) selected.push(v);
   });
   // 검증은 팝업을 닫기 전에 — 실패해도 선택 상태 유지
   if(!selected.length){toast('보험사를 1개 이상 선택하세요.');return;}
