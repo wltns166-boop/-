@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-26</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-27</div>
   </div>
 </div>
 
@@ -1570,21 +1570,19 @@ table.dt tr:last-child td{border-bottom:none;}
   <div id="code_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:55vh;overflow-y:auto;margin-top:8px"></div>
 </div></div>
 
-<!-- DB 신청 모달 -->
-<div class="mb" id="m_dbreq"><div class="mo">
-  <div class="mth"><span>DB 신청</span><span class="mc" onclick="g('m_dbreq').classList.remove('open')">×</span></div>
-  <div class="fg"><div class="fl">신청인</div><select class="fs" id="dreq_mem"></select></div>
-  <div class="fr">
-    <div class="fg" style="flex:1"><div class="fl">DB 종류</div><select class="fs" id="dreq_kind" onchange="onDbKindChange()"><option value="">선택</option></select></div>
-    <div class="fg" style="flex:1"><div class="fl">지역</div><select class="fs" id="dreq_region"><option value="">선택</option><option>수도권</option><option>충청도</option><option>경상도</option><option>강원도</option><option>전라도</option></select></div>
+<!-- DB 신청 모달 — 흰 배경(함정 D: 인라인 오버라이드), 여러 신청인×종류를 행으로 추가해 한 번에 저장 -->
+<div class="mb" id="m_dbreq"><div class="mo" style="background:#fff;color:#1a1a2e;max-width:820px;width:96vw">
+  <div class="mth" style="color:#1a1a2e;border-bottom:1px solid #e6e9f6"><span>DB 신청</span><span class="mc" onclick="g('m_dbreq').classList.remove('open')" style="color:#888">×</span></div>
+  <div style="display:grid;grid-template-columns:1.2fr 1.2fr .9fr .7fr 1fr 34px;gap:6px;font-size:12.5px;font-weight:700;color:#5560a8;margin:10px 0 4px">
+    <span>신청인</span><span>DB 종류</span><span>지역</span><span>수량(건)</span><span style="text-align:right">금액</span><span></span>
   </div>
-  <div class="fr">
-    <div class="fg" style="flex:1"><div class="fl">수량 (건)</div><input class="fi" type="number" id="dreq_qty" min="0" placeholder="0" oninput="calcDreq()"></div>
-    <div class="fg" style="flex:1"><div class="fl">단가</div><input class="fi" id="dreq_unit" readonly style="background:#f5f6ff"></div>
+  <div id="dreq_rows"></div>
+  <button type="button" onclick="_dreqAddRow()" style="width:100%;margin-top:6px;padding:8px;border:1px dashed rgba(72,88,204,.45);border-radius:8px;background:#f7f8ff;color:#4858cc;font-weight:700;cursor:pointer;font-family:inherit">+ 행 추가</button>
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px;font-size:15px">
+    <span style="color:#667">총금액</span><b id="dreq_total" style="color:#3848cc;font-size:17px">0원</b>
   </div>
-  <div class="fg"><div class="fl">총금액</div><input class="fi" id="dreq_total" readonly style="background:#f5f6ff;font-weight:700;color:#3848cc"></div>
   <div class="mf">
-    <button class="bca" onclick="g('m_dbreq').classList.remove('open')">취소</button>
+    <button class="bca" onclick="g('m_dbreq').classList.remove('open')" style="background:#f0f1f8;color:#555;border:1px solid #d5d8ea">취소</button>
     <button class="bco" id="m_dbreq_save">신청</button>
   </div>
 </div></div>
@@ -6449,67 +6447,90 @@ function rDbs(){
   setAdmin();
 }
 function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
-// 신청 버튼 (일반 구성원)
+// ===== DB 신청 (다중 행) — 여러 신청인·여러 종류를 행으로 추가해 한 번에 저장 =====
+function _dreqMemOptsHtml(selName){
+  var names=[];
+  try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a2){ if(a2&&a2.name&&names.indexOf(a2.name)<0) names.push(a2.name); }); }catch(e){}
+  (mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
+    .sort(function(x,y){return (+x.code||0)-(+y.code||0);})
+    .forEach(function(m){ if(names.indexOf(m.name)<0) names.push(m.name); });
+  if(selName&&names.indexOf(selName)<0) names.unshift(selName);
+  return names.map(function(n){ return '<option'+(n===selName?' selected':'')+'>'+_esc(n)+'</option>'; }).join('');
+}
+function _dreqKindOptsHtml(){
+  var kinds=(Array.isArray(dbInfo)&&dbInfo.length&&dbInfo[0]&&dbInfo[0].kind!==undefined)?dbInfo:DB_DEFAULTS;
+  return '<option value="">선택</option>'+kinds.map(function(d){
+    var price=+d.price||0;
+    return '<option value="'+_esc(d.kind)+'" data-price="'+price+'">'+_esc(d.kind)+(price?' ('+price.toLocaleString()+'원)':'')+'</option>';
+  }).join('');
+}
+window._dreqRowSeq=0;
+function _dreqAddRow(){
+  var wrap=g('dreq_rows'); if(!wrap) return;
+  var id=++window._dreqRowSeq;
+  var lockMem=!(cu&&cu.admin);   // 팀원은 신청인 본인 고정
+  var st='font-size:14px;padding:8px;border:1px solid #c8cdf0;border-radius:7px;background:#fff;color:#111;font-family:inherit;width:100%;min-width:0';
+  var row=document.createElement('div');
+  row.className='dreq_row';
+  row.style.cssText='display:grid;grid-template-columns:1.2fr 1.2fr .9fr .7fr 1fr 34px;gap:6px;align-items:center;margin-bottom:6px';
+  row.innerHTML=
+    '<select class="dreq_r_mem" style="'+st+(lockMem?';background:#f4f5fb':'')+'"'+(lockMem?' disabled':'')+'>'+_dreqMemOptsHtml((cu&&cu.name)||'')+'</select>'
+    +'<select class="dreq_r_kind" style="'+st+'" onchange="_dreqCalc()">'+_dreqKindOptsHtml()+'</select>'
+    +'<select class="dreq_r_region" style="'+st+'"><option value="">선택</option><option>수도권</option><option>충청도</option><option>경상도</option><option>강원도</option><option>전라도</option></select>'
+    +'<input class="dreq_r_qty" type="number" min="0" placeholder="0" style="'+st+'" oninput="_dreqCalc()">'
+    +'<span class="dreq_r_amt" style="text-align:right;font-weight:700;color:#3848cc;font-size:14px">-</span>'
+    +'<button type="button" onclick="this.parentElement.remove();_dreqCalc()" title="행 삭제" style="width:30px;height:30px;border:1px solid rgba(200,80,80,.35);border-radius:6px;background:#fff5f5;color:#cc4040;cursor:pointer;font-family:inherit">✕</button>';
+  wrap.appendChild(row);
+}
+function _dreqCalc(){
+  var total=0;
+  document.querySelectorAll('#dreq_rows .dreq_row').forEach(function(row){
+    var ks=row.querySelector('.dreq_r_kind');
+    var opt=ks&&ks.options[ks.selectedIndex];
+    var unit=opt&&opt.dataset.price?+opt.dataset.price:0;
+    var q=+((row.querySelector('.dreq_r_qty')||{}).value)||0;
+    var amt=q*unit;
+    var el=row.querySelector('.dreq_r_amt');
+    if(el) el.textContent=amt?amt.toLocaleString()+'원':'-';
+    total+=amt;
+  });
+  var t=g('dreq_total'); if(t) t.textContent=total.toLocaleString()+'원';
+}
 function openDbaReq(){
-  fillSel('dreq_mem');
-  // DB 종류 옵션 채우기 (dbInfo가 있으면 우선, 없으면 기본값)
-  var kindSel=g('dreq_kind');
-  if(kindSel){
-    var kinds=(Array.isArray(dbInfo)&&dbInfo.length&&dbInfo[0]&&dbInfo[0].kind!==undefined)?dbInfo:DB_DEFAULTS;
-    kindSel.innerHTML='<option value="">선택</option>'+kinds.map(function(d){
-      var price=+d.price||0;
-      return '<option value="'+d.kind+'" data-price="'+price+'">'+d.kind+(price?' ('+price.toLocaleString()+'원)':'')+'</option>';
-    }).join('');
-  }
-  const sel=g('dreq_mem');
-  // 본인 이름 자동 선택
-  if(cu.name){
-    let found=false;
-    for(let i=0;i<sel.options.length;i++){
-      if(sel.options[i].value===cu.name){sel.selectedIndex=i;found=true;break;}
-    }
-    // 목록에 없으면 첫 번째로 추가 (팀원 프로필 미등록 케이스)
-    if(!found){
-      const opt=document.createElement('option');
-      opt.value=cu.name;opt.textContent=cu.name;
-      sel.insertBefore(opt,sel.firstChild);sel.selectedIndex=0;
-    }
-  }
-  // 관리자가 아니면 신청인 선택 불가(본인 고정)
-  sel.disabled = !cu.admin;
-  sel.style.background = !cu.admin ? '#f0f0ff' : '';
-  g('dreq_kind').value='';g('dreq_region').value='';g('dreq_qty').value='';g('dreq_unit').value='';g('dreq_total').value='';
+  var wrap=g('dreq_rows'); if(wrap) wrap.innerHTML='';
+  window._dreqRowSeq=0;
+  _dreqAddRow();
+  _dreqCalc();
   g('m_dbreq').classList.add('open');
 }
 // m_dbreq close handled via onclick
 function submitDbreq(){
-  const kindSel=g('dreq_kind');
-  const kindOpt=kindSel.options[kindSel.selectedIndex];
-  const unitPrice=kindOpt&&kindOpt.dataset.price?+kindOpt.dataset.price:0;
-  const qty=+g('dreq_qty').value||0;
-  const obj={m:g('dreq_mem').value,k:g('dreq_kind').value,region:g('dreq_region').value,q:qty,unit:unitPrice,total:qty*unitPrice,dt:td()};
-  if(!obj.k){toast('DB 종류를 선택하세요.');return;}
-  if(!g('dreq_region').value){toast('지역을 선택하세요.');return;}
-  if(!obj.q){toast('수량을 입력하세요.');return;}
-  dba.push(obj);sv('tops_dba',dba);
-  document.getElementById('m_dbreq').classList.remove('open');
-  rDba();toast('신청이 접수되었습니다.');
+  var rows=Array.prototype.slice.call(document.querySelectorAll('#dreq_rows .dreq_row'));
+  if(!rows.length){ toast('행을 추가하세요.'); return; }
+  var objs=[];
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];
+    var ms=row.querySelector('.dreq_r_mem'), ks=row.querySelector('.dreq_r_kind');
+    var opt=ks&&ks.options[ks.selectedIndex];
+    var unit=opt&&opt.dataset.price?+opt.dataset.price:0;
+    var q=+((row.querySelector('.dreq_r_qty')||{}).value)||0;
+    var region=(row.querySelector('.dreq_r_region')||{}).value||'';
+    var kind=(ks||{}).value||'';
+    // 완전히 빈 행(종류·수량 미입력)은 건너뜀 — 일부만 채운 행은 오류 안내
+    if(!kind&&!q){ continue; }
+    if(!kind){ toast((i+1)+'번째 행: DB 종류를 선택하세요.'); return; }
+    if(!region){ toast((i+1)+'번째 행: 지역을 선택하세요.'); return; }
+    if(!q){ toast((i+1)+'번째 행: 수량을 입력하세요.'); return; }
+    objs.push({m:(ms||{}).value||'', k:kind, region:region, q:q, unit:unit, total:q*unit, dt:td()});
+  }
+  if(!objs.length){ toast('신청할 내용을 입력하세요.'); return; }
+  objs.forEach(function(o){ dba.push(o); });
+  sv('tops_dba',dba);
+  g('m_dbreq').classList.remove('open');
+  rDba();
+  toast('신청 '+objs.length+'건이 접수되었습니다.');
 }
 g('m_dbreq_save') && g('m_dbreq_save').addEventListener('click',submitDbreq);
-function onDbKindChange(){
-  const sel=g('dreq_kind');
-  const opt=sel.options[sel.selectedIndex];
-  const price=opt?opt.dataset.price:'';
-  g('dreq_unit').value=price?(+price).toLocaleString()+'원':'';
-  calcDreq();
-}
-function calcDreq(){
-  const sel=g('dreq_kind');
-  const opt=sel?sel.options[sel.selectedIndex]:null;
-  const unit=opt&&opt.dataset.price?+opt.dataset.price:0;
-  const q=+g('dreq_qty').value||0;
-  g('dreq_total').value=q&&unit?(q*unit).toLocaleString()+'원':'';
-}
 // DB 종류 셀렉트(mdb_kind)를 업체관리 [DB 정보 추가]에 등록된 목록으로 채움 — 등록·수정·삭제가 바로 반영.
 //   (마크업의 하드코딩 목록은 스크립트 실패 시 폴백으로만 남겨둠)
 function _fillDbKindSel(){
