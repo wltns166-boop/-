@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/admiring-fermi-1by3Z`
+- 작업 브랜치: `claude/customer-registration-contact-name-3os6lj` (2026-07 기준 — 세션 인계 프롬프트에 다른 브랜치가 명시되면 그쪽 우선)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -136,7 +136,7 @@
 5. 가능하면 핵심 로직을 작은 node 스크립트로 **모의 실행** 검증.
 6. **의미 있는 변경이면** `intranet-guard` + `code-reviewer` 에이전트를 자동 호출해 점검 (1.5 규칙).
 7. **gs(서버) 코드를 바꿨는지** 확인 → 바꿨으면 재배포 필요 안내. (index.html만 고쳤으면 재배포 불필요)
-8. 커밋 후 `claude/admiring-fermi-1by3Z` 로 푸시.
+8. 커밋 후 작업 브랜치(`claude/customer-registration-contact-name-3os6lj`)로 푸시. 푸시하면 GitHub Actions(firebase-deploy.yml)가 자동 배포 — Actions 성공까지 확인.
 
 ## 8. 새 세션 인계
 
