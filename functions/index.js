@@ -484,6 +484,37 @@ async function _kkHandle(body, res) {
       res.json({ ok: sentN > 0, sent: sentN, total: msgs.length, nick: uA.nick || "", error: lastErr || undefined });
       return;
     }
+    if (action === "kktest") {
+      // 연동 관리 화면 [테스트] — 해당 계정의 카톡으로 간단한 확인 메시지 발송 (보고서 캡처 없음)
+      const kidT = String(body.id || "");
+      const [cfgS, tokS] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgT = cfgS.exists ? (cfgS.data() || {}) : {};
+      const usersT = (tokS.exists && (tokS.data() || {}).users) || {};
+      const uT = usersT[kidT];
+      if (!uT) { res.status(404).json({ error: { message: "해당 연동 계정이 없습니다." } }); return; }
+      if (!uT.approved) { res.status(400).json({ error: { message: "승인 후 테스트할 수 있습니다." } }); return; }
+      const ldt = (cfgT.lastKkTest && typeof cfgT.lastKkTest === "object") ? cfgT.lastKkTest : {};
+      if (ldt[kidT] && Date.now() - ldt[kidT] < 10 * 1000) {
+        res.status(429).json({ error: { message: "같은 계정에는 10초에 1회만 테스트 발송할 수 있습니다." } });
+        return;
+      }
+      ldt[kidT] = Date.now();
+      Object.keys(ldt).forEach((k) => { if (Date.now() - ldt[k] > 3600 * 1000) delete ldt[k]; });
+      await KK_CFG().set({ lastKkTest: ldt }, { merge: true }).catch(() => {});
+      const tT = await _kkAccessToken(cfgT, uT);
+      if (!tT.at) {
+        if (tT.relink) { uT.needsRelink = true; await KK_TOK().set({ users: usersT }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 재연동이 필요합니다." });
+        return;
+      }
+      if (tT.upd) { Object.assign(uT, tT.upd); uT.needsRelink = false; await KK_TOK().set({ users: usersT }, { merge: true }).catch(() => {}); }
+      const txtT = "[테스트]\n" + (uT.member ? uT.member + "님, " : "") + "TEAM TOPS 인트라넷 카톡 알림이 정상 연결되었습니다.\nDB 배정 시 이 채팅으로 알림이 발송됩니다.";
+      const tplT = JSON.stringify({ object_type: "text", text: txtT.slice(0, 200), link: { web_url: KK_SITE + "/", mobile_web_url: KK_SITE + "/" }, button_title: "인트라넷 열기" });
+      const sT = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplT }, tT.at);
+      if (sT.ok) res.json({ ok: true, nick: uT.nick || "" });
+      else res.json({ ok: false, error: (sT.data && (sT.data.msg || sT.data.error_description)) || ("전송 실패 " + sT.status) });
+      return;
+    }
     if (action === "sendnow") {
       // 수동 발송 남용 방지: 대상(전체/개인)별 최소 1분 간격
       const onlyId = String(body.id || "");

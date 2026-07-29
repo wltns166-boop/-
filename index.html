@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-20</div>
   </div>
 </div>
 
@@ -5561,7 +5561,8 @@ function _kkDbList(){
         +(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex:0 0 auto">'
         +(u.approved
-          ?(u.member?'<button onclick="kkDbResend('+omem+')" style="font-size:12px;padding:4px 10px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.3);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-send"></i> 배정내역 발송</button>':'')
+          ?('<button onclick="kkDbTest('+oid+')" style="font-size:12px;padding:4px 10px;background:#fffbe6;border:1px solid #e8d870;border-radius:5px;color:#8a7500;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-message-circle"></i> 테스트</button>'
+            +(u.member?'<button onclick="kkDbResend('+omem+')" style="font-size:12px;padding:4px 10px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.3);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-send"></i> 배정내역 발송</button>':''))
           :'<button onclick="kkDbApprove('+oid+')" style="font-size:12px;padding:4px 10px;background:rgba(40,160,100,.12);border:1px solid rgba(60,200,120,.35);border-radius:5px;color:#209658;cursor:pointer;font-family:inherit;font-weight:600">승인</button>')
         +'<button onclick="kkDbUnlink('+oid+')" style="font-size:12px;padding:4px 10px;background:#fff5f5;border:1px solid rgba(200,80,80,.4);border-radius:5px;color:#cc4040;cursor:pointer;font-family:inherit">해제</button>'
         +'</span></div>';
@@ -5599,6 +5600,13 @@ function kkDbUnlink(id){
     toast(r&&r.ok?'해제했습니다.':((r&&r.error&&r.error.message)||'해제 실패'));
     _kkDbList();
   }).catch(function(){ toast('해제 요청 실패'); });
+}
+// 테스트 카톡 발송 — 연결 확인용 간단 메시지 (보고서 캡처 없음, 계정별 10초 간격)
+function kkDbTest(id){
+  _kkApi('kktest',{id:id}).then(function(r){
+    if(r&&r.ok) toast('테스트 카톡을 보냈습니다'+(r.nick?' ('+r.nick+')':'')+'. 카톡 "나와의 채팅"을 확인하세요.');
+    else toast('테스트 실패: '+((r&&((r.error&&r.error.message)||r.error))||'알 수 없는 오류'));
+  }).catch(function(){ toast('테스트 요청 실패 — 인터넷 연결을 확인하세요.'); });
 }
 // 이번 달 배정 내역을 해당 팀원 카톡으로 수동 발송 (배정 시점에 미연동이었던 팀원 재전송용)
 function kkDbResend(member){
