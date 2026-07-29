@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-18</div>
   </div>
 </div>
 
@@ -572,8 +572,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <select id="dbinfo_month" onchange="rDbInfo()" title="월별 보기" style="padding:8px 10px;border:1px solid rgba(80,90,180,.3);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;color:#334;cursor:pointer"></select>
           <button class="bp bpd" onclick="exportDbInfoExcel()"><i class="ti ti-table-export"></i> 엑셀로 저장</button>
           <button class="bp bpd ao" onclick="openDbInfoModal()"><i class="ti ti-plus"></i> DB 정보 추가</button>
-          <!-- 팀원 카카오 연동 — 연동+관리자 승인 시 DB 배정 알림이 본인 카톡(나와의 채팅)으로 발송 -->
-          <button class="bp" id="btn_kk_link" onclick="kkMemberLink()" style="background:#fee500;border:1px solid #f5d900;color:#191919;font-weight:700"><i class="ti ti-message-circle"></i> 카톡 알림 연동</button>
+          <!-- 카톡 알림 연동 관리(관리자 전용) — 팀원별 연동 링크 발급·연동 현황·배정내역 수동 발송 -->
+          <button class="bp ao" id="btn_kk_link" onclick="openKkDbMgr()" style="background:#fee500;border:1px solid #f5d900;color:#191919;font-weight:700"><i class="ti ti-message-circle"></i> 카톡 알림 연동</button>
         </div>
       </div>
       <!-- 본인 DB 배정현황 요약 — 팀원도 자기 잔여량을 여기서 확인 (배정현황 메뉴는 관리자 전용) -->
@@ -5514,16 +5514,106 @@ function kkOpen(){
   g('m_kkauto').classList.add('open');
   kkLoad();
 }
-// 팀원 본인 카카오 연동 (DB 정보 페이지 버튼) — 로그인한 팀원 이름을 state로 넘겨
-// 연동 계정에 기록 → DB 배정 시 그 팀원의 카톡으로 알림 발송. 관리자 승인은 기존 승인제 그대로.
-function kkMemberLink(){
-  if(!cu){ toast('로그인 후 이용하세요.'); return; }
-  var btn=g('btn_kk_link'); if(btn){ btn.disabled=true; }
-  _kkApi('authurl',{member:cu.name||''}).then(function(r){
+// ===== 카톡 알림 연동 관리 (DB 정보 페이지, 관리자 전용) =====
+// 팀원별 연동 링크 발급(링크를 카톡 등으로 전달 → 팀원 본인이 카카오 로그인) / 연동 현황 리스트 /
+// 승인·해제 / 이번 달 배정내역 수동 발송. 발송 대상 매핑은 링크에 심은 팀원 이름(state) 기준.
+function openKkDbMgr(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var old=g('kkdbmgr_popup'); if(old) old.remove();
+  var names=(mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
+    .sort(function(a,b){return (+a.code||0)-(+b.code||0);})
+    .map(function(m){return m.name;});
+  var el=document.createElement('div');
+  el.id='kkdbmgr_popup';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:680px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="font-size:17px;font-weight:700;margin-bottom:4px;color:#1a1a2e">💬 카톡 알림 연동 관리</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:14px">팀원을 선택해 연동 링크를 만들어 전달하세요. 팀원이 링크에서 <b>본인 카카오로 로그인</b>하면 아래 목록에 나타나고, 승인하면 DB 배정 시 카톡 알림이 발송됩니다.</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f5f6ff;border-radius:10px;padding:12px;margin-bottom:14px">'
+      +'<select id="kkdb_mem" style="padding:7px 10px;border:1px solid #c8cdf0;border-radius:7px;font-family:inherit;font-size:14px;background:#fff">'
+        +names.map(function(n){return '<option>'+_esc(n)+'</option>';}).join('')
+      +'</select>'
+      +'<button onclick="kkDbCopyLink()" style="padding:7px 14px;background:#4858cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-link"></i> 연동 링크 복사</button>'
+      +'<button onclick="kkDbLinkHere()" style="padding:7px 14px;background:#fee500;color:#191919;border:1px solid #f5d900;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">이 기기에서 바로 연동</button>'
+    +'</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:6px">연동된 인원</div>'
+    +'<div id="kkdb_list" style="font-size:14px;color:#333">불러오는 중…</div>'
+    +'<div style="text-align:right;margin-top:14px"><button onclick="document.getElementById(\'kkdbmgr_popup\').remove()" style="padding:8px 18px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">닫기</button></div>'
+  +'</div>';
+  document.body.appendChild(el);
+  _kkDbList();
+}
+function _kkDbList(){
+  var box=g('kkdb_list'); if(!box) return;
+  _kkApi('status').then(function(st){
+    if(!st||!st.ok){ box.textContent=(st&&st.error&&st.error.message)||'상태를 불러오지 못했습니다. (카카오 REST 키 미설정일 수 있음)'; return; }
+    var users=st.users||[];
+    if(!users.length){ box.innerHTML='<div style="color:#888;padding:16px;text-align:center">아직 연동된 계정이 없습니다.<br><span style="font-size:12px">위에서 연동 링크를 만들어 팀원에게 전달하세요.</span></div>'; return; }
+    box.innerHTML=users.map(function(u){
+      // 함정 A: 카카오ID(고유 식별자)로 동작 — 표시 순서 인덱스 사용 안 함
+      var oid=JSON.stringify(String(u.id)).replace(/"/g,'&quot;');
+      var omem=JSON.stringify(String(u.member||'')).replace(/"/g,'&quot;');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e4e7f5;border-radius:9px;margin-bottom:6px;flex-wrap:wrap">'
+        +'<span><b style="color:#1a1a3a">'+(u.member?_esc(u.member):'<span style="color:#cc7020">팀원 미지정</span>')+'</b>'
+        +' <span style="color:#666;font-size:13px">카카오: '+_esc(u.nick||'-')+'</span>'
+        +' <span style="color:#999;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
+        +(u.approved?' <span style="color:#209658;font-size:12px;font-weight:700">승인됨</span>':' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기</span>')
+        +(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
+        +'<span style="display:flex;gap:6px;flex:0 0 auto">'
+        +(u.approved
+          ?(u.member?'<button onclick="kkDbResend('+omem+')" style="font-size:12px;padding:4px 10px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.3);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-send"></i> 배정내역 발송</button>':'')
+          :'<button onclick="kkDbApprove('+oid+')" style="font-size:12px;padding:4px 10px;background:rgba(40,160,100,.12);border:1px solid rgba(60,200,120,.35);border-radius:5px;color:#209658;cursor:pointer;font-family:inherit;font-weight:600">승인</button>')
+        +'<button onclick="kkDbUnlink('+oid+')" style="font-size:12px;padding:4px 10px;background:#fff5f5;border:1px solid rgba(200,80,80,.4);border-radius:5px;color:#cc4040;cursor:pointer;font-family:inherit">해제</button>'
+        +'</span></div>';
+    }).join('');
+  }).catch(function(){ box.textContent='서버 통신 오류 — 잠시 후 다시 시도하세요.'; });
+}
+function kkDbCopyLink(){
+  var nm=(g('kkdb_mem')||{value:''}).value;
+  if(!nm){ toast('팀원을 선택하세요.'); return; }
+  _kkApi('authurl',{member:nm}).then(function(r){
+    if(!(r&&r.ok&&r.url)){ toast((r&&r.error&&r.error.message)||'링크 생성 실패'); return; }
+    var done=function(){ toast(nm+'님 연동 링크를 복사했습니다. 카톡 등으로 전달하세요. (본인 카카오로 로그인해야 합니다)'); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(r.url).then(done).catch(function(){ prompt('아래 링크를 복사해 전달하세요:', r.url); }); }
+    else prompt('아래 링크를 복사해 전달하세요:', r.url);
+  }).catch(function(){ toast('링크 생성 실패 — 인터넷 연결을 확인하세요.'); });
+}
+function kkDbLinkHere(){
+  var nm=(g('kkdb_mem')||{value:''}).value;
+  if(!nm){ toast('팀원을 선택하세요.'); return; }
+  if(!confirm('『'+nm+'』님 연동을 이 기기에서 진행합니다.\n카카오 로그인 화면에서 반드시 "'+nm+'" 본인의 카카오 계정으로 로그인해야 합니다.\n계속할까요?')) return;
+  _kkApi('authurl',{member:nm}).then(function(r){
     if(r&&r.ok&&r.url){ location.href=r.url; return; }
-    toast((r&&r.error&&r.error.message)||'연동 준비가 안 됐습니다 — 관리자에게 문의하세요.');
-    if(btn) btn.disabled=false;
-  }).catch(function(){ toast('연동 요청 실패 — 인터넷 연결을 확인하세요.'); if(btn) btn.disabled=false; });
+    toast((r&&r.error&&r.error.message)||'연동 URL 생성 실패');
+  }).catch(function(){ toast('연동 요청 실패 — 인터넷 연결을 확인하세요.'); });
+}
+function kkDbApprove(id){
+  _kkApi('approve',{id:id}).then(function(r){
+    toast(r&&r.ok?'승인했습니다. 이제 DB 배정 시 카톡 알림이 발송됩니다.':((r&&r.error&&r.error.message)||'승인 실패'));
+    _kkDbList();
+  }).catch(function(){ toast('승인 요청 실패'); });
+}
+function kkDbUnlink(id){
+  if(!confirm('이 연동을 해제할까요?\n해제하면 그 팀원은 카톡 알림을 받지 못합니다.')) return;
+  _kkApi('unlink',{id:id}).then(function(r){
+    toast(r&&r.ok?'해제했습니다.':((r&&r.error&&r.error.message)||'해제 실패'));
+    _kkDbList();
+  }).catch(function(){ toast('해제 요청 실패'); });
+}
+// 이번 달 배정 내역을 해당 팀원 카톡으로 수동 발송 (배정 시점에 미연동이었던 팀원 재전송용)
+function kkDbResend(member){
+  var ym=_curYm();
+  var items=dbs.filter(function(d){
+    return d&&d.m===member&&String(d.dt||'').slice(0,7)===ym;
+  }).map(function(d){
+    return {kind:d.k,region:d.region||'',qty:+d.q||0,src:d.src||'현월',dt:d.dt||'',
+      notes:(d.notes||[]).map(function(n){ n=n||{}; return {name:n.name||'',phone:n.phone||'',birth:n.birth||''}; })};
+  });
+  if(!items.length){ toast(member+'님의 이번 달 배정 내역이 없습니다.'); return; }
+  _kkApi('dbassign',{member:member, items:items}).then(function(r){
+    if(r&&r.ok) toast(member+'님 카톡으로 배정내역을 발송했습니다.'+(r.total>1?' ('+r.sent+'/'+r.total+'통)':''));
+    else toast('발송 실패: '+((r&&(r.error||(r.error&&r.error.message)))||'알 수 없는 오류'));
+  }).catch(function(){ toast('발송 요청 실패 — 인터넷 연결을 확인하세요.'); });
 }
 // DB 배정 저장 직후 호출 — 배정된 팀원의 카톡으로 배정 내용(고객 정보 포함) 발송.
 // 미연동·발송 실패는 배정 자체에 영향 없음(콘솔 로그만 — 웹푸시 알림은 별도로 감).

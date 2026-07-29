@@ -430,18 +430,34 @@ async function _kkHandle(body, res) {
       if (tA.upd) { Object.assign(uA, tA.upd); uA.needsRelink = false; await KK_TOK().set({ users: usersA }, { merge: true }).catch(() => {}); }
 
       // 메시지 구성 — 카카오 텍스트 템플릿은 200자 제한이라 고객 내역을 여러 통으로 나눠 발송(최대 5통)
-      const kind = String(body.kind || "-").slice(0, 20);
-      const region = String(body.region || "-").slice(0, 10);
-      const qty = +body.qty || 0;
-      const srcType = String(body.src || "현월").slice(0, 10);
-      const dtStr = String(body.dt || "").slice(0, 10);
-      const notes = Array.isArray(body.notes) ? body.notes.slice(0, 50) : [];
-      const head = "[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류: " + kind + " (" + region + ")\n배정종류: " + srcType + " · 배정일: " + dtStr;
-      const lines = notes.map((n, i) => {
+      //   body.items 배열이 오면 "관리자 수동 발송(이번 달 배정 내역 묶음)" 모드.
+      const noteLine = (n, i) => {
         n = n || {};
         const parts = [String(n.name || "").trim(), String(n.phone || "").trim(), String(n.birth || "").trim()].filter(Boolean);
         return (i + 1) + ". " + (parts.join(" ").slice(0, 60) || "(정보 미입력)");
-      });
+      };
+      const items = Array.isArray(body.items) ? body.items.slice(0, 10) : null;
+      let head, lines;
+      if (items) {
+        let totalQ = 0; items.forEach((it) => { totalQ += (+((it || {}).qty) || 0); });
+        head = "[DB 배정 내역]\n" + member + "님, 이번 달 배정 내역 " + totalQ + "건입니다.";
+        lines = [];
+        items.forEach((it) => {
+          it = it || {};
+          lines.push("▶ " + String(it.kind || "-").slice(0, 20) + " (" + String(it.region || "-").slice(0, 10) + ") "
+            + (+it.qty || 0) + "건 · " + String(it.src || "현월").slice(0, 10) + " · " + String(it.dt || "").slice(0, 10));
+          (Array.isArray(it.notes) ? it.notes.slice(0, 50) : []).forEach((n, i) => lines.push(noteLine(n, i)));
+        });
+      } else {
+        const kind = String(body.kind || "-").slice(0, 20);
+        const region = String(body.region || "-").slice(0, 10);
+        const qty = +body.qty || 0;
+        const srcType = String(body.src || "현월").slice(0, 10);
+        const dtStr = String(body.dt || "").slice(0, 10);
+        const notes = Array.isArray(body.notes) ? body.notes.slice(0, 50) : [];
+        head = "[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류: " + kind + " (" + region + ")\n배정종류: " + srcType + " · 배정일: " + dtStr;
+        lines = notes.map(noteLine);
+      }
       const msgs = [];
       let curMsg = head;
       for (const ln of lines) {
