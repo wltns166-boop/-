@@ -116,6 +116,18 @@
   다음 로그인부터 로컬 표식을 지워 재인증 요구.
 - ⚠️ **Firebase 콘솔에서 Authentication > 전화 활성화 + Blaze 결제 필요** — 미설정이면 fail-open으로 동작(게이트 사실상 꺼짐).
 
+### 3.7 카톡 DB 배정 알림 (2026-07-29)
+
+- 관리자가 DB 배정 저장 시 `_kkDbAssignNotify()` → functions `dbassign` 액션 → 배정된 팀원의
+  카카오 '나와의 채팅'으로 배정 내용(고객 성함·연락처·생년월일 포함, 200자 분할 최대 5통) 발송.
+- 팀원 연동: DB 정보 페이지 [카톡 알림 연동] 버튼 → OAuth state로 로그인 팀원 이름 전달 →
+  `users[kid].member`에 기록. **매칭은 member 필드만** 사용(닉네임 폴백 금지 — 사칭 오발송 방지),
+  같은 이름 매핑 2개 이상이면 발송 보류. 승인제는 일일보고와 공용(관리자 [카톡 자동발송] 설정).
+- ⚠️ 구조적 한계: `/api/kakao`의 approve 등은 익명 Firebase 토큰만 검증(서버 측 관리자 검증 없음)
+  — 기존 firestore.rules 한계와 동일 계열. 근본 해결은 서버 권한 작업 별도 필요.
+  관리자는 승인 전에 연동 목록의 [팀원: 이름]과 카카오 닉네임이 실제 본인인지 확인할 것.
+- functions 배포: `.github/workflows/functions-deploy.yml` — functions/** 변경 푸시 시 자동.
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.

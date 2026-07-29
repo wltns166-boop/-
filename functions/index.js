@@ -400,9 +400,16 @@ async function _kkHandle(body, res) {
       const cfgA = cfgSnapA.exists ? (cfgSnapA.data() || {}) : {};
       const usersA = (tokSnapA.exists && (tokSnapA.data() || {}).users) || {};
       if (!cfgA.restKey) { res.json({ ok: false, error: "REST API 키 미설정" }); return; }
-      const kidA = Object.keys(usersA).find((id) => usersA[id] && usersA[id].approved && String(usersA[id].member || "") === member)
-        || Object.keys(usersA).find((id) => usersA[id] && usersA[id].approved && String(usersA[id].nick || "") === member);
-      if (!kidA) { res.json({ ok: false, error: "카톡 미연동/미승인: " + member }); return; }
+      // 매칭은 연동 시 기록된 member(팀원 이름)로만 — 카카오 닉네임 폴백은 쓰지 않는다
+      //   (닉네임은 본인이 아무 이름으로나 바꿀 수 있어 타인 사칭 → 고객 정보 오발송 경로가 됨).
+      // 같은 이름 매핑이 2개 이상이면 오발송 위험이므로 발송을 보류하고 관리자 확인을 요구한다.
+      const matched = Object.keys(usersA).filter((id) => usersA[id] && usersA[id].approved && String(usersA[id].member || "") === member);
+      if (!matched.length) { res.json({ ok: false, error: "카톡 미연동/미승인: " + member }); return; }
+      if (matched.length > 1) {
+        res.json({ ok: false, error: "'" + member + "' 매핑 계정이 " + matched.length + "개입니다 — 카톡 설정에서 중복 연동을 정리한 뒤 다시 시도하세요." });
+        return;
+      }
+      const kidA = matched[0];
       // 남용 방지: 같은 팀원 대상 10초 간격
       const lda = (cfgA.lastDbAssign && typeof cfgA.lastDbAssign === "object") ? cfgA.lastDbAssign : {};
       if (lda[kidA] && Date.now() - lda[kidA] < 10 * 1000) {
