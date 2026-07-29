@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-16</div>
   </div>
 </div>
 
@@ -574,6 +574,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <button class="bp bpd ao" onclick="openDbInfoModal()"><i class="ti ti-plus"></i> DB 정보 추가</button>
         </div>
       </div>
+      <!-- 본인 DB 배정현황 요약 — 팀원도 자기 잔여량을 여기서 확인 (배정현황 메뉴는 관리자 전용) -->
+      <div id="dbinfo_my_sum"></div>
       <div id="db_info_cards" style="width:100%"></div>
     </div>
 
@@ -6126,7 +6128,7 @@ function rDba(){
 // 총수량 = 현월 구매 + 이월 + 교환. 재고 내 배정이면 배정 3칸+잔여 3칸 합과 일치하고,
 // 재고보다 배정이 많으면(구매 기록 없는 배정·과배정) 현월 배정 칸을 붉게 표시해 알린다.
 // 잔여 합계가 0인(배정 완료) 인원은 표 맨 아래로 내리고 이름 옆에 '배정완료' 배지를 단다.
-function _dbsPersonSumHTML(myTeam, viewYm){
+function _dbsPersonSumHTML(myTeam, viewYm, title){
   const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
   const regSort=function(x,y){
     var ix=REGION_ORDER.indexOf(x), iy=REGION_ORDER.indexOf(y);
@@ -6223,7 +6225,7 @@ function _dbsPersonSumHTML(myTeam, viewYm){
   const p2=(viewYm||'').split('-');
   const ymLabel=(p2.length===2)?((+p2[0])+'년 '+(+p2[1])+'월'):'';
   return '<div class="card" style="margin-bottom:16px">'
-    +'<div style="font-size:15px;font-weight:700;color:#3848cc;margin:2px 0 10px"><i class="ti ti-users"></i> 인원별 DB 잔여량 <span style="font-size:12px;font-weight:500;color:#8890bb">('+_esc(ymLabel)+' 기준 · 이월=전월 잔여 · 교환=교환완료 건)</span></div>'
+    +'<div style="font-size:15px;font-weight:700;color:#3848cc;margin:2px 0 10px"><i class="ti ti-users"></i> '+_esc(title||'인원별 DB 잔여량')+' <span style="font-size:12px;font-weight:500;color:#8890bb">('+_esc(ymLabel)+' 기준 · 이월=전월 잔여 · 교환=교환완료 건)</span></div>'
     +'<table class="dt"><thead>'
     +'<tr><th rowspan="2">이름</th><th rowspan="2">DB종류</th><th rowspan="2">지역</th><th colspan="3" style="text-align:center;border-left:2px solid rgba(80,100,220,.22)">배정수량</th><th colspan="3" style="text-align:center;border-left:2px solid rgba(80,100,220,.22)">잔여수량</th><th rowspan="2" style="border-left:2px solid rgba(80,100,220,.22)">총수량</th></tr>'
     +'<tr><th style="font-size:13px;font-weight:600;text-align:center;border-left:2px solid rgba(80,100,220,.22)">현월</th><th style="font-size:13px;font-weight:600;text-align:center">이월</th><th style="font-size:13px;font-weight:600;text-align:center">교환</th><th style="font-size:13px;font-weight:600;text-align:center;border-left:2px solid rgba(80,100,220,.22)">현월</th><th style="font-size:13px;font-weight:600;text-align:center">이월</th><th style="font-size:13px;font-weight:600;text-align:center">교환</th></tr>'
@@ -7236,6 +7238,17 @@ function exportDbaExcel(){
 // ===== DB 정보 =====
 function rDbInfo(){
   const el=g('db_info_cards');
+  // 본인 DB 배정현황 (이번 달 기준) — 이름·코드 어느 쪽으로 배정됐어도 잡히게 둘 다 전달
+  try{
+    var ps=g('dbinfo_my_sum');
+    if(ps){
+      var keys=[]; if(cu&&cu.name) keys.push(cu.name); if(cu&&cu.code) keys.push(String(cu.code));
+      ps.innerHTML=keys.length
+        ? (_dbsPersonSumHTML(keys, _curYm(), '내 DB 배정현황')
+           || '<div class="card" style="margin-bottom:16px"><div class="em" style="padding:20px;color:#8890bb">이번 달 기준 배정·잔여 DB가 없습니다.</div></div>')
+        : '';
+    }
+  }catch(e){ console.warn('내 DB 배정현황 렌더 오류:',e); }
 
   // 관리자: 전체 / 팀원: 본인에게 배정받은 내역만
   var _isAdm = (typeof _isAdmin==='function') ? _isAdmin() : !!(cu&&cu.admin);
