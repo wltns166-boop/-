@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-7</div>
   </div>
 </div>
 
@@ -6149,11 +6149,19 @@ function _dbsPersonSumHTML(myTeam){
       const a=(asg[nm]&&asg[nm][k])||0;
       const remain=Math.max(0,b.qty-a);
       const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
-      const regionTxt=Object.keys(b.regions).map(function(r){ return r+' '+b.regions[r].toLocaleString(); }).join(' · ')||'-';
+      // 지역: 숫자 없이 이름만, 고정 순서(수도권→충청도→…)로 한 줄씩 세로 표시
+      const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
+      const regionHtml=Object.keys(b.regions)
+        .sort(function(x,y){
+          var ix=REGION_ORDER.indexOf(x), iy=REGION_ORDER.indexOf(y);
+          if(ix<0) ix=99; if(iy<0) iy=99;
+          return (ix-iy)||x.localeCompare(y);
+        })
+        .map(function(r){ return _esc(r); }).join('<br>')||'-';
       rows+='<tr>'
         +(ki===0?('<td rowspan="'+ks.length+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
         +'<td style="font-weight:600;color:#2040cc">'+_esc(k)+'</td>'
-        +'<td style="color:#555;font-size:13px">'+_esc(regionTxt)+'</td>'
+        +'<td style="color:#555;font-size:13px;line-height:1.7">'+regionHtml+'</td>'
         +'<td style="color:#2060cc;font-weight:600">'+a.toLocaleString()+'건</td>'
         +'<td style="color:'+remainColor+';font-weight:700">'+remain.toLocaleString()+'건</td>'
         +'<td style="color:#333;font-weight:600">'+b.qty.toLocaleString()+'건</td>'
