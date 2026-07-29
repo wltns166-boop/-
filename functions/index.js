@@ -429,24 +429,34 @@ async function _kkHandle(body, res) {
       }
       if (tA.upd) { Object.assign(uA, tA.upd); uA.needsRelink = false; await KK_TOK().set({ users: usersA }, { merge: true }).catch(() => {}); }
 
-      // 메시지 구성 — 카카오 텍스트 템플릿은 200자 제한이라 고객 내역을 여러 통으로 나눠 발송(최대 5통)
+      // 메시지 구성 — 고객마다 항목 라벨(성함/연락처/생년월일/성별/보험료/통화가능시간/주소) 형식.
+      //   카카오 텍스트 템플릿 200자 제한: 고객 블록 단위로 나눠 여러 통 발송(최대 5통, 초과분 생략 안내).
       //   body.items 배열이 오면 "관리자 수동 발송(이번 달 배정 내역 묶음)" 모드.
-      const noteLine = (n, i) => {
+      const custBlock = (n, i, many) => {
         n = n || {};
-        const parts = [String(n.name || "").trim(), String(n.phone || "").trim(), String(n.birth || "").trim()].filter(Boolean);
-        return (i + 1) + ". " + (parts.join(" ").slice(0, 60) || "(정보 미입력)");
+        const f = (v, len) => (String(v || "").trim().slice(0, len) || "-");
+        const L = [];
+        if (many) L.push("[" + (i + 1) + "번 DB]");
+        L.push("성함 : " + f(n.name, 20));
+        L.push("연락처 : " + f(n.phone, 20));
+        L.push("생년월일 : " + f(n.birth, 20));
+        L.push("성별 : " + f(n.gender, 4));
+        L.push("보험료 : " + f(n.premium, 15));
+        L.push("통화가능시간 : " + f(n.calltime, 20));
+        L.push("주소 : " + f(n.address, 50));
+        return L.join("\n");
       };
       const items = Array.isArray(body.items) ? body.items.slice(0, 10) : null;
-      let head, lines;
+      let blocks = [];
       if (items) {
         let totalQ = 0; items.forEach((it) => { totalQ += (+((it || {}).qty) || 0); });
-        head = "[DB 배정 내역]\n" + member + "님, 이번 달 배정 내역 " + totalQ + "건입니다.";
-        lines = [];
+        blocks.push("[DB 배정 내역]\n" + member + "님, 이번 달 배정 내역 " + totalQ + "건입니다.");
         items.forEach((it) => {
           it = it || {};
-          lines.push("▶ " + String(it.kind || "-").slice(0, 20) + " (" + String(it.region || "-").slice(0, 10) + ") "
+          blocks.push("▶ 종류 : " + String(it.kind || "-").slice(0, 20) + " (" + String(it.region || "-").slice(0, 10) + ") "
             + (+it.qty || 0) + "건 · " + String(it.src || "현월").slice(0, 10) + " · " + String(it.dt || "").slice(0, 10));
-          (Array.isArray(it.notes) ? it.notes.slice(0, 50) : []).forEach((n, i) => lines.push(noteLine(n, i)));
+          const ns = Array.isArray(it.notes) ? it.notes.slice(0, 50) : [];
+          ns.forEach((n, i) => blocks.push(custBlock(n, i, ns.length > 1)));
         });
       } else {
         const kind = String(body.kind || "-").slice(0, 20);
@@ -455,16 +465,18 @@ async function _kkHandle(body, res) {
         const srcType = String(body.src || "현월").slice(0, 10);
         const dtStr = String(body.dt || "").slice(0, 10);
         const notes = Array.isArray(body.notes) ? body.notes.slice(0, 50) : [];
-        head = "[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류: " + kind + " (" + region + ")\n배정종류: " + srcType + " · 배정일: " + dtStr;
-        lines = notes.map(noteLine);
+        blocks.push("[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류 : " + kind + " (" + region + ")\n배정종류 : " + srcType + " · 배정일 : " + dtStr);
+        notes.forEach((n, i) => blocks.push(custBlock(n, i, notes.length > 1)));
       }
+      // 블록 단위로 200자에 맞춰 묶기
       const msgs = [];
-      let curMsg = head;
-      for (const ln of lines) {
-        if ((curMsg + "\n" + ln).length > 190) { msgs.push(curMsg); curMsg = "(계속)"; }
-        curMsg += "\n" + ln;
+      let curMsg = "";
+      for (const bk of blocks) {
+        if (!curMsg) curMsg = bk;
+        else if ((curMsg + "\n\n" + bk).length > 195) { msgs.push(curMsg); curMsg = bk; }
+        else curMsg += "\n\n" + bk;
       }
-      msgs.push(curMsg);
+      if (curMsg) msgs.push(curMsg);
       let cut = false;
       while (msgs.length > 5) { msgs.pop(); cut = true; }
       if (cut) msgs[msgs.length - 1] = msgs[msgs.length - 1].slice(0, 150) + "\n…이하 생략 — 인트라넷에서 확인";

@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-24</div>
   </div>
 </div>
 
@@ -5643,7 +5643,7 @@ function kkDbResend(member){
     return d&&d.m===member&&String(d.dt||'').slice(0,7)===ym;
   }).map(function(d){
     return {kind:d.k,region:d.region||'',qty:+d.q||0,src:d.src||'현월',dt:d.dt||'',
-      notes:(d.notes||[]).map(function(n){ n=n||{}; return {name:n.name||'',phone:n.phone||'',birth:n.birth||''}; })};
+      notes:(d.notes||[]).map(function(n){ n=n||{}; return {name:n.name||'',phone:n.phone||'',birth:n.birth||'',gender:n.gender||'',premium:n.premium||'',calltime:n.calltime||'',address:n.address||''}; })};
   });
   if(!items.length){ toast(member+'님의 이번 달 배정 내역이 없습니다.'); return; }
   _kkApi('dbassign',{member:member, items:items}).then(function(r){
@@ -5657,7 +5657,8 @@ function _kkDbAssignNotify(obj){
   try{
     var notes=(obj.notes||[]).map(function(n){
       n=n||{};
-      return {name:n.name||'', phone:n.phone||'', birth:n.birth||''};
+      return {name:n.name||'', phone:n.phone||'', birth:n.birth||'', gender:n.gender||'',
+        premium:n.premium||'', calltime:n.calltime||'', address:n.address||''};
     });
     _kkApi('dbassign',{member:obj.m, kind:obj.k, region:obj.region||'', qty:obj.q||0, src:obj.src||'현월', dt:obj.dt||'', notes:notes}).then(function(r){
       if(r&&r.ok) toast('카톡 알림 발송 완료 ('+obj.m+(r.total>1?' · '+r.sent+'/'+r.total+'통':'')+')');
