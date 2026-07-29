@@ -309,10 +309,13 @@ async function _kkHandle(body, res) {
       const cfgSnap = await KK_CFG().get();
       const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
       if (!cfg.restKey) { res.status(400).json({ error: { message: "먼저 REST API 키를 저장하세요." } }); return; }
+      // member: 인트라넷 로그인 팀원 이름 — state로 전달해 연동 완료 시 계정에 기록(배정 알림 대상 매칭용)
+      const stMember = String(body.member || "").trim().slice(0, 30);
       const url = "https://kauth.kakao.com/oauth/authorize?response_type=code"
         + "&client_id=" + encodeURIComponent(cfg.restKey)
         + "&redirect_uri=" + encodeURIComponent(KK_REDIRECT)
-        + "&scope=" + encodeURIComponent("talk_message,profile_nickname");
+        + "&scope=" + encodeURIComponent("talk_message,profile_nickname")
+        + (stMember ? "&state=" + encodeURIComponent(stMember) : "");
       res.json({ ok: true, url });
       return;
     }
@@ -342,10 +345,13 @@ async function _kkHandle(body, res) {
       // 신규 연동은 승인 대기 상태로 — 관리자가 설정 화면에서 [승인]해야 발송 대상이 된다
       // (외부인이 임의로 자기 계정을 수신자로 등록하는 것을 막는 장치. 재연동은 기존 승인 유지)
       const wasApproved = !!(users[kid] && users[kid].approved);
+      // 연동 시 인트라넷 팀원 이름(state) 기록 — DB 배정 알림에서 '팀원 이름 → 카카오 계정' 매칭에 사용.
+      // 재연동 시 state가 없으면 기존 매핑 유지.
+      const memberNm = String(body.state || "").trim().slice(0, 30) || (users[kid] && users[kid].member) || "";
       users[kid] = {
         nick, rt: t.data.refresh_token || (users[kid] && users[kid].rt) || "",
         at: t.data.access_token, atExp: Date.now() + (t.data.expires_in || 21600) * 1000,
-        linkedAt: _kkToday(), needsRelink: false, approved: wasApproved
+        linkedAt: _kkToday(), needsRelink: false, approved: wasApproved, member: memberNm
       };
       await KK_TOK().set({ users }, { merge: true });
       res.json({ ok: true, nick, approved: wasApproved });
@@ -379,9 +385,80 @@ async function _kkHandle(body, res) {
         keyHint: cfg.restKey ? (String(cfg.restKey).slice(0, 4) + "····" + String(cfg.restKey).slice(-4)) : "",
         enabled: !!cfg.enabled, sendTime: cfg.sendTime || "18:00", skipWeekend: !!cfg.skipWeekend,
         lastSentDate: cfg.lastSentDate || "",
-        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
+        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", member: users[id].member || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
         logs: (cfg.logs || []).slice(0, 31)
       });
+      return;
+    }
+    if (action === "dbassign") {
+      // DB 배정 알림 — 배정된 팀원의 카톡(나와의 채팅)으로 배정 내용을 발송.
+      //   대상 매칭: 연동 시 기록된 member(팀원 이름) 우선, 없으면 카카오 닉네임 동일 시 폴백.
+      //   미연동/미승인 팀원이면 ok:false 로 응답(클라이언트는 콘솔 로그만 — 웹푸시가 별도로 감).
+      const member = String(body.member || "").trim();
+      if (!member) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
+      const [cfgSnapA, tokSnapA] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgA = cfgSnapA.exists ? (cfgSnapA.data() || {}) : {};
+      const usersA = (tokSnapA.exists && (tokSnapA.data() || {}).users) || {};
+      if (!cfgA.restKey) { res.json({ ok: false, error: "REST API 키 미설정" }); return; }
+      const kidA = Object.keys(usersA).find((id) => usersA[id] && usersA[id].approved && String(usersA[id].member || "") === member)
+        || Object.keys(usersA).find((id) => usersA[id] && usersA[id].approved && String(usersA[id].nick || "") === member);
+      if (!kidA) { res.json({ ok: false, error: "카톡 미연동/미승인: " + member }); return; }
+      // 남용 방지: 같은 팀원 대상 10초 간격
+      const lda = (cfgA.lastDbAssign && typeof cfgA.lastDbAssign === "object") ? cfgA.lastDbAssign : {};
+      if (lda[kidA] && Date.now() - lda[kidA] < 10 * 1000) {
+        res.status(429).json({ error: { message: "같은 팀원에게는 10초에 1회만 발송됩니다." } });
+        return;
+      }
+      lda[kidA] = Date.now();
+      Object.keys(lda).forEach((k) => { if (Date.now() - lda[k] > 3600 * 1000) delete lda[k]; });
+      await KK_CFG().set({ lastDbAssign: lda }, { merge: true }).catch(() => {});
+
+      const uA = usersA[kidA];
+      const tA = await _kkAccessToken(cfgA, uA);
+      if (!tA.at) {
+        if (tA.relink) { uA.needsRelink = true; await KK_TOK().set({ users: usersA }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 재연동 필요: " + (tA.err || "") });
+        return;
+      }
+      if (tA.upd) { Object.assign(uA, tA.upd); uA.needsRelink = false; await KK_TOK().set({ users: usersA }, { merge: true }).catch(() => {}); }
+
+      // 메시지 구성 — 카카오 텍스트 템플릿은 200자 제한이라 고객 내역을 여러 통으로 나눠 발송(최대 5통)
+      const kind = String(body.kind || "-").slice(0, 20);
+      const region = String(body.region || "-").slice(0, 10);
+      const qty = +body.qty || 0;
+      const srcType = String(body.src || "현월").slice(0, 10);
+      const dtStr = String(body.dt || "").slice(0, 10);
+      const notes = Array.isArray(body.notes) ? body.notes.slice(0, 50) : [];
+      const head = "[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류: " + kind + " (" + region + ")\n배정종류: " + srcType + " · 배정일: " + dtStr;
+      const lines = notes.map((n, i) => {
+        n = n || {};
+        const parts = [String(n.name || "").trim(), String(n.phone || "").trim(), String(n.birth || "").trim()].filter(Boolean);
+        return (i + 1) + ". " + (parts.join(" ").slice(0, 60) || "(정보 미입력)");
+      });
+      const msgs = [];
+      let curMsg = head;
+      for (const ln of lines) {
+        if ((curMsg + "\n" + ln).length > 190) { msgs.push(curMsg); curMsg = "(계속)"; }
+        curMsg += "\n" + ln;
+      }
+      msgs.push(curMsg);
+      let cut = false;
+      while (msgs.length > 5) { msgs.pop(); cut = true; }
+      if (cut) msgs[msgs.length - 1] = msgs[msgs.length - 1].slice(0, 150) + "\n…이하 생략 — 인트라넷에서 확인";
+      const linkA = KK_SITE + "/";
+      let sentN = 0, lastErr = "";
+      for (const msg of msgs) {
+        const tplObj = JSON.stringify({
+          object_type: "text",
+          text: msg.slice(0, 200),
+          link: { web_url: linkA, mobile_web_url: linkA },
+          button_title: "인트라넷 열기"
+        });
+        const sr = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplObj }, tA.at);
+        if (sr.ok) sentN++;
+        else { lastErr = (sr.data && (sr.data.msg || sr.data.error_description)) || ("전송 실패 " + sr.status); break; }
+      }
+      res.json({ ok: sentN > 0, sent: sentN, total: msgs.length, nick: uA.nick || "", error: lastErr || undefined });
       return;
     }
     if (action === "sendnow") {

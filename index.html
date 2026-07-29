@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-17</div>
   </div>
 </div>
 
@@ -572,6 +572,8 @@ table.dt tr:last-child td{border-bottom:none;}
           <select id="dbinfo_month" onchange="rDbInfo()" title="월별 보기" style="padding:8px 10px;border:1px solid rgba(80,90,180,.3);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;color:#334;cursor:pointer"></select>
           <button class="bp bpd" onclick="exportDbInfoExcel()"><i class="ti ti-table-export"></i> 엑셀로 저장</button>
           <button class="bp bpd ao" onclick="openDbInfoModal()"><i class="ti ti-plus"></i> DB 정보 추가</button>
+          <!-- 팀원 카카오 연동 — 연동+관리자 승인 시 DB 배정 알림이 본인 카톡(나와의 채팅)으로 발송 -->
+          <button class="bp" id="btn_kk_link" onclick="kkMemberLink()" style="background:#fee500;border:1px solid #f5d900;color:#191919;font-weight:700"><i class="ti ti-message-circle"></i> 카톡 알림 연동</button>
         </div>
       </div>
       <!-- 본인 DB 배정현황 요약 — 팀원도 자기 잔여량을 여기서 확인 (배정현황 메뉴는 관리자 전용) -->
@@ -5512,6 +5514,31 @@ function kkOpen(){
   g('m_kkauto').classList.add('open');
   kkLoad();
 }
+// 팀원 본인 카카오 연동 (DB 정보 페이지 버튼) — 로그인한 팀원 이름을 state로 넘겨
+// 연동 계정에 기록 → DB 배정 시 그 팀원의 카톡으로 알림 발송. 관리자 승인은 기존 승인제 그대로.
+function kkMemberLink(){
+  if(!cu){ toast('로그인 후 이용하세요.'); return; }
+  var btn=g('btn_kk_link'); if(btn){ btn.disabled=true; }
+  _kkApi('authurl',{member:cu.name||''}).then(function(r){
+    if(r&&r.ok&&r.url){ location.href=r.url; return; }
+    toast((r&&r.error&&r.error.message)||'연동 준비가 안 됐습니다 — 관리자에게 문의하세요.');
+    if(btn) btn.disabled=false;
+  }).catch(function(){ toast('연동 요청 실패 — 인터넷 연결을 확인하세요.'); if(btn) btn.disabled=false; });
+}
+// DB 배정 저장 직후 호출 — 배정된 팀원의 카톡으로 배정 내용(고객 정보 포함) 발송.
+// 미연동·발송 실패는 배정 자체에 영향 없음(콘솔 로그만 — 웹푸시 알림은 별도로 감).
+function _kkDbAssignNotify(obj){
+  try{
+    var notes=(obj.notes||[]).map(function(n){
+      n=n||{};
+      return {name:n.name||'', phone:n.phone||'', birth:n.birth||''};
+    });
+    _kkApi('dbassign',{member:obj.m, kind:obj.k, region:obj.region||'', qty:obj.q||0, src:obj.src||'현월', dt:obj.dt||'', notes:notes}).then(function(r){
+      if(r&&r.ok) toast('카톡 알림 발송 완료 ('+obj.m+(r.total>1?' · '+r.sent+'/'+r.total+'통':'')+')');
+      else console.warn('카톡 배정 알림 미발송:', (r&&(r.error||(r.error&&r.error.message)))||r);
+    }).catch(function(e){ console.warn('카톡 배정 알림 오류:', e); });
+  }catch(e){}
+}
 function kkLoad(){
   g('kk_loading').style.display='block'; g('kk_body').style.display='none';
   _kkApi('status').then(function(st){
@@ -5534,6 +5561,7 @@ function _kkRender(st){
         var ocA=('kkApprove('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid rgba(90,110,230,.28);border-radius:9px;margin-top:6px">'
           +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:'+(u.approved?'#3fd08a':'#e0a030')+'"></i> <b>'+_esc(u.nick||'')+'</b>'
+          +(u.member?' <span style="color:#7ec8ff;font-size:12px;font-weight:700">[팀원: '+_esc(u.member)+']</span>':'')
           +' <span style="color:#8a93c8;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
           +(u.approved?'':' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기</span>')
           +(u.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
@@ -6383,6 +6411,7 @@ g('m_db_save').addEventListener('click',()=>{
   if(mode==='apply'){dba.push(obj);sv('tops_dba',dba);g('m_db').classList.remove('open');rDba();}
   else{dbs.push(obj);sv('tops_dbs',dbs);g('m_db').classList.remove('open');rDbs();
     try{ pushNotify([obj.m], 'DB 배정', (obj.k?obj.k+' ':'')+'DB '+(obj.q||0)+'건이 배정되었습니다.', '/'); }catch(e){}
+    try{ _kkDbAssignNotify(obj); }catch(e){}   // 카톡 배정 알림 (연동한 팀원만)
   }
   toast('저장되었습니다.');
 });

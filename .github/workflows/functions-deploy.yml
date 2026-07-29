@@ -1,0 +1,30 @@
+name: Deploy Functions
+
+# functions/ 코드가 바뀐 푸시에서만 Cloud Functions를 배포한다.
+# (호스팅/규칙은 firebase-deploy.yml이 담당 — 함수 배포는 느리므로 분리)
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+    paths:
+      - "functions/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write service account key
+        run: |
+          cat > "$RUNNER_TEMP/gcp-sa.json" <<'EOF'
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EOF
+
+      - name: Deploy Cloud Functions
+        run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
