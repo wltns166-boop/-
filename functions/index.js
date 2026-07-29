@@ -484,6 +484,18 @@ async function _kkHandle(body, res) {
       res.json({ ok: sentN > 0, sent: sentN, total: msgs.length, nick: uA.nick || "", error: lastErr || undefined });
       return;
     }
+    if (action === "setmember") {
+      // 연동 계정에 팀원 이름 지정 — 예전 방식(이름 미기록) 연동 계정을 재연동 없이 매핑
+      const kidM = String(body.id || "");
+      const memberM = String(body.member || "").trim().slice(0, 30);
+      const tokSM = await KK_TOK().get();
+      const usersM = (tokSM.exists && (tokSM.data() || {}).users) || {};
+      if (!usersM[kidM]) { res.status(404).json({ error: { message: "해당 연동 계정이 없습니다." } }); return; }
+      usersM[kidM].member = memberM;
+      await KK_TOK().set({ users: usersM }, { merge: true });
+      res.json({ ok: true, member: memberM });
+      return;
+    }
     if (action === "kktest") {
       // 연동 관리 화면 [테스트] — 해당 계정의 카톡으로 간단한 확인 메시지 발송 (보고서 캡처 없음)
       const kidT = String(body.id || "");

@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-21</div>
   </div>
 </div>
 
@@ -5564,6 +5564,7 @@ function _kkDbList(){
           ?('<button onclick="kkDbTest('+oid+')" style="font-size:12px;padding:4px 10px;background:#fffbe6;border:1px solid #e8d870;border-radius:5px;color:#8a7500;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-message-circle"></i> 테스트</button>'
             +(u.member?'<button onclick="kkDbResend('+omem+')" style="font-size:12px;padding:4px 10px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.3);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-send"></i> 배정내역 발송</button>':''))
           :'<button onclick="kkDbApprove('+oid+')" style="font-size:12px;padding:4px 10px;background:rgba(40,160,100,.12);border:1px solid rgba(60,200,120,.35);border-radius:5px;color:#209658;cursor:pointer;font-family:inherit;font-weight:600">승인</button>')
+        +'<button onclick="kkDbSetMember('+oid+')" style="font-size:12px;padding:4px 10px;background:#f0f7ff;border:1px solid rgba(60,130,220,.4);border-radius:5px;color:#2060b0;cursor:pointer;font-family:inherit;font-weight:600">팀원 지정</button>'
         +'<button onclick="kkDbUnlink('+oid+')" style="font-size:12px;padding:4px 10px;background:#fff5f5;border:1px solid rgba(200,80,80,.4);border-radius:5px;color:#cc4040;cursor:pointer;font-family:inherit">해제</button>'
         +'</span></div>';
     }).join('');
@@ -5601,6 +5602,16 @@ function kkDbUnlink(id){
     _kkDbList();
   }).catch(function(){ toast('해제 요청 실패'); });
 }
+// 연동 계정에 팀원 이름 지정 — 위 셀렉트에서 고른 팀원으로 매핑 (예전 연동 계정용, 재연동 불필요)
+function kkDbSetMember(id){
+  var nm=(g('kkdb_mem')||{value:''}).value;
+  if(!nm){ toast('위의 팀원 선택 상자에서 팀원을 먼저 고르세요.'); return; }
+  if(!confirm('이 카카오 계정을 『'+nm+'』님으로 지정할까요?\n지정하면 '+nm+'님에게 DB 배정 시 이 카톡으로 알림이 발송됩니다.\n\n※ 반드시 이 카카오 계정이 '+nm+'님 본인 것인지 확인하세요.')) return;
+  _kkApi('setmember',{id:id, member:nm}).then(function(r){
+    toast(r&&r.ok?('『'+nm+'』님으로 지정했습니다. [테스트]로 확인해 보세요.'):((r&&r.error&&r.error.message)||'지정 실패'));
+    _kkDbList();
+  }).catch(function(){ toast('지정 요청 실패 — 인터넷 연결을 확인하세요.'); });
+}
 // 테스트 카톡 발송 — 연결 확인용 간단 메시지 (보고서 캡처 없음, 계정별 10초 간격)
 function kkDbTest(id){
   _kkApi('kktest',{id:id}).then(function(r){
@@ -5633,7 +5644,12 @@ function _kkDbAssignNotify(obj){
     });
     _kkApi('dbassign',{member:obj.m, kind:obj.k, region:obj.region||'', qty:obj.q||0, src:obj.src||'현월', dt:obj.dt||'', notes:notes}).then(function(r){
       if(r&&r.ok) toast('카톡 알림 발송 완료 ('+obj.m+(r.total>1?' · '+r.sent+'/'+r.total+'통':'')+')');
-      else console.warn('카톡 배정 알림 미발송:', (r&&(r.error||(r.error&&r.error.message)))||r);
+      else {
+        // 미발송 이유를 관리자에게 바로 표시 (미연동·팀원 미지정·매핑 중복 등)
+        var why=(r&&(r.error&&r.error.message||r.error))||'알 수 없는 오류';
+        toast('카톡 알림 미발송: '+why);
+        console.warn('카톡 배정 알림 미발송:', why);
+      }
     }).catch(function(e){ console.warn('카톡 배정 알림 오류:', e); });
   }catch(e){}
 }
