@@ -9,6 +9,7 @@ on:
       - "claude/**"
     paths:
       - "functions/**"
+      - ".github/workflows/functions-deploy.yml"
   workflow_dispatch: {}
 
 jobs:
@@ -17,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install functions dependencies
+        run: npm ci --prefix functions
 
       - name: Write service account key
         run: |
