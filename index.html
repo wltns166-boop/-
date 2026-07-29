@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-23</div>
   </div>
 </div>
 
@@ -5544,6 +5544,7 @@ function openKkDbMgr(){
     +'<div style="text-align:right;margin-top:14px"><button onclick="document.getElementById(\'kkdbmgr_popup\').remove()" style="padding:8px 18px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">닫기</button></div>'
   +'</div>';
   document.body.appendChild(el);
+  window._kkDbNames=names;   // 연동 상태 로드 후 '지정 완료된 인원 제외' 필터링에 사용
   _kkDbList();
 }
 function _kkDbList(){
@@ -5551,6 +5552,19 @@ function _kkDbList(){
   _kkApi('status').then(function(st){
     if(!st||!st.ok){ box.textContent=(st&&st.error&&st.error.message)||'상태를 불러오지 못했습니다. (카카오 REST 키 미설정일 수 있음)'; return; }
     var users=st.users||[];
+    // 팀원 선택 상자: 이미 어떤 계정에 지정된 이름은 목록에서 제외 (지정/해제 시 자동 갱신)
+    try{
+      var mapped={};
+      users.forEach(function(u){ if(u&&u.member) mapped[u.member]=1; });
+      var sel=g('kkdb_mem');
+      if(sel&&Array.isArray(window._kkDbNames)){
+        var cur=sel.value;
+        var avail=window._kkDbNames.filter(function(n){ return !mapped[n]; });
+        sel.innerHTML=avail.length
+          ? avail.map(function(n){ return '<option'+(n===cur?' selected':'')+'>'+_esc(n)+'</option>'; }).join('')
+          : '<option value="">전원 지정 완료</option>';
+      }
+    }catch(e){}
     if(!users.length){ box.innerHTML='<div style="color:#888;padding:16px;text-align:center">아직 연동된 계정이 없습니다.<br><span style="font-size:12px">위에서 연동 링크를 만들어 팀원에게 전달하세요.</span></div>'; return; }
     box.innerHTML=users.map(function(u){
       // 함정 A: 카카오ID(고유 식별자)로 동작 — 표시 순서 인덱스 사용 안 함
