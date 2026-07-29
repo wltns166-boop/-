@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-4</div>
   </div>
 </div>
 
@@ -2826,7 +2826,9 @@ function startRealtimeSync(){
     if(!doc.exists||!cu) return;
     const d = doc.data();
     let changed = false;
-    if(d.mem)     { mem=d.mem;      _memFixBelong(); try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); }      changed=true; }
+    if(d.mem)     { mem=d.mem;      _memFixBelong(); try{ localStorage.setItem('tops_mem',JSON.stringify(mem)); }catch(e){ console.warn('localStorage tops_mem 저장 실패:',e); }      changed=true;
+                    // 사용정지 즉시 적용 — 앱을 쓰고 있는 도중 정지되면 실시간으로 로그아웃
+                    try{ if(typeof _susEnforce==='function'&&_susEnforce()) return; }catch(e){} }
     if(d.prf)     { prf=d.prf;      try{ localStorage.setItem('tops_prf',JSON.stringify(prf)); }catch(e){ console.warn('localStorage tops_prf 저장 실패:',e); }      changed=true; }
     if(d.gls)     { gls=d.gls;      try{ localStorage.setItem('tops_gls',JSON.stringify(gls)); }catch(e){ console.warn('localStorage tops_gls 저장 실패:',e); }      changed=true; }
     if(d.prm)     { prm=d.prm;      try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); }      changed=true; }
@@ -3939,7 +3941,7 @@ function rMem(){
   const total = admRows.length + done.length;
   const mc=g('mem_count'); if(mc) mc.textContent=total;
   const tc=g('mem_tab_all_cnt'); if(tc) tc.textContent=total?('('+total+'명)'):'';   // 탭 라벨 옆 인원수
-  const scnt=g('mem_tab_sus_cnt'); if(scnt){ const sn=mem.filter(m=>m.suspended).length; scnt.textContent=sn?('('+sn+'명)'):''; }
+  const scnt=g('mem_tab_sus_cnt'); if(scnt){ const sn=_isAdmin()?mem.filter(m=>m.suspended).length:0; scnt.textContent=sn?('('+sn+'명)'):''; }   // 관리자에게만 표기
   if(!total){
     tb.innerHTML='<tr><td colspan="8" class="em" style="color:#aaaacc;padding:40px">등록된 구성원이 없습니다.<br><span style="font-size:14px;margin-top:6px;display:block">코드생성 버튼으로 팀원을 추가하세요.</span></td></tr>';
     return;
@@ -3994,6 +3996,7 @@ function _memFullDelete(dc){
   sv('tops_mem',mem);rMem();rMemSus();toast('구성원과 코드가 완전히 삭제되었습니다.');
 }
 // 사용정지 — 레코드는 남기되 로그인만 차단. [사용정지] 탭에서 해제 가능.
+//   관리자(BM·총무) 행에는 정지 버튼을 붙이지 않는다(의도적 — 관리자 락아웃 방지, 팀원 계정만 대상).
 function _memSuspend(sc){
   if(!_isAdmin()){ toast('관리자만 정지할 수 있습니다.'); return; }
   const m=mem.find(x=>String(x.code||x.lid)===String(sc));
