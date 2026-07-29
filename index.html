@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-10</div>
   </div>
 </div>
 
@@ -2803,7 +2803,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
-    if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
+    if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
@@ -2858,7 +2858,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
-    if(Array.isArray(d.db_exchanges)){ try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
@@ -2868,6 +2868,7 @@ function startRealtimeSync(){
     if(changed && window._curPage){
       const r={home:rHome,members:rMem,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),prom:rProm,
         db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,wm:rWm,
+        db_exchange:(typeof rDbExchange==='function'?rDbExchange:null),
         notice:(typeof rNoticePage==='function'?rNoticePage:null),
         schedule:(typeof rSchedulePage==='function'?rSchedulePage:null),
         trip:(typeof rTrip==='function'?rTrip:null),
@@ -6113,7 +6114,8 @@ function rDba(){
 //   현월 = 이번 달 구매(dba), 이월 = 전월까지 (구매+교환완료-배정) 남은 것,
 //   교환 = 이번 달 '교환완료' 처리된 교환신청 건수(1레코드=1건, 처리일 doneDt 기준·구 데이터는 신청일 폴백).
 // 이번 달 배정(dbs)은 이월 → 교환 → 현월 순으로 차감해 배정수량 3칸에 나눠 표시(오래된 재고부터 소진 가정).
-// 총수량 = 현월 구매 + 이월 + 교환 = 배정 3칸 합 + 잔여 3칸 합.
+// 총수량 = 현월 구매 + 이월 + 교환. 재고 내 배정이면 배정 3칸+잔여 3칸 합과 일치하고,
+// 재고보다 배정이 많으면(구매 기록 없는 배정·과배정) 현월 배정 칸을 붉게 표시해 알린다.
 function _dbsPersonSumHTML(myTeam, viewYm){
   const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
   const regSort=function(x,y){
@@ -6171,16 +6173,17 @@ function _dbsPersonSumHTML(myTeam, viewYm){
       regRows.forEach(function(v,ri){
         const remain=v.rC+v.rI+v.rE;
         const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
+        const over=(v.aC+v.aI+v.aE)>v.total;   // 재고보다 배정이 많음(구매 기록 누락·과배정)
         rows+='<tr>'
           +(first?('<td rowspan="'+totalRows+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
           +(ri===0?('<td rowspan="'+regRows.length+'" style="font-weight:600;color:#2040cc;vertical-align:middle;border-right:1px solid rgba(80,100,220,.06)">'+_esc(v.k)+'</td>'):'')
           +'<td style="color:#555;font-size:13px">'+_esc(v.r)+'</td>'
-          +'<td style="color:#2060cc;font-weight:600">'+v.aC.toLocaleString()+'</td>'
-          +'<td style="color:#7060cc">'+v.aI.toLocaleString()+'</td>'
-          +'<td style="color:#20889a">'+v.aE.toLocaleString()+'</td>'
-          +'<td style="color:'+remainColor+';font-weight:700">'+v.rC.toLocaleString()+'</td>'
-          +'<td style="color:#7060cc;font-weight:600">'+v.rI.toLocaleString()+'</td>'
-          +'<td style="color:#20889a;font-weight:600">'+v.rE.toLocaleString()+'</td>'
+          +'<td style="color:'+(over?'#cc2020':'#2060cc')+';font-weight:600"'+(over?' title="구매 기록보다 배정이 많습니다 (신청현황 미입력 또는 과배정)"':'')+'>'+v.aC.toLocaleString()+'건'+(over?' ⚠':'')+'</td>'
+          +'<td style="color:#7060cc">'+v.aI.toLocaleString()+'건</td>'
+          +'<td style="color:#20889a">'+v.aE.toLocaleString()+'건</td>'
+          +'<td style="color:'+remainColor+';font-weight:700">'+v.rC.toLocaleString()+'건</td>'
+          +'<td style="color:#7060cc;font-weight:600">'+v.rI.toLocaleString()+'건</td>'
+          +'<td style="color:#20889a;font-weight:600">'+v.rE.toLocaleString()+'건</td>'
           +'<td style="color:#333;font-weight:700">'+v.total.toLocaleString()+'건</td>'
         +'</tr>';
         first=false;
