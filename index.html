@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-2</div>
   </div>
 </div>
 
@@ -3946,18 +3946,30 @@ function rMem(){
       <td style="font-size:15px;color:#111">${m.phone||'-'}</td>
       <td style="font-size:15px;color:#111">${m.joinDate||'-'}</td>
       <td style="font-size:15px;color:#111">${m.address||'-'}</td>
-      <td class="ao"><button class="be" data-ei="${realIdx}"><i class="ti ti-edit"></i></button><button class="bd" data-di="${realIdx}" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
+      <td class="ao"><button class="be" data-ei="${realIdx}"><i class="ti ti-edit"></i></button><button class="bd" data-dc="${_esc(String(m.code||m.lid))}" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
   // 함정 A: 관리자 행은 인덱스 대신 이름(고유 식별자)으로 식별
   tb.querySelectorAll('[data-ea]').forEach(b=>b.addEventListener('click',()=>openAdmEdit(b.getAttribute('data-ea'))));
   tb.querySelectorAll('[data-ei]').forEach(b=>b.addEventListener('click',()=>editMem(+b.dataset.ei)));
-  tb.querySelectorAll('[data-di]').forEach(b=>b.addEventListener('click',()=>{
-    if(confirm('이 구성원의 프로필을 삭제하시겠습니까?\n(코드는 유지됩니다)')){
-      const idx=+b.dataset.di;
-      mem[idx].name='';mem[idx].rank='';mem[idx].phone='';mem[idx].joinDate='';mem[idx].address='';mem[idx].belong='';mem[idx].workType='';
-      sv('tops_mem',mem);rMem();toast('프로필이 삭제되었습니다.');
-    }
+  // 완전 삭제(2026-07-29 변경): 프로필만 비우는 방식 → 코드·로그인 계정까지 레코드 통째 제거.
+  //   함정 A 예방: 표시 인덱스 대신 코드(고유 식별자)로 대상을 찾는다(실시간 동기화로 mem이 바뀌어도 안전).
+  tb.querySelectorAll('[data-dc]').forEach(b=>b.addEventListener('click',()=>{
+    const dc=b.getAttribute('data-dc');
+    const idx=mem.findIndex(x=>String(x.code||x.lid)===dc);
+    if(idx<0){ toast('대상을 찾지 못했습니다. 화면을 새로고침해 주세요.'); return; }
+    const m=mem[idx];
+    if(!confirm('『'+(m.name||dc)+'』 구성원을 완전히 삭제하시겠습니까?\n\n'
+      +'- 코드('+dc+')와 로그인 계정이 함께 삭제되어 더 이상 로그인할 수 없습니다.\n'
+      +'- 이미 등록된 고객·실적 등 업무 기록은 남습니다.\n'
+      +'- 이 작업은 되돌릴 수 없습니다.')) return;
+    // 기기인증 등록 기기도 함께 정리 (실패해도 삭제는 진행)
+    try{
+      var ref=_devDocRef();
+      if(ref) ref.update(new firebase.firestore.FieldPath(dc), firebase.firestore.FieldValue.delete()).catch(function(){});
+    }catch(e){}
+    mem.splice(idx,1);
+    sv('tops_mem',mem);rMem();toast('구성원과 코드가 완전히 삭제되었습니다.');
   }));
   setAdmin();
 }
