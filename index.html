@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-9</div>
   </div>
 </div>
 
@@ -559,7 +559,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
       <!-- DB종류별 요약 — 신청현황과 동일 (관리자만) -->
       <div id="dbs_summary" class="ao" style="display:none;margin-bottom:16px"></div>
-      <!-- 인원별 DB 잔여량 — 이름별로 DB종류 행을 묶어 표시 (구매·배정 누적 기준, 월 필터 무관) -->
+      <!-- 인원별 DB 잔여량 — 선택한 달 기준 현월/이월/교환 구분 표시 -->
       <div id="dbs_person_sum"></div>
       <div class="card"><table class="dt"><thead><tr><th>배정일</th><th>신청인</th><th>DB종류</th><th>지역</th><th>구매수량</th><th>배정수량</th><th>잔여수량</th><th class="ao">관리</th></tr></thead><tbody id="dbs_tb"></tbody></table></div>
     </div>
@@ -6108,74 +6108,94 @@ function rDba(){
   tb.querySelectorAll('[data-dai]').forEach(b=>b.addEventListener('click',()=>{if(confirm('삭제?')){dba.splice(+b.dataset.dai,1);sv('tops_dba',dba);rDba();}}));
   setAdmin();
 }
-// 인원별 DB 잔여량 표 — 이름별로 DB종류 행을 rowspan으로 묶어 표시.
-//   수치는 배정표와 동일 기준: 총수량=개인 구매(dba) 누적, 배정수량=개인 배정(dbs) 누적,
-//   잔여=총수량-배정수량 (신청/배정 모달의 지역 목록이 달라 지역 조합 매칭은 하지 않음 —
-//   지역 칸에는 구매 시 기록된 지역별 수량 내역을 표시만 한다). 월 필터와 무관한 누적 현황.
-function _dbsPersonSumHTML(myTeam){
-  // 이름 → DB종류 → 지역 3단 집계: buy/asg[이름][종류][지역] = 수량
+// 인원별 DB 잔여량 표 — 이름 → DB종류 → 지역 3단 rowspan.
+// 선택한 달(viewYm) 기준 3개 재고 구분:
+//   현월 = 이번 달 구매(dba), 이월 = 전월까지 (구매+교환완료-배정) 남은 것,
+//   교환 = 이번 달 '교환완료' 처리된 교환신청 건수(1레코드=1건, 처리일 doneDt 기준·구 데이터는 신청일 폴백).
+// 이번 달 배정(dbs)은 이월 → 교환 → 현월 순으로 차감해 배정수량 3칸에 나눠 표시(오래된 재고부터 소진 가정).
+// 총수량 = 현월 구매 + 이월 + 교환 = 배정 3칸 합 + 잔여 3칸 합.
+function _dbsPersonSumHTML(myTeam, viewYm){
   const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
   const regSort=function(x,y){
     var ix=REGION_ORDER.indexOf(x), iy=REGION_ORDER.indexOf(y);
     if(ix<0) ix=99; if(iy<0) iy=99;
     return (ix-iy)||x.localeCompare(y);
   };
-  const acc=function(map,d){
-    const nm=(d&&d.m)||'', k=(d&&d.k!=null)?String(d.k).trim():'';
+  const ymOf=function(d){ return String(d||'').replace(/\./g,'-').slice(0,7); };
+  // key(이름>종류>지역)별 월 구분 집계: pc/pp=구매(현월/이전), ac/ap=배정, ec/ep=교환완료
+  const agg={};
+  const feed=function(nm,k,r,dt,curKey,prevKey,qty){
+    nm=String(nm||''); k=String(k==null?'':k).trim();
     if(!nm||!k) return;
     if(myTeam!==null && !myTeam.includes(nm)) return;
-    const r=(d.region&&String(d.region).trim())||'기타';
-    map[nm]=map[nm]||{}; map[nm][k]=map[nm][k]||{};
-    map[nm][k][r]=(map[nm][k][r]||0)+(+d.q||0);
+    r=(r&&String(r).trim())||'기타';
+    agg[nm]=agg[nm]||{}; agg[nm][k]=agg[nm][k]||{};
+    const c=agg[nm][k][r]=agg[nm][k][r]||{pc:0,pp:0,ac:0,ap:0,ec:0,ep:0};
+    const ym=ymOf(dt);
+    if(ym===viewYm) c[curKey]+=qty;
+    else if(!ym||ym<viewYm) c[prevKey]+=qty;   // 미래 달 기록은 집계 제외
   };
-  const buy={}, asg={};
-  dba.forEach(function(d){ acc(buy,d); });   // 구매(신청현황)
-  dbs.forEach(function(d){ acc(asg,d); });   // 배정
-  const names={};
-  Object.keys(buy).forEach(function(n){names[n]=1;});
-  Object.keys(asg).forEach(function(n){names[n]=1;});
-  const nameList=Object.keys(names);
+  dba.forEach(function(d){ if(d) feed(d.m,d.k,d.region,d.dt,'pc','pp',+d.q||0); });
+  dbs.forEach(function(d){ if(d) feed(d.m,d.k,d.region,d.dt,'ac','ap',+d.q||0); });
+  var exs=window.dbExchanges;
+  if(!Array.isArray(exs)){ try{ exs=JSON.parse(localStorage.getItem('tops_db_exchanges')||'[]'); }catch(e){ exs=[]; } }
+  (exs||[]).forEach(function(r){
+    if(!r||r.status!=='교환완료') return;
+    feed(r.assignee,r.kind,r.region,r.doneDt||r.reqDate,'ec','ep',1);
+  });
+  const nameList=Object.keys(agg);
   if(!nameList.length) return '';
   // 팀원 코드순 정렬 (mem에 없는 이름은 뒤에 이름순)
   const codeOf=function(n){ const p=(mem||[]).find(function(x){return x.name===n;}); return p?(+p.code||1e9):1e9; };
   nameList.sort(function(a,b){ const c=codeOf(a)-codeOf(b); return c||a.localeCompare(b); });
   let rows='';
   nameList.forEach(function(nm){
-    const kinds={};
-    Object.keys(buy[nm]||{}).forEach(function(k){kinds[k]=1;});
-    Object.keys(asg[nm]||{}).forEach(function(k){kinds[k]=1;});
-    const ks=Object.keys(kinds).sort();
-    // 이름 rowspan = 이 사람의 (종류×지역) 행 수 합계 — 먼저 종류별 지역 목록을 확정
-    const kindRegions=ks.map(function(k){
-      const rs={};
-      Object.keys((buy[nm]&&buy[nm][k])||{}).forEach(function(r){rs[r]=1;});
-      Object.keys((asg[nm]&&asg[nm][k])||{}).forEach(function(r){rs[r]=1;});
-      return Object.keys(rs).sort(regSort);
-    });
-    const totalRows=kindRegions.reduce(function(s,a){return s+a.length;},0)||0;
+    const ks=Object.keys(agg[nm]).sort();
+    // 종류별 지역 행 수치를 먼저 계산 (재고·배정 모두 0인 행은 숨김) → rowspan 확정
+    const kindRows=ks.map(function(k){
+      return Object.keys(agg[nm][k]).sort(regSort).map(function(r){
+        const c=agg[nm][k][r];
+        const carry=Math.max(0, c.pp + c.ep - c.ap);   // 이월 = 전월까지 (구매+교환-배정) 잔여
+        const ai=Math.min(c.ac, carry);                // 배정 차감: 이월 →
+        const ae=Math.min(c.ac-ai, c.ec);              //   교환 →
+        const acur=c.ac-ai-ae;                         //   현월
+        return {k:k, r:r, aC:acur, aI:ai, aE:ae,
+          rC:Math.max(0,c.pc-acur), rI:carry-ai, rE:c.ec-ae,
+          total:c.pc+carry+c.ec};
+      }).filter(function(v){ return v.total>0 || (v.aC+v.aI+v.aE)>0; });
+    }).filter(function(a){ return a.length; });
+    const totalRows=kindRows.reduce(function(s,a){return s+a.length;},0);
     if(!totalRows) return;
     let first=true;
-    ks.forEach(function(k,ki){
-      kindRegions[ki].forEach(function(r,ri){
-        const b=((buy[nm]&&buy[nm][k])||{})[r]||0;
-        const a=((asg[nm]&&asg[nm][k])||{})[r]||0;
-        const remain=Math.max(0,b-a);
+    kindRows.forEach(function(regRows){
+      regRows.forEach(function(v,ri){
+        const remain=v.rC+v.rI+v.rE;
         const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
         rows+='<tr>'
           +(first?('<td rowspan="'+totalRows+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
-          +(ri===0?('<td rowspan="'+kindRegions[ki].length+'" style="font-weight:600;color:#2040cc;vertical-align:middle;border-right:1px solid rgba(80,100,220,.06)">'+_esc(k)+'</td>'):'')
-          +'<td style="color:#555;font-size:13px">'+_esc(r)+'</td>'
-          +'<td style="color:#2060cc;font-weight:600">'+a.toLocaleString()+'건</td>'
-          +'<td style="color:'+remainColor+';font-weight:700">'+remain.toLocaleString()+'건</td>'
-          +'<td style="color:#333;font-weight:600">'+b.toLocaleString()+'건</td>'
+          +(ri===0?('<td rowspan="'+regRows.length+'" style="font-weight:600;color:#2040cc;vertical-align:middle;border-right:1px solid rgba(80,100,220,.06)">'+_esc(v.k)+'</td>'):'')
+          +'<td style="color:#555;font-size:13px">'+_esc(v.r)+'</td>'
+          +'<td style="color:#2060cc;font-weight:600">'+v.aC.toLocaleString()+'</td>'
+          +'<td style="color:#7060cc">'+v.aI.toLocaleString()+'</td>'
+          +'<td style="color:#20889a">'+v.aE.toLocaleString()+'</td>'
+          +'<td style="color:'+remainColor+';font-weight:700">'+v.rC.toLocaleString()+'</td>'
+          +'<td style="color:#7060cc;font-weight:600">'+v.rI.toLocaleString()+'</td>'
+          +'<td style="color:#20889a;font-weight:600">'+v.rE.toLocaleString()+'</td>'
+          +'<td style="color:#333;font-weight:700">'+v.total.toLocaleString()+'건</td>'
         +'</tr>';
         first=false;
       });
     });
   });
+  if(!rows) return '';
+  const p=(viewYm||'').split('-');
+  const ymLabel=(p.length===2)?((+p[0])+'년 '+(+p[1])+'월'):'';
   return '<div class="card" style="margin-bottom:16px">'
-    +'<div style="font-size:15px;font-weight:700;color:#3848cc;margin:2px 0 10px"><i class="ti ti-users"></i> 인원별 DB 잔여량 <span style="font-size:12px;font-weight:500;color:#8890bb">(구매·배정 누적 기준)</span></div>'
-    +'<table class="dt"><thead><tr><th>이름</th><th>DB종류</th><th>지역</th><th>배정수량</th><th>잔여수량</th><th>총수량</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    +'<div style="font-size:15px;font-weight:700;color:#3848cc;margin:2px 0 10px"><i class="ti ti-users"></i> 인원별 DB 잔여량 <span style="font-size:12px;font-weight:500;color:#8890bb">('+_esc(ymLabel)+' 기준 · 이월=전월 잔여 · 교환=교환완료 건)</span></div>'
+    +'<table class="dt"><thead>'
+    +'<tr><th rowspan="2">이름</th><th rowspan="2">DB종류</th><th rowspan="2">지역</th><th colspan="3" style="text-align:center">배정수량</th><th colspan="3" style="text-align:center">잔여수량</th><th rowspan="2">총수량</th></tr>'
+    +'<tr><th style="font-size:12px;font-weight:600">현월</th><th style="font-size:12px;font-weight:600">이월</th><th style="font-size:12px;font-weight:600">교환</th><th style="font-size:12px;font-weight:600">현월</th><th style="font-size:12px;font-weight:600">이월</th><th style="font-size:12px;font-weight:600">교환</th></tr>'
+    +'</thead><tbody>'+rows+'</tbody></table></div>';
 }
 function rDbs(){
   const tb=g('dbs_tb');
@@ -6184,9 +6204,6 @@ function rDbs(){
   const dbsSumEl=g('dbs_summary');
   if(dbsSumEl) dbsSumEl.innerHTML=_dbaSummaryHTML();
   const myTeamDbs = getMyTeam();
-  // 인원별 DB 잔여량 표 (월 필터와 무관 — 빈 달에도 표시)
-  const psEl=g('dbs_person_sum');
-  if(psEl) psEl.innerHTML=_dbsPersonSumHTML(myTeamDbs);
   let visible = myTeamDbs===null ? dbs : dbs.filter(d=>myTeamDbs.includes(d.m));
   // 월 드롭다운: 배정 데이터가 있는 달 + 이번달 (최신순)
   const curYm=(typeof _curYm==='function')?_curYm():(new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
@@ -6198,6 +6215,9 @@ function rDbs(){
   if(yms.indexOf(viewYm)<0){ viewYm=curYm; window._dbsViewYm=null; }
   const msel=g('dbs_month');
   if(msel) msel.innerHTML=yms.map(k=>{ const p=k.split('-'); return '<option value="'+k+'"'+(k===viewYm?' selected':'')+'>'+(+p[0])+'년 '+(+p[1])+'월'+(k===curYm?' (이번달)':'')+'</option>'; }).join('');
+  // 인원별 DB 잔여량 표 — 선택한 달 기준 (해당 월 배정이 없어도 표시)
+  const psEl=g('dbs_person_sum');
+  if(psEl) psEl.innerHTML=_dbsPersonSumHTML(myTeamDbs, viewYm);
   // 선택한 달의 배정만 표시
   visible=visible.filter(d=>String(d.dt||'').slice(0,7)===viewYm);
   if(!visible.length){
@@ -12538,6 +12558,10 @@ function setDbExStatus(i, val){
   var realIdx=dispR?window.dbExchanges.indexOf(dispR):i;
   if(realIdx<0||!window.dbExchanges[realIdx]) return;
   window.dbExchanges[realIdx].status=val;
+  // 교환완료 처리일 기록 — 인원별 DB 잔여량 표의 '교환건'이 처리된 월에 집계되기 위함.
+  //   완료로 바꾸면 오늘 날짜(최초 1회), 다른 상태로 되돌리면 처리일 제거.
+  if(val==='교환완료'){ if(!window.dbExchanges[realIdx].doneDt) window.dbExchanges[realIdx].doneDt=td(); }
+  else { delete window.dbExchanges[realIdx].doneDt; }
   _lsSet('tops_db_exchanges',JSON.stringify(window.dbExchanges));
   try{sv('tops_db_exchanges',window.dbExchanges);}catch(e){}
   rDbExchange();
