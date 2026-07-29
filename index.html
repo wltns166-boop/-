@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-8</div>
   </div>
 </div>
 
@@ -6113,23 +6113,24 @@ function rDba(){
 //   잔여=총수량-배정수량 (신청/배정 모달의 지역 목록이 달라 지역 조합 매칭은 하지 않음 —
 //   지역 칸에는 구매 시 기록된 지역별 수량 내역을 표시만 한다). 월 필터와 무관한 누적 현황.
 function _dbsPersonSumHTML(myTeam){
-  const buy={};   // buy[이름][종류] = {qty, regions:{지역:수량}}
-  dba.forEach(function(d){
+  // 이름 → DB종류 → 지역 3단 집계: buy/asg[이름][종류][지역] = 수량
+  const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
+  const regSort=function(x,y){
+    var ix=REGION_ORDER.indexOf(x), iy=REGION_ORDER.indexOf(y);
+    if(ix<0) ix=99; if(iy<0) iy=99;
+    return (ix-iy)||x.localeCompare(y);
+  };
+  const acc=function(map,d){
     const nm=(d&&d.m)||'', k=(d&&d.k!=null)?String(d.k).trim():'';
     if(!nm||!k) return;
     if(myTeam!==null && !myTeam.includes(nm)) return;
-    buy[nm]=buy[nm]||{}; buy[nm][k]=buy[nm][k]||{qty:0,regions:{}};
-    buy[nm][k].qty+=+d.q||0;
-    const r=d.region||'기타';
-    buy[nm][k].regions[r]=(buy[nm][k].regions[r]||0)+(+d.q||0);
-  });
-  const asg={};   // asg[이름][종류] = 배정수량 합
-  dbs.forEach(function(d){
-    const nm=(d&&d.m)||'', k=(d&&d.k!=null)?String(d.k).trim():'';
-    if(!nm||!k) return;
-    if(myTeam!==null && !myTeam.includes(nm)) return;
-    asg[nm]=asg[nm]||{}; asg[nm][k]=(asg[nm][k]||0)+(+d.q||0);
-  });
+    const r=(d.region&&String(d.region).trim())||'기타';
+    map[nm]=map[nm]||{}; map[nm][k]=map[nm][k]||{};
+    map[nm][k][r]=(map[nm][k][r]||0)+(+d.q||0);
+  };
+  const buy={}, asg={};
+  dba.forEach(function(d){ acc(buy,d); });   // 구매(신청현황)
+  dbs.forEach(function(d){ acc(asg,d); });   // 배정
   const names={};
   Object.keys(buy).forEach(function(n){names[n]=1;});
   Object.keys(asg).forEach(function(n){names[n]=1;});
@@ -6144,28 +6145,32 @@ function _dbsPersonSumHTML(myTeam){
     Object.keys(buy[nm]||{}).forEach(function(k){kinds[k]=1;});
     Object.keys(asg[nm]||{}).forEach(function(k){kinds[k]=1;});
     const ks=Object.keys(kinds).sort();
+    // 이름 rowspan = 이 사람의 (종류×지역) 행 수 합계 — 먼저 종류별 지역 목록을 확정
+    const kindRegions=ks.map(function(k){
+      const rs={};
+      Object.keys((buy[nm]&&buy[nm][k])||{}).forEach(function(r){rs[r]=1;});
+      Object.keys((asg[nm]&&asg[nm][k])||{}).forEach(function(r){rs[r]=1;});
+      return Object.keys(rs).sort(regSort);
+    });
+    const totalRows=kindRegions.reduce(function(s,a){return s+a.length;},0)||0;
+    if(!totalRows) return;
+    let first=true;
     ks.forEach(function(k,ki){
-      const b=(buy[nm]&&buy[nm][k])||{qty:0,regions:{}};
-      const a=(asg[nm]&&asg[nm][k])||0;
-      const remain=Math.max(0,b.qty-a);
-      const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
-      // 지역: 숫자 없이 이름만, 고정 순서(수도권→충청도→…)로 한 줄씩 세로 표시
-      const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
-      const regionHtml=Object.keys(b.regions)
-        .sort(function(x,y){
-          var ix=REGION_ORDER.indexOf(x), iy=REGION_ORDER.indexOf(y);
-          if(ix<0) ix=99; if(iy<0) iy=99;
-          return (ix-iy)||x.localeCompare(y);
-        })
-        .map(function(r){ return _esc(r); }).join('<br>')||'-';
-      rows+='<tr>'
-        +(ki===0?('<td rowspan="'+ks.length+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
-        +'<td style="font-weight:600;color:#2040cc">'+_esc(k)+'</td>'
-        +'<td style="color:#555;font-size:13px;line-height:1.7">'+regionHtml+'</td>'
-        +'<td style="color:#2060cc;font-weight:600">'+a.toLocaleString()+'건</td>'
-        +'<td style="color:'+remainColor+';font-weight:700">'+remain.toLocaleString()+'건</td>'
-        +'<td style="color:#333;font-weight:600">'+b.qty.toLocaleString()+'건</td>'
-      +'</tr>';
+      kindRegions[ki].forEach(function(r,ri){
+        const b=((buy[nm]&&buy[nm][k])||{})[r]||0;
+        const a=((asg[nm]&&asg[nm][k])||{})[r]||0;
+        const remain=Math.max(0,b-a);
+        const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
+        rows+='<tr>'
+          +(first?('<td rowspan="'+totalRows+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
+          +(ri===0?('<td rowspan="'+kindRegions[ki].length+'" style="font-weight:600;color:#2040cc;vertical-align:middle;border-right:1px solid rgba(80,100,220,.06)">'+_esc(k)+'</td>'):'')
+          +'<td style="color:#555;font-size:13px">'+_esc(r)+'</td>'
+          +'<td style="color:#2060cc;font-weight:600">'+a.toLocaleString()+'건</td>'
+          +'<td style="color:'+remainColor+';font-weight:700">'+remain.toLocaleString()+'건</td>'
+          +'<td style="color:#333;font-weight:600">'+b.toLocaleString()+'건</td>'
+        +'</tr>';
+        first=false;
+      });
     });
   });
   return '<div class="card" style="margin-bottom:16px">'
