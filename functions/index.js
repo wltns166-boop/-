@@ -465,7 +465,7 @@ async function _kkHandle(body, res) {
         const srcType = String(body.src || "현월").slice(0, 10);
         const dtStr = String(body.dt || "").slice(0, 10);
         const notes = Array.isArray(body.notes) ? body.notes.slice(0, 50) : [];
-        blocks.push("[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류 : " + kind + " (" + region + ")\n배정종류 : " + srcType + " · 배정일 : " + dtStr);
+        blocks.push("[DB 배정]\n" + member + "님, DB " + qty + "건이 배정되었습니다.\n종류 : " + kind + " (" + region + ")\n배정종류 : " + srcType + "\n배정일 : " + dtStr);
         notes.forEach((n, i) => blocks.push(custBlock(n, i, notes.length > 1)));
       }
       // 블록 단위로 200자에 맞춰 묶기
