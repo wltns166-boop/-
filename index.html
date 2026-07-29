@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-24</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-25</div>
   </div>
 </div>
 
@@ -6527,9 +6527,10 @@ g('m_db_save').addEventListener('click',()=>{
   const mode=g('mdb_mode').value;
   // 수량별 비고 수집
   const qty=+g('mdb_qty').value||0;
+  if(window._mdbRecBusy>0){ toast('녹취파일 업로드가 끝난 뒤 저장해 주세요.'); return; }
   const notes=[];
   for(let i=0;i<qty;i++){
-    const fields=['name','phone','birth','gender','premium','calltime','address'];
+    const fields=['name','phone','birth','gender','premium','calltime','address','recUrl','recName'];
     const note={};
     fields.forEach(f=>{
       const el=document.getElementById('mdb_note_'+i+'_'+f);
@@ -7427,6 +7428,7 @@ function rDbInfo(){
           dt:d.dt||'-', assignee:d.m||'-', kind:d.k||'-', region:d.region||'-',
           name:n.name||'', phone:n.phone||'', birth:n.birth||'',
           gender:n.gender||'', premium:n.premium||'', calltime:n.calltime||'', address:n.address||'',
+          recUrl:n.recUrl||'', recName:n.recName||'',
           consult:n.consult||'', calls:Array.isArray(n.calls)?n.calls:[],
           _d:d, _ni:ni
         });
@@ -7435,6 +7437,7 @@ function rDbInfo(){
       rows.push({
         dt:d.dt||'-', assignee:d.m||'-', kind:d.k||'-', region:d.region||'-',
         name:'', phone:'', birth:'', gender:'', premium:'', calltime:'', address:d.n||'',
+        recUrl:'', recName:'',
         consult:d.consult||'', calls:[],
         _d:d, _ni:-1
       });
@@ -7466,12 +7469,13 @@ function rDbInfo(){
 
   el.innerHTML=`
     <div style="overflow-x:auto">
-      <table class="dt" style="min-width:1000px">
+      <table class="dt" style="min-width:1200px">
         <thead>
           <tr>
             <th>배정일</th><th>신청인</th><th>DB종류</th><th>지역</th>
             <th>성함</th><th>연락처</th><th>생년월일</th><th>성별</th>
             <th>보험료</th><th>통화가능시간</th><th>주소</th>
+            <th style="width:230px">녹취파일</th>
             <th style="width:110px">상담여부</th>
           </tr>
         </thead>
@@ -7505,6 +7509,7 @@ function rDbInfo(){
               <td>${r.premium||'-'}</td>
               <td>${r.calltime||'-'}</td>
               <td>${r.address||'-'}</td>
+              <td>${r.recUrl?`<audio controls preload="none" src="${_esc(r.recUrl)}" style="height:30px;width:215px;max-width:100%"></audio>`:'-'}</td>
               <td>${sel}</td>
             </tr>`;
           }).join('')}
@@ -7861,6 +7866,12 @@ function genDbNotes(){
         html+=`</div><div class="fg" style="margin-top:4px">
           <div class="fl">${f.label}</div>
           ${inp}
+        </div>
+        <div class="fg" style="margin-top:4px">
+          <div class="fl">녹취파일 (선택)</div>
+          <input type="file" id="mdb_note_${i}_recfile" accept="audio/*" onchange="_mdbRecUpload(${i},this)" style="font-size:13px;color:#111;background:#fff;border:1px solid #c8cdf0;border-radius:8px;padding:8px;width:100%">
+          <span id="mdb_note_${i}_recstat" style="font-size:12px;color:#667"></span>
+          <input type="hidden" id="mdb_note_${i}_recUrl"><input type="hidden" id="mdb_note_${i}_recName">
         </div>`;
       } else {
         html+=`<div class="fg">
@@ -7872,6 +7883,32 @@ function genDbNotes(){
     html+=`</div>`;
   }
   wrap.innerHTML=html;
+}
+// 녹취파일 업로드 — Firebase Storage(db_recordings/)에 올리고 URL만 레코드에 저장
+//   (함정 B: 음성 base64를 localStorage/Firestore 문서에 넣으면 용량 초과 — 반드시 Storage URL 방식)
+window._mdbRecBusy=0;
+function _mdbRecUpload(i, inp){
+  var f=inp.files&&inp.files[0];
+  var st=g('mdb_note_'+i+'_recstat');
+  if(!f) return;
+  if(f.size>20*1024*1024){ toast('녹취파일은 20MB 이하만 업로드할 수 있습니다.'); inp.value=''; return; }
+  if(!(window.firebase&&firebase.storage)){ toast('저장소 모듈이 없어 업로드할 수 없습니다.'); return; }
+  var safe=String(f.name||'rec').replace(/[^0-9a-zA-Z가-힣._-]/g,'_').slice(0,60);
+  var path='db_recordings/'+_curYm().replace('-','')+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+safe;
+  window._mdbRecBusy++;
+  if(st) st.textContent='업로드 중… ('+safe+')';
+  firebase.storage().ref(path).put(f).then(function(snap){ return snap.ref.getDownloadURL(); })
+    .then(function(url){
+      var u=g('mdb_note_'+i+'_recUrl'), n=g('mdb_note_'+i+'_recName');
+      if(u) u.value=url; if(n) n.value=safe;
+      if(st){ st.textContent='업로드 완료: '+safe; st.style.color='#1a7a45'; }
+    })
+    .catch(function(e){
+      console.warn('녹취 업로드 실패:',e);
+      if(st){ st.textContent='업로드 실패 — 다시 선택해 주세요.'; st.style.color='#cc3030'; }
+      inp.value='';
+    })
+    .finally(function(){ window._mdbRecBusy=Math.max(0,window._mdbRecBusy-1); });
 }
 // DB 배정 고객칸 자동 서식 — 연락처: 010-6413-1743 형식
 function _dbNoteFmtPhone(el){

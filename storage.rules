@@ -36,6 +36,11 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
 
+    // DB 배정 녹취파일(음성) — 인증된 사용자만 읽기/쓰기
+    match /db_recordings/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
     // 그 외 모든 경로는 기본 차단
     match /{allPaths=**} {
       allow read, write: if false;
