@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-14</div>
   </div>
 </div>
 
@@ -6257,7 +6257,7 @@ function rDbs(){
   tb.querySelectorAll('[data-dsi]').forEach(b=>b.addEventListener('click',()=>{if(confirm('삭제?')){dbs.splice(+b.dataset.dsi,1);sv('tops_dbs',dbs);rDbs();}}));
   setAdmin();
 }
-function openDbaAdmin(){fillSel('mdb_mem');g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
+function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
 // 신청 버튼 (일반 구성원)
 function openDbaReq(){
   fillSel('dreq_mem');
@@ -6319,7 +6319,17 @@ function calcDreq(){
   const q=+g('dreq_qty').value||0;
   g('dreq_total').value=q&&unit?(q*unit).toLocaleString()+'원':'';
 }
-function openDbs(){fillSel('mdb_mem');g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';g('m_db').classList.add('open');}
+// DB 종류 셀렉트(mdb_kind)를 업체관리 [DB 정보 추가]에 등록된 목록으로 채움 — 등록·수정·삭제가 바로 반영.
+//   (마크업의 하드코딩 목록은 스크립트 실패 시 폴백으로만 남겨둠)
+function _fillDbKindSel(){
+  var sel=g('mdb_kind'); if(!sel) return;
+  var kinds=(Array.isArray(dbInfo)&&dbInfo.length&&dbInfo[0]&&dbInfo[0].kind!==undefined)?dbInfo:DB_DEFAULTS;
+  sel.innerHTML='<option value="">선택하세요</option>'+kinds.map(function(d){
+    var price=+d.price||0;
+    return '<option value="'+_esc(d.kind)+'">'+_esc(d.kind)+(price?' — 건당 '+price.toLocaleString()+'원':'')+'</option>';
+  }).join('');
+}
+function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';g('m_db').classList.add('open');}
 g('m_db_c').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_cancel').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_save').addEventListener('click',()=>{
