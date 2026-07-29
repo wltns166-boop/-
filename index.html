@@ -295,6 +295,20 @@ table.dt tr:last-child td{border-bottom:none;}
     <input type="password" id="lpw" placeholder="비밀번호">
     <button class="lbtn" id="lbtn">로그인</button>
     <div class="lerr" id="lerr">아이디 또는 비밀번호를 확인하세요.</div>
+    <!-- 기기인증 패널 — 팀원이 처음 보는 기기(브라우저)에서 로그인하면 아이디/비번 영역 대신 표시.
+         등록된 본인 연락처로 SMS 인증 후 이 기기를 신뢰 기기로 등록(다음부터 인증 생략) -->
+    <div id="devv" style="display:none">
+      <div style="font-size:16px;font-weight:700;color:#dfe4ff;margin-bottom:6px"><i class="ti ti-device-mobile"></i> 새 기기 인증</div>
+      <div id="devv_msg" style="font-size:13px;color:#b8c0e0;line-height:1.55;margin-bottom:12px;text-align:left"></div>
+      <button class="lbtn" type="button" id="devv_send">인증문자 발송</button>
+      <div id="devv_codebox" style="display:none;margin-top:11px">
+        <input type="tel" id="devv_code" placeholder="인증번호 6자리" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+        <button class="lbtn" type="button" id="devv_ok">확인</button>
+      </div>
+      <div class="lerr" id="devv_err"></div>
+      <div style="margin-top:12px;text-align:center"><span class="llink" id="devv_back" style="border-right:none">← 처음으로</span></div>
+      <div id="devv_captcha"></div>
+    </div>
     <div class="lopt">
       <div class="lchecks">
         <label class="sid"><input type="checkbox" id="sidc"> 아이디 저장</label>
@@ -307,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.27-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-1</div>
   </div>
 </div>
 
@@ -482,6 +496,7 @@ table.dt tr:last-child td{border-bottom:none;}
             <button class="bp ao" id="btn_mem_edit_all" onclick="openMemEditAll()" style="font-size:14px"><i class="ti ti-edit"></i> 수정</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
+            <button class="bp ao" id="btn_devmgr" onclick="openDevMgr()" style="font-size:14px"><i class="ti ti-device-mobile-check"></i> 기기인증 관리</button>
             <button class="bp ao" onclick="exportMemExcel()" style="font-size:14px;background:rgba(20,140,60,.18);border-color:rgba(30,180,80,.3);color:#18a050"><i class="ti ti-table-export"></i> 엑셀저장</button>
             <button class="bp ao" onclick="exportMemPdf()" style="font-size:14px;background:rgba(180,60,60,.14);border-color:rgba(200,80,80,.3);color:#cc5050"><i class="ti ti-file-type-pdf"></i> PDF저장</button>
           </div>
@@ -2399,7 +2414,8 @@ function _authDocSync(){
   try{
     if(!window.FS_AUTH) return;
     var slimMem=(Array.isArray(mem)?mem:[]).map(function(m){
-      return {lid:String((m&&m.lid)||''), lpw:String((m&&m.lpw)||''), code:String((m&&m.code)||''), name:(m&&m.name)||''};
+      // hp: 신규 기기 첫 로그인 시 SMS 기기인증을 보낼 본인 연락처 (로그인 전 조회용)
+      return {lid:String((m&&m.lid)||''), lpw:String((m&&m.lpw)||''), code:String((m&&m.code)||''), name:(m&&m.name)||'', hp:String((m&&m.phone)||'')};
     });
     var slimAdmov={};
     Object.keys(admov||{}).forEach(function(n){
@@ -3039,7 +3055,12 @@ function _tryLogin(id,pw){
   if(adm){cu={id,name:adm.name,role:adm.role,admin:true};saveSession();login();return true;}
   // 팀원 체크 — 로컬 캐시(mem) 우선, 없으면 클라우드 사전 로드본(_authMem)에서 조회
   const m=mem.find(x=>x.lid===id&&x.lpw===pw)||(window._authMem||[]).find(x=>x.lid===id&&x.lpw===pw);
-  if(m){cu={id,name:m.name||'('+m.code+')',admin:false,code:m.code};saveSession();login();return true;}
+  if(m){
+    var u={id,name:m.name||'('+m.code+')',admin:false,code:m.code};
+    // 기기인증 게이트: 신뢰 기기면 바로 로그인, 처음 보는 기기면 SMS 본인확인 후 login()이 이어진다
+    if(_devGate(u,m)){ cu=u; saveSession(); login(); }
+    return true;   // 자격 증명 자체는 맞음(오류 문구 방지)
+  }
   return false;
 }
 function doLogin(){
@@ -3177,6 +3198,257 @@ function logout(){
   g('ls').style.display='flex';
   g('app').style.display='none';
   g('lid').value='';g('lpw').value='';g('lerr').style.display='none';
+}
+
+// ===== 기기인증 — 신규 기기 SMS 본인확인 =====
+// 팀원이 "처음 보는 기기(브라우저)"에서 로그인하면, 구성원 관리에 등록된 본인 연락처로
+// Firebase 전화 인증(SMS)을 보내 본인 확인 후 그 기기를 신뢰 기기로 등록한다.
+// 한 번 등록된 기기는 이후 문자 인증 없이 아이디·비밀번호만으로 로그인.
+// - 관리자 계정과 저장된 세션 복원('로그인 유지'·서버 캡처 ?rr=1)은 이 게이트를 타지 않는다.
+// - '아이디 저장'(tops_sid)이 남아 있는 기기는 예전부터 쓰던 기기로 보고 최초 1회 자동 등록
+//   (배포 직후 전 팀원이 한꺼번에 문자 인증을 요구받는 사태 방지).
+// - 콘솔 전화 인증 미활성화·과금 미설정·연락처 미등록 같은 "시스템 설정 문제"로 문자를
+//   못 보내는 경우엔 로그인을 막지 않는다(락아웃 방지) — 기기 등록 없이 안내 토스트만 띄운다.
+// - 신뢰 목록: 기기 로컬(tops_devok) + Firestore tops/devices {팀원코드:{기기ID:{ts,nm,via,ua}}}
+//   관리자가 [기기인증 관리]에서 해제하면 그 기기는 다음 로그인부터 다시 문자 인증을 받는다.
+// 페이지 로드 시점의 '아이디 저장' 스냅샷 — 자동 승인(grandfathering) 판정용.
+//   doLogin()이 _tryLogin 호출 "전에" tops_sid를 새로 저장하므로, 실시간 값으로 비교하면
+//   새 기기에서도 '아이디 저장'만 체크하면 SMS 인증이 우회된다. 반드시 이 스냅샷과 비교할 것.
+try{ window._devSidBoot=localStorage.getItem('tops_sid')||''; }catch(e){ window._devSidBoot=''; }
+function _devId(){
+  var v='';
+  try{ v=localStorage.getItem('tops_devid')||''; }catch(e){}
+  if(!v){ v='dv'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); _lsSet('tops_devid',v); }
+  return v;
+}
+function _devOkMap(){ try{ return JSON.parse(localStorage.getItem('tops_devok')||'{}')||{}; }catch(e){ return {}; } }
+function _devKey(u){ return String((u&&(u.code||u.name))||''); }
+function _devTrustedLocal(key){ return !!_devOkMap()[key]; }
+function _devMarkLocal(key){ var m=_devOkMap(); m[key]=Date.now(); _lsSet('tops_devok',JSON.stringify(m)); }
+function _devUnmarkLocal(key){ var m=_devOkMap(); if(m[key]){ delete m[key]; _lsSet('tops_devok',JSON.stringify(m)); } }
+function _devDocRef(){ return window.db ? window.db.collection('tops').doc('devices') : null; }
+// 연락처 → E.164(+82...) 변환. 010 계열 휴대폰만 허용, 그 외엔 '' (기기인증 생략 처리)
+function _devE164(p){
+  var d=String(p||'').replace(/\D/g,'');
+  if(/^821[016789]\d{7,8}$/.test(d)) return '+'+d;              // +82 10-1234-5678 (0 없는 국제 표기)
+  if(/^8201[016789]\d{7,8}$/.test(d)) return '+82'+d.slice(3);  // +82 010-1234-5678 (0 붙인 흔한 실수)
+  if(/^01[016789]\d{7,8}$/.test(d)) return '+82'+d.slice(1);    // 010-1234-5678 (국내 표기)
+  return '';
+}
+function _devMask(p){
+  var d=String(p||'').replace(/\D/g,'');
+  if(d.slice(0,2)==='82') d='0'+d.slice(2);
+  return d.length>=10 ? d.slice(0,3)+'-****-'+d.slice(-4) : '등록된 연락처';
+}
+function _devUaLabel(){
+  var ua=navigator.userAgent||'';
+  var os=/iPhone|iPad/.test(ua)?'아이폰/아이패드':/Android/.test(ua)?'안드로이드':/Windows/.test(ua)?'윈도우 PC':/Mac/.test(ua)?'맥':'기타 기기';
+  var br=/SamsungBrowser/i.test(ua)?'삼성인터넷':/Edg\//.test(ua)?'엣지':/Whale/i.test(ua)?'웨일':/CriOS|Chrome/.test(ua)?'크롬':/Safari/.test(ua)?'사파리':'브라우저';
+  return os+' · '+br;
+}
+function _devRegisterCloud(u, via){
+  try{
+    var ref=_devDocRef(); if(!ref) return;
+    var key=_devKey(u), rec={};
+    rec[key]={}; rec[key][_devId()]={ts:Date.now(), nm:u.name||'', via:via||'sms', ua:_devUaLabel()};
+    (window._fbAuthReady||Promise.resolve()).then(function(){ return ref.set(rec,{merge:true}); })
+      .catch(function(e){ console.warn('기기 등록 저장 실패:',e); });
+  }catch(e){}
+}
+// 신뢰 기기 로그인 후 백그라운드로 클라우드 목록과 대조 — 관리자가 해제한 기기면
+// 로컬 표식을 지워 "다음" 로그인부터 다시 문자 인증을 받게 한다(이번 세션은 유지).
+function _devRevokeCheck(u){
+  try{
+    var ref=_devDocRef(); if(!ref) return;
+    var key=_devKey(u), id=_devId();
+    (window._fbAuthReady||Promise.resolve()).then(function(){ return ref.get(); }).then(function(doc){
+      if(!doc||!doc.exists) return;
+      var d=doc.data()||{};
+      if(d[key] && typeof d[key]==='object' && !d[key][id]) _devUnmarkLocal(key);
+    }).catch(function(){});
+  }catch(e){}
+}
+// 게이트 본체. 반환 true = 지금 바로 로그인 진행 / false = SMS 인증 UI로 전환(인증 완료 후 login())
+function _devGate(u, m){
+  try{
+    var key=_devKey(u); if(!key) return true;
+    if(_devTrustedLocal(key)){ _devRevokeCheck(u); return true; }
+    // 기존 사용 기기 자동 승인: 페이지를 열던 시점부터 '아이디 저장'이 이 아이디로 남아 있던 기기
+    //   (실시간 tops_sid가 아니라 로드 시점 스냅샷 — 위 _devSidBoot 주석 참조)
+    var sid=window._devSidBoot||'';
+    if(sid && sid===u.id){ _devMarkLocal(key); _devRegisterCloud(u,'auto'); return true; }
+    var raw=(m&&(m.phone||m.hp))||'';
+    var phone=_devE164(raw);
+    if(!phone){ _devSkipNote('연락처 미등록 — 구성원 관리에 핸드폰번호를 등록하면 기기인증이 켜집니다'); return true; }
+    if(!(window.firebase&&firebase.auth&&firebase.auth.RecaptchaVerifier&&window.db)){ _devSkipNote('인증 모듈 로드 실패'); return true; }
+    _devVerifyStart(u, phone, raw);
+    return false;
+  }catch(e){ console.warn('기기인증 오류 — 이번 로그인은 통과:',e); return true; }
+}
+function _devSkipNote(msg){ setTimeout(function(){ try{ toast('기기인증 생략: '+msg); }catch(e){} }, 800); }
+// 로그인 박스 전환: on=true 면 아이디/비번 영역을 숨기고 기기인증 패널 표시
+function _devUiShow(on){
+  ['lid','lpw','lbtn','lerr'].forEach(function(i){ var el=g(i); if(el) el.style.display=on?'none':''; });
+  var lo=document.querySelector('#ls .lopt'); if(lo) lo.style.display=on?'none':'';
+  var dv=g('devv'); if(dv) dv.style.display=on?'':'none';
+  if(!on){ var eb=g('devv_err'); if(eb) eb.style.display='none'; }
+}
+function _devErr(t){ var eb=g('devv_err'); if(eb){ eb.textContent=t; eb.style.display='block'; } }
+// 전화 인증은 별도 Firebase 앱 인스턴스(devauth)로 수행 — 본 앱의 익명 인증 세션을 건드리지 않기 위함
+function _devAuth2(){
+  try{ return firebase.app('devauth'); }
+  catch(e){ return firebase.initializeApp(firebase.app().options, 'devauth'); }
+}
+// 발송 실패 처리 방침: 사용자가 재시도해서 해결될 수 있는 오류만 화면에 남기고,
+// 그 외(전화 인증 미활성화·과금 미설정·미지의 신규 에러코드 포함)는 전부 로그인 통과(락아웃 방지).
+// 화이트리스트가 아니라 블랙리스트인 이유: 예상 못 한 에러코드 하나로 팀원이 새 기기에서
+// 영영 로그인 못 하는 상황을 만들지 않기 위해 — 어차피 이 게이트는 클라이언트 수준 차단이다.
+var _DEV_RETRY_ERRS=['auth/too-many-requests','auth/network-request-failed','auth/captcha-check-failed'];
+function _devCleanup(){
+  try{ if(window._devCaptcha){ window._devCaptcha.clear(); } }catch(e){}
+  window._devCaptcha=null;
+  var cd=g('devv_captcha'); if(cd) cd.innerHTML='';
+  try{ firebase.app('devauth').auth().signOut().catch(function(){}); }catch(e){}
+  window._devPend=null;
+  _devUiShow(false);
+}
+function _devPassThrough(reason){
+  var p=window._devPend; if(!p) return;
+  var u=p.u;
+  _devCleanup();
+  _devSkipNote(reason);
+  cu=u; saveSession(); login();
+}
+function _devVerifyStart(u, e164, rawPhone){
+  window._devPend={u:u, phone:e164, raw:rawPhone||e164, conf:null};
+  var msg=g('devv_msg');
+  if(msg) msg.innerHTML=_esc(u.name||u.id)+'님, 처음 로그인하는 기기입니다.<br>등록된 연락처 <b style="color:#dfe4ff">'
+    +_esc(_devMask(rawPhone||e164))+'</b> 로 인증문자를 보내 본인 확인 후 이 기기를 등록합니다.<br>'
+    +'<span style="color:#7a86b8">한 번 등록하면 이 기기에서는 다시 인증하지 않습니다.</span>';
+  var cb=g('devv_codebox'); if(cb) cb.style.display='none';
+  var ci=g('devv_code'); if(ci) ci.value='';
+  var sb=g('devv_send'); if(sb){ sb.disabled=false; sb.textContent='인증문자 발송'; }
+  var eb=g('devv_err'); if(eb) eb.style.display='none';
+  _devUiShow(true);
+}
+function _devSend(){
+  var p=window._devPend; if(!p) return;
+  var sb=g('devv_send'); if(sb){ sb.disabled=true; sb.textContent='발송 중…'; }
+  var eb=g('devv_err'); if(eb) eb.style.display='none';
+  var auth2;
+  try{ auth2=_devAuth2().auth(); auth2.useDeviceLanguage(); }
+  catch(e){ console.warn('devauth 초기화 실패:',e); _devPassThrough('인증 모듈 오류'); return; }
+  // reCAPTCHA는 재사용이 불안정 → 매 발송마다 새로 생성
+  try{ if(window._devCaptcha){ window._devCaptcha.clear(); } }catch(e){}
+  window._devCaptcha=null;
+  var cd=g('devv_captcha'); if(cd) cd.innerHTML='';
+  try{ window._devCaptcha=new firebase.auth.RecaptchaVerifier('devv_captcha',{size:'invisible'},_devAuth2()); }
+  catch(e){ console.warn('recaptcha 초기화 실패:',e); _devPassThrough('보안문자 초기화 실패'); return; }
+  auth2.signInWithPhoneNumber(p.phone, window._devCaptcha).then(function(conf){
+    if(window._devPend!==p) return;   // 취소/재시작 후 늦게 도착한 옛 응답 무시 (race 방지)
+    p.conf=conf;
+    var cb=g('devv_codebox'); if(cb) cb.style.display='';
+    var ci=g('devv_code'); if(ci){ ci.value=''; try{ ci.focus(); }catch(e){} }
+    if(sb){ sb.textContent='인증문자 다시 발송'; sb.disabled=false; }
+    var msg=g('devv_msg');
+    if(msg) msg.innerHTML='<b style="color:#dfe4ff">'+_esc(_devMask(p.raw))+'</b> 로 인증번호를 보냈습니다.<br>문자로 받은 6자리 숫자를 입력하세요.';
+  }).catch(function(err){
+    if(window._devPend!==p) return;   // 취소/재시작 후 늦게 도착한 옛 응답 무시 (race 방지)
+    var code=(err&&err.code)||'';
+    console.warn('기기인증 SMS 발송 실패:', code, err);
+    if(_DEV_RETRY_ERRS.indexOf(code)<0){ _devPassThrough('문자 발송 불가('+(code?code.replace('auth/',''):'오류')+')'); return; }
+    if(sb){ sb.disabled=false; sb.textContent='인증문자 발송'; }
+    _devErr(code==='auth/too-many-requests' ? '시도가 너무 많습니다. 잠시 후 다시 시도하세요.'
+          : code==='auth/network-request-failed' ? '인터넷 연결을 확인한 뒤 다시 시도하세요.'
+          : '보안 확인에 실패했습니다. 다시 시도하세요.');
+  });
+}
+function _devConfirm(){
+  var p=window._devPend; if(!p||!p.conf) return;
+  var ci=g('devv_code'); var code=((ci&&ci.value)||'').trim();
+  if(!/^\d{6}$/.test(code)){ _devErr('인증번호 6자리를 입력하세요.'); return; }
+  var ok=g('devv_ok'); if(ok){ ok.disabled=true; ok.textContent='확인 중…'; }
+  p.conf.confirm(code).then(function(){
+    if(window._devPend!==p) return;   // 취소 후 늦게 도착한 확인 응답으로 로그인되지 않게 (race 방지)
+    var u=p.u, key=_devKey(u);
+    _devMarkLocal(key); _devRegisterCloud(u,'sms');
+    _devCleanup();
+    cu=u; saveSession(); login();
+    setTimeout(function(){ try{ toast('이 기기가 인증 기기로 등록되었습니다. 다음부터는 인증 없이 로그인됩니다.'); }catch(e){} }, 800);
+  }).catch(function(err){
+    if(window._devPend!==p) return;
+    var code=(err&&err.code)||'';
+    _devErr(code==='auth/invalid-verification-code' ? '인증번호가 올바르지 않습니다.'
+          : code==='auth/code-expired' ? '인증번호가 만료됐습니다. [인증문자 다시 발송]을 눌러주세요.'
+          : '확인에 실패했습니다. 다시 시도하세요. ('+(code||'오류')+')');
+  }).finally(function(){ var ob=g('devv_ok'); if(ob){ ob.disabled=false; ob.textContent='확인'; } });
+}
+// 기기인증 패널 이벤트 연결
+(function(){
+  var sb=g('devv_send'); if(sb) sb.addEventListener('click', _devSend);
+  var ob=g('devv_ok'); if(ob) ob.addEventListener('click', _devConfirm);
+  var bk=g('devv_back'); if(bk) bk.addEventListener('click', function(){ _devCleanup(); });
+  var ci=g('devv_code'); if(ci) ci.addEventListener('keydown', function(e){ if(e.key==='Enter') _devConfirm(); });
+})();
+
+// ===== [기기인증 관리] — 관리자: 팀원별 등록 기기 조회·해제 =====
+function openDevMgr(){
+  if(!_isAdmin()){ toast('관리자만 볼 수 있습니다.'); return; }
+  var old=g('devmgr_popup'); if(old) old.remove();
+  var el=document.createElement('div');
+  el.id='devmgr_popup';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:640px;max-width:96vw;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="font-size:17px;font-weight:700;margin-bottom:4px;color:#1a1a2e">📱 기기인증 관리</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:14px">팀원이 문자 인증(또는 자동 승인)으로 등록한 기기 목록입니다. 해제하면 그 기기는 다음 로그인 때 다시 문자 인증을 받습니다.</div>'
+    +'<div id="devmgr_list" style="font-size:14px;color:#333">불러오는 중…</div>'
+    +'<div style="text-align:right;margin-top:14px"><button onclick="document.getElementById(\'devmgr_popup\').remove()" style="padding:8px 18px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">닫기</button></div>'
+  +'</div>';
+  document.body.appendChild(el);
+  _devMgrLoad();
+}
+function _devMgrLoad(){
+  var box=g('devmgr_list'); if(!box) return;
+  var ref=_devDocRef(); if(!ref){ box.textContent='클라우드 연결이 없습니다.'; return; }
+  ref.get().then(function(doc){
+    var d=(doc.exists&&doc.data())||{};
+    var keys=Object.keys(d).filter(function(k){ return d[k]&&typeof d[k]==='object'&&Object.keys(d[k]).length; });
+    if(!keys.length){ box.innerHTML='<div style="color:#888;padding:20px;text-align:center">등록된 기기가 없습니다.<br><span style="font-size:12px">팀원이 새 기기에서 문자 인증을 하면 여기에 표시됩니다.</span></div>'; return; }
+    // 숫자 코드는 숫자순, 문자 섞인 코드는 문자열순으로 뒤에
+    keys.sort(function(a,b){
+      var na=+a, nb=+b, fa=isFinite(na), fb=isFinite(nb);
+      if(fa&&fb) return na-nb;
+      if(fa!==fb) return fa?-1:1;
+      return String(a).localeCompare(String(b));
+    });
+    box.innerHTML=keys.map(function(k){
+      var devs=d[k], ids=Object.keys(devs).sort(function(a,b){ return ((devs[b]&&devs[b].ts)||0)-((devs[a]&&devs[a].ts)||0); });
+      var nm='';
+      ids.some(function(i){ if(devs[i]&&devs[i].nm){ nm=devs[i].nm; return true; } return false; });
+      if(!nm){ var mm=(mem||[]).find(function(x){ return String(x.code)===String(k); }); nm=(mm&&mm.name)||''; }
+      var rows=ids.map(function(i){
+        var v=devs[i]||{};
+        var dt=v.ts?new Date(v.ts):null;
+        var when=dt?(dt.getFullYear()+'.'+String(dt.getMonth()+1).padStart(2,'0')+'.'+String(dt.getDate()).padStart(2,'0')):'-';
+        // 함정 A: 식별은 팀원코드+기기ID(고유 식별자)로 — onclick 에 JSON 문자열로 안전하게 심는다
+        var oc=('_devMgrRevoke('+JSON.stringify(String(k))+','+JSON.stringify(String(i))+')').replace(/"/g,'&quot;');
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f5">'
+          +'<span>'+_esc(v.ua||'기기')+' <span style="color:#999;font-size:12px">'+when+(v.via==='auto'?' · 자동승인':' · 문자인증')+'</span></span>'
+          +'<button onclick="'+oc+'" style="font-size:12px;padding:3px 10px;border:1px solid rgba(200,80,80,.4);border-radius:5px;cursor:pointer;font-family:inherit;background:#fff5f5;color:#cc4040;white-space:nowrap">해제</button>'
+        +'</div>';
+      }).join('');
+      return '<div style="margin-bottom:14px"><div style="font-weight:700;color:#3040aa;margin-bottom:2px">'+_esc(nm||('코드 '+k))
+        +' <span style="color:#999;font-weight:400;font-size:12px">(코드 '+_esc(k)+' · '+ids.length+'대)</span></div>'+rows+'</div>';
+    }).join('');
+  }).catch(function(e){ box.textContent='목록을 불러오지 못했습니다: '+((e&&e.message)||e); });
+}
+function _devMgrRevoke(key, devId){
+  if(!_isAdmin()) return;
+  if(!confirm('이 기기를 해제할까요?\n해제하면 그 기기는 다음 로그인 때 다시 문자 인증을 받습니다.')) return;
+  var ref=_devDocRef(); if(!ref) return;
+  ref.update(new firebase.firestore.FieldPath(String(key), String(devId)), firebase.firestore.FieldValue.delete())
+    .then(function(){ toast('기기를 해제했습니다.'); _devMgrLoad(); })
+    .catch(function(e){ toast('해제 실패: '+((e&&e.message)||e)); });
 }
 
 // ===== 개인정보 수정 (본인) =====

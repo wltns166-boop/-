@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/admiring-fermi-1by3Z`
+- 작업 브랜치: `claude/team-tops-intranet-handoff-s7gb6n` (2026-07-29부터. 이전: claude/customer-registration-contact-name-3os6lj)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -96,6 +96,26 @@
 - 호스팅 캐시: firebase.json `Cache-Control: no-cache` — 배포 즉시 반영.
 - **로그인 화면 좌하단 버전 표시 `#lver`** — 기기가 옛 캐시 버전인지 판별용. **배포용 커밋마다 `v2026.07.09-2` 형식으로 갱신할 것.**
 
+### 3.6 기기인증 (2026-07-29, 신규 기기 SMS 본인확인)
+
+- **팀원**이 처음 보는 기기(브라우저)에서 로그인하면 등록된 본인 연락처(`mem[].phone`)로
+  Firebase 전화 인증(SMS) 후 그 기기를 신뢰 기기로 등록. 이후 그 기기는 인증 없이 로그인.
+- 게이트는 `_tryLogin()`의 팀원 경로에만 있음(`_devGate`). **관리자 계정·세션 복원(로그인 유지)·서버 캡처(?rr=1)는 게이트를 타지 않는다.**
+- 신뢰 판정: ① 로컬 표식 `tops_devok`(기기별, `_lsSet`) → ② '아이디 저장'(`tops_sid`) 일치 시 최초 1회 자동 등록(기존 기기 grandfathering) → ③ SMS 인증.
+- **락아웃 방지(fail-open)**: 연락처 미등록/형식 오류, 콘솔 전화 인증 미활성화·과금 미설정 등
+  `_DEV_CFG_ERRS` 시스템 오류는 로그인을 막지 않고 통과시킨다(기기 등록은 안 함, 토스트 안내만).
+- 저장: 기기ID `tops_devid`(로컬 전용, sv 동기화 안 함), 클라우드 `tops/devices` 문서
+  `{팀원코드:{기기ID:{ts,nm,via,ua}}}` — sv()/tops_data와 무관한 별도 문서(merge 쓰기).
+- 전화 인증은 **별도 Firebase 앱 인스턴스 `devauth`**(`_devAuth2()`)로 수행 — 본 앱 익명 인증 세션 보존.
+- `tops/auth` 축약본에 `hp`(연락처) 포함(`_authDocSync`) — 새 기기가 로그인 전에 발송 번호를 알기 위함.
+  ⚠️ 이 문서는 로그인 전에도 읽히므로 연락처가 익명 인증 사용자에게 노출됨(기존 lpw 평문과 동일한 구조적 한계).
+  근본 해결은 서버(Cloud Functions)에서 SMS를 보내는 구조로 바꾸는 것 — 별도 작업 필요.
+- 발송 실패는 **블랙리스트 방식**: `_DEV_RETRY_ERRS`(too-many-requests 등 재시도 오류)만 화면에 남기고
+  나머지 미지의 오류는 전부 fail-open. 화이트리스트로 되돌리지 말 것(신규 에러코드 락아웃 위험).
+- 관리자 UI: 구성원 관리 [기기인증 관리](`openDevMgr`) — 기기 조회·해제. 해제하면 `_devRevokeCheck`가
+  다음 로그인부터 로컬 표식을 지워 재인증 요구.
+- ⚠️ **Firebase 콘솔에서 Authentication > 전화 활성화 + Blaze 결제 필요** — 미설정이면 fail-open으로 동작(게이트 사실상 꺼짐).
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.
@@ -136,7 +156,7 @@
 5. 가능하면 핵심 로직을 작은 node 스크립트로 **모의 실행** 검증.
 6. **의미 있는 변경이면** `intranet-guard` + `code-reviewer` 에이전트를 자동 호출해 점검 (1.5 규칙).
 7. **gs(서버) 코드를 바꿨는지** 확인 → 바꿨으면 재배포 필요 안내. (index.html만 고쳤으면 재배포 불필요)
-8. 커밋 후 `claude/admiring-fermi-1by3Z` 로 푸시.
+8. 커밋 후 `claude/team-tops-intranet-handoff-s7gb6n` 로 푸시. (⚠️ `claude/**` 브랜치는 푸시 즉시 GitHub Actions가 라이브 배포함)
 
 ## 8. 새 세션 인계
 

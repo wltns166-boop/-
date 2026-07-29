@@ -14,8 +14,8 @@ TEAM TOPS 인트라넷 작업을 이어서 진행합니다. 먼저 저장소의 
 - 대화·주석·커밋 메시지는 한국어.
 
 [작업 브랜치]
-- **`claude/customer-registration-contact-name-3os6lj`** — 이 브랜치에서 작업하고 이 브랜치로 푸시.
-- ⚠️ CLAUDE.md에는 옛 브랜치(`claude/admiring-fermi-1by3Z`)가 적혀 있음. 무시하고 위 브랜치를 쓸 것. 기회가 되면 CLAUDE.md의 브랜치 표기도 갱신 필요.
+- **`claude/team-tops-intranet-handoff-s7gb6n`** — 2026-07-29부터 이 브랜치에서 작업하고 이 브랜치로 푸시. (이전 브랜치 `claude/customer-registration-contact-name-3os6lj`의 커밋을 모두 포함)
+- `claude/**` 브랜치는 푸시 즉시 GitHub Actions(firebase-deploy.yml)가 라이브 배포함.
 
 [지난 세션 작업 — 전부 커밋·푸시·Actions 배포 성공 확인됨. 다시 하지 말 것. `index.html`만 수정했고 functions/gs 변경 없음]
 
