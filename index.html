@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-15</div>
   </div>
 </div>
 
@@ -2138,6 +2138,14 @@ function rSchedulePage(){
   </div>
   <div class="fr">
     <div class="fg"><div class="fl">배정수량 (건)</div><input class="fi" type="number" id="mdb_qty" placeholder="건" min="1" oninput="genDbNotes()"></div>
+    <!-- 배정종류: 어느 재고에서 차감할지 (현월=이번 달 구매분, 이월=전월 잔여, 교환=교환완료분) -->
+    <div class="fg" id="mdb_src_wrap"><div class="fl">배정종류</div>
+      <select class="fs" id="mdb_src">
+        <option value="현월" selected>현월</option>
+        <option value="이월">이월</option>
+        <option value="교환">교환</option>
+      </select>
+    </div>
     <div class="fg"><div class="fl">배정일</div><input class="fi" type="date" id="mdb_date"></div>
   </div>
   <!-- 수량별 동적 비고칸 -->
@@ -6113,9 +6121,11 @@ function rDba(){
 // 선택한 달(viewYm) 기준 3개 재고 구분:
 //   현월 = 이번 달 구매(dba), 이월 = 전월까지 (구매+교환완료-배정) 남은 것,
 //   교환 = 이번 달 '교환완료' 처리된 교환신청 건수(1레코드=1건, 처리일 doneDt 기준·구 데이터는 신청일 폴백).
-// 이번 달 배정(dbs)은 이월 → 교환 → 현월 순으로 차감해 배정수량 3칸에 나눠 표시(오래된 재고부터 소진 가정).
+// 이번 달 배정(dbs)은 배정 모달의 배정종류(src: 현월/이월/교환)가 지정한 재고에서 차감.
+//   src 없는 구버전 배정은 이월 → 교환 → 현월 순 자동 차감(오래된 재고부터 소진 가정).
 // 총수량 = 현월 구매 + 이월 + 교환. 재고 내 배정이면 배정 3칸+잔여 3칸 합과 일치하고,
 // 재고보다 배정이 많으면(구매 기록 없는 배정·과배정) 현월 배정 칸을 붉게 표시해 알린다.
+// 잔여 합계가 0인(배정 완료) 인원은 표 맨 아래로 내리고 이름 옆에 '배정완료' 배지를 단다.
 function _dbsPersonSumHTML(myTeam, viewYm){
   const REGION_ORDER=['수도권','충청도','경상도','강원도','전라도'];
   const regSort=function(x,y){
@@ -6124,7 +6134,8 @@ function _dbsPersonSumHTML(myTeam, viewYm){
     return (ix-iy)||x.localeCompare(y);
   };
   const ymOf=function(d){ return String(d||'').replace(/\./g,'-').slice(0,7); };
-  // key(이름>종류>지역)별 월 구분 집계: pc/pp=구매(현월/이전), ac/ap=배정, ec/ep=교환완료
+  // key(이름>종류>지역)별 집계: pc/pp=구매(현월/이전), ap=이전 배정, ec/ep=교환완료,
+  //   현월 배정은 지정 재고별 fC/fI/fE + 지정 없는 구버전 aa
   const agg={};
   const feed=function(nm,k,r,dt,curKey,prevKey,qty){
     nm=String(nm||''); k=String(k==null?'':k).trim();
@@ -6132,13 +6143,17 @@ function _dbsPersonSumHTML(myTeam, viewYm){
     if(myTeam!==null && !myTeam.includes(nm)) return;
     r=(r&&String(r).trim())||'기타';
     agg[nm]=agg[nm]||{}; agg[nm][k]=agg[nm][k]||{};
-    const c=agg[nm][k][r]=agg[nm][k][r]||{pc:0,pp:0,ac:0,ap:0,ec:0,ep:0};
+    const c=agg[nm][k][r]=agg[nm][k][r]||{pc:0,pp:0,aa:0,ap:0,ec:0,ep:0,fC:0,fI:0,fE:0};
     const ym=ymOf(dt);
     if(ym===viewYm) c[curKey]+=qty;
     else if(!ym||ym<viewYm) c[prevKey]+=qty;   // 미래 달 기록은 집계 제외
   };
   dba.forEach(function(d){ if(d) feed(d.m,d.k,d.region,d.dt,'pc','pp',+d.q||0); });
-  dbs.forEach(function(d){ if(d) feed(d.m,d.k,d.region,d.dt,'ac','ap',+d.q||0); });
+  dbs.forEach(function(d){
+    if(!d) return;
+    const curKey=d.src==='이월'?'fI':d.src==='교환'?'fE':d.src==='현월'?'fC':'aa';
+    feed(d.m,d.k,d.region,d.dt,curKey,'ap',+d.q||0);
+  });
   var exs=window.dbExchanges;
   if(!Array.isArray(exs)){ try{ exs=JSON.parse(localStorage.getItem('tops_db_exchanges')||'[]'); }catch(e){ exs=[]; } }
   (exs||[]).forEach(function(r){
@@ -6147,35 +6162,49 @@ function _dbsPersonSumHTML(myTeam, viewYm){
   });
   const nameList=Object.keys(agg);
   if(!nameList.length) return '';
-  // 팀원 코드순 정렬 (mem에 없는 이름은 뒤에 이름순)
-  const codeOf=function(n){ const p=(mem||[]).find(function(x){return x.name===n;}); return p?(+p.code||1e9):1e9; };
-  nameList.sort(function(a,b){ const c=codeOf(a)-codeOf(b); return c||a.localeCompare(b); });
-  let rows='';
+  // 사람별 행 데이터 먼저 계산 → 배정 완료 여부에 따라 정렬
+  const persons=[];
   nameList.forEach(function(nm){
     const ks=Object.keys(agg[nm]).sort();
-    // 종류별 지역 행 수치를 먼저 계산 (재고·배정 모두 0인 행은 숨김) → rowspan 확정
     const kindRows=ks.map(function(k){
       return Object.keys(agg[nm][k]).sort(regSort).map(function(r){
         const c=agg[nm][k][r];
         const carry=Math.max(0, c.pp + c.ep - c.ap);   // 이월 = 전월까지 (구매+교환-배정) 잔여
-        const ai=Math.min(c.ac, carry);                // 배정 차감: 이월 →
-        const ae=Math.min(c.ac-ai, c.ec);              //   교환 →
-        const acur=c.ac-ai-ae;                         //   현월
-        return {k:k, r:r, aC:acur, aI:ai, aE:ae,
-          rC:Math.max(0,c.pc-acur), rI:carry-ai, rE:c.ec-ae,
+        // 지정 배정 먼저 반영, 지정 없는 구버전 배정은 이월→교환→현월 순 자동 차감
+        let aI=c.fI, aE=c.fE, aC=c.fC, auto=c.aa;
+        let t=Math.min(auto, Math.max(0, carry-aI)); aI+=t; auto-=t;
+        t=Math.min(auto, Math.max(0, c.ec-aE)); aE+=t; auto-=t;
+        aC+=auto;
+        return {k:k, r:r, aC:aC, aI:aI, aE:aE,
+          rC:Math.max(0,c.pc-aC), rI:Math.max(0,carry-aI), rE:Math.max(0,c.ec-aE),
           total:c.pc+carry+c.ec};
       }).filter(function(v){ return v.total>0 || (v.aC+v.aI+v.aE)>0; });
     }).filter(function(a){ return a.length; });
     const totalRows=kindRows.reduce(function(s,a){return s+a.length;},0);
     if(!totalRows) return;
+    const remainSum=kindRows.reduce(function(s,a){
+      return s+a.reduce(function(s2,v){return s2+v.rC+v.rI+v.rE;},0);
+    },0);
+    persons.push({nm:nm, kindRows:kindRows, totalRows:totalRows, done:remainSum===0});
+  });
+  if(!persons.length) return '';
+  // 정렬: 배정 미완료 먼저(코드순), 배정 완료는 맨 아래(코드순)
+  const codeOf=function(n){ const p=(mem||[]).find(function(x){return x.name===n;}); return p?(+p.code||1e9):1e9; };
+  persons.sort(function(a,b){
+    if(a.done!==b.done) return a.done?1:-1;
+    const c=codeOf(a.nm)-codeOf(b.nm); return c||a.nm.localeCompare(b.nm);
+  });
+  let rows='';
+  persons.forEach(function(p){
     let first=true;
-    kindRows.forEach(function(regRows){
+    const nameHtml=_esc(p.nm)+(p.done?'<br><span style="font-size:11px;font-weight:700;color:#209658;border:1px solid rgba(60,200,120,.4);border-radius:4px;padding:1px 6px;white-space:nowrap">배정완료</span>':'');
+    p.kindRows.forEach(function(regRows){
       regRows.forEach(function(v,ri){
         const remain=v.rC+v.rI+v.rE;
         const remainColor=remain===0?'#cc2020':remain<10?'#cc7020':'#208050';
         const over=(v.aC+v.aI+v.aE)>v.total;   // 재고보다 배정이 많음(구매 기록 누락·과배정)
-        rows+='<tr>'
-          +(first?('<td rowspan="'+totalRows+'" style="font-weight:700;color:#1a1a3a;font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+_esc(nm)+'</td>'):'')
+        rows+='<tr'+(p.done?' style="background:rgba(120,130,160,.05)"':'')+'>'
+          +(first?('<td rowspan="'+p.totalRows+'" style="font-weight:700;color:'+(p.done?'#8a90b0':'#1a1a3a')+';font-size:15px;vertical-align:middle;border-right:1px solid rgba(80,100,220,.1)">'+nameHtml+'</td>'):'')
           +(ri===0?('<td rowspan="'+regRows.length+'" style="font-weight:600;color:#2040cc;vertical-align:middle;border-right:1px solid rgba(80,100,220,.06)">'+_esc(v.k)+'</td>'):'')
           +'<td style="color:#555;font-size:13px">'+_esc(v.r)+'</td>'
           +'<td style="text-align:center;color:'+(over?'#cc2020':'#2060cc')+';font-weight:600;border-left:2px solid rgba(80,100,220,.22)"'+(over?' title="구매 기록보다 배정이 많습니다 (신청현황 미입력 또는 과배정)"':'')+'>'+v.aC.toLocaleString()+'건'+(over?' ⚠':'')+'</td>'
@@ -6191,8 +6220,8 @@ function _dbsPersonSumHTML(myTeam, viewYm){
     });
   });
   if(!rows) return '';
-  const p=(viewYm||'').split('-');
-  const ymLabel=(p.length===2)?((+p[0])+'년 '+(+p[1])+'월'):'';
+  const p2=(viewYm||'').split('-');
+  const ymLabel=(p2.length===2)?((+p2[0])+'년 '+(+p2[1])+'월'):'';
   return '<div class="card" style="margin-bottom:16px">'
     +'<div style="font-size:15px;font-weight:700;color:#3848cc;margin:2px 0 10px"><i class="ti ti-users"></i> 인원별 DB 잔여량 <span style="font-size:12px;font-weight:500;color:#8890bb">('+_esc(ymLabel)+' 기준 · 이월=전월 잔여 · 교환=교환완료 건)</span></div>'
     +'<table class="dt"><thead>'
@@ -6257,7 +6286,7 @@ function rDbs(){
   tb.querySelectorAll('[data-dsi]').forEach(b=>b.addEventListener('click',()=>{if(confirm('삭제?')){dbs.splice(+b.dataset.dsi,1);sv('tops_dbs',dbs);rDbs();}}));
   setAdmin();
 }
-function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
+function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
 // 신청 버튼 (일반 구성원)
 function openDbaReq(){
   fillSel('dreq_mem');
@@ -6329,7 +6358,7 @@ function _fillDbKindSel(){
     return '<option value="'+_esc(d.kind)+'">'+_esc(d.kind)+(price?' — 건당 '+price.toLocaleString()+'원':'')+'</option>';
   }).join('');
 }
-function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';g('m_db').classList.add('open');}
+function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_src'))g('mdb_src').value='현월';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';g('m_db').classList.add('open');}
 g('m_db_c').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_cancel').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_save').addEventListener('click',()=>{
@@ -6347,6 +6376,8 @@ g('m_db_save').addEventListener('click',()=>{
     notes.push(note);
   }
   const obj={m:g('mdb_mem').value,k:g('mdb_kind').value,region:g('mdb_region')?g('mdb_region').value:'',q:qty,notes,dt:g('mdb_date')?g('mdb_date').value||td():td()};
+  // 배정종류(어느 재고에서 차감할지) — 배정 모드에서만 기록
+  if(mode!=='apply'&&g('mdb_src')) obj.src=g('mdb_src').value||'현월';
   if(mode==='apply'){dba.push(obj);sv('tops_dba',dba);g('m_db').classList.remove('open');rDba();}
   else{dbs.push(obj);sv('tops_dbs',dbs);g('m_db').classList.remove('open');rDbs();
     try{ pushNotify([obj.m], 'DB 배정', (obj.k?obj.k+' ':'')+'DB '+(obj.q||0)+'건이 배정되었습니다.', '/'); }catch(e){}
