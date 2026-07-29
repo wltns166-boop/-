@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-19</div>
   </div>
 </div>
 
@@ -7790,6 +7790,8 @@ function genDbNotes(){
     {key:'calltime',label:'통화가능시간'},
     {key:'address', label:'주소'},
   ];
+  // 함정 D: 카드 배경이 밝은색(#f8f9ff)이라 .fi 기본(옅은 글씨)이 안 보임 → 흰 배경·검정 글씨 인라인 오버라이드
+  const inpSt='font-size:15px;background:#fff;color:#111;border:1px solid #c8cdf0';
   let html='';
   for(let i=0;i<Math.min(qty,50);i++){
     html+=`<div style="border:1px solid rgba(60,80,220,.2);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#f8f9ff">
@@ -7799,21 +7801,57 @@ function genDbNotes(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`;
     fields.forEach(f=>{
       const isAddr=f.key==='address';
+      let inp;
+      if(f.key==='gender'){
+        // 성별은 드롭다운(남/여)
+        inp=`<select class="fi" id="mdb_note_${i}_${f.key}" style="${inpSt};cursor:pointer">
+          <option value="">선택</option><option>남</option><option>여</option></select>`;
+      } else if(f.key==='phone'){
+        inp=`<input class="fi" id="mdb_note_${i}_${f.key}" placeholder="010-1234-5678" inputmode="numeric" oninput="_dbNoteFmtPhone(this)" style="${inpSt}">`;
+      } else if(f.key==='birth'){
+        inp=`<input class="fi" id="mdb_note_${i}_${f.key}" placeholder="19920728 입력 시 자동 변환" inputmode="numeric" oninput="_dbNoteFmtBirth(this)" style="${inpSt}">`;
+      } else if(f.key==='premium'){
+        inp=`<input class="fi" id="mdb_note_${i}_${f.key}" placeholder="20 입력 시 20만원" inputmode="numeric" oninput="_dbNoteFmtPremium(this)" style="${inpSt}">`;
+      } else {
+        inp=`<input class="fi" id="mdb_note_${i}_${f.key}" placeholder="${f.label}" style="${inpSt}">`;
+      }
       if(isAddr){
         html+=`</div><div class="fg" style="margin-top:4px">
           <div class="fl">${f.label}</div>
-          <input class="fi" id="mdb_note_${i}_${f.key}" placeholder="${f.label}" style="font-size:15px">
+          ${inp}
         </div>`;
       } else {
         html+=`<div class="fg">
           <div class="fl">${f.label}</div>
-          <input class="fi" id="mdb_note_${i}_${f.key}" placeholder="${f.label}" style="font-size:15px">
+          ${inp}
         </div>`;
       }
     });
     html+=`</div>`;
   }
   wrap.innerHTML=html;
+}
+// DB 배정 고객칸 자동 서식 — 연락처: 010-6413-1743 형식
+function _dbNoteFmtPhone(el){
+  var d=el.value.replace(/\D/g,'').slice(0,11);
+  var v;
+  if(d.length<4) v=d;
+  else if(d.length<8) v=d.slice(0,3)+'-'+d.slice(3);
+  else if(d.length<11) v=d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+  else v=d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+  el.value=v;
+}
+// 생년월일: 19920728 → 1992년7월28일 (8자리 다 치면 자동 변환)
+function _dbNoteFmtBirth(el){
+  var mt=/^(\d{4})년(\d{1,2})월(\d{1,2})일$/.exec(el.value.trim());
+  if(mt){ el.value=(+mt[1])+'년'+(+mt[2])+'월'+(+mt[3])+'일'; return; }   // 이미 변환된 값은 유지
+  var d=el.value.replace(/\D/g,'').slice(0,8);
+  el.value=(d.length===8)?((+d.slice(0,4))+'년'+(+d.slice(4,6))+'월'+(+d.slice(6,8))+'일'):d;
+}
+// 보험료: 20 → 20만원
+function _dbNoteFmtPremium(el){
+  var d=el.value.replace(/\D/g,'').slice(0,6);
+  el.value=d?(String(+d)+'만원'):'';
 }
 
 // ===== 데이터 백업 & 복원 =====
