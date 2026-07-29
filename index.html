@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-3</div>
   </div>
 </div>
 
@@ -507,6 +507,7 @@ table.dt tr:last-child td{border-bottom:none;}
         <button id="mem_tab_all" onclick="switchMemTab('all')" style="padding:8px 20px;font-size:15px;font-weight:600;background:none;border:none;border-bottom:2px solid #4858cc;color:#4858cc;cursor:pointer;margin-bottom:-2px;font-family:inherit">전체 인원 <span id="mem_tab_all_cnt" style="font-weight:700"></span></button>
         <button id="mem_tab_branch" onclick="switchMemTab('branch')" style="padding:8px 20px;font-size:15px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#8888bb;cursor:pointer;margin-bottom:-2px;font-family:inherit">탑스 1지점</button>
         <button id="mem_tab_team" onclick="switchMemTab('team')" style="padding:8px 20px;font-size:15px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#8888bb;cursor:pointer;margin-bottom:-2px;font-family:inherit">팀별 인원</button>
+        <button id="mem_tab_sus" onclick="switchMemTab('sus')" style="padding:8px 20px;font-size:15px;font-weight:500;background:none;border:none;border-bottom:2px solid transparent;color:#8888bb;cursor:pointer;margin-bottom:-2px;font-family:inherit;display:none">사용정지 <span id="mem_tab_sus_cnt" style="font-weight:700"></span></button>
       </div>
       <!-- 전체 인원 뷰 -->
       <div id="mem_view_all">
@@ -519,6 +520,10 @@ table.dt tr:last-child td{border-bottom:none;}
       <!-- 팀별 인원 뷰 -->
       <div id="mem_view_team" style="display:none">
         <div id="mem_team_cards"></div>
+      </div>
+      <!-- 사용정지 인원 뷰 (관리자 전용) -->
+      <div id="mem_view_sus" style="display:none">
+        <div class="card"><table class="dt"><thead><tr><th>코드</th><th>이름</th><th>직급</th><th>소속</th><th>핸드폰번호</th><th>정지일</th><th class="ao">관리</th></tr></thead><tbody id="mem_sus_tb"></tbody></table></div>
       </div>
     </div>
 
@@ -2415,7 +2420,8 @@ function _authDocSync(){
     if(!window.FS_AUTH) return;
     var slimMem=(Array.isArray(mem)?mem:[]).map(function(m){
       // hp: 신규 기기 첫 로그인 시 SMS 기기인증을 보낼 본인 연락처 (로그인 전 조회용)
-      return {lid:String((m&&m.lid)||''), lpw:String((m&&m.lpw)||''), code:String((m&&m.code)||''), name:(m&&m.name)||'', hp:String((m&&m.phone)||'')};
+      // sus: 사용정지 여부 — 로컬 캐시 없는 기기에서도 로그인 전에 차단하기 위함
+      return {lid:String((m&&m.lid)||''), lpw:String((m&&m.lpw)||''), code:String((m&&m.code)||''), name:(m&&m.name)||'', hp:String((m&&m.phone)||''), sus:(m&&m.suspended)?1:0};
     });
     var slimAdmov={};
     Object.keys(admov||{}).forEach(function(n){
@@ -3056,6 +3062,12 @@ function _tryLogin(id,pw){
   // 팀원 체크 — 로컬 캐시(mem) 우선, 없으면 클라우드 사전 로드본(_authMem)에서 조회
   const m=mem.find(x=>x.lid===id&&x.lpw===pw)||(window._authMem||[]).find(x=>x.lid===id&&x.lpw===pw);
   if(m){
+    // 사용정지 계정 차단 (suspended: 로컬 mem 필드 / sus: tops/auth 축약본 필드)
+    if(m.suspended||m.sus){
+      var le=g('lerr');
+      if(le){ le.textContent='사용이 정지된 계정입니다. 관리자에게 문의하세요.'; le.style.display='block'; }
+      return true;   // 자격 증명은 맞음 — "아이디/비번 확인" 오류 문구로 덮이지 않게
+    }
     var u={id,name:m.name||'('+m.code+')',admin:false,code:m.code};
     // 기기인증 게이트: 신뢰 기기면 바로 로그인, 처음 보는 기기면 SMS 본인확인 후 login()이 이어진다
     if(_devGate(u,m)){ cu=u; saveSession(); login(); }
@@ -3176,6 +3188,8 @@ function login(){
   // Firestore 데이터 로드
   showPage('home');
   loadFromFirestore().then(function(){
+    // 사용정지 확인 — 세션 복원 기기의 로컬 캐시가 낡아 정지 사실을 모르고 들어왔으면 즉시 로그아웃
+    try{ if(_susEnforce()) return; }catch(e){}
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
       [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts].forEach(function(f){
@@ -3598,9 +3612,11 @@ function setAdmin(){
     el.parentElement.style.display='none'; // .ns 감추기
   });
   // 관리자 전용 nav 항목 (3W 수정 버튼은 render 시 처리)
-  // 구성원 관리 "전체 인원" 탭: 관리자만
+  // 구성원 관리 "전체 인원"·"사용정지" 탭: 관리자만
   var memTabAll=g('mem_tab_all');
   if(memTabAll) memTabAll.style.display=isAdmin?'':'none';
+  var memTabSus=g('mem_tab_sus');
+  if(memTabSus) memTabSus.style.display=isAdmin?'':'none';
 }
 // 자동 로그인 — 저장된 세션 복원
 (function(){
@@ -3614,7 +3630,7 @@ function setAdmin(){
     try{
       cu=JSON.parse(sess);
       const validAdm=_admList().find(a=>a.id===cu.id)||(cu.admin&&ADMINS.find(a=>a.name===cu.name));   // 아이디 변경 전 구세션도 이름으로 허용
-      const validMem=mem.find(x=>x.lid===cu.id);
+      const validMem=mem.find(x=>x.lid===cu.id&&!x.suspended);   // 사용정지 계정은 저장된 세션도 복원 안 함
       if(validAdm && cu.admin){
         // 관리자 세션 필드를 유효 계정 기준으로 재동기화(아이디 변경 반영·구세션 필드 정합화)
         var effA=_admList().find(a=>a.name===cu.name)||validAdm;
@@ -3914,6 +3930,7 @@ function rMem(){
   const myTeam = getMyTeam();
   const done = mem.filter(m=>{
     if(!m.name||!m.name.trim()) return false;
+    if(m.suspended) return false; // 사용정지 인원은 [사용정지] 탭에서만 표시
     if(myTeam===null) return true; // 관리자: 전체
     return myTeam.includes(m.name);
   }).sort((a,b)=>(+a.code||0)-(+b.code||0));
@@ -3922,6 +3939,7 @@ function rMem(){
   const total = admRows.length + done.length;
   const mc=g('mem_count'); if(mc) mc.textContent=total;
   const tc=g('mem_tab_all_cnt'); if(tc) tc.textContent=total?('('+total+'명)'):'';   // 탭 라벨 옆 인원수
+  const scnt=g('mem_tab_sus_cnt'); if(scnt){ const sn=mem.filter(m=>m.suspended).length; scnt.textContent=sn?('('+sn+'명)'):''; }
   if(!total){
     tb.innerHTML='<tr><td colspan="8" class="em" style="color:#aaaacc;padding:40px">등록된 구성원이 없습니다.<br><span style="font-size:14px;margin-top:6px;display:block">코드생성 버튼으로 팀원을 추가하세요.</span></td></tr>';
     return;
@@ -3946,31 +3964,96 @@ function rMem(){
       <td style="font-size:15px;color:#111">${m.phone||'-'}</td>
       <td style="font-size:15px;color:#111">${m.joinDate||'-'}</td>
       <td style="font-size:15px;color:#111">${m.address||'-'}</td>
-      <td class="ao"><button class="be" data-ei="${realIdx}"><i class="ti ti-edit"></i></button><button class="bd" data-dc="${_esc(String(m.code||m.lid))}" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
+      <td class="ao"><button class="be" data-ei="${realIdx}" title="정보수정"><i class="ti ti-edit"></i></button><button class="be" data-sc="${_esc(String(m.code||m.lid))}" title="사용정지" style="margin-left:4px;background:rgba(220,140,30,.12);border-color:rgba(220,150,40,.35);color:#c07818"><i class="ti ti-ban"></i></button><button class="bd" data-dc="${_esc(String(m.code||m.lid))}" title="삭제" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
   // 함정 A: 관리자 행은 인덱스 대신 이름(고유 식별자)으로 식별
   tb.querySelectorAll('[data-ea]').forEach(b=>b.addEventListener('click',()=>openAdmEdit(b.getAttribute('data-ea'))));
   tb.querySelectorAll('[data-ei]').forEach(b=>b.addEventListener('click',()=>editMem(+b.dataset.ei)));
-  // 완전 삭제(2026-07-29 변경): 프로필만 비우는 방식 → 코드·로그인 계정까지 레코드 통째 제거.
-  //   함정 A 예방: 표시 인덱스 대신 코드(고유 식별자)로 대상을 찾는다(실시간 동기화로 mem이 바뀌어도 안전).
-  tb.querySelectorAll('[data-dc]').forEach(b=>b.addEventListener('click',()=>{
-    const dc=b.getAttribute('data-dc');
-    const idx=mem.findIndex(x=>String(x.code||x.lid)===dc);
-    if(idx<0){ toast('대상을 찾지 못했습니다. 화면을 새로고침해 주세요.'); return; }
-    const m=mem[idx];
-    if(!confirm('『'+(m.name||dc)+'』 구성원을 완전히 삭제하시겠습니까?\n\n'
-      +'- 코드('+dc+')와 로그인 계정이 함께 삭제되어 더 이상 로그인할 수 없습니다.\n'
-      +'- 이미 등록된 고객·실적 등 업무 기록은 남습니다.\n'
-      +'- 이 작업은 되돌릴 수 없습니다.')) return;
-    // 기기인증 등록 기기도 함께 정리 (실패해도 삭제는 진행)
-    try{
-      var ref=_devDocRef();
-      if(ref) ref.update(new firebase.firestore.FieldPath(dc), firebase.firestore.FieldValue.delete()).catch(function(){});
-    }catch(e){}
-    mem.splice(idx,1);
-    sv('tops_mem',mem);rMem();toast('구성원과 코드가 완전히 삭제되었습니다.');
-  }));
+  // 완전 삭제·사용정지: 함정 A 예방 — 표시 인덱스 대신 코드(고유 식별자)로 대상을 찾는다.
+  tb.querySelectorAll('[data-dc]').forEach(b=>b.addEventListener('click',()=>_memFullDelete(b.getAttribute('data-dc'))));
+  tb.querySelectorAll('[data-sc]').forEach(b=>b.addEventListener('click',()=>_memSuspend(b.getAttribute('data-sc'))));
+  setAdmin();
+}
+// 구성원 완전 삭제 — 코드·로그인 계정까지 레코드 통째 제거 (2026-07-29: 프로필만 비우던 방식에서 변경)
+function _memFullDelete(dc){
+  if(!_isAdmin()){ toast('관리자만 삭제할 수 있습니다.'); return; }
+  const idx=mem.findIndex(x=>String(x.code||x.lid)===String(dc));
+  if(idx<0){ toast('대상을 찾지 못했습니다. 화면을 새로고침해 주세요.'); return; }
+  const m=mem[idx];
+  if(!confirm('『'+(m.name||dc)+'』 구성원을 완전히 삭제하시겠습니까?\n\n'
+    +'- 코드('+dc+')와 로그인 계정이 함께 삭제되어 더 이상 로그인할 수 없습니다.\n'
+    +'- 이미 등록된 고객·실적 등 업무 기록은 남습니다.\n'
+    +'- 이 작업은 되돌릴 수 없습니다.')) return;
+  // 기기인증 등록 기기도 함께 정리 (실패해도 삭제는 진행)
+  try{
+    var ref=_devDocRef();
+    if(ref) ref.update(new firebase.firestore.FieldPath(String(dc)), firebase.firestore.FieldValue.delete()).catch(function(){});
+  }catch(e){}
+  mem.splice(idx,1);
+  sv('tops_mem',mem);rMem();rMemSus();toast('구성원과 코드가 완전히 삭제되었습니다.');
+}
+// 사용정지 — 레코드는 남기되 로그인만 차단. [사용정지] 탭에서 해제 가능.
+function _memSuspend(sc){
+  if(!_isAdmin()){ toast('관리자만 정지할 수 있습니다.'); return; }
+  const m=mem.find(x=>String(x.code||x.lid)===String(sc));
+  if(!m){ toast('대상을 찾지 못했습니다. 화면을 새로고침해 주세요.'); return; }
+  if(m.suspended){ toast('이미 사용정지된 계정입니다.'); return; }
+  if(!confirm('『'+(m.name||sc)+'』 계정을 사용정지하시겠습니까?\n\n'
+    +'- 정지된 계정은 로그인할 수 없습니다.\n'
+    +'- 고객·실적 등 업무 기록은 그대로 남습니다.\n'
+    +'- [사용정지] 탭에서 언제든 해제할 수 있습니다.')) return;
+  m.suspended=true; m.suspendedAt=Date.now();
+  sv('tops_mem',mem);rMem();rMemSus();toast('『'+(m.name||sc)+'』 계정을 사용정지했습니다.');
+}
+// 사용정지 강제 적용 — 클라우드 최신 mem 로드 직후 호출. 정지 계정이면 로그아웃하고 true 반환.
+function _susEnforce(){
+  try{
+    if(!cu||cu.admin) return false;
+    var m=mem.find(function(x){ return (cu.code&&String(x.code)===String(cu.code))||x.lid===cu.id; });
+    if(m&&m.suspended){
+      logout();
+      alert('사용이 정지된 계정입니다. 관리자에게 문의하세요.');
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+// 사용정지 해제 — 다시 로그인 가능
+function _memUnsuspend(sc){
+  if(!_isAdmin()){ toast('관리자만 해제할 수 있습니다.'); return; }
+  const m=mem.find(x=>String(x.code||x.lid)===String(sc));
+  if(!m){ toast('대상을 찾지 못했습니다. 화면을 새로고침해 주세요.'); return; }
+  if(!confirm('『'+(m.name||sc)+'』 계정의 사용정지를 해제하시겠습니까?\n해제하면 다시 로그인할 수 있습니다.')) return;
+  m.suspended=false; delete m.suspendedAt;
+  sv('tops_mem',mem);rMem();rMemSus();toast('『'+(m.name||sc)+'』 사용정지를 해제했습니다.');
+}
+// [사용정지] 탭 렌더 (관리자 전용)
+function rMemSus(){
+  const tb=g('mem_sus_tb'); if(!tb) return;
+  if(!_isAdmin()){ tb.innerHTML='<tr><td colspan="7" class="em" style="color:#aaaacc;padding:40px">관리자만 볼 수 있습니다.</td></tr>'; return; }
+  const list=mem.filter(m=>m.suspended).sort((a,b)=>(+a.code||0)-(+b.code||0));
+  const scnt=g('mem_tab_sus_cnt'); if(scnt) scnt.textContent=list.length?('('+list.length+'명)'):'';
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="7" class="em" style="color:#aaaacc;padding:40px">사용정지된 계정이 없습니다.</td></tr>';
+    return;
+  }
+  tb.innerHTML=list.map(m=>{
+    const code=String(m.code||m.lid);
+    const dt=m.suspendedAt?new Date(m.suspendedAt):null;
+    const when=dt?(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')):'-';
+    return `<tr style="background:rgba(200,120,30,.04)">
+      <td style="font-weight:700;color:#c07818;font-size:15px">${_esc(code)}</td>
+      <td style="font-size:16px;font-weight:600;color:#1a1a3a">${_esc(m.name||'-')} <span style="font-size:11px;font-weight:700;color:#c07818;border:1px solid rgba(220,150,40,.4);border-radius:4px;padding:1px 6px;vertical-align:2px">정지</span></td>
+      <td>${m.rank?`<span class="rb">${_esc(m.rank)}</span>`:'-'}</td>
+      <td style="font-size:15px;color:#3848cc;font-weight:600">${_esc(m.belong||'-')}</td>
+      <td style="font-size:15px;color:#111">${_esc(m.phone||'-')}</td>
+      <td style="font-size:15px;color:#111">${when}</td>
+      <td class="ao"><button class="be" data-rc="${_esc(code)}" title="정지 해제" style="background:rgba(40,160,100,.12);border-color:rgba(60,200,120,.35);color:#209658"><i class="ti ti-lock-open"></i> 해제</button><button class="bd" data-dc="${_esc(code)}" title="삭제" style="margin-left:4px"><i class="ti ti-trash"></i></button></td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('[data-rc]').forEach(b=>b.addEventListener('click',()=>_memUnsuspend(b.getAttribute('data-rc'))));
+  tb.querySelectorAll('[data-dc]').forEach(b=>b.addEventListener('click',()=>_memFullDelete(b.getAttribute('data-dc'))));
   setAdmin();
 }
 
@@ -3979,14 +4062,15 @@ function _memVisible(){
   var myTeam=getMyTeam();
   return mem.filter(function(m){
     if(!m.name||!m.name.trim()) return false;
+    if(m.suspended) return false;   // 사용정지 인원은 [사용정지] 탭에서만
     if(myTeam===null) return true;
     return myTeam.includes(m.name);
   }).sort(function(a,b){return (+a.code||0)-(+b.code||0);});
 }
 function switchMemTab(tab){
-  if(tab==='all' && !_isAdmin()){ toast('관리자만 전체 인원을 볼 수 있습니다.'); return; }
-  var views={all:'mem_view_all',branch:'mem_view_branch',team:'mem_view_team'};
-  var tabs={all:'mem_tab_all',branch:'mem_tab_branch',team:'mem_tab_team'};
+  if((tab==='all'||tab==='sus') && !_isAdmin()){ toast('관리자만 볼 수 있습니다.'); return; }
+  var views={all:'mem_view_all',branch:'mem_view_branch',team:'mem_view_team',sus:'mem_view_sus'};
+  var tabs={all:'mem_tab_all',branch:'mem_tab_branch',team:'mem_tab_team',sus:'mem_tab_sus'};
   Object.keys(views).forEach(function(k){
     var v=g(views[k]); if(v) v.style.display=(k===tab?'block':'none');
     var t=g(tabs[k]);
@@ -3999,6 +4083,7 @@ function switchMemTab(tab){
   });
   if(tab==='branch') rMemBranch();
   else if(tab==='team') rMemTeam();
+  else if(tab==='sus') rMemSus();
   else rMem();
 }
 function _memCard(m){
@@ -4036,7 +4121,7 @@ function rMemBranch(){
   var canView=_isAdmin()||(cu&&subNames.indexOf(cu.name)>=0);
   if(!canView){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">탑스 1지점 소속 인원만 볼 수 있습니다.</div></div>'; return; }
   var list=mem.filter(function(m){
-    return m.name&&m.name.trim()&&subNames.indexOf(m.name)>=0&&m.workType!=='부업';
+    return m.name&&m.name.trim()&&!m.suspended&&subNames.indexOf(m.name)>=0&&m.workType!=='부업';
   }).sort(function(a,b){return (+a.code||0)-(+b.code||0);});
   if(!list.length){ el.innerHTML='<div class="card"><div class="em" style="padding:40px">박지순 산하 구성원이 없습니다.</div></div>'; return; }
   el.innerHTML='<div style="font-size:15px;color:#5a5a9a;font-weight:700;margin-bottom:12px">탑스 1지점 · 박지순 산하 · 총 '+list.length+'명</div>'
