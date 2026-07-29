@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.29-22</div>
   </div>
 </div>
 
@@ -5520,9 +5520,12 @@ function kkOpen(){
 function openKkDbMgr(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   var old=g('kkdbmgr_popup'); if(old) old.remove();
-  var names=(mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
+  // 관리자(BM·총무)도 배정 대상이므로 목록에 포함 — 관리자 먼저, 그 다음 팀원(코드순)
+  var names=[];
+  try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a){ if(a&&a.name&&names.indexOf(a.name)<0) names.push(a.name); }); }catch(e){}
+  (mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
     .sort(function(a,b){return (+a.code||0)-(+b.code||0);})
-    .map(function(m){return m.name;});
+    .forEach(function(m){ if(names.indexOf(m.name)<0) names.push(m.name); });
   var el=document.createElement('div');
   el.id='kkdbmgr_popup';
   el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
