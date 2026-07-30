@@ -6004,11 +6004,12 @@ function drBuild(){
   // ── 3. 전날실적 — 전날 보고서에 작성된 현재 실적(월 누적)
   var sec3inner, sec3title='전날실적';
   if(prevS&&prevS.ym===ym){
-    sec3title='전날실적 — '+mdLabel(prevS.d)+' 보고서 기준';
+    // fin 있으면 그날 18:30 발송 보고서 확정값, 없으면(주말·자동발송 꺼짐 등) 그날 마감 기록
+    sec3title='전날실적 — '+mdLabel(prevS.d)+(prevS.fin?' 보고서 기준':' 마감 기준');
     var ySum=_dsnapSum(prevS.agg);
     sec3inner='<div style="display:flex;gap:10px;flex-wrap:wrap">'
       +box('인정실적',won(ySum.a),'')+box('영수실적',won(ySum.ay),'')+box('건수',ySum.c+'건','')+'</div>'
-      +note(mdLabel(prevS.d)+' 보고서에 작성된 현재 실적('+mo+'월 누적'+(prevS.fin?', 오후 6시 29분 확정':'')+') 그대로입니다. '
+      +note(mdLabel(prevS.d)+(prevS.fin?' 보고서에 작성된 현재 실적(오후 6시 29분 확정, ':' 마감 기록 기준 현재 실적(')+mo+'월 누적) 그대로입니다. '
         +W+' 반영 실적 = '+W+' 현재 실적 − 이 수치.');
   }else{
     sec3inner='<div class="em" style="padding:6px 0;color:#8890b8;font-size:13px">전날 보고서 기록이 아직 없습니다. 내일부터 표시됩니다.</div>';
