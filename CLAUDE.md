@@ -139,6 +139,15 @@
   대상자에서 빼도 연동·승인은 유지되어 DB 배정 알림은 계속 감.
 - 일일보고 설정 모달의 연동 계정 목록·연동 버튼은 제거(2026-07-30) — 계정 관리는 [카톡 알림 연동]으로 일원화.
 
+### 3.9 인트라넷 사용량 집계 (2026-07-30)
+
+- 메뉴(페이지)를 열 때마다 `showPage()` → `_usageTrack(name)` 이 Firestore **`tops/usage`** 문서에
+  `{월(YYYY-MM):{이름:{메뉴키:횟수}}}` 를 `FieldValue.increment`(merge)로 기록 — 원자 증가라 동시 사용자 충돌 없음.
+  sv()/tops_data·localStorage와 무관한 별도 문서(기기인증 `tops/devices`와 같은 패턴).
+- 집계 제외: 미로그인, 서버 캡처(`?rr=1`), 사용량 페이지 자신(`usage`). 실패는 조용히 무시(앱 동작 무영향).
+- 열람: 관리자 전용 메뉴 [인트라넷 사용량](`pg_usage`, 일일보고서 아래) — 월 셀렉트(`us_month`) + 메뉴×인원 표(`rUsage`/`_usageDraw`).
+  행=PTITLES 순서(내비 순), 열=관리자 먼저+팀원 코드순(+데이터에만 있는 이름 뒤에). 페이지는 **흰 카드**라 어두운 글씨 사용(함정 D 역방향 주의).
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.

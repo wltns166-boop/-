@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-6</div>
   </div>
 </div>
 
@@ -439,6 +439,7 @@ table.dt tr:last-child td{border-bottom:none;}
     </div>
 
     <div class="ni ao" id="n_dreport"><i class="ti ti-report-analytics"></i>일일보고서</div>
+    <div class="ni ao" id="n_usage"><i class="ti ti-chart-dots"></i>인트라넷 사용량</div>
   </nav>
 
   <div id="sb_overlay" onclick="closeSidebar()"></div>
@@ -614,6 +615,19 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="card" style="margin-top:14px">
         <div style="font-weight:800;color:#1a1a3a;font-size:16px;margin-bottom:10px"><i class="ti ti-list-check" style="color:#4050cc"></i> 진급 기준</div>
         <div id="promcrit_wrap" style="overflow-x:auto"></div>
+      </div>
+    </div>
+
+    <!-- 인트라넷 사용량 (관리자 전용) — 메뉴별×인원별 월간 사용 횟수 -->
+    <div class="pg" id="pg_usage">
+      <div class="sh"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div class="st"><i class="ti ti-chart-dots"></i>인트라넷 사용량</div>
+          <select id="us_month" onchange="_usageDraw()" style="padding:8px 12px;font-size:14px;font-weight:700;background:#fff;color:#1a1a3a;border:1px solid rgba(80,100,220,.3);border-radius:7px;font-family:inherit;cursor:pointer"></select></div>
+        <button onclick="rUsage()" style="padding:9px 14px;font-size:13px;background:rgba(80,100,220,.16);border:1px solid rgba(90,110,230,.35);border-radius:7px;color:#8a9af0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-refresh"></i> 새로고침</button>
+      </div>
+      <div class="card" style="overflow-x:auto"><div id="us_tb" style="font-size:14px;color:#333">불러오는 중…</div></div>
+      <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:10px">
+        · 구성원이 메뉴(페이지)를 열 때마다 1회로 집계됩니다. (2026-07-30부터 집계 시작 — 그 이전 사용량은 없음)<br>
+        · 로그인·새로고침 직후 자동으로 열리는 홈, 서버 자동 캡처, 이 페이지 자신은 집계에서 제외됩니다. (홈은 메뉴 클릭 시에만 집계)
       </div>
     </div>
 
@@ -3206,6 +3220,7 @@ function login(){
   var _rrMode=/[?&]rr=1/.test(location.search);
   if(!_rrMode){ try{ _pushInit(); }catch(e){} }   // 웹 푸시 알림 초기화
   // Firestore 데이터 로드
+  window._usageSkipNext=true;   // 로그인·새로고침 자동 진입 홈은 사용량 집계 제외 (메뉴 클릭만 집계)
   showPage('home');
   loadFromFirestore().then(function(){
     // 사용정지 확인 — 세션 복원 기기의 로컬 캐시가 낡아 정지 사실을 모르고 들어왔으면 즉시 로그아웃
@@ -3776,6 +3791,7 @@ g('n_join_prep').addEventListener('click',function(){showPage('join_prep');});
 g('n_edu_prep').addEventListener('click',function(){showPage('edu_prep');});
 g('n_new_check').addEventListener('click',function(){showPage('new_check');});
 g('n_dreport') && g('n_dreport').addEventListener('click',function(){showPage('dreport');});
+g('n_usage') && g('n_usage').addEventListener('click',function(){showPage('usage');});
 
 const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   tops:'TOPS',members:'구성원',hierarchy:'계보도',
@@ -3788,7 +3804,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
   wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
-  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서'};
+  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량'};
 function showPage(name){
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
@@ -3800,6 +3816,10 @@ function showPage(name){
   if(name==='dreport' && !_isAdmin()){
     toast('일일보고서는 관리자만 볼 수 있습니다.'); return;
   }
+  if(name==='usage' && !_isAdmin()){
+    toast('인트라넷 사용량은 관리자만 볼 수 있습니다.'); return;
+  }
+  try{ _usageTrack(name); }catch(e){}   // 사용량 집계 (접근 가드 통과 후)
   window._curPage = name;
   closeSidebar(); // 모바일: 메뉴 선택 시 서랍 닫기
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
@@ -3808,8 +3828,90 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage};
   if(r[name]) setTimeout(function(){r[name]();},0);
+}
+
+// ===== 인트라넷 사용량 집계·조회 (관리자 전용 열람) =====
+// 메뉴를 열 때마다 클라우드 tops/usage 문서에 {월:{이름:{메뉴키:횟수}}} 로 원자 증가(increment) 기록.
+// - sv()/tops_data 와 무관한 별도 문서(merge 쓰기) — 동시 사용자 간 덮어쓰기 없음 (기기인증 tops/devices 와 같은 패턴)
+// - 함정 B: localStorage 미사용(클라우드 전용). 실패해도 조용히 무시(집계가 앱 동작을 방해하면 안 됨)
+// - 서버 캡처(?rr=1)·미로그인·사용량 페이지 자신은 집계 제외
+function _usageRef(){ return window.db ? window.db.collection('tops').doc('usage') : null; }
+function _usageTrack(name){
+  try{
+    if(window._usageSkipNext){ window._usageSkipNext=false; return; }   // 로그인 직후 자동 홈 진입 제외
+    if(!cu||!cu.name) return;
+    if(name==='usage') return;
+    if(/[&?]rr=1/.test(location.search)) return;
+    var ref=_usageRef(); if(!ref) return;
+    if(!(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue&&firebase.firestore.FieldValue.increment)) return;
+    var ym=td().slice(0,7);
+    var o={}; o[ym]={}; o[ym][cu.name]={}; o[ym][cu.name][String(name)]=firebase.firestore.FieldValue.increment(1);
+    ref.set(o,{merge:true}).catch(function(){});
+  }catch(e){}
+}
+// 페이지 진입/새로고침 — 문서를 읽어 월 목록 채우고 표를 그린다
+var _usageCache=null;
+function rUsage(){
+  if(!_isAdmin()) return;
+  var box=g('us_tb'); if(!box) return;
+  var ref=_usageRef();
+  if(!ref){ box.textContent='클라우드 연결 후 이용할 수 있습니다.'; return; }
+  box.textContent='불러오는 중…';
+  ref.get().then(function(snap){
+    _usageCache=(snap&&snap.exists&&snap.data())||{};
+    _usageFillMonths();
+    _usageDraw();
+  }).catch(function(){ box.textContent='사용량 데이터를 불러오지 못했습니다 — 잠시 후 새로고침하세요.'; });
+}
+function _usageFillMonths(){
+  var sel=g('us_month'); if(!sel) return;
+  var cur=sel.value;
+  var ymNow=td().slice(0,7);
+  var months=Object.keys(_usageCache||{}).filter(function(k){ return /^\d{4}-\d{2}$/.test(k); });
+  if(months.indexOf(ymNow)<0) months.push(ymNow);
+  months.sort().reverse();
+  sel.innerHTML=months.map(function(m){ return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+m.replace('-','년 ')+'월</option>'; }).join('');
+}
+function _usageDraw(){
+  var box=g('us_tb'); if(!box) return;
+  var ym=(g('us_month')||{}).value||td().slice(0,7);
+  var data=(_usageCache||{})[ym]||{};   // {이름:{메뉴키:횟수}}
+  // 열(인원): 관리자 먼저, 그 다음 팀원(코드순) — 데이터에만 있는 이름(퇴사자 등)은 뒤에 추가
+  var names=[];
+  try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a){ if(a&&a.name&&names.indexOf(a.name)<0) names.push(a.name); }); }catch(e){}
+  (mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
+    .sort(function(a,b){return (+a.code||0)-(+b.code||0);})
+    .forEach(function(m){ if(names.indexOf(m.name)<0) names.push(m.name); });
+  Object.keys(data).forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
+  // 행(메뉴): PTITLES 순서(내비 순서와 동일) — 데이터에만 있는 키는 뒤에 추가
+  var menus=Object.keys(PTITLES).filter(function(k){ return k!=='usage'; });
+  Object.keys(data).forEach(function(n){
+    Object.keys(data[n]||{}).forEach(function(k){ if(menus.indexOf(k)<0) menus.push(k); });
+  });
+  var cnt=function(nm,mk){ var u=data[nm]||{}; return +u[mk]||0; };
+  var personTotal={}, grand=0;
+  names.forEach(function(nm){ personTotal[nm]=0; });
+  menus.forEach(function(mk){ names.forEach(function(nm){ var c=cnt(nm,mk); personTotal[nm]+=c; grand+=c; }); });
+  var th='<tr><th style="white-space:nowrap">메뉴</th>'
+    +names.map(function(nm){ return '<th style="white-space:nowrap;text-align:center">'+_esc(nm)+'</th>'; }).join('')
+    +'<th style="white-space:nowrap;text-align:center;border-left:2px solid rgba(80,100,220,.22)">합계</th></tr>';
+  var totRow='<tr style="font-weight:800;background:#f5f6ff"><td style="white-space:nowrap;color:#3040aa">전체 합계</td>'
+    +names.map(function(nm){ return '<td style="text-align:center;color:#3040aa">'+(personTotal[nm]||'<span style="opacity:.25">0</span>')+'</td>'; }).join('')
+    +'<td style="text-align:center;color:#b06000;border-left:2px solid rgba(80,100,220,.22)">'+grand+'</td></tr>';
+  var rows=menus.map(function(mk){
+    var rowSum=0;
+    var tds=names.map(function(nm){
+      var c=cnt(nm,mk); rowSum+=c;
+      return '<td style="text-align:center">'+(c?c:'<span style="opacity:.25">·</span>')+'</td>';
+    }).join('');
+    return '<tr><td style="white-space:nowrap">'+_esc(PTITLES[mk]||mk)+'</td>'+tds
+      +'<td style="text-align:center;font-weight:700;border-left:2px solid rgba(80,100,220,.22)">'+(rowSum||'<span style="opacity:.25">·</span>')+'</td></tr>';
+  }).join('');
+  box.innerHTML=grand
+    ? '<table class="dt">'+th+totRow+rows+'</table>'
+    : '<div style="color:#667;padding:20px;text-align:center">'+_esc(ym)+' 사용 기록이 없습니다.<br><span style="font-size:12px;color:#999">구성원이 메뉴를 열면 자동으로 집계됩니다.</span></div>';
 }
 
 // CALENDAR
