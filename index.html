@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-3</div>
   </div>
 </div>
 
@@ -2094,10 +2094,13 @@ function rSchedulePage(){
       </div>
     </div>
     <button type="button" class="bco" onclick="kkSaveCfg()" style="width:100%;margin-bottom:14px">발송 설정 저장</button>
-    <div class="fg"><div class="fl">연동된 카카오 계정 — 각자 자기 폰/PC에서 아래 버튼으로 연동하세요</div>
-      <div id="kk_users" style="font-size:13px"></div>
-      <button type="button" onclick="kkLink()" style="width:100%;margin-top:8px;padding:11px;font-size:14px;font-weight:800;background:#fee500;border:1px solid #e0ca00;border-radius:9px;color:#3c1e1e;cursor:pointer;font-family:inherit"><i class="ti ti-brand-kakao-talk"></i> 이 기기에서 내 카카오 연동하기</button>
-      <button type="button" class="bca" onclick="kkCopyLink()" style="width:100%;margin-top:6px"><i class="ti ti-copy"></i> 연동 링크 복사 (다른 사람에게 카톡으로 전달)</button>
+    <div class="fg"><div class="fl">일일보고 발송 대상자 — 아래 명단에게만 발송됩니다</div>
+      <div id="kk_rcpts" style="font-size:13px"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <select class="fi" id="kk_addsel" style="flex:1;margin:0"></select>
+        <button type="button" class="bco" onclick="kkAddRcpt()" style="white-space:nowrap">+ 추가</button>
+      </div>
+      <div style="font-size:12px;color:#8a93c8;margin-top:6px">카카오 계정의 연동·승인·팀원 지정은 DB 정보 → <b style="color:#aab4f0">[카톡 알림 연동]</b>에서 관리합니다. 연동·지정된 사람만 위 목록에 추가할 수 있습니다.</div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button type="button" class="bca" onclick="kkTest()" style="flex:1" id="kk_testbtn"><i class="ti ti-send"></i> 지금 테스트 발송</button>
@@ -2106,8 +2109,8 @@ function rSchedulePage(){
     <div class="fg"><div class="fl">최근 발송 기록</div><div id="kk_logs" style="font-size:12.5px;line-height:1.7;max-height:26vh;overflow-y:auto"></div></div>
     <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:4px">
       · 발송 내용: 오늘 반영 실적·월 누적·목표 대비 요약 + [보고서 열기] 버튼 (각자 카카오톡 <b style="color:#aab4f0">"나와의 채팅"</b>으로 도착)<br>
-      · 일일보고는 <b style="color:#aab4f0">관리자(BM·총무)에게만</b> 발송됩니다. 팀원 계정의 연동·승인은 <b style="color:#aab4f0">DB 배정 알림</b>용으로 계속 사용됩니다.<br>
-      · 받을 사람은 카카오 개발자 앱에 <b style="color:#aab4f0">팀원으로 등록</b>돼 있어야 하며, 연동 후 여기서 <b style="color:#aab4f0">[승인]</b>을 눌러야 발송 대상이 됩니다.<br>
+      · 일일보고는 위 <b style="color:#aab4f0">발송 대상자 명단</b>에게만 발송됩니다. 대상자에서 빼도 카카오 연동·<b style="color:#aab4f0">DB 배정 알림</b>은 그대로 유지됩니다.<br>
+      · 받을 사람은 카카오 개발자 앱에 <b style="color:#aab4f0">팀원으로 등록</b>돼 있고, DB 정보 → [카톡 알림 연동]에서 <b style="color:#aab4f0">연동·승인</b>돼 있어야 실제로 발송됩니다.<br>
       · 서버가 매일 발송 시각에 자동 실행되므로 인트라넷을 열어두지 않아도 됩니다.
     </div>
   </div>
@@ -5693,31 +5696,35 @@ function _kkRender(st){
   g('kk_time').value=st.sendTime||'18:00';
   g('kk_on').checked=!!st.enabled;
   g('kk_wknd').checked=!!st.skipWeekend;
-  // 일일보고 수신 대상은 관리자뿐 — 비관리자 매핑 계정은 표시로 구분하고 보고서 테스트 버튼을 숨긴다
-  var admNames=[];
-  try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a){ if(a&&a.name) admNames.push(a.name); }); }catch(e){}
-  g('kk_users').innerHTML=!(st.users&&st.users.length)
-    ? '<div style="color:#8a93c8;padding:5px 0">아직 연동된 계정이 없습니다.</div>'
-    : st.users.map(function(u){
-        // 카카오ID(고유 식별자)로 승인/해제 — 표시 인덱스 사용 안 함 (함정 A)
-        var ocU=('kkUnlink('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
-        var ocA=('kkApprove('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
-        var isAdm=u.member&&admNames.indexOf(u.member)>=0;
+  // 일일보고 발송 대상자 명단(서버 cfg.reportTo) — 이름(고유 식별자) 기준 추가/빼기 (함정 A: 인덱스 사용 안 함)
+  var users=st.users||[];
+  var rcpts=Array.isArray(st.reportTo)?st.reportTo:[];
+  window._kkRcpts=rcpts.slice();   // 추가/빼기 저장 시 현재 명단 기준으로 계산
+  var byMem={};
+  users.forEach(function(u){ if(u&&u.member){ (byMem[u.member]=byMem[u.member]||[]).push(u); } });
+  g('kk_rcpts').innerHTML=!rcpts.length
+    ? '<div style="color:#e0a030;padding:5px 0">발송 대상자가 없습니다 — 아래에서 추가하세요. (추가 전까지 아무에게도 발송되지 않습니다)</div>'
+    : rcpts.map(function(nm){
+        var accs=byMem[nm]||[];
+        var acc=accs.filter(function(u){return u.approved;})[0]||accs[0];
+        var ocD=('kkDelRcpt('+JSON.stringify(String(nm))+')').replace(/"/g,'&quot;');
+        var stTxt=!acc
+          ? ' <span style="color:#e05555;font-size:12px;font-weight:700">카카오 미연동 — 발송 불가</span>'
+          : (!acc.approved
+            ? ' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기 — 발송 불가</span>'
+            : ' <span style="color:#8a93c8;font-size:12px">카카오: '+_esc(acc.nick||'-')+'</span>'
+              +(acc.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':''));
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid rgba(90,110,230,.28);border-radius:9px;margin-top:6px">'
-          +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:'+(u.approved?'#3fd08a':'#e0a030')+'"></i> <b>'+_esc(u.nick||'')+'</b>'
-          +(u.member?' <span style="color:#7ec8ff;font-size:12px;font-weight:700">[팀원: '+_esc(u.member)+']</span>':'')
-          +(u.member
-            ?(isAdm?'':' <span style="color:#8a93c8;font-size:11px">(배정알림만 — 일일보고 제외)</span>')
-            :' <span style="color:#e0a030;font-size:11px;font-weight:700">(팀원 미지정 — 알림 없음, DB정보 [카톡 알림 연동]에서 지정)</span>')
-          +' <span style="color:#8a93c8;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
-          +(u.approved?'':' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기</span>')
-          +(u.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
+          +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:'+(acc&&acc.approved?'#3fd08a':'#e0a030')+'"></i> <b>'+_esc(nm)+'</b>'+stTxt+'</span>'
           +'<span style="display:flex;gap:6px;flex:0 0 auto">'
-          +(u.approved
-            ?(isAdm?'<button type="button" class="be" style="padding:5px 10px;font-size:12px;white-space:nowrap" onclick="'+('kkTestOne('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;')+'"><i class="ti ti-send"></i> 테스트</button>':'')
-            :'<button type="button" class="bco" style="padding:5px 10px;font-size:12px" onclick="'+ocA+'">승인</button>')
-          +'<button type="button" class="bd" onclick="'+ocU+'">해제</button></span></div>';
+          +(acc&&acc.approved?'<button type="button" class="be" style="padding:5px 10px;font-size:12px;white-space:nowrap" onclick="'+('kkTestOne('+JSON.stringify(String(acc.id))+')').replace(/"/g,'&quot;')+'"><i class="ti ti-send"></i> 테스트</button>':'')
+          +'<button type="button" class="bd" onclick="'+ocD+'">빼기</button></span></div>';
       }).join('');
+  // 추가 후보: 연동 계정에 팀원 지정된 이름 중 아직 대상자가 아닌 이름
+  var cand=Object.keys(byMem).filter(function(nm){ return rcpts.indexOf(nm)<0; }).sort();
+  g('kk_addsel').innerHTML=cand.length
+    ? cand.map(function(nm){ return '<option>'+_esc(nm)+'</option>'; }).join('')
+    : '<option value="">추가할 연동 계정이 없습니다</option>';
   g('kk_logs').innerHTML=!(st.logs&&st.logs.length)
     ? '<div style="color:#8a93c8">발송 기록이 없습니다.</div>'
     : st.logs.map(function(l){
@@ -5744,36 +5751,25 @@ function kkSaveCfg(){
     else toast('저장 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
   }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
 }
-function kkLink(){
-  // 내 이름을 state로 넘겨 연동 즉시 member 매핑 — 비어 있으면 일일보고 관리자 필터에 걸려
-  // 조용히 발송 제외된다 (이 버튼은 _isAdmin() 게이트 뒤라 cu.name은 항상 관리자 이름)
-  _kkApi('authurl',{member:(cu&&cu.name)||''}).then(function(r){
-    if(r&&r.ok&&r.url) location.href=r.url;
-    else toast(((r&&r.error&&r.error.message)||'연동 주소 생성 실패'));
-  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+// 일일보고 발송 대상자 추가/빼기 — 명단은 서버 cfg.reportTo에 이름 배열로 저장 (함정 A: 이름이 식별자)
+// 계정 연동·승인·팀원 지정은 DB 정보 [카톡 알림 연동](openKkDbMgr)에서 관리한다.
+function kkAddRcpt(){
+  var nm=(g('kk_addsel')||{value:''}).value;
+  if(!nm){ toast('추가할 사람을 선택하세요. (카카오 연동·팀원 지정된 사람만 추가할 수 있습니다)'); return; }
+  var list=(window._kkRcpts||[]).slice();
+  if(list.indexOf(nm)<0) list.push(nm);
+  _kkSaveRcpts(list, '『'+nm+'』님을 일일보고 발송 대상자에 추가했습니다.');
 }
-// 상대방이 관리자가 아니라 이 화면을 못 열 때: 연동 링크를 복사해 카톡으로 보내주면
-// 상대방이 자기 폰에서 열어 카카오 로그인만 하면 연동된다 (연동 후 여기서 [승인] 필요)
-function kkCopyLink(){
-  _kkApi('authurl').then(function(r){
-    if(!(r&&r.ok&&r.url)){ toast(((r&&r.error&&r.error.message)||'연동 주소 생성 실패')); return; }
-    var done=function(){ toast('연동 링크가 복사되었습니다 — 받을 분께 카톡으로 보내주세요.'); };
-    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(r.url).then(done).catch(function(){ prompt('아래 링크를 복사해 전달하세요:', r.url); }); }
-    else prompt('아래 링크를 복사해 전달하세요:', r.url);
-  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+function kkDelRcpt(nm){
+  if(!confirm('『'+nm+'』님을 일일보고 발송 대상자에서 뺄까요?\n(카카오 연동은 유지되며, DB 배정 알림에는 영향 없습니다)')) return;
+  var list=(window._kkRcpts||[]).filter(function(n){ return n!==nm; });
+  _kkSaveRcpts(list, '『'+nm+'』님을 발송 대상자에서 뺐습니다.');
 }
-function kkApprove(id){
-  _kkApi('approve',{id:id}).then(function(r){
-    if(r&&r.ok){ toast('승인되었습니다 — 이제 발송 대상에 포함됩니다.'); kkLoad(); }
-    else toast('승인 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
-  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
-}
-function kkUnlink(id){
-  if(!confirm('이 카카오 계정 연동을 해제할까요? 해제하면 자동발송을 받지 못합니다.')) return;
-  _kkApi('unlink',{id:id}).then(function(r){
-    if(r&&r.ok){ toast('연동이 해제되었습니다.'); kkLoad(); }
-    else toast('해제 실패: '+((r&&r.error&&r.error.message)||'서버 오류'));
-  }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
+function _kkSaveRcpts(list, okMsg){
+  _kkApi('reportto',{list:list}).then(function(r){
+    toast(r&&r.ok?okMsg:((r&&r.error&&r.error.message)||'저장 실패'));
+    kkLoad();
+  }).catch(function(){ toast('저장 실패 — 인터넷 연결을 확인하세요.'); });
 }
 // 개인별 테스트 발송 — 해당 사람에게만 보냄
 function kkTestOne(id){

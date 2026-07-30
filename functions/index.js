@@ -22,7 +22,8 @@ const KK_SITE = "https://team-tops-intranet.web.app";
 // OAuth Redirect URI는 서버에서 고정 — 클라이언트가 보낸 값을 쓰면 공격자가 자기 도메인으로
 // 인가 코드를 가로채는 경로가 생긴다 (카카오 앱에도 이 주소만 등록)
 const KK_REDIRECT = KK_SITE + "/kakao-link.html";
-// 일일보고 수신 허용 명단 — 관리자만 (index.html의 ADMINS와 맞춰 유지할 것)
+// 일일보고 발송 대상자 명단은 cfg.reportTo(이름 배열, 설정 화면에서 추가/빼기)로 관리한다.
+// 아래 상수는 reportTo가 아직 저장된 적 없을 때의 기본값(관리자 명단 — index.html ADMINS와 동일).
 // ※ DB 배정 알림(dbassign)·연결 테스트(kktest)는 이 명단과 무관 — 배정된 팀원 본인에게 발송된다.
 const KK_REPORT_ADMINS = ["백동현", "박지순", "이영현"];
 
@@ -209,12 +210,13 @@ async function _kkSendAll(kind, onlyId) {
   const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
   const tok = tokSnap.exists ? (tokSnap.data() || {}) : {};
   const users = tok.users || {};
+  const allow = Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS; // 발송 대상자 명단 (미저장 시 관리자 기본값)
   const ids = Object.keys(users)
     .filter((id) => users[id] && users[id].approved) // 승인된 수신자만
-    .filter((id) => KK_REPORT_ADMINS.indexOf(String(users[id].member || "")) >= 0) // 일일보고는 관리자만 (2026-07-30)
+    .filter((id) => allow.indexOf(String(users[id].member || "")) >= 0) // 일일보고는 대상자 명단만 (2026-07-30)
     .filter((id) => !onlyId || id === String(onlyId)); // 개인별 테스트 발송 지원
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
-  if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 없거나, 미승인이거나, 관리자가 아닙니다. (일일보고는 관리자에게만 발송)" : "발송 대상이 없습니다. 관리자 계정을 연동·[승인]하고 [팀원 지정]이 관리자 이름인지 확인하세요." };
+  if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 발송 대상자 명단에 없거나 미승인 상태입니다." : "발송 대상자가 없습니다. 설정 화면에서 대상자를 추가하고 계정 연동·[승인]을 확인하세요." };
 
   const sum = await _kkBuildSummary();
   const link = KK_SITE + "/?dr=1";
@@ -309,6 +311,17 @@ async function _kkHandle(body, res) {
       res.json({ ok: true });
       return;
     }
+    if (action === "reportto") {
+      // 일일보고 발송 대상자 명단 저장 — 이름(member) 배열. 빈 배열이면 아무에게도 발송하지 않는다.
+      const listRaw = Array.isArray(body.list)
+        ? body.list.map((s) => String(s || "").trim().slice(0, 30)).filter(Boolean).slice(0, 50)
+        : null;
+      if (!listRaw) { res.status(400).json({ error: { message: "list 배열이 필요합니다." } }); return; }
+      const list = Array.from(new Set(listRaw));
+      await KK_CFG().set({ reportTo: list }, { merge: true });
+      res.json({ ok: true, reportTo: list });
+      return;
+    }
     if (action === "authurl") {
       const cfgSnap = await KK_CFG().get();
       const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
@@ -389,6 +402,7 @@ async function _kkHandle(body, res) {
         keyHint: cfg.restKey ? (String(cfg.restKey).slice(0, 4) + "····" + String(cfg.restKey).slice(-4)) : "",
         enabled: !!cfg.enabled, sendTime: cfg.sendTime || "18:00", skipWeekend: !!cfg.skipWeekend,
         lastSentDate: cfg.lastSentDate || "",
+        reportTo: Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS,
         users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", member: users[id].member || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
         logs: (cfg.logs || []).slice(0, 31)
       });
