@@ -128,6 +128,15 @@
   관리자는 승인 전에 연동 목록의 [팀원: 이름]과 카카오 닉네임이 실제 본인인지 확인할 것.
 - functions 배포: `.github/workflows/functions-deploy.yml` — functions/** 변경 푸시 시 자동.
 
+### 3.8 카톡 일일보고 수신 제한 (2026-07-30)
+
+- 일일보고 자동발송(`_kkSendAll` — kakaoDaily/sendnow)은 **관리자에게만** 발송:
+  `functions/index.js`의 `KK_REPORT_ADMINS = ["백동현","박지순","이영현"]` 필터(member 이름 매칭).
+  ⚠️ **index.html `ADMINS` 명단이 바뀌면 이 상수도 함께 갱신**해야 함(이중 유지).
+- `kktest`(연결 테스트)·`dbassign`(DB 배정 알림)은 별도 경로라 이 필터와 무관 — 팀원에게도 발송됨.
+- 일일보고 설정 모달: 비관리자 매핑 계정은 "(배정알림만 — 일일보고 제외)" 표시, 보고서 [테스트] 버튼 숨김.
+  팀원 계정의 연동·승인 자체는 DB 배정 알림용으로 계속 유효.
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.

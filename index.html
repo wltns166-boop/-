@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-2</div>
   </div>
 </div>
 
@@ -2106,6 +2106,7 @@ function rSchedulePage(){
     <div class="fg"><div class="fl">최근 발송 기록</div><div id="kk_logs" style="font-size:12.5px;line-height:1.7;max-height:26vh;overflow-y:auto"></div></div>
     <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:4px">
       · 발송 내용: 오늘 반영 실적·월 누적·목표 대비 요약 + [보고서 열기] 버튼 (각자 카카오톡 <b style="color:#aab4f0">"나와의 채팅"</b>으로 도착)<br>
+      · 일일보고는 <b style="color:#aab4f0">관리자(BM·총무)에게만</b> 발송됩니다. 팀원 계정의 연동·승인은 <b style="color:#aab4f0">DB 배정 알림</b>용으로 계속 사용됩니다.<br>
       · 받을 사람은 카카오 개발자 앱에 <b style="color:#aab4f0">팀원으로 등록</b>돼 있어야 하며, 연동 후 여기서 <b style="color:#aab4f0">[승인]</b>을 눌러야 발송 대상이 됩니다.<br>
       · 서버가 매일 발송 시각에 자동 실행되므로 인트라넷을 열어두지 않아도 됩니다.
     </div>
@@ -5692,21 +5693,28 @@ function _kkRender(st){
   g('kk_time').value=st.sendTime||'18:00';
   g('kk_on').checked=!!st.enabled;
   g('kk_wknd').checked=!!st.skipWeekend;
+  // 일일보고 수신 대상은 관리자뿐 — 비관리자 매핑 계정은 표시로 구분하고 보고서 테스트 버튼을 숨긴다
+  var admNames=[];
+  try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a){ if(a&&a.name) admNames.push(a.name); }); }catch(e){}
   g('kk_users').innerHTML=!(st.users&&st.users.length)
     ? '<div style="color:#8a93c8;padding:5px 0">아직 연동된 계정이 없습니다.</div>'
     : st.users.map(function(u){
         // 카카오ID(고유 식별자)로 승인/해제 — 표시 인덱스 사용 안 함 (함정 A)
         var ocU=('kkUnlink('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
         var ocA=('kkApprove('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;');
+        var isAdm=u.member&&admNames.indexOf(u.member)>=0;
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid rgba(90,110,230,.28);border-radius:9px;margin-top:6px">'
           +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:'+(u.approved?'#3fd08a':'#e0a030')+'"></i> <b>'+_esc(u.nick||'')+'</b>'
           +(u.member?' <span style="color:#7ec8ff;font-size:12px;font-weight:700">[팀원: '+_esc(u.member)+']</span>':'')
+          +(u.member
+            ?(isAdm?'':' <span style="color:#8a93c8;font-size:11px">(배정알림만 — 일일보고 제외)</span>')
+            :' <span style="color:#e0a030;font-size:11px;font-weight:700">(팀원 미지정 — 알림 없음, DB정보 [카톡 알림 연동]에서 지정)</span>')
           +' <span style="color:#8a93c8;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
           +(u.approved?'':' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기</span>')
           +(u.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
           +'<span style="display:flex;gap:6px;flex:0 0 auto">'
           +(u.approved
-            ?'<button type="button" class="be" style="padding:5px 10px;font-size:12px;white-space:nowrap" onclick="'+('kkTestOne('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;')+'"><i class="ti ti-send"></i> 테스트</button>'
+            ?(isAdm?'<button type="button" class="be" style="padding:5px 10px;font-size:12px;white-space:nowrap" onclick="'+('kkTestOne('+JSON.stringify(String(u.id))+')').replace(/"/g,'&quot;')+'"><i class="ti ti-send"></i> 테스트</button>':'')
             :'<button type="button" class="bco" style="padding:5px 10px;font-size:12px" onclick="'+ocA+'">승인</button>')
           +'<button type="button" class="bd" onclick="'+ocU+'">해제</button></span></div>';
       }).join('');
@@ -5737,7 +5745,9 @@ function kkSaveCfg(){
   }).catch(function(e){ toast('서버 통신 오류: '+e.message); });
 }
 function kkLink(){
-  _kkApi('authurl').then(function(r){
+  // 내 이름을 state로 넘겨 연동 즉시 member 매핑 — 비어 있으면 일일보고 관리자 필터에 걸려
+  // 조용히 발송 제외된다 (이 버튼은 _isAdmin() 게이트 뒤라 cu.name은 항상 관리자 이름)
+  _kkApi('authurl',{member:(cu&&cu.name)||''}).then(function(r){
     if(r&&r.ok&&r.url) location.href=r.url;
     else toast(((r&&r.error&&r.error.message)||'연동 주소 생성 실패'));
   }).catch(function(e){ toast('서버 통신 오류: '+e.message); });

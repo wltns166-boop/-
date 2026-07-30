@@ -22,6 +22,9 @@ const KK_SITE = "https://team-tops-intranet.web.app";
 // OAuth Redirect URI는 서버에서 고정 — 클라이언트가 보낸 값을 쓰면 공격자가 자기 도메인으로
 // 인가 코드를 가로채는 경로가 생긴다 (카카오 앱에도 이 주소만 등록)
 const KK_REDIRECT = KK_SITE + "/kakao-link.html";
+// 일일보고 수신 허용 명단 — 관리자만 (index.html의 ADMINS와 맞춰 유지할 것)
+// ※ DB 배정 알림(dbassign)·연결 테스트(kktest)는 이 명단과 무관 — 배정된 팀원 본인에게 발송된다.
+const KK_REPORT_ADMINS = ["백동현", "박지순", "이영현"];
 
 function _kkPad(n) { return String(n).padStart(2, "0"); }
 // KST 현재 시각 — 이후 getUTC* 로 읽으면 한국시간이 나온다
@@ -208,9 +211,10 @@ async function _kkSendAll(kind, onlyId) {
   const users = tok.users || {};
   const ids = Object.keys(users)
     .filter((id) => users[id] && users[id].approved) // 승인된 수신자만
+    .filter((id) => KK_REPORT_ADMINS.indexOf(String(users[id].member || "")) >= 0) // 일일보고는 관리자만 (2026-07-30)
     .filter((id) => !onlyId || id === String(onlyId)); // 개인별 테스트 발송 지원
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
-  if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 없거나 미승인 상태입니다." : "승인된 수신자가 없습니다. 연동 후 [승인]을 눌러주세요." };
+  if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 없거나, 미승인이거나, 관리자가 아닙니다. (일일보고는 관리자에게만 발송)" : "발송 대상이 없습니다. 관리자 계정을 연동·[승인]하고 [팀원 지정]이 관리자 이름인지 확인하세요." };
 
   const sum = await _kkBuildSummary();
   const link = KK_SITE + "/?dr=1";
