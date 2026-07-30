@@ -68,7 +68,10 @@ function _kkSum(slim) {
 
 // 일별 스냅샷 기록(서버판 _dsnapRecord) — 오늘 상태를 dsnap에 반영하고 관련 데이터 반환.
 // 발송 시각과 별개로 매일 밤 마감 기록(kakaoDaily)에도 사용된다.
-async function _kkRecordSnapshot() {
+// finalize=true(자동발송 시): 오늘 스냅샷을 발송 시점(=18:29까지 입력분) 기준으로 확정(fin:1).
+// 확정된 스냅샷은 이후 어떤 경로(밤 마감 기록·수동 발송·클라이언트)로도 덮어쓰지 않는다
+// — "전날실적 = 전날 보고서에 작성된 현재실적"을 보장하기 위함.
+async function _kkRecordSnapshot(finalize) {
   const snap = await KK_DATA().get();
   const d = snap.exists ? (snap.data() || {}) : {};
   const prf = Array.isArray(d.prf) ? d.prf : [];
@@ -77,16 +80,23 @@ async function _kkRecordSnapshot() {
 
   // 오늘 스냅샷 최신화 (변동 없으면 스킵 — 클라이언트 _dsnapRecord와 동일 규칙)
   const agg = _kkAggFor(prf, ym);
-  const slim = {};
+  let slim = {};
   Object.keys(agg).forEach((n) => { slim[n] = [agg[n].c, agg[n].a, agg[n].ay]; });
   let idx = -1;
   dsnap.forEach((s, i) => { if (s && s.d === today) idx = i; });
   let changed = false;
-  if (idx >= 0) {
-    if (dsnap[idx].ym !== ym || JSON.stringify(dsnap[idx].agg) !== JSON.stringify(slim)) {
-      dsnap[idx] = { d: today, ym, agg: slim }; changed = true;
+  if (idx >= 0 && dsnap[idx].fin) {
+    // 이미 확정 — 덮어쓰지 않고, 요약 계산도 확정값 기준으로 (발송된 보고서와 일치)
+    slim = dsnap[idx].agg || {};
+  } else if (idx >= 0) {
+    if (dsnap[idx].ym !== ym || JSON.stringify(dsnap[idx].agg) !== JSON.stringify(slim) || finalize) {
+      dsnap[idx] = finalize ? { d: today, ym, agg: slim, fin: 1 } : { d: today, ym, agg: slim };
+      changed = true;
     }
-  } else { dsnap.push({ d: today, ym, agg: slim }); changed = true; }
+  } else {
+    dsnap.push(finalize ? { d: today, ym, agg: slim, fin: 1 } : { d: today, ym, agg: slim });
+    changed = true;
+  }
   let wrote = true; // 저장 성공 여부 — 마감 기록 게이트(lastSnapDate)가 이 값으로 판단
   if (changed) {
     dsnap.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
@@ -97,9 +107,9 @@ async function _kkRecordSnapshot() {
   return { d, dsnap, slim, ym, today, wrote };
 }
 
-// 보고서 요약 계산 (스냅샷 최신화 포함)
-async function _kkBuildSummary() {
-  const rec = await _kkRecordSnapshot();
+// 보고서 요약 계산 (스냅샷 최신화 포함) — finalize는 _kkRecordSnapshot 참조
+async function _kkBuildSummary(finalize) {
+  const rec = await _kkRecordSnapshot(finalize);
   const d = rec.d, dsnap = rec.dsnap, slim = rec.slim, ym = rec.ym, today = rec.today;
   const drcfg = (d.drcfg && typeof d.drcfg === "object") ? d.drcfg : {};
 
@@ -218,7 +228,8 @@ async function _kkSendAll(kind, onlyId) {
   if (!cfg.restKey) return { ok: false, error: "REST API 키가 등록되지 않았습니다." };
   if (!ids.length) return { ok: false, error: onlyId ? "해당 수신자가 발송 대상자 명단에 없거나 미승인 상태입니다." : "발송 대상자가 없습니다. 설정 화면에서 대상자를 추가하고 계정 연동·[승인]을 확인하세요." };
 
-  const sum = await _kkBuildSummary();
+  // 자동발송(auto)만 오늘 스냅샷을 확정 — 수동/테스트 발송은 확정하지 않는다
+  const sum = await _kkBuildSummary(kind === "auto");
   const link = KK_SITE + "/?dr=1";
   // 보고서 화면 전체를 이미지로 캡처 — 실패하면 텍스트 요약으로 자동 대체
   let imgUrl = null;

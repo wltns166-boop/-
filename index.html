@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-7</div>
   </div>
 </div>
 
@@ -5487,6 +5487,7 @@ function _dsnapRecord(){
     var idx=-1;
     dsnap.forEach(function(s,i){ if(s.d===d) idx=i; });
     if(idx>=0){
+      if(dsnap[idx].fin) return; // 18:30 자동발송으로 확정된 스냅샷 — 이후 갱신 금지 (전날실적=전날 보고서 보장)
       if(dsnap[idx].ym===ym && JSON.stringify(dsnap[idx].agg)===JSON.stringify(slim)) return; // 변동 없음
       dsnap[idx].ym=ym; dsnap[idx].agg=slim;
     }else{
@@ -5905,21 +5906,23 @@ function drBuild(){
   var D=(g('dr_date')&&g('dr_date').value)||today; // 조회 기준일 (드롭다운)
   var isToday=(D===today);
   var W=isToday?'오늘':'당일';
-  // ── 스냅샷 (기준일/직전/그 이전)
+  // ── 스냅샷 (기준일/직전)
   var snaps=dsnap.slice().sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});
-  var dS=null,prevS=null,prev2=null;
+  var dS=null,prevS=null;
   snaps.forEach(function(s){ if(s.d===D) dS=s; });
   for(var i=snaps.length-1;i>=0;i--){
-    if(snaps[i].d<D){ if(!prevS) prevS=snaps[i]; else { prev2=snaps[i]; break; } }
+    if(snaps[i].d<D){ prevS=snaps[i]; break; }
   }
   var ym=isToday?_curYm():(dS?dS.ym:D.slice(0,7));
   var mo=+ym.slice(5,7);
   var now=new Date();
   var dDate=new Date(D+'T00:00:00');
   var yoil=['일','월','화','수','목','금','토'][dDate.getDay()];
-  // ── 기준일 집계: 오늘=실시간 prf, 과거=해당일 스냅샷
+  // ── 기준일 집계: 오늘=실시간 prf(단, 18:30 발송으로 확정됐으면 확정 스냅샷 — 발송된 보고서와 동일 수치),
+  //    과거=해당일 스냅샷
+  var dFin=!!(dS&&dS.fin);
   var agg={};
-  if(isToday){ agg=_drAggFor(ym); }
+  if(isToday&&!dFin){ agg=_drAggFor(ym); }
   else if(dS){ Object.keys(dS.agg).forEach(function(n){ var v=dS.agg[n]||[0,0,0]; agg[n]={c:v[0]||0,a:v[1]||0,ay:v[2]||0}; }); }
   var rankMap={}; mem.forEach(function(m){ if(m.name) rankMap[m.name]=m.rank; });
   ADMINS.forEach(function(a){ rankMap[a.name]=a.role; });
@@ -5975,12 +5978,12 @@ function drBuild(){
   var prevSum=prevS?_dsnapSum(prevS.agg):null;
   var upPct=(prevS&&prevS.ym===ym&&prevSum&&prevSum.a>0)?Math.round(tdSum.a/prevSum.a*1000)/10:null;
   var s1note = prevS
-    ? '직전 스냅샷('+mmdd(prevS.d)+') '+(prevS.ym===ym?('누적 '+won(prevSum.a)+' / '+prevSum.c+'건 대비'):'(전월 데이터) 이후')
-      +(tdSum.a||tdSum.c?' 반영분입니다.':' 변동 없음. '+W+' 신규 반영된 계약이 없습니다.')
+    ? W+' 현재 실적에서 전날 보고서('+mmdd(prevS.d)+') 현재 실적'+(prevS.ym===ym?('('+won(prevSum.a)+' / '+prevSum.c+'건)'):'(전월 데이터)')+'을 뺀 수치입니다.'
+      +(tdSum.a||tdSum.c?'':' '+W+' 신규 반영된 계약이 없습니다.')
     : '오늘부터 일일 스냅샷 집계를 시작했습니다. 다음 보고서부터 일일 변동이 표시됩니다.';
   if(prevS){
     var gapDays=Math.round((new Date(D+'T00:00:00')-new Date(prevS.d+'T00:00:00'))/86400000);
-    if(gapDays>1) s1note+=' (직전 스냅샷이 '+gapDays+'일 전이라 여러 날 합산 반영분일 수 있습니다.)';
+    if(gapDays>1) s1note+=' (직전 보고서가 '+gapDays+'일 전이라 여러 날 합산 반영분일 수 있습니다.)';
   }
   var sec1=sec(1,W+' 반영 실적',
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
@@ -5995,21 +5998,20 @@ function drBuild(){
     +box('인정실적',won(ta),'')
     +box('영수실적',won(tay),'')
     +box('건수',tc+'건','')
-    +'</div>'+note(mo+'월 누적 — '+(isToday?'실적관리 [현재실적] 화면과 동일한 집계입니다.':mdLabel(D)+' 스냅샷 기준 집계입니다.')));
-  // ── 3. 전날실적 (직전 스냅샷 구간)
+    +'</div>'+note(mo+'월 누적 — '+(isToday
+      ?(dFin?'오후 6시 29분까지 입력분 기준 확정 집계 — 발송된 일일보고서와 동일합니다.':'실적관리 [현재실적] 화면과 동일한 집계입니다. (오후 6시 30분 보고서 발송 시점 기준으로 확정됩니다)')
+      :mdLabel(D)+' 보고서 기준 집계입니다.')));
+  // ── 3. 전날실적 — 전날 보고서에 작성된 현재 실적(월 누적)
   var sec3inner, sec3title='전날실적';
   if(prevS&&prevS.ym===ym){
-    sec3title='전날실적 — '+mdLabel(prevS.d);
-    var yBase=(prev2&&prev2.ym===ym)?prev2.agg:{};
-    var yd=_dsnapDiff(prevS.agg,yBase);
-    var ydSum={c:0,a:0,ay:0};
-    Object.keys(yd).forEach(function(n){ var v=yd[n]; ydSum.c+=v[0]; ydSum.a+=v[1]; ydSum.ay+=v[2]; });
-    var rangeTxt=(prev2&&prev2.ym===ym)?(mmdd(prev2.d)+' 이후 ~ '+mmdd(prevS.d)):(mo+'월 초 ~ '+mmdd(prevS.d)+' 누적');
+    sec3title='전날실적 — '+mdLabel(prevS.d)+' 보고서 기준';
+    var ySum=_dsnapSum(prevS.agg);
     sec3inner='<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      +box('인정실적',won(ydSum.a),'')+box('영수실적',won(ydSum.ay),'')+box('건수',ydSum.c+'건','')+'</div>'
-      +note('집계 구간: '+rangeTxt+'. 스냅샷 간격이 하루보다 크면 여러 영업일 합산 실적입니다.');
+      +box('인정실적',won(ySum.a),'')+box('영수실적',won(ySum.ay),'')+box('건수',ySum.c+'건','')+'</div>'
+      +note(mdLabel(prevS.d)+' 보고서에 작성된 현재 실적('+mo+'월 누적'+(prevS.fin?', 오후 6시 29분 확정':'')+') 그대로입니다. '
+        +W+' 반영 실적 = '+W+' 현재 실적 − 이 수치.');
   }else{
-    sec3inner='<div class="em" style="padding:6px 0;color:#8890b8;font-size:13px">전날 실적 비교를 위한 스냅샷이 아직 없습니다. 내일부터 표시됩니다.</div>';
+    sec3inner='<div class="em" style="padding:6px 0;color:#8890b8;font-size:13px">전날 보고서 기록이 아직 없습니다. 내일부터 표시됩니다.</div>';
   }
   var sec3=sec(3,sec3title,sec3inner);
   // ── 4. 월 목표 대비
