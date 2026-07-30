@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-4</div>
   </div>
 </div>
 
@@ -5706,13 +5706,15 @@ function _kkRender(st){
     ? '<div style="color:#e0a030;padding:5px 0">발송 대상자가 없습니다 — 아래에서 추가하세요. (추가 전까지 아무에게도 발송되지 않습니다)</div>'
     : rcpts.map(function(nm){
         var accs=byMem[nm]||[];
-        var acc=accs.filter(function(u){return u.approved;})[0]||accs[0];
+        var apAccs=accs.filter(function(u){return u.approved;});
+        var acc=apAccs[0]||accs[0];
         var ocD=('kkDelRcpt('+JSON.stringify(String(nm))+')').replace(/"/g,'&quot;');
         var stTxt=!acc
           ? ' <span style="color:#e05555;font-size:12px;font-weight:700">카카오 미연동 — 발송 불가</span>'
           : (!acc.approved
             ? ' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기 — 발송 불가</span>'
             : ' <span style="color:#8a93c8;font-size:12px">카카오: '+_esc(acc.nick||'-')+'</span>'
+              +(apAccs.length>1?' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 계정 '+apAccs.length+'개 — 매번 '+apAccs.length+'통씩 발송됨, [카톡 알림 연동]에서 정리 권장</span>':'')
               +(acc.needsRelink?' <span style="color:#e05555;font-size:12px;font-weight:700">재연동 필요</span>':''));
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid rgba(90,110,230,.28);border-radius:9px;margin-top:6px">'
           +'<span style="color:#dfe4ff"><i class="ti ti-user-check" style="color:'+(acc&&acc.approved?'#3fd08a':'#e0a030')+'"></i> <b>'+_esc(nm)+'</b>'+stTxt+'</span>'
