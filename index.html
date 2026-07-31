@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.30-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-1</div>
   </div>
 </div>
 
@@ -1358,8 +1358,12 @@ table.dt tr:last-child td{border-bottom:none;}
           </div>
 
           <!-- 청구파일 -->
-          <div class="fg">
-            <div class="fl">병원서류</div>
+          <div style="font-size:13px;color:#555;background:#f4f6ff;border:1px solid rgba(72,88,204,.15);border-radius:7px;padding:7px 12px;margin:4px 0 10px">
+            <i class="ti ti-clipboard"></i> <b>카카오톡 사진 붙여넣기</b> — 카톡에서 사진을 복사(Ctrl+C)한 뒤 이 화면에서 <b>Ctrl+V</b>를 누르면 바로 올라갑니다.
+            아래 서류 칸을 클릭하면 <span style="color:#4858cc;font-weight:600">📋 붙여넣기 대상</span>이 그 칸으로 바뀝니다.
+          </div>
+          <div class="fg" onclick="setClaimPasteTarget('file')">
+            <div class="fl">병원서류 <span id="claim_pt_file" style="display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;background:#eef1ff;color:#4858cc;border:1px solid rgba(72,88,204,.3);margin-left:6px;vertical-align:middle">📋 붙여넣기 대상</span></div>
             <label style="font-size:14px;padding:6px 14px;border:1px solid rgba(72,88,204,.3);border-radius:7px;cursor:pointer;background:#f8f9ff;display:inline-block;margin-top:4px">
               <i class="ti ti-upload"></i> 파일 선택 (이미지·PDF)
               <input type="file" id="claim_file" accept="image/*,.pdf" onchange="previewClaimFile()" style="display:none" multiple>
@@ -1368,8 +1372,8 @@ table.dt tr:last-child td{border-bottom:none;}
           </div>
 
           <!-- 신분증 -->
-          <div class="fg">
-            <div class="fl">신분증</div>
+          <div class="fg" onclick="setClaimPasteTarget('id')">
+            <div class="fl">신분증 <span id="claim_pt_id" style="display:none;font-size:11px;padding:1px 8px;border-radius:10px;background:#eef1ff;color:#4858cc;border:1px solid rgba(72,88,204,.3);margin-left:6px;vertical-align:middle">📋 붙여넣기 대상</span></div>
             <label style="font-size:14px;padding:6px 14px;border:1px solid rgba(201,168,76,.4);border-radius:7px;cursor:pointer;background:#fffbf0;display:inline-block;margin-top:4px">
               <i class="ti ti-id"></i> 신분증 사진 업로드
               <input type="file" id="claim_id_file" accept="image/*" onchange="previewClaimId()" style="display:none">
@@ -1378,8 +1382,8 @@ table.dt tr:last-child td{border-bottom:none;}
           </div>
 
           <!-- 통장사본 -->
-          <div class="fg">
-            <div class="fl">통장사본</div>
+          <div class="fg" onclick="setClaimPasteTarget('bank')">
+            <div class="fl">통장사본 <span id="claim_pt_bank" style="display:none;font-size:11px;padding:1px 8px;border-radius:10px;background:#eef1ff;color:#4858cc;border:1px solid rgba(72,88,204,.3);margin-left:6px;vertical-align:middle">📋 붙여넣기 대상</span></div>
             <label style="font-size:14px;padding:6px 14px;border:1px solid rgba(30,150,80,.3);border-radius:7px;cursor:pointer;background:#f5fff8;display:inline-block;margin-top:4px">
               <i class="ti ti-credit-card"></i> 통장사본 사진 업로드
               <input type="file" id="claim_bank_file" accept="image/*" onchange="previewClaimBank()" style="display:none">
@@ -13117,7 +13121,8 @@ function toggleClaimForm(){
     g('claim_file_preview').innerHTML='';
     g('claim_edit_idx').value='';
     g('claim_del_btn').style.display='none';
-    wrap._files=[];
+    wrap._files=[]; wrap._idImg=''; wrap._bankImg=''; wrap._filesEdited=false; // 이전 편집분 잔존 방지
+    setClaimPasteTarget('file');
     clearClaimSign();
     initClaimDays();
     wrap.style.display='block';
@@ -13167,26 +13172,104 @@ function clearClaimSign(){
   canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
 }
 
+// 병원서류 1건 추가(내부 목록 + 미리보기 + ✕ 제거 버튼). 파일선택·붙여넣기 공용.
+function _claimDocAdd(name,dataUrl){
+  var wrap=g('claim_form_wrap'); if(!wrap) return;
+  if(!wrap._files) wrap._files=[];
+  var fo={name:name,data:dataUrl};
+  wrap._files.push(fo);
+  var prev=g('claim_file_preview'); if(!prev) return;
+  var div=document.createElement('div');
+  if((dataUrl||'').startsWith('data:image')){
+    div.style.cssText='display:inline-block;text-align:center;position:relative';
+    div.innerHTML='<img src="'+dataUrl+'" style="max-height:80px;max-width:120px;border-radius:6px;border:1px solid #ddd"><div style="font-size:12px;color:#666;margin-top:2px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_alertEsc(name)+'</div>';
+  } else {
+    div.style.cssText='display:inline-block;position:relative;font-size:13px;color:#4858cc;padding:4px 8px;background:#f8f9ff;border:1px solid rgba(72,88,204,.2);border-radius:5px;align-self:flex-start';
+    div.innerHTML='<i class="ti ti-file"></i> '+_alertEsc(name);
+  }
+  var x=document.createElement('button');
+  x.textContent='✕'; x.title='이 파일 빼기';
+  x.style.cssText='position:absolute;top:-7px;right:-7px;width:18px;height:18px;line-height:15px;padding:0;border:1px solid #ccc;border-radius:50%;background:#fff;color:#a33;font-size:11px;cursor:pointer;font-family:inherit';
+  x.onclick=function(ev){
+    ev.stopPropagation(); ev.preventDefault();
+    var i=wrap._files.indexOf(fo); if(i>=0) wrap._files.splice(i,1); // 객체 동일성으로 제거(함정 A: 표시 인덱스 미사용)
+    wrap._filesEdited=true;
+    div.remove();
+  };
+  div.appendChild(x);
+  prev.appendChild(div);
+}
+
 function previewClaimFile(){
   var inp=g('claim_file'); if(!inp||!inp.files.length) return;
-  var wrap=g('claim_form_wrap'); if(!wrap._files) wrap._files=[];
-  var prev=g('claim_file_preview');
   Array.from(inp.files).forEach(function(file){
     var reader=new FileReader();
-    reader.onload=function(ev){
-      wrap._files.push({name:file.name,data:ev.target.result});
-      if(ev.target.result.startsWith('data:image')){
-        var div=document.createElement('div');div.style.cssText='display:inline-block;text-align:center';
-        div.innerHTML='<img src="'+ev.target.result+'" style="max-height:80px;max-width:120px;border-radius:6px;border:1px solid #ddd"><div style="font-size:12px;color:#666;margin-top:2px">'+file.name+'</div>';
-        prev.appendChild(div);
-      } else {
-        var div=document.createElement('div');div.style.cssText='font-size:13px;color:#4858cc;padding:4px 8px;background:#f8f9ff;border:1px solid rgba(72,88,204,.2);border-radius:5px';
-        div.innerHTML='<i class="ti ti-file"></i> '+file.name; prev.appendChild(div);
-      }
-    };
+    reader.onload=function(ev){ _claimDocAdd(file.name, ev.target.result); };
     reader.readAsDataURL(file);
   });
+  inp.value=''; // 같은 파일을 다시 선택해도 onchange가 뜨도록 초기화
 }
+
+// ── 클립보드 붙여넣기(카카오톡 사진 Ctrl+C → Ctrl+V) ──
+var _claimPasteTarget='file'; // 'file'=병원서류 | 'id'=신분증 | 'bank'=통장사본
+var _claimPasteN=0;
+function setClaimPasteTarget(t){
+  _claimPasteTarget=t;
+  [['file','claim_pt_file'],['id','claim_pt_id'],['bank','claim_pt_bank']].forEach(function(p){
+    var el=g(p[1]); if(el) el.style.display=(p[0]===t)?'inline-block':'none';
+  });
+}
+// 신분증/통장사본 이미지 등록 + 미리보기(제거 버튼 포함). 업로드·붙여넣기 공용.
+function _claimImgSet(kind,dataUrl){
+  var wrap=g('claim_form_wrap'); if(!wrap) return;
+  if(kind==='id') wrap._idImg=dataUrl||''; else wrap._bankImg=dataUrl||'';
+  var prev=g(kind==='id'?'claim_id_preview':'claim_bank_preview'); if(!prev) return;
+  if(!dataUrl){ prev.innerHTML=''; return; }
+  prev.innerHTML='';
+  var box=document.createElement('div'); box.style.cssText='position:relative;display:inline-block';
+  box.innerHTML='<img src="'+dataUrl+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd;margin-top:4px;display:block">';
+  var x=document.createElement('button');
+  x.textContent='✕'; x.title='사진 빼기';
+  x.style.cssText='position:absolute;top:-3px;right:-7px;width:18px;height:18px;line-height:15px;padding:0;border:1px solid #ccc;border-radius:50%;background:#fff;color:#a33;font-size:11px;cursor:pointer;font-family:inherit';
+  x.onclick=function(ev){ ev.stopPropagation(); ev.preventDefault(); _claimImgSet(kind,''); };
+  box.appendChild(x);
+  prev.appendChild(box);
+}
+function _claimHandlePaste(e){
+  var wrap=g('claim_form_wrap');
+  if(!wrap||wrap.offsetParent===null) return; // 청구신청 폼이 화면에 열려 있을 때만
+  var cd=e.clipboardData; if(!cd) return;
+  var imgs=[];
+  Array.prototype.forEach.call(cd.items||[], function(it){
+    if(it.kind==='file'){ var f=it.getAsFile(); if(f&&/^image\//.test(f.type)) imgs.push(f); }
+  });
+  if(!imgs.length) return; // 이미지가 없으면(텍스트 등) 기본 붙여넣기 유지
+  // 입력칸에 텍스트를 붙여넣는 중이면(텍스트+이미지 혼합 클립보드) 기본 동작 우선
+  var ae=document.activeElement, hasText=false;
+  try{ hasText=!!cd.getData('text'); }catch(_e){}
+  if(hasText&&ae&&/^(input|textarea)$/i.test(ae.tagName)) return;
+  e.preventDefault();
+  var t=_claimPasteTarget;
+  if(t==='id'||t==='bank'){
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      _claimImgSet(t, ev.target.result);
+      toast((t==='id'?'신분증':'통장사본')+' 사진을 붙여넣었습니다.'+(imgs.length>1?' (여러 장 중 첫 장만 사용)':''));
+    };
+    reader.readAsDataURL(imgs[0]);
+  } else {
+    imgs.forEach(function(f){
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        var ext=((f.type.split('/')[1]||'png')).replace('jpeg','jpg');
+        _claimDocAdd('붙여넣기'+(++_claimPasteN)+'.'+ext, ev.target.result);
+      };
+      reader.readAsDataURL(f);
+    });
+    toast('병원서류에 사진 '+imgs.length+'장을 붙여넣었습니다.');
+  }
+}
+document.addEventListener('paste', _claimHandlePaste);
 
 function saveClaim(){
   var name=(g('claim_cust_name')||{value:''}).value.trim();
@@ -13229,7 +13312,8 @@ function saveClaim(){
   };
   if(idx!==''){
     obj.done=claims[+idx].done||false;
-    if(!files.length&&claims[+idx].files) obj.files=claims[+idx].files;
+    // 편집 중 목록을 건드리지 않았는데 비어 있으면 기존 파일 유지(✕로 직접 뺀 경우는 제외)
+    if(!files.length&&!(wrap&&wrap._filesEdited)&&claims[+idx].files) obj.files=claims[+idx].files;
     claims[+idx]=obj;
   } else { claims.push(obj); try{ pushNotify('ADMIN', '새 보험금청구 신청', (cu?cu.name+'님 / ':'')+'계약자 '+name, '/'); }catch(e){} }
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
@@ -13290,15 +13374,14 @@ function editClaim(i){
   });
   if(g('claim_bank'))g('claim_bank').value=c.bank||'';
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
-  var wrap=g('claim_form_wrap'); wrap._files=c.files?[].concat(c.files):[]; wrap._idImg=c.idImg||''; wrap._bankImg=c.bankImg||'';
+  var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
   document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){cb.checked=c.insurerList&&c.insurerList.includes(cb.value);});
   updateClaimInsDisplay();
-  if(c.idImg){var idp=g('claim_id_preview');if(idp)idp.innerHTML='<img src="'+c.idImg+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd">';}
-  if(c.bankImg){var bkp=g('claim_bank_preview');if(bkp)bkp.innerHTML='<img src="'+c.bankImg+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd">';}
+  _claimImgSet('id', c.idImg||'');
+  _claimImgSet('bank', c.bankImg||'');
   var prev=g('claim_file_preview'); prev.innerHTML='';
-  (c.files||[]).forEach(function(f){
-    if(f.data&&f.data.startsWith('data:image')){var div=document.createElement('div');div.style.cssText='display:inline-block';div.innerHTML='<img src="'+f.data+'" style="max-height:60px;border-radius:6px;border:1px solid #ddd">';prev.appendChild(div);}
-  });
+  (c.files||[]).forEach(function(f){ if(f&&f.data) _claimDocAdd(f.name||'파일', f.data); });
+  setClaimPasteTarget('file');
   g('claim_edit_idx').value=i;
   g('claim_del_btn').style.display='inline-flex';
   wrap.style.display='block';
@@ -13334,23 +13417,17 @@ function updateClaimInsDisplay(){
 function previewClaimId(){
   var inp=g('claim_id_file'); if(!inp||!inp.files[0]) return;
   var reader=new FileReader();
-  reader.onload=function(ev){
-    var prev=g('claim_id_preview');
-    if(prev) prev.innerHTML='<img src="'+ev.target.result+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd;margin-top:4px">';
-    var wrap=g('claim_form_wrap');if(wrap)wrap._idImg=ev.target.result;
-  };
+  reader.onload=function(ev){ _claimImgSet('id', ev.target.result); };
   reader.readAsDataURL(inp.files[0]);
+  inp.value='';
 }
 
 function previewClaimBank(){
   var inp=g('claim_bank_file'); if(!inp||!inp.files[0]) return;
   var reader=new FileReader();
-  reader.onload=function(ev){
-    var prev=g('claim_bank_preview');
-    if(prev) prev.innerHTML='<img src="'+ev.target.result+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd;margin-top:4px">';
-    var wrap=g('claim_form_wrap');if(wrap)wrap._bankImg=ev.target.result;
-  };
+  reader.onload=function(ev){ _claimImgSet('bank', ev.target.result); };
   reader.readAsDataURL(inp.files[0]);
+  inp.value='';
 }
 
 function previewClaimIns(){
