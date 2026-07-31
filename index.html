@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-9</div>
   </div>
 </div>
 
@@ -13567,7 +13567,8 @@ function previewClaimIns(){
 
 
 function openClaimCustSearch(){
-  try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=[]; }
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
   var wrap=g('claim_cust_search_wrap');
   if(!wrap){ toast('검색창을 찾을 수 없습니다.'); return; }
   if(wrap.style.display==='none'||wrap.style.display===''){
@@ -13580,10 +13581,13 @@ function openClaimCustSearch(){
 }
 
 function filterClaimCustSearch(){
-  try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=[]; }
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
   var q=(g('claim_cust_search_input')||{value:''}).value.toLowerCase().trim();
+  var chongmu=_isChongmu();
   var list=custs.filter(function(c){
-    if(!c.name) return false;
+    if(!c||!c.name) return false;
+    if(!chongmu && (!cu || c.m !== cu.name)) return false; // 본인 고객만 (총무는 전체) — rCustList와 동일 규칙
     if(!q) return true;
     return c.name.toLowerCase().includes(q)||(c.rrn&&c.rrn.includes(q));
   });
@@ -13596,9 +13600,9 @@ function filterClaimCustSearch(){
     var birth=c.rrn?c.rrn.slice(0,6):'-';
     var realIdx=custs.indexOf(c);
     return '<div onclick="selectClaimCust('+realIdx+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(72,88,204,.08);display:flex;align-items:center;justify-content:space-between" >'
-      +'<div><span style="font-weight:700;font-size:15px;color:#1a1a3a">'+c.name+'</span>'
-      +(c.region?'<span style="font-size:13px;color:#8888bb;margin-left:6px">'+c.region+'</span>':'')+'</div>'
-      +'<span style="font-size:13px;color:#888">'+birth+'</span>'
+      +'<div><span style="font-weight:700;font-size:15px;color:#1a1a3a">'+_esc(c.name)+'</span>'
+      +(c.region?'<span style="font-size:13px;color:#8888bb;margin-left:6px">'+_esc(c.region)+'</span>':'')+'</div>'
+      +'<span style="font-size:13px;color:#888">'+_esc(birth)+'</span>'
       +'</div>';
   }).join('');
 }
@@ -13606,6 +13610,7 @@ function filterClaimCustSearch(){
 function selectClaimCust(idx){
   if(!custs[idx]) return;
   var c=custs[idx];
+  if(!_isChongmu() && (!cu || c.m !== cu.name)) return; // 본인 고객만 선택 가능 (검색 필터와 동일 규칙)
   var nameEl=g('claim_cust_name'); if(nameEl) nameEl.value=c.name||'';
   var rrnEl=g('claim_rrn'); if(rrnEl) rrnEl.value=c.rrn||'';
   var phoneEl=g('claim_phone'); if(phoneEl) phoneEl.value=c.phone||'';
