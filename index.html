@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-7</div>
   </div>
 </div>
 
@@ -10638,9 +10638,9 @@ function saveCust(){
   if(!name){toast('성함을 입력하세요.');return;}
   var ins=[];
   document.querySelectorAll('input[name="cust_ins"]:checked').forEach(function(cb){ins.push(cb.value);});
-  var familyCnt=parseInt((g('cust_family_cnt')||{value:0}).value)||0;
+  var familyCnt=Math.max(0,Math.min(10,parseInt((g('cust_family_cnt')||{value:0}).value)||0)); // 직접 입력한 10 초과 값도 저장 전 클램프(family 배열 길이와 불일치 방지)
   var family=[];
-  for(var i=0;i<Math.min(familyCnt,10);i++){
+  for(var i=0;i<familyCnt;i++){
     family.push({
       name:g('fam_name_'+i)?g('fam_name_'+i).value:'',
       rel:g('fam_rel_'+i)?g('fam_rel_'+i).value:'',
