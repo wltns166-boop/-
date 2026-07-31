@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-3</div>
   </div>
 </div>
 
@@ -13201,11 +13201,14 @@ function _claimDocAdd(name,dataUrl){
   prev.appendChild(div);
 }
 
+function _claimReadErr(){ toast('파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.'); }
+
 function previewClaimFile(){
   var inp=g('claim_file'); if(!inp||!inp.files.length) return;
   Array.from(inp.files).forEach(function(file){
     var reader=new FileReader();
     reader.onload=function(ev){ _claimDocAdd(file.name, ev.target.result); };
+    reader.onerror=_claimReadErr;
     reader.readAsDataURL(file);
   });
   inp.value=''; // 같은 파일을 다시 선택해도 onchange가 뜨도록 초기화
@@ -13225,10 +13228,18 @@ function _claimImgSet(kind,dataUrl){
   var wrap=g('claim_form_wrap'); if(!wrap) return;
   if(kind==='id') wrap._idImg=dataUrl||''; else wrap._bankImg=dataUrl||'';
   var prev=g(kind==='id'?'claim_id_preview':'claim_bank_preview'); if(!prev) return;
-  if(!dataUrl){ prev.innerHTML=''; return; }
   prev.innerHTML='';
+  if(!dataUrl) return;
   var box=document.createElement('div'); box.style.cssText='position:relative;display:inline-block';
-  box.innerHTML='<img src="'+dataUrl+'" style="max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd;margin-top:4px;display:block">';
+  if(dataUrl.startsWith('data:image')){ // 문자열 조립 대신 DOM 프로퍼티 대입(속성 탈출 방어)
+    var img=document.createElement('img');
+    img.src=dataUrl;
+    img.style.cssText='max-width:280px;max-height:180px;border-radius:8px;border:1px solid #ddd;margin-top:4px;display:block';
+    box.appendChild(img);
+  } else {
+    box.textContent='(이미지 형식이 아니라 미리보기를 표시할 수 없습니다)';
+    box.style.cssText+=';font-size:12px;color:#888;padding:4px 20px 4px 0';
+  }
   var x=document.createElement('button');
   x.textContent='✕'; x.title='사진 빼기';
   x.style.cssText='position:absolute;top:-3px;right:-7px;width:18px;height:18px;line-height:15px;padding:0;border:1px solid #ccc;border-radius:50%;background:#fff;color:#a33;font-size:11px;cursor:pointer;font-family:inherit';
@@ -13257,6 +13268,7 @@ function _claimHandlePaste(e){
       _claimImgSet(t, ev.target.result);
       toast((t==='id'?'신분증':'통장사본')+' 사진을 붙여넣었습니다.'+(imgs.length>1?' (여러 장 중 첫 장만 사용)':''));
     };
+    reader.onerror=_claimReadErr;
     reader.readAsDataURL(imgs[0]);
   } else {
     imgs.forEach(function(f){
@@ -13265,6 +13277,7 @@ function _claimHandlePaste(e){
         var ext=((f.type.split('/')[1]||'png')).replace('jpeg','jpg');
         _claimDocAdd('붙여넣기'+(++_claimPasteN)+'.'+ext, ev.target.result);
       };
+      reader.onerror=_claimReadErr;
       reader.readAsDataURL(f);
     });
     toast('병원서류에 사진 '+imgs.length+'장을 붙여넣었습니다.');
@@ -13437,6 +13450,7 @@ function previewClaimId(){
   var inp=g('claim_id_file'); if(!inp||!inp.files[0]) return;
   var reader=new FileReader();
   reader.onload=function(ev){ _claimImgSet('id', ev.target.result); };
+  reader.onerror=_claimReadErr;
   reader.readAsDataURL(inp.files[0]);
   inp.value='';
 }
@@ -13445,6 +13459,7 @@ function previewClaimBank(){
   var inp=g('claim_bank_file'); if(!inp||!inp.files[0]) return;
   var reader=new FileReader();
   reader.onload=function(ev){ _claimImgSet('bank', ev.target.result); };
+  reader.onerror=_claimReadErr;
   reader.readAsDataURL(inp.files[0]);
   inp.value='';
 }
