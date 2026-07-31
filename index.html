@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-10</div>
   </div>
 </div>
 
@@ -1287,7 +1287,14 @@ table.dt tr:last-child td{border-bottom:none;}
           <div style="background:#f5fff8;border-radius:10px;padding:14px;margin-bottom:12px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
               <div style="font-size:14px;font-weight:700;color:#208050">🧑 피보험자</div>
-              <button onclick="fillInsuredSameAsContractor()" style="font-size:13px;padding:4px 12px;background:rgba(30,150,80,.12);border:1px solid rgba(30,150,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-copy"></i> 계약자 동일</button>
+              <div style="display:flex;gap:6px">
+                <button onclick="openClaimInsCustSearch()" style="font-size:13px;padding:4px 12px;background:rgba(30,150,80,.12);border:1px solid rgba(30,150,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-search"></i> 고객검색</button>
+                <button onclick="fillInsuredSameAsContractor()" style="font-size:13px;padding:4px 12px;background:rgba(30,150,80,.12);border:1px solid rgba(30,150,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-copy"></i> 계약자 동일</button>
+              </div>
+            </div>
+            <div id="claim_ins_search_wrap" style="display:none;margin-bottom:10px">
+              <input class="fi" id="claim_ins_search_input" placeholder="이름 검색... (등록 고객·가족구성원 포함)" oninput="filterClaimInsCustSearch()" style="margin-bottom:6px">
+              <div id="claim_ins_search_list" style="max-height:200px;overflow-y:auto;border:1px solid rgba(30,150,80,.25);border-radius:8px;background:#fff"></div>
             </div>
             <div class="fr">
               <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동"></div>
@@ -13153,6 +13160,7 @@ function toggleClaimForm(){
     var isel=g('claim_ins_selected');if(isel)isel.innerHTML='';
     var idp=g('claim_id_preview');if(idp)idp.innerHTML='';
     var bkp=g('claim_bank_preview');if(bkp)bkp.innerHTML='';
+    ['claim_cust_search_wrap','claim_ins_search_wrap'].forEach(function(id){var el=g(id);if(el)el.style.display='none';});
     g('claim_file_preview').innerHTML='';
     g('claim_edit_idx').value='';
     g('claim_del_btn').style.display='none';
@@ -13605,6 +13613,62 @@ function filterClaimCustSearch(){
       +'<span style="font-size:13px;color:#888">'+_esc(birth)+'</span>'
       +'</div>';
   }).join('');
+}
+
+// ── 피보험자 고객검색 (본인 고객 + 가족구성원, 총무는 전체) ──
+function _claimInsCandidates(){
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
+  var chongmu=_isChongmu();
+  var out=[];
+  (Array.isArray(custs)?custs:[]).forEach(function(c){
+    if(!c||!c.name) return;
+    if(!chongmu && (!cu || c.m !== cu.name)) return; // 본인 고객만 (rCustList와 동일 규칙)
+    out.push({name:c.name, rrn:c.rrn||'', label:'', region:c.region||''});
+    (c.family||[]).forEach(function(f){
+      if(f&&f.name) out.push({name:f.name, rrn:f.rrn||'', label:c.name+'님 '+(f.rel||'가족'), region:c.region||''});
+    });
+  });
+  return out;
+}
+function openClaimInsCustSearch(){
+  var wrap=g('claim_ins_search_wrap'); if(!wrap) return;
+  if(wrap.style.display==='none'||wrap.style.display===''){
+    wrap.style.display='block';
+    var inp=g('claim_ins_search_input');if(inp){inp.value='';setTimeout(function(){inp.focus();},50);}
+    filterClaimInsCustSearch();
+  } else {
+    wrap.style.display='none';
+  }
+}
+function filterClaimInsCustSearch(){
+  var q=(g('claim_ins_search_input')||{value:''}).value.toLowerCase().trim();
+  var list=_claimInsCandidates().filter(function(p){
+    if(!q) return true;
+    return p.name.toLowerCase().includes(q)||(p.rrn&&p.rrn.includes(q));
+  });
+  var el=g('claim_ins_search_list'); if(!el) return;
+  if(!list.length){
+    el.innerHTML='<div style="padding:14px;text-align:center;font-size:14px;color:#aaa">검색 결과 없음</div>';
+    return;
+  }
+  el.innerHTML=list.map(function(p){
+    var birth=p.rrn?p.rrn.slice(0,6):'-';
+    // 함정 A: 인덱스 대신 이름·주민번호 값을 직접 전달
+    var oc=('selectClaimInsCust('+JSON.stringify(p.name)+','+JSON.stringify(p.rrn)+')').replace(/"/g,'&quot;');
+    return '<div onclick="'+oc+'" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(30,150,80,.1);display:flex;align-items:center;justify-content:space-between">'
+      +'<div><span style="font-weight:700;font-size:15px;color:#1a1a3a">'+_esc(p.name)+'</span>'
+      +(p.label?'<span style="font-size:12px;color:#1a7040;background:rgba(30,150,80,.1);border-radius:8px;padding:1px 7px;margin-left:6px">'+_esc(p.label)+'</span>':'')
+      +(p.region?'<span style="font-size:13px;color:#8888bb;margin-left:6px">'+_esc(p.region)+'</span>':'')+'</div>'
+      +'<span style="font-size:13px;color:#888">'+_esc(birth)+'</span>'
+      +'</div>';
+  }).join('');
+}
+function selectClaimInsCust(name,rrn){
+  var n=g('claim_ins_name'); if(n) n.value=name||'';
+  var r=g('claim_ins_rrn'); if(r) r.value=rrn||'';
+  var wrap=g('claim_ins_search_wrap'); if(wrap) wrap.style.display='none';
+  toast('피보험자 정보가 입력되었습니다.');
 }
 
 function selectClaimCust(idx){
