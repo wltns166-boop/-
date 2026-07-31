@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-14</div>
   </div>
 </div>
 
@@ -13426,10 +13426,7 @@ function saveClaim(){
       return cp;
     });
     try{ localStorage.setItem('tops_claims', JSON.stringify(claimsLight)); }
-    catch(e2){
-      console.warn('save failed:', e2);
-      toast('기기 저장공간이 가득 차 청구 내역을 이 기기에 캐시하지 못했습니다. (클라우드에는 저장됨)');
-    }
+    catch(e2){ console.warn('save failed:', e2); _claimsQuotaWarn(); }
   }
   // Firestore: 대용량 base64(이미지·서명·PDF) 제외, 메타데이터 + Storage URL(pkgUrls)만 동기화
   try{
@@ -14120,6 +14117,16 @@ async function _ensureClaimPkg(idx, insurer){
 
 // claims를 localStorage에서 다시 읽되, 메모리에만 있는 무거운 데이터를 보존
 // (quota 초과로 로컬 저장이 실패해도 생성된 PDF·공유 URL·첨부 이미지가 사라지지 않게)
+// 용량초과로 청구 캐시 실패 시 안내 (세션당 1회)
+function _claimsQuotaWarn(){
+  try{
+    if(!window._claimsQuotaToast&&typeof toast==='function'){
+      window._claimsQuotaToast=true;
+      toast('기기 저장공간이 가득 차 청구 내역을 이 기기에 캐시하지 못했습니다. (클라우드에는 저장됨)');
+    }
+  }catch(e){}
+}
+
 function _reloadClaims(){
   var mem=Array.isArray(claims)?claims:[];
   var ls; try{ ls=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){ ls=null; }
@@ -14127,10 +14134,13 @@ function _reloadClaims(){
   // 클라우드 수신본(window._claimsCloud — 자기 기기 저장 직후에도 스냅샷으로 즉시 갱신됨)이
   // 더 길면 그것을 기준 목록으로 사용 → "클라우드엔 있는데 목록이 빈 화면" 증상 방지.
   var cc=Array.isArray(window._claimsCloud)?window._claimsCloud:null;
-  if(cc && (!Array.isArray(ls) || cc.length>ls.length)) ls=cc.map(function(x){return Object.assign({},x);});
+  if(cc && (!Array.isArray(ls) || cc.length>ls.length)) ls=cc.map(function(x){return Object.assign({},x,{pkgUrls:Object.assign({},x&&x.pkgUrls)});});
   if(!Array.isArray(ls)){ claims=mem; return; }
   ls.forEach(function(c,i){
     var m=mem[i]; if(!c||!m) return;
+    // 다중 기기 삭제/추가로 배열 순서가 밀렸으면 같은 인덱스가 다른 청구건일 수 있다 —
+    // 동일 건(고객명·등록일·담당자 일치)일 때만 메모리의 이미지·서명·PDF를 이식(오이식 방지)
+    if((m.custName||'')!==(c.custName||'')||(m.regDate||'')!==(c.regDate||'')||(m.agent||'')!==(c.agent||'')) return;
     if(m.packagePDFs && !c.packagePDFs) c.packagePDFs=m.packagePDFs;
     if(m.packagePDF  && !c.packagePDF)  c.packagePDF =m.packagePDF;
     if(m.pkgUrls) c.pkgUrls=Object.assign({}, m.pkgUrls, c.pkgUrls||{});
@@ -14146,15 +14156,7 @@ function _reloadClaims(){
 function _persistClaims(){
   var clLocal=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp; });
   try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }
-  catch(e){
-    console.warn('tops_claims 저장 실패(quota):', e);
-    try{
-      if(!window._claimsQuotaToast&&typeof toast==='function'){
-        window._claimsQuotaToast=true;
-        toast('기기 저장공간이 가득 차 청구 내역을 이 기기에 캐시하지 못했습니다. (클라우드에는 저장됨)');
-      }
-    }catch(e2){}
-  }
+  catch(e){ console.warn('tops_claims 저장 실패(quota):', e); _claimsQuotaWarn(); }
   var clSync=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; return cp; });
   try{ sv('tops_claims', clSync); }catch(e){}
   // 마지막 청구까지 삭제해 0건이 된 경우 — 다른 기기의 빈배열 가드(_claimsCloudApply)가
