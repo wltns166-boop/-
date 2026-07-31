@@ -321,7 +321,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-2</div>
   </div>
 </div>
 
@@ -13121,7 +13121,8 @@ function toggleClaimForm(){
     g('claim_file_preview').innerHTML='';
     g('claim_edit_idx').value='';
     g('claim_del_btn').style.display='none';
-    wrap._files=[]; wrap._idImg=''; wrap._bankImg=''; wrap._filesEdited=false; // 이전 편집분 잔존 방지
+    wrap._files=[]; wrap._idImg=''; wrap._bankImg=''; wrap._insFiles=[]; wrap._filesEdited=false; // 이전 편집분 잔존 방지
+    var insp=g('claim_ins_preview');if(insp)insp.innerHTML='';
     setClaimPasteTarget('file');
     clearClaimSign();
     initClaimDays();
@@ -13375,6 +13376,24 @@ function editClaim(i){
   if(g('claim_bank'))g('claim_bank').value=c.bank||'';
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
   var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
+  wrap._insFiles=c.insFiles?[].concat(c.insFiles):[]; // 기존 첨부 유지(미복원 시 저장 때 날아가거나 이전 건 파일이 딸려감)
+  var insp=g('claim_ins_preview');
+  if(insp){
+    insp.innerHTML='';
+    wrap._insFiles.forEach(function(src){
+      if((src||'').startsWith('data:image')){
+        var img=document.createElement('img');
+        img.src=src;
+        img.style.cssText='max-width:120px;max-height:100px;border-radius:6px;border:1px solid #ddd;object-fit:cover;margin:2px';
+        insp.appendChild(img);
+      } else if(src){
+        var d=document.createElement('div');
+        d.style.cssText='font-size:13px;color:#4858cc;padding:6px 10px;background:#f0f2ff;border-radius:5px;border:1px solid rgba(72,88,204,.2);margin:2px;display:inline-block';
+        d.innerHTML='<i class="ti ti-file"></i> 첨부파일';
+        insp.appendChild(d);
+      }
+    });
+  }
   document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){cb.checked=c.insurerList&&c.insurerList.includes(cb.value);});
   updateClaimInsDisplay();
   _claimImgSet('id', c.idImg||'');
