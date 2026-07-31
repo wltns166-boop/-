@@ -525,6 +525,63 @@ async function _kkHandle(body, res) {
       res.json({ ok: sentN > 0, sent: sentN, total: msgs.length, nick: uA.nick || "", error: lastErr || undefined });
       return;
     }
+    if (action === "claimsend") {
+      // 보험금 청구파일 카톡 발송 — 요청한 관리자 본인의 '나와의 채팅'으로 청구파일 PDF 링크 발송.
+      //   매칭은 dbassign과 동일: 연동 계정의 member(팀원 이름) 정확 일치만, 중복 매핑이면 보류.
+      //   카카오 링크 버튼은 등록 도메인만 허용되므로 인트라넷 /?pdf=<StorageURL> 경유로 연다.
+      const memberC = String(body.member || "").trim();
+      if (!memberC) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
+      const custC = String(body.cust || "").trim().slice(0, 30);
+      let linksC = Array.isArray(body.links) ? body.links.slice(0, 5) : [];
+      linksC = linksC
+        .map((l) => ({ ins: String((l || {}).ins || "").slice(0, 30), url: String((l || {}).url || "") }))
+        .filter((l) => /^https:\/\/firebasestorage\.googleapis\.com\//.test(l.url));
+      if (!linksC.length) { res.json({ ok: false, error: "발송할 청구파일 링크가 없습니다." }); return; }
+      const [cfgSnapC, tokSnapC] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgC = cfgSnapC.exists ? (cfgSnapC.data() || {}) : {};
+      const usersCl = (tokSnapC.exists && (tokSnapC.data() || {}).users) || {};
+      if (!cfgC.restKey) { res.json({ ok: false, error: "REST API 키 미설정" }); return; }
+      const matchedC = Object.keys(usersCl).filter((id) => usersCl[id] && usersCl[id].approved && String(usersCl[id].member || "") === memberC);
+      if (!matchedC.length) { res.json({ ok: false, error: "카톡 미연동/미승인: " + memberC + " — DB 정보 [카톡 알림 연동]에서 연동·승인·팀원 지정을 확인하세요." }); return; }
+      if (matchedC.length > 1) {
+        res.json({ ok: false, error: "'" + memberC + "' 매핑 계정이 " + matchedC.length + "개입니다 — 중복 연동을 정리한 뒤 다시 시도하세요." });
+        return;
+      }
+      const kidC = matchedC[0];
+      // 남용 방지: 같은 계정 10초 간격
+      const ldc = (cfgC.lastClaimSend && typeof cfgC.lastClaimSend === "object") ? cfgC.lastClaimSend : {};
+      if (ldc[kidC] && Date.now() - ldc[kidC] < 10 * 1000) {
+        res.status(429).json({ error: { message: "10초에 1회만 발송할 수 있습니다." } });
+        return;
+      }
+      ldc[kidC] = Date.now();
+      Object.keys(ldc).forEach((k) => { if (Date.now() - ldc[k] > 3600 * 1000) delete ldc[k]; });
+      await KK_CFG().set({ lastClaimSend: ldc }, { merge: true }).catch(() => {});
+      const uCl = usersCl[kidC];
+      const tCl = await _kkAccessToken(cfgC, uCl);
+      if (!tCl.at) {
+        if (tCl.relink) { uCl.needsRelink = true; await KK_TOK().set({ users: usersCl }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 재연동 필요: " + (tCl.err || "") });
+        return;
+      }
+      if (tCl.upd) { Object.assign(uCl, tCl.upd); uCl.needsRelink = false; await KK_TOK().set({ users: usersCl }, { merge: true }).catch(() => {}); }
+      let sentC = 0, lastErrC = "";
+      for (const l of linksC) {
+        const txtC = ("[보험금 청구파일]\n고객 : " + (custC || "-") + "\n보험사 : " + l.ins + "\n청구서류·병원서류가 병합된 PDF입니다. 아래 버튼으로 여세요.").slice(0, 200);
+        const openUrl = KK_SITE + "/?pdf=" + encodeURIComponent(l.url);
+        const tplCl = JSON.stringify({
+          object_type: "text",
+          text: txtC,
+          link: { web_url: openUrl, mobile_web_url: openUrl },
+          button_title: "PDF 열기"
+        });
+        const sCl = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplCl }, tCl.at);
+        if (sCl.ok) sentC++;
+        else { lastErrC = (sCl.data && (sCl.data.msg || sCl.data.error_description)) || ("전송 실패 " + sCl.status); break; }
+      }
+      res.json({ ok: sentC > 0, sent: sentC, total: linksC.length, nick: uCl.nick || "", error: lastErrC || undefined });
+      return;
+    }
     if (action === "setmember") {
       // 연동 계정에 팀원 이름 지정 — 예전 방식(이름 미기록) 연동 계정을 재연동 없이 매핑
       const kidM = String(body.id || "");

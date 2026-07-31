@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-11</div>
   </div>
 </div>
 
@@ -2798,6 +2798,18 @@ function _driveFolderBackfill(){
 }
 try{ if(document.readyState!=='loading') _driveBackfillOnce(); else document.addEventListener('DOMContentLoaded', _driveBackfillOnce); }catch(e){}
 
+// 클라우드 claims가 "빈 배열"인데 로컬에는 내역이 있으면 로컬을 지우지 않는다.
+// (기기의 클라우드 저장이 일시 실패한 상태에서 스냅샷 수신 시 방금 등록한 청구가 통째로 사라지던 증상 방지)
+function _claimsCloudApply(arr){
+  try{
+    if(arr.length===0){
+      var loc=JSON.parse(localStorage.getItem('tops_claims')||'[]');
+      if(Array.isArray(loc)&&loc.length){ console.warn('클라우드 claims 비어있음 — 로컬 '+loc.length+'건 유지'); return false; }
+    }
+  }catch(e){}
+  return true;
+}
+
 // Firestore에서 전체 데이터 로드
 async function loadFromFirestore(){
   // 보안 규칙(인증 필요)을 위해 익명 인증이 끝날 때까지 대기
@@ -2846,7 +2858,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
-    if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
@@ -2901,7 +2913,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
-    if(Array.isArray(d.claims))   { try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
@@ -2931,6 +2943,13 @@ function startRealtimeSync(){
 function td(){return new Date().toISOString().slice(0,10);}
 function tds(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');}
 function g(id){return document.getElementById(id);}
+// 카톡 청구파일 링크 경유 — /?pdf=<Storage URL> 로 들어오면 해당 PDF로 즉시 이동.
+// (카카오 링크 버튼은 등록된 인트라넷 도메인만 허용돼 인트라넷을 경유한다.
+//  Firebase Storage URL만 허용 — 임의 사이트 오픈 리다이렉트 방지)
+try{
+  var _pdfQ=new URLSearchParams(location.search).get('pdf');
+  if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\//.test(_pdfQ)) location.replace(_pdfQ);
+}catch(e){}
 // 모바일 사이드바(서랍) 토글
 function toggleSidebar(){var sb=g('sb'),ov=g('sb_overlay');if(!sb)return;var open=sb.classList.toggle('open');if(ov)ov.classList.toggle('open',open);}
 // 아래로 스크롤하면 상단바 숨김(보고서 제목 등 콘텐츠 가림 방지), 위로 올리면 다시 표시
@@ -13801,11 +13820,41 @@ function rClaimStatus(){
       +'<td>'+fileCell+'</td>'
       +'<td style="text-align:center">'+doneBtn+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'
+      +(_isAdmin()?('<button onclick="claimKakaoSend('+i+')" title="청구파일 PDF 링크를 내 카톡(나와의 채팅)으로 발송" style="font-size:13px;padding:2px 8px;margin-right:3px;background:#fee500;border:1px solid #e0ca00;border-radius:5px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-send"></i> 카톡</button>'):'')
       +'<button class="be" onclick="editClaim('+i+');showPage(\'claim_apply\');" style="font-size:13px;padding:2px 7px;margin-right:3px"><i class="ti ti-edit"></i></button>'
       +'<button onclick="deleteClaimByIdx('+i+')" class="bd" style="font-size:13px;padding:2px 7px"><i class="ti ti-trash"></i></button>'
       +'</td>'
       +'</tr>';
   }).join('');
+}
+
+// [카톡발송] (관리자 전용) — 청구파일(청구서+병원서류+신분증+통장사본 병합 PDF)의 Storage 링크를
+// 로그인한 관리자 본인의 카톡 '나와의 채팅'으로 발송. 파일 첨부는 카카오 API가 지원하지 않아 링크 방식.
+async function claimKakaoSend(i){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  _reloadClaims();
+  var c=claims[i]; if(!c){ toast('청구 내역을 찾을 수 없습니다.'); return; }
+  var insList=(c.insurerList&&c.insurerList.length)?c.insurerList.slice()
+    :(c.insurer?String(c.insurer).split(/,\s*/).filter(function(s){return s;}):[]);
+  if(!insList.length){ toast('청구 보험사가 지정되지 않은 건입니다.'); return; }
+  // Storage 링크 확보 — 없으면 생성(생성 과정에서 업로드·pkgUrls 기록)
+  var missing=insList.filter(function(ins){ return !(c.pkgUrls&&c.pkgUrls[ins]); });
+  if(missing.length){
+    toast('청구파일 준비 중... (생성/업로드)');
+    try{
+      var ok=await generateClaimPackage(i);
+      if(!ok){ toast('청구파일 생성 실패 — 보험사 양식 등록 여부를 확인하세요.'); return; }
+    }catch(e){ toast('청구파일 생성 오류: '+((e&&e.message)||e)); return; }
+    c=claims[i]||c;
+  }
+  var links=insList.map(function(ins){ return {ins:ins, url:(c.pkgUrls&&c.pkgUrls[ins])||''}; })
+    .filter(function(l){ return l.url; });
+  if(!links.length){ toast('전송할 청구파일 링크가 없습니다. (Storage 업로드 실패 — 다시 시도해 보세요)'); return; }
+  toast('카톡 발송 중...');
+  _kkApi('claimsend',{member:(cu&&cu.name)||'', cust:c.custName||'', links:links}).then(function(r){
+    if(r&&r.ok) toast('내 카톡(나와의 채팅)으로 '+r.sent+'건 발송 완료!');
+    else toast('카톡 발송 실패: '+((r&&(r.error||(r.error&&r.error.message)))||'DB 정보 [카톡 알림 연동]에서 본인 계정 연동·승인·팀원 지정이 됐는지 확인하세요.'));
+  }).catch(function(e){ toast('카톡 발송 오류: '+e); });
 }
 
 function toggleClaimDoneFromStatus(i){
