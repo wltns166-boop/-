@@ -531,11 +531,19 @@ async function _kkHandle(body, res) {
       //   카카오 링크 버튼은 등록 도메인만 허용되므로 인트라넷 /?pdf=<StorageURL> 경유로 연다.
       const memberC = String(body.member || "").trim();
       if (!memberC) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
+      // 서버측 발송 대상 제한: 관리자 명단만 — 익명 토큰만으로 임의 팀원에게 링크를 꽂는 스팸/피싱 차단.
+      // (서버가 요청자 신원을 검증할 수 없는 구조적 한계 하에서의 최소 방어 — 버튼도 관리자 전용)
+      if (!KK_REPORT_ADMINS.includes(memberC)) {
+        res.json({ ok: false, error: "청구파일 카톡 발송은 관리자 계정만 대상이 될 수 있습니다." });
+        return;
+      }
       const custC = String(body.cust || "").trim().slice(0, 30);
+      // 링크는 이 프로젝트 버킷의 claim_packages 경로만 허용 — 타 프로젝트/외부 콘텐츠 링크 차단
+      const CLAIM_URL_RE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2F/;
       let linksC = Array.isArray(body.links) ? body.links.slice(0, 5) : [];
       linksC = linksC
-        .map((l) => ({ ins: String((l || {}).ins || "").slice(0, 30), url: String((l || {}).url || "") }))
-        .filter((l) => /^https:\/\/firebasestorage\.googleapis\.com\//.test(l.url));
+        .map((l) => ({ ins: String((l || {}).ins || "").slice(0, 30), url: String((l || {}).url || "").slice(0, 2048) }))
+        .filter((l) => CLAIM_URL_RE.test(l.url));
       if (!linksC.length) { res.json({ ok: false, error: "발송할 청구파일 링크가 없습니다." }); return; }
       const [cfgSnapC, tokSnapC] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
       const cfgC = cfgSnapC.exists ? (cfgSnapC.data() || {}) : {};

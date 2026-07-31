@@ -185,6 +185,15 @@
 - 보관 3계층: **메모리 → localStorage `tops_pkg_<idx>__<ins>` → Firebase Storage(`pkgUrls[ins]`)**.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
+- **빈배열 덮어쓰기 가드 (2026-07-31)**: 클라우드 d.claims가 빈 배열이고 로컬에 내역이 있으면
+  `_claimsCloudApply`가 로컬을 유지(+토스트). 단 `_persistClaims`가 0건 저장 시 남기는
+  `claimsClearedAt` 표식이 "아직 처리 안 한 새 값"이면 의도된 전체 삭제로 보고 정상 반영
+  (기기별 처리 표식: `tops_claims_seenclear`). → 청구 등록 직후 사라지던 증상·삭제 부활 둘 다 방지.
+- **[카톡] 발송 (2026-07-31, 청구현황 관리자 전용)**: `claimKakaoSend(i)` → functions `claimsend` —
+  청구파일 Storage 링크를 요청 관리자 본인의 '나와의 채팅'으로 발송(파일 첨부는 카카오 API 미지원 → 링크).
+  카카오 링크 도메인 제한 때문에 `인트라넷/?pdf=<URL>` 경유로 열며, 클라이언트·서버 모두
+  **이 프로젝트 버킷 `claim_packages` 경로 URL만** 허용(오픈 리다이렉트 방지). 서버는 발송 대상을
+  **KK_REPORT_ADMINS(관리자 3인)로 제한** — 익명 토큰만으로 임의 팀원에게 링크를 보내는 스팸 차단.
 
 ---
 

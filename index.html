@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-12</div>
   </div>
 </div>
 
@@ -2798,13 +2798,26 @@ function _driveFolderBackfill(){
 }
 try{ if(document.readyState!=='loading') _driveBackfillOnce(); else document.addEventListener('DOMContentLoaded', _driveBackfillOnce); }catch(e){}
 
-// 클라우드 claims가 "빈 배열"인데 로컬에는 내역이 있으면 로컬을 지우지 않는다.
+// 클라우드 claims가 "빈 배열"인데 로컬에는 내역이 있으면 기본적으로 로컬을 지우지 않는다.
 // (기기의 클라우드 저장이 일시 실패한 상태에서 스냅샷 수신 시 방금 등록한 청구가 통째로 사라지던 증상 방지)
-function _claimsCloudApply(arr){
+// 단, 다른 기기에서 "마지막 청구까지 정상 삭제"한 경우는 _persistClaims가 남기는
+// claimsClearedAt 표식(아직 처리 안 한 새 표식)으로 구분해 정상 반영한다 — 삭제 부활 방지.
+function _claimsCloudApply(arr, clearedAt){
   try{
     if(arr.length===0){
       var loc=JSON.parse(localStorage.getItem('tops_claims')||'[]');
-      if(Array.isArray(loc)&&loc.length){ console.warn('클라우드 claims 비어있음 — 로컬 '+loc.length+'건 유지'); return false; }
+      if(Array.isArray(loc)&&loc.length){
+        var seen=+(localStorage.getItem('tops_claims_seenclear')||0);
+        if(clearedAt&&+clearedAt>seen){ _lsSet('tops_claims_seenclear', String(+clearedAt)); return true; } // 의도된 전체 삭제
+        console.warn('클라우드 claims 비어있음(삭제 표식 없음) — 로컬 '+loc.length+'건 유지');
+        try{
+          if(!window._claimsKeepToastShown&&typeof toast==='function'){
+            window._claimsKeepToastShown=true;
+            toast('클라우드 청구 목록이 비어 있어 이 기기의 '+loc.length+'건을 유지했습니다. (청구 동기화 확인 필요)');
+          }
+        }catch(e2){}
+        return false;
+      }
     }
   }catch(e){}
   return true;
@@ -2858,7 +2871,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
-    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
@@ -2913,7 +2926,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
-    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
@@ -2945,10 +2958,10 @@ function tds(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()
 function g(id){return document.getElementById(id);}
 // 카톡 청구파일 링크 경유 — /?pdf=<Storage URL> 로 들어오면 해당 PDF로 즉시 이동.
 // (카카오 링크 버튼은 등록된 인트라넷 도메인만 허용돼 인트라넷을 경유한다.
-//  Firebase Storage URL만 허용 — 임의 사이트 오픈 리다이렉트 방지)
+//  이 프로젝트 버킷의 claim_packages 경로만 허용 — 타 프로젝트 버킷을 포함한 오픈 리다이렉트 방지)
 try{
   var _pdfQ=new URLSearchParams(location.search).get('pdf');
-  if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\//.test(_pdfQ)) location.replace(_pdfQ);
+  if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2F/.test(_pdfQ)) location.replace(_pdfQ);
 }catch(e){}
 // 모바일 사이드바(서랍) 토글
 function toggleSidebar(){var sb=g('sb'),ov=g('sb_overlay');if(!sb)return;var open=sb.classList.toggle('open');if(ov)ov.classList.toggle('open',open);}
@@ -14126,6 +14139,15 @@ function _persistClaims(){
   try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }catch(e){ console.warn('tops_claims 저장 실패(quota):', e); }
   var clSync=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; return cp; });
   try{ sv('tops_claims', clSync); }catch(e){}
+  // 마지막 청구까지 삭제해 0건이 된 경우 — 다른 기기의 빈배열 가드(_claimsCloudApply)가
+  // "의도된 삭제"로 인식해 정상 반영하도록 표식을 남긴다
+  if(!claims.length){
+    try{
+      var _ts=Date.now();
+      _lsSet('tops_claims_seenclear', String(_ts)); // 이 기기는 이미 반영된 상태
+      if(window.FS_DOC) window.FS_DOC.set({claimsClearedAt:_ts},{merge:true}).catch(function(){});
+    }catch(e){}
+  }
 }
 
 // ===== 청구 패키지 PDF 생성 =====
