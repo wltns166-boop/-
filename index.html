@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-6</div>
   </div>
 </div>
 
@@ -917,8 +917,10 @@ table.dt tr:last-child td{border-bottom:none;}
         </div>
           <div class="fg">
             <div class="fl">가족구성원 수</div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-              <input class="fi" type="number" id="cust_family_cnt" placeholder="0" min="0" max="10" oninput="renderFamilyFields()" style="width:80px">
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <button type="button" onclick="famCntStep(-1)" title="1명 빼기" style="width:38px;height:38px;font-size:20px;font-weight:700;border:1px solid rgba(72,88,204,.35);border-radius:8px;background:#f4f6ff;color:#3040aa;cursor:pointer;font-family:inherit;line-height:1">−</button>
+              <input class="fi" type="number" id="cust_family_cnt" placeholder="0" min="0" max="10" step="1" oninput="renderFamilyFields()" style="width:70px;text-align:center">
+              <button type="button" onclick="famCntStep(1)" title="1명 추가" style="width:38px;height:38px;font-size:20px;font-weight:700;border:1px solid rgba(72,88,204,.35);border-radius:8px;background:#f4f6ff;color:#3040aa;cursor:pointer;font-family:inherit;line-height:1">＋</button>
               <span style="font-size:14px;color:#8888bb">명</span>
             </div>
             <div id="cust_family_fields" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
@@ -10505,6 +10507,7 @@ function toggleCustForm(){
     ['cust_carrier','cust_region','cust_bank_name','cust_drive'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
     var fc=document.getElementById('cust_family_cnt');if(fc)fc.value='';
     var ff=document.getElementById('cust_family_fields');if(ff)ff.innerHTML='';
+    window._famStash=[]; // 이전 고객 가족 입력 보관값 제거
     var ei=document.getElementById('cust_edit_idx');if(ei)ei.value='';
     var db=document.getElementById('cust_del_btn');if(db)db.style.display='none';
     document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=false;});
@@ -10533,6 +10536,8 @@ function editCust(idx){
   var sels={cust_carrier:'carrier',cust_region:'region',cust_bank_name:'bankName',cust_drive:'drive'};
   Object.keys(sels).forEach(function(id){var el=g(id);if(el)el.value=c[sels[id]]||'';});
   ['cust_height','cust_weight'].forEach(function(id){var el=g(id);if(el)el.value=c[id.replace('cust_','')]||'';});
+  window._famStash=[]; // 이전에 보던 고객의 가족 입력 보관값 제거
+  var ffc=g('cust_family_fields');if(ffc)ffc.innerHTML='';
   var fc=g('cust_family_cnt');if(fc){fc.value=c.familyCnt||0;renderFamilyFields();}
   setTimeout(function(){
     if(c.family) c.family.forEach(function(f,i){
@@ -10546,11 +10551,31 @@ function editCust(idx){
   var wrap=document.getElementById('cust_form_wrap');if(wrap){wrap.style.display='block';var btn=document.getElementById('btn_cust_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';wrap.scrollIntoView({behavior:"smooth",block:"start"});}
 }
 
+// −/＋ 버튼으로 가족구성원 수를 정확히 1씩 조절
+function famCntStep(d){
+  var fc=g('cust_family_cnt'); if(!fc) return;
+  var v=parseInt(fc.value)||0;
+  v=Math.max(0, Math.min(10, v+d));
+  fc.value=v;
+  renderFamilyFields();
+}
+
+// 가족 입력칸의 값을 재렌더 후에도 유지하기 위한 임시 보관소 (폼 열기/수정 진입 시 초기화)
+window._famStash=[];
+var _FAM_KEYS=['name','rel','rrn','phone','carrier','job','drive','height','weight','disease','region','addr'];
+
 function renderFamilyFields(){
   var cnt=parseInt((g('cust_family_cnt')||{value:0}).value)||0;
   var container=g('cust_family_fields');
   if(!container) return;
-  cnt=Math.min(cnt,10);
+  cnt=Math.max(0,Math.min(cnt,10));
+  // 재렌더 전에 화면의 현재 입력값을 보관 — 인원수를 바꿔도 입력한 내용이 사라지지 않게
+  for(var si=0;g('fam_name_'+si);si++){
+    var o={};
+    _FAM_KEYS.forEach(function(k){var el=g('fam_'+k+'_'+si); o[k]=el?el.value:'';});
+    var sa=g('fam_same_addr_'+si); o._same=!!(sa&&sa.checked);
+    window._famStash[si]=o;
+  }
   var carriers='<option value="">선택</option><option>SKT</option><option>KT</option><option>LGU+</option><option>SKT 알뜰폰</option><option>KT 알뜰폰</option><option>LGU+ 알뜰폰</option>';
   var rels='<option value="">선택</option><option>배우자</option><option>자녀</option><option>부모</option><option>형제/자매</option><option>기타</option>';
   var regions='<option value="">선택</option><option>서울</option><option>경기</option><option>인천</option><option>부산</option><option>대구</option><option>광주</option><option>대전</option><option>울산</option><option>세종</option><option>강원</option><option>충북</option><option>충남</option><option>전북</option><option>전남</option><option>경북</option><option>경남</option><option>제주</option>';
@@ -10590,6 +10615,12 @@ function renderFamilyFields(){
       +'</div>';
   }
   container.innerHTML=html;
+  // 보관해 둔 값 복원 (인원을 줄였다 다시 늘려도 이전 입력이 되살아남)
+  for(var ri=0;ri<cnt;ri++){
+    var o=window._famStash[ri]; if(!o) continue;
+    _FAM_KEYS.forEach(function(k){var el=g('fam_'+k+'_'+ri); if(el&&o[k])el.value=o[k];});
+    var sa=g('fam_same_addr_'+ri); if(sa&&o._same) sa.checked=true;
+  }
 }
 
 function fillSameAddr(i){
