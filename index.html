@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-8</div>
   </div>
 </div>
 
@@ -10539,12 +10539,11 @@ function editCust(idx){
   window._famStash=[]; // 이전에 보던 고객의 가족 입력 보관값 제거
   var ffc=g('cust_family_fields');if(ffc)ffc.innerHTML='';
   var fc=g('cust_family_cnt');if(fc){fc.value=c.familyCnt||0;renderFamilyFields();}
-  setTimeout(function(){
-    if(c.family) c.family.forEach(function(f,i){
-      var flds={name:'fam_name_',rel:'fam_rel_',rrn:'fam_rrn_',phone:'fam_phone_',carrier:'fam_carrier_',job:'fam_job_',drive:'fam_drive_',height:'fam_height_',weight:'fam_weight_',disease:'fam_disease_',region:'fam_region_',addr:'fam_addr_'};
-      Object.keys(flds).forEach(function(k){var el=g(flds[k]+i);if(el)el.value=f[k]||'';});
-    });
-  },50);
+  // renderFamilyFields는 동기라 바로 채워도 됨 — setTimeout(50) 제거(연속 편집 클릭 레이스 예방)
+  if(c.family) c.family.forEach(function(f,i){
+    var flds={name:'fam_name_',rel:'fam_rel_',rrn:'fam_rrn_',phone:'fam_phone_',carrier:'fam_carrier_',job:'fam_job_',drive:'fam_drive_',height:'fam_height_',weight:'fam_weight_',disease:'fam_disease_',region:'fam_region_',addr:'fam_addr_'};
+    Object.keys(flds).forEach(function(k){var el=g(flds[k]+i);if(el)el.value=f[k]||'';});
+  });
   g('cust_edit_idx').value=idx;
   g('cust_del_btn').style.display='inline-flex';
   document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=c.ins&&c.ins.includes(cb.value);});
