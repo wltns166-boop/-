@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-13</div>
   </div>
 </div>
 
@@ -2871,7 +2871,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
-    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
@@ -2926,7 +2926,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
-    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
@@ -13425,7 +13425,11 @@ function saveClaim(){
       delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign;
       return cp;
     });
-    try{ localStorage.setItem('tops_claims', JSON.stringify(claimsLight)); }catch(e2){ console.warn('save failed:', e2); }
+    try{ localStorage.setItem('tops_claims', JSON.stringify(claimsLight)); }
+    catch(e2){
+      console.warn('save failed:', e2);
+      toast('기기 저장공간이 가득 차 청구 내역을 이 기기에 캐시하지 못했습니다. (클라우드에는 저장됨)');
+    }
   }
   // Firestore: 대용량 base64(이미지·서명·PDF) 제외, 메타데이터 + Storage URL(pkgUrls)만 동기화
   try{
@@ -14119,6 +14123,11 @@ async function _ensureClaimPkg(idx, insurer){
 function _reloadClaims(){
   var mem=Array.isArray(claims)?claims:[];
   var ls; try{ ls=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){ ls=null; }
+  // localStorage가 가득 차 캐시 쓰기가 실패한 기기는 ls가 낡거나 비어 있을 수 있다.
+  // 클라우드 수신본(window._claimsCloud — 자기 기기 저장 직후에도 스냅샷으로 즉시 갱신됨)이
+  // 더 길면 그것을 기준 목록으로 사용 → "클라우드엔 있는데 목록이 빈 화면" 증상 방지.
+  var cc=Array.isArray(window._claimsCloud)?window._claimsCloud:null;
+  if(cc && (!Array.isArray(ls) || cc.length>ls.length)) ls=cc.map(function(x){return Object.assign({},x);});
   if(!Array.isArray(ls)){ claims=mem; return; }
   ls.forEach(function(c,i){
     var m=mem[i]; if(!c||!m) return;
@@ -14136,7 +14145,16 @@ function _reloadClaims(){
 // claims 저장: 로컬엔 생성 PDF 제외, 클라우드(Firestore)엔 대용량 이미지·서명까지 제외
 function _persistClaims(){
   var clLocal=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp; });
-  try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }catch(e){ console.warn('tops_claims 저장 실패(quota):', e); }
+  try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }
+  catch(e){
+    console.warn('tops_claims 저장 실패(quota):', e);
+    try{
+      if(!window._claimsQuotaToast&&typeof toast==='function'){
+        window._claimsQuotaToast=true;
+        toast('기기 저장공간이 가득 차 청구 내역을 이 기기에 캐시하지 못했습니다. (클라우드에는 저장됨)');
+      }
+    }catch(e2){}
+  }
   var clSync=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; return cp; });
   try{ sv('tops_claims', clSync); }catch(e){}
   // 마지막 청구까지 삭제해 0건이 된 경우 — 다른 기기의 빈배열 가드(_claimsCloudApply)가
