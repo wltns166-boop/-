@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-4</div>
   </div>
 </div>
 
@@ -12309,7 +12309,8 @@ function rBizPlan(keepForm){
             var _bs='padding:2px 9px;font-size:12px;border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;';
             parts.push('<button onclick="'+_bz('openBizFormPreview')+'" style="'+_bs+'background:rgba(80,80,200,.1);border:1px solid rgba(80,80,200,.3);color:#3a40cc"><i class="ti ti-eye"></i> 보기</button>');
             parts.push('<button onclick="'+_bz('downloadBizForm')+'" style="'+_bs+'background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.3);color:#1a7040"><i class="ti ti-download"></i> 다운로드</button>');
-            parts.push('<button onclick="'+_bz('printBizForm')+'" style="'+_bs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button>');
+            // 관리자는 어느 출력 버튼을 눌러도 [출력여부]가 기록되도록 bizFbPrint로 통일
+            parts.push('<button onclick="'+_bz(admin?'bizFbPrint':'printBizForm')+'" style="'+_bs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button>');
           }
           if(s.link) parts.push('<a href="'+s.link+'" target="_blank" rel="noopener" style="color:#2a48cc;font-weight:600">링크</a>'); var fb=_bizFileBtns(m.name); if(fb) parts.push(fb); linkCell=parts.join(' ')||'-'; }
         // 관리자 피드백 열: 작성(관리자 전용 버튼) / 작성여부 / 작성자 / 출력여부
@@ -12375,6 +12376,15 @@ function _driveSaveBizForm(member, form, ts){
 // 작성한 사업계획서 미리보기(읽기전용 새 창)
 // 사업계획서 문서 HTML 생성 (미리보기/출력/다운로드 공용)
 //   opts.toolbar: 상단 출력·저장 버튼 / opts.autoPrint: 열리자마자 인쇄
+// 관리자 피드백 열람 권한: 관리자 또는 본인(피드백 대상 팀원)만 문서(보기/출력/다운로드)에 포함
+// — 비관리자 팀장이 [보기]/[다운로드]로 부하의 피드백 본문을 보는 것 방지
+function _bizFbVisible(s, name){
+  try{
+    if(!s||!s.fb) return false;
+    if(typeof _isAdmin==='function'&&_isAdmin()) return true;
+    return !!(cu&&cu.name===name);
+  }catch(e){ return false; }
+}
 function _bizFormDoc(name, opts){
   var s=bizplan&&bizplan.subs&&bizplan.subs.find(function(x){return x.m===name;});
   if(!s||!s.form) return null;
@@ -12420,7 +12430,7 @@ function _bizFormDoc(name, opts){
     +(pr||'<tr><td colspan="10">작성된 가망고객이 없습니다.</td></tr>')+'</table>'
     +'<h2>리쿠르팅 대상자</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>직업</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>입과 여부</th></tr>'
     +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'
-    +(s.fb?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
+    +(_bizFbVisible(s,name)?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
       +(s.fbBy?'<div style="font-size:12px;color:#555;margin-top:4px;text-align:right">— '+esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:''))+'</div>':'')):'')
     +saveScript+printScript
     +'</body></html>';
@@ -12447,9 +12457,29 @@ function printBizForm(name){
 // 새 달 계획으로 대체되면 피드백도 함께 초기화(같은 달 재제출은 유지).
 var _bizFbTarget=null;
 function _bizFbGrow(el){ try{ el.style.height='auto'; el.style.height=Math.max(120, el.scrollHeight+2)+'px'; }catch(e){} }
-function openBizFbModal(name){
+// 피드백 저장/출력 직전 클라우드 최신 bizplan을 다시 읽어 병합 — 여러 관리자가 동시에
+// 서로 다른 팀원에게 피드백을 쓸 때 낡은 배열 통짜 덮어쓰기로 상대 변경이 사라지는 경합 축소.
+// 클라우드 수신본을 기준으로 삼되, 로컬에만 있는 제출 건(이름 기준)은 유지한다.
+async function _bizFreshSub(name){
+  try{
+    if(window.FS_DOC){
+      var doc=await FS_DOC.get();
+      var d=(doc&&doc.exists)?doc.data():null;
+      if(d&&d.bizplan&&typeof d.bizplan==='object'&&Array.isArray(d.bizplan.subs)){
+        var cloud=d.bizplan;
+        var localSubs=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs:[];
+        localSubs.forEach(function(ls){ if(ls&&ls.m&&!cloud.subs.some(function(cs){return cs&&cs.m===ls.m;})) cloud.subs.push(ls); });
+        if(!cloud.url&&bizplan&&bizplan.url) cloud.url=bizplan.url;
+        bizplan=cloud;
+        try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){}
+      }
+    }
+  }catch(e){ console.warn('bizplan 최신본 로드 실패(로컬 기준으로 진행):', e); }
+  return (bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+}
+async function openBizFbModal(name){
   if(!_isAdmin()){ toast('관리자만 피드백을 작성할 수 있습니다.'); return; }
-  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+  var s=await _bizFreshSub(name); // 다른 관리자가 방금 쓴 피드백 위에서 시작하도록 최신본 기준
   if(!s){ toast('제출된 사업계획서가 없습니다.'); return; }
   _bizFbTarget=name;
   var old=g('bizfb_overlay'); if(old) old.remove();
@@ -12469,12 +12499,13 @@ function openBizFbModal(name){
   document.body.appendChild(ov);
   var ta=g('bizfb_ta'); if(ta){ ta.value=s.fb||''; _bizFbGrow(ta); ta.focus(); }
 }
-function saveBizFb(){
+async function saveBizFb(){
   if(!_isAdmin()){ toast('관리자만 피드백을 작성할 수 있습니다.'); return; }
   var name=_bizFbTarget; if(!name) return;
-  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
-  if(!s){ toast('제출 내역을 찾을 수 없습니다.'); return; }
   var ta=g('bizfb_ta'); var val=ta?ta.value.trim():'';
+  var s=await _bizFreshSub(name); // 저장 직전 최신본 병합(동시 저장 경합 축소)
+  if(!s){ toast('제출 내역을 찾을 수 없습니다.'); return; }
+  if(!val&&s.fb){ if(!confirm(name+'님의 기존 피드백을 삭제할까요?')) return; } // 실수 삭제 방지
   if(val){
     s.fb=val;
     s.fbBy=(cu&&cu.name)||'';
@@ -12491,11 +12522,13 @@ function saveBizFb(){
   rBizPlan(true);
 }
 // [출력여부] 출력 버튼 — 사업계획서(피드백 포함)를 인쇄하고 출력완료로 표시
-function bizFbPrint(name){
+async function bizFbPrint(name){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
-  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
-  if(!s||!s.form){ toast('작성된 사업계획서가 없습니다.'); return; }
+  var s0=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+  if(!s0||!s0.form){ toast('작성된 사업계획서가 없습니다.'); return; }
+  // ⚠️ window.open은 사용자 클릭 제스처 안(=await 이전)에 동기로 호출해야 팝업 차단에 안 걸린다
   if(printBizForm(name)!==true) return; // 팝업 차단 등 실패 시 출력완료로 표시하지 않음
+  var s=await _bizFreshSub(name)||s0;   // 출력 기록은 최신본에 병합(동시 저장 경합 축소)
   s.fbPrintTs=Date.now();
   s.fbPrintBy=(cu&&cu.name)||'';
   sv('tops_bizplan',bizplan);
