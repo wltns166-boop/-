@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-11</div>
   </div>
 </div>
 
@@ -12257,14 +12257,18 @@ function _bizFormHtml(){
     +'</table></div>'
     +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   // 관리자 피드백 — 리쿠르팅 대상자 아래. 내용 길이에 따라 상자가 자동으로 늘어난다(pre-wrap, 고정 높이 없음).
-  var fbSub=null;
-  try{ fbSub=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===_bizFormOwner;}):null; }catch(e){}
-  var g4='<div style="font-weight:700;color:#2a2a4a;margin:18px 0 6px"><i class="ti ti-caret-right-filled" style="font-size:12px"></i> 관리자 피드백'
-    +((fbSub&&fbSub.fb&&fbSub.fbBy)?' <span style="font-weight:400;font-size:12.5px;color:#8888aa">— '+_esc(fbSub.fbBy+(fbSub.fbByRole?' '+fbSub.fbByRole:''))+(fbSub.fbTs?' · '+new Date(fbSub.fbTs).toLocaleDateString():'')+'</span>':'')
-    +'</div>'
-    +((fbSub&&fbSub.fb)
-      ?'<div style="border:1px solid rgba(45,65,170,.22);border-radius:8px;padding:12px 14px;background:#f8f9ff;color:#1a1a2e;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word">'+_esc(fbSub.fb)+'</div>'
-      :'<div style="border:1px dashed rgba(45,65,170,.25);border-radius:8px;padding:12px 14px;color:#9898b0;font-size:13.5px">아직 작성된 관리자 피드백이 없습니다. (관리자가 팀원 제출 현황에서 작성)</div>');
+  // ⚠️ 관리자 전용 (2026-08-03 개정): 팀원에게는 이 칸 자체를 렌더하지 않는다 — 피드백 없는 양식만 보임.
+  var g4='';
+  if(typeof _isAdmin==='function'&&_isAdmin()){
+    var fbSub=null;
+    try{ fbSub=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===_bizFormOwner;}):null; }catch(e){}
+    g4='<div style="font-weight:700;color:#2a2a4a;margin:18px 0 6px"><i class="ti ti-caret-right-filled" style="font-size:12px"></i> 관리자 피드백 <span style="font-weight:400;font-size:12px;color:#b0b0c8">(관리자만 보임)</span>'
+      +((fbSub&&fbSub.fb&&fbSub.fbBy)?' <span style="font-weight:400;font-size:12.5px;color:#8888aa">— '+_esc(fbSub.fbBy+(fbSub.fbByRole?' '+fbSub.fbByRole:''))+(fbSub.fbTs?' · '+new Date(fbSub.fbTs).toLocaleDateString():'')+'</span>':'')
+      +'</div>'
+      +((fbSub&&fbSub.fb)
+        ?'<div style="border:1px solid rgba(45,65,170,.22);border-radius:8px;padding:12px 14px;background:#f8f9ff;color:#1a1a2e;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word">'+_esc(fbSub.fb)+'</div>'
+        :'<div style="border:1px dashed rgba(45,65,170,.25);border-radius:8px;padding:12px 14px;color:#9898b0;font-size:13.5px">아직 작성된 관리자 피드백이 없습니다. (팀원 제출 현황에서 작성)</div>');
+  }
   return h+g1+g2+g3+g4;
 }
 // 계획월(1~12) → 'YYYY-MM' — 지금 시점 기준으로 해를 보정(연말에 다음 해 1월 계획 제출 등)
@@ -12304,7 +12308,10 @@ function rBizPlan(keepForm){
   if(kkTo){
     kkTo.style.display=admin?'':'none';
     if(admin){
-      var admNames=['백동현','박지순','이영현'];
+      // 서버(KK_REPORT_ADMINS)와 동일한 3인 — 클라이언트는 ADMINS 정의를 참조(명단 이중화 최소화)
+      var admNames=[];
+      try{ (ADMINS||[]).forEach(function(a){ if(a&&a.name&&admNames.indexOf(a.name)<0) admNames.push(a.name); }); }catch(e){}
+      if(!admNames.length) admNames=['백동현','박지순','이영현'];
       var curTo=kkTo.value;
       kkTo.innerHTML=admNames.map(function(n){
         var on=curTo?curTo===n:(cu&&cu.name===n);
@@ -12446,13 +12453,12 @@ function _driveSaveBizForm(member, form, ts){
 // 작성한 사업계획서 미리보기(읽기전용 새 창)
 // 사업계획서 문서 HTML 생성 (미리보기/출력/다운로드 공용)
 //   opts.toolbar: 상단 출력·저장 버튼 / opts.autoPrint: 열리자마자 인쇄
-// 관리자 피드백 열람 권한: 관리자 또는 본인(피드백 대상 팀원)만 문서(보기/출력/다운로드)에 포함
-// — 비관리자 팀장이 [보기]/[다운로드]로 부하의 피드백 본문을 보는 것 방지
+// 관리자 피드백 열람 권한: 관리자만 (2026-08-03 개정 — 팀원 본인·비관리자 팀장 모두 제외).
+// 팀원은 피드백 없는 문서를 보고, 피드백 포함본은 관리자 화면·관리자 카톡 발송에서만 나온다.
 function _bizFbVisible(s, name){
   try{
     if(!s||!s.fb) return false;
-    if(typeof _isAdmin==='function'&&_isAdmin()) return true;
-    return !!(cu&&cu.name===name);
+    return !!(typeof _isAdmin==='function'&&_isAdmin());
   }catch(e){ return false; }
 }
 function _bizFormDoc(name, opts){
@@ -12562,7 +12568,7 @@ async function openBizFbModal(name){
   var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:86vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-message-2"></i> 관리자 피드백 — '+_esc(name)+'</div>'
-    +'<div style="font-size:12.5px;color:#888;margin-bottom:10px">저장하면 해당 팀원의 사업계획서(리쿠르팅 대상자 아래)와 보기/출력/다운로드 문서에 표시됩니다. 내용을 비우고 저장하면 삭제됩니다.</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:10px">피드백은 <b>관리자만</b> 볼 수 있습니다(팀원에게는 보이지 않음) — 관리자 화면의 문서(보기/출력/다운로드)와 카톡 발송 이미지에 포함됩니다. 내용을 비우고 저장하면 삭제됩니다.</div>'
     +'<textarea id="bizfb_ta" oninput="_bizFbGrow(this)" placeholder="피드백 내용을 입력하세요" style="width:100%;min-height:120px;resize:none;overflow:hidden;border:1px solid #c8cce0;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:1.6;color:#1a1a2e;background:#fff;box-sizing:border-box"></textarea>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
     +'<button onclick="_bizFbTarget=null;document.getElementById(\'bizfb_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
@@ -12590,7 +12596,7 @@ async function saveBizFb(){
   var ov=g('bizfb_overlay'); if(ov) ov.remove();
   _bizFbTarget=null;
   toast(val?'피드백이 저장되었습니다.':'피드백이 삭제되었습니다.');
-  if(val){ try{ pushAlert(null,'사업계획서 피드백',((cu&&cu.name)||'관리자')+'님이 '+name+'님의 사업계획서에 피드백을 남겼습니다.',{toName:name}); }catch(e){} }
+  // 팀원 알림 없음 — 피드백은 관리자 전용 열람(2026-08-03 개정)이라 대상 팀원에게 알리지 않는다
   rBizPlan(true);
 }
 // [출력여부] 출력 버튼 — 사업계획서(피드백 포함)를 인쇄하고 출력완료로 표시
@@ -12632,15 +12638,21 @@ async function bizKakaoSend(names){
 }
 function bizKakaoSendOne(name){ bizKakaoSend([name]); }
 function bizKakaoSendAll(){
-  var list=Array.isArray(window._bzSendable)?window._bzSendable.slice(0,15):[];
+  var all=Array.isArray(window._bzSendable)?window._bzSendable:[];
+  var list=all.slice(0,15);   // 서버 1회 처리 상한(캡처·타임아웃 보호)
   if(!list.length){ toast('이번 달 양식 작성으로 제출완료한 인원이 없습니다.'); return; }
-  if(!confirm('작성완료된 '+list.length+'명의 사업계획서를 이미지로 발송할까요?\n받는사람: '+((g('bp_kk_to')&&g('bp_kk_to').value)||(cu&&cu.name)||''))) return;
+  var over=all.length>15?('\n※ 한 번에 15명까지 — '+(all.length-15)+'명은 이번 발송에서 제외됩니다(30초 후 다시 발송).'):'';
+  if(!confirm('작성완료된 '+list.length+'명의 사업계획서를 이미지로 발송할까요?\n받는사람: '+((g('bp_kk_to')&&g('bp_kk_to').value)||(cu&&cu.name)||'')+over)) return;
   bizKakaoSend(list);
 }
 // 서버 캡처 화면(?rr=1&bz=이름1|이름2|...) — 각 팀원의 사업계획서 문서를 iframe으로 쌓아 렌더.
 // 서버는 window._bzRendered===true 대기 후 #bz_paper_<i> 요소를 각각 스크린샷한다.
 function _bzDeepLink(){
   if(!/[?&]rr=1/.test(location.search)) return;   // 서버 캡처 모드에서만 동작
+  // ⚠️ 관리자만 — 일반 팀원이 ?rr=1&bz=동료이름 으로 남의 계획서를 여는 것 차단
+  //   (서버 캡처 세션은 관리자 세션을 주입하므로 통과. _drDeepLink와 동일한 가드)
+  if(!(typeof _isAdmin==='function'&&_isAdmin())) return;
+  if(g('bz_wrap')) return;                        // 재진입 방지
   var mm=location.search.match(/[?&]bz=([^&]+)/); if(!mm) return;
   var raw=''; try{ raw=decodeURIComponent(mm[1]); }catch(e){ raw=mm[1]; }
   var names=raw.split('|').map(function(s){return s.trim();}).filter(Boolean).slice(0,15);
@@ -12658,6 +12670,8 @@ function _bzDeepLink(){
     var html=doc.html.replace('<head>','<head><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">');
     var fr=document.createElement('iframe');
     fr.id='bz_paper_'+i;
+    // sandbox: 문서 내 스크립트 실행 차단(방어적) — 높이 측정을 위해 same-origin만 허용
+    fr.setAttribute('sandbox','allow-same-origin');
     fr.style.cssText='display:block;width:1000px;height:800px;border:0;background:#fff;margin:0 0 20px';
     host.appendChild(fr);
     fr.srcdoc=html;
