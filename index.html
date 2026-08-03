@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.07.31-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-1</div>
   </div>
 </div>
 
@@ -2885,6 +2885,8 @@ async function loadFromFirestore(){
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _wcloseFixNames(); }catch(e){}
     // '(코드)' 고객등록 요청 담당자 마이그레이션 — 위와 동일한 이유로 관리자 기기에서만(멱등)
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _custReqsFixNames(); }catch(e){}
+    // 청구 고유 id 마이그레이션 — 위와 동일한 이유로 관리자 기기에서만(세션 1회, 변경 없으면 저장 안 함)
+    try{ if(typeof _isAdmin==='function'&&_isAdmin()) _claimsIdMigrate(); }catch(e){}
     // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
     //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
     try{ _authDocSync(); }catch(e){}
@@ -13086,6 +13088,7 @@ var claims = JSON.parse(localStorage.getItem('tops_claims')||'[]');
 
 function rClaimApply(){
   _reloadClaims();
+  _claimsPkgSweep(); // 목록에 없는 id의 고아 PDF 캐시 청소(클라우드 수신 후 세션 1회)
   // 별도 저장된 packagePDF 로드
   claims.forEach(function(c,i){
     if(!c.packagePDF){ try{ c.packagePDF=localStorage.getItem('tops_pkg_'+i)||''; }catch(e){} }
@@ -13159,6 +13162,7 @@ function toggleClaimDone(i){
 
 function deleteClaimByIdx(i){
   if(window._delClaimIdx===i){
+    _claimPkgCachePurge(claims[i]); // 이 건의 id 기반 PDF 캐시도 함께 제거
     claims.splice(i,1);
     _persistClaims();
     rClaimApply();
@@ -13406,6 +13410,8 @@ function saveClaim(){
     regDate:tds(),
     agent:cu?cu.name:''
   };
+  // 고유 id: 수정이면 기존 id 유지, 신규면 새로 부여(병합·PDF 캐시 키의 기준)
+  obj.id=(idx!==''&&claims[+idx]&&claims[+idx].id)?claims[+idx].id:_newClaimId();
   if(idx!==''){
     obj.done=claims[+idx].done||false;
     // 편집 중 목록을 건드리지 않았는데 비어 있으면 기존 파일 유지(✕로 직접 뺀 경우는 제외)
@@ -13509,6 +13515,7 @@ function editClaim(i){
 function deleteClaim(){
   var idx=(g('claim_edit_idx')||{value:''}).value;
   if(idx==='') return;
+  _claimPkgCachePurge(claims[+idx]); // 이 건의 id 기반 PDF 캐시도 함께 제거
   claims.splice(+idx,1);
   _persistClaims();
   cancelClaimForm(); rClaimApply(); toast('삭제되었습니다.');
@@ -14068,7 +14075,7 @@ async function resolveClaimPkg(idx, insurer){
     var chunks=[]; var cs=8192;
     for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
     var dataUrl = 'data:application/pdf;base64,'+btoa(chunks.join(''));
-    try{ localStorage.setItem('tops_pkg_'+idx+'__'+insurer, dataUrl); }catch(e){}
+    try{ localStorage.setItem('tops_pkg_'+((c&&c.id)||idx)+'__'+insurer, dataUrl); }catch(e){}
     return dataUrl;
   }catch(e){ console.warn('resolveClaimPkg err:', e); return ''; }
 }
@@ -14127,6 +14134,49 @@ function _claimsQuotaWarn(){
   }catch(e){}
 }
 
+// ===== 청구 고유 id (2026-08-03) =====
+// 병합·PDF 캐시가 배열 인덱스에 의존하던 한계 해소용 식별자.
+// ⚠️ id는 저장 경로(saveClaim/_persistClaims/generateClaimPackage)에서만 부여한다 —
+// 재로드 때 메모리에 임시 부여하면 기기마다 다른 id가 생겨 캐시 키가 흔들린다.
+function _newClaimId(){ return 'clm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
+function _claimsEnsureIds(){ // 없는 건에만 부여(멱등). 부여한 개수 반환.
+  var n=0;
+  try{ (Array.isArray(claims)?claims:[]).forEach(function(c){ if(c&&!c.id){ c.id=_newClaimId(); n++; } }); }catch(e){}
+  return n;
+}
+// 기존 청구건 id 마이그레이션 — 관리자 기기에서만 1회(변경 없으면 저장 안 함, 멱등)
+function _claimsIdMigrate(){
+  try{
+    if(window._claimsIdMigrated) return; window._claimsIdMigrated=true;
+    _reloadClaims();
+    if(_claimsEnsureIds()>0) _persistClaims();
+  }catch(e){}
+}
+// 청구건 삭제 시 그 건의 id 기반 PDF 캐시 제거(고아 캐시로 남아 저장공간을 잡아먹지 않게)
+function _claimPkgCachePurge(c){
+  try{
+    if(!c||!c.id) return;
+    var pre='tops_pkg_'+c.id+'__', del=[];
+    for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf(pre)===0) del.push(k); }
+    del.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+  }catch(e){}
+}
+// 목록에 더 이상 없는 id의 PDF 캐시 청소 — localStorage 포화(청구 캐시 실패의 근본 원인) 완화.
+// 클라우드 수신 전(claims가 일시적으로 비거나 짧을 때) 돌면 살아있는 캐시를 지우므로 _fsLoaded 이후에만.
+function _claimsPkgSweep(){
+  try{
+    if(!window._fsLoaded || window._pkgSweepDone) return; window._pkgSweepDone=true;
+    var ids={}; (Array.isArray(claims)?claims:[]).forEach(function(c){ if(c&&c.id) ids[c.id]=1; });
+    var del=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      var m=k&&k.match(/^tops_pkg_(clm_\d+_[a-z0-9]+)__/);
+      if(m&&!ids[m[1]]) del.push(k);
+    }
+    del.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+  }catch(e){}
+}
+
 function _reloadClaims(){
   var mem=Array.isArray(claims)?claims:[];
   var ls; try{ ls=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){ ls=null; }
@@ -14136,11 +14186,18 @@ function _reloadClaims(){
   var cc=Array.isArray(window._claimsCloud)?window._claimsCloud:null;
   if(cc && (!Array.isArray(ls) || cc.length>ls.length)) ls=cc.map(function(x){return Object.assign({},x,{pkgUrls:Object.assign({},x&&x.pkgUrls)});});
   if(!Array.isArray(ls)){ claims=mem; return; }
+  // 고유 id가 있으면 id로 같은 건을 찾는다(순서 밀림 무관). 없으면 기존 규칙:
+  // 같은 인덱스 + 동일 건(고객명·등록일·담당자) 확인 후에만 이식(오이식 방지).
+  var memById={};
+  mem.forEach(function(m0){ if(m0&&m0.id) memById[m0.id]=m0; });
   ls.forEach(function(c,i){
-    var m=mem[i]; if(!c||!m) return;
-    // 다중 기기 삭제/추가로 배열 순서가 밀렸으면 같은 인덱스가 다른 청구건일 수 있다 —
-    // 동일 건(고객명·등록일·담당자 일치)일 때만 메모리의 이미지·서명·PDF를 이식(오이식 방지)
-    if((m.custName||'')!==(c.custName||'')||(m.regDate||'')!==(c.regDate||'')||(m.agent||'')!==(c.agent||'')) return;
+    if(!c) return;
+    var m=(c.id&&memById[c.id])||null;
+    if(!m){
+      m=mem[i]; if(!m) return;
+      if(m.id&&c.id&&m.id!==c.id) return; // 둘 다 id가 있는데 다르면 서로 다른 건 — 이식 금지
+      if((m.custName||'')!==(c.custName||'')||(m.regDate||'')!==(c.regDate||'')||(m.agent||'')!==(c.agent||'')) return;
+    }
     if(m.packagePDFs && !c.packagePDFs) c.packagePDFs=m.packagePDFs;
     if(m.packagePDF  && !c.packagePDF)  c.packagePDF =m.packagePDF;
     if(m.pkgUrls) c.pkgUrls=Object.assign({}, m.pkgUrls, c.pkgUrls||{});
@@ -14154,6 +14211,7 @@ function _reloadClaims(){
 }
 // claims 저장: 로컬엔 생성 PDF 제외, 클라우드(Firestore)엔 대용량 이미지·서명까지 제외
 function _persistClaims(){
+  _claimsEnsureIds(); // 저장 직전 고유 id 보장(없는 건에만 부여 — 멱등)
   var clLocal=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp; });
   try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }
   catch(e){ console.warn('tops_claims 저장 실패(quota):', e); _claimsQuotaWarn(); }
@@ -14282,11 +14340,15 @@ async function generateClaimPackage(idx) {
   claims[idx].packagePDFs = packagePDFs;
   claims[idx].packageDate = tds();
   delete claims[idx].packagePDF;
+  // 저장 경로이므로 고유 id 보장(캐시 키·병합 기준. 배열 인덱스가 바뀌어도 유지)
+  if(!claims[idx].id){ claims[idx].id=_newClaimId(); }
   // 안정적인 패키지 식별자(배열 인덱스가 바뀌어도 Storage 경로 유지)
   if(!claims[idx].pkgId){ claims[idx].pkgId = 'pkg_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
-  // 보험사별로 별도 localStorage 키에 저장(본인 기기 캐시)
+  // 보험사별로 별도 localStorage 키에 저장(본인 기기 캐시) — id 기반 키.
+  // 같은 자리의 옛 인덱스 기반 키는 제거(삭제·순서 밀림 때 다른 건의 PDF가 읽히는 엇갈림 방지)
   Object.keys(packagePDFs).forEach(function(ins){
-    try{ localStorage.setItem('tops_pkg_'+idx+'__'+ins, packagePDFs[ins]); }catch(e){}
+    try{ localStorage.setItem('tops_pkg_'+claims[idx].id+'__'+ins, packagePDFs[ins]); }catch(e){}
+    try{ localStorage.removeItem('tops_pkg_'+idx+'__'+ins); }catch(e){}
   });
   try{ localStorage.removeItem('tops_pkg_'+idx); }catch(e){}
 
@@ -14341,6 +14403,8 @@ function _claimPkgFor(idx, insurer){
   try{
     if(claims[idx] && claims[idx].packagePDFs && claims[idx].packagePDFs[insurer]) return claims[idx].packagePDFs[insurer];
   }catch(e){}
+  // 고유 id 기반 캐시 우선(순서 밀림 무관), 없으면 레거시 인덱스 기반 키 폴백
+  try{ var c0=claims[idx]; if(c0&&c0.id){ var ki=localStorage.getItem('tops_pkg_'+c0.id+'__'+insurer); if(ki) return ki; } }catch(e){}
   try{ var k=localStorage.getItem('tops_pkg_'+idx+'__'+insurer); if(k) return k; }catch(e){}
   // Legacy: 단일 PDF (옛 데이터)
   try{

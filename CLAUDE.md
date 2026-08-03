@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/team-tops-intranet-continue-ern63z` (2026-07-31부터. 이전: claude/team-tops-intranet-continue-eksojg)
+- 작업 브랜치: `claude/team-tops-intranet-continue-bfgyd4` (2026-08-03부터. 이전: claude/team-tops-intranet-continue-ern63z)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -181,8 +181,14 @@
 
 ## 6. 보험금청구 (claims)
 
+- **고유 id (2026-08-03)**: 각 청구건은 `id`(`clm_<ts>_<rand>`)를 가진다.
+  - 부여는 **저장 경로에서만**: `saveClaim`(신규/수정), `_persistClaims`(`_claimsEnsureIds`), `generateClaimPackage`.
+    ⚠️ 재로드 때 메모리에 임시 부여 금지 — 기기마다 다른 id가 생겨 캐시 키가 흔들린다.
+  - 기존 건 마이그레이션: `_claimsIdMigrate()` — loadFromFirestore에서 **관리자 기기만** 세션 1회(멱등).
+  - `_reloadClaims` 병합은 **id 우선 매칭**(순서 밀림 무관), id 없으면 기존 3중 대조(고객명·등록일·담당자) 폴백.
 - 청구파일(PDF)은 보험사별 생성: `claims[idx].packagePDFs[insurer]`.
-- 보관 3계층: **메모리 → localStorage `tops_pkg_<idx>__<ins>` → Firebase Storage(`pkgUrls[ins]`)**.
+- 보관 3계층: **메모리 → localStorage `tops_pkg_<id>__<ins>`(레거시 `tops_pkg_<idx>__<ins>` 읽기 폴백) → Firebase Storage(`pkgUrls[ins]`)**.
+  - 삭제 시 `_claimPkgCachePurge`가 id 캐시 제거, `_claimsPkgSweep`가 고아 id 캐시 청소(클라우드 수신 후 세션 1회) — localStorage 포화 완화.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
 - **빈배열 덮어쓰기 가드 (2026-07-31)**: 클라우드 d.claims가 빈 배열이고 로컬에 내역이 있으면
@@ -209,7 +215,7 @@
 5. 가능하면 핵심 로직을 작은 node 스크립트로 **모의 실행** 검증.
 6. **의미 있는 변경이면** `intranet-guard` + `code-reviewer` 에이전트를 자동 호출해 점검 (1.5 규칙).
 7. **gs(서버) 코드를 바꿨는지** 확인 → 바꿨으면 재배포 필요 안내. (index.html만 고쳤으면 재배포 불필요)
-8. 커밋 후 `claude/team-tops-intranet-continue-ern63z` 로 푸시. (⚠️ `claude/**` 브랜치는 푸시 즉시 GitHub Actions가 라이브 배포함)
+8. 커밋 후 `claude/team-tops-intranet-continue-bfgyd4` 로 푸시. (⚠️ `claude/**` 브랜치는 푸시 즉시 GitHub Actions가 라이브 배포함)
 
 ## 8. 새 세션 인계
 
