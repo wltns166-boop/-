@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-10</div>
   </div>
 </div>
 
@@ -1156,7 +1156,11 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="card" id="bp_leader_card" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
           <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원 제출 현황 <span style="font-size:13px;color:#8888aa;font-weight:400">(팀장 이상 전용)</span></div>
-          <select id="bp_month_sel" onchange="bpMonthChange(this.value)" title="월 선택" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="bp_month_sel" onchange="bpMonthChange(this.value)" title="월 선택" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+            <button id="bp_kk_btn" onclick="bizKakaoSendAll()" title="작성완료된 사업계획서를 이미지로 캡처해 선택한 관리자 카톡(나와의 채팅)으로 발송" style="display:none;padding:5px 12px;background:#fee500;border:1px solid #e0ca00;border-radius:8px;color:#3c1e1e;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 카톡발송</button>
+            <select id="bp_kk_to" title="받을 대상자(관리자)" style="display:none;padding:5px 10px;border-radius:8px;border:1px solid #e0ca00;background:#fffbe0;color:#5a4a00;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          </div>
         </div>
         <div class="sg" id="bp_leader_stats" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px"></div>
         <div style="overflow-x:auto">
@@ -3287,10 +3291,12 @@ function login(){
     startRealtimeSync();
     if(!_rrMode){ try{ _driveFolderBackfill(); }catch(e){} }   // 로그인+데이터 로드 후 폴더 자동 정리(1회)
     try{ _drDeepLink(); }catch(e){}            // 카톡 [보고서 열기] 딥링크 — 데이터 로드 후 이동
+    try{ _bzDeepLink(); }catch(e){}            // 사업계획서 서버 캡처 화면(?rr=1&bz=) — 데이터 로드 후 렌더
   }).catch(function(){
     startRealtimeSync();
     rAlerts();
     try{ _drDeepLink(); }catch(e){}
+    try{ _bzDeepLink(); }catch(e){}
   });
 }
 function logout(){
@@ -12291,6 +12297,21 @@ function rBizPlan(keepForm){
   var myName=cu?cu.name:'';
   var setBtn=g('bp_set_url_btn'); if(setBtn) setBtn.style.display=admin?'':'none';
   var wrBtn=g('bp_writers_btn'); if(wrBtn) wrBtn.style.display=admin?'':'none';
+  // 카톡발송 버튼·받을 대상자(관리자) 셀렉트 — 관리자 전용.
+  //   수신 가능 대상은 서버(KK_REPORT_ADMINS: 백동현·박지순·이영현)에서도 강제된다.
+  var kkBtn=g('bp_kk_btn'), kkTo=g('bp_kk_to');
+  if(kkBtn) kkBtn.style.display=admin?'':'none';
+  if(kkTo){
+    kkTo.style.display=admin?'':'none';
+    if(admin){
+      var admNames=['백동현','박지순','이영현'];
+      var curTo=kkTo.value;
+      kkTo.innerHTML=admNames.map(function(n){
+        var on=curTo?curTo===n:(cu&&cu.name===n);
+        return '<option value="'+_esc(n)+'"'+(on?' selected':'')+'>받는사람: '+_esc(n)+'</option>';
+      }).join('');
+    }
+  }
   var openBtn=g('bp_open_sheet'); if(openBtn){ if(bizplan.url){ openBtn.style.display=''; openBtn.href=bizplan.url; } else { openBtn.style.display='none'; } }
   // 참고용 구글시트 미리보기(외부 제출 카드 안)
   var ta=g('bp_template_area');
@@ -12343,10 +12364,12 @@ function rBizPlan(keepForm){
       var msel=g('bp_month_sel');
       if(msel) msel.innerHTML=yms.map(function(k){ var p=k.split('-'); return '<option value="'+k+'"'+(k===viewYm?' selected':'')+'>'+(+p[0])+'년 '+(+p[1])+'월'+(k===curYm?' (이번달)':'')+'</option>'; }).join('');
       var subbed=0;
+      var bzSendable=[];   // [카톡발송] 일괄 대상 — 이번 보기 달에 양식 작성으로 제출완료한 팀원
       var rows=roster.map(function(m){
         var s=bizplan.subs.find(function(x){return x.m===m.name;});
         if(s && _bizSubYm(s)!==viewYm) s=null;   // 선택한 달의 제출만 인정
         if(s)subbed++;
+        if(s&&s.form) bzSendable.push(m.name);
         var linkCell='-';
         if(s){ var parts=[];
           if(s.form){
@@ -12354,8 +12377,9 @@ function rBizPlan(keepForm){
             var _bs='padding:2px 9px;font-size:12px;border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;';
             parts.push('<button onclick="'+_bz('openBizFormPreview')+'" style="'+_bs+'background:rgba(80,80,200,.1);border:1px solid rgba(80,80,200,.3);color:#3a40cc"><i class="ti ti-eye"></i> 보기</button>');
             parts.push('<button onclick="'+_bz('downloadBizForm')+'" style="'+_bs+'background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.3);color:#1a7040"><i class="ti ti-download"></i> 다운로드</button>');
-            // 관리자는 어느 출력 버튼을 눌러도 [출력여부]가 기록되도록 bizFbPrint로 통일
-            parts.push('<button onclick="'+_bz(admin?'bizFbPrint':'printBizForm')+'" style="'+_bs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button>');
+            // 출력 버튼 자리 → [카톡발송](관리자 전용) — 이 팀원의 계획서를 이미지로 캡처해 수신자 카톡으로.
+            //   출력은 [출력여부] 열의 출력 버튼(bizFbPrint)으로 일원화(2026-08-03).
+            if(admin) parts.push('<button onclick="'+_bz('bizKakaoSendOne')+'" style="'+_bs+'background:#fee500;border:1px solid #e0ca00;color:#3c1e1e;font-weight:700"><i class="ti ti-send"></i> 카톡발송</button>');
           }
           if(s.link) parts.push('<a href="'+s.link+'" target="_blank" rel="noopener" style="color:#2a48cc;font-weight:600">링크</a>'); var fb=_bizFileBtns(m.name); if(fb) parts.push(fb); linkCell=parts.join(' ')||'-'; }
         // 관리자 피드백 열: 작성(관리자 전용 버튼) / 작성여부 / 작성자 / 출력여부
@@ -12378,6 +12402,7 @@ function rBizPlan(keepForm){
           +'<td style="text-align:center;white-space:nowrap">'+fbPrCell+'</td>'
           +'<td>'+linkCell+'</td></tr>';
       }).join('');
+      window._bzSendable=bzSendable;
       g('bp_leader_tb').innerHTML=rows||'<tr><td colspan="9" class="em" style="padding:20px">팀원이 없습니다.</td></tr>';
       var total=roster.length;
       g('bp_leader_stats').innerHTML=
@@ -12580,6 +12605,77 @@ async function bizFbPrint(name){
   s.fbPrintBy=(cu&&cu.name)||'';
   sv('tops_bizplan',bizplan);
   rBizPlan(true);
+}
+
+// ===== 사업계획서 카톡 발송 (2026-08-03, 관리자 전용) =====
+// 서버(functions bizsend)가 ?rr=1&bz=이름들 화면을 헤드리스 크롬으로 캡처(이미지) → Storage 업로드 →
+// 선택한 관리자(서버에서 KK_REPORT_ADMINS로 강제)의 카톡 '나와의 채팅'에 이미지 카드로 발송.
+var _bzSending=false;
+async function bizKakaoSend(names){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(_bzSending){ toast('이미 발송 작업이 진행 중입니다. 잠시만 기다려주세요.'); return; }
+  names=(names||[]).filter(Boolean);
+  if(!names.length){ toast('보낼 사업계획서가 없습니다. (양식 작성으로 제출완료된 인원만 발송 가능)'); return; }
+  var to=(g('bp_kk_to')&&g('bp_kk_to').value)||((cu&&cu.name)||'');
+  _bzSending=true;
+  toast('사업계획서 '+names.length+'건 캡처·발송 중... (인원수에 따라 1~2분 걸릴 수 있습니다)');
+  try{
+    var r=await _kkApi('bizsend',{member:(cu&&cu.name)||'', to:to, names:names});
+    if(r&&r.ok){
+      var failTxt=(r.fails&&r.fails.length)?(' / 실패 '+r.fails.length+'건: '+r.fails.map(function(f){return (f&&f.name)||'';}).join(', ')):'';
+      toast(to+'님 카톡(나와의 채팅)으로 '+r.sent+'건 발송 완료!'+failTxt);
+    } else {
+      toast('카톡 발송 실패: '+((r&&(r.error||(r.error&&r.error.message)))||to+'님의 카톡 연동·승인 상태를 확인하세요.'));
+    }
+  }catch(e){ toast('카톡 발송 오류: '+e); }
+  finally{ _bzSending=false; }
+}
+function bizKakaoSendOne(name){ bizKakaoSend([name]); }
+function bizKakaoSendAll(){
+  var list=Array.isArray(window._bzSendable)?window._bzSendable.slice(0,15):[];
+  if(!list.length){ toast('이번 달 양식 작성으로 제출완료한 인원이 없습니다.'); return; }
+  if(!confirm('작성완료된 '+list.length+'명의 사업계획서를 이미지로 발송할까요?\n받는사람: '+((g('bp_kk_to')&&g('bp_kk_to').value)||(cu&&cu.name)||''))) return;
+  bizKakaoSend(list);
+}
+// 서버 캡처 화면(?rr=1&bz=이름1|이름2|...) — 각 팀원의 사업계획서 문서를 iframe으로 쌓아 렌더.
+// 서버는 window._bzRendered===true 대기 후 #bz_paper_<i> 요소를 각각 스크린샷한다.
+function _bzDeepLink(){
+  if(!/[?&]rr=1/.test(location.search)) return;   // 서버 캡처 모드에서만 동작
+  var mm=location.search.match(/[?&]bz=([^&]+)/); if(!mm) return;
+  var raw=''; try{ raw=decodeURIComponent(mm[1]); }catch(e){ raw=mm[1]; }
+  var names=raw.split('|').map(function(s){return s.trim();}).filter(Boolean).slice(0,15);
+  if(!names.length){ window._bzRendered=true; window._bzList=[]; return; }
+  var host=document.createElement('div');
+  host.id='bz_wrap';
+  host.style.cssText='position:fixed;inset:0;z-index:99999;background:#fff;overflow:auto';
+  document.body.appendChild(host);
+  window._bzList=[];
+  var frames=[];
+  names.forEach(function(nm,i){
+    var doc=null; try{ doc=_bizFormDoc(nm,{}); }catch(e){}
+    if(!doc){ window._bzList.push({i:i,name:nm,ok:false}); return; }
+    // 헤드리스 서버엔 한글 시스템 폰트가 없으므로 본문서와 같은 웹폰트를 문서에 주입(한글 깨짐 방지)
+    var html=doc.html.replace('<head>','<head><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">');
+    var fr=document.createElement('iframe');
+    fr.id='bz_paper_'+i;
+    fr.style.cssText='display:block;width:1000px;height:800px;border:0;background:#fff;margin:0 0 20px';
+    host.appendChild(fr);
+    fr.srcdoc=html;
+    frames.push(fr);
+    window._bzList.push({i:i,name:nm,ok:true});
+  });
+  // iframe 내용 높이에 맞춰 재보정(웹폰트 적용 지연 감안 반복) 후 완료 신호
+  var fit=function(n){
+    frames.forEach(function(fr){
+      try{
+        var b=fr.contentDocument&&fr.contentDocument.body;
+        if(b&&b.scrollHeight) fr.style.height=Math.max(400,b.scrollHeight+40)+'px';
+      }catch(e){}
+    });
+    if(n>0) setTimeout(function(){ fit(n-1); },700);
+    else window._bzRendered=true;
+  };
+  setTimeout(function(){ fit(4); },400);
 }
 
 // ===== 사업계획서 작성자 설정 (2026-08-03, 관리자 전용) =====

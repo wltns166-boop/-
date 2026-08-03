@@ -200,6 +200,70 @@ async function _kkUploadReport(buf) {
   return "https://firebasestorage.googleapis.com/v0/b/" + bucket.name + "/o/" + encodeURIComponent(name) + "?alt=media&token=" + token;
 }
 
+// ── 사업계획서 화면 캡처 (2026-08-03) ─────────────────────────
+// ?rr=1&bz=이름1|이름2 로 열면 클라이언트(_bzDeepLink)가 각 팀원의 사업계획서 문서를
+// #bz_paper_<i> iframe으로 쌓아 렌더 → 한 번의 페이지 로드로 여러 명을 순서대로 스크린샷.
+async function _bzCaptureAll(names) {
+  const chromium = require("@sparticuz/chromium");
+  const puppeteer = require("puppeteer-core");
+  const browser = await puppeteer.launch({
+    args: [...chromium.args, "--lang=ko-KR"],
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+    defaultViewport: { width: 1100, height: 1400, deviceScaleFactor: 1.5 }
+  });
+  const out = [];
+  try {
+    const page = await browser.newPage();
+    await page.emulateTimezone("Asia/Seoul");
+    await page.evaluateOnNewDocument(() => {
+      try { sessionStorage.setItem("tops_session", JSON.stringify({ id: "render", name: "백동현", role: "BM", admin: true })); } catch (e) {}
+    });
+    const bz = names.map((n) => encodeURIComponent(n)).join("%7C"); // '|' 구분(인코딩)
+    await page.goto(KK_SITE + "/?rr=1&bz=" + bz, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForFunction("window._bzRendered===true", { timeout: 120000, polling: 500 });
+    let list = [];
+    try { list = JSON.parse(await page.evaluate("JSON.stringify(window._bzList||[])")); } catch (e) {}
+    // 웹폰트 로딩 대기(한글 깨짐 방지) + 레이아웃 안정화
+    await Promise.race([page.evaluate(() => document.fonts.ready), new Promise((r) => setTimeout(r, 8000))]).catch(() => {});
+    await new Promise((r) => setTimeout(r, 1000));
+    for (const nm of names) {
+      const ent = list.find((x) => x && x.name === nm);
+      if (!ent || !ent.ok) { out.push({ name: nm, err: "작성된 양식이 없습니다 (링크/파일 제출은 캡처 불가)" }); continue; }
+      try {
+        const el = await page.$("#bz_paper_" + ent.i);
+        if (!el) { out.push({ name: nm, err: "캡처 요소 없음" }); continue; }
+        out.push({ name: nm, buf: await el.screenshot({ type: "jpeg", quality: 85 }) });
+      } catch (e) { out.push({ name: nm, err: String((e && e.message) || e).slice(0, 120) }); }
+    }
+  } finally {
+    await browser.close().catch(() => {});
+  }
+  return out;
+}
+
+// 캡처 이미지를 Storage(biz_plans/auto/)에 올리고 다운로드 토큰 URL 반환. clean=true면 30일 지난 것 정리.
+async function _bzUpload(buf, clean) {
+  const crypto = require("crypto");
+  const token = crypto.randomUUID();
+  const name = "biz_plans/auto/" + _kkToday() + "-" + crypto.randomBytes(8).toString("hex") + ".jpg";
+  const bucket = admin.storage().bucket();
+  await bucket.file(name).save(buf, {
+    metadata: { contentType: "image/jpeg", metadata: { firebaseStorageDownloadTokens: token } }
+  });
+  if (clean) {
+    try {
+      const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const [files] = await bucket.getFiles({ prefix: "biz_plans/auto/" });
+      await Promise.all(files.filter((f) => {
+        const d = f.name.slice("biz_plans/auto/".length, "biz_plans/auto/".length + 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(d) && d < cutoff;
+      }).map((f) => f.delete().catch(() => {})));
+    } catch (e) { console.warn("오래된 사업계획서 이미지 정리 실패(무시):", String((e && e.message) || e)); }
+  }
+  return "https://firebasestorage.googleapis.com/v0/b/" + bucket.name + "/o/" + encodeURIComponent(name) + "?alt=media&token=" + token;
+}
+
 // 토큰 갱신 후 유효한 access_token 확보 (만료 10분 전이면 미리 갱신)
 async function _kkAccessToken(cfg, u) {
   if (u.at && u.atExp && Date.now() < u.atExp - 10 * 60 * 1000) return { at: u.at };
@@ -588,6 +652,72 @@ async function _kkHandle(body, res) {
         else { lastErrC = (sCl.data && (sCl.data.msg || sCl.data.error_description)) || ("전송 실패 " + sCl.status); break; }
       }
       res.json({ ok: sentC > 0, sent: sentC, total: linksC.length, nick: uCl.nick || "", error: lastErrC || undefined });
+      return;
+    }
+    if (action === "bizsend") {
+      // 사업계획서 카톡 발송 (2026-08-03) — 제출된 계획서 화면을 이미지로 캡처해 수신 관리자의
+      // '나와의 채팅'으로 발송. 수신자는 관리자 명단으로 서버에서 강제(claimsend와 동일한 스팸 차단).
+      const toB = String(body.to || "").trim();
+      if (!KK_REPORT_ADMINS.includes(toB)) {
+        res.json({ ok: false, error: "사업계획서 카톡 발송은 관리자 계정만 받을 수 있습니다." });
+        return;
+      }
+      let namesB = Array.isArray(body.names) ? body.names.slice(0, 15) : [];
+      namesB = [...new Set(namesB.map((n) => String(n || "").trim().slice(0, 30)).filter(Boolean))];
+      if (!namesB.length) { res.json({ ok: false, error: "보낼 대상 팀원이 없습니다." }); return; }
+      const [cfgSnapB, tokSnapB] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgB = cfgSnapB.exists ? (cfgSnapB.data() || {}) : {};
+      const usersB = (tokSnapB.exists && (tokSnapB.data() || {}).users) || {};
+      if (!cfgB.restKey) { res.json({ ok: false, error: "REST API 키 미설정" }); return; }
+      const matchedB = Object.keys(usersB).filter((id) => usersB[id] && usersB[id].approved && String(usersB[id].member || "") === toB);
+      if (!matchedB.length) { res.json({ ok: false, error: "카톡 미연동/미승인: " + toB + " — DB 정보 [카톡 알림 연동]에서 연동·승인·팀원 지정을 확인하세요." }); return; }
+      if (matchedB.length > 1) {
+        res.json({ ok: false, error: "'" + toB + "' 매핑 계정이 " + matchedB.length + "개입니다 — 중복 연동을 정리한 뒤 다시 시도하세요." });
+        return;
+      }
+      // 전역 30초 간격 — 캡처(헤드리스 크로미움)가 무거워 연타를 막는다
+      if (cfgB.lastBizSend && Date.now() - cfgB.lastBizSend < 30 * 1000) {
+        res.status(429).json({ error: { message: "30초에 1회만 발송할 수 있습니다. 잠시 후 다시 시도하세요." } });
+        return;
+      }
+      await KK_CFG().set({ lastBizSend: Date.now() }, { merge: true }).catch(() => {});
+      const kidB = matchedB[0];
+      const uB = usersB[kidB];
+      const tB = await _kkAccessToken(cfgB, uB);
+      if (!tB.at) {
+        if (tB.relink) { uB.needsRelink = true; await KK_TOK().set({ users: usersB }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 재연동 필요: " + (tB.err || "") });
+        return;
+      }
+      if (tB.upd) { Object.assign(uB, tB.upd); uB.needsRelink = false; await KK_TOK().set({ users: usersB }, { merge: true }).catch(() => {}); }
+      let caps = [];
+      try { caps = await _bzCaptureAll(namesB); }
+      catch (e) {
+        res.json({ ok: false, error: "사업계획서 캡처 실패: " + String((e && e.message) || e).slice(0, 150) });
+        return;
+      }
+      const fails = [];
+      let sentB = 0, lastErrB = "", cleaned = false;
+      for (const cpt of caps) {
+        if (!cpt.buf) { fails.push({ name: cpt.name, err: cpt.err || "캡처 실패" }); continue; }
+        let imgUrlB = "";
+        try { imgUrlB = await _bzUpload(cpt.buf, !cleaned); cleaned = true; }
+        catch (e) { fails.push({ name: cpt.name, err: "이미지 업로드 실패" }); continue; }
+        const tplB = JSON.stringify({
+          object_type: "feed",
+          content: {
+            title: "📋 사업계획서 — " + cpt.name,
+            description: "TEAM TOPS 사업계획서 (" + _kkToday() + " 발송)",
+            image_url: imgUrlB,
+            link: { web_url: imgUrlB, mobile_web_url: imgUrlB }
+          },
+          buttons: [{ title: "크게 보기", link: { web_url: imgUrlB, mobile_web_url: imgUrlB } }]
+        });
+        const sB = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplB }, tB.at);
+        if (sB.ok) sentB++;
+        else { lastErrB = (sB.data && (sB.data.msg || sB.data.error_description)) || ("전송 실패 " + sB.status); fails.push({ name: cpt.name, err: lastErrB }); }
+      }
+      res.json({ ok: sentB > 0, sent: sentB, total: namesB.length, fails, nick: uB.nick || "", error: sentB ? undefined : (lastErrB || (fails[0] && fails[0].err) || "발송 실패") });
       return;
     }
     if (action === "setmember") {

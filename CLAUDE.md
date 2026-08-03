@@ -178,6 +178,13 @@
 - 문서 생성 공용 함수 **`_bizFormDoc(name, {toolbar, autoPrint})`** → 보기/출력/다운로드가 모두 이걸 사용.
   - 보기 `openBizFormPreview`, 출력 `printBizForm`, 다운로드 `downloadBizForm`(.xls).
 - 저장 시 구글드라이브 `{팀원}/사업계획서/` 에 스프레드시트(`_driveSaveTable`)로 보관.
+- **관리자 피드백 (2026-08-03)**: 제출 건에 `fb/fbBy/fbByRole/fbTs/fbPrintTs` — 작성·출력 기록은 관리자 전용,
+  문서 열람은 관리자·본인만(`_bizFbVisible`). 저장 직전 `_bizFreshSub`로 클라우드 최신본 병합(동시 저장 경합 축소).
+- **작성자 설정 (2026-08-03)**: `bizplan.writers`(이름 배열) — 제출 현황 표시·집계 명단. 미설정/전원 선택=전체.
+- **카톡 발송 (2026-08-03, 관리자 전용)**: `bizKakaoSendAll`(일괄)/`bizKakaoSendOne`(개별) → functions `bizsend` —
+  서버가 `?rr=1&bz=이름1|이름2` 화면(`_bzDeepLink`가 문서를 iframe으로 쌓아 렌더, `#bz_paper_<i>`)을
+  헤드리스 크롬으로 캡처 → Storage `biz_plans/auto/`(30일 보관) → 수신 관리자 '나와의 채팅'에 이미지 카드.
+  수신자는 서버에서 `KK_REPORT_ADMINS`로 강제, 전역 30초 간격 제한. 양식(form) 제출 건만 캡처 가능.
 
 ## 6. 보험금청구 (claims)
 
