@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-2</div>
   </div>
 </div>
 
@@ -1158,8 +1158,8 @@ table.dt tr:last-child td{border-bottom:none;}
         </div>
         <div class="sg" id="bp_leader_stats" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px"></div>
         <div style="overflow-x:auto">
-          <table class="dt" id="bp_leader_table" style="min-width:560px">
-            <thead><tr><th>이름</th><th>직급</th><th>제출여부</th><th>제출일</th><th>링크/파일</th></tr></thead>
+          <table class="dt" id="bp_leader_table" style="min-width:900px">
+            <thead><tr><th>이름</th><th>직급</th><th>제출여부</th><th>제출일</th><th>피드백 작성</th><th>피드백 작성여부</th><th>피드백 작성자</th><th>출력여부</th><th>링크/파일</th></tr></thead>
             <tbody id="bp_leader_tb"></tbody>
           </table>
         </div>
@@ -12209,7 +12209,16 @@ function _bizFormHtml(){
     +recHtml
     +'</table></div>'
     +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
-  return h+g1+g2+g3;
+  // 관리자 피드백 — 리쿠르팅 대상자 아래. 내용 길이에 따라 상자가 자동으로 늘어난다(pre-wrap, 고정 높이 없음).
+  var fbSub=null;
+  try{ fbSub=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===_bizFormOwner;}):null; }catch(e){}
+  var g4='<div style="font-weight:700;color:#2a2a4a;margin:18px 0 6px"><i class="ti ti-caret-right-filled" style="font-size:12px"></i> 관리자 피드백'
+    +((fbSub&&fbSub.fb&&fbSub.fbBy)?' <span style="font-weight:400;font-size:12.5px;color:#8888aa">— '+_esc(fbSub.fbBy+(fbSub.fbByRole?' '+fbSub.fbByRole:''))+(fbSub.fbTs?' · '+new Date(fbSub.fbTs).toLocaleDateString():'')+'</span>':'')
+    +'</div>'
+    +((fbSub&&fbSub.fb)
+      ?'<div style="border:1px solid rgba(45,65,170,.22);border-radius:8px;padding:12px 14px;background:#f8f9ff;color:#1a1a2e;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word">'+_esc(fbSub.fb)+'</div>'
+      :'<div style="border:1px dashed rgba(45,65,170,.25);border-radius:8px;padding:12px 14px;color:#9898b0;font-size:13.5px">아직 작성된 관리자 피드백이 없습니다. (관리자가 팀원 제출 현황에서 작성)</div>');
+  return h+g1+g2+g3+g4;
 }
 // 계획월(1~12) → 'YYYY-MM' — 지금 시점 기준으로 해를 보정(연말에 다음 해 1월 계획 제출 등)
 function _bizYmFor(fm){
@@ -12303,11 +12312,27 @@ function rBizPlan(keepForm){
             parts.push('<button onclick="'+_bz('printBizForm')+'" style="'+_bs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button>');
           }
           if(s.link) parts.push('<a href="'+s.link+'" target="_blank" rel="noopener" style="color:#2a48cc;font-weight:600">링크</a>'); var fb=_bizFileBtns(m.name); if(fb) parts.push(fb); linkCell=parts.join(' ')||'-'; }
+        // 관리자 피드백 열: 작성(관리자 전용 버튼) / 작성여부 / 작성자 / 출력여부
+        var fbBtnCell='-', fbStCell='-', fbByCell='-', fbPrCell='-';
+        if(s){
+          var _bzf=function(fn){ return (fn+'('+JSON.stringify(m.name)+')').replace(/"/g,'&quot;'); };
+          var _fs='padding:2px 9px;font-size:12px;border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;';
+          if(admin) fbBtnCell='<button onclick="'+_bzf('openBizFbModal')+'" style="'+_fs+'background:rgba(200,120,20,.12);border:1px solid rgba(200,120,20,.35);color:#a06010"><i class="ti ti-message-2"></i> '+(s.fb?'수정':'작성')+'</button>';
+          fbStCell=s.fb?'<span style="color:#1a7040;font-weight:700">완료</span>':'<span style="color:#c04040">미완료</span>';
+          fbByCell=(s.fb&&s.fbBy)?_esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:'')):'-';
+          var prTxt=s.fbPrintTs?'<span style="color:#1a7040;font-weight:700">출력완료</span>':'<span style="color:#999">미출력</span>';
+          fbPrCell=(admin&&s.form?('<button onclick="'+_bzf('bizFbPrint')+'" style="'+_fs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button> '):'')+prTxt;
+        }
         return '<tr><td style="font-weight:600">'+m.name+'</td><td>'+(m.rank||'-')+'</td>'
           +'<td>'+(s?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td>'
-          +'<td>'+(s?new Date(s.ts).toLocaleDateString():'-')+'</td><td>'+linkCell+'</td></tr>';
+          +'<td>'+(s?new Date(s.ts).toLocaleDateString():'-')+'</td>'
+          +'<td style="text-align:center">'+fbBtnCell+'</td>'
+          +'<td style="text-align:center">'+fbStCell+'</td>'
+          +'<td style="text-align:center;white-space:nowrap">'+fbByCell+'</td>'
+          +'<td style="text-align:center;white-space:nowrap">'+fbPrCell+'</td>'
+          +'<td>'+linkCell+'</td></tr>';
       }).join('');
-      g('bp_leader_tb').innerHTML=rows||'<tr><td colspan="5" class="em" style="padding:20px">팀원이 없습니다.</td></tr>';
+      g('bp_leader_tb').innerHTML=rows||'<tr><td colspan="9" class="em" style="padding:20px">팀원이 없습니다.</td></tr>';
       var total=roster.length;
       g('bp_leader_stats').innerHTML=
          '<div class="sc"><div class="sl">제출 완료</div><div class="sv">'+subbed+'</div><div class="su">/ '+total+'명</div></div>'
@@ -12395,6 +12420,8 @@ function _bizFormDoc(name, opts){
     +(pr||'<tr><td colspan="10">작성된 가망고객이 없습니다.</td></tr>')+'</table>'
     +'<h2>리쿠르팅 대상자</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>직업</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>입과 여부</th></tr>'
     +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'
+    +(s.fb?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
+      +(s.fbBy?'<div style="font-size:12px;color:#555;margin-top:4px;text-align:right">— '+esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:''))+'</div>':'')):'')
     +saveScript+printScript
     +'</body></html>';
   return {html:html, fileBase:fileBase};
@@ -12414,6 +12441,66 @@ function printBizForm(name){
   if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
   w.document.write(doc.html); w.document.close();
 }
+// ===== 사업계획서 관리자 피드백 (2026-08-03, 관리자 전용) =====
+// 데이터: 제출 건(bizplan.subs[i])에 fb(내용)/fbBy(작성자)/fbByRole(호칭)/fbTs/fbPrintTs/fbPrintBy.
+// 새 달 계획으로 대체되면 피드백도 함께 초기화(같은 달 재제출은 유지).
+var _bizFbTarget=null;
+function _bizFbGrow(el){ try{ el.style.height='auto'; el.style.height=Math.max(120, el.scrollHeight+2)+'px'; }catch(e){} }
+function openBizFbModal(name){
+  if(!_isAdmin()){ toast('관리자만 피드백을 작성할 수 있습니다.'); return; }
+  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+  if(!s){ toast('제출된 사업계획서가 없습니다.'); return; }
+  _bizFbTarget=name;
+  var old=g('bizfb_overlay'); if(old) old.remove();
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D — 공용 모달 어두운 테마와 무관하게 동작)
+  var ov=document.createElement('div');
+  ov.id='bizfb_overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:86vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-message-2"></i> 관리자 피드백 — '+_esc(name)+'</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:10px">저장하면 해당 팀원의 사업계획서(리쿠르팅 대상자 아래)와 보기/출력/다운로드 문서에 표시됩니다. 내용을 비우고 저장하면 삭제됩니다.</div>'
+    +'<textarea id="bizfb_ta" oninput="_bizFbGrow(this)" placeholder="피드백 내용을 입력하세요" style="width:100%;min-height:120px;resize:none;overflow:hidden;border:1px solid #c8cce0;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:1.6;color:#1a1a2e;background:#fff;box-sizing:border-box"></textarea>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
+    +'<button onclick="document.getElementById(\'bizfb_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="saveBizFb()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  var ta=g('bizfb_ta'); if(ta){ ta.value=s.fb||''; _bizFbGrow(ta); ta.focus(); }
+}
+function saveBizFb(){
+  if(!_isAdmin()){ toast('관리자만 피드백을 작성할 수 있습니다.'); return; }
+  var name=_bizFbTarget; if(!name) return;
+  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+  if(!s){ toast('제출 내역을 찾을 수 없습니다.'); return; }
+  var ta=g('bizfb_ta'); var val=ta?ta.value.trim():'';
+  if(val){
+    s.fb=val;
+    s.fbBy=(cu&&cu.name)||'';
+    s.fbByRole=(cu&&cu.role==='총무')?'총무':'지점장';
+    s.fbTs=Date.now();
+  } else {
+    delete s.fb; delete s.fbBy; delete s.fbByRole; delete s.fbTs; delete s.fbPrintTs; delete s.fbPrintBy;
+  }
+  sv('tops_bizplan',bizplan);
+  var ov=g('bizfb_overlay'); if(ov) ov.remove();
+  _bizFbTarget=null;
+  toast(val?'피드백이 저장되었습니다.':'피드백이 삭제되었습니다.');
+  if(val){ try{ pushAlert(null,'사업계획서 피드백',((cu&&cu.name)||'관리자')+'님이 '+name+'님의 사업계획서에 피드백을 남겼습니다.',{toName:name}); }catch(e){} }
+  rBizPlan(true);
+}
+// [출력여부] 출력 버튼 — 사업계획서(피드백 포함)를 인쇄하고 출력완료로 표시
+function bizFbPrint(name){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+  if(!s||!s.form){ toast('작성된 사업계획서가 없습니다.'); return; }
+  printBizForm(name);
+  s.fbPrintTs=Date.now();
+  s.fbPrintBy=(cu&&cu.name)||'';
+  sv('tops_bizplan',bizplan);
+  rBizPlan(true);
+}
+
 // 다운로드: 엑셀에서 열리는 .xls 파일로 저장
 function downloadBizForm(name){
   var doc=_bizFormDoc(name, {});
@@ -12458,6 +12545,8 @@ async function saveBizPlan(){
   if(fileObj){ obj.file=fileObj; obj.fileUrl=fileObj.url||''; obj.fileName=fileObj.name||''; }
   else if(prev){ if(prev.file) obj.file=prev.file; if(prev.fileUrl){ obj.fileUrl=prev.fileUrl; obj.fileName=prev.fileName; } }
   if(prev&&prev.form) obj.form=prev.form;   // 앱에서 작성한 양식 데이터 보존
+  // 같은 달 재제출이면 관리자 피드백 보존(달이 바뀌면 새 계획이므로 이어받지 않음)
+  if(prev&&_bizSubYm(prev)===obj.ym){ ['fb','fbBy','fbByRole','fbTs','fbPrintTs','fbPrintBy'].forEach(function(k){ if(prev[k]!=null) obj[k]=prev[k]; }); }
   if(prev){ bizplan.subs[bizplan.subs.indexOf(prev)]=obj; } else { bizplan.subs.push(obj); }
   sv('tops_bizplan',bizplan);
   // 구글드라이브 "{팀원}/사업계획서/" 폴더에도 보관(파일명: YYYY년MM월DD일 {이름}사업계획서)
@@ -12487,6 +12576,8 @@ async function saveBizForm(){
   var obj=prev?Object.assign({},prev):{m:myName,link:'',memo:''};
   obj.m=myName; obj.form=form; obj.ts=ts;
   obj.ym=_bizYmFor(fm);   // 귀속 월을 제출 시점에 확정 기록(월별 현황의 기준)
+  // 다른 달 계획으로 대체되면 이전 달의 관리자 피드백은 초기화(같은 달 재제출은 obj가 prev를 복사해 유지)
+  if(prev&&_bizSubYm(prev)!==obj.ym){ ['fb','fbBy','fbByRole','fbTs','fbPrintTs','fbPrintBy'].forEach(function(k){ delete obj[k]; }); }
   if(prev){ bizplan.subs[bizplan.subs.indexOf(prev)]=obj; } else { bizplan.subs.push(obj); }
   sv('tops_bizplan',bizplan);
   try{ _driveSaveBizForm(myName, form, ts); }catch(e){ console.warn('biz form drive err:', e); }
