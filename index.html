@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-6</div>
   </div>
 </div>
 
@@ -12476,6 +12476,8 @@ async function _bizFreshSub(name){
         var localSubs=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs:[];
         localSubs.forEach(function(ls){ if(ls&&ls.m&&!cloud.subs.some(function(cs){return cs&&cs.m===ls.m;})) cloud.subs.push(ls); });
         if(!cloud.url&&bizplan&&bizplan.url) cloud.url=bizplan.url;
+        // 방금 저장한 작성자 설정이 클라우드 전파 전이면 로컬 값 유지(화면 흔들림 방지)
+        if(cloud.writers===undefined&&bizplan&&Array.isArray(bizplan.writers)) cloud.writers=bizplan.writers;
         bizplan=cloud;
         try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){}
       }
