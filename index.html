@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-12</div>
   </div>
 </div>
 
@@ -12631,7 +12631,9 @@ async function bizKakaoSend(names){
       var failTxt=(r.fails&&r.fails.length)?(' / 실패 '+r.fails.length+'건: '+r.fails.map(function(f){return (f&&f.name)||'';}).join(', ')):'';
       toast(to+'님 카톡(나와의 채팅)으로 '+r.sent+'건 발송 완료!'+failTxt);
     } else {
-      toast('카톡 발송 실패: '+((r&&(r.error||(r.error&&r.error.message)))||to+'님의 카톡 연동·승인 상태를 확인하세요.'));
+      // 서버 에러가 {error:{message}} 구조(429 등)일 때 [object Object] 표시 방지 — message 우선
+      var em=(r&&r.error&&r.error.message)||(r&&typeof r.error==='string'?r.error:'');
+      toast('카톡 발송 실패: '+(em||to+'님의 카톡 연동·승인 상태를 확인하세요.'));
     }
   }catch(e){ toast('카톡 발송 오류: '+e); }
   finally{ _bzSending=false; }
@@ -14209,7 +14211,11 @@ async function claimKakaoSend(i){
   toast('카톡 발송 중...');
   _kkApi('claimsend',{member:(cu&&cu.name)||'', cust:c.custName||'', links:links}).then(function(r){
     if(r&&r.ok) toast('내 카톡(나와의 채팅)으로 '+r.sent+'건 발송 완료!');
-    else toast('카톡 발송 실패: '+((r&&(r.error||(r.error&&r.error.message)))||'DB 정보 [카톡 알림 연동]에서 본인 계정 연동·승인·팀원 지정이 됐는지 확인하세요.'));
+    else {
+      // {error:{message}} 구조(429 등)일 때 [object Object] 표시 방지 — message 우선
+      var em=(r&&r.error&&r.error.message)||(r&&typeof r.error==='string'?r.error:'');
+      toast('카톡 발송 실패: '+(em||'DB 정보 [카톡 알림 연동]에서 본인 계정 연동·승인·팀원 지정이 됐는지 확인하세요.'));
+    }
   }).catch(function(e){ toast('카톡 발송 오류: '+e); });
 }
 

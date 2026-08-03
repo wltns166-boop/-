@@ -221,7 +221,12 @@ async function _bzCaptureAll(names) {
     });
     const bz = names.map((n) => encodeURIComponent(n)).join("%7C"); // '|' 구분(인코딩)
     await page.goto(KK_SITE + "/?rr=1&bz=" + bz, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction("window._bzRendered===true", { timeout: 120000, polling: 500 });
+    // mem 로드 확인 포함 — Firestore 로드 실패 시 "양식 없음"으로 오보고하지 않고 타임아웃 실패로 처리
+    // (_kkCaptureReport가 빈 보고서 캡처로 이미 겪은 교훈과 동일)
+    await page.waitForFunction(
+      "window._bzRendered===true && typeof mem!=='undefined' && Array.isArray(mem) && mem.length>0",
+      { timeout: 120000, polling: 500 }
+    );
     let list = [];
     try { list = JSON.parse(await page.evaluate("JSON.stringify(window._bzList||[])")); } catch (e) {}
     // 웹폰트 로딩 대기(한글 깨짐 방지) + 레이아웃 안정화
