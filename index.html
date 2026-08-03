@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-7</div>
   </div>
 </div>
 
@@ -4483,14 +4483,35 @@ function rTree(){
     if(k && seen[k]) parentMap[k]='백동현';
   });
 
-  // ── 좌우 마인드맵 레이아웃: 중앙 백동현, 왼쪽 박지순 계보, 오른쪽 직할 ──
+  // ── 전체 / 팀장별 보기 (2026-08-03) ──────────────────────
+  // window._treeLeader: ''=전체, 이름=그 팀장(하위 조직 보유자)을 루트로 한 계보만 표시
+  const _chTmp={};
+  NODES.forEach(n=>_chTmp[n.key]=[]);
+  NODES.forEach(n=>{ if(!n.isRoot){ const p=parentMap[n.key]; if(p&&_chTmp[p]) _chTmp[p].push(n.key); } });
+  // 셀렉트 옵션: 자식이 1명 이상 있는 노드(루트 백동현 제외) — 필터 적용 전 전체 기준으로 수집
+  const leaderOpts=NODES.filter(n=>!n.isRoot&&_chTmp[n.key]&&_chTmp[n.key].length).map(n=>({key:n.key,role:n.role}));
+  let leaderSel=String(window._treeLeader||'');
+  if(leaderSel&&!leaderOpts.some(o=>o.key===leaderSel)){ leaderSel=''; window._treeLeader=''; } // 퇴사·소속변경 등으로 사라진 팀장 방어
+  let ROOT='백동현';
+  if(leaderSel){
+    ROOT=leaderSel;
+    const keep={};
+    (function walk(k){ if(keep[k]) return; keep[k]=1; (_chTmp[k]||[]).forEach(walk); })(ROOT);
+    for(let i=NODES.length-1;i>=0;i--){ if(!keep[NODES[i].key]) NODES.splice(i,1); }
+    NODES.forEach(n=>{ n.isRoot=(n.key===ROOT); });
+    delete parentMap[ROOT]; // 선택한 팀장이 이 보기의 루트
+  }
+  // 보기(전체/팀장)별로 드래그 위치를 따로 저장 — 레이아웃이 달라 서로 섞이면 흩어져 보임
+  const POS_KEY='tops_tree_pos_v2'+(leaderSel?('__'+leaderSel):'');
+
+  // ── 좌우 마인드맵 레이아웃: 중앙 루트, 왼쪽 박지순 계보(전체 보기), 오른쪽 직할 ──
   const BW=124, BH=50, GAP_H=64, GAP_V=18, PAD=60;   // GAP_H: 단계(가로) 간격, GAP_V: 형제(세로) 간격
   const STEP=BW+GAP_H;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
   // 부모가 현재 노드 목록에 없으면(퇴사자·옛 이름 등) 루트 직할로 편입 — 미배치로 (60,60)에 겹치는 것 방지
-  NODES.forEach(n=>{ if(!n.isRoot){ let p=parentMap[n.key]; if(!p||!childMap[p]){ p='백동현'; parentMap[n.key]=p; } childMap[p].push(n.key); }});
-  const rootCh=childMap['백동현']||[];
+  NODES.forEach(n=>{ if(!n.isRoot){ let p=parentMap[n.key]; if(!p||!childMap[p]){ p=ROOT; parentMap[n.key]=p; } childMap[p].push(n.key); }});
+  const rootCh=childMap[ROOT]||[];
   const leftRoots=rootCh.filter(k=>k==='박지순');        // 왼쪽: 박지순 계보
   const rightRoots=rootCh.filter(k=>k!=='박지순');       // 오른쪽: 직할
   // 서브트리 세로 높이·가로 깊이 계산
@@ -4514,7 +4535,7 @@ function rTree(){
     let cy=top;
     (childMap[key]||[]).forEach(c=>{ layoutSide(c, x+dir*STEP, cy, dir); cy+=H[c]+GAP_V; });
   }
-  initPos['백동현']={x:rootX, y:canvasH/2-BH/2};
+  initPos[ROOT]={x:rootX, y:canvasH/2-BH/2};
   let ly=canvasH/2-leftH/2;
   leftRoots.forEach(k=>{ layoutSide(k, rootX-STEP, ly, -1); ly+=H[k]+GAP_V; });
   let ry=canvasH/2-rightH/2;
@@ -4523,7 +4544,7 @@ function rTree(){
   // 저장된 위치 불러오기 (없으면 계산값 사용)
   //   v2: 좌우 마인드맵 개편으로 키를 올려 예전(상하 트리) 저장 위치는 자동 무시
   let savedPos = {};
-  try{ savedPos = JSON.parse(localStorage.getItem('tops_tree_pos_v2')||'{}'); }catch(e){}
+  try{ savedPos = JSON.parse(localStorage.getItem(POS_KEY)||'{}'); }catch(e){}
   // 저장 위치 검증 — 범위 밖·비정상 값은 오염으로 보고 계산 위치로 대체.
   //   (검증 없이 쓰면 캔버스가 저장 위치만큼 무한정 커져 브라우저 메모리 초과(Out of Memory)로 탭이 죽는다)
   const POS_MAX=6000;
@@ -4547,8 +4568,14 @@ function rTree(){
   const _zCap=Math.sqrt(24e6/Math.max(1,canvasW*canvasH));   // 캔버스 최대 2,400만 픽셀(약 96MB)
   if(Z>_zCap) Z=_zCap;
   const btnS='padding:5px 12px;background:rgba(70,90,200,.15);border:1px solid rgba(70,90,200,.28);border-radius:6px;color:#7888cc;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap';
+  const leaderSelHtml='<select onchange="setTreeLeader(this.value)" title="전체/팀장별 보기" '
+    +'style="padding:5px 10px;border-radius:6px;border:1px solid rgba(70,90,200,.28);background:#fff;color:#3a48aa;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'
+    +'<option value="">전체</option>'
+    +leaderOpts.map(o=>'<option value="'+_esc(o.key)+'"'+(o.key===leaderSel?' selected':'')+'>'+_esc(o.key)+' '+_esc(o.role||'')+'</option>').join('')
+    +'</select>';
   wrap.innerHTML = `
     <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      ${leaderSelHtml}
       <button onclick="resetTreePos()" style="${btnS}">↺ 위치 초기화</button>
       <button onclick="zoomTree(-0.15)" title="축소" style="${btnS}">－ 축소</button>
       <span style="font-size:13.5px;color:#7888cc;font-weight:700;min-width:44px;text-align:center">${Math.round(Z*100)}%</span>
@@ -4665,15 +4692,17 @@ function rTree(){
   },{passive:false});
   canvas.addEventListener('touchend',()=>{ if(dragging){saveTreePos();dragging=null;} });
 
-  function saveTreePos(){ _lsSet('tops_tree_pos_v2',JSON.stringify(pos)); }
+  function saveTreePos(){ _lsSet(POS_KEY,JSON.stringify(pos)); }
 
-  // 초기화 함수 전역 등록
+  // 초기화 함수 전역 등록 — 지금 보고 있는 보기(전체/선택한 팀장)의 위치만 초기화
   window.resetTreePos=function(){
     localStorage.removeItem('tops_tree_pos');      // 구버전(상하 트리) 저장분도 정리
-    localStorage.removeItem('tops_tree_pos_v2');
+    localStorage.removeItem(POS_KEY);
     rTree();
     toast('계보도 위치가 초기화되었습니다.');
   };
+  // 전체/팀장별 보기 전환
+  window.setTreeLeader=function(v){ window._treeLeader=v||''; rTree(); };
   // 확대/축소 — 배율 변경 후 다시 그림 (40%~200%)
   window.zoomTree=function(d){
     window._treeZoom=Math.min(2,Math.max(0.4,(window._treeZoom||1)+d));
@@ -4717,7 +4746,7 @@ function rTree(){
       const blob=new Blob([bytes],{type:'application/pdf'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download='TEAM_TOPS_계보도_'+td().replace(/-/g,'')+'.pdf';
+      a.download='TEAM_TOPS_계보도_'+(leaderSel?leaderSel+'팀_':'')+td().replace(/-/g,'')+'.pdf';
       a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
       toast('계보도 PDF가 저장되었습니다.');
