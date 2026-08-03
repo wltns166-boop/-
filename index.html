@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-3</div>
   </div>
 </div>
 
@@ -12433,13 +12433,14 @@ function openBizFormPreview(name){
   if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
   w.document.write(doc.html); w.document.close();
 }
-// 출력: 새 창에서 바로 인쇄 대화상자
+// 출력: 새 창에서 바로 인쇄 대화상자. 성공 여부 반환(팝업 차단 등 실패 시 false — 출력완료 오표시 방지용)
 function printBizForm(name){
   var doc=_bizFormDoc(name, {toolbar:true, autoPrint:true});
-  if(!doc){ toast('작성된 사업계획서가 없습니다.'); return; }
+  if(!doc){ toast('작성된 사업계획서가 없습니다.'); return false; }
   var w=window.open('','_blank','width=1020,height=860');
-  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return false; }
   w.document.write(doc.html); w.document.close();
+  return true;
 }
 // ===== 사업계획서 관리자 피드백 (2026-08-03, 관리자 전용) =====
 // 데이터: 제출 건(bizplan.subs[i])에 fb(내용)/fbBy(작성자)/fbByRole(호칭)/fbTs/fbPrintTs/fbPrintBy.
@@ -12462,7 +12463,7 @@ function openBizFbModal(name){
     +'<div style="font-size:12.5px;color:#888;margin-bottom:10px">저장하면 해당 팀원의 사업계획서(리쿠르팅 대상자 아래)와 보기/출력/다운로드 문서에 표시됩니다. 내용을 비우고 저장하면 삭제됩니다.</div>'
     +'<textarea id="bizfb_ta" oninput="_bizFbGrow(this)" placeholder="피드백 내용을 입력하세요" style="width:100%;min-height:120px;resize:none;overflow:hidden;border:1px solid #c8cce0;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:1.6;color:#1a1a2e;background:#fff;box-sizing:border-box"></textarea>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
-    +'<button onclick="document.getElementById(\'bizfb_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="_bizFbTarget=null;document.getElementById(\'bizfb_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
     +'<button onclick="saveBizFb()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>'
     +'</div></div>';
   document.body.appendChild(ov);
@@ -12494,7 +12495,7 @@ function bizFbPrint(name){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
   if(!s||!s.form){ toast('작성된 사업계획서가 없습니다.'); return; }
-  printBizForm(name);
+  if(printBizForm(name)!==true) return; // 팝업 차단 등 실패 시 출력완료로 표시하지 않음
   s.fbPrintTs=Date.now();
   s.fbPrintBy=(cu&&cu.name)||'';
   sv('tops_bizplan',bizplan);
