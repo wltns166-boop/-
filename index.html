@@ -289,6 +289,10 @@ table.dt tr:last-child td{border-bottom:none;}
 .bdthumb{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#eef0f6;border:1px solid #e2e4ee;display:flex;align-items:center;justify-content:center;transition:.15s}
 .bdthumb img{width:100%;height:100%;object-fit:cover;display:block}
 .bdcard:hover .bdthumb{box-shadow:0 5px 16px rgba(40,60,180,.20);transform:translateY(-2px)}
+/* 리쿠르팅 왼쪽 대상자 리스트 */
+.rcli{padding:7px 10px;border:1px solid #e2e4ee;border-radius:8px;font-size:13.5px;color:#333;cursor:pointer;background:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcli:hover{background:rgba(80,100,220,.08)}
+.rcli.on{background:#eef1ff;border-color:#8a9af0;color:#2a3aaa;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -336,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-23</div>
   </div>
 </div>
 
@@ -1224,18 +1228,23 @@ table.dt tr:last-child td{border-bottom:none;}
       </div></div>
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button onclick="rcAddCard()" style="padding:8px 14px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 페이지 추가</button>
-            <select id="rc_jump" onchange="rcJump(this.value)" style="display:none;max-width:250px;padding:7px 9px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:13.5px;color:#222;background:#fff"></select>
-          </div>
+          <button onclick="rcAddCard()" style="padding:8px 14px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 페이지 추가</button>
           <div style="display:flex;align-items:center;gap:6px">
             <button onclick="rcNav(-1)" title="이전 카드" style="padding:7px 13px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:15px;cursor:pointer;font-family:inherit"><i class="ti ti-chevron-left"></i></button>
             <span id="rc_pos" style="font-size:13.5px;color:#555;font-weight:600;min-width:52px;text-align:center">0 / 0</span>
             <button onclick="rcNav(1)" title="다음 카드" style="padding:7px 13px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:15px;cursor:pointer;font-family:inherit"><i class="ti ti-chevron-right"></i></button>
           </div>
         </div>
-        <div id="rc_paper"></div>
-        <div id="rc_foot" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px"></div>
+        <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:0 0 216px;min-width:170px;max-width:100%">
+            <div id="rc_count" style="font-weight:700;font-size:14px;color:#2a2a4a;margin-bottom:8px"></div>
+            <div id="rc_list" style="display:flex;flex-direction:column;gap:4px;max-height:72vh;overflow-y:auto"></div>
+          </div>
+          <div style="flex:1;min-width:280px">
+            <div id="rc_paper"></div>
+            <div id="rc_foot" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px"></div>
+          </div>
+        </div>
       </div>
       <!-- 팀원 작성 현황 (팀장급 이상) -->
       <div class="card" id="rc_team_box" style="display:none;margin-top:14px">
@@ -13210,7 +13219,7 @@ function _rcFlds(){
   var f=(recruit&&Array.isArray(recruit.flds))?recruit.flds:null;
   if(!f||!f.length) return RC_DEF_FLDS;
   var out=f.filter(function(x){return x&&x.id&&x.label;})
-    .map(function(x){ return {id:String(x.id),label:String(x.label),subs:Array.isArray(x.subs)?x.subs.map(String):[]}; });
+    .map(function(x){ return {id:String(x.id),label:String(x.label),subs:Array.isArray(x.subs)?x.subs.map(String):[],hs:x.hs?1:0}; });
   return out.length?out:RC_DEF_FLDS;
 }
 function _rcCards(){
@@ -13256,21 +13265,34 @@ function rRecruit(){
   var vis=_rcVisible();
   var cur=window._rcCur?_rcCardById(window._rcCur):null;
   if(!cur||!vis.some(function(c){return c.id===cur.id;})){ cur=vis.length?vis[0]:null; window._rcCur=cur?cur.id:null; }
+  // 카드가 하나도 없으면 기본 1페이지 — 미저장 초안(작성 후 [저장]하면 실제 등록)
+  var draft=null;
+  if(!cur&&cu&&cu.name){
+    if(!window._rcDraft) window._rcDraft={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
+    draft=window._rcDraft;
+    cur=draft; window._rcCur=draft.id;
+  }
   var pos=-1;
-  if(cur){ for(var i=0;i<vis.length;i++){ if(vis[i].id===cur.id){ pos=i; break; } } }
-  var posEl=g('rc_pos'); if(posEl) posEl.textContent=vis.length?((pos+1)+' / '+vis.length):'0 / 0';
-  var jump=g('rc_jump');
-  if(jump){
-    jump.innerHTML=vis.map(function(c){
-      var nm=_rcTargetName(c);
-      return '<option value="'+_esc(c.id)+'"'+(cur&&c.id===cur.id?' selected':'')+'>'
-        +_esc(c.owner||'-')+' — '+_esc(nm||'(이름 미입력)')+((c.prints&&c.prints.length)?' · 출력됨':'')+'</option>';
-    }).join('');
-    jump.style.display=vis.length>1?'':'none';
+  if(cur&&!draft){ for(var i=0;i<vis.length;i++){ if(vis[i].id===cur.id){ pos=i; break; } } }
+  var posEl=g('rc_pos'); if(posEl) posEl.textContent=draft?'1 / 1':(vis.length?((pos+1)+' / '+vis.length):'0 / 0');
+  // 왼쪽 대상자 리스트 — 이름 클릭으로 바로 이동, 인원 카운트
+  var lc=g('rc_count'), ll=g('rc_list');
+  if(lc) lc.textContent='대상자 '+vis.length+'명';
+  if(ll){
+    if(vis.length){
+      ll.innerHTML=vis.map(function(c){
+        var nm=_rcTargetName(c)||'(이름 미입력)';
+        var own=(cu&&c.owner!==cu.name)?' <span style="font-size:11.5px;color:#99a">'+_esc(c.owner)+'</span>':'';
+        return '<div class="rcli'+(cur&&c.id===cur.id?' on':'')+'" data-rcgo="'+_esc(c.id)+'" title="'+_esc(nm)+(c.owner?' ('+_esc(c.owner)+')':'')+'">'+_esc(nm)+own+'</div>';
+      }).join('');
+      ll.querySelectorAll('[data-rcgo]').forEach(function(b){ b.addEventListener('click',function(){ rcJump(b.getAttribute('data-rcgo')); }); });
+    } else {
+      ll.innerHTML=draft?'<div class="rcli on">새 카드 (미저장)</div>':'<div style="color:#a0a0b0;font-size:13px;padding:6px 2px">카드가 없습니다.</div>';
+    }
   }
   var ft=g('rc_foot');
   if(!cur){
-    paper.innerHTML='<div style="padding:44px 10px;text-align:center;color:#8888aa;font-size:14.5px">작성된 리쿠르팅 카드가 없습니다.<br>[+ 페이지 추가] 버튼으로 첫 카드를 만들어 보세요.</div>';
+    paper.innerHTML='<div style="padding:44px 10px;text-align:center;color:#8888aa;font-size:14.5px">로그인 후 이용할 수 있습니다.</div>';
     if(ft) ft.innerHTML='';
     return;
   }
@@ -13294,14 +13316,24 @@ function _rcFormHtml(c){
     var inner;
     if(f.subs.length){
       var arr=Array.isArray(v)?v:(v?[String(v)]:[]);
-      inner=f.subs.map(function(sl,si){
-        return '<div style="padding:8px 12px'+(si<f.subs.length-1?';border-bottom:1px solid #e4e4e8':'')+'">'
-          +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
-          +ta(f.id,si,arr[si]||'',28)+'</div>';
-      }).join('');
+      if(f.hs&&f.subs.length>1){
+        // 가로 분할 — 세부 칸을 나란히
+        inner='<div style="display:flex;align-items:stretch">'+f.subs.map(function(sl,si){
+          return '<div style="flex:1;min-width:0;padding:8px 10px;display:flex;flex-direction:column;justify-content:center;min-height:64px'+(si?';border-left:1px solid #e4e4e8':'')+'">'
+            +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +ta(f.id,si,arr[si]||'',28)+'</div>';
+        }).join('')+'</div>';
+      } else {
+        inner=f.subs.map(function(sl,si){
+          return '<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;min-height:56px'+(si<f.subs.length-1?';border-bottom:1px solid #e4e4e8':'')+'">'
+            +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +ta(f.id,si,arr[si]||'',28)+'</div>';
+        }).join('');
+      }
     } else {
-      var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?110:30;
-      inner='<div style="padding:8px 12px">'+ta(f.id,null,typeof v==='string'?v:'',tall)+'</div>';
+      var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?120:52;
+      // 세로 가운데 정렬 — 입력값이 칸 위쪽에 붙지 않게(내용이 늘면 자동으로 확장)
+      inner='<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;min-height:'+tall+'px">'+ta(f.id,null,typeof v==='string'?v:'',28)+'</div>';
     }
     return '<div style="display:flex;border-bottom:1px solid #cfcfd6">'
       +'<div style="flex:0 0 110px;background:#f2f2f5;color:#222;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px 6px;border-right:1px solid #cfcfd6;line-height:1.4;word-break:keep-all">'+_esc(f.label)+'</div>'
@@ -13410,6 +13442,12 @@ async function rcAddCard(){
   window._rcAdding=true;
   try{
     _rcCollect();
+    // 기본 1페이지 초안이 비어 있으면 버리고 새 카드만 만든다(빈 카드 이중 생성 방지). 값이 있으면 함께 저장됨.
+    if(window._rcDraft&&window._rcCur===window._rcDraft.id){
+      var dv=window._rcDraft.vals||{};
+      var hasVal=Object.keys(dv).some(function(k){ var v=dv[k]; return Array.isArray(v)?v.some(function(x){return String(x||'').trim();}):String(v||'').trim(); });
+      if(!hasVal){ if(window._rcDirty) delete window._rcDirty[window._rcDraft.id]; window._rcDraft=null; window._rcCur=null; }
+    }
     var nc={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
     await _rcFresh(function(r){ r.cards.push(nc); });
     window._rcCur=nc.id;
@@ -13427,6 +13465,7 @@ async function saveRcCard(){
     for(var k=0;k<r.cards.length;k++){ if(r.cards[k]&&r.cards[k].id===c.id){ i=k; break; } }
     if(i>=0) r.cards[i]=c; else r.cards.push(c);
   });
+  if(window._rcDraft&&window._rcDraft.id===c.id) window._rcDraft=null;   // 기본 1페이지 초안이 실제 카드로 등록됨
   toast('리쿠르팅 카드가 저장되었습니다.');
   rRecruit();
 }
@@ -13449,11 +13488,19 @@ function _rcTableHtml(c){
     var cell;
     if(f.subs.length){
       var arr=Array.isArray(v)?v:(v?[String(v)]:[]);
-      cell=f.subs.map(function(sl,si){
-        return '<div style="padding:7px 10px'+(si<f.subs.length-1?';border-bottom:1px solid #ddd':'')+'">'
-          +'<div style="font-size:11.5px;color:#777;margin-bottom:2px">'+_esc(sl)+'</div>'
-          +'<div style="'+pre+';min-height:18px">'+_esc(arr[si]||'')+'</div></div>';
-      }).join('');
+      if(f.hs&&f.subs.length>1){
+        cell='<div style="display:flex;align-items:stretch">'+f.subs.map(function(sl,si){
+          return '<div style="flex:1;min-width:0;padding:7px 10px'+(si?';border-left:1px solid #ddd':'')+'">'
+            +'<div style="font-size:11.5px;color:#777;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +'<div style="'+pre+';min-height:18px">'+_esc(arr[si]||'')+'</div></div>';
+        }).join('')+'</div>';
+      } else {
+        cell=f.subs.map(function(sl,si){
+          return '<div style="padding:7px 10px'+(si<f.subs.length-1?';border-bottom:1px solid #ddd':'')+'">'
+            +'<div style="font-size:11.5px;color:#777;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +'<div style="'+pre+';min-height:18px">'+_esc(arr[si]||'')+'</div></div>';
+        }).join('');
+      }
     } else {
       var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?90:20;
       cell='<div style="padding:7px 10px"><div style="'+pre+';min-height:'+tall+'px">'+_esc(typeof v==='string'?v:'')+'</div></div>';
@@ -13633,7 +13680,7 @@ function openRcFldsModal(){
   // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-list-details"></i> 리쿠르팅 카드 항목 관리</div>'
-    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">카드 양식의 작성 항목을 추가·삭제·수정합니다(전 팀원 공통 적용). 세부 칸은 쉼표(,)로 구분해 여러 개 만들 수 있습니다. 항목을 삭제해도 이미 작성된 내용은 데이터에 남아 있어, 같은 항목을 되살리면 다시 보입니다.</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">카드 양식의 작성 항목을 추가·삭제·수정합니다(전 팀원 공통 적용). 세부 칸은 쉼표(,)로 구분해 여러 개 만들 수 있고, [가로 분할]을 켜면 세부 칸이 표처럼 옆으로 나란히 배치됩니다. 항목을 삭제해도 이미 작성된 내용은 데이터에 남아 있어, 같은 항목을 되살리면 다시 보입니다.</div>'
     +'<div id="rcfl_list"></div>'
     +'<button onclick="rcFldAdd()" style="'+_bt+'margin-top:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830;padding:5px 12px;font-size:13px"><i class="ti ti-plus"></i> 항목 추가</button>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
@@ -13641,7 +13688,7 @@ function openRcFldsModal(){
     +'<button onclick="saveRcFlds()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>'
     +'</div></div>';
   document.body.appendChild(ov);
-  window._rcFldsWork=_rcFlds().map(function(f){ return {id:f.id,label:f.label,subs:f.subs.slice()}; });
+  window._rcFldsWork=_rcFlds().map(function(f){ return {id:f.id,label:f.label,subs:f.subs.slice(),hs:f.hs?1:0}; });
   _rcFldsDraw();
 }
 function _rcFldsDraw(){
@@ -13652,6 +13699,7 @@ function _rcFldsDraw(){
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
       +'<input data-rcfl="'+i+'" value="'+_esc(f.label)+'" placeholder="항목 이름" style="flex:1.2;min-width:140px;padding:7px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff">'
       +'<input data-rcflsub="'+i+'" value="'+_esc(f.subs.join(', '))+'" placeholder="세부 칸(쉼표 구분, 비우면 1칸)" style="flex:1;min-width:140px;padding:7px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#555;background:#fff">'
+      +'<label title="세부 칸을 위아래가 아니라 옆으로 나란히(표 분할) 배치" style="display:flex;align-items:center;gap:3px;font-size:12px;color:#555;cursor:pointer;white-space:nowrap"><input type="checkbox" data-rcflhs="'+i+'"'+(f.hs?' checked':'')+' style="accent-color:#4858cc">가로 분할</label>'
       +'<span style="display:flex;gap:4px">'
       +'<button onclick="rcFldMove('+i+',-1)" title="위로" style="'+sb+'"><i class="ti ti-arrow-up"></i></button>'
       +'<button onclick="rcFldMove('+i+',1)" title="아래로" style="'+sb+'"><i class="ti ti-arrow-down"></i></button>'
@@ -13664,6 +13712,7 @@ function _rcFldsPull(){
   var w=window._rcFldsWork||[];
   document.querySelectorAll('input[data-rcfl]').forEach(function(inp){ var i=+inp.getAttribute('data-rcfl'); if(w[i]) w[i].label=inp.value; });
   document.querySelectorAll('input[data-rcflsub]').forEach(function(inp){ var i=+inp.getAttribute('data-rcflsub'); if(w[i]) w[i].subs=inp.value.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}); });
+  document.querySelectorAll('input[data-rcflhs]').forEach(function(cb){ var i=+cb.getAttribute('data-rcflhs'); if(w[i]) w[i].hs=cb.checked?1:0; });
 }
 function rcFldAdd(){ _rcFldsPull(); (window._rcFldsWork=window._rcFldsWork||[]).push({id:'rf_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),label:'',subs:[]}); _rcFldsDraw(); }
 function rcFldDel(i){ _rcFldsPull(); var w=window._rcFldsWork; if(!w||!w[i]) return; if(w[i].label&&!confirm('항목 "'+w[i].label+'"을(를) 삭제하시겠습니까?\n(이미 작성된 카드의 해당 내용은 화면에서 숨겨질 뿐 데이터는 유지됩니다)')) return; w.splice(i,1); _rcFldsDraw(); }
@@ -13672,7 +13721,7 @@ async function saveRcFlds(){
   if(!_isAdmin()){ toast('관리자만 항목을 관리할 수 있습니다.'); return; }
   _rcFldsPull();
   var w=(window._rcFldsWork||[]).filter(function(f){return f.label&&f.label.trim();})
-    .map(function(f){ return {id:f.id,label:f.label.trim(),subs:f.subs}; });
+    .map(function(f){ return {id:f.id,label:f.label.trim(),subs:f.subs,hs:f.hs?1:0}; });
   if(!w.length){ toast('항목이 하나 이상 필요합니다.'); return; }
   await _rcFresh(function(r){ r.flds=w; });
   var ov=g('rcfl_overlay'); if(ov) ov.remove();
