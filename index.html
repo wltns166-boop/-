@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-19</div>
   </div>
 </div>
 
@@ -14023,7 +14023,18 @@ function _bdImgs(p){
   imgs.sort(function(a,b){ return (b.rep?1:0)-(a.rep?1:0); });
   return imgs;
 }
-function _bdPdfs(p){ return (Array.isArray(p.files)?p.files:[]).filter(function(f){ return f&&f.t!=='img'&&f.u&&_BD_URL_RE.test(String(f.u)); }); }
+function _bdKindFiles(p,k){ return (Array.isArray(p.files)?p.files:[]).filter(function(f){ return f&&f.t===k&&f.u&&_BD_URL_RE.test(String(f.u)); }); }
+function _bdPdfs(p){ return _bdKindFiles(p,'pdf'); }
+// 첨부 종류 판별 — img/pdf/xls/ppt/vid, 그 외 null(업로드 불가)
+function _bdFileKind(f){
+  var n=String(f&&f.name||'').toLowerCase(), t=String(f&&f.type||'');
+  if(/^image\//.test(t)) return 'img';
+  if(t==='application/pdf'||/\.pdf$/.test(n)) return 'pdf';
+  if(/\.(xls|xlsx|csv)$/.test(n)||/spreadsheet|ms-excel|csv/.test(t)) return 'xls';
+  if(/\.(ppt|pptx)$/.test(n)||/presentation|ms-powerpoint/.test(t)) return 'ppt';
+  if(/^video\//.test(t)||/\.(mp4|mov|webm|m4v)$/.test(n)) return 'vid';
+  return null;
+}
 // 목록 카드 — 썸네일 우선순위: 등록한 대표이미지(cover) → 첫 사진/PDF 1페이지 → 아이콘
 function _bdCardHtml(p){
   var vi=_bdViewImgs(p), pdfs=_bdPdfs(p);
@@ -14031,6 +14042,9 @@ function _bdCardHtml(p){
   var th;
   if(cover) th='<img src="'+_esc(cover)+'" loading="lazy" alt="" draggable="false">';
   else if(pdfs.length) th='<i class="ti ti-file-type-pdf" style="font-size:46px;color:#c05050"></i>';
+  else if(_bdKindFiles(p,'vid').length) th='<i class="ti ti-video" style="font-size:46px;color:#4858cc"></i>';
+  else if(_bdKindFiles(p,'xls').length) th='<i class="ti ti-file-type-xls" style="font-size:46px;color:#207830"></i>';
+  else if(_bdKindFiles(p,'ppt').length) th='<i class="ti ti-file-type-ppt" style="font-size:46px;color:#c07020"></i>';
   else th='<i class="ti ti-notes" style="font-size:42px;color:#b8bdd6"></i>';
   return '<div class="bdcard" data-bdopen="'+_esc(p.id)+'"'+(_isAdmin()?'':' oncontextmenu="return false"')+'>'
     +'<div class="bdthumb">'+th+'</div>'
@@ -14060,10 +14074,30 @@ function _bdFilesHtml(p){
       }).join('')+'</div>';
     }
   }
-  if(adm&&pdfs.length){
-    fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pdfs.map(function(f){
-      return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+' <span style="font-size:11px;color:#c88">원본(관리자 전용)</span></a>';
+  // 동영상 — 인라인 재생(팀원은 다운로드 버튼 없이 시청만, 관리자는 아래 원본 링크)
+  var vids=_bdKindFiles(p,'vid');
+  if(vids.length){
+    fh+='<div'+noCtx+'>'+vids.map(function(f){
+      return '<div style="margin-top:12px;text-align:center"><video src="'+_esc(f.u)+'" controls preload="metadata" controlsList="nodownload" style="max-width:100%;max-height:72vh;border-radius:10px;background:#000"></video></div>';
     }).join('')+'</div>';
+  }
+  // 엑셀·PPT — 인라인 미리보기가 불가한 작업용 파일(양식 등)이라 전원 다운로드 가능
+  var xls=_bdKindFiles(p,'xls'), ppt=_bdKindFiles(p,'ppt');
+  if(xls.length||ppt.length){
+    fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'
+      +xls.map(function(f){ return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#eef7ee;border:1px solid #b8d8b8;border-radius:8px;color:#207830;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-xls"></i>'+_esc(f.n||'엑셀 파일')+'</a>'; }).join('')
+      +ppt.map(function(f){ return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf5ec;border:1px solid #e8cfa8;border-radius:8px;color:#c07020;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-ppt"></i>'+_esc(f.n||'PPT 파일')+'</a>'; }).join('')
+      +'</div>';
+  }
+  if(adm&&(pdfs.length||vids.length)){
+    fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'
+      +pdfs.map(function(f){
+        return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+' <span style="font-size:11px;color:#c88">원본(관리자 전용)</span></a>';
+      }).join('')
+      +vids.map(function(f){
+        return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-video"></i>'+_esc(f.n||'동영상')+' <span style="font-size:11px;color:#88a">원본(관리자 전용)</span></a>';
+      }).join('')
+      +'</div>';
   }
   // 페이지가 많아 일부만 미리보기로 만든 문서 안내
   var trunc=pdfs.filter(function(f){ return Array.isArray(f.pages)&&f.pages.length&&(+f.pgTotal||0)>f.pages.length; });
@@ -14277,9 +14311,9 @@ function bdWrite(name,pid){
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">대표이미지 <span style="color:#999;font-size:12px">— 목록에 보일 썸네일 (등록 안 하면 첫 사진/PDF 첫 페이지 자동)</span></div>'
     +'<div id="bd_cover_box" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>'
     +'<input type="file" id="bd_cover" accept="image/*" style="display:none">'
-    +'<div style="font-size:13px;color:#555;margin-bottom:4px">첨부 파일 (사진·PDF) <span style="color:#999;font-size:12px">— 사진 여러 장이면 [대표]로 첫 사진을 고르세요. PDF는 팀원이 볼 수 있게 페이지 미리보기가 자동 생성됩니다</span></div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">첨부 파일 (사진·PDF·엑셀·PPT·동영상) <span style="color:#999;font-size:12px">— PDF는 페이지 미리보기 자동 생성, 동영상은 화면에서 바로 재생, 엑셀·PPT는 다운로드 버튼으로 제공됩니다</span></div>'
     +'<div id="bd_flist" style="margin-bottom:8px"></div>'
-    +'<input type="file" id="bd_file" multiple accept="image/*,application/pdf" style="display:none">'
+    +'<input type="file" id="bd_file" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv,.ppt,.pptx,video/*" style="display:none">'
     +'<button onclick="document.getElementById(\'bd_file\').click()" style="'+_bt+'padding:6px 12px;font-size:13px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-paperclip"></i> 파일 추가</button>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
     +'<button onclick="document.getElementById(\'bd_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
@@ -14289,10 +14323,10 @@ function bdWrite(name,pid){
   g('bd_file').addEventListener('change',function(){
     var e=window._bdEdit; if(!e) return;
     Array.prototype.forEach.call(this.files||[],function(f){
-      var isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
-      var isImg=/^image\//.test(f.type||'');
-      if(!isPdf&&!isImg){ toast('사진 또는 PDF만 올릴 수 있습니다: '+(f.name||'')); return; }
-      if(isPdf&&f.size>25*1024*1024){ toast('PDF는 25MB 이하만 가능합니다: '+(f.name||'')); return; }
+      var kind=_bdFileKind(f);
+      if(!kind){ toast('사진·PDF·엑셀·PPT·동영상만 올릴 수 있습니다: '+(f.name||'')); return; }
+      if(kind==='vid'&&f.size>200*1024*1024){ toast('동영상은 200MB 이하만 가능합니다: '+(f.name||'')); return; }
+      if((kind==='pdf'||kind==='xls'||kind==='ppt')&&f.size>25*1024*1024){ toast('PDF·엑셀·PPT는 25MB 이하만 가능합니다: '+(f.name||'')); return; }
       e.newFiles.push(f);
     });
     this.value='';
@@ -14385,6 +14419,13 @@ async function _bdPdfUpload(name,file){
   await ref.put(file,{contentType:'application/pdf'});
   return await ref.getDownloadURL();
 }
+// 엑셀·PPT·동영상 — 변환 없이 원본 그대로 업로드(확장자 유지)
+async function _bdRawUpload(name,file){
+  var ext=(String(file.name||'').match(/\.[a-z0-9]{1,5}$/i)||[''])[0].toLowerCase();
+  var ref=firebase.storage().ref('board_files/'+name+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+ext);
+  await ref.put(file,{contentType:file.type||'application/octet-stream'});
+  return await ref.getDownloadURL();
+}
 // PDF → 페이지별 JPEG 미리보기 업로드(다운로드 없이 인라인 열람용). pdf.js(전역 로드됨) 사용.
 // 실패 시 예외 — 호출부에서 원본만 유지하고 계속 진행(폴백).
 var BD_PDF_MAX_PAGES=40;
@@ -14445,9 +14486,9 @@ async function bdSave(){
     while(e.newFiles.length){
       var f=e.newFiles[0];
       toast('파일 올리는 중… (남은 '+e.newFiles.length+'개)');
-      var isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
+      var kind=_bdFileKind(f)||'img';
       var entry;
-      if(isPdf){
+      if(kind==='pdf'){
         entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')};
         // 페이지별 미리보기 — 팀원이 다운로드 없이 열람. 실패해도 원본은 유지(관리자용)
         try{
@@ -14457,7 +14498,8 @@ async function bdSave(){
         }
         catch(errPv){ console.warn('PDF 미리보기 생성 실패:', errPv); toast('PDF 미리보기 생성 실패 — 원본만 첨부됩니다: '+entry.n); }
       }
-      else { entry={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) entry.rep=1; }
+      else if(kind==='img'){ entry={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) entry.rep=1; }
+      else { entry={u:await _bdRawUpload(e.name,f), t:kind, n:String(f.name||'파일')}; } // xls/ppt/vid — 원본 그대로
       e.files.push(entry);
       e.newFiles.shift();
     }
