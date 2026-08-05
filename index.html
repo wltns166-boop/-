@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-13</div>
   </div>
 </div>
 
@@ -14023,11 +14023,12 @@ function _bdImgs(p){
   return imgs;
 }
 function _bdPdfs(p){ return (Array.isArray(p.files)?p.files:[]).filter(function(f){ return f&&f.t!=='img'&&f.u&&_BD_URL_RE.test(String(f.u)); }); }
-// 목록 카드 — 대표이미지 썸네일 + 제목 + 날짜 (이미지 없으면 PDF/문서 아이콘)
+// 목록 카드 — 썸네일 우선순위: 등록한 대표이미지(cover) → 첫 사진/PDF 1페이지 → 아이콘
 function _bdCardHtml(p){
-  var imgs=_bdImgs(p), pdfs=_bdPdfs(p);
+  var vi=_bdViewImgs(p), pdfs=_bdPdfs(p);
+  var cover=(p.cover&&p.cover.u&&_BD_URL_RE.test(String(p.cover.u)))?p.cover.u:(vi.length?vi[0].u:null);
   var th;
-  if(imgs.length) th='<img src="'+_esc(imgs[0].u)+'" loading="lazy" alt="">';
+  if(cover) th='<img src="'+_esc(cover)+'" loading="lazy" alt="" draggable="false">';
   else if(pdfs.length) th='<i class="ti ti-file-type-pdf" style="font-size:46px;color:#c05050"></i>';
   else th='<i class="ti ti-notes" style="font-size:42px;color:#b8bdd6"></i>';
   return '<div class="bdcard" data-bdopen="'+_esc(p.id)+'">'
@@ -14036,31 +14037,46 @@ function _bdCardHtml(p){
     +'<div style="font-size:12px;color:#999;margin-top:2px">'+_esc(p.dt||'')+'</div>'
     +'</div>';
 }
-// 첨부 표시 — 이미지(보기 방식별) + PDF 버튼 (상세 화면 전용)
+// 첨부 표시 — 사진+PDF 페이지 미리보기를 보기 방식(vm)대로 인라인 표시 (상세 화면 전용).
+// 팀원: 원본 링크·다운로드 버튼 없음(이미지 클릭·드래그·우클릭 저장 억제 — 완전 차단은 브라우저 특성상 불가).
+// 관리자: 이미지 클릭=원본 새 창, [원본 PDF] 다운로드 버튼 표시.
 function _bdFilesHtml(p){
+  var adm=_isAdmin();
   var sb='padding:4px 10px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
-  var imgs=_bdImgs(p), pdfs=_bdPdfs(p);
+  var imgs=_bdViewImgs(p), pdfs=_bdPdfs(p);
+  var noCtx=adm?'':' oncontextmenu="return false"';
+  function tag(u,style){
+    var im='<img src="'+_esc(u)+'" loading="lazy" alt=""'+(adm?'':' draggable="false"')+' style="'+style+'">';
+    return adm?'<a href="'+_esc(u)+'" target="_blank" rel="noopener">'+im+'</a>':im;
+  }
   var fh='';
   if(imgs.length){
     if(p.vm==='swipe'&&imgs.length>1){
-      var idx=(((window._bdIdx||{})[p.id]||0)%imgs.length+imgs.length)%imgs.length; // 재렌더 시 보던 위치 유지(처음엔 대표이미지)
-      fh+='<div id="bdc_'+_esc(p.id)+'" style="margin-top:12px;text-align:center;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
-        +'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener"><img src="'+_esc(imgs[idx].u)+'" loading="lazy" alt="" style="max-width:100%;max-height:72vh;border-radius:8px"></a>'
+      var idx=(((window._bdIdx||{})[p.id]||0)%imgs.length+imgs.length)%imgs.length; // 재렌더 시 보던 위치 유지(처음엔 대표)
+      fh+='<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;text-align:center;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
+        +tag(imgs[idx].u,'max-width:100%;max-height:72vh;border-radius:8px')
         +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
         +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'padding:6px 16px;font-size:14px"><i class="ti ti-chevron-left"></i></button>'
         +'<span data-bdcnt style="font-size:13px;color:#555;font-weight:600;min-width:46px">'+(idx+1)+' / '+imgs.length+'</span>'
         +'<button data-bdnav="'+_esc(p.id)+'|1" style="'+sb+'padding:6px 16px;font-size:14px"><i class="ti ti-chevron-right"></i></button>'
         +'</div></div>';
     } else {
-      fh+=imgs.map(function(f){
-        return '<div style="margin-top:12px;text-align:center"><a href="'+_esc(f.u)+'" target="_blank" rel="noopener"><img src="'+_esc(f.u)+'" loading="lazy" alt="" style="max-width:100%;border-radius:8px"></a></div>';
-      }).join('');
+      fh+='<div'+noCtx+'>'+imgs.map(function(f){
+        return '<div style="margin-top:12px;text-align:center">'+tag(f.u,'max-width:100%;border-radius:8px')+'</div>';
+      }).join('')+'</div>';
     }
   }
-  if(pdfs.length){
+  if(adm&&pdfs.length){
     fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pdfs.map(function(f){
-      return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+'</a>';
+      return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+' <span style="font-size:11px;color:#c88">원본(관리자 전용)</span></a>';
     }).join('')+'</div>';
+  }
+  // 미리보기가 없는 예전 PDF — 팀원에게 안내(관리자가 [수정]→[저장]하면 자동 생성)
+  var noPv=pdfs.filter(function(f){ return !(Array.isArray(f.pages)&&f.pages.length); });
+  if(noPv.length){
+    fh+=adm
+      ? '<div style="margin-top:10px;font-size:12.5px;color:#a06010"><i class="ti ti-info-circle"></i> 미리보기 없는 PDF '+noPv.length+'건 — [수정]→[저장]하면 팀원용 미리보기가 자동 생성됩니다.</div>'
+      : '<div style="margin-top:10px;font-size:13px;color:#a0a0b0"><i class="ti ti-file-off"></i> 미리보기 준비 중인 PDF가 있습니다. 관리자에게 문의하세요.</div>';
   }
   return fh;
 }
@@ -14115,7 +14131,7 @@ function _bdBind(body,name){
 // 좌우 넘김 — 캐러셀 안의 이미지·카운터만 교체(스크롤 위치 유지)
 function _bdNav(name,pid,dir){
   var p=_bdPostById(name,pid); if(!p) return;
-  var imgs=_bdImgs(p); if(imgs.length<2) return;
+  var imgs=_bdViewImgs(p); if(imgs.length<2) return;
   window._bdIdx=window._bdIdx||{};
   var i=(((window._bdIdx[pid]||0)+dir)%imgs.length+imgs.length)%imgs.length;
   window._bdIdx[pid]=i;
@@ -14145,7 +14161,8 @@ function bdWrite(name,pid){
   var p=pid?_bdPostById(name,pid):null;
   if(pid&&!p){ toast('게시물을 찾을 수 없습니다.'); return; }
   window._bdEdit={ name:name, id:p?p.id:null, orig:p||null,
-    files:(p&&Array.isArray(p.files)?p.files.map(function(f){return Object.assign({},f);}):[]), newFiles:[] };
+    files:(p&&Array.isArray(p.files)?p.files.map(function(f){return Object.assign({},f);}):[]), newFiles:[],
+    cover:(p&&p.cover&&p.cover.u)?Object.assign({},p.cover):null, newCover:null };
   var old=g('bd_overlay'); if(old) old.remove();
   var ov=document.createElement('div');
   ov.id='bd_overlay';
@@ -14162,7 +14179,10 @@ function bdWrite(name,pid){
     +'<select id="bd_vm" style="'+_in+';margin-bottom:10px">'
     +'<option value="scroll"'+(!p||p.vm!=='swipe'?' selected':'')+'>위아래로 내리면서 보기 (사진 세로 나열)</option>'
     +'<option value="swipe"'+(p&&p.vm==='swipe'?' selected':'')+'>좌우로 넘겨서 보기 (◀▶ 버튼)</option></select>'
-    +'<div style="font-size:13px;color:#555;margin-bottom:4px">첨부 파일 (사진·PDF) <span style="color:#999;font-size:12px">— 사진 여러 장이면 [대표]로 대표이미지를 고르세요</span></div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">대표이미지 <span style="color:#999;font-size:12px">— 목록에 보일 썸네일 (등록 안 하면 첫 사진/PDF 첫 페이지 자동)</span></div>'
+    +'<div id="bd_cover_box" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>'
+    +'<input type="file" id="bd_cover" accept="image/*" style="display:none">'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">첨부 파일 (사진·PDF) <span style="color:#999;font-size:12px">— 사진 여러 장이면 [대표]로 첫 사진을 고르세요. PDF는 팀원이 볼 수 있게 페이지 미리보기가 자동 생성됩니다</span></div>'
     +'<div id="bd_flist" style="margin-bottom:8px"></div>'
     +'<input type="file" id="bd_file" multiple accept="image/*,application/pdf" style="display:none">'
     +'<button onclick="document.getElementById(\'bd_file\').click()" style="'+_bt+'padding:6px 12px;font-size:13px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-paperclip"></i> 파일 추가</button>'
@@ -14183,8 +14203,32 @@ function bdWrite(name,pid){
     this.value='';
     _bdFlistDraw();
   });
+  g('bd_cover').addEventListener('change',function(){
+    var e=window._bdEdit; if(!e) return;
+    var f=(this.files||[])[0];
+    if(f){
+      if(!/^image\//.test(f.type||'')){ toast('대표이미지는 사진만 등록할 수 있습니다.'); }
+      else { e.newCover=f; }
+    }
+    this.value='';
+    _bdCoverDraw();
+  });
+  _bdCoverDraw();
   _bdFlistDraw();
 }
+// 대표이미지 항목 — 현재 상태(등록본/새 파일/자동) 표시 + [대표이미지 등록]/[제거]
+function _bdCoverDraw(){
+  var box=g('bd_cover_box'); var e=window._bdEdit; if(!box||!e) return;
+  var bt='padding:6px 12px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;';
+  var h='';
+  if(e.newCover) h+='<span style="font-size:13px;color:#207830"><i class="ti ti-photo"></i> '+_esc(e.newCover.name||'새 대표이미지')+' <span style="color:#999;font-size:11.5px">(저장 시 업로드)</span></span>';
+  else if(e.cover&&e.cover.u&&_BD_URL_RE.test(String(e.cover.u))) h+='<img src="'+_esc(e.cover.u)+'" alt="" style="height:52px;border-radius:6px;border:1px solid #ddd">';
+  else h+='<span style="font-size:12.5px;color:#a0a0b0">자동 (첫 사진/PDF 첫 페이지)</span>';
+  h+='<button onclick="document.getElementById(\'bd_cover\').click()" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-photo-up"></i> 대표이미지 등록</button>';
+  if(e.newCover||e.cover) h+='<button onclick="_bdCoverClear()" style="'+bt+'background:#fdf3f3;border:1px solid #e0b0b0;color:#c03030">제거</button>';
+  box.innerHTML=h;
+}
+function _bdCoverClear(){ var e=window._bdEdit; if(!e) return; e.newCover=null; e.cover=null; _bdCoverDraw(); }
 // 첨부 목록 — 업로드된 파일(files)과 새로 고른 파일(newFiles)을 함께 표시. 이미지엔 [대표] 라디오.
 function _bdFlistDraw(){
   var box=g('bd_flist'); var e=window._bdEdit; if(!box||!e) return;
@@ -14246,6 +14290,41 @@ async function _bdPdfUpload(name,file){
   await ref.put(file,{contentType:'application/pdf'});
   return await ref.getDownloadURL();
 }
+// PDF → 페이지별 JPEG 미리보기 업로드(다운로드 없이 인라인 열람용). pdf.js(전역 로드됨) 사용.
+// 실패 시 예외 — 호출부에서 원본만 유지하고 계속 진행(폴백).
+var BD_PDF_MAX_PAGES=40;
+async function _bdPdfPagesUpload(name, data, label){
+  if(!(window.pdfjsLib&&pdfjsLib.getDocument)) throw new Error('PDF 변환 라이브러리가 로드되지 않았습니다');
+  var doc=await pdfjsLib.getDocument({data:data}).promise;
+  var n=Math.min(doc.numPages, BD_PDF_MAX_PAGES);
+  var urls=[];
+  for(var i=1;i<=n;i++){
+    toast((label||'PDF')+' 미리보기 만드는 중… ('+i+'/'+n+')');
+    var page=await doc.getPage(i);
+    var vp=page.getViewport({scale:1});
+    var scale=Math.min(2, 1400/Math.max(1,vp.width));
+    vp=page.getViewport({scale:scale});
+    var cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+    await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+    var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.82); });
+    if(!blob) throw new Error('페이지 변환 실패');
+    var ref=firebase.storage().ref('board_files/'+name+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'_p'+i+'.jpg');
+    await ref.put(blob,{contentType:'image/jpeg'});
+    urls.push(await ref.getDownloadURL());
+  }
+  var total=doc.numPages;
+  try{ doc.destroy(); }catch(e){}
+  if(total>n) toast('페이지가 많아 앞 '+n+'쪽까지만 미리보기를 만들었습니다.');
+  return urls;
+}
+// 열람용 이미지 목록 — 사진(대표 우선) + PDF 페이지 미리보기(파일 순서). 썸네일·뷰어 공용.
+function _bdViewImgs(p){
+  var out=_bdImgs(p).map(function(f){ return {u:f.u}; });
+  _bdPdfs(p).forEach(function(f){
+    (Array.isArray(f.pages)?f.pages:[]).forEach(function(u){ if(_BD_URL_RE.test(String(u))) out.push({u:u}); });
+  });
+  return out;
+}
 async function bdSave(){
   if(!_isAdmin()){ toast('관리자만 게시물을 작성할 수 있습니다.'); return; }
   var e=window._bdEdit; if(!e) return;
@@ -14266,10 +14345,31 @@ async function bdSave(){
       toast('파일 올리는 중… (남은 '+e.newFiles.length+'개)');
       var isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
       var entry;
-      if(isPdf){ entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')}; }
+      if(isPdf){
+        entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')};
+        // 페이지별 미리보기 — 팀원이 다운로드 없이 열람. 실패해도 원본은 유지(관리자용)
+        try{ entry.pages=await _bdPdfPagesUpload(e.name, await f.arrayBuffer(), entry.n); }
+        catch(errPv){ console.warn('PDF 미리보기 생성 실패:', errPv); toast('PDF 미리보기 생성 실패 — 원본만 첨부됩니다: '+entry.n); }
+      }
       else { entry={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) entry.rep=1; }
       e.files.push(entry);
       e.newFiles.shift();
+    }
+    // 예전에 올린 PDF(미리보기 없음)는 수정 저장 때 미리보기를 만들어 채움(팀원 열람용 자동 마이그레이션)
+    for(var mi=0;mi<e.files.length;mi++){
+      var mf=e.files[mi];
+      if(mf&&mf.t==='pdf'&&!(Array.isArray(mf.pages)&&mf.pages.length)&&mf.u&&_BD_URL_RE.test(String(mf.u))){
+        try{
+          var rsp=await fetch(mf.u); if(!rsp.ok) throw new Error('원본 내려받기 실패');
+          mf.pages=await _bdPdfPagesUpload(e.name, await rsp.arrayBuffer(), mf.n);
+        }catch(errM){ console.warn('기존 PDF 미리보기 생성 실패:', errM); }
+      }
+    }
+    // 대표이미지(썸네일) — 새로 고른 파일이 있으면 업로드 후 교체
+    if(e.newCover){
+      toast('대표이미지 올리는 중…');
+      e.cover={u:await _bdImgUpload(e.name,e.newCover)};
+      e.newCover=null;   // 성공분 승격(실패 재시도 대비)
     }
     var files=e.files.slice();
     // 대표이미지 정리 — 이미지 중 rep가 정확히 1개(없으면 첫 이미지)
@@ -14278,11 +14378,15 @@ async function bdSave(){
     if(!seenRep){ for(var k=0;k<files.length;k++){ if(files[k].t==='img'){ files[k].rep=1; break; } } }
     var post=e.orig?Object.assign({},e.orig):{ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now() };
     post.title=title; post.body=bodyTxt; post.vm=vm; post.files=files;
+    if(e.cover&&e.cover.u) post.cover={u:e.cover.u}; else delete post.cover;
     if(e.orig) post.ut=tds();
-    // 수정에서 뺀 기존 파일은 저장 성공 후 Storage에서도 정리(최선 노력)
+    // 수정에서 뺀 기존 파일·교체된 대표이미지는 저장 성공 후 Storage에서도 정리(최선 노력)
     var removed=(e.orig&&Array.isArray(e.orig.files)?e.orig.files:[]).filter(function(of){
       return of&&of.u&&!files.some(function(nf){ return nf.u===of.u; });
     });
+    removed.slice().forEach(function(of){ if(of&&Array.isArray(of.pages)) of.pages.forEach(function(u){ removed.push({u:u}); }); }); // 뺀 PDF의 페이지 미리보기도 정리
+    var oldCv=e.orig&&e.orig.cover&&e.orig.cover.u;
+    if(oldCv&&(!post.cover||post.cover.u!==oldCv)) removed.push({u:oldCv});
     var nm=e.name, pidCur=post.id;
     await _bdFresh(function(b){
       if(!Array.isArray(b[nm])) b[nm]=[];
@@ -14311,6 +14415,8 @@ async function bdDel(name,pid){
   var p=_bdPostById(name,pid); if(!p) return;
   if(!confirm('게시물 "'+(p.title||'(제목 없음)')+'"을(를) 삭제하시겠습니까?\n(첨부 파일도 함께 삭제됩니다)')) return;
   var files=(Array.isArray(p.files)?p.files:[]).slice();
+  (Array.isArray(p.files)?p.files:[]).forEach(function(f){ if(f&&Array.isArray(f.pages)) f.pages.forEach(function(u){ files.push({u:u}); }); }); // PDF 페이지 미리보기도 정리
+  if(p.cover&&p.cover.u) files.push({u:p.cover.u}); // 대표이미지도 정리
   try{
     await _bdFresh(function(b){
       if(!Array.isArray(b[name])) return;
