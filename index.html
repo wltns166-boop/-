@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-20</div>
   </div>
 </div>
 
@@ -14486,7 +14486,8 @@ async function bdSave(){
     while(e.newFiles.length){
       var f=e.newFiles[0];
       toast('파일 올리는 중… (남은 '+e.newFiles.length+'개)');
-      var kind=_bdFileKind(f)||'img';
+      var kind=_bdFileKind(f);
+      if(!kind){ e.newFiles.shift(); toast('지원하지 않는 파일을 건너뜁니다: '+(f.name||'')); continue; } // 오분류 파일이 이미지 경로를 타지 않게
       var entry;
       if(kind==='pdf'){
         entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')};

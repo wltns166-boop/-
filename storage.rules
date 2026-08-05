@@ -46,9 +46,12 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
 
-    // 내용 페이지 게시판 첨부(상담자료·양식·교육자료 등 이미지/PDF) — 인증된 사용자만 읽기/쓰기
+    // 내용 페이지 게시판 첨부(상담자료·양식·교육자료 등 이미지/PDF/엑셀/PPT/동영상)
+    // — 인증된 사용자만. 업로드는 200MB 이하(서버 측 상한 — 클라이언트 검증 우회 대비), 삭제는 크기 무관
     match /board_files/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.resource.size < 200 * 1024 * 1024;
+      allow delete: if request.auth != null;
     }
 
     // 그 외 모든 경로는 기본 차단
