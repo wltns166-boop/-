@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-2</div>
   </div>
 </div>
 
@@ -9120,8 +9120,11 @@ function _homeBgApply(){
   var el=g('pg_home'); if(!el) return;
   var c=_homeBg||{};
   var u=String(c.url||'');
-  // https만 허용 + CSS 문자열 탈출 문자 제거(따옴표·괄호) — 설정 값으로 스타일 주입 방지
-  if(u&&/^https:\/\//.test(u)){
+  // 이 프로젝트 버킷의 home_bg/ 경로 URL만 허용(청구 카톡의 버킷 제한과 동일 원칙) —
+  // 데이터를 직접 조작해 외부 이미지(피싱·부적절 콘텐츠)를 전 직원 홈에 거는 경로 차단.
+  // + CSS 문자열 탈출 문자 제거(따옴표·괄호) — 설정 값으로 스타일 주입 방지
+  var HB_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/home_bg%2F/;
+  if(u&&HB_URL_RE.test(u)){
     u=u.replace(/"/g,'%22').replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\s/g,'%20');
     var a=Math.min(95,Math.max(20,+c.dim||80))/100;
     el.style.backgroundImage='linear-gradient(rgba(255,255,255,'+a+'),rgba(255,255,255,'+a+')),url("'+u+'")';
@@ -9155,6 +9158,7 @@ function openHomeBgModal(){
   if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
   var old=g('hb_overlay'); if(old) old.remove();
   var c=_homeBg||{};
+  window._hbPrevUrl=c.url||null;   // 이전에 고르다 만 미리보기 잔존 방지(모달 열 때마다 현재 설정으로 리셋)
   var dim=Math.min(95,Math.max(20,+c.dim||80));
   // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
   var ov=document.createElement('div');
