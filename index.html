@@ -329,7 +329,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-11</div>
   </div>
 </div>
 
@@ -14080,7 +14080,7 @@ async function _bdFresh(mut){
       if(d&&d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)) base=d.boards;
     }
   }catch(e){ console.warn('boards 최신본 로드 실패(로컬 기준으로 진행):', e); }
-  try{ mut(base); }catch(e){ console.warn('boards 변경 적용 오류:', e); }
+  mut(base);   // 병합 콜백 예외는 호출부로 전달 — 조용히 원본만 저장하고 성공 토스트가 뜨는 것 방지
   boards=base;
   sv('tops_boards',boards);
 }
@@ -14201,17 +14201,22 @@ async function bdSave(){
   if(!title&&!bodyTxt&&!e.files.length&&!e.newFiles.length){ toast('제목·내용 또는 파일을 넣어주세요.'); return; }
   if(!(typeof firebase!=='undefined'&&firebase.storage)&&e.newFiles.length){ toast('클라우드 연결 후 파일을 올릴 수 있습니다.'); return; }
   window._bdSaving=true;
-  var btn=g('bd_save_btn'); if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  var btn=g('bd_save_btn'); var btnHtml=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
   try{
-    var uploaded=[];
-    for(var i=0;i<e.newFiles.length;i++){
-      var f=e.newFiles[i];
-      toast('파일 올리는 중… ('+(i+1)+'/'+e.newFiles.length+')');
+    // 업로드 성공분은 즉시 확정 목록(e.files)으로 승격 — 중간 실패 후 [저장] 재시도 시
+    // 이미 올라간 파일을 다시 올리지 않고(중복·고아 파일 방지), 남은 파일부터 이어서 올린다.
+    while(e.newFiles.length){
+      var f=e.newFiles[0];
+      toast('파일 올리는 중… (남은 '+e.newFiles.length+'개)');
       var isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
-      if(isPdf){ uploaded.push({u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')}); }
-      else { var nf={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) nf.rep=1; uploaded.push(nf); }
+      var entry;
+      if(isPdf){ entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')}; }
+      else { entry={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) entry.rep=1; }
+      e.files.push(entry);
+      e.newFiles.shift();
     }
-    var files=e.files.concat(uploaded);
+    var files=e.files.slice();
     // 대표이미지 정리 — 이미지 중 rep가 정확히 1개(없으면 첫 이미지)
     var seenRep=false;
     files.forEach(function(f){ if(f.t==='img'&&f.rep){ if(seenRep) delete f.rep; else seenRep=true; } });
@@ -14228,6 +14233,8 @@ async function bdSave(){
       if(!Array.isArray(b[nm])) b[nm]=[];
       var idx=-1;
       for(var k2=0;k2<b[nm].length;k2++){ if(b[nm][k2]&&b[nm][k2].id===pidCur){ idx=k2; break; } }
+      // idx<0인데 수정인 경우 = 편집 중 다른 관리자가 삭제한 것 — 편집자의 작업을 지키기 위해
+      // 재등록한다(리쿠르팅 리스트의 "삭제된 카드 저장 시 재등록"과 동일한 의도된 동작).
       if(idx>=0) b[nm][idx]=post; else b[nm].push(post);
     });
     removed.forEach(function(of){ try{ if(_BD_URL_RE.test(String(of.u))) firebase.storage().refFromURL(of.u).delete().catch(function(){}); }catch(err){} });
@@ -14239,7 +14246,8 @@ async function bdSave(){
   }catch(err){
     console.warn(err);
     toast('저장 실패: '+(err&&err.message||err));
-    if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-device-floppy"></i> 저장'; }
+    try{ _bdFlistDraw(); }catch(e2){}   // 이미 올라간 파일은 '업로드됨'으로 표시 — 재시도 시 남은 것만 올라감
+    if(btn){ btn.disabled=false; btn.innerHTML=btnHtml||'<i class="ti ti-device-floppy"></i> 저장'; }
   }finally{ window._bdSaving=false; }
 }
 async function bdDel(name,pid){
@@ -14247,10 +14255,12 @@ async function bdDel(name,pid){
   var p=_bdPostById(name,pid); if(!p) return;
   if(!confirm('게시물 "'+(p.title||'(제목 없음)')+'"을(를) 삭제하시겠습니까?\n(첨부 파일도 함께 삭제됩니다)')) return;
   var files=(Array.isArray(p.files)?p.files:[]).slice();
-  await _bdFresh(function(b){
-    if(!Array.isArray(b[name])) return;
-    b[name]=b[name].filter(function(x){ return !(x&&x.id===pid); });
-  });
+  try{
+    await _bdFresh(function(b){
+      if(!Array.isArray(b[name])) return;
+      b[name]=b[name].filter(function(x){ return !(x&&x.id===pid); });
+    });
+  }catch(err){ console.warn(err); toast('삭제 실패: '+(err&&err.message||err)); return; }
   files.forEach(function(f){ try{ if(f&&f.u&&_BD_URL_RE.test(String(f.u))) firebase.storage().refFromURL(f.u).delete().catch(function(){}); }catch(err){} });
   toast('삭제되었습니다.');
   rCustomPage(name);
