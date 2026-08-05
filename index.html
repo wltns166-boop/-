@@ -329,7 +329,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-9</div>
   </div>
 </div>
 
@@ -13641,9 +13641,10 @@ function _navApply(){
     if((c.loc||'_top')==='_top'||!g(c.loc)){
       var kids=_cmHasKids(c.id), nch=g('nch_'+c.id);
       if(kids&&!nch){
-        nch=document.createElement('div'); nch.className='nch open'; nch.id='nch_'+c.id;
+        // 다른 그룹들과 동일하게 접힌 상태로 생성(펼침은 클릭으로) — 매 접속마다 펼쳐져 보이는 것 방지
+        nch=document.createElement('div'); nch.className='nch'; nch.id='nch_'+c.id;
         sb.insertBefore(nch, ex.nextSibling);
-        if(!ex.querySelector('.nc')){ var ar=document.createElement('i'); ar.className='ti ti-chevron-down nc'; ar.id='nc_'+c.id; ar.style.transform='rotate(180deg)'; ex.appendChild(ar); }
+        if(!ex.querySelector('.nc')){ var ar=document.createElement('i'); ar.className='ti ti-chevron-down nc'; ar.id='nc_'+c.id; ex.appendChild(ar); }
       } else if(!kids&&nch){
         nch.remove();
         var ar2=g('nc_'+c.id); if(ar2) ar2.remove();
