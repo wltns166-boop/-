@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-3</div>
   </div>
 </div>
 
@@ -389,6 +389,7 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="ns"><div class="ni" id="n_meeting">팀 미팅</div></div>
       <div class="ns"><div class="ni" id="n_wclose">주마감보고</div></div>
       <div class="ns"><div class="ni" id="n_bizplan">사업계획서</div></div>
+      <div class="ns"><div class="ni" id="n_recruit">리쿠르팅 리스트</div></div>
       <div class="ns"><div class="ni" id="n_expect">예상계약건 계산</div></div>
       <div class="ns"><div class="ni" id="n_trip">출장보고</div></div>
     </div>
@@ -1177,6 +1178,28 @@ table.dt tr:last-child td{border-bottom:none;}
             <tbody id="bp_leader_tb"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- 리쿠르팅 리스트 -->
+    <div class="pg" id="pg_recruit">
+      <div class="sh"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div class="st"><i class="ti ti-user-search"></i>리쿠르팅 리스트</div>
+        <button class="be bsm" id="rc_flds_btn" onclick="openRcFldsModal()" style="display:none"><i class="ti ti-list-details"></i> 항목 관리</button>
+      </div></div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button onclick="rcAddCard()" style="padding:8px 14px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 페이지 추가</button>
+            <select id="rc_jump" onchange="rcJump(this.value)" style="display:none;max-width:250px;padding:7px 9px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:13.5px;color:#222;background:#fff"></select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button onclick="rcNav(-1)" title="이전 카드" style="padding:7px 13px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:15px;cursor:pointer;font-family:inherit"><i class="ti ti-chevron-left"></i></button>
+            <span id="rc_pos" style="font-size:13.5px;color:#555;font-weight:600;min-width:52px;text-align:center">0 / 0</span>
+            <button onclick="rcNav(1)" title="다음 카드" style="padding:7px 13px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:15px;cursor:pointer;font-family:inherit"><i class="ti ti-chevron-right"></i></button>
+          </div>
+        </div>
+        <div id="rc_paper"></div>
+        <div id="rc_foot" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px"></div>
       </div>
     </div>
 
@@ -2398,6 +2421,7 @@ if(!Array.isArray(wcWriters)) wcWriters=null;
 let bizplan=JSON.parse(localStorage.getItem('tops_bizplan')||'{"url":"","subs":[]}'); // 사업계획서
 let expects=JSON.parse(localStorage.getItem('tops_expects')||'[]');         // 예상계약건
 let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // 출장보고
+let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
@@ -2879,6 +2903,7 @@ async function loadFromFirestore(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
+    if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
     if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -2940,6 +2965,7 @@ function startRealtimeSync(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
+    if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
     if(Array.isArray(d.dsnap)){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -2966,6 +2992,7 @@ function startRealtimeSync(){
         notice:(typeof rNoticePage==='function'?rNoticePage:null),
         schedule:(typeof rSchedulePage==='function'?rSchedulePage:null),
         trip:(typeof rTrip==='function'?rTrip:null),
+        recruit:(typeof rRecruit==='function'?rRecruit:null),
         cust_apply:(typeof rCustList==='function'?rCustList:null),
         cust_status:(typeof rCustStatus==='function'?rCustStatus:null),
         claim_apply:(typeof rClaimApply==='function'?rClaimApply:null),
@@ -3831,6 +3858,7 @@ g('n_exam').addEventListener('click',function(){showPage('exam');});
 g('n_meeting').addEventListener('click',function(){showPage('meeting');});
 g('n_wclose').addEventListener('click',function(){showPage('wclose');});
 g('n_bizplan').addEventListener('click',function(){showPage('bizplan');});
+g('n_recruit').addEventListener('click',function(){showPage('recruit');});
 g('n_expect').addEventListener('click',function(){showPage('expect');});
 g('n_trip').addEventListener('click',function(){showPage('trip');});
 g('n_perf').addEventListener('click',function(){tnav('perf');});
@@ -3872,7 +3900,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   cust_apply:'고객등록 및 신청',cust_status:'고객등록 현황',
   prom:'진급평가',
   exam:'시험신청',meeting:'팀 미팅',
-  wclose:'주마감보고',bizplan:'사업계획서',expect:'예상계약건 계산',trip:'출장보고',
+  wclose:'주마감보고',bizplan:'사업계획서',recruit:'리쿠르팅 리스트',expect:'예상계약건 계산',trip:'출장보고',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
@@ -3902,7 +3930,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=PTITLES[name]||name;
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage};
   if(r[name]) setTimeout(function(){r[name]();},0);
 }
 
@@ -13104,6 +13132,355 @@ async function saveBizForm(){
   try{ _driveSaveBizForm(myName, form, ts); }catch(e){ console.warn('biz form drive err:', e); }
   toast('사업계획서가 제출되었습니다!');
   rBizPlan();
+}
+
+// ===== 리쿠르팅 리스트 (2026-08-05) =====
+// 데이터: recruit = {flds:[{id,label,subs:[]}], cards:[{id,owner,ts,dt,ut,vals:{항목id:값|[값...]},prints:[{by,dt}]}]}
+// - 동기화 키 tops_recruit — 텍스트만 저장(base64 없음, 함정 B 안전). sv()로 클라우드 동기화.
+// - 카드 탐색·수정은 항상 카드 id 기준(window._rcCur) — 표시 인덱스 사용 금지(함정 A).
+// - 가시성: 관리자=전체, 팀장급=본인+하부(belong 재귀, getMyTeam), 팀원=본인만 — 출장보고와 동일 규칙.
+// - 항목(양식) 추가/삭제/순서는 관리자 전용(recruit.flds). 미설정이면 기본 양식(RC_DEF_FLDS).
+// - 저장/삭제/출력기록은 _rcFresh()로 클라우드 최신본 병합 후 저장(_bizFreshSub와 같은 경합 축소 패턴).
+var RC_DEF_FLDS=[
+  {id:'name', label:'대상자 이름', subs:[]},
+  {id:'job',  label:'대상자 현재직업', subs:[]},
+  {id:'rel',  label:'대상자와 관계', subs:[]},
+  {id:'st',   label:'상태 정보', subs:['상담 여부 / 계약 여부','리쿠르팅 제안 여부']},
+  {id:'info', label:'대상자 파악 정보', subs:['1','2','3']},
+  {id:'risk', label:'입사 또는 입사 제안시 예상되는 리스크사항', subs:[]},
+  {id:'prog', label:'현재까지 진행 상황', subs:[]}
+];
+function _rcFlds(){
+  var f=(recruit&&Array.isArray(recruit.flds))?recruit.flds:null;
+  if(!f||!f.length) return RC_DEF_FLDS;
+  var out=f.filter(function(x){return x&&x.id&&x.label;})
+    .map(function(x){ return {id:String(x.id),label:String(x.label),subs:Array.isArray(x.subs)?x.subs.map(String):[]}; });
+  return out.length?out:RC_DEF_FLDS;
+}
+function _rcCards(){
+  if(!recruit||typeof recruit!=='object'||Array.isArray(recruit)) recruit={cards:[]};
+  if(!Array.isArray(recruit.cards)) recruit.cards=[];
+  return recruit.cards;
+}
+function _rcCardById(id){ var c=_rcCards().filter(function(x){return x&&x.id===id;}); return c.length?c[0]:null; }
+function _rcCanEdit(c){ return !!(cu&&c&&(cu.admin||c.owner===cu.name)); }
+// 가시 카드 목록 — 본인 카드 먼저, 그 외 작성자 가나다순, 같은 작성자는 등록순
+function _rcVisible(){
+  var all=_rcCards().filter(function(c){return c&&c.id;});
+  var myTeam=getMyTeam(); // null=전체(관리자), 그 외=본인+하부 이름 배열
+  var vis=(myTeam===null)?all.slice():all.filter(function(c){ return myTeam.indexOf(c.owner)>=0; });
+  var me=cu?cu.name:'';
+  vis.sort(function(a,b){
+    if(a.owner!==b.owner){
+      if(a.owner===me) return -1; if(b.owner===me) return 1;
+      return String(a.owner||'').localeCompare(String(b.owner||''),'ko');
+    }
+    return (a.ts||0)-(b.ts||0);
+  });
+  return vis;
+}
+// 카드의 대상자 이름(빠른 이동·파일명 표시용) — '이름' 항목 우선, 없으면 첫 항목
+function _rcTargetName(c){
+  var flds=_rcFlds();
+  var f=null;
+  for(var i=0;i<flds.length;i++){ if(flds[i].label.indexOf('이름')>=0&&!flds[i].subs.length){ f=flds[i]; break; } }
+  if(!f) f=flds[0];
+  if(!f) return '';
+  var v=(c&&c.vals||{})[f.id];
+  if(Array.isArray(v)) v=v.filter(Boolean)[0]||'';
+  return String(v||'').trim().slice(0,20);
+}
+function rRecruit(){
+  var paper=g('rc_paper'); if(!paper) return;
+  // 실시간 수신 등으로 재렌더될 때 카드 안에서 입력 중이면 생략(입력값 날림 방지)
+  //   — 저장/이동/추가 버튼은 카드 밖에 있어 버튼 조작 후 렌더는 정상 동작
+  try{ if(document.activeElement&&paper.contains(document.activeElement)) return; }catch(e){}
+  var fbtn=g('rc_flds_btn'); if(fbtn) fbtn.style.display=_isAdmin()?'':'none';
+  var vis=_rcVisible();
+  var cur=window._rcCur?_rcCardById(window._rcCur):null;
+  if(!cur||!vis.some(function(c){return c.id===cur.id;})){ cur=vis.length?vis[0]:null; window._rcCur=cur?cur.id:null; }
+  var pos=-1;
+  if(cur){ for(var i=0;i<vis.length;i++){ if(vis[i].id===cur.id){ pos=i; break; } } }
+  var posEl=g('rc_pos'); if(posEl) posEl.textContent=vis.length?((pos+1)+' / '+vis.length):'0 / 0';
+  var jump=g('rc_jump');
+  if(jump){
+    jump.innerHTML=vis.map(function(c){
+      var nm=_rcTargetName(c);
+      return '<option value="'+_esc(c.id)+'"'+(cur&&c.id===cur.id?' selected':'')+'>'
+        +_esc(c.owner||'-')+' — '+_esc(nm||'(이름 미입력)')+((c.prints&&c.prints.length)?' · 출력됨':'')+'</option>';
+    }).join('');
+    jump.style.display=vis.length>1?'':'none';
+  }
+  var ft=g('rc_foot');
+  if(!cur){
+    paper.innerHTML='<div style="padding:44px 10px;text-align:center;color:#8888aa;font-size:14.5px">작성된 리쿠르팅 카드가 없습니다.<br>[+ 페이지 추가] 버튼으로 첫 카드를 만들어 보세요.</div>';
+    if(ft) ft.innerHTML='';
+    return;
+  }
+  paper.innerHTML=_rcFormHtml(cur);
+  // 내용이 있는 칸은 높이를 내용에 맞춤
+  paper.querySelectorAll('textarea[data-rcf]').forEach(function(t){ try{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; }catch(e){} });
+  _rcRenderFoot(cur);
+}
+function _rcFormHtml(c){
+  var canEdit=_rcCanEdit(c);
+  function ta(fid,si,val,minH){
+    return '<textarea data-rcf="'+_esc(fid)+'"'+(si!=null?' data-rcs="'+si+'"':'')+(canEdit?'':' readonly')
+      +' oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'"'
+      +' style="width:100%;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:14.5px;color:#111;line-height:1.55;min-height:'+(minH||30)+'px;overflow:hidden;padding:2px 0;display:block">'+_esc(val||'')+'</textarea>';
+  }
+  var rows=_rcFlds().map(function(f){
+    var v=(c.vals||{})[f.id];
+    var inner;
+    if(f.subs.length){
+      var arr=Array.isArray(v)?v:(v?[String(v)]:[]);
+      inner=f.subs.map(function(sl,si){
+        return '<div style="padding:8px 12px'+(si<f.subs.length-1?';border-bottom:1px solid #e4e4e8':'')+'">'
+          +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
+          +ta(f.id,si,arr[si]||'',28)+'</div>';
+      }).join('');
+    } else {
+      var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?110:30;
+      inner='<div style="padding:8px 12px">'+ta(f.id,null,typeof v==='string'?v:'',tall)+'</div>';
+    }
+    return '<div style="display:flex;border-bottom:1px solid #cfcfd6">'
+      +'<div style="flex:0 0 110px;background:#f2f2f5;color:#222;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px 6px;border-right:1px solid #cfcfd6;line-height:1.4;word-break:keep-all">'+_esc(f.label)+'</div>'
+      +'<div style="flex:1;min-width:0;background:#fff">'+inner+'</div></div>';
+  }).join('');
+  return '<div style="max-width:780px;margin:0 auto;background:#fff;border:1px solid #d8d8e0;border-radius:10px;padding:20px 22px;box-shadow:0 2px 10px rgba(20,20,60,.06)">'
+    +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    +'<div style="font-size:21px;font-weight:800;color:#111">리쿠르팅 대상자 카드</div>'
+    +'<div style="font-size:12.5px;color:#888">작성자 <b style="color:#333">'+_esc(c.owner||'-')+'</b> · 작성일 '+_esc(c.dt||'-')+(c.ut&&c.ut!==c.dt?' · 수정 '+_esc(c.ut):'')+'</div></div>'
+    +'<div style="border-top:2px solid #333">'+rows+'</div>'
+    +(canEdit?'':'<div style="margin-top:8px;font-size:12.5px;color:#a06010"><i class="ti ti-lock"></i> 열람 전용 — 본인 카드가 아니라 수정할 수 없습니다.</div>')
+    +'</div>';
+}
+function _rcRenderFoot(c){
+  var ft=g('rc_foot'); if(!ft) return;
+  var canEdit=_rcCanEdit(c);
+  var last=(c.prints&&c.prints.length)?c.prints[c.prints.length-1]:null;
+  var pr=last
+    ? '<span style="color:#18a050;font-weight:700;font-size:13.5px"><i class="ti ti-printer"></i> 출력완료 ('+_esc(last.by||'-')+' · '+_esc(last.dt||'-')+')</span>'
+    : '<span style="color:#a0a0b0;font-size:13.5px"><i class="ti ti-printer-off"></i> 미출력</span>';
+  var bt='padding:8px 16px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;';
+  ft.innerHTML='<div>'+pr+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +(canEdit?'<button onclick="deleteRcCard()" style="'+bt+'background:rgba(220,60,60,.08);border:1px solid rgba(220,60,60,.4);color:#c03030"><i class="ti ti-trash"></i> 삭제</button>':'')
+    +'<button onclick="printRcCard()" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-printer"></i> 출력</button>'
+    +'<button onclick="rcSavePdf()" style="'+bt+'background:#fff4e6;border:1px solid #e8c8a0;color:#a06010"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>'
+    +(canEdit?'<button onclick="saveRcCard()" style="'+bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>':'')
+    +'</div>';
+}
+// 화면 입력값을 현재 카드(메모리)에 반영 — 저장 전 이동해도 입력이 유지된다(sv는 [저장]에서만)
+function _rcCollect(){
+  var c=window._rcCur?_rcCardById(window._rcCur):null;
+  var paper=g('rc_paper');
+  if(!c||!paper||!_rcCanEdit(c)) return c;
+  var vals={};
+  paper.querySelectorAll('textarea[data-rcf]').forEach(function(t){
+    var fid=t.getAttribute('data-rcf'), si=t.getAttribute('data-rcs');
+    if(si==null){ vals[fid]=t.value; }
+    else { if(!Array.isArray(vals[fid])) vals[fid]=[]; vals[fid][+si]=t.value; }
+  });
+  // 화면에 없는(관리자가 항목을 삭제한) 기존 값은 보존
+  c.vals=Object.assign({},c.vals||{},vals);
+  return c;
+}
+function rcNav(dir){
+  _rcCollect();
+  var vis=_rcVisible(); if(!vis.length) return;
+  var i=-1;
+  for(var k=0;k<vis.length;k++){ if(vis[k].id===window._rcCur){ i=k; break; } }
+  i=((i<0?0:i+dir)+vis.length)%vis.length;
+  window._rcCur=vis[i].id;
+  rRecruit();
+}
+function rcJump(id){ _rcCollect(); window._rcCur=id; rRecruit(); }
+// 저장 직전 클라우드 최신본을 받아 병합 후 mut(변경)를 적용해 저장 — 통짜 덮어쓰기 경합 축소.
+// 지금 보고 있는 카드는 로컬 값 우선(화면의 미저장 수정 보존).
+async function _rcFresh(mut){
+  var base=(recruit&&typeof recruit==='object'&&!Array.isArray(recruit))?recruit:{cards:[]};
+  try{
+    if(window.FS_DOC){
+      var doc=await FS_DOC.get();
+      var d=(doc&&doc.exists)?doc.data():null;
+      if(d&&d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){
+        var cloud=d.recruit;
+        if(!Array.isArray(cloud.cards)) cloud.cards=[];
+        var curId=window._rcCur;
+        if(curId){
+          var loc=_rcCardById(curId);
+          if(loc){
+            var ci=-1;
+            for(var k=0;k<cloud.cards.length;k++){ if(cloud.cards[k]&&cloud.cards[k].id===curId){ ci=k; break; } }
+            if(ci>=0) cloud.cards[ci]=loc; else cloud.cards.push(loc);
+          }
+        }
+        base=cloud;
+      }
+    }
+  }catch(e){ console.warn('recruit 최신본 로드 실패(로컬 기준으로 진행):', e); }
+  if(!Array.isArray(base.cards)) base.cards=[];
+  try{ mut(base); }catch(e){ console.warn('recruit 변경 적용 오류:', e); }
+  recruit=base;
+  sv('tops_recruit',recruit);
+}
+async function rcAddCard(){
+  if(!cu||!cu.name){ toast('로그인 후 이용할 수 있습니다.'); return; }
+  _rcCollect();
+  var nc={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
+  await _rcFresh(function(r){ r.cards.push(nc); });
+  window._rcCur=nc.id;
+  rRecruit();
+  toast('새 카드가 추가되었습니다. 작성 후 [저장]을 눌러주세요.');
+}
+async function saveRcCard(){
+  var c=_rcCollect();
+  if(!c){ toast('저장할 카드가 없습니다.'); return; }
+  if(!_rcCanEdit(c)){ toast('본인이 작성한 카드만 저장할 수 있습니다.'); return; }
+  c.ut=tds();
+  await _rcFresh(function(r){
+    var i=-1;
+    for(var k=0;k<r.cards.length;k++){ if(r.cards[k]&&r.cards[k].id===c.id){ i=k; break; } }
+    if(i>=0) r.cards[i]=c; else r.cards.push(c);
+  });
+  toast('리쿠르팅 카드가 저장되었습니다.');
+  rRecruit();
+}
+async function deleteRcCard(){
+  var c=window._rcCur?_rcCardById(window._rcCur):null; if(!c) return;
+  if(!_rcCanEdit(c)){ toast('본인이 작성한 카드만 삭제할 수 있습니다.'); return; }
+  if(!confirm('이 리쿠르팅 카드를 삭제하시겠습니까?')) return;
+  var did=c.id;
+  window._rcCur=null; // _rcFresh의 "보고 있는 카드 로컬 우선" 병합이 삭제 대상을 붙잡지 않도록 해제
+  await _rcFresh(function(r){ r.cards=r.cards.filter(function(x){return !(x&&x.id===did);}); });
+  toast('삭제되었습니다.');
+  rRecruit();
+}
+// 출력/PDF 공용 — 카드 내용을 사진 양식 그대로 표(정적 HTML)로 렌더
+function _rcTableHtml(c){
+  var pre='white-space:pre-wrap;word-break:break-word;font-size:13.5px;color:#111;line-height:1.6';
+  var rows=_rcFlds().map(function(f){
+    var v=(c.vals||{})[f.id];
+    var cell;
+    if(f.subs.length){
+      var arr=Array.isArray(v)?v:(v?[String(v)]:[]);
+      cell=f.subs.map(function(sl,si){
+        return '<div style="padding:7px 10px'+(si<f.subs.length-1?';border-bottom:1px solid #ddd':'')+'">'
+          +'<div style="font-size:11.5px;color:#777;margin-bottom:2px">'+_esc(sl)+'</div>'
+          +'<div style="'+pre+';min-height:18px">'+_esc(arr[si]||'')+'</div></div>';
+      }).join('');
+    } else {
+      var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?90:20;
+      cell='<div style="padding:7px 10px"><div style="'+pre+';min-height:'+tall+'px">'+_esc(typeof v==='string'?v:'')+'</div></div>';
+    }
+    return '<tr><td style="width:108px;background:#f2f2f2;border:1px solid #bbb;text-align:center;font-weight:700;font-size:12.5px;padding:8px 5px;line-height:1.4;word-break:keep-all">'+_esc(f.label)+'</td>'
+      +'<td style="border:1px solid #bbb;padding:0;vertical-align:top">'+cell+'</td></tr>';
+  }).join('');
+  return '<div style="max-width:780px;margin:0 auto;color:#111">'
+    +'<div style="font-size:22px;font-weight:800;margin-bottom:4px">리쿠르팅 대상자 카드</div>'
+    +'<div style="font-size:12px;color:#666;margin-bottom:12px">작성자: '+_esc(c.owner||'-')+' · 작성일 '+_esc(c.dt||'-')+'</div>'
+    +'<table style="border-collapse:collapse;width:100%">'+rows+'</table></div>';
+}
+function _rcDocHtml(c, autoPrint){
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>리쿠르팅 대상자 카드 - '+_esc(_rcTargetName(c)||c.owner||'')+'</title>'
+    +'<style>body{font-family:\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif;margin:0;padding:24px;background:#fff;color:#111}</style></head><body>'
+    +_rcTableHtml(c)
+    +(autoPrint?'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},200);};</scr'+'ipt>':'')
+    +'</body></html>';
+}
+async function printRcCard(){
+  var c=_rcCollect(); if(!c){ toast('출력할 카드가 없습니다.'); return; }
+  var w=window.open('','_blank','width=900,height=800,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+  w.document.write(_rcDocHtml(c,true)); w.document.close();
+  // 출력 기록 — 팝업이 정상으로 열렸을 때만 남김(출력완료 오표시 방지)
+  var by=(cu&&cu.name)||'';
+  var cid=c.id;
+  await _rcFresh(function(r){
+    var t=null;
+    for(var k=0;k<r.cards.length;k++){ if(r.cards[k]&&r.cards[k].id===cid){ t=r.cards[k]; break; } }
+    if(!t) return;
+    if(!Array.isArray(t.prints)) t.prints=[];
+    t.prints.push({by:by,dt:tds()});
+  });
+  rRecruit();
+}
+async function rcSavePdf(){
+  var c=_rcCollect(); if(!c){ toast('저장할 카드가 없습니다.'); return; }
+  try{
+    toast('PDF 생성 중…');
+    await _drEnsureLibs();
+    var tmp=document.createElement('div');
+    tmp.style.cssText='position:absolute;left:-10000px;top:0;width:808px;background:#fff;padding:16px';
+    tmp.innerHTML=_rcTableHtml(c);
+    document.body.appendChild(tmp);
+    var canvas;
+    try{ canvas=await html2canvas(tmp,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:840}); }
+    finally{ tmp.remove(); }
+    var pdf=_drPdfFromCanvas(canvas);
+    var nm=(_rcTargetName(c)||c.owner||'무제').replace(/[\\/:*?"<>|\s]+/g,'_');
+    pdf.save('리쿠르팅카드_'+nm+'_'+td()+'.pdf');
+    toast('PDF가 저장되었습니다.');
+  }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
+}
+// ----- 항목 관리 (관리자 전용) -----
+// _rcFldsWork: 모달 안 편집본. 목록은 정렬·필터 없이 그대로 그려 인덱스=원본(함정 A 안전 예외).
+function openRcFldsModal(){
+  if(!_isAdmin()){ toast('관리자만 항목을 관리할 수 있습니다.'); return; }
+  var old=g('rcfl_overlay'); if(old) old.remove();
+  var ov=document.createElement('div');
+  ov.id='rcfl_overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-list-details"></i> 리쿠르팅 카드 항목 관리</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">카드 양식의 작성 항목을 추가·삭제·수정합니다(전 팀원 공통 적용). 세부 칸은 쉼표(,)로 구분해 여러 개 만들 수 있습니다. 항목을 삭제해도 이미 작성된 내용은 데이터에 남아 있어, 같은 항목을 되살리면 다시 보입니다.</div>'
+    +'<div id="rcfl_list"></div>'
+    +'<button onclick="rcFldAdd()" style="'+_bt+'margin-top:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830;padding:5px 12px;font-size:13px"><i class="ti ti-plus"></i> 항목 추가</button>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
+    +'<button onclick="document.getElementById(\'rcfl_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="saveRcFlds()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  window._rcFldsWork=_rcFlds().map(function(f){ return {id:f.id,label:f.label,subs:f.subs.slice()}; });
+  _rcFldsDraw();
+}
+function _rcFldsDraw(){
+  var box=g('rcfl_list'); if(!box) return;
+  var w=window._rcFldsWork||[];
+  var sb='padding:6px 9px;border:1px solid #ccd;border-radius:7px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
+  box.innerHTML=w.map(function(f,i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+      +'<input data-rcfl="'+i+'" value="'+_esc(f.label)+'" placeholder="항목 이름" style="flex:1.2;min-width:140px;padding:7px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff">'
+      +'<input data-rcflsub="'+i+'" value="'+_esc(f.subs.join(', '))+'" placeholder="세부 칸(쉼표 구분, 비우면 1칸)" style="flex:1;min-width:140px;padding:7px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#555;background:#fff">'
+      +'<span style="display:flex;gap:4px">'
+      +'<button onclick="rcFldMove('+i+',-1)" title="위로" style="'+sb+'"><i class="ti ti-arrow-up"></i></button>'
+      +'<button onclick="rcFldMove('+i+',1)" title="아래로" style="'+sb+'"><i class="ti ti-arrow-down"></i></button>'
+      +'<button onclick="rcFldDel('+i+')" title="삭제" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i></button>'
+      +'</span></div>';
+  }).join('')||'<div style="color:#999;font-size:13px;padding:8px 0">항목이 없습니다. [항목 추가]를 눌러주세요.</div>';
+}
+// 재그리기 전 입력 중인 값을 편집본에 반영(이동/삭제/추가 시 타이핑 유실 방지)
+function _rcFldsPull(){
+  var w=window._rcFldsWork||[];
+  document.querySelectorAll('input[data-rcfl]').forEach(function(inp){ var i=+inp.getAttribute('data-rcfl'); if(w[i]) w[i].label=inp.value; });
+  document.querySelectorAll('input[data-rcflsub]').forEach(function(inp){ var i=+inp.getAttribute('data-rcflsub'); if(w[i]) w[i].subs=inp.value.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}); });
+}
+function rcFldAdd(){ _rcFldsPull(); (window._rcFldsWork=window._rcFldsWork||[]).push({id:'rf_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),label:'',subs:[]}); _rcFldsDraw(); }
+function rcFldDel(i){ _rcFldsPull(); var w=window._rcFldsWork; if(!w||!w[i]) return; if(w[i].label&&!confirm('항목 "'+w[i].label+'"을(를) 삭제하시겠습니까?\n(이미 작성된 카드의 해당 내용은 화면에서 숨겨질 뿐 데이터는 유지됩니다)')) return; w.splice(i,1); _rcFldsDraw(); }
+function rcFldMove(i,d){ _rcFldsPull(); var w=window._rcFldsWork; var j=i+d; if(!w||!w[i]||j<0||j>=w.length) return; var t=w[i]; w[i]=w[j]; w[j]=t; _rcFldsDraw(); }
+async function saveRcFlds(){
+  if(!_isAdmin()){ toast('관리자만 항목을 관리할 수 있습니다.'); return; }
+  _rcFldsPull();
+  var w=(window._rcFldsWork||[]).filter(function(f){return f.label&&f.label.trim();})
+    .map(function(f){ return {id:f.id,label:f.label.trim(),subs:f.subs}; });
+  if(!w.length){ toast('항목이 하나 이상 필요합니다.'); return; }
+  await _rcFresh(function(r){ r.flds=w; });
+  var ov=g('rcfl_overlay'); if(ov) ov.remove();
+  toast('항목이 저장되었습니다.');
+  rRecruit();
 }
 
 // ===== 예상계약건 계산 =====
