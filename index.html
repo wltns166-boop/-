@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-17</div>
   </div>
 </div>
 
@@ -13976,7 +13976,7 @@ function rCustomPage(name){
   var open=window._bdOpenPost;
   if(open&&open.name===name){
     var op=_bdPostById(name,open.pid);
-    if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); try{ _bdPreload(op); }catch(e){} return; }
+    if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); try{ _bdPreload(op); _bdThumbScroll(op.id); }catch(e){} return; }
     window._bdOpenPost=null;
   }
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
@@ -14153,14 +14153,43 @@ function _bdSwipeHtml(p){
   }
   var cim='<img src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block">';
   var center='<div data-bdcenter style="flex:0 0 52%;min-width:0">'+(adm?'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener">'+cim+'</a>':cim)+'</div>';
+  // 전체 페이지 썸네일 줄 — 원하는 장을 눌러 바로 이동(현재 장은 파란 테두리)
+  var thumbs='<div data-bdthumbs style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px">'
+    +imgs.map(function(f,i){
+      return '<img src="'+_esc(f.u)+'" alt="" draggable="false" data-bdgo="'+_esc(p.id)+'|'+i+'"'+(i===idx?' data-bdcur="1"':'')
+        +' title="'+(i+1)+'페이지" style="height:62px;border-radius:5px;cursor:pointer;flex:0 0 auto;'
+        +(i===idx?'outline:2px solid #4858cc;opacity:1':'opacity:.55')+'">';
+    }).join('')+'</div>';
   return '<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
     +'<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+side(idx-1)+center+side(idx+1)+'</div>'
     +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px">'
     +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'"'+(idx<=0?' disabled':'')+'><i class="ti ti-chevron-left"></i></button>'
     +'<span data-bdcnt style="font-size:13.5px;color:#555;font-weight:700;min-width:52px;text-align:center">'+(idx+1)+' / '+n+'</span>'
     +'<button data-bdnav="'+_esc(p.id)+'|1" style="'+sb+'"'+(idx>=n-1?' disabled':'')+'><i class="ti ti-chevron-right"></i></button>'
-    +'</div></div>';
+    +'<span style="font-size:11.5px;color:#aab">← → 키로도 넘길 수 있어요</span>'
+    +'</div>'+thumbs+'</div>';
 }
+// 썸네일 줄에서 현재 장이 보이도록 스크롤
+function _bdThumbScroll(pid){
+  try{
+    var el=document.getElementById('bdc_'+pid); if(!el) return;
+    var cur=el.querySelector('[data-bdthumbs] [data-bdcur]');
+    if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest', inline:'center'});
+  }catch(e){}
+}
+// 방향키(←/→)로 페이지 넘김 — 게시물 상세의 좌우 넘김 뷰어가 열려 있을 때만, 입력 중엔 무시
+try{
+  document.addEventListener('keydown',function(ev){
+    if(ev.key!=='ArrowLeft'&&ev.key!=='ArrowRight') return;
+    if(!window._bdOpenPost) return;
+    if(g('bd_overlay')) return;   // 작성/수정 모달이 열려 있으면 무시
+    var ae=document.activeElement;
+    if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT'||ae.isContentEditable)) return;
+    var el=document.querySelector('[id^="bdc_"]'); if(!el) return;
+    _bdNav(window._bdOpenPost.name, el.id.slice(4), ev.key==='ArrowRight'?1:-1);
+    ev.preventDefault();
+  });
+}catch(e){}
 // 앞뒤 2장씩 미리 불러오기 — 다음 장 넘김이 즉시 되도록(넘김이 느린 문제 해결)
 function _bdPreload(p){
   try{
@@ -14179,6 +14208,7 @@ function _bdSwipeRefresh(name,pid){
   el.replaceWith(nw);
   _bdSwipeBindIn(nw,name,pid);
   _bdPreload(p);
+  _bdThumbScroll(pid);
 }
 function _bdSwipeBindIn(root,name,pid){
   root.querySelectorAll('[data-bdnav]').forEach(function(b){
