@@ -340,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-25</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-26</div>
   </div>
 </div>
 
@@ -2986,6 +2986,8 @@ async function loadFromFirestore(){
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _custReqsFixNames(); }catch(e){}
     // 청구 고유 id 마이그레이션 — 위와 동일한 이유로 관리자 기기에서만(세션 1회, 변경 없으면 저장 안 함)
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _claimsIdMigrate(); }catch(e){}
+    // 리쿠르팅 항목 예전 기본형 → 새 분할 양식 마이그레이션 — 관리자 기기 세션 1회(멱등)
+    try{ if(typeof _isAdmin==='function'&&_isAdmin()&&typeof _rcFldsMigrate==='function') _rcFldsMigrate(); }catch(e){}
     // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
     //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
     try{ _authDocSync(); }catch(e){}
@@ -13226,6 +13228,29 @@ function _rcCards(){
   if(!recruit||typeof recruit!=='object'||Array.isArray(recruit)) recruit={cards:[]};
   if(!Array.isArray(recruit.cards)) recruit.cards=[];
   return recruit.cards;
+}
+// 저장된 항목(flds)이 "예전 기본형 그대로"인 경우 새 기본 분할 양식으로 1회 교체 —
+// 관리자가 항목 관리에서 [저장]만 눌러 옛 기본값이 굳어진 상태 마이그레이션(직접 수정한 항목은 안 건드림).
+// 관리자 기기 세션 1회(loadFromFirestore에서 호출 — _claimsIdMigrate 패턴).
+function _rcFldsMigrate(){
+  if(window._rcFldsMigrated) return;
+  window._rcFldsMigrated=true;
+  var f=(recruit&&Array.isArray(recruit.flds))?recruit.flds:null;
+  if(!f||!f.length) return;   // 저장된 양식 없음 — 새 기본값이 그대로 적용됨
+  var changed=false;
+  f.forEach(function(x){
+    if(!x) return;
+    if(x.id==='name'&&String(x.label||'').trim()==='대상자 이름'&&(!Array.isArray(x.subs)||!x.subs.length)){
+      x.label='대상자 정보'; x.subs=['대상자 이름','나이','거주지']; x.hs=1; changed=true;
+    }
+    if(x.id==='job'&&String(x.label||'').trim()==='대상자 현재직업'&&(!Array.isArray(x.subs)||!x.subs.length)){
+      x.label='현재 직업'; x.subs=['현재직업','결혼여부']; x.hs=1; changed=true;
+    }
+  });
+  if(changed){
+    sv('tops_recruit',recruit);
+    try{ if(window._curPage==='recruit') rRecruit(); }catch(e){}
+  }
 }
 function _rcCardById(id){ var c=_rcCards().filter(function(x){return x&&x.id===id;}); return c.length?c[0]:null; }
 // 카드에 입력된 값이 하나라도 있는지 — 빈 초안(기본 1페이지)이 영구 저장되는 것을 막는 판정
