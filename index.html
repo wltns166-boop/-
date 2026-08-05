@@ -340,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-27</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-28</div>
   </div>
 </div>
 
@@ -13353,14 +13353,14 @@ function _rcFormHtml(c){
       var arr=Array.isArray(v)?v:(v?[String(v)]:[]);
       if(f.hs&&f.subs.length>1){
         // 가로 분할 — 세부 칸을 나란히
-        inner='<div style="display:flex;align-items:stretch">'+f.subs.map(function(sl,si){
+        inner='<div style="display:flex;align-items:stretch;flex:1">'+f.subs.map(function(sl,si){
           return '<div style="flex:1;min-width:0;padding:8px 10px;display:flex;flex-direction:column;justify-content:center;min-height:64px'+(si?';border-left:1px solid #e4e4e8':'')+'">'
             +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
             +ta(f.id,si,arr[si]||'',28)+'</div>';
         }).join('')+'</div>';
       } else {
         inner=f.subs.map(function(sl,si){
-          return '<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;min-height:56px'+(si<f.subs.length-1?';border-bottom:1px solid #e4e4e8':'')+'">'
+          return '<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:56px'+(si<f.subs.length-1?';border-bottom:1px solid #e4e4e8':'')+'">'
             +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
             +ta(f.id,si,arr[si]||'',28)+'</div>';
         }).join('');
@@ -13368,11 +13368,11 @@ function _rcFormHtml(c){
     } else {
       var tall=(f.label.indexOf('리스크')>=0||f.label.indexOf('진행')>=0)?120:52;
       // 세로 가운데 정렬 — 입력값이 칸 위쪽에 붙지 않게(내용이 늘면 자동으로 확장)
-      inner='<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;min-height:'+tall+'px">'+ta(f.id,null,typeof v==='string'?v:'',28)+'</div>';
+      inner='<div style="padding:8px 12px;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:'+tall+'px">'+ta(f.id,null,typeof v==='string'?v:'',28)+'</div>';
     }
     return '<div style="display:flex;border-bottom:1px solid #cfcfd6">'
       +'<div style="flex:0 0 110px;background:#f2f2f5;color:#222;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px 6px;border-right:1px solid #cfcfd6;line-height:1.4;word-break:keep-all">'+_esc(f.label)+'</div>'
-      +'<div style="flex:1;min-width:0;background:#fff">'+inner+'</div></div>';
+      +'<div style="flex:1;min-width:0;background:#fff;display:flex;flex-direction:column">'+inner+'</div></div>';
   }).join('');
   return '<div style="max-width:780px;margin:0 auto;background:#fff;border:1px solid #d8d8e0;border-radius:10px;padding:20px 22px;box-shadow:0 2px 10px rgba(20,20,60,.06)">'
     +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
