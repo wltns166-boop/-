@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-22</div>
   </div>
 </div>
 
@@ -13528,7 +13528,11 @@ function _rcTeamDraw(){
   var bt='padding:4px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;';
   var th='padding:8px 10px;background:#f2f2f7;color:#444;font-size:13px;border-bottom:1px solid #ddd;text-align:left;white-space:nowrap';
   var td_='padding:8px 10px;border-bottom:1px solid #eee;font-size:13.5px;color:#333;white-space:nowrap';
-  tb.innerHTML='<table style="border-collapse:collapse;width:100%;min-width:520px">'
+  // 동명이인 방어 — 카드는 이름 기준이라 같은 이름이 2명 이상이면 카드·PDF·출력이 섞임(구조적 한계)
+  var seenNm={}, dupNm=[];
+  (mem||[]).forEach(function(m){ if(!m||!m.name||m.suspended) return; var n=m.name.trim(); if(seenNm[n]&&dupNm.indexOf(n)<0) dupNm.push(n); seenNm[n]=1; });
+  var warn=dupNm.length?'<div style="margin-bottom:8px;font-size:12.5px;color:#c03030"><i class="ti ti-alert-triangle"></i> 같은 이름의 구성원이 있습니다('+_esc(dupNm.join(', '))+') — 카드가 이름 기준이라 두 사람의 카드가 한 줄에 합쳐져 보이니 주의하세요.</div>':'';
+  tb.innerHTML=warn+'<table style="border-collapse:collapse;width:100%;min-width:520px">'
     +'<thead><tr><th style="'+th+'">이름</th><th style="'+th+'">직급</th><th style="'+th+'">작성여부</th><th style="'+th+'">작성된 것</th></tr></thead><tbody>'
     +rows.map(function(r){
       var cs=byOwner[r.name]||[];
@@ -13561,34 +13565,42 @@ function rcTeamView(name){
 // [PDF 저장] — 그 팀원의 카드 전체를 한 파일로(카드 1장=1페이지)
 async function rcTeamPdf(name){
   var cs=_rcCardsOf(name); if(!cs.length){ toast('작성된 카드가 없습니다.'); return; }
-  if(window._rcTeamPdfBusy) return;
+  if(window._rcTeamPdfBusy){ toast('이미 PDF를 만드는 중입니다 — 잠시만 기다려주세요.'); return; }
   window._rcTeamPdfBusy=true;
   try{
     await _drEnsureLibs();
     var pdf=new window.jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4'});
     var margin=8, pw=210-margin*2, ph=297-margin*2;
+    var ok=0, fail=0;
     for(var i=0;i<cs.length;i++){
       toast('PDF 만드는 중… ('+(i+1)+'/'+cs.length+')');
-      var tmp=document.createElement('div');
-      tmp.style.cssText='position:absolute;left:-10000px;top:0;width:808px;background:#fff;padding:16px';
-      tmp.innerHTML=_rcTableHtml(cs[i]);
-      document.body.appendChild(tmp);
-      var canvas;
-      try{ canvas=await html2canvas(tmp,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:840}); }
-      finally{ tmp.remove(); }
-      var w=pw, h=canvas.height/canvas.width*pw;
-      if(h>ph){ w=canvas.width/canvas.height*ph; h=ph; }
-      if(i>0) pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',margin+(pw-w)/2,margin,w,h);
+      try{
+        var tmp=document.createElement('div');
+        tmp.style.cssText='position:absolute;left:-10000px;top:0;width:808px;background:#fff;padding:16px';
+        tmp.innerHTML=_rcTableHtml(cs[i]);
+        document.body.appendChild(tmp);
+        var canvas;
+        try{ canvas=await html2canvas(tmp,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:840}); }
+        finally{ tmp.remove(); }
+        var w=pw, h=canvas.height/canvas.width*pw;
+        if(h>ph){ w=canvas.width/canvas.height*ph; h=ph; }
+        if(ok>0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',margin+(pw-w)/2,margin,w,h);
+        ok++;
+      }catch(eCard){ console.warn('카드 변환 실패:', eCard); fail++; }   // 한 장 실패해도 나머지는 계속
     }
+    if(!ok) throw new Error('모든 카드 변환에 실패했습니다');
     pdf.save('리쿠르팅카드_'+String(name).replace(/[\\/:*?"<>|\s]+/g,'_')+'_전체_'+td()+'.pdf');
-    toast('PDF가 저장되었습니다. ('+cs.length+'장)');
+    toast('PDF가 저장되었습니다. ('+ok+'장'+(fail?', 실패 '+fail+'장 제외':'')+')');
   }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
   finally{ window._rcTeamPdfBusy=false; }
 }
 // [출력] — 그 팀원의 카드 전체를 한 번에 인쇄(카드마다 페이지 나눔), 성공 시 각 카드에 출력 기록
 async function rcTeamPrint(name){
   var cs=_rcCardsOf(name); if(!cs.length){ toast('작성된 카드가 없습니다.'); return; }
+  if(window._rcTeamPrBusy) return;   // 연타로 팝업·출력 기록이 중복되는 것 방지
+  window._rcTeamPrBusy=true;
+  try{
   var w=window.open('','_blank','width=900,height=800,scrollbars=yes,resizable=yes');
   if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
   var body=cs.map(function(c,i){
@@ -13607,6 +13619,7 @@ async function rcTeamPrint(name){
     });
   });
   rRecruit();
+  }finally{ window._rcTeamPrBusy=false; }
 }
 // ----- 항목 관리 (관리자 전용) -----
 // _rcFldsWork: 모달 안 편집본. 목록은 정렬·필터 없이 그대로 그려 인덱스=원본(함정 A 안전 예외).
