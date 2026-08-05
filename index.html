@@ -282,6 +282,13 @@ table.dt tr:last-child td{border-bottom:none;}
 /* 환경설정 목록 행 — 마우스가 가리키는 줄을 연하게 표시 */
 .nsrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:5px 8px;border-radius:8px;margin-bottom:2px}
 .nsrow:hover{background:rgba(80,100,220,.10)}
+/* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
+.bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
+@media(max-width:900px){.bdgrid{grid-template-columns:repeat(2,1fr)}}
+.bdcard{cursor:pointer}
+.bdthumb{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#eef0f6;border:1px solid #e2e4ee;display:flex;align-items:center;justify-content:center;transition:.15s}
+.bdthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.bdcard:hover .bdthumb{box-shadow:0 5px 16px rgba(40,60,180,.20);transform:translateY(-2px)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -329,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-12</div>
   </div>
 </div>
 
@@ -3973,7 +3980,7 @@ function showPage(name){
   setAdmin();
   const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
-  else if(String(name).indexOf('cm_')===0) setTimeout(function(){rCustomPage(name);},0);   // 환경설정 추가 메뉴(내용 페이지)
+  else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
 }
 
 // ===== 인트라넷 사용량 집계·조회 (관리자 전용 열람) =====
@@ -13840,7 +13847,7 @@ function _nsDelCustom(key){
   var kidKeys=(item&&item.children)?item.children.map(function(ch){ return ch.key; }):[];
   var msg='추가 메뉴 "'+c.label+'"을(를) 삭제하시겠습니까?';
   if(kidKeys.length) msg+='\n(하위 메뉴 '+kidKeys.length+'개와 작성한 내용 페이지도 함께 삭제됩니다)';
-  else if(c.type==='page') msg+='\n(작성해 둔 내용 페이지도 함께 사라집니다)';
+  else if(c.type==='page') msg+='\n(올려 둔 게시물도 화면에서 함께 사라집니다)';
   if(!confirm(msg)) return;
   var del={}; del[key]=1; kidKeys.forEach(function(k){ del[k]=1; });
   w.customs=w.customs.filter(function(x){ return !del['n_'+x.id]; });
@@ -13868,7 +13875,7 @@ function nsAddMenu(loc, parentLabel){
     +'<input id="nsadd_name" placeholder="예: 팀 공지, 자료실" style="'+_in+';margin-bottom:10px">'
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">종류</div>'
     +'<select id="nsadd_type" onchange="document.getElementById(\'nsadd_urlbox\').style.display=this.value===\'link\'?\'\':\'none\'" style="'+_in+';margin-bottom:10px">'
-    +'<option value="page">내용 페이지 (관리자가 내용 작성, 전원 열람)</option>'
+    +'<option value="page">게시판 페이지 (관리자가 게시물 작성, 전원 열람)</option>'
     +'<option value="link">외부 링크 (누르면 새 창으로 열림)</option></select>'
     +'<div id="nsadd_urlbox" style="display:none"><div style="font-size:13px;color:#555;margin-bottom:4px">링크 주소(URL)</div>'
     +'<input id="nsadd_url" placeholder="https://..." style="'+_in+';margin-bottom:10px"></div>'
@@ -13964,27 +13971,36 @@ function rCustomPage(name){
   var c=_navCustomById(name);
   if(!c){ body.innerHTML='<div class="card" style="color:#888;font-size:14px">메뉴를 찾을 수 없습니다. (삭제되었을 수 있습니다)</div>'; return; }
   var q=JSON.stringify(name).replace(/"/g,'&quot;');
-  var html=_esc(String(c.content||'')).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#3848cc">$1</a>');
-  // 상단 자유 내용 카드 — 내용이 있거나 관리자일 때만 표시(게시판이 주 화면)
-  var head='';
-  if(html||_isAdmin()){
-    head='<div class="card" style="margin-bottom:14px">'
-      +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-file-text"></i> '+_esc(c.label)+'</div>'
-      +'<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;color:#222;line-height:1.75">'
-      +(html||'<span style="color:#a0a0b0">페이지 소개 글이 없습니다. (없어도 게시물은 올릴 수 있습니다)</span>')+'</div>'
-      +(_isAdmin()?'<div style="margin-top:12px"><button onclick="cmEdit('+q+')" style="padding:7px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-pencil"></i> 소개 글 편집</button></div>':'')
-      +'</div>';
-  }
   var posts=_bdPosts(name).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-  var ph='<div class="card">'
+  // 게시물 상세 보기 상태 — 카드를 누르면 상세, [목록으로]로 복귀. 삭제됐으면 목록으로 폴백.
+  var open=window._bdOpenPost;
+  if(open&&open.name===name){
+    var op=_bdPostById(name,open.pid);
+    if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); return; }
+    window._bdOpenPost=null;
+  }
+  // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
+  var PER=12;
+  window._bdPage=window._bdPage||{};
+  var totalPg=Math.max(1,Math.ceil(posts.length/PER));
+  var pg=Math.min(Math.max(0,window._bdPage[name]||0),totalPg-1);
+  window._bdPage[name]=pg;
+  var slice=posts.slice(pg*PER,pg*PER+PER);
+  var grid=slice.length
+    ? '<div class="bdgrid">'+slice.map(function(p){ return _bdCardHtml(p); }).join('')+'</div>'
+    : '<div style="color:#a0a0b0;font-size:14px;padding:26px 0;text-align:center">등록된 게시물이 없습니다.'+(_isAdmin()?' [게시물 작성]으로 자료를 올려보세요.':'')+'</div>';
+  var sb='padding:6px 14px;border:1px solid #ccd;border-radius:7px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;';
+  var pager=totalPg>1
+    ? '<div style="display:flex;justify-content:center;align-items:center;gap:14px;margin-top:18px">'
+      +'<button data-bdpg="-1" style="'+sb+'"'+(pg<=0?' disabled':'')+'><i class="ti ti-chevron-left"></i> 이전</button>'
+      +'<span style="font-size:13.5px;color:#555;font-weight:600">'+(pg+1)+' / '+totalPg+'</span>'
+      +'<button data-bdpg="1" style="'+sb+'"'+(pg>=totalPg-1?' disabled':'')+'>다음 <i class="ti ti-chevron-right"></i></button></div>'
+    : '';
+  body.innerHTML='<div class="card">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-notes"></i> 게시물 <span style="color:#8888aa;font-size:13px;font-weight:400">'+posts.length+'건</span></div>'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-notes"></i> '+_esc(c.label)+' <span style="color:#8888aa;font-size:13px;font-weight:400">'+posts.length+'건</span></div>'
     +(_isAdmin()?'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>':'')
-    +'</div>'
-    +(posts.length?posts.map(function(p){ return _bdPostHtml(name,p); }).join('')
-      :'<div style="color:#a0a0b0;font-size:14px;padding:16px 0 6px">등록된 게시물이 없습니다.'+(_isAdmin()?' [게시물 작성]으로 자료를 올려보세요.':'')+'</div>')
-    +'</div>';
-  body.innerHTML=head+ph;
+    +'</div>'+grid+pager+'</div>';
   _bdBind(body,name);
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
@@ -14007,16 +14023,29 @@ function _bdImgs(p){
   return imgs;
 }
 function _bdPdfs(p){ return (Array.isArray(p.files)?p.files:[]).filter(function(f){ return f&&f.t!=='img'&&f.u&&_BD_URL_RE.test(String(f.u)); }); }
-function _bdPostHtml(name,p){
-  var bodyHtml=_esc(String(p.body||'')).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#3848cc">$1</a>');
+// 목록 카드 — 대표이미지 썸네일 + 제목 + 날짜 (이미지 없으면 PDF/문서 아이콘)
+function _bdCardHtml(p){
+  var imgs=_bdImgs(p), pdfs=_bdPdfs(p);
+  var th;
+  if(imgs.length) th='<img src="'+_esc(imgs[0].u)+'" loading="lazy" alt="">';
+  else if(pdfs.length) th='<i class="ti ti-file-type-pdf" style="font-size:46px;color:#c05050"></i>';
+  else th='<i class="ti ti-notes" style="font-size:42px;color:#b8bdd6"></i>';
+  return '<div class="bdcard" data-bdopen="'+_esc(p.id)+'">'
+    +'<div class="bdthumb">'+th+'</div>'
+    +'<div style="font-weight:700;font-size:14px;color:#1a1a2e;margin-top:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+_esc(p.title||'(제목 없음)')+'</div>'
+    +'<div style="font-size:12px;color:#999;margin-top:2px">'+_esc(p.dt||'')+'</div>'
+    +'</div>';
+}
+// 첨부 표시 — 이미지(보기 방식별) + PDF 버튼 (상세 화면 전용)
+function _bdFilesHtml(p){
   var sb='padding:4px 10px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
   var imgs=_bdImgs(p), pdfs=_bdPdfs(p);
   var fh='';
   if(imgs.length){
     if(p.vm==='swipe'&&imgs.length>1){
       var idx=(((window._bdIdx||{})[p.id]||0)%imgs.length+imgs.length)%imgs.length; // 재렌더 시 보던 위치 유지(처음엔 대표이미지)
-      fh+='<div id="bdc_'+_esc(p.id)+'" style="margin-top:10px;text-align:center;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
-        +'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener"><img src="'+_esc(imgs[idx].u)+'" loading="lazy" alt="" style="max-width:100%;max-height:70vh;border-radius:8px"></a>'
+      fh+='<div id="bdc_'+_esc(p.id)+'" style="margin-top:12px;text-align:center;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
+        +'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener"><img src="'+_esc(imgs[idx].u)+'" loading="lazy" alt="" style="max-width:100%;max-height:72vh;border-radius:8px"></a>'
         +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
         +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'padding:6px 16px;font-size:14px"><i class="ti ti-chevron-left"></i></button>'
         +'<span data-bdcnt style="font-size:13px;color:#555;font-weight:600;min-width:46px">'+(idx+1)+' / '+imgs.length+'</span>'
@@ -14024,26 +14053,52 @@ function _bdPostHtml(name,p){
         +'</div></div>';
     } else {
       fh+=imgs.map(function(f){
-        return '<div style="margin-top:10px;text-align:center"><a href="'+_esc(f.u)+'" target="_blank" rel="noopener"><img src="'+_esc(f.u)+'" loading="lazy" alt="" style="max-width:100%;border-radius:8px"></a></div>';
+        return '<div style="margin-top:12px;text-align:center"><a href="'+_esc(f.u)+'" target="_blank" rel="noopener"><img src="'+_esc(f.u)+'" loading="lazy" alt="" style="max-width:100%;border-radius:8px"></a></div>';
       }).join('');
     }
   }
   if(pdfs.length){
-    fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+pdfs.map(function(f){
+    fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pdfs.map(function(f){
       return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+'</a>';
     }).join('')+'</div>';
   }
-  return '<div style="border-top:1px solid #e8e8f0;margin-top:12px;padding:13px 2px 4px">'
-    +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">'
-    +'<div style="font-weight:700;font-size:15.5px;color:#1a1a2e">'+_esc(p.title||'(제목 없음)')+'</div>'
-    +'<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#999;white-space:nowrap">'+_esc(p.by||'-')+' · '+_esc(p.dt||'-')
-    +(_isAdmin()?' <button data-bdedit="'+_esc(p.id)+'" style="'+sb+'">수정</button><button data-bddel="'+_esc(p.id)+'" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3">삭제</button>':'')
-    +'</div></div>'
-    +(p.body?'<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;color:#222;line-height:1.7;margin-top:6px">'+bodyHtml+'</div>':'')
-    +fh+'</div>';
+  return fh;
+}
+// 게시물 상세 화면
+function _bdDetailHtml(name,p){
+  var sb='padding:5px 12px;border:1px solid #ccd;border-radius:7px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;';
+  var bodyHtml=_esc(String(p.body||'')).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#3848cc">$1</a>');
+  return '<div class="card">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+    +'<button data-bdback style="'+sb+'"><i class="ti ti-arrow-left"></i> 목록으로</button>'
+    +(_isAdmin()?'<span style="display:flex;gap:6px"><button data-bdedit="'+_esc(p.id)+'" style="'+sb+'"><i class="ti ti-pencil"></i> 수정</button><button data-bddel="'+_esc(p.id)+'" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i> 삭제</button></span>':'')
+    +'</div>'
+    +'<div style="font-weight:800;font-size:19px;color:#1a1a2e;line-height:1.4">'+_esc(p.title||'(제목 없음)')+'</div>'
+    +'<div style="font-size:12.5px;color:#999;margin-top:4px;padding-bottom:12px;border-bottom:1px solid #e8e8f0">'+_esc(p.by||'-')+' · '+_esc(p.dt||'-')+(p.ut&&p.ut!==p.dt?' (수정 '+_esc(p.ut)+')':'')+'</div>'
+    +(p.body?'<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;color:#222;line-height:1.75;margin-top:12px">'+bodyHtml+'</div>':'')
+    +_bdFilesHtml(p)
+    +'</div>';
 }
 function _bdBind(body,name){
   window._bdIdx=window._bdIdx||{};
+  body.querySelectorAll('[data-bdopen]').forEach(function(b){
+    b.addEventListener('click',function(){
+      window._bdOpenPost={name:name, pid:b.getAttribute('data-bdopen')};
+      rCustomPage(name);
+      try{ window.scrollTo(0,0); }catch(e){}
+    });
+  });
+  body.querySelectorAll('[data-bdback]').forEach(function(b){
+    b.addEventListener('click',function(){ window._bdOpenPost=null; rCustomPage(name); });
+  });
+  body.querySelectorAll('[data-bdpg]').forEach(function(b){
+    b.addEventListener('click',function(){
+      window._bdPage=window._bdPage||{};
+      window._bdPage[name]=(window._bdPage[name]||0)+(+b.getAttribute('data-bdpg'));
+      rCustomPage(name);
+      try{ window.scrollTo(0,0); }catch(e){}
+    });
+  });
   body.querySelectorAll('[data-bdnav]').forEach(function(b){
     b.addEventListener('click',function(){
       var pr=b.getAttribute('data-bdnav').split('|');
@@ -14239,6 +14294,7 @@ async function bdSave(){
     });
     removed.forEach(function(of){ try{ if(_BD_URL_RE.test(String(of.u))) firebase.storage().refFromURL(of.u).delete().catch(function(){}); }catch(err){} });
     if(window._bdIdx) delete window._bdIdx[post.id]; // 이미지 순서가 바뀌었을 수 있어 처음(대표)부터
+    if(!e.orig){ window._bdPage=window._bdPage||{}; window._bdPage[nm]=0; } // 새 게시물은 1페이지 맨 앞에 보임
     var ov=g('bd_overlay'); if(ov) ov.remove();
     window._bdEdit=null;
     toast('게시물이 저장되었습니다.');
@@ -14262,34 +14318,10 @@ async function bdDel(name,pid){
     });
   }catch(err){ console.warn(err); toast('삭제 실패: '+(err&&err.message||err)); return; }
   files.forEach(function(f){ try{ if(f&&f.u&&_BD_URL_RE.test(String(f.u))) firebase.storage().refFromURL(f.u).delete().catch(function(){}); }catch(err){} });
+  if(window._bdOpenPost&&window._bdOpenPost.pid===pid) window._bdOpenPost=null; // 상세 보던 게시물 삭제 → 목록으로
   toast('삭제되었습니다.');
   rCustomPage(name);
 }
-function cmEdit(name){
-  if(!_isAdmin()){ toast('관리자만 편집할 수 있습니다.'); return; }
-  var body=g('cm_body'); var c=_navCustomById(name);
-  if(!body||!c) return;
-  var q=JSON.stringify(name).replace(/"/g,'&quot;');
-  body.innerHTML='<div class="card">'
-    +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-pencil"></i> '+_esc(c.label)+' — 내용 편집</div>'
-    +'<textarea id="cm_ta" style="width:100%;min-height:320px;padding:12px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:14.5px;color:#111;background:#fff;line-height:1.7;resize:vertical">'+_esc(c.content||'')+'</textarea>'
-    +'<div style="font-size:12px;color:#8888aa;margin-top:6px">http로 시작하는 주소는 자동으로 눌러서 열 수 있는 링크가 됩니다.</div>'
-    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">'
-    +'<button onclick="rCustomPage('+q+')" style="padding:8px 16px;background:#eceef6;border:1px solid #d0d4e8;border-radius:8px;color:#44485a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>'
-    +'<button onclick="cmSave('+q+')" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>'
-    +'</div></div>';
-}
-function cmSave(name){
-  if(!_isAdmin()){ toast('관리자만 편집할 수 있습니다.'); return; }
-  var ta=g('cm_ta'); if(!ta) return;
-  var found=false;
-  if(navcfg&&Array.isArray(navcfg.customs)) navcfg.customs.forEach(function(c){ if(c&&c.id===name){ c.content=ta.value; found=true; } });
-  if(!found){ toast('메뉴를 찾을 수 없습니다. (다른 관리자가 삭제했을 수 있습니다)'); return; }
-  sv('tops_navcfg',navcfg);
-  toast('내용이 저장되었습니다.');
-  rCustomPage(name);
-}
-
 // ===== 예상계약건 계산 =====
 function _myCurrentPerf(){
   var myName=cu?cu.name:'';

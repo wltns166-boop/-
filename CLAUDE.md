@@ -226,7 +226,10 @@
 - 설정 목록: 숨김 체크한 항목은 각 목록(최상위/그룹) **맨 아래로 정렬**(`_nsSortHidden`, 저장 시 실제 순서에도 반영),
   행 호버 표시는 `.nsrow:hover`.
 - showPage 통합: `pg_` 조회 폴백(cm_* → pg_custom), navset 관리자 가드, r맵 밖 cm_* 렌더 분기.
-- **내용 페이지 게시판 (2026-08-05)**: 각 `cm_*` 페이지에 게시물(`boards={cm_id:[{id('po_..'),title,body,files,vm,by,dt,ts}]}`,
+- **내용 페이지 게시판 (2026-08-05)**: `cm_*` 페이지는 **게시판이 주 화면** — 목록은 대표이미지 썸네일+제목 카드 그리드
+  (`.bdgrid` 4열·모바일 2열, 12개=4×3 단위 페이지 넘김 `_bdPage`), 카드 클릭 → 상세(`_bdOpenPost`, [목록으로] 복귀,
+  메뉴 클릭 시 목록으로 초기화). 소개 글(cmEdit/cmSave)은 제거됨(2026-08-05, customs[].content 데이터만 잔존).
+  게시물(`boards={cm_id:[{id('po_..'),title,body,files,vm,by,dt,ts}]}`,
   동기화 키 `tops_boards` — 텍스트·URL만). 파일 원본은 **Storage `board_files/`**(storage.rules 추가됨, 이미지=캔버스 1600px JPEG 축소,
   PDF=25MB 상한). 표시 전 자체 버킷 `board_files/` URL 화이트리스트(`_BD_URL_RE`). 작성/수정/삭제 관리자만, 열람 전원.
   `vm`: 게시물별 사진 보기 방식 — 'swipe'(좌우 ◀▶, 캐러셀은 이미지·카운터만 교체해 스크롤 유지) / 'scroll'(세로 나열).
