@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-4</div>
   </div>
 </div>
 
@@ -13217,10 +13217,13 @@ function rRecruit(){
     if(ft) ft.innerHTML='';
     return;
   }
-  paper.innerHTML=_rcFormHtml(cur);
+  // 실시간 수신으로 recruit가 교체됐어도 미저장 버퍼의 편집본이 있으면 그걸 표시(입력 유실 방지)
+  var show=(window._rcDirty&&window._rcDirty[cur.id])||cur;
+  window._rcShown=show; // 마지막 표시 카드 — 다른 기기에서 삭제돼도 편집 내용 복구용
+  paper.innerHTML=_rcFormHtml(show);
   // 내용이 있는 칸은 높이를 내용에 맞춤
   paper.querySelectorAll('textarea[data-rcf]').forEach(function(t){ try{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; }catch(e){} });
-  _rcRenderFoot(cur);
+  _rcRenderFoot(show);
 }
 function _rcFormHtml(c){
   var canEdit=_rcCanEdit(c);
@@ -13271,19 +13274,31 @@ function _rcRenderFoot(c){
     +(canEdit?'<button onclick="saveRcCard()" style="'+bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>':'')
     +'</div>';
 }
-// 화면 입력값을 현재 카드(메모리)에 반영 — 저장 전 이동해도 입력이 유지된다(sv는 [저장]에서만)
+// 화면 입력값을 현재 카드(메모리)에 반영하고 미저장 버퍼(_rcDirty)에 보관.
+// 실시간 스냅샷이 recruit를 통째로 교체해도 버퍼의 편집본이 살아남고,
+// 다음 _rcFresh 저장 때 버퍼 전체가 함께 영구 저장된다(카드 여러 장을 오가며 편집해도 유실 없음).
 function _rcCollect(){
   var c=window._rcCur?_rcCardById(window._rcCur):null;
+  // 편집 중 다른 기기에서 카드가 삭제(실시간 교체)된 경우 — 버퍼/화면본으로 이어가서
+  // 입력하던 내용이 사라지지 않게 한다. [저장]하면 카드가 다시 등록된다.
+  if(!c&&window._rcCur){
+    c=(window._rcDirty&&window._rcDirty[window._rcCur])
+      ||((window._rcShown&&window._rcShown.id===window._rcCur)?window._rcShown:null);
+  }
   var paper=g('rc_paper');
   if(!c||!paper||!_rcCanEdit(c)) return c;
   var vals={};
-  paper.querySelectorAll('textarea[data-rcf]').forEach(function(t){
+  var tas=paper.querySelectorAll('textarea[data-rcf]');
+  if(!tas.length) return c; // 화면에 폼이 없으면(다른 카드 렌더 전 등) 값 훼손 방지
+  tas.forEach(function(t){
     var fid=t.getAttribute('data-rcf'), si=t.getAttribute('data-rcs');
     if(si==null){ vals[fid]=t.value; }
     else { if(!Array.isArray(vals[fid])) vals[fid]=[]; vals[fid][+si]=t.value; }
   });
   // 화면에 없는(관리자가 항목을 삭제한) 기존 값은 보존
   c.vals=Object.assign({},c.vals||{},vals);
+  window._rcDirty=window._rcDirty||{};
+  window._rcDirty[c.id]=c;
   return c;
 }
 function rcNav(dir){
@@ -13297,9 +13312,19 @@ function rcNav(dir){
 }
 function rcJump(id){ _rcCollect(); window._rcCur=id; rRecruit(); }
 // 저장 직전 클라우드 최신본을 받아 병합 후 mut(변경)를 적용해 저장 — 통짜 덮어쓰기 경합 축소.
-// 지금 보고 있는 카드는 로컬 값 우선(화면의 미저장 수정 보존).
-async function _rcFresh(mut){
+// 미저장 버퍼(_rcDirty)의 카드 전부 + 지금 보고 있는 카드는 로컬 값 우선(화면의 미저장 수정 보존).
+// 저장이 끝나면 버퍼를 비운다(전부 함께 영구 저장됐으므로).
+// 같은 기기의 저장/추가/삭제가 겹치면 fetch-수정-쓰기가 서로 덮어쓸 수 있어 큐로 직렬화한다.
+function _rcFresh(mut){
+  var run=function(){ return _rcFreshRun(mut); };
+  window._rcFreshQ=(window._rcFreshQ||Promise.resolve()).then(run,run);
+  return window._rcFreshQ;
+}
+async function _rcFreshRun(mut){
   var base=(recruit&&typeof recruit==='object'&&!Array.isArray(recruit))?recruit:{cards:[]};
+  var keep={}; // id → 로컬 우선 카드
+  try{ Object.keys(window._rcDirty||{}).forEach(function(id){ if(window._rcDirty[id]) keep[id]=window._rcDirty[id]; }); }catch(e){}
+  if(window._rcCur&&!keep[window._rcCur]){ var loc=_rcCardById(window._rcCur); if(loc) keep[loc.id]=loc; }
   try{
     if(window.FS_DOC){
       var doc=await FS_DOC.get();
@@ -13307,32 +13332,33 @@ async function _rcFresh(mut){
       if(d&&d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){
         var cloud=d.recruit;
         if(!Array.isArray(cloud.cards)) cloud.cards=[];
-        var curId=window._rcCur;
-        if(curId){
-          var loc=_rcCardById(curId);
-          if(loc){
-            var ci=-1;
-            for(var k=0;k<cloud.cards.length;k++){ if(cloud.cards[k]&&cloud.cards[k].id===curId){ ci=k; break; } }
-            if(ci>=0) cloud.cards[ci]=loc; else cloud.cards.push(loc);
-          }
-        }
         base=cloud;
       }
     }
   }catch(e){ console.warn('recruit 최신본 로드 실패(로컬 기준으로 진행):', e); }
   if(!Array.isArray(base.cards)) base.cards=[];
+  Object.keys(keep).forEach(function(id){
+    var ci=-1;
+    for(var k=0;k<base.cards.length;k++){ if(base.cards[k]&&base.cards[k].id===id){ ci=k; break; } }
+    if(ci>=0) base.cards[ci]=keep[id]; else base.cards.push(keep[id]);
+  });
   try{ mut(base); }catch(e){ console.warn('recruit 변경 적용 오류:', e); }
   recruit=base;
   sv('tops_recruit',recruit);
+  window._rcDirty={};
 }
 async function rcAddCard(){
   if(!cu||!cu.name){ toast('로그인 후 이용할 수 있습니다.'); return; }
-  _rcCollect();
-  var nc={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
-  await _rcFresh(function(r){ r.cards.push(nc); });
-  window._rcCur=nc.id;
-  rRecruit();
-  toast('새 카드가 추가되었습니다. 작성 후 [저장]을 눌러주세요.');
+  if(window._rcAdding) return; // 연타로 빈 카드 여러 장 생성 방지
+  window._rcAdding=true;
+  try{
+    _rcCollect();
+    var nc={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
+    await _rcFresh(function(r){ r.cards.push(nc); });
+    window._rcCur=nc.id;
+    rRecruit();
+    toast('새 카드가 추가되었습니다. 작성 후 [저장]을 눌러주세요.');
+  }finally{ window._rcAdding=false; }
 }
 async function saveRcCard(){
   var c=_rcCollect();
@@ -13353,6 +13379,7 @@ async function deleteRcCard(){
   if(!confirm('이 리쿠르팅 카드를 삭제하시겠습니까?')) return;
   var did=c.id;
   window._rcCur=null; // _rcFresh의 "보고 있는 카드 로컬 우선" 병합이 삭제 대상을 붙잡지 않도록 해제
+  try{ if(window._rcDirty) delete window._rcDirty[did]; }catch(e){} // 미저장 버퍼에서도 제거(부활 방지)
   await _rcFresh(function(r){ r.cards=r.cards.filter(function(x){return !(x&&x.id===did);}); });
   toast('삭제되었습니다.');
   rRecruit();
@@ -13406,6 +13433,7 @@ async function printRcCard(){
   });
   rRecruit();
 }
+// PDF 저장 = 파일 다운로드만(데이터 영구 저장은 [저장] 버튼 — 출력과 달리 클라우드 기록 없음)
 async function rcSavePdf(){
   var c=_rcCollect(); if(!c){ toast('저장할 카드가 없습니다.'); return; }
   try{
@@ -13468,7 +13496,7 @@ function _rcFldsPull(){
   document.querySelectorAll('input[data-rcfl]').forEach(function(inp){ var i=+inp.getAttribute('data-rcfl'); if(w[i]) w[i].label=inp.value; });
   document.querySelectorAll('input[data-rcflsub]').forEach(function(inp){ var i=+inp.getAttribute('data-rcflsub'); if(w[i]) w[i].subs=inp.value.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}); });
 }
-function rcFldAdd(){ _rcFldsPull(); (window._rcFldsWork=window._rcFldsWork||[]).push({id:'rf_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),label:'',subs:[]}); _rcFldsDraw(); }
+function rcFldAdd(){ _rcFldsPull(); (window._rcFldsWork=window._rcFldsWork||[]).push({id:'rf_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),label:'',subs:[]}); _rcFldsDraw(); }
 function rcFldDel(i){ _rcFldsPull(); var w=window._rcFldsWork; if(!w||!w[i]) return; if(w[i].label&&!confirm('항목 "'+w[i].label+'"을(를) 삭제하시겠습니까?\n(이미 작성된 카드의 해당 내용은 화면에서 숨겨질 뿐 데이터는 유지됩니다)')) return; w.splice(i,1); _rcFldsDraw(); }
 function rcFldMove(i,d){ _rcFldsPull(); var w=window._rcFldsWork; var j=i+d; if(!w||!w[i]||j<0||j>=w.length) return; var t=w[i]; w[i]=w[j]; w[j]=t; _rcFldsDraw(); }
 async function saveRcFlds(){
