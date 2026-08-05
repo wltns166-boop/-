@@ -207,6 +207,21 @@
 - **PDF 저장**: `rcSavePdf` — 기존 `_drEnsureLibs`/`_drPdfFromCanvas`(html2canvas+jsPDF) 재사용, 파일 다운로드.
 - 실시간 수신 재렌더 시 카드 안에 포커스가 있으면 `rRecruit`가 생략(입력값 날림 방지).
 
+## 5.6 환경설정 — 메뉴 구성 (navcfg, 2026-08-05, 관리자 전용)
+
+- 사이드바 맨 아래 [환경설정](`n_navset`, `.ao`) — 메뉴 이름 변경·순서 변경·숨김·메뉴 추가·기본값 복원.
+- 데이터: `navcfg = {ren:{navId:이름}, hide:{navId:1}, ord:{'_top'|nch_아이디:[navId...]}, customs:[{id('cm_..'),label,loc,type('page'|'link'),url?,content?}]}`
+  — 동기화 키 `tops_navcfg`(텍스트만). 로드·실시간 수신 시 `_navApply()` 즉시 적용.
+- **적용 방식(`_navApply`)**: 정적 사이드바 DOM을 손보는 멱등 함수. `setAdmin()` 끝에서 매번 재적용.
+  - 이름: 텍스트 노드만 교체(아이콘·접기 화살표 보존). 페이지 상단 제목은 `_ptitle(name)`(showPage)이 반영.
+  - 순서: 같은 컨테이너 안에서만 이동(최상위 블록=.ni+.nch 묶음, 그룹 내부=.ns). `n_navset`은 항상 맨 아래 고정.
+  - 숨김: **`.cfg-hide` 클래스(display:none !important)로만** — setAdmin의 권한별 인라인 표시값과 충돌하지 않고,
+    해제 시 권한 처리 결과가 그대로 복원됨(⚠️ 인라인 style로 바꾸지 말 것 — 권한 숨김을 되살리는 사고 위험).
+  - 기본 이름/순서는 최초 적용 전에 `_navDefaults`/`_navDefOrder`로 캡처(기본값 복원의 기준).
+- **추가 메뉴**: 내용 페이지(`cm_*` — 공용 `pg_custom`에 `rCustomPage` 렌더, 전원 열람·관리자만 편집) 또는
+  외부 링크(**http/https만** — `javascript:` 등은 https:// 접두로 무력화). 삭제는 추가 메뉴만, 기본 메뉴는 숨김만.
+- showPage 통합: `pg_` 조회 폴백(cm_* → pg_custom), navset 관리자 가드, r맵 밖 cm_* 렌더 분기.
+
 ## 6. 보험금청구 (claims)
 
 - **고유 id (2026-08-03)**: 각 청구건은 `id`(`clm_<ts>_<rand>`)를 가진다.
