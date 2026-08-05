@@ -340,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-24</div>
   </div>
 </div>
 
@@ -13228,6 +13228,11 @@ function _rcCards(){
   return recruit.cards;
 }
 function _rcCardById(id){ var c=_rcCards().filter(function(x){return x&&x.id===id;}); return c.length?c[0]:null; }
+// 카드에 입력된 값이 하나라도 있는지 — 빈 초안(기본 1페이지)이 영구 저장되는 것을 막는 판정
+function _rcHasVals(c){
+  var dv=(c&&c.vals)||{};
+  return Object.keys(dv).some(function(k){ var v=dv[k]; return Array.isArray(v)?v.some(function(x){return String(x||'').trim();}):String(v||'').trim(); });
+}
 function _rcCanEdit(c){ return !!(cu&&c&&(cu.admin||c.owner===cu.name)); }
 // 가시 카드 목록 — 본인 카드 먼저, 그 외 작성자 가나다순, 같은 작성자는 등록순
 function _rcVisible(){
@@ -13265,6 +13270,11 @@ function rRecruit(){
   var vis=_rcVisible();
   var cur=window._rcCur?_rcCardById(window._rcCur):null;
   if(!cur||!vis.some(function(c){return c.id===cur.id;})){ cur=vis.length?vis[0]:null; window._rcCur=cur?cur.id:null; }
+  // 다른 카드로 이동해 더는 보고 있지 않은 "빈" 초안은 정리(버퍼 고아 → 무관한 저장에 얹혀 부활 방지)
+  if(window._rcDraft&&window._rcCur!==window._rcDraft.id&&!_rcHasVals(window._rcDraft)){
+    if(window._rcDirty) delete window._rcDirty[window._rcDraft.id];
+    window._rcDraft=null;
+  }
   // 카드가 하나도 없으면 기본 1페이지 — 미저장 초안(작성 후 [저장]하면 실제 등록)
   var draft=null;
   if(!cur&&cu&&cu.name){
@@ -13414,6 +13424,8 @@ async function _rcFreshRun(mut){
   var keep={}; // id → 로컬 우선 카드
   try{ Object.keys(window._rcDirty||{}).forEach(function(id){ if(window._rcDirty[id]) keep[id]=window._rcDirty[id]; }); }catch(e){}
   if(window._rcCur&&!keep[window._rcCur]){ var loc=_rcCardById(window._rcCur); if(loc) keep[loc.id]=loc; }
+  // 값이 비어 있는 초안(기본 1페이지)은 어떤 저장에도 얹혀 들어가지 않게 제외
+  if(window._rcDraft&&keep[window._rcDraft.id]&&!_rcHasVals(keep[window._rcDraft.id])) delete keep[window._rcDraft.id];
   try{
     if(window.FS_DOC){
       var doc=await FS_DOC.get();
@@ -13443,10 +13455,9 @@ async function rcAddCard(){
   try{
     _rcCollect();
     // 기본 1페이지 초안이 비어 있으면 버리고 새 카드만 만든다(빈 카드 이중 생성 방지). 값이 있으면 함께 저장됨.
-    if(window._rcDraft&&window._rcCur===window._rcDraft.id){
-      var dv=window._rcDraft.vals||{};
-      var hasVal=Object.keys(dv).some(function(k){ var v=dv[k]; return Array.isArray(v)?v.some(function(x){return String(x||'').trim();}):String(v||'').trim(); });
-      if(!hasVal){ if(window._rcDirty) delete window._rcDirty[window._rcDraft.id]; window._rcDraft=null; window._rcCur=null; }
+    if(window._rcDraft&&window._rcCur===window._rcDraft.id&&!_rcHasVals(window._rcDraft)){
+      if(window._rcDirty) delete window._rcDirty[window._rcDraft.id];
+      window._rcDraft=null; window._rcCur=null;
     }
     var nc={ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:cu.name, ts:Date.now(), dt:tds(), vals:{}, prints:[] };
     await _rcFresh(function(r){ r.cards.push(nc); });
@@ -13470,6 +13481,14 @@ async function saveRcCard(){
   rRecruit();
 }
 async function deleteRcCard(){
+  // 초안(미저장 기본 1페이지)이면 입력만 비운다 — 저장된 카드가 아니라 클라우드 삭제 대상이 없음
+  if(window._rcDraft&&window._rcCur===window._rcDraft.id){
+    if(!confirm('작성 중인 내용을 지우시겠습니까?')) return;
+    if(window._rcDirty) delete window._rcDirty[window._rcDraft.id];
+    window._rcDraft.vals={};
+    rRecruit();
+    return;
+  }
   var c=window._rcCur?_rcCardById(window._rcCur):null; if(!c) return;
   if(!_rcCanEdit(c)){ toast('본인이 작성한 카드만 삭제할 수 있습니다.'); return; }
   if(!confirm('이 리쿠르팅 카드를 삭제하시겠습니까?')) return;
@@ -13522,6 +13541,8 @@ function _rcDocHtml(c, autoPrint){
 }
 async function printRcCard(){
   var c=_rcCollect(); if(!c){ toast('출력할 카드가 없습니다.'); return; }
+  // 빈 초안(기본 1페이지)은 출력·저장 대상이 아님 — 빈 카드가 팀 전체에 등록되는 것 방지
+  if(window._rcDraft&&c.id===window._rcDraft.id&&!_rcHasVals(c)){ toast('작성된 내용이 없습니다. 작성 후 출력해주세요.'); return; }
   var w=window.open('','_blank','width=900,height=800,scrollbars=yes,resizable=yes');
   if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
   w.document.write(_rcDocHtml(c,true)); w.document.close();
@@ -13535,6 +13556,7 @@ async function printRcCard(){
     if(!Array.isArray(t.prints)) t.prints=[];
     t.prints.push({by:by,dt:tds()});
   });
+  if(window._rcDraft&&window._rcDraft.id===cid) window._rcDraft=null;   // 값이 있는 초안은 출력과 함께 실제 등록됨
   rRecruit();
 }
 // PDF 저장 = 파일 다운로드만(데이터 영구 저장은 [저장] 버튼 — 출력과 달리 클라우드 기록 없음)
