@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-21</div>
   </div>
 </div>
 
@@ -1236,6 +1236,12 @@ table.dt tr:last-child td{border-bottom:none;}
         </div>
         <div id="rc_paper"></div>
         <div id="rc_foot" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px"></div>
+      </div>
+      <!-- 팀원 작성 현황 (팀장급 이상) -->
+      <div class="card" id="rc_team_box" style="display:none;margin-top:14px">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-users"></i> 팀원 작성 현황</div>
+        <div style="font-size:12.5px;color:#8888aa;margin-bottom:10px">[보기]는 위 카드 화면에서 그 팀원의 카드로 이동합니다. [PDF]·[출력]은 그 팀원의 카드 전체를 한 번에 저장·인쇄합니다.</div>
+        <div style="overflow-x:auto"><div id="rc_team_tb"></div></div>
       </div>
     </div>
 
@@ -13246,6 +13252,7 @@ function rRecruit(){
   //   — 저장/이동/추가 버튼은 카드 밖에 있어 버튼 조작 후 렌더는 정상 동작
   try{ if(document.activeElement&&paper.contains(document.activeElement)) return; }catch(e){}
   var fbtn=g('rc_flds_btn'); if(fbtn) fbtn.style.display=_isAdmin()?'':'none';
+  try{ _rcTeamDraw(); }catch(e){}   // 하단 팀원 작성 현황(팀장급 이상)
   var vis=_rcVisible();
   var cur=window._rcCur?_rcCardById(window._rcCur):null;
   if(!cur||!vis.some(function(c){return c.id===cur.id;})){ cur=vis.length?vis[0]:null; window._rcCur=cur?cur.id:null; }
@@ -13501,6 +13508,105 @@ async function rcSavePdf(){
     pdf.save('리쿠르팅카드_'+nm+'_'+td()+'.pdf');
     toast('PDF가 저장되었습니다.');
   }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
+}
+// ----- 팀원 작성 현황 (팀장급 이상 — 가시성은 카드와 동일: 관리자=전체, 팀장급=본인+하부) -----
+function _rcTeamDraw(){
+  var box=g('rc_team_box'), tb=g('rc_team_tb');
+  if(!box||!tb) return;
+  var show=(typeof _isLeader==='function'&&_isLeader());
+  box.style.display=show?'':'none';
+  if(!show) return;
+  var myTeam=getMyTeam(); // null=전체(관리자)
+  var rows=[];
+  (mem||[]).filter(function(m){ return m&&m.name&&m.name.trim()&&!m.suspended; })
+    .filter(function(m){ return myTeam===null||myTeam.indexOf(m.name)>=0; })
+    .sort(function(a,b){ return (+a.code||0)-(+b.code||0); })
+    .forEach(function(m){ rows.push({name:m.name, rank:m.rank||''}); });
+  var byOwner={};
+  _rcVisible().forEach(function(c){ (byOwner[c.owner]=byOwner[c.owner]||[]).push(c); });
+  Object.keys(byOwner).forEach(function(nm){ if(!rows.some(function(r){return r.name===nm;})) rows.push({name:nm, rank:''}); }); // 명단 밖 작성자(관리자 등)
+  var bt='padding:4px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;';
+  var th='padding:8px 10px;background:#f2f2f7;color:#444;font-size:13px;border-bottom:1px solid #ddd;text-align:left;white-space:nowrap';
+  var td_='padding:8px 10px;border-bottom:1px solid #eee;font-size:13.5px;color:#333;white-space:nowrap';
+  tb.innerHTML='<table style="border-collapse:collapse;width:100%;min-width:520px">'
+    +'<thead><tr><th style="'+th+'">이름</th><th style="'+th+'">직급</th><th style="'+th+'">작성여부</th><th style="'+th+'">작성된 것</th></tr></thead><tbody>'
+    +rows.map(function(r){
+      var cs=byOwner[r.name]||[];
+      var stat=cs.length
+        ? '<span style="color:#18a050;font-weight:700">작성 '+cs.length+'장</span>'
+        : '<span style="color:#a0a0b0">미작성</span>';
+      var btns=cs.length
+        ? '<span style="display:flex;gap:6px;flex-wrap:wrap">'
+          +'<button data-rctv="'+_esc(r.name)+'" style="'+bt+'"><i class="ti ti-eye"></i> 보기</button>'
+          +'<button data-rctp="'+_esc(r.name)+'" style="'+bt+'color:#a06010;border-color:#e8c8a0;background:#fff4e6"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>'
+          +'<button data-rctpr="'+_esc(r.name)+'" style="'+bt+'color:#3a40aa;border-color:#c8cce8;background:#eef1ff"><i class="ti ti-printer"></i> 출력</button>'
+          +'</span>'
+        : '<span style="color:#c8c8d4;font-size:12.5px">-</span>';
+      return '<tr><td style="'+td_+';font-weight:600">'+_esc(r.name)+'</td><td style="'+td_+'">'+_esc(r.rank||'-')+'</td>'
+        +'<td style="'+td_+'">'+stat+'</td><td style="'+td_+'">'+btns+'</td></tr>';
+    }).join('')+'</tbody></table>';
+  tb.querySelectorAll('[data-rctv]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamView(b.getAttribute('data-rctv')); }); });
+  tb.querySelectorAll('[data-rctp]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamPdf(b.getAttribute('data-rctp')); }); });
+  tb.querySelectorAll('[data-rctpr]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamPrint(b.getAttribute('data-rctpr')); }); });
+}
+function _rcCardsOf(name){ return _rcVisible().filter(function(c){ return c.owner===name; }); }
+// [보기] — 위 카드 화면을 그 팀원의 첫 카드로 이동
+function rcTeamView(name){
+  var cs=_rcCardsOf(name); if(!cs.length){ toast('작성된 카드가 없습니다.'); return; }
+  _rcCollect();
+  window._rcCur=cs[0].id;
+  rRecruit();
+  try{ window.scrollTo(0,0); }catch(e){}
+}
+// [PDF 저장] — 그 팀원의 카드 전체를 한 파일로(카드 1장=1페이지)
+async function rcTeamPdf(name){
+  var cs=_rcCardsOf(name); if(!cs.length){ toast('작성된 카드가 없습니다.'); return; }
+  if(window._rcTeamPdfBusy) return;
+  window._rcTeamPdfBusy=true;
+  try{
+    await _drEnsureLibs();
+    var pdf=new window.jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4'});
+    var margin=8, pw=210-margin*2, ph=297-margin*2;
+    for(var i=0;i<cs.length;i++){
+      toast('PDF 만드는 중… ('+(i+1)+'/'+cs.length+')');
+      var tmp=document.createElement('div');
+      tmp.style.cssText='position:absolute;left:-10000px;top:0;width:808px;background:#fff;padding:16px';
+      tmp.innerHTML=_rcTableHtml(cs[i]);
+      document.body.appendChild(tmp);
+      var canvas;
+      try{ canvas=await html2canvas(tmp,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:840}); }
+      finally{ tmp.remove(); }
+      var w=pw, h=canvas.height/canvas.width*pw;
+      if(h>ph){ w=canvas.width/canvas.height*ph; h=ph; }
+      if(i>0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',margin+(pw-w)/2,margin,w,h);
+    }
+    pdf.save('리쿠르팅카드_'+String(name).replace(/[\\/:*?"<>|\s]+/g,'_')+'_전체_'+td()+'.pdf');
+    toast('PDF가 저장되었습니다. ('+cs.length+'장)');
+  }catch(e){ console.warn(e); toast('PDF 생성 실패: '+(e&&e.message||e)); }
+  finally{ window._rcTeamPdfBusy=false; }
+}
+// [출력] — 그 팀원의 카드 전체를 한 번에 인쇄(카드마다 페이지 나눔), 성공 시 각 카드에 출력 기록
+async function rcTeamPrint(name){
+  var cs=_rcCardsOf(name); if(!cs.length){ toast('작성된 카드가 없습니다.'); return; }
+  var w=window.open('','_blank','width=900,height=800,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+  var body=cs.map(function(c,i){
+    return '<div'+(i<cs.length-1?' style="page-break-after:always"':'')+'>'+_rcTableHtml(c)+'</div>';
+  }).join('<div style="height:24px"></div>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>리쿠르팅 카드 - '+_esc(name)+' ('+cs.length+'장)</title>'
+    +'<style>body{font-family:\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif;margin:0;padding:24px;background:#fff;color:#111}</style></head><body>'
+    +body
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},200);};</scr'+'ipt></body></html>');
+  w.document.close();
+  var by=(cu&&cu.name)||'', dt=tds();
+  var ids={}; cs.forEach(function(c){ ids[c.id]=1; });
+  await _rcFresh(function(r){
+    r.cards.forEach(function(t){
+      if(t&&ids[t.id]){ if(!Array.isArray(t.prints)) t.prints=[]; t.prints.push({by:by,dt:dt}); }
+    });
+  });
+  rRecruit();
 }
 // ----- 항목 관리 (관리자 전용) -----
 // _rcFldsWork: 모달 안 편집본. 목록은 정렬·필터 없이 그대로 그려 인덱스=원본(함정 A 안전 예외).
