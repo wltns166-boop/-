@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-18</div>
   </div>
 </div>
 
@@ -3981,6 +3981,7 @@ function showPage(name){
   const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
+  if(String(name).indexOf('cm_')!==0) window._bdOpenPost=null;   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
 }
 
 // ===== 인트라넷 사용량 집계·조회 (관리자 전용 열람) =====
@@ -14156,7 +14157,7 @@ function _bdSwipeHtml(p){
   // 전체 페이지 썸네일 줄 — 원하는 장을 눌러 바로 이동(현재 장은 파란 테두리)
   var thumbs='<div data-bdthumbs style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px">'
     +imgs.map(function(f,i){
-      return '<img src="'+_esc(f.u)+'" alt="" draggable="false" data-bdgo="'+_esc(p.id)+'|'+i+'"'+(i===idx?' data-bdcur="1"':'')
+      return '<img src="'+_esc(f.u)+'" alt="" loading="lazy" draggable="false" data-bdgo="'+_esc(p.id)+'|'+i+'"'+(i===idx?' data-bdcur="1"':'')
         +' title="'+(i+1)+'페이지" style="height:62px;border-radius:5px;cursor:pointer;flex:0 0 auto;'
         +(i===idx?'outline:2px solid #4858cc;opacity:1':'opacity:.55')+'">';
     }).join('')+'</div>';
@@ -14185,9 +14186,10 @@ try{
     if(g('bd_overlay')) return;   // 작성/수정 모달이 열려 있으면 무시
     var ae=document.activeElement;
     if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT'||ae.isContentEditable)) return;
-    var el=document.querySelector('[id^="bdc_"]'); if(!el) return;
-    _bdNav(window._bdOpenPost.name, el.id.slice(4), ev.key==='ArrowRight'?1:-1);
-    ev.preventDefault();
+    // 현재 열람 중인 게시물의 뷰어를 id로 직접 찾고, 실제 표시 중(.pg.active 안)일 때만 동작
+    var el=document.getElementById('bdc_'+window._bdOpenPost.pid);
+    if(!el||!el.closest||!el.closest('.pg.active')) return;
+    if(_bdNav(window._bdOpenPost.name, window._bdOpenPost.pid, ev.key==='ArrowRight'?1:-1)) ev.preventDefault();
   });
 }catch(e){}
 // 앞뒤 2장씩 미리 불러오기 — 다음 장 넘김이 즉시 되도록(넘김이 느린 문제 해결)
@@ -14224,14 +14226,15 @@ function _bdSwipeBindIn(root,name,pid){
   });
 }
 function _bdNav(name,pid,dir){
-  var p=_bdPostById(name,pid); if(!p) return;
-  var imgs=_bdViewImgs(p); if(imgs.length<2) return;
+  var p=_bdPostById(name,pid); if(!p) return false;
+  var imgs=_bdViewImgs(p); if(imgs.length<2) return false;
   window._bdIdx=window._bdIdx||{};
   var cur=Math.min(Math.max(0,window._bdIdx[pid]||0),imgs.length-1);
   var i=Math.min(Math.max(0,cur+dir),imgs.length-1);
-  if(i===cur) return;
+  if(i===cur) return false;
   window._bdIdx[pid]=i;
   _bdSwipeRefresh(name,pid);
+  return true;   // 실제로 넘어갔을 때만 true — 방향키 preventDefault 판단용
 }
 // 저장 직전 클라우드 최신본 병합 후 변경 적용(_rcFresh 패턴 — 통짜 덮어쓰기 경합 축소)
 async function _bdFresh(mut){
