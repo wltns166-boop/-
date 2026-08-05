@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-15</div>
   </div>
 </div>
 
@@ -13976,7 +13976,7 @@ function rCustomPage(name){
   var open=window._bdOpenPost;
   if(open&&open.name===name){
     var op=_bdPostById(name,open.pid);
-    if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); return; }
+    if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); try{ _bdPreload(op); }catch(e){} return; }
     window._bdOpenPost=null;
   }
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
@@ -14052,14 +14052,7 @@ function _bdFilesHtml(p){
   var fh='';
   if(imgs.length){
     if(p.vm==='swipe'&&imgs.length>1){
-      var idx=(((window._bdIdx||{})[p.id]||0)%imgs.length+imgs.length)%imgs.length; // 재렌더 시 보던 위치 유지(처음엔 대표)
-      fh+='<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;text-align:center;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
-        +tag(imgs[idx].u,'max-width:100%;max-height:72vh;border-radius:8px')
-        +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
-        +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'padding:6px 16px;font-size:14px"><i class="ti ti-chevron-left"></i></button>'
-        +'<span data-bdcnt style="font-size:13px;color:#555;font-weight:600;min-width:46px">'+(idx+1)+' / '+imgs.length+'</span>'
-        +'<button data-bdnav="'+_esc(p.id)+'|1" style="'+sb+'padding:6px 16px;font-size:14px"><i class="ti ti-chevron-right"></i></button>'
-        +'</div></div>';
+      fh+=_bdSwipeHtml(p);
     } else {
       fh+='<div'+noCtx+'>'+imgs.map(function(f){
         return '<div style="margin-top:12px;text-align:center">'+tag(f.u,'max-width:100%;border-radius:8px')+'</div>';
@@ -14126,6 +14119,14 @@ function _bdBind(body,name){
       _bdNav(name,pr[0],+pr[1]);
     });
   });
+  body.querySelectorAll('[data-bdgo]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var pr=b.getAttribute('data-bdgo').split('|');
+      window._bdIdx=window._bdIdx||{};
+      window._bdIdx[pr[0]]=+pr[1];
+      _bdSwipeRefresh(name,pr[0]);
+    });
+  });
   body.querySelectorAll('[data-bdedit]').forEach(function(b){
     b.addEventListener('click',function(){ bdWrite(name,b.getAttribute('data-bdedit')); });
   });
@@ -14133,18 +14134,73 @@ function _bdBind(body,name){
     b.addEventListener('click',function(){ bdDel(name,b.getAttribute('data-bddel')); });
   });
 }
-// 좌우 넘김 — 캐러셀 안의 이미지·카운터만 교체(스크롤 위치 유지)
+// 좌우 넘김 뷰어 — 이전/현재/다음 3장을 나란히 표시(가운데가 크게), 카운터는 가운데 페이지 기준.
+// 양옆 사진 클릭으로도 이동. 처음·끝에서는 해당 방향 칸이 비고 버튼이 비활성화(순환 없음).
+function _bdSwipeHtml(p){
+  var adm=_isAdmin();
+  var imgs=_bdViewImgs(p), n=imgs.length;
+  window._bdIdx=window._bdIdx||{};
+  var idx=Math.min(Math.max(0,window._bdIdx[p.id]||0), n-1);
+  window._bdIdx[p.id]=idx;
+  var noCtx=adm?'':' oncontextmenu="return false"';
+  var drg=adm?'':' draggable="false"';
+  var sb='padding:6px 16px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-family:inherit;font-size:14px;';
+  function side(i){
+    if(i<0||i>=n) return '<div style="flex:0 0 22%"></div>';
+    return '<div data-bdgo="'+_esc(p.id)+'|'+i+'" title="'+(i+1)+'페이지 보기" style="flex:0 0 22%;min-width:0;cursor:pointer;opacity:.5;align-self:center">'
+      +'<img src="'+_esc(imgs[i].u)+'" alt=""'+drg+' style="width:100%;border-radius:8px;display:block"></div>';
+  }
+  var cim='<img src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block">';
+  var center='<div data-bdcenter style="flex:0 0 52%;min-width:0">'+(adm?'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener">'+cim+'</a>':cim)+'</div>';
+  return '<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
+    +'<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+side(idx-1)+center+side(idx+1)+'</div>'
+    +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px">'
+    +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'"'+(idx<=0?' disabled':'')+'><i class="ti ti-chevron-left"></i></button>'
+    +'<span data-bdcnt style="font-size:13.5px;color:#555;font-weight:700;min-width:52px;text-align:center">'+(idx+1)+' / '+n+'</span>'
+    +'<button data-bdnav="'+_esc(p.id)+'|1" style="'+sb+'"'+(idx>=n-1?' disabled':'')+'><i class="ti ti-chevron-right"></i></button>'
+    +'</div></div>';
+}
+// 앞뒤 2장씩 미리 불러오기 — 다음 장 넘김이 즉시 되도록(넘김이 느린 문제 해결)
+function _bdPreload(p){
+  try{
+    var imgs=_bdViewImgs(p), idx=(window._bdIdx||{})[p.id]||0;
+    for(var i=idx-2;i<=idx+2;i++){
+      if(i>=0&&i<imgs.length&&i!==idx){ var im=new Image(); im.src=imgs[i].u; }
+    }
+  }catch(e){}
+}
+// 뷰어 갱신(넘김·양옆 클릭) — 뷰어 부분만 교체해 스크롤 위치 유지
+function _bdSwipeRefresh(name,pid){
+  var p=_bdPostById(name,pid); if(!p) return;
+  var el=document.getElementById('bdc_'+pid); if(!el) return;
+  var tmp=document.createElement('div'); tmp.innerHTML=_bdSwipeHtml(p);
+  var nw=tmp.firstElementChild;
+  el.replaceWith(nw);
+  _bdSwipeBindIn(nw,name,pid);
+  _bdPreload(p);
+}
+function _bdSwipeBindIn(root,name,pid){
+  root.querySelectorAll('[data-bdnav]').forEach(function(b){
+    b.addEventListener('click',function(){ var pr=b.getAttribute('data-bdnav').split('|'); _bdNav(name,pr[0],+pr[1]); });
+  });
+  root.querySelectorAll('[data-bdgo]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var pr=b.getAttribute('data-bdgo').split('|');
+      window._bdIdx=window._bdIdx||{};
+      window._bdIdx[pr[0]]=+pr[1];
+      _bdSwipeRefresh(name,pr[0]);
+    });
+  });
+}
 function _bdNav(name,pid,dir){
   var p=_bdPostById(name,pid); if(!p) return;
   var imgs=_bdViewImgs(p); if(imgs.length<2) return;
   window._bdIdx=window._bdIdx||{};
-  var i=(((window._bdIdx[pid]||0)+dir)%imgs.length+imgs.length)%imgs.length;
+  var cur=Math.min(Math.max(0,window._bdIdx[pid]||0),imgs.length-1);
+  var i=Math.min(Math.max(0,cur+dir),imgs.length-1);
+  if(i===cur) return;
   window._bdIdx[pid]=i;
-  var el=document.getElementById('bdc_'+pid); if(!el) return;
-  var a=el.querySelector('a'), im=el.querySelector('img'), cnt=el.querySelector('[data-bdcnt]');
-  if(a) a.href=imgs[i].u;
-  if(im) im.src=imgs[i].u;
-  if(cnt) cnt.textContent=(i+1)+' / '+imgs.length;
+  _bdSwipeRefresh(name,pid);
 }
 // 저장 직전 클라우드 최신본 병합 후 변경 적용(_rcFresh 패턴 — 통짜 덮어쓰기 경합 축소)
 async function _bdFresh(mut){

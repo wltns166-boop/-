@@ -232,7 +232,9 @@
   게시물(`boards={cm_id:[{id('po_..'),title,body,files,vm,by,dt,ts}]}`,
   동기화 키 `tops_boards` — 텍스트·URL만). 파일 원본은 **Storage `board_files/`**(storage.rules 추가됨, 이미지=캔버스 1600px JPEG 축소,
   PDF=25MB 상한). 표시 전 자체 버킷 `board_files/` URL 화이트리스트(`_BD_URL_RE`). 작성/수정/삭제 관리자만, 열람 전원.
-  `vm`: 게시물별 사진 보기 방식 — 'swipe'(좌우 ◀▶, 캐러셀은 이미지·카운터만 교체해 스크롤 유지) / 'scroll'(세로 나열).
+  `vm`: 게시물별 사진 보기 방식 — 'swipe'(이전/현재/다음 3장 나란히 — 가운데 크게·양옆 흐리게(클릭 이동),
+  카운터는 가운데 기준, 순환 없음(끝에서 버튼 비활성), 앞뒤 2장 preload로 즉시 넘김, `_bdSwipeHtml`/`_bdSwipeRefresh`) /
+  'scroll'(세로 나열).
   **PDF 인라인 열람 (2026-08-05)**: PDF 업로드 시 pdf.js(전역 로드됨)로 페이지별 JPEG(`files[].pages`, 최대 40쪽, 1400px)를
   생성해 사진과 함께 뷰어(`_bdViewImgs`)에 통합 표시 — 팀원은 다운로드 없이 열람. 예전 PDF는 [수정]→[저장] 때 자동 마이그레이션.
   **파일 접근 권한**: 팀원=인라인 열람만(원본 링크·PDF 버튼 없음, 우클릭/드래그 억제),
