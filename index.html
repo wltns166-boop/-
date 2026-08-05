@@ -277,6 +277,8 @@ table.dt tr:last-child td{border-bottom:none;}
   #alerts_box{right:10px;left:10px;max-width:none;width:auto;}   /* width:max-content 해제 — 카드가 화면 밖으로 넘쳐 ✕가 안 보이던 문제 */
   #med_zones{grid-template-columns:1fr !important;}   /* 병력정리 PDF 3칸 — 모바일은 세로 배치 */
 }
+/* 환경설정에서 숨긴 메뉴 — !important로 setAdmin의 인라인 표시값과 무관하게 숨김(클래스 제거로 복원) */
+.cfg-hide{display:none !important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -324,7 +326,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-5</div>
   </div>
 </div>
 
@@ -444,6 +446,7 @@ table.dt tr:last-child td{border-bottom:none;}
 
     <div class="ni ao" id="n_dreport"><i class="ti ti-report-analytics"></i>일일보고서</div>
     <div class="ni ao" id="n_usage"><i class="ti ti-chart-dots"></i>인트라넷 사용량</div>
+    <div class="ni ao" id="n_navset"><i class="ti ti-settings"></i>환경설정</div>
   </nav>
 
   <div id="sb_overlay" onclick="closeSidebar()"></div>
@@ -635,6 +638,28 @@ table.dt tr:last-child td{border-bottom:none;}
         · 로그인·새로고침 직후 자동으로 열리는 홈, 서버 자동 캡처, 이 페이지 자신은 집계에서 제외됩니다. (홈은 메뉴 클릭 시에만 집계)
       </div>
     </div>
+
+    <!-- 환경설정 — 메뉴 구성 (관리자 전용) -->
+    <div class="pg" id="pg_navset">
+      <div class="sh"><div class="st"><i class="ti ti-settings"></i>환경설정</div></div>
+      <div class="card">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-menu-2"></i> 메뉴 구성</div>
+        <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
+          메뉴 이름을 바꾸고, ▲▼로 위치를 옮기고, [숨김]으로 감추거나 [+ 메뉴 추가]로 새 메뉴를 만들 수 있습니다.<br>
+          아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다. 기본 메뉴는 삭제 대신 숨김만 가능하며, 권한이 필요한 메뉴는 이름을 바꿔도 기존 권한이 유지됩니다.
+        </div>
+        <div id="ns_list"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+          <button onclick="nsAddMenu()" style="padding:8px 14px;background:#eef7ee;border:1px solid #b8d8b8;border-radius:8px;color:#207830;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 메뉴 추가</button>
+          <span style="flex:1"></span>
+          <button onclick="nsReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
+          <button onclick="nsSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 커스텀 메뉴 내용 페이지 (환경설정에서 추가한 메뉴 공용) -->
+    <div class="pg" id="pg_custom"><div id="cm_body"></div></div>
 
     <!-- 일일보고서 (관리자 전용) -->
     <div class="pg" id="pg_dreport">
@@ -2422,6 +2447,7 @@ let bizplan=JSON.parse(localStorage.getItem('tops_bizplan')||'{"url":"","subs":[
 let expects=JSON.parse(localStorage.getItem('tops_expects')||'[]');         // 예상계약건
 let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // 출장보고
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
+let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
@@ -2904,6 +2930,7 @@ async function loadFromFirestore(){
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
+    if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
     if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -2966,6 +2993,7 @@ function startRealtimeSync(){
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
+    if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
     if(Array.isArray(d.dsnap)){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -3758,6 +3786,8 @@ function setAdmin(){
   if(memTabAll) memTabAll.style.display=isAdmin?'':'none';
   var memTabSus=g('mem_tab_sus');
   if(memTabSus) memTabSus.style.display=isAdmin?'':'none';
+  // 메뉴 환경설정(이름·순서·숨김·추가 메뉴) 재적용 — 위의 권한 표시 처리 뒤에 덮어씀(멱등)
+  try{ if(typeof _navApply==='function') _navApply(); }catch(e){}
 }
 // 자동 로그인 — 저장된 세션 복원
 (function(){
@@ -3894,6 +3924,7 @@ g('n_edu_prep').addEventListener('click',function(){showPage('edu_prep');});
 g('n_new_check').addEventListener('click',function(){showPage('new_check');});
 g('n_dreport') && g('n_dreport').addEventListener('click',function(){showPage('dreport');});
 g('n_usage') && g('n_usage').addEventListener('click',function(){showPage('usage');});
+g('n_navset') && g('n_navset').addEventListener('click',function(){showPage('navset');});
 
 const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   tops:'TOPS',members:'구성원',hierarchy:'계보도',
@@ -3906,7 +3937,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
   wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
-  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량'};
+  join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정'};
 function showPage(name){
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
@@ -3921,17 +3952,21 @@ function showPage(name){
   if(name==='usage' && !_isAdmin()){
     toast('인트라넷 사용량은 관리자만 볼 수 있습니다.'); return;
   }
+  if(name==='navset' && !_isAdmin()){
+    toast('환경설정은 관리자만 사용할 수 있습니다.'); return;
+  }
   try{ _usageTrack(name); }catch(e){}   // 사용량 집계 (접근 가드 통과 후)
   window._curPage = name;
   closeSidebar(); // 모바일: 메뉴 선택 시 서랍 닫기
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
-  const pg=g('pg_'+name);if(pg)pg.classList.add('active');
+  const pg=g('pg_'+name)||(String(name).indexOf('cm_')===0?g('pg_custom'):null);if(pg)pg.classList.add('active');
   // 페이지 전환 시 맨 위부터 표시 + 숨겨진 상단바 복원 (제목이 가려진 채 시작하는 것 방지)
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
-  g('tbt').textContent=PTITLES[name]||name;
+  g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
+  else if(String(name).indexOf('cm_')===0) setTimeout(function(){rCustomPage(name);},0);   // 환경설정 추가 메뉴(내용 페이지)
 }
 
 // ===== 인트라넷 사용량 집계·조회 (관리자 전용 열람) =====
@@ -13509,6 +13544,368 @@ async function saveRcFlds(){
   var ov=g('rcfl_overlay'); if(ov) ov.remove();
   toast('항목이 저장되었습니다.');
   rRecruit();
+}
+
+// ===== 환경설정 — 메뉴 구성 (2026-08-05, 관리자 전용) =====
+// 데이터: navcfg = {ren:{navId:이름}, hide:{navId:1}, ord:{컨테이너id|'_top':[navId...]}, customs:[{id('cm_..'),label,loc,type('page'|'link'),url?,content?}]}
+// - 동기화 키 tops_navcfg(텍스트만). 적용(_navApply)은 기존 정적 사이드바 DOM을 손보는 방식:
+//   이름은 텍스트 노드만 교체(아이콘·화살표 보존), 순서는 같은 컨테이너 안에서만 이동(그룹 이동 없음),
+//   숨김은 .cfg-hide 클래스(display:none !important)로만 — setAdmin의 권한별 인라인 표시값과 충돌하지 않고,
+//   클래스를 빼면 권한 처리 결과가 그대로 복원된다(권한이 숨긴 메뉴를 되살리지 않음).
+// - setAdmin() 끝에서 매번 재적용(멱등). 기본 이름/순서는 최초 적용 전에 _navDefaults/_navDefOrder로 캡처.
+// - 추가 메뉴: 내용 페이지(cm_*, 전원 열람·관리자만 편집— 공용 pg_custom에 렌더) 또는 외부 링크(http/https만).
+//   삭제는 추가 메뉴만 가능(기본 메뉴는 숨김). 환경설정 메뉴 자신(n_navset)은 항상 맨 아래 고정.
+var _navDefaults=null;   // navId → 원래 이름
+var _navDefOrder=null;   // 컨테이너 → 원래 순서(navId 배열)
+function _navCustoms(){ return (navcfg&&Array.isArray(navcfg.customs))?navcfg.customs.filter(function(c){return c&&c.id&&c.label;}):[]; }
+function _navCustomById(id){ var out=null; _navCustoms().forEach(function(c){ if(c.id===id) out=c; }); return out; }
+function _navGetLabel(el){
+  for(var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; if(n.nodeType===3&&n.nodeValue.trim()) return n.nodeValue.trim(); }
+  return '';
+}
+function _navSetLabel(el,label){
+  for(var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; if(n.nodeType===3&&n.nodeValue.trim()){ n.nodeValue=label; return; } }
+  el.insertBefore(document.createTextNode(label), el.querySelector('.nc'));
+}
+// #sb 최상위 블록: .ni(+바로 뒤 .nch 그룹) — n_navset은 맨 아래 고정이라 제외
+function _navTopBlocks(){
+  var sb=g('sb'); if(!sb) return [];
+  var out=[];
+  Array.prototype.forEach.call(sb.children,function(el){
+    if(el.classList&&el.classList.contains('ni')&&el.id&&el.id!=='n_navset'){
+      var nx=el.nextElementSibling;
+      out.push({key:el.id, ni:el, nch:(nx&&nx.classList&&nx.classList.contains('nch'))?nx:null});
+    }
+  });
+  return out;
+}
+function _navApply(){
+  var sb=g('sb'); if(!sb) return;
+  // 0) 기본 이름·순서 캡처(최초 1회 — 정적 HTML 원본 기준)
+  if(!_navDefaults){
+    _navDefaults={};
+    sb.querySelectorAll('.ni[id]').forEach(function(el){ _navDefaults[el.id]=_navGetLabel(el); });
+    _navDefOrder={_top:[]};
+    _navTopBlocks().forEach(function(b){
+      _navDefOrder._top.push(b.key);
+      if(b.nch){ _navDefOrder[b.nch.id]=[]; Array.prototype.forEach.call(b.nch.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni) _navDefOrder[b.nch.id].push(ni.id); }); }
+    });
+  }
+  var cfg=(navcfg&&typeof navcfg==='object'&&!Array.isArray(navcfg))?navcfg:{};
+  // 1) 추가 메뉴 — 삭제된 것 제거, 새것 생성, 이름 갱신
+  var customs=_navCustoms();
+  Array.prototype.forEach.call(sb.querySelectorAll('[id^="n_cm_"]'),function(el){
+    var cid=el.id.slice(2);
+    if(!customs.some(function(c){return c.id===cid;})){
+      var wrap=(el.parentElement&&el.parentElement.classList.contains('ns'))?el.parentElement:el;
+      wrap.remove();
+    }
+  });
+  customs.forEach(function(c){
+    var ex=g('n_'+c.id);
+    if(ex){ if(_navGetLabel(ex)!==c.label) _navSetLabel(ex,c.label); return; }
+    var ni=document.createElement('div'); ni.className='ni'; ni.id='n_'+c.id;
+    var loc=(c.loc&&c.loc!=='_top'&&g(c.loc))?c.loc:'_top';
+    if(loc==='_top'){
+      ni.innerHTML='<i class="ti '+(c.type==='link'?'ti-external-link':'ti-file-text')+'"></i>';
+      ni.appendChild(document.createTextNode(c.label));
+      sb.insertBefore(ni, g('n_navset')||null);
+    } else {
+      ni.textContent=c.label;
+      var ns=document.createElement('div'); ns.className='ns'; ns.appendChild(ni);
+      g(loc).appendChild(ns);
+    }
+    (function(cid){
+      ni.addEventListener('click',function(){
+        var cur=_navCustomById(cid);
+        if(!cur){ toast('삭제된 메뉴입니다.'); return; }
+        if(cur.type==='link'){
+          var u=String(cur.url||''); if(!u){ toast('연결된 주소가 없습니다.'); return; }
+          if(!/^https?:\/\//i.test(u)) u='https://'+u;   // javascript: 등 차단 — http/https 외엔 https:// 접두로 무력화
+          window.open(u,'_blank','noopener'); return;
+        }
+        showPage(cid);
+      });
+    })(c.id);
+  });
+  // 2) 이름 — cfg.ren 적용, 빠진 항목은 기본 이름으로 복원 (커스텀은 위에서 label로 처리)
+  var ren=cfg.ren||{};
+  Object.keys(_navDefaults).forEach(function(id){
+    var el=g(id); if(!el) return;
+    var want=(ren[id]&&String(ren[id]).trim())?String(ren[id]).trim():_navDefaults[id];
+    if(want&&_navGetLabel(el)!==want) _navSetLabel(el,want);
+  });
+  // 3) 숨김 — .cfg-hide 클래스 토글(그룹 머리는 하위 묶음도 함께)
+  var hide=cfg.hide||{};
+  var allIds=Object.keys(_navDefaults).concat(customs.map(function(c){return 'n_'+c.id;}));
+  allIds.forEach(function(id){
+    if(id==='n_navset') return;
+    var el=g(id); if(!el) return;
+    var wrap=(el.parentElement&&el.parentElement.classList.contains('ns'))?el.parentElement:el;
+    var on=!!hide[id];
+    wrap.classList.toggle('cfg-hide',on);
+    var nx=el.nextElementSibling;
+    if(nx&&nx.classList&&nx.classList.contains('nch')) nx.classList.toggle('cfg-hide',on);
+  });
+  // 4) 순서 — cfg.ord 없으면 기본 순서로 복원(기본값 복원 시 원위치)
+  var ord=cfg.ord||{};
+  Object.keys(_navDefOrder).forEach(function(contId){
+    if(contId==='_top') return;
+    var cont=g(contId); if(!cont) return;
+    var list=(Array.isArray(ord[contId])&&ord[contId].length)?ord[contId]:_navDefOrder[contId];
+    var map={};
+    Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni) map[ni.id]=ns; });
+    var seen={}, seq=[];
+    list.forEach(function(id){ if(map[id]&&!seen[id]){ seen[id]=1; seq.push(map[id]); } });
+    Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni&&!seen[ni.id]){ seen[ni.id]=1; seq.push(ns); } });
+    seq.forEach(function(ns){ cont.appendChild(ns); });
+  });
+  (function(){
+    var blocks=_navTopBlocks(); if(!blocks.length) return;
+    var list=(Array.isArray(ord._top)&&ord._top.length)?ord._top:_navDefOrder._top;
+    var bmap={}; blocks.forEach(function(b){ bmap[b.key]=b; });
+    var seen={}, seq=[];
+    list.forEach(function(id){ if(bmap[id]&&!seen[id]){ seen[id]=1; seq.push(bmap[id]); } });
+    blocks.forEach(function(b){ if(!seen[b.key]){ seen[b.key]=1; seq.push(b); } });
+    var anchor=g('n_navset')||null;
+    seq.forEach(function(b){ sb.insertBefore(b.ni,anchor); if(b.nch) sb.insertBefore(b.nch,anchor); });
+  })();
+}
+// 페이지 상단 제목 — 이름 변경·추가 메뉴 반영
+function _ptitle(name){
+  try{
+    if(String(name).indexOf('cm_')===0){ var c=_navCustomById(name); if(c) return c.label; }
+    var ren=(navcfg&&navcfg.ren)||{};
+    if(ren['n_'+name]&&String(ren['n_'+name]).trim()) return String(ren['n_'+name]).trim();
+  }catch(e){}
+  return PTITLES[name]||name;
+}
+// ----- 환경설정 페이지 (편집 초안 window._nsWork — 저장 시 navcfg로 변환) -----
+function _nsBuild(){
+  _navApply();
+  var w={top:[], hide:{}, customs:_navCustoms().map(function(c){ return Object.assign({},c); })};
+  Object.keys((navcfg&&navcfg.hide)||{}).forEach(function(k){ if(navcfg.hide[k]) w.hide[k]=1; });
+  _navTopBlocks().forEach(function(b){
+    var item={key:b.key, label:_navGetLabel(b.ni), custom:b.key.indexOf('n_cm_')===0, children:null, contId:null};
+    if(b.nch){
+      item.children=[]; item.contId=b.nch.id;
+      Array.prototype.forEach.call(b.nch.children,function(ns){
+        var ni=ns.querySelector&&ns.querySelector('.ni[id]');
+        if(ni) item.children.push({key:ni.id, label:_navGetLabel(ni), custom:ni.id.indexOf('n_cm_')===0});
+      });
+    }
+    w.top.push(item);
+  });
+  window._nsWork=w;
+}
+function rNavSet(){
+  if(!_isAdmin()) return;
+  _nsBuild();
+  _nsDraw();
+}
+function _nsDraw(){
+  var box=g('ns_list'); if(!box) return;
+  var w=window._nsWork; if(!w) return;
+  var sb='padding:5px 8px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
+  var rows=[];
+  function row(item, cont, depth){
+    var hid=!!w.hide[item.key];
+    var typeTag=item.custom?(function(){ var c=null; w.customs.forEach(function(x){ if('n_'+x.id===item.key) c=x; }); return c&&c.type==='link'?' <span style="font-size:11px;color:#a06010">(링크)</span>':' <span style="font-size:11px;color:#207830">(추가 메뉴)</span>'; })():'';
+    rows.push('<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap'+(depth?';margin-left:28px':'')+'">'
+      +'<input data-nsl="'+_esc(item.key)+'" value="'+_esc(item.label)+'" style="flex:1;min-width:130px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff'+(depth?'':';font-weight:700')+'">'
+      +'<span style="display:flex;gap:4px;align-items:center">'
+      +'<button data-nsm="'+_esc(cont)+'|'+_esc(item.key)+'|-1" title="위로" style="'+sb+'"><i class="ti ti-arrow-up"></i></button>'
+      +'<button data-nsm="'+_esc(cont)+'|'+_esc(item.key)+'|1" title="아래로" style="'+sb+'"><i class="ti ti-arrow-down"></i></button>'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:#555;cursor:pointer;white-space:nowrap"><input type="checkbox" data-nsh="'+_esc(item.key)+'"'+(hid?' checked':'')+' style="accent-color:#c03030">숨김</label>'
+      +(item.custom?'<button data-nsdel="'+_esc(item.key)+'" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i></button>':'')
+      +'</span>'+typeTag+'</div>');
+  }
+  w.top.forEach(function(item){
+    row(item,'_top',0);
+    (item.children||[]).forEach(function(ch){ row(ch,item.contId,1); });
+  });
+  box.innerHTML=rows.join('');
+  box.querySelectorAll('[data-nsm]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var p=b.getAttribute('data-nsm').split('|');
+      _nsMove(p[0],p[1],+p[2]);
+    });
+  });
+  box.querySelectorAll('[data-nsdel]').forEach(function(b){
+    b.addEventListener('click',function(){ _nsDelCustom(b.getAttribute('data-nsdel')); });
+  });
+}
+// 재그리기 전 입력 중인 이름·숨김 체크를 초안에 반영
+function _nsPull(){
+  var w=window._nsWork; if(!w) return;
+  function find(key){
+    var out=null;
+    w.top.forEach(function(item){ if(item.key===key) out=item; (item.children||[]).forEach(function(ch){ if(ch.key===key) out=ch; }); });
+    return out;
+  }
+  document.querySelectorAll('#ns_list input[data-nsl]').forEach(function(inp){
+    var it=find(inp.getAttribute('data-nsl')); if(!it) return;
+    var v=inp.value.trim();
+    it.label=v||( _navDefaults&&_navDefaults[it.key])||it.label;   // 비우면 기본 이름으로
+  });
+  w.hide={};
+  document.querySelectorAll('#ns_list input[data-nsh]').forEach(function(cb){ if(cb.checked) w.hide[cb.getAttribute('data-nsh')]=1; });
+}
+function _nsArr(cont){
+  var w=window._nsWork; if(!w) return null;
+  if(cont==='_top') return w.top;
+  var out=null;
+  w.top.forEach(function(item){ if(item.contId===cont) out=item.children; });
+  return out;
+}
+function _nsMove(cont,key,dir){
+  _nsPull();
+  var arr=_nsArr(cont); if(!arr) return;
+  var i=-1; for(var k=0;k<arr.length;k++){ if(arr[k].key===key){ i=k; break; } }
+  var j=i+dir;
+  if(i<0||j<0||j>=arr.length) return;
+  var t=arr[i]; arr[i]=arr[j]; arr[j]=t;
+  _nsDraw();
+}
+function _nsDelCustom(key){
+  _nsPull();
+  var w=window._nsWork; if(!w) return;
+  var c=null; w.customs.forEach(function(x){ if('n_'+x.id===key) c=x; });
+  if(!c) return;
+  if(!confirm('추가 메뉴 "'+c.label+'"을(를) 삭제하시겠습니까?'+(c.type==='page'?'\n(작성해 둔 내용 페이지도 함께 사라집니다)':''))) return;
+  w.customs=w.customs.filter(function(x){ return x!==c; });
+  w.top=w.top.filter(function(item){ return item.key!==key; });
+  w.top.forEach(function(item){ if(item.children) item.children=item.children.filter(function(ch){ return ch.key!==key; }); });
+  delete w.hide[key];
+  _nsDraw();
+}
+function nsAddMenu(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  _nsPull();
+  var w=window._nsWork; if(!w){ _nsBuild(); w=window._nsWork; }
+  var old=g('nsadd_overlay'); if(old) old.remove();
+  var groups=w.top.filter(function(item){ return item.children; });
+  var ov=document.createElement('div');
+  ov.id='nsadd_overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
+  var _in='width:100%;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:460px;width:100%;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:12px"><i class="ti ti-plus"></i> 메뉴 추가</div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">메뉴 이름</div>'
+    +'<input id="nsadd_name" placeholder="예: 팀 공지, 자료실" style="'+_in+';margin-bottom:10px">'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">위치</div>'
+    +'<select id="nsadd_loc" style="'+_in+';margin-bottom:10px"><option value="_top">최상위 메뉴</option>'
+    +groups.map(function(gp){ return '<option value="'+_esc(gp.contId)+'">'+_esc(gp.label)+' 아래</option>'; }).join('')+'</select>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:4px">종류</div>'
+    +'<select id="nsadd_type" onchange="document.getElementById(\'nsadd_urlbox\').style.display=this.value===\'link\'?\'\':\'none\'" style="'+_in+';margin-bottom:10px">'
+    +'<option value="page">내용 페이지 (관리자가 내용 작성, 전원 열람)</option>'
+    +'<option value="link">외부 링크 (누르면 새 창으로 열림)</option></select>'
+    +'<div id="nsadd_urlbox" style="display:none"><div style="font-size:13px;color:#555;margin-bottom:4px">링크 주소(URL)</div>'
+    +'<input id="nsadd_url" placeholder="https://..." style="'+_in+';margin-bottom:10px"></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">'
+    +'<button onclick="document.getElementById(\'nsadd_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="_nsAddConfirm()" style="'+_bt+'background:#4858cc;border:none;color:#fff">추가</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+function _nsAddConfirm(){
+  var w=window._nsWork; if(!w) return;
+  var name=(g('nsadd_name')||{}).value||''; name=name.trim();
+  var loc=(g('nsadd_loc')||{}).value||'_top';
+  var type=(g('nsadd_type')||{}).value||'page';
+  var url=((g('nsadd_url')||{}).value||'').trim();
+  if(!name){ toast('메뉴 이름을 입력하세요.'); return; }
+  if(type==='link'){
+    if(!url){ toast('링크 주소를 입력하세요.'); return; }
+    if(/^\s*javascript:/i.test(url)){ toast('사용할 수 없는 주소입니다.'); return; }
+  }
+  var c={ id:'cm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), label:name, loc:loc, type:type };
+  if(type==='link') c.url=url;
+  w.customs.push(c);
+  var item={key:'n_'+c.id, label:name, custom:true, children:null, contId:null};
+  if(loc==='_top'){ w.top.push(item); }
+  else {
+    var arr=_nsArr(loc);
+    if(arr) arr.push(item); else { c.loc='_top'; w.top.push(item); }
+  }
+  var ov=g('nsadd_overlay'); if(ov) ov.remove();
+  _nsDraw();
+  toast('목록에 추가되었습니다. [저장]을 눌러야 실제 메뉴에 반영됩니다.');
+}
+function nsSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  _nsPull();
+  var w=window._nsWork; if(!w) return;
+  var cfg={ren:{},hide:{},ord:{},customs:[]};
+  // 기존 내용 페이지 본문 보존(id 매칭)
+  var oldC={}; _navCustoms().forEach(function(c){ oldC[c.id]=c; });
+  function handle(item){
+    if(item.custom){
+      w.customs.forEach(function(c){ if('n_'+c.id===item.key){ c.label=item.label; } });
+    } else if(_navDefaults&&_navDefaults[item.key]&&item.label!==_navDefaults[item.key]){
+      cfg.ren[item.key]=item.label;
+    }
+  }
+  cfg.ord._top=w.top.map(function(item){ handle(item); if(item.children){ cfg.ord[item.contId]=item.children.map(function(ch){ handle(ch); return ch.key; }); } return item.key; });
+  Object.keys(w.hide).forEach(function(k){ if(w.hide[k]) cfg.hide[k]=1; });
+  cfg.customs=w.customs.map(function(c){
+    var out=Object.assign({},c);
+    if(out.type==='page'&&out.content==null&&oldC[out.id]&&oldC[out.id].content!=null) out.content=oldC[out.id].content;
+    return out;
+  });
+  navcfg=cfg;
+  sv('tops_navcfg',navcfg);
+  _navApply();
+  _nsBuild(); _nsDraw();
+  toast('메뉴 구성이 저장되었습니다. 전 팀원에게 적용됩니다.');
+}
+function nsReset(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var nC=_navCustoms().length;
+  if(!confirm('메뉴 구성을 기본값으로 되돌리시겠습니까?\n(이름·순서·숨김이 모두 초기화'+(nC?'되고, 추가 메뉴 '+nC+'개와 그 내용 페이지도 삭제':'')+'됩니다)')) return;
+  navcfg={};
+  sv('tops_navcfg',navcfg);
+  _navApply();
+  _nsBuild(); _nsDraw();
+  toast('기본 메뉴 구성으로 되돌렸습니다.');
+}
+// ----- 추가 메뉴 내용 페이지 (공용 pg_custom) -----
+function rCustomPage(name){
+  var body=g('cm_body'); if(!body) return;
+  var c=_navCustomById(name);
+  if(!c){ body.innerHTML='<div class="card" style="color:#888;font-size:14px">메뉴를 찾을 수 없습니다. (삭제되었을 수 있습니다)</div>'; return; }
+  var html=_esc(String(c.content||'')).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#3848cc">$1</a>');
+  body.innerHTML='<div class="card">'
+    +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-file-text"></i> '+_esc(c.label)+'</div>'
+    +'<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;color:#222;line-height:1.75;min-height:80px">'
+    +(html||'<span style="color:#a0a0b0">아직 작성된 내용이 없습니다.'+(_isAdmin()?' [내용 편집]을 눌러 작성해 보세요.':'')+'</span>')+'</div>'
+    +(_isAdmin()?'<div style="margin-top:14px"><button onclick="cmEdit('+('('+JSON.stringify(name)+')').slice(1,-1).replace(/"/g,'&quot;')+')" style="padding:8px 16px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-pencil"></i> 내용 편집</button></div>':'')
+    +'</div>';
+}
+function cmEdit(name){
+  if(!_isAdmin()){ toast('관리자만 편집할 수 있습니다.'); return; }
+  var body=g('cm_body'); var c=_navCustomById(name);
+  if(!body||!c) return;
+  var q=('('+JSON.stringify(name)+')').slice(1,-1).replace(/"/g,'&quot;');
+  body.innerHTML='<div class="card">'
+    +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-pencil"></i> '+_esc(c.label)+' — 내용 편집</div>'
+    +'<textarea id="cm_ta" style="width:100%;min-height:320px;padding:12px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:14.5px;color:#111;background:#fff;line-height:1.7;resize:vertical">'+_esc(c.content||'')+'</textarea>'
+    +'<div style="font-size:12px;color:#8888aa;margin-top:6px">http로 시작하는 주소는 자동으로 눌러서 열 수 있는 링크가 됩니다.</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">'
+    +'<button onclick="rCustomPage('+q+')" style="padding:8px 16px;background:#eceef6;border:1px solid #d0d4e8;border-radius:8px;color:#44485a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>'
+    +'<button onclick="cmSave('+q+')" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+}
+function cmSave(name){
+  if(!_isAdmin()){ toast('관리자만 편집할 수 있습니다.'); return; }
+  var ta=g('cm_ta'); if(!ta) return;
+  var found=false;
+  if(navcfg&&Array.isArray(navcfg.customs)) navcfg.customs.forEach(function(c){ if(c&&c.id===name){ c.content=ta.value; found=true; } });
+  if(!found){ toast('메뉴를 찾을 수 없습니다. (다른 관리자가 삭제했을 수 있습니다)'); return; }
+  sv('tops_navcfg',navcfg);
+  toast('내용이 저장되었습니다.');
+  rCustomPage(name);
 }
 
 // ===== 예상계약건 계산 =====
