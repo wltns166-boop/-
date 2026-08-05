@@ -340,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-24</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-25</div>
   </div>
 </div>
 
@@ -13207,8 +13207,8 @@ async function saveBizForm(){
 // - 항목(양식) 추가/삭제/순서는 관리자 전용(recruit.flds). 미설정이면 기본 양식(RC_DEF_FLDS).
 // - 저장/삭제/출력기록은 _rcFresh()로 클라우드 최신본 병합 후 저장(_bizFreshSub와 같은 경합 축소 패턴).
 var RC_DEF_FLDS=[
-  {id:'name', label:'대상자 이름', subs:[]},
-  {id:'job',  label:'대상자 현재직업', subs:[]},
+  {id:'name', label:'대상자 정보', subs:['대상자 이름','나이','거주지'], hs:1},
+  {id:'job',  label:'현재 직업', subs:['현재직업','결혼여부'], hs:1},
   {id:'rel',  label:'대상자와 관계', subs:[]},
   {id:'st',   label:'상태 정보', subs:['상담 여부 / 계약 여부','리쿠르팅 제안 여부']},
   {id:'info', label:'대상자 파악 정보', subs:['1','2','3']},
@@ -13319,7 +13319,7 @@ function _rcFormHtml(c){
   function ta(fid,si,val,minH){
     return '<textarea data-rcf="'+_esc(fid)+'"'+(si!=null?' data-rcs="'+si+'"':'')+(canEdit?'':' readonly')
       +' oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'"'
-      +' style="width:100%;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:14.5px;color:#111;line-height:1.55;min-height:'+(minH||30)+'px;overflow:hidden;padding:2px 0;display:block">'+_esc(val||'')+'</textarea>';
+      +' style="width:100%;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:14.5px;color:#111;line-height:1.55;min-height:'+(minH||30)+'px;overflow:hidden;padding:2px 0;display:block;text-align:center">'+_esc(val||'')+'</textarea>';
   }
   var rows=_rcFlds().map(function(f){
     var v=(c.vals||{})[f.id];
@@ -13330,7 +13330,7 @@ function _rcFormHtml(c){
         // 가로 분할 — 세부 칸을 나란히
         inner='<div style="display:flex;align-items:stretch">'+f.subs.map(function(sl,si){
           return '<div style="flex:1;min-width:0;padding:8px 10px;display:flex;flex-direction:column;justify-content:center;min-height:64px'+(si?';border-left:1px solid #e4e4e8':'')+'">'
-            +'<div style="font-size:12.5px;color:#888;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +'<div style="font-size:12.5px;color:#888;margin-bottom:2px;text-align:center">'+_esc(sl)+'</div>'
             +ta(f.id,si,arr[si]||'',28)+'</div>';
         }).join('')+'</div>';
       } else {
@@ -13501,7 +13501,7 @@ async function deleteRcCard(){
 }
 // 출력/PDF 공용 — 카드 내용을 사진 양식 그대로 표(정적 HTML)로 렌더
 function _rcTableHtml(c){
-  var pre='white-space:pre-wrap;word-break:break-word;font-size:13.5px;color:#111;line-height:1.6';
+  var pre='white-space:pre-wrap;word-break:break-word;font-size:13.5px;color:#111;line-height:1.6;text-align:center';
   var rows=_rcFlds().map(function(f){
     var v=(c.vals||{})[f.id];
     var cell;
@@ -13510,7 +13510,7 @@ function _rcTableHtml(c){
       if(f.hs&&f.subs.length>1){
         cell='<div style="display:flex;align-items:stretch">'+f.subs.map(function(sl,si){
           return '<div style="flex:1;min-width:0;padding:7px 10px'+(si?';border-left:1px solid #ddd':'')+'">'
-            +'<div style="font-size:11.5px;color:#777;margin-bottom:2px">'+_esc(sl)+'</div>'
+            +'<div style="font-size:11.5px;color:#777;margin-bottom:2px;text-align:center">'+_esc(sl)+'</div>'
             +'<div style="'+pre+';min-height:18px">'+_esc(arr[si]||'')+'</div></div>';
         }).join('')+'</div>';
       } else {
