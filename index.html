@@ -324,7 +324,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.03-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-1</div>
   </div>
 </div>
 
@@ -459,7 +459,8 @@ table.dt tr:last-child td{border-bottom:none;}
 
   <div id="mn">
     <!-- HOME -->
-    <div class="pg active" id="pg_home">
+    <div class="pg active" id="pg_home" style="position:relative">
+      <button id="hb_btn" onclick="openHomeBgModal()" title="홈 배경 사진 설정 (관리자 전용)" style="display:none;position:absolute;top:10px;right:10px;z-index:5;padding:6px 12px;background:rgba(255,255,255,.85);border:1px solid #d0d4e8;border-radius:8px;color:#4a5090;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> 배경 설정</button>
       <div class="hero"><div class="ht" style="font-size:70px">TEAM TOPS</div><div class="hsub">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
       <!-- 명예의 전당 3칸 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
@@ -2871,6 +2872,7 @@ async function loadFromFirestore(){
     if(d.consults&&d.consults.length){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } }
     if(d.wclose&&d.wclose.length){ wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} }
     if(Array.isArray(d.wcwriters)){ wcWriters=d.wcwriters; try{ localStorage.setItem('tops_wcwriters',JSON.stringify(wcWriters)); }catch(e){} }
+    if(d.homebg&&typeof d.homebg==='object'&&!Array.isArray(d.homebg)){ _homeBg=d.homebg; try{ localStorage.setItem('tops_homebg',JSON.stringify(_homeBg)); }catch(e){} try{ _homeBgApply(); }catch(e){} }
     if(d.meetings&&d.meetings.length){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} }
     if(Array.isArray(d.notreads)&&d.notreads.length){ notreads=d.notreads; try{ localStorage.setItem('tops_notreads',JSON.stringify(notreads)); }catch(e){} }
     if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; try{ localStorage.setItem('tops_admov',JSON.stringify(admov)); }catch(e){} }
@@ -2931,6 +2933,7 @@ function startRealtimeSync(){
     if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
     if(d.wclose)  { wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} changed=true; }
     if(Array.isArray(d.wcwriters)){ wcWriters=d.wcwriters; try{ localStorage.setItem('tops_wcwriters',JSON.stringify(wcWriters)); }catch(e){} changed=true; }
+    if(d.homebg&&typeof d.homebg==='object'&&!Array.isArray(d.homebg)){ _homeBg=d.homebg; try{ localStorage.setItem('tops_homebg',JSON.stringify(_homeBg)); }catch(e){} try{ _homeBgApply(); }catch(e){} }
     if(d.meetings){ meetings=d.meetings; try{ localStorage.setItem('tops_meetings',JSON.stringify(meetings)); }catch(e){} changed=true; }
     if(Array.isArray(d.notreads)){ notreads=d.notreads; try{ localStorage.setItem('tops_notreads',JSON.stringify(notreads)); }catch(e){} }
     if(d.admov&&typeof d.admov==='object'&&!Array.isArray(d.admov)){ admov=d.admov; try{ localStorage.setItem('tops_admov',JSON.stringify(admov)); }catch(e){} }
@@ -4012,6 +4015,9 @@ function rHome(){
   [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie].forEach(function(f){
     try{ f(); }catch(e){ console.warn('rHome 렌더 오류:', (f&&f.name)||'', e); }
   });
+  // 홈 배경(시즌 사진) — 설정 버튼은 관리자만, 배경은 전 사용자 적용
+  try{ var hbb=g('hb_btn'); if(hbb) hbb.style.display=_isAdmin()?'':'none'; }catch(e){}
+  try{ _homeBgApply(); }catch(e){}
   // 일일보고서용 실적 스냅샷 — 관리자가 접속만 해도 그날 기록이 쌓인다 (내부에서 관리자·변동 여부 확인)
   try{ if(typeof _dsnapRecord==='function') _dsnapRecord(); }catch(e){}
 }
@@ -9104,6 +9110,119 @@ async function _uploadNoticeFile(file){
   // Storage 미연결 시 최후수단: 소용량 base64 보관
   var dataUrl=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(file);});
   return {name:file.name, type:file.type||'', data:dataUrl};
+}
+
+// ===== 홈 배경(시즌 사진) 설정 (2026-08-05, 관리자 전용) =====
+// 설정: tops_homebg = {url:StorageURL, dim:흰덮개%(20~95), ts}. 전 기기 동기화되어 모든 사용자 홈에 적용.
+// 사진 원본은 Firebase Storage(home_bg/)에만 두고 설정엔 URL만 저장(함정 B — base64 금지).
+var _homeBg=null; try{ _homeBg=JSON.parse(localStorage.getItem('tops_homebg')||'null'); }catch(e){}
+function _homeBgApply(){
+  var el=g('pg_home'); if(!el) return;
+  var c=_homeBg||{};
+  var u=String(c.url||'');
+  // https만 허용 + CSS 문자열 탈출 문자 제거(따옴표·괄호) — 설정 값으로 스타일 주입 방지
+  if(u&&/^https:\/\//.test(u)){
+    u=u.replace(/"/g,'%22').replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\s/g,'%20');
+    var a=Math.min(95,Math.max(20,+c.dim||80))/100;
+    el.style.backgroundImage='linear-gradient(rgba(255,255,255,'+a+'),rgba(255,255,255,'+a+')),url("'+u+'")';
+    el.style.backgroundSize='cover';
+    el.style.backgroundPosition='center top';
+    el.style.borderRadius='12px';
+  } else {
+    el.style.backgroundImage='';
+  }
+}
+try{ _homeBgApply(); }catch(e){}   // 부팅 시 로컬 캐시로 즉시 적용(클라우드 수신 시 갱신)
+// 사진을 캔버스로 축소(최대 1920px)해 JPEG 업로드 — 원본 대용량 업로드 방지
+async function _homeBgUpload(file){
+  var img=await new Promise(function(res,rej){
+    var fr=new FileReader();
+    fr.onload=function(){ var im=new Image(); im.onload=function(){res(im);}; im.onerror=function(){rej(new Error('이미지를 읽을 수 없습니다'));}; im.src=fr.result; };
+    fr.onerror=function(){rej(new Error('파일 읽기 실패'));};
+    fr.readAsDataURL(file);
+  });
+  var MAX=1920, w=img.width, h=img.height;
+  if(w>MAX||h>MAX){ var r=Math.min(MAX/w,MAX/h); w=Math.round(w*r); h=Math.round(h*r); }
+  var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  cv.getContext('2d').drawImage(img,0,0,w,h);
+  var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.85); });
+  if(!blob) throw new Error('이미지 변환 실패');
+  var ref=firebase.storage().ref('home_bg/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
+  await ref.put(blob,{contentType:'image/jpeg'});
+  return await ref.getDownloadURL();
+}
+function openHomeBgModal(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var old=g('hb_overlay'); if(old) old.remove();
+  var c=_homeBg||{};
+  var dim=Math.min(95,Math.max(20,+c.dim||80));
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
+  var ov=document.createElement('div');
+  ov.id='hb_overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-photo"></i> 홈 배경 사진 설정</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">시즌마다 사진을 바꿔 홈 화면 배경으로 씁니다. 저장하면 <b>모든 사용자</b>의 홈에 적용됩니다.</div>'
+    +'<div id="hb_prev" style="height:170px;border:1px solid #e2e4f0;border-radius:10px;background:#f6f7fb center/cover no-repeat;margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:#a0a4c0;font-size:13.5px">'+(c.url?'':'배경 사진 없음')+'</div>'
+    +'<input type="file" id="hb_file" accept="image/*" onchange="_hbPickPreview()" style="width:100%;font-size:13.5px;color:#1a1a2e;margin-bottom:12px">'
+    +'<div style="font-size:13.5px;color:#1a1a2e;font-weight:600;margin-bottom:4px">밝기 조절 <span style="font-weight:400;color:#888">(왼쪽: 사진 선명하게 · 오른쪽: 글씨 잘 보이게)</span></div>'
+    +'<input type="range" id="hb_dim" min="20" max="95" value="'+dim+'" oninput="_hbPrevDim()" style="width:100%;accent-color:#4858cc;margin-bottom:14px">'
+    +'<div style="display:flex;justify-content:space-between;gap:8px">'
+    +'<button onclick="removeHomeBg()" style="'+_bt+'background:rgba(200,60,60,.08);border:1px solid rgba(200,60,60,.3);color:#c04040"><i class="ti ti-trash"></i> 배경 제거</button>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="document.getElementById(\'hb_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="saveHomeBg()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div></div>';
+  document.body.appendChild(ov);
+  if(c.url) _hbSetPrev(c.url);
+  _hbPrevDim();
+}
+function _hbSetPrev(src){
+  var p=g('hb_prev'); if(!p) return;
+  window._hbPrevUrl=src;
+  p.textContent='';
+  _hbPrevDim();
+}
+function _hbPrevDim(){
+  var p=g('hb_prev'); if(!p||!window._hbPrevUrl) return;
+  var a=Math.min(95,Math.max(20,+((g('hb_dim')||{}).value)||80))/100;
+  var u=String(window._hbPrevUrl).replace(/"/g,'%22').replace(/\(/g,'%28').replace(/\)/g,'%29');
+  p.style.background='linear-gradient(rgba(255,255,255,'+a+'),rgba(255,255,255,'+a+')),url("'+u+'") center/cover no-repeat';
+}
+function _hbPickPreview(){
+  var f=(g('hb_file')||{}).files; f=f&&f[0]; if(!f) return;
+  var fr=new FileReader();
+  fr.onload=function(){ _hbSetPrev(fr.result); };
+  fr.readAsDataURL(f);
+}
+async function saveHomeBg(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var dim=Math.min(95,Math.max(20,+((g('hb_dim')||{}).value)||80));
+  var f=(g('hb_file')||{}).files; f=f&&f[0];
+  var url=(_homeBg&&_homeBg.url)||'';
+  try{
+    if(f){
+      toast('사진 업로드 중...');
+      try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+      url=await _homeBgUpload(f);
+    }
+    if(!url){ toast('사진 파일을 선택하세요.'); return; }
+    _homeBg={url:url, dim:dim, ts:Date.now()};
+    sv('tops_homebg',_homeBg);
+    _homeBgApply();
+    var ov=g('hb_overlay'); if(ov) ov.remove();
+    toast('홈 배경이 적용되었습니다! (모든 사용자에게 표시)');
+  }catch(e){ toast('배경 설정 실패: '+((e&&e.message)||e)); }
+}
+function removeHomeBg(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  if(!confirm('홈 배경 사진을 제거할까요? (모든 사용자에게 적용)')) return;
+  _homeBg={url:'', dim:80, ts:Date.now()};
+  sv('tops_homebg',_homeBg);
+  _homeBgApply();
+  var ov=g('hb_overlay'); if(ov) ov.remove();
+  toast('홈 배경이 제거되었습니다.');
 }
 
 async function saveNotice(){
