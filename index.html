@@ -336,7 +336,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-14</div>
   </div>
 </div>
 
@@ -14031,7 +14031,7 @@ function _bdCardHtml(p){
   if(cover) th='<img src="'+_esc(cover)+'" loading="lazy" alt="" draggable="false">';
   else if(pdfs.length) th='<i class="ti ti-file-type-pdf" style="font-size:46px;color:#c05050"></i>';
   else th='<i class="ti ti-notes" style="font-size:42px;color:#b8bdd6"></i>';
-  return '<div class="bdcard" data-bdopen="'+_esc(p.id)+'">'
+  return '<div class="bdcard" data-bdopen="'+_esc(p.id)+'"'+(_isAdmin()?'':' oncontextmenu="return false"')+'>'
     +'<div class="bdthumb">'+th+'</div>'
     +'<div style="font-weight:700;font-size:14px;color:#1a1a2e;margin-top:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+_esc(p.title||'(제목 없음)')+'</div>'
     +'<div style="font-size:12px;color:#999;margin-top:2px">'+_esc(p.dt||'')+'</div>'
@@ -14070,6 +14070,11 @@ function _bdFilesHtml(p){
     fh+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pdfs.map(function(f){
       return '<a href="'+_esc(f.u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fdf0f0;border:1px solid #e8c0c0;border-radius:8px;color:#b03030;font-size:13.5px;font-weight:600;text-decoration:none"><i class="ti ti-file-type-pdf"></i>'+_esc(f.n||'PDF 파일')+' <span style="font-size:11px;color:#c88">원본(관리자 전용)</span></a>';
     }).join('')+'</div>';
+  }
+  // 페이지가 많아 일부만 미리보기로 만든 문서 안내
+  var trunc=pdfs.filter(function(f){ return Array.isArray(f.pages)&&f.pages.length&&(+f.pgTotal||0)>f.pages.length; });
+  if(trunc.length){
+    fh+='<div style="margin-top:10px;font-size:12.5px;color:#a06010"><i class="ti ti-info-circle"></i> 페이지가 많아 일부 문서는 앞 '+BD_PDF_MAX_PAGES+'쪽까지만 표시됩니다.'+(adm?' (전체 내용은 원본 PDF 참고)':' 전체 내용이 필요하면 관리자에게 문의하세요.')+'</div>';
   }
   // 미리보기가 없는 예전 PDF — 팀원에게 안내(관리자가 [수정]→[저장]하면 자동 생성)
   var noPv=pdfs.filter(function(f){ return !(Array.isArray(f.pages)&&f.pages.length); });
@@ -14296,26 +14301,33 @@ var BD_PDF_MAX_PAGES=40;
 async function _bdPdfPagesUpload(name, data, label){
   if(!(window.pdfjsLib&&pdfjsLib.getDocument)) throw new Error('PDF 변환 라이브러리가 로드되지 않았습니다');
   var doc=await pdfjsLib.getDocument({data:data}).promise;
-  var n=Math.min(doc.numPages, BD_PDF_MAX_PAGES);
-  var urls=[];
-  for(var i=1;i<=n;i++){
-    toast((label||'PDF')+' 미리보기 만드는 중… ('+i+'/'+n+')');
-    var page=await doc.getPage(i);
-    var vp=page.getViewport({scale:1});
-    var scale=Math.min(2, 1400/Math.max(1,vp.width));
-    vp=page.getViewport({scale:scale});
-    var cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
-    await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
-    var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.82); });
-    if(!blob) throw new Error('페이지 변환 실패');
-    var ref=firebase.storage().ref('board_files/'+name+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'_p'+i+'.jpg');
-    await ref.put(blob,{contentType:'image/jpeg'});
-    urls.push(await ref.getDownloadURL());
-  }
   var total=doc.numPages;
+  var n=Math.min(total, BD_PDF_MAX_PAGES);
+  var urls=[];
+  try{
+    for(var i=1;i<=n;i++){
+      toast((label||'PDF')+' 미리보기 만드는 중… ('+i+'/'+n+')');
+      var page=await doc.getPage(i);
+      var vp=page.getViewport({scale:1});
+      var scale=Math.min(2, 1400/Math.max(1,vp.width));
+      vp=page.getViewport({scale:scale});
+      var cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+      await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+      var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.82); });
+      if(!blob) throw new Error('페이지 변환 실패');
+      var ref=firebase.storage().ref('board_files/'+name+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'_p'+i+'.jpg');
+      await ref.put(blob,{contentType:'image/jpeg'});
+      urls.push(await ref.getDownloadURL());
+    }
+  }catch(err){
+    // 중간 실패 시 이미 올라간 페이지 이미지 정리 — 어디에도 기록되지 않는 고아 파일 방지
+    urls.forEach(function(u){ try{ firebase.storage().refFromURL(u).delete().catch(function(){}); }catch(e2){} });
+    try{ doc.destroy(); }catch(e2){}
+    throw err;
+  }
   try{ doc.destroy(); }catch(e){}
   if(total>n) toast('페이지가 많아 앞 '+n+'쪽까지만 미리보기를 만들었습니다.');
-  return urls;
+  return {pages:urls, total:total};
 }
 // 열람용 이미지 목록 — 사진(대표 우선) + PDF 페이지 미리보기(파일 순서). 썸네일·뷰어 공용.
 function _bdViewImgs(p){
@@ -14348,7 +14360,11 @@ async function bdSave(){
       if(isPdf){
         entry={u:await _bdPdfUpload(e.name,f), t:'pdf', n:String(f.name||'PDF')};
         // 페이지별 미리보기 — 팀원이 다운로드 없이 열람. 실패해도 원본은 유지(관리자용)
-        try{ entry.pages=await _bdPdfPagesUpload(e.name, await f.arrayBuffer(), entry.n); }
+        try{
+          var pv=await _bdPdfPagesUpload(e.name, await f.arrayBuffer(), entry.n);
+          entry.pages=pv.pages;
+          if(pv.total>pv.pages.length) entry.pgTotal=pv.total;   // 일부만 표시됨 표식(열람 화면 안내용)
+        }
         catch(errPv){ console.warn('PDF 미리보기 생성 실패:', errPv); toast('PDF 미리보기 생성 실패 — 원본만 첨부됩니다: '+entry.n); }
       }
       else { entry={u:await _bdImgUpload(e.name,f), t:'img', n:String(f.name||'사진')}; if(f._rep) entry.rep=1; }
@@ -14361,8 +14377,10 @@ async function bdSave(){
       if(mf&&mf.t==='pdf'&&!(Array.isArray(mf.pages)&&mf.pages.length)&&mf.u&&_BD_URL_RE.test(String(mf.u))){
         try{
           var rsp=await fetch(mf.u); if(!rsp.ok) throw new Error('원본 내려받기 실패');
-          mf.pages=await _bdPdfPagesUpload(e.name, await rsp.arrayBuffer(), mf.n);
-        }catch(errM){ console.warn('기존 PDF 미리보기 생성 실패:', errM); }
+          var pv2=await _bdPdfPagesUpload(e.name, await rsp.arrayBuffer(), mf.n);
+          mf.pages=pv2.pages;
+          if(pv2.total>pv2.pages.length) mf.pgTotal=pv2.total;
+        }catch(errM){ console.warn('기존 PDF 미리보기 생성 실패:', errM); toast('기존 PDF 미리보기 생성 실패: '+(mf.n||'PDF')+' — 다음 저장 때 다시 시도됩니다.'); }
       }
     }
     // 대표이미지(썸네일) — 새로 고른 파일이 있으면 업로드 후 교체
