@@ -279,6 +279,9 @@ table.dt tr:last-child td{border-bottom:none;}
 }
 /* 환경설정에서 숨긴 메뉴 — !important로 setAdmin의 인라인 표시값과 무관하게 숨김(클래스 제거로 복원) */
 .cfg-hide{display:none !important}
+/* 환경설정 목록 행 — 마우스가 가리키는 줄을 연하게 표시 */
+.nsrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:5px 8px;border-radius:8px;margin-bottom:2px}
+.nsrow:hover{background:rgba(80,100,220,.10)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -326,7 +329,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-7</div>
   </div>
 </div>
 
@@ -645,7 +648,8 @@ table.dt tr:last-child td{border-bottom:none;}
       <div class="card">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-menu-2"></i> 메뉴 구성</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
-          메뉴 이름을 바꾸고, ▲▼로 위치를 옮기고, [숨김]으로 감추거나 [+ 메뉴 추가]로 새 메뉴를 만들 수 있습니다.<br>
+          메뉴 이름을 바꾸고, ▲▼로 위치를 옮기고, [숨김]으로 감추거나(숨긴 메뉴는 목록 맨 아래로 모입니다) [+ 메뉴 추가]로 새 최상위 메뉴를 만들 수 있습니다.<br>
+          초록색 <i class="ti ti-corner-down-right"></i>+ 버튼은 그 메뉴 아래에 하위 메뉴를 추가합니다(추가 메뉴에 하위가 생기면 누를 때 접히는 그룹으로 동작).<br>
           아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다. 기본 메뉴는 삭제 대신 숨김만 가능하며, 권한이 필요한 메뉴는 이름을 바꿔도 기존 권한이 유지됩니다.
         </div>
         <div id="ns_list"></div>
@@ -13592,42 +13596,63 @@ function _navApply(){
     });
   }
   var cfg=(navcfg&&typeof navcfg==='object'&&!Array.isArray(navcfg))?navcfg:{};
-  // 1) 추가 메뉴 — 삭제된 것 제거, 새것 생성, 이름 갱신
+  // 1) 추가 메뉴 — 삭제된 것 제거, 새것 생성, 이름 갱신.
+  //    최상위 추가 메뉴에 하위(loc='nch_'+id)가 생기면 접기 그룹으로 동작(컨테이너 nch_cm_* 자동 생성, 하위 없어지면 제거).
   var customs=_navCustoms();
+  function _cmHasKids(cid){ return customs.some(function(x){ return x.loc==='nch_'+cid; }); }
   Array.prototype.forEach.call(sb.querySelectorAll('[id^="n_cm_"]'),function(el){
     var cid=el.id.slice(2);
     if(!customs.some(function(c){return c.id===cid;})){
       var wrap=(el.parentElement&&el.parentElement.classList.contains('ns'))?el.parentElement:el;
       wrap.remove();
+      var kc=g('nch_'+cid); if(kc) kc.remove();   // 그룹이었다면 하위 컨테이너도 함께 제거
     }
   });
-  customs.forEach(function(c){
+  function _cmMake(c){
     var ex=g('n_'+c.id);
-    if(ex){ if(_navGetLabel(ex)!==c.label) _navSetLabel(ex,c.label); return; }
-    var ni=document.createElement('div'); ni.className='ni'; ni.id='n_'+c.id;
-    var loc=(c.loc&&c.loc!=='_top'&&g(c.loc))?c.loc:'_top';
-    if(loc==='_top'){
-      ni.innerHTML='<i class="ti '+(c.type==='link'?'ti-external-link':'ti-file-text')+'"></i>';
-      ni.appendChild(document.createTextNode(c.label));
-      sb.insertBefore(ni, g('n_navset')||null);
-    } else {
-      ni.textContent=c.label;
-      var ns=document.createElement('div'); ns.className='ns'; ns.appendChild(ni);
-      g(loc).appendChild(ns);
+    if(!ex){
+      var ni=document.createElement('div'); ni.className='ni'; ni.id='n_'+c.id;
+      var loc=(c.loc&&c.loc!=='_top'&&g(c.loc))?c.loc:'_top';
+      if(loc==='_top'){
+        ni.innerHTML='<i class="ti '+(c.type==='link'?'ti-external-link':'ti-file-text')+'"></i>';
+        ni.appendChild(document.createTextNode(c.label));
+        sb.insertBefore(ni, g('n_navset')||null);
+      } else {
+        ni.textContent=c.label;
+        var ns=document.createElement('div'); ns.className='ns'; ns.appendChild(ni);
+        g(loc).appendChild(ns);
+      }
+      (function(cid){
+        ni.addEventListener('click',function(){
+          var cur=_navCustomById(cid);
+          if(!cur){ toast('삭제된 메뉴입니다.'); return; }
+          if(g('nch_'+cid)){ tnav(cid); return; }   // 하위 메뉴가 있으면 접기 그룹으로 동작
+          if(cur.type==='link'){
+            var u=String(cur.url||''); if(!u){ toast('연결된 주소가 없습니다.'); return; }
+            if(!/^https?:\/\//i.test(u)) u='https://'+u;   // javascript: 등 차단 — http/https 외엔 https:// 접두로 무력화
+            window.open(u,'_blank','noopener'); return;
+          }
+          showPage(cid);
+        });
+      })(c.id);
+      ex=ni;
+    } else if(_navGetLabel(ex)!==c.label){ _navSetLabel(ex,c.label); }
+    // 최상위 추가 메뉴의 그룹 전환/해제
+    if((c.loc||'_top')==='_top'||!g(c.loc)){
+      var kids=_cmHasKids(c.id), nch=g('nch_'+c.id);
+      if(kids&&!nch){
+        nch=document.createElement('div'); nch.className='nch open'; nch.id='nch_'+c.id;
+        sb.insertBefore(nch, ex.nextSibling);
+        if(!ex.querySelector('.nc')){ var ar=document.createElement('i'); ar.className='ti ti-chevron-down nc'; ar.id='nc_'+c.id; ar.style.transform='rotate(180deg)'; ex.appendChild(ar); }
+      } else if(!kids&&nch){
+        nch.remove();
+        var ar2=g('nc_'+c.id); if(ar2) ar2.remove();
+      }
     }
-    (function(cid){
-      ni.addEventListener('click',function(){
-        var cur=_navCustomById(cid);
-        if(!cur){ toast('삭제된 메뉴입니다.'); return; }
-        if(cur.type==='link'){
-          var u=String(cur.url||''); if(!u){ toast('연결된 주소가 없습니다.'); return; }
-          if(!/^https?:\/\//i.test(u)) u='https://'+u;   // javascript: 등 차단 — http/https 외엔 https:// 접두로 무력화
-          window.open(u,'_blank','noopener'); return;
-        }
-        showPage(cid);
-      });
-    })(c.id);
-  });
+  }
+  // 두 패스: 최상위·기본 그룹 안 메뉴 먼저(커스텀 그룹 컨테이너를 만들어야 하위를 붙일 수 있음) → 커스텀 그룹 안 하위
+  customs.filter(function(c){ return !(c.loc&&c.loc.indexOf('nch_cm_')===0); }).forEach(_cmMake);
+  customs.filter(function(c){ return c.loc&&c.loc.indexOf('nch_cm_')===0; }).forEach(_cmMake);
   // 2) 이름 — cfg.ren 적용, 빠진 항목은 기본 이름으로 복원 (커스텀은 위에서 label로 처리)
   var ren=cfg.ren||{};
   Object.keys(_navDefaults).forEach(function(id){
@@ -13647,18 +13672,24 @@ function _navApply(){
     var nx=el.nextElementSibling;
     if(nx&&nx.classList&&nx.classList.contains('nch')) nx.classList.toggle('cfg-hide',on);
   });
-  // 4) 순서 — cfg.ord 없으면 기본 순서로 복원(기본값 복원 시 원위치)
+  // 4) 순서 — cfg.ord 없으면 기본 순서로 복원(기본값 복원 시 원위치). 커스텀 그룹(nch_cm_*)은 ord에 있을 때만.
   var ord=cfg.ord||{};
-  Object.keys(_navDefOrder).forEach(function(contId){
-    if(contId==='_top') return;
-    var cont=g(contId); if(!cont) return;
-    var list=(Array.isArray(ord[contId])&&ord[contId].length)?ord[contId]:_navDefOrder[contId];
+  function _navReorderCont(contId, list){
+    var cont=g(contId); if(!cont||!list||!list.length) return;
     var map={};
     Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni) map[ni.id]=ns; });
     var seen={}, seq=[];
     list.forEach(function(id){ if(map[id]&&!seen[id]){ seen[id]=1; seq.push(map[id]); } });
     Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni&&!seen[ni.id]){ seen[ni.id]=1; seq.push(ns); } });
     seq.forEach(function(ns){ cont.appendChild(ns); });
+  }
+  Object.keys(_navDefOrder).forEach(function(contId){
+    if(contId==='_top') return;
+    _navReorderCont(contId, (Array.isArray(ord[contId])&&ord[contId].length)?ord[contId]:_navDefOrder[contId]);
+  });
+  Object.keys(ord).forEach(function(contId){
+    if(contId==='_top'||_navDefOrder[contId]||contId.indexOf('nch_cm_')!==0) return;
+    _navReorderCont(contId, Array.isArray(ord[contId])?ord[contId]:[]);
   });
   (function(){
     var blocks=_navTopBlocks(); if(!blocks.length) return;
@@ -13705,19 +13736,35 @@ function rNavSet(){
   _nsBuild();
   _nsDraw();
 }
+// 숨김 항목을 각 목록(최상위/그룹) 맨 아래로 — 안정 정렬이라 나머지 순서는 유지
+function _nsSortHidden(){
+  var w=window._nsWork; if(!w) return;
+  function st(arr){
+    var a=arr.map(function(x,i){ return {x:x,i:i,h:w.hide[x.key]?1:0}; });
+    a.sort(function(p,q){ return (p.h-q.h)||(p.i-q.i); });
+    return a.map(function(p){ return p.x; });
+  }
+  w.top=st(w.top);
+  w.top.forEach(function(item){ if(item.children) item.children=st(item.children); });
+}
 function _nsDraw(){
   var box=g('ns_list'); if(!box) return;
   var w=window._nsWork; if(!w) return;
+  _nsSortHidden();
   var sb='padding:5px 8px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
   var rows=[];
   function row(item, cont, depth){
     var hid=!!w.hide[item.key];
-    var typeTag=item.custom?(function(){ var c=null; w.customs.forEach(function(x){ if('n_'+x.id===item.key) c=x; }); return c&&c.type==='link'?' <span style="font-size:11px;color:#a06010">(링크)</span>':' <span style="font-size:11px;color:#207830">(추가 메뉴)</span>'; })():'';
-    rows.push('<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap'+(depth?';margin-left:28px':'')+'">'
-      +'<input data-nsl="'+_esc(item.key)+'" value="'+_esc(item.label)+'" style="flex:1;min-width:130px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff'+(depth?'':';font-weight:700')+'">'
+    var typeTag=item.custom?(function(){ var c=null; w.customs.forEach(function(x){ if('n_'+x.id===item.key) c=x; }); return c&&c.type==='link'?' <span style="font-size:11px;color:#a06010;white-space:nowrap">(링크)</span>':' <span style="font-size:11px;color:#207830;white-space:nowrap">(추가 메뉴)</span>'; })():'';
+    // 하위 메뉴 추가: 그룹 머리(기존 그룹·커스텀 그룹) 또는 최상위 추가 메뉴(그룹으로 전환됨)에만
+    var canSub=depth===0&&(item.children!==null||item.custom);
+    var subCont=item.contId||('nch_'+item.key.slice(2));
+    rows.push('<div class="nsrow"'+(depth?' style="margin-left:28px"':'')+'>'
+      +'<input data-nsl="'+_esc(item.key)+'" value="'+_esc(item.label)+'" style="flex:1;min-width:130px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:'+(hid?'#a0a0b0':'#111')+';background:#fff'+(depth?'':';font-weight:700')+'">'
       +'<span style="display:flex;gap:4px;align-items:center">'
       +'<button data-nsm="'+_esc(cont)+'|'+_esc(item.key)+'|-1" title="위로" style="'+sb+'"><i class="ti ti-arrow-up"></i></button>'
       +'<button data-nsm="'+_esc(cont)+'|'+_esc(item.key)+'|1" title="아래로" style="'+sb+'"><i class="ti ti-arrow-down"></i></button>'
+      +(canSub?'<button data-nsadd="'+_esc(subCont)+'|'+_esc(item.label)+'" title="이 메뉴 아래에 하위 메뉴 추가" style="'+sb+'color:#207830;border-color:#b8d8b8;background:#eef7ee"><i class="ti ti-corner-down-right"></i>+</button>':'')
       +'<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:#555;cursor:pointer;white-space:nowrap"><input type="checkbox" data-nsh="'+_esc(item.key)+'"'+(hid?' checked':'')+' style="accent-color:#c03030">숨김</label>'
       +(item.custom?'<button data-nsdel="'+_esc(item.key)+'" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i></button>':'')
       +'</span>'+typeTag+'</div>');
@@ -13733,8 +13780,18 @@ function _nsDraw(){
       _nsMove(p[0],p[1],+p[2]);
     });
   });
+  box.querySelectorAll('[data-nsadd]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var p=b.getAttribute('data-nsadd').split('|');
+      nsAddMenu(p[0],p.slice(1).join('|'));   // 라벨에 | 가 있어도 안전
+    });
+  });
   box.querySelectorAll('[data-nsdel]').forEach(function(b){
     b.addEventListener('click',function(){ _nsDelCustom(b.getAttribute('data-nsdel')); });
+  });
+  // 숨김 체크를 바꾸면 그 항목을 목록 맨 아래로 즉시 이동
+  box.querySelectorAll('input[data-nsh]').forEach(function(cb){
+    cb.addEventListener('change',function(){ _nsPull(); _nsDraw(); });
   });
 }
 // 재그리기 전 입력 중인 이름·숨김 체크를 초안에 반영
@@ -13774,31 +13831,37 @@ function _nsDelCustom(key){
   var w=window._nsWork; if(!w) return;
   var c=null; w.customs.forEach(function(x){ if('n_'+x.id===key) c=x; });
   if(!c) return;
-  if(!confirm('추가 메뉴 "'+c.label+'"을(를) 삭제하시겠습니까?'+(c.type==='page'?'\n(작성해 둔 내용 페이지도 함께 사라집니다)':''))) return;
-  w.customs=w.customs.filter(function(x){ return x!==c; });
-  w.top=w.top.filter(function(item){ return item.key!==key; });
-  w.top.forEach(function(item){ if(item.children) item.children=item.children.filter(function(ch){ return ch.key!==key; }); });
-  delete w.hide[key];
+  // 커스텀 그룹이면 하위 메뉴도 함께 삭제
+  var item=null; w.top.forEach(function(it){ if(it.key===key) item=it; });
+  var kidKeys=(item&&item.children)?item.children.map(function(ch){ return ch.key; }):[];
+  var msg='추가 메뉴 "'+c.label+'"을(를) 삭제하시겠습니까?';
+  if(kidKeys.length) msg+='\n(하위 메뉴 '+kidKeys.length+'개와 작성한 내용 페이지도 함께 삭제됩니다)';
+  else if(c.type==='page') msg+='\n(작성해 둔 내용 페이지도 함께 사라집니다)';
+  if(!confirm(msg)) return;
+  var del={}; del[key]=1; kidKeys.forEach(function(k){ del[k]=1; });
+  w.customs=w.customs.filter(function(x){ return !del['n_'+x.id]; });
+  w.top=w.top.filter(function(it){ return !del[it.key]; });
+  w.top.forEach(function(it){ if(it.children) it.children=it.children.filter(function(ch){ return !del[ch.key]; }); });
+  Object.keys(del).forEach(function(k){ delete w.hide[k]; });
   _nsDraw();
 }
-function nsAddMenu(){
+// 메뉴 추가 — loc 없으면 최상위 전용, loc 지정 시 해당 그룹(또는 최상위 메뉴)의 하위로 추가
+function nsAddMenu(loc, parentLabel){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   _nsPull();
   var w=window._nsWork; if(!w){ _nsBuild(); w=window._nsWork; }
   var old=g('nsadd_overlay'); if(old) old.remove();
-  var groups=w.top.filter(function(item){ return item.children; });
+  window._nsAddLoc=(loc&&loc!=='_top')?loc:'_top';
+  var title=(window._nsAddLoc==='_top')?'메뉴 추가 (최상위)':'"'+(parentLabel||'')+'" 아래에 하위 메뉴 추가';
   var ov=document.createElement('div');
   ov.id='nsadd_overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   var _bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
   var _in='width:100%;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:460px;width:100%;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
-    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:12px"><i class="ti ti-plus"></i> 메뉴 추가</div>'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:12px"><i class="ti ti-plus"></i> '+_esc(title)+'</div>'
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">메뉴 이름</div>'
     +'<input id="nsadd_name" placeholder="예: 팀 공지, 자료실" style="'+_in+';margin-bottom:10px">'
-    +'<div style="font-size:13px;color:#555;margin-bottom:4px">위치</div>'
-    +'<select id="nsadd_loc" style="'+_in+';margin-bottom:10px"><option value="_top">최상위 메뉴</option>'
-    +groups.map(function(gp){ return '<option value="'+_esc(gp.contId)+'">'+_esc(gp.label)+' 아래</option>'; }).join('')+'</select>'
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">종류</div>'
     +'<select id="nsadd_type" onchange="document.getElementById(\'nsadd_urlbox\').style.display=this.value===\'link\'?\'\':\'none\'" style="'+_in+';margin-bottom:10px">'
     +'<option value="page">내용 페이지 (관리자가 내용 작성, 전원 열람)</option>'
@@ -13814,7 +13877,7 @@ function nsAddMenu(){
 function _nsAddConfirm(){
   var w=window._nsWork; if(!w) return;
   var name=(g('nsadd_name')||{}).value||''; name=name.trim();
-  var loc=(g('nsadd_loc')||{}).value||'_top';
+  var loc=window._nsAddLoc||'_top';
   var type=(g('nsadd_type')||{}).value||'page';
   var url=((g('nsadd_url')||{}).value||'').trim();
   if(!name){ toast('메뉴 이름을 입력하세요.'); return; }
@@ -13824,16 +13887,24 @@ function _nsAddConfirm(){
   }
   var c={ id:'cm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), label:name, loc:loc, type:type };
   if(type==='link') c.url=url;
-  w.customs.push(c);
   var item={key:'n_'+c.id, label:name, custom:true, children:null, contId:null};
+  var converted=null;
   if(loc==='_top'){ w.top.push(item); }
   else {
     var arr=_nsArr(loc);
+    if(!arr&&loc.indexOf('nch_cm_')===0){
+      // 최상위 추가 메뉴에 첫 하위를 붙이는 경우 — 그 메뉴를 접기 그룹으로 전환
+      var pkey='n_'+loc.slice(4), parent=null;
+      w.top.forEach(function(it){ if(it.key===pkey) parent=it; });
+      if(parent){ parent.children=[]; parent.contId=loc; arr=parent.children; converted=parent.label; }
+    }
     if(arr) arr.push(item); else { c.loc='_top'; w.top.push(item); }
   }
+  w.customs.push(c);
   var ov=g('nsadd_overlay'); if(ov) ov.remove();
   _nsDraw();
-  toast('목록에 추가되었습니다. [저장]을 눌러야 실제 메뉴에 반영됩니다.');
+  toast('목록에 추가되었습니다. [저장]을 눌러야 실제 메뉴에 반영됩니다.'
+    +(converted?'\n"'+converted+'" 메뉴는 하위 메뉴가 생겨 누르면 접히는 그룹으로 동작합니다.':''));
 }
 async function nsSave(){
   if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
