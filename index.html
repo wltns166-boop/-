@@ -326,7 +326,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-6</div>
   </div>
 </div>
 
@@ -13557,7 +13557,7 @@ async function saveRcFlds(){
 //   삭제는 추가 메뉴만 가능(기본 메뉴는 숨김). 환경설정 메뉴 자신(n_navset)은 항상 맨 아래 고정.
 var _navDefaults=null;   // navId → 원래 이름
 var _navDefOrder=null;   // 컨테이너 → 원래 순서(navId 배열)
-function _navCustoms(){ return (navcfg&&Array.isArray(navcfg.customs))?navcfg.customs.filter(function(c){return c&&c.id&&c.label;}):[]; }
+function _navCustoms(){ return (navcfg&&Array.isArray(navcfg.customs))?navcfg.customs.filter(function(c){return c&&c.id&&String(c.id).indexOf('cm_')===0&&c.label;}):[]; } // id는 cm_ 접두만 — 기존 메뉴 id 사칭 방지
 function _navCustomById(id){ var out=null; _navCustoms().forEach(function(c){ if(c.id===id) out=c; }); return out; }
 function _navGetLabel(el){
   for(var i=0;i<el.childNodes.length;i++){ var n=el.childNodes[i]; if(n.nodeType===3&&n.nodeValue.trim()) return n.nodeValue.trim(); }
@@ -13681,6 +13681,8 @@ function _ptitle(name){
   return PTITLES[name]||name;
 }
 // ----- 환경설정 페이지 (편집 초안 window._nsWork — 저장 시 navcfg로 변환) -----
+// 요청관리 하위 3개는 통합 페이지로 대체돼 setAdmin이 항상 숨김 — 설정 목록에 노출해도 켤 수 없어 제외
+var _NS_EXCLUDE={n_edu_apply:1,n_goods_apply:1,n_suggestion:1};
 function _nsBuild(){
   _navApply();
   var w={top:[], hide:{}, customs:_navCustoms().map(function(c){ return Object.assign({},c); })};
@@ -13691,7 +13693,7 @@ function _nsBuild(){
       item.children=[]; item.contId=b.nch.id;
       Array.prototype.forEach.call(b.nch.children,function(ns){
         var ni=ns.querySelector&&ns.querySelector('.ni[id]');
-        if(ni) item.children.push({key:ni.id, label:_navGetLabel(ni), custom:ni.id.indexOf('n_cm_')===0});
+        if(ni&&!_NS_EXCLUDE[ni.id]) item.children.push({key:ni.id, label:_navGetLabel(ni), custom:ni.id.indexOf('n_cm_')===0});
       });
     }
     w.top.push(item);
@@ -13833,13 +13835,24 @@ function _nsAddConfirm(){
   _nsDraw();
   toast('목록에 추가되었습니다. [저장]을 눌러야 실제 메뉴에 반영됩니다.');
 }
-function nsSave(){
+async function nsSave(){
   if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
   _nsPull();
   var w=window._nsWork; if(!w) return;
+  // 내용 페이지 본문은 이 화면에서 편집하지 않으므로 초안 스냅샷이 아니라 항상 최신본 기준으로 보존
+  //   (환경설정 탭을 열어둔 사이 다른 관리자가 [내용 편집]으로 저장한 본문을 옛 스냅샷이 되돌리는 유실 방지)
+  //   전역 navcfg(실시간 수신으로 최신) → 클라우드 직접 조회 순으로 수집.
+  var latest={};
+  _navCustoms().forEach(function(c){ latest[c.id]=c; });
+  try{
+    if(window.FS_DOC){
+      var doc=await FS_DOC.get();
+      var d=(doc&&doc.exists)?doc.data():null;
+      var cc=(d&&d.navcfg&&Array.isArray(d.navcfg.customs))?d.navcfg.customs:[];
+      cc.forEach(function(c){ if(c&&c.id) latest[c.id]=c; });
+    }
+  }catch(e){ console.warn('navcfg 최신본 로드 실패(로컬 기준으로 진행):', e); }
   var cfg={ren:{},hide:{},ord:{},customs:[]};
-  // 기존 내용 페이지 본문 보존(id 매칭)
-  var oldC={}; _navCustoms().forEach(function(c){ oldC[c.id]=c; });
   function handle(item){
     if(item.custom){
       w.customs.forEach(function(c){ if('n_'+c.id===item.key){ c.label=item.label; } });
@@ -13851,7 +13864,7 @@ function nsSave(){
   Object.keys(w.hide).forEach(function(k){ if(w.hide[k]) cfg.hide[k]=1; });
   cfg.customs=w.customs.map(function(c){
     var out=Object.assign({},c);
-    if(out.type==='page'&&out.content==null&&oldC[out.id]&&oldC[out.id].content!=null) out.content=oldC[out.id].content;
+    if(out.type==='page') out.content=(latest[out.id]&&latest[out.id].content!=null)?latest[out.id].content:(out.content!=null?out.content:'');
     return out;
   });
   navcfg=cfg;
@@ -13880,14 +13893,14 @@ function rCustomPage(name){
     +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-file-text"></i> '+_esc(c.label)+'</div>'
     +'<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;color:#222;line-height:1.75;min-height:80px">'
     +(html||'<span style="color:#a0a0b0">아직 작성된 내용이 없습니다.'+(_isAdmin()?' [내용 편집]을 눌러 작성해 보세요.':'')+'</span>')+'</div>'
-    +(_isAdmin()?'<div style="margin-top:14px"><button onclick="cmEdit('+('('+JSON.stringify(name)+')').slice(1,-1).replace(/"/g,'&quot;')+')" style="padding:8px 16px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-pencil"></i> 내용 편집</button></div>':'')
+    +(_isAdmin()?'<div style="margin-top:14px"><button onclick="cmEdit('+JSON.stringify(name).replace(/"/g,'&quot;')+')" style="padding:8px 16px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-pencil"></i> 내용 편집</button></div>':'')
     +'</div>';
 }
 function cmEdit(name){
   if(!_isAdmin()){ toast('관리자만 편집할 수 있습니다.'); return; }
   var body=g('cm_body'); var c=_navCustomById(name);
   if(!body||!c) return;
-  var q=('('+JSON.stringify(name)+')').slice(1,-1).replace(/"/g,'&quot;');
+  var q=JSON.stringify(name).replace(/"/g,'&quot;');
   body.innerHTML='<div class="card">'
     +'<div style="font-weight:700;font-size:17px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-pencil"></i> '+_esc(c.label)+' — 내용 편집</div>'
     +'<textarea id="cm_ta" style="width:100%;min-height:320px;padding:12px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:14.5px;color:#111;background:#fff;line-height:1.7;resize:vertical">'+_esc(c.content||'')+'</textarea>'
