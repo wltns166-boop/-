@@ -46,6 +46,11 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
 
+    // 내용 페이지 게시판 첨부(상담자료·양식·교육자료 등 이미지/PDF) — 인증된 사용자만 읽기/쓰기
+    match /board_files/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
     // 그 외 모든 경로는 기본 차단
     match /{allPaths=**} {
       allow read, write: if false;
