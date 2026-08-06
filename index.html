@@ -343,7 +343,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-3</div>
   </div>
 </div>
 
@@ -2974,7 +2974,7 @@ async function loadFromFirestore(){
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
-    if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} }
+    if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
     if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -3402,7 +3402,7 @@ function login(){
     try{ if(_susEnforce()) return; }catch(e){}
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
-      [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts].forEach(function(f){
+      [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts,rMgrs].forEach(function(f){
         try{ f(); }catch(e){ console.warn('홈 렌더 오류:', (f&&f.name)||'', e); }
       });
     }, 300);
