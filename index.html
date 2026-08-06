@@ -345,7 +345,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-8</div>
   </div>
 </div>
 
@@ -4183,7 +4183,8 @@ function _mgrDraw(side){
       return '<tr class="mgrow">'+_MGR_COLS.map(function(c){
         var red=(c[0]==='mg'&&r.mg==='지점장');   // 지점장 직급은 빨간색 강조
         var val=(c[0]==='ph')?_mgrPhFmt(r.ph):(r[c[0]]||'');
-        return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(val)+'</td>';
+        var copy=(c[0]==='ph'&&val)?' onclick="mgrCopyPh(this)" title="클릭하면 번호가 복사됩니다" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"':'';
+        return '<td'+copy+' style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;'+(copy?'cursor:pointer;':'')+'color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(val)+'</td>';
       }).join('')+'</tr>';
     }).join('')+'</tbody></table>';
 }
@@ -4225,6 +4226,20 @@ function _mgrEditRow(r){
       return td+'<input data-mgf="'+c[0]+'" value="'+_esc(iv)+'"'+(c[0]==='ph'?' oninput="formatPhone(this)" placeholder="010-0000-0000"':' placeholder="'+c[1]+'"')+' style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit"></td>';
     }).join('')
     +'<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center"><button onclick="this.closest(\'tr\').remove()" style="padding:5px 9px;font-size:13px;color:#c04040;background:#fff;border:1px solid #dbb;border-radius:6px;cursor:pointer;font-family:inherit">삭제</button></td></tr>';
+}
+// 번호 칸 클릭 → 클립보드 복사 (클립보드 API 실패 시 임시 textarea 폴백)
+function mgrCopyPh(td){
+  var v=(td&&td.textContent||'').trim(); if(!v) return;
+  var done=function(){ toast('번호가 복사되었습니다: '+v); };
+  var fallback=function(){
+    try{
+      var ta=document.createElement('textarea'); ta.value=v; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); var ok=document.execCommand('copy'); document.body.removeChild(ta);
+      ok?done():toast('복사에 실패했습니다. 길게 눌러 복사해 주세요.');
+    }catch(e){ toast('복사에 실패했습니다. 길게 눌러 복사해 주세요.'); }
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done,fallback);
+  else fallback();
 }
 function mgrAddRow(side){ var tb=g('mgr_tb_'+side); if(tb) tb.insertAdjacentHTML('beforeend',_mgrEditRow(null)); }
 function mgrCancel(side){ delete window._mgrEditing[side]; _mgrDraw(side); }
