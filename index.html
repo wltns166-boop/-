@@ -345,7 +345,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-6</div>
   </div>
 </div>
 
@@ -4157,7 +4157,8 @@ function rNotices(){
 // 열람 전원, 등록·수정·삭제는 관리자만(.ao 버튼 + _isAdmin 가드). 흰 카드라 글씨는 검정(함정 D 역방향).
 window._mgrEditing={};                 // {son:1} — 편집 중인 쪽은 실시간 재렌더 생략(입력값 보존)
 var MGR_LBL={son:'손보사', saeng:'생보사'};
-var _MGR_COLS=[['co','회사'],['mg','매니저'],['nm','이름'],['ph','번호']];
+var _MGR_COLS=[['co','회사'],['mg','직급'],['nm','이름'],['ph','번호']];
+var MGR_RANKS=['지점장','매니저'];           // 직급 선택지 — 지점장은 빨간색 표시
 function _mgrRows(side){ return (mgrs&&Array.isArray(mgrs[side]))?mgrs[side]:[]; }
 function _mgrHead(withMng){
   return '<tr>'+_MGR_COLS.map(function(c){return '<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:left;font-weight:700">'+c[1]+'</th>';}).join('')
@@ -4170,7 +4171,10 @@ function _mgrDraw(side){
   if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
   el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false)+'</thead><tbody>'
     +rows.map(function(r){
-      return '<tr class="mgrow">'+_MGR_COLS.map(function(c){return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:#111">'+_esc(r[c[0]]||'')+'</td>';}).join('')+'</tr>';
+      return '<tr class="mgrow">'+_MGR_COLS.map(function(c){
+        var red=(c[0]==='mg'&&r.mg==='지점장');   // 지점장 직급은 빨간색 강조
+        return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(r[c[0]]||'')+'</td>';
+      }).join('')+'</tr>';
     }).join('')+'</tbody></table>';
 }
 function mgrEdit(side){
@@ -4195,7 +4199,19 @@ function _mgrEditRow(r){
   r=r||{};
   return '<tr class="mgrow" data-mgid="'+_esc(r.id||'')+'">'
     +_MGR_COLS.map(function(c){
-      return '<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12)"><input data-mgf="'+c[0]+'" value="'+_esc(r[c[0]]||'')+'" placeholder="'+c[1]+'" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit"></td>';
+      var td='<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12)">';
+      if(c[0]==='mg'){
+        // 직급은 선택식(지점장/매니저) — 예전 데이터에 다른 값이 있으면 그 값도 선택지로 보존
+        var cur=r.mg||'';
+        var opts=MGR_RANKS.slice();
+        if(cur&&opts.indexOf(cur)<0) opts.push(cur);
+        var red=(cur==='지점장');
+        return td+'<select data-mgf="mg" onchange="this.style.color=this.value===\'지점장\'?\'#d02020\':\'#111\';this.style.fontWeight=this.value===\'지점장\'?\'700\':\'400\'" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:'+(red?'#d02020;font-weight:700':'#111')+';background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit">'
+          +'<option value="">선택</option>'
+          +opts.map(function(o){ return '<option value="'+_esc(o)+'"'+(o===cur?' selected':'')+(o==='지점장'?' style="color:#d02020;font-weight:700"':'')+'>'+_esc(o)+'</option>'; }).join('')
+          +'</select></td>';
+      }
+      return td+'<input data-mgf="'+c[0]+'" value="'+_esc(r[c[0]]||'')+'" placeholder="'+c[1]+'" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit"></td>';
     }).join('')
     +'<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center"><button onclick="this.closest(\'tr\').remove()" style="padding:5px 9px;font-size:13px;color:#c04040;background:#fff;border:1px solid #dbb;border-radius:6px;cursor:pointer;font-family:inherit">삭제</button></td></tr>';
 }
@@ -4207,7 +4223,7 @@ function mgrSave(side){
   var out=[];
   tb.querySelectorAll('tr').forEach(function(tr){
     var o={id:tr.getAttribute('data-mgid')||''};
-    tr.querySelectorAll('input[data-mgf]').forEach(function(inp){ o[inp.getAttribute('data-mgf')]=inp.value.trim(); });
+    tr.querySelectorAll('input[data-mgf],select[data-mgf]').forEach(function(inp){ o[inp.getAttribute('data-mgf')]=inp.value.trim(); });
     if(!(o.co||o.mg||o.nm||o.ph)) return;      // 전부 빈 행은 저장하지 않음
     if(!o.id) o.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
     out.push(o);
