@@ -343,7 +343,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-4</div>
   </div>
 </div>
 
@@ -4166,10 +4166,10 @@ function _mgrDraw(side){
   var el=g('mgr_'+side); if(!el) return;
   var rows=_mgrRows(side);
   if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
-  el.innerHTML='<table style="width:100%;border-collapse:collapse">'+_mgrHead(false)
+  el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false)+'</thead><tbody>'
     +rows.map(function(r){
       return '<tr>'+_MGR_COLS.map(function(c){return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:#111">'+_esc(r[c[0]]||'')+'</td>';}).join('')+'</tr>';
-    }).join('')+'</table>';
+    }).join('')+'</tbody></table>';
 }
 function mgrEdit(side){
   if(!_isAdmin()){ toast('관리자만 등록할 수 있습니다.'); return; }
@@ -4177,7 +4177,11 @@ function mgrEdit(side){
   var el=g('mgr_'+side); if(!el) return;
   window._mgrEditing[side]=1;
   var rows=_mgrRows(side);
-  el.innerHTML='<table style="width:100%;border-collapse:collapse">'+_mgrHead(true)
+  // 편집 시작 시점의 기준선 id — 저장 때 "그 사이 다른 관리자가 추가한 행" 보존 판단용
+  window._mgrBase=window._mgrBase||{};
+  var _bs={}; rows.forEach(function(r){ if(r&&r.id) _bs[r.id]=1; });
+  window._mgrBase[side]=_bs;
+  el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(true)+'</thead>'
     +'<tbody id="mgr_tb_'+side+'">'+(rows.length?rows:[null]).map(_mgrEditRow).join('')+'</tbody></table>'
     +'<div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">'
     +'<button class="bp bsm" onclick="mgrAddRow(\''+side+'\')" style="background:#fff;color:#2a7a45;border:1px solid #7cc79a"><i class="ti ti-plus"></i> 행 추가</button>'
@@ -4206,12 +4210,25 @@ function mgrSave(side){
     if(!o.id) o.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
     out.push(o);
   });
-  if(!mgrs||typeof mgrs!=='object'||Array.isArray(mgrs)) mgrs={son:[],saeng:[]};
-  mgrs[side]=out;
-  sv('tops_mgrs',mgrs);
-  delete window._mgrEditing[side];
-  _mgrDraw(side);
-  toast(MGR_LBL[side]+' 매니저 정보가 저장되었습니다.');
+  // 저장 직전 클라우드 최신본과 병합(_bizFreshSub 패턴) — 편집하는 동안 다른 관리자가
+  // 같은 쪽에 추가한 행(내 편집 기준선에 없던 id)을 보존하고, 반대쪽은 클라우드 최신본을 그대로 쓴다.
+  var base=(window._mgrBase&&window._mgrBase[side])||{};
+  var fin=function(cloud){
+    var cur=(cloud&&typeof cloud==='object'&&!Array.isArray(cloud))?cloud:mgrs;
+    if(!cur||typeof cur!=='object'||Array.isArray(cur)) cur={son:[],saeng:[]};
+    var merged={son:Array.isArray(cur.son)?cur.son:[],saeng:Array.isArray(cur.saeng)?cur.saeng:[]};
+    var outIds={}; out.forEach(function(r){ outIds[r.id]=1; });
+    var keep=(merged[side]||[]).filter(function(r){ return r&&r.id&&!base[r.id]&&!outIds[r.id]; });
+    merged[side]=out.concat(keep);
+    mgrs=merged;
+    sv('tops_mgrs',mgrs);
+    delete window._mgrEditing[side];
+    _mgrDraw(side);
+    toast(MGR_LBL[side]+' 매니저 정보가 저장되었습니다.');
+  };
+  if(window.FS_DOC){
+    window.FS_DOC.get().then(function(s){ fin(s&&s.exists?(s.data()||{}).mgrs:null); }).catch(function(){ fin(null); });
+  } else fin(null);
 }
 // (폐기) 공지 인라인 펼침 → 새 창(openNoticeDetail)으로 대체되어 toggleNotice 제거됨
 // a = 인정실적(인정P), ay = 영수실적(영수P)
