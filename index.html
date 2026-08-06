@@ -340,7 +340,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.05-28</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-1</div>
   </div>
 </div>
 
@@ -504,6 +504,17 @@ table.dt tr:last-child td{border-bottom:none;}
         <div class="hc">
           <div class="hct"><i class="ti ti-calendar"></i> 월간 일정표<button class="bp bsm ao" onclick="openCalAdd()" style="margin-left:auto;padding:3px 10px;font-size:13px;background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 일정등록</button></div>
           <div id="cal_wrap"></div>
+        </div>
+      </div>
+      <!-- 매니저 연락처 — 좌: 손보사 / 우: 생보사 -->
+      <div class="hg">
+        <div class="hc" style="min-height:0">
+          <div class="hct"><span><i class="ti ti-phone"></i> 손보사 매니저</span><button class="bp bsm ao" onclick="mgrEdit('son')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
+          <div id="mgr_son"></div>
+        </div>
+        <div class="hc" style="min-height:0">
+          <div class="hct"><span><i class="ti ti-phone"></i> 생보사 매니저</span><button class="bp bsm ao" onclick="mgrEdit('saeng')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
+          <div id="mgr_saeng"></div>
         </div>
       </div>
     </div>
@@ -2475,6 +2486,7 @@ let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // �
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
+let mgrs=JSON.parse(localStorage.getItem('tops_mgrs')||'{"son":[],"saeng":[]}'); // 매니저 연락처 {son:[손보사],saeng:[생보사]}
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
@@ -2959,6 +2971,7 @@ async function loadFromFirestore(){
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
     if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -3025,6 +3038,7 @@ function startRealtimeSync(){
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
     if(Array.isArray(d.dsnap)){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -4107,7 +4121,7 @@ function rCal(){
 // HOME
 function rHome(){
   // 각 렌더를 독립 보호 — 하나가 실패해도 나머지(공지·명예의전당 등)는 정상 표시
-  [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie].forEach(function(f){
+  [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie,rMgrs].forEach(function(f){
     try{ f(); }catch(e){ console.warn('rHome 렌더 오류:', (f&&f.name)||'', e); }
   });
   // 홈 배경(시즌 사진) — 설정 버튼은 관리자만, 배경은 전 사용자 적용
@@ -4131,6 +4145,70 @@ function rNotices(){
       </div>
     </div>`;
   }).join('');
+}
+// ===== 매니저 연락처 (홈 — 좌: 손보사 / 우: 생보사) =====
+// 데이터: mgrs={son:[{id,co,mg,nm,ph}],saeng:[...]} — 동기화 키 tops_mgrs(텍스트만, 함정 B 안전).
+// 편집은 화면 행(DOM)을 통째로 수집·저장 — 표시 인덱스로 원본 배열을 건드리지 않음(함정 A 안전).
+// 열람 전원, 등록·수정·삭제는 관리자만(.ao 버튼 + _isAdmin 가드). 흰 카드라 글씨는 검정(함정 D 역방향).
+window._mgrEditing={};                 // {son:1} — 편집 중인 쪽은 실시간 재렌더 생략(입력값 보존)
+var MGR_LBL={son:'손보사', saeng:'생보사'};
+var _MGR_COLS=[['co','회사'],['mg','매니저'],['nm','이름'],['ph','번호']];
+function _mgrRows(side){ return (mgrs&&Array.isArray(mgrs[side]))?mgrs[side]:[]; }
+function _mgrHead(withMng){
+  return '<tr>'+_MGR_COLS.map(function(c){return '<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:left;font-weight:700">'+c[1]+'</th>';}).join('')
+    +(withMng?'<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:center;font-weight:700;width:52px">삭제</th>':'')+'</tr>';
+}
+function rMgrs(){ ['son','saeng'].forEach(function(s){ if(!window._mgrEditing[s]) _mgrDraw(s); }); }
+function _mgrDraw(side){
+  var el=g('mgr_'+side); if(!el) return;
+  var rows=_mgrRows(side);
+  if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
+  el.innerHTML='<table style="width:100%;border-collapse:collapse">'+_mgrHead(false)
+    +rows.map(function(r){
+      return '<tr>'+_MGR_COLS.map(function(c){return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:#111">'+_esc(r[c[0]]||'')+'</td>';}).join('')+'</tr>';
+    }).join('')+'</table>';
+}
+function mgrEdit(side){
+  if(!_isAdmin()){ toast('관리자만 등록할 수 있습니다.'); return; }
+  if(window._mgrEditing[side]) return;         // 이미 편집 중이면 입력값 보호(재진입 무시)
+  var el=g('mgr_'+side); if(!el) return;
+  window._mgrEditing[side]=1;
+  var rows=_mgrRows(side);
+  el.innerHTML='<table style="width:100%;border-collapse:collapse">'+_mgrHead(true)
+    +'<tbody id="mgr_tb_'+side+'">'+(rows.length?rows:[null]).map(_mgrEditRow).join('')+'</tbody></table>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">'
+    +'<button class="bp bsm" onclick="mgrAddRow(\''+side+'\')" style="background:#fff;color:#2a7a45;border:1px solid #7cc79a"><i class="ti ti-plus"></i> 행 추가</button>'
+    +'<button class="bp bsm" onclick="mgrCancel(\''+side+'\')" style="background:#fff;color:#666;border:1px solid #bbb">취소</button>'
+    +'<button class="bp bsm" onclick="mgrSave(\''+side+'\')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div>';
+}
+function _mgrEditRow(r){
+  r=r||{};
+  return '<tr data-mgid="'+_esc(r.id||'')+'">'
+    +_MGR_COLS.map(function(c){
+      return '<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12)"><input data-mgf="'+c[0]+'" value="'+_esc(r[c[0]]||'')+'" placeholder="'+c[1]+'" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit"></td>';
+    }).join('')
+    +'<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center"><button onclick="this.closest(\'tr\').remove()" style="padding:5px 9px;font-size:13px;color:#c04040;background:#fff;border:1px solid #dbb;border-radius:6px;cursor:pointer;font-family:inherit">삭제</button></td></tr>';
+}
+function mgrAddRow(side){ var tb=g('mgr_tb_'+side); if(tb) tb.insertAdjacentHTML('beforeend',_mgrEditRow(null)); }
+function mgrCancel(side){ delete window._mgrEditing[side]; _mgrDraw(side); }
+function mgrSave(side){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var tb=g('mgr_tb_'+side); if(!tb) return;
+  var out=[];
+  tb.querySelectorAll('tr').forEach(function(tr){
+    var o={id:tr.getAttribute('data-mgid')||''};
+    tr.querySelectorAll('input[data-mgf]').forEach(function(inp){ o[inp.getAttribute('data-mgf')]=inp.value.trim(); });
+    if(!(o.co||o.mg||o.nm||o.ph)) return;      // 전부 빈 행은 저장하지 않음
+    if(!o.id) o.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    out.push(o);
+  });
+  if(!mgrs||typeof mgrs!=='object'||Array.isArray(mgrs)) mgrs={son:[],saeng:[]};
+  mgrs[side]=out;
+  sv('tops_mgrs',mgrs);
+  delete window._mgrEditing[side];
+  _mgrDraw(side);
+  toast(MGR_LBL[side]+' 매니저 정보가 저장되었습니다.');
 }
 // (폐기) 공지 인라인 펼침 → 새 창(openNoticeDetail)으로 대체되어 toggleNotice 제거됨
 // a = 인정실적(인정P), ay = 영수실적(영수P)
