@@ -285,6 +285,8 @@ table.dt tr:last-child td{border-bottom:none;}
 /* 환경설정 목록 행 — 마우스가 가리키는 줄을 연하게 표시 */
 .nsrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:5px 8px;border-radius:8px;margin-bottom:2px}
 .nsrow:hover{background:rgba(80,100,220,.10)}
+/* 홈 매니저 연락처 표 — 마우스가 가리키는 줄 하이라이트 (흰 카드 위) */
+.mgrow:hover{background:rgba(80,100,220,.12)}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
 .bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
 @media(max-width:900px){.bdgrid{grid-template-columns:repeat(2,1fr)}}
@@ -343,7 +345,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.06-5</div>
   </div>
 </div>
 
@@ -4168,7 +4170,7 @@ function _mgrDraw(side){
   if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
   el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false)+'</thead><tbody>'
     +rows.map(function(r){
-      return '<tr>'+_MGR_COLS.map(function(c){return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:#111">'+_esc(r[c[0]]||'')+'</td>';}).join('')+'</tr>';
+      return '<tr class="mgrow">'+_MGR_COLS.map(function(c){return '<td style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;color:#111">'+_esc(r[c[0]]||'')+'</td>';}).join('')+'</tr>';
     }).join('')+'</tbody></table>';
 }
 function mgrEdit(side){
@@ -4191,7 +4193,7 @@ function mgrEdit(side){
 }
 function _mgrEditRow(r){
   r=r||{};
-  return '<tr data-mgid="'+_esc(r.id||'')+'">'
+  return '<tr class="mgrow" data-mgid="'+_esc(r.id||'')+'">'
     +_MGR_COLS.map(function(c){
       return '<td style="padding:4px 4px;border-bottom:1px solid rgba(80,80,180,.12)"><input data-mgf="'+c[0]+'" value="'+_esc(r[c[0]]||'')+'" placeholder="'+c[1]+'" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit"></td>';
     }).join('')
