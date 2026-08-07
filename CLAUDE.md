@@ -194,6 +194,14 @@
   행 조작 전 `_sanCollect()`가 화면 입력값을 id 기준으로 회수(함정 A 안전). 링크는 http/https 강제(`_sanUrlClean` — javascript: 무력화).
 - 렌더 훅: login() 직후(로컬 캐시), 클라우드 초기 로드·onSnapshot의 `d.sansites`, 홈 강제 재렌더 배열. 열람 전원, 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
 
+## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
+
+- 고객등록 폼 특이사항 옆 업로드 박스(`#cust_alien_box`) — 사진·PDF, 파일선택(모바일 사진첩)·붙여넣기(Ctrl+V)·드래그앤드롭.
+- 원본은 **Storage `claim_packages/alien_ids/`**(기존 규칙 커버, 이미지 1600px JPEG 축소·PDF 25MB 상한),
+  고객(`custs[].alienIds=[{u,k,n}]`)에는 **URL만**(함정 B — tops_custs에 base64 금지). 업로드는 첨부 즉시, [저장] 눌러야 고객에 기록.
+- 버퍼 `window._custAlien`(toggle/editCust에서 리셋·로드). ✕로 뺀 새 업로드는 즉시 Storage 정리,
+  저장된 파일은 [저장] 시 빠진 URL만 정리(취소하면 원상 유지). 수정 화면에서 열람(이미지 클릭 원본·PDF 링크).
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.
@@ -293,6 +301,9 @@
   - 기존 건 마이그레이션: `_claimsIdMigrate()` — loadFromFirestore에서 **관리자 기기만** 세션 1회(멱등).
   - `_reloadClaims` 병합은 **id 우선 매칭**(순서 밀림 무관), id 없으면 기존 3중 대조(고객명·등록일·담당자) 폴백.
 - 청구파일(PDF)은 보험사별 생성: `claims[idx].packagePDFs[insurer]`.
+- **생보사 팩스번호 (2026-08-07)**: 청구보험사에서 생명보험사(`_reqInsLists().life`) 체크 시 `#claim_fax_wrap`에
+  보험사별 팩스번호 입력칸 표시(`_claimFaxDraw` — 재렌더에도 입력값 보존, 수정 시 `window._claimFaxPre`로 프리필).
+  저장은 `claims[].faxNums={보험사명:번호}`(텍스트만), 청구현황 보험사 카드에 📠 표시.
 - 보관 3계층: **메모리 → localStorage `tops_pkg_<id>__<ins>`(레거시 `tops_pkg_<idx>__<ins>` 읽기 폴백) → Firebase Storage(`pkgUrls[ins]`)**.
   - 삭제 시 `_claimPkgCachePurge`가 id 캐시 제거, `_claimsPkgSweep`가 고아 id 캐시 청소(클라우드 수신 후 세션 1회) — localStorage 포화 완화.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
