@@ -309,7 +309,8 @@ table.dt tr:last-child td{border-bottom:none;}
 .sanl{font-size:12.5px;color:#28304a;font-weight:600;opacity:0;transition:opacity .15s;overflow:hidden;text-overflow:ellipsis}
 #san_rail:hover .sanl{opacity:1}
 .sandv{border-top:1px solid #e4e7f2;margin:5px 4px}
-@media(max-width:768px){#san_rail{display:none!important}}
+body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 끝을 가리지 않도록 본문 여백 확보 */
+@media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -357,7 +358,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-5</div>
   </div>
 </div>
 
@@ -14183,7 +14184,12 @@ function _sanIconHtml(it){
 function rSanRail(){
   var box=g('san_rail'), inn=g('san_rail_in'); if(!box||!inn) return;
   var items=(_sanData().items||[]).filter(function(it){ return it&&it.nm&&it.url; });
-  if(!cu||!items.length){ box.style.display='none'; return; }
+  // 서버 캡처(?rr=1) 모드 제외 — 일일보고서·사업계획서 캡처 이미지에 레일이 찍히지 않도록
+  if(!cu||!items.length||/[?&]rr=1/.test(location.search)){
+    box.style.display='none';
+    document.body.classList.remove('san-on');
+    return;
+  }
   var html='';
   ['son','saeng','etc'].forEach(function(gp){
     var list=items.filter(function(it){ return (it.grp||'etc')===gp; });
@@ -14196,6 +14202,7 @@ function rSanRail(){
   });
   inn.innerHTML=html;
   box.style.display='flex';
+  document.body.classList.add('san-on'); // 본문 오른쪽 여백 확보(접힌 레일과 콘텐츠 겹침 방지)
 }
 // ── 환경설정 탭 전환 (메뉴 구성 / 전산 사이트 관리) ──
 function nsTab(t){
@@ -14216,6 +14223,7 @@ function nsTab(t){
 // 화면 입력값을 편집본(_sanWork)에 회수 — 행 조작·저장 전에 항상 호출(id 기반, 함정 A 안전)
 function _sanCollect(){
   (window._sanWork||[]).forEach(function(it){
+    if(!/^[\w-]+$/.test(String(it.id||''))) return; // 비정상 id(외부 조작 데이터)로 셀렉터가 깨져 편집 화면이 죽는 것 방지
     var gs=document.querySelector('[data-sang="'+it.id+'"]'); if(gs) it.grp=gs.value;
     var ni=document.querySelector('[data-sann="'+it.id+'"]'); if(ni) it.nm=ni.value.trim();
     var ui=document.querySelector('[data-sanu="'+it.id+'"]'); if(ui) it.url=ui.value.trim();
@@ -14285,8 +14293,8 @@ function sanSave(){
   });
   var data={items:items};
   window.sansites=data;
-  _lsSet('tops_sansites', JSON.stringify(data));
-  sv('tops_sansites', data);
+  sv('tops_sansites', data); // sv가 localStorage 캐시까지 함께 저장
+
   window._sanWork=JSON.parse(JSON.stringify(items));
   _sanDraw();
   rSanRail();
