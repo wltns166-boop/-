@@ -298,6 +298,18 @@ table.dt tr:last-child td{border-bottom:none;}
 .rcli{padding:7px 10px;border:1px solid #e2e4ee;border-radius:8px;font-size:13.5px;color:#333;cursor:pointer;background:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcli:hover{background:rgba(80,100,220,.08)}
 .rcli.on{background:#eef1ff;border-color:#8a9af0;color:#2a3aaa;font-weight:700}
+/* 보험사 전산 바로가기 레일 — 오른쪽 가장자리 아이콘 줄, 마우스 올리면 이름까지 펼침 */
+#san_rail{position:fixed;right:0;top:64px;bottom:16px;z-index:40;display:flex;align-items:center;pointer-events:none}
+#san_rail_in{pointer-events:auto;background:#fff;border:1px solid #dde0ee;border-right:none;border-radius:12px 0 0 12px;box-shadow:-2px 3px 14px rgba(20,30,80,.14);padding:6px 4px;max-height:100%;overflow-y:auto;overflow-x:hidden;width:44px;transition:width .18s ease;scrollbar-width:thin}
+#san_rail:hover #san_rail_in{width:158px}
+.sanit{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.sanit:hover{background:#eef2ff}
+.sanit img{width:22px;height:22px;border-radius:5px;flex:0 0 22px;object-fit:contain;display:block}
+.sanfb{width:22px;height:22px;border-radius:5px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff}
+.sanl{font-size:12.5px;color:#28304a;font-weight:600;opacity:0;transition:opacity .15s;overflow:hidden;text-overflow:ellipsis}
+#san_rail:hover .sanl{opacity:1}
+.sandv{border-top:1px solid #e4e7f2;margin:5px 4px}
+@media(max-width:768px){#san_rail{display:none!important}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -345,7 +357,7 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-4</div>
   </div>
 </div>
 
@@ -385,6 +397,9 @@ table.dt tr:last-child td{border-bottom:none;}
 
 <!-- APP -->
 <div id="app">
+
+  <!-- 보험사 전산 바로가기 레일 (환경설정 > 전산 사이트 관리에서 편집) -->
+  <div id="san_rail" style="display:none"><div id="san_rail_in"></div></div>
 
   <nav id="sb">
     <div class="sbl"><div class="sblt">TEAM TOPS</div><div class="sbu" id="sbu"></div></div>
@@ -669,10 +684,14 @@ table.dt tr:last-child td{border-bottom:none;}
       </div>
     </div>
 
-    <!-- 환경설정 — 메뉴 구성 (관리자 전용) -->
+    <!-- 환경설정 — 메뉴 구성 / 전산 사이트 관리 (관리자 전용) -->
     <div class="pg" id="pg_navset">
       <div class="sh"><div class="st"><i class="ti ti-settings"></i>환경설정</div></div>
-      <div class="card">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="ns_tabbtn_menu" onclick="nsTab('menu')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #4858cc;background:#4858cc;color:#fff"><i class="ti ti-menu-2"></i> 메뉴 구성</button>
+        <button id="ns_tabbtn_san" onclick="nsTab('san')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-building-bank"></i> 전산 사이트 관리</button>
+      </div>
+      <div class="card" id="ns_tab_menu">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-menu-2"></i> 메뉴 구성</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
           메뉴 이름을 바꾸고, ▲▼로 위치를 옮기고, [숨김]으로 감추거나(숨긴 메뉴는 목록 맨 아래로 모입니다) [+ 메뉴 추가]로 새 최상위 메뉴를 만들 수 있습니다.<br>
@@ -685,6 +704,21 @@ table.dt tr:last-child td{border-bottom:none;}
           <span style="flex:1"></span>
           <button onclick="nsReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
           <button onclick="nsSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
+        </div>
+      </div>
+      <div class="card" id="ns_tab_san" style="display:none">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-building-bank"></i> 전산 사이트 관리</div>
+        <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
+          화면 오른쪽 가장자리에 표시되는 <b>보험사 전산 바로가기</b>를 관리합니다. 평소엔 로고 아이콘만 보이고, 마우스를 올리면 이름까지 펼쳐집니다.<br>
+          <b>링크 주소가 입력된 항목만</b> 바로가기에 표시됩니다. 아이콘은 입력한 사이트의 로고(파비콘)를 자동으로 가져옵니다.<br>
+          아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
+        </div>
+        <div id="san_list"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+          <button onclick="sanAddRow()" style="padding:8px 14px;background:#eef7ee;border:1px solid #b8d8b8;border-radius:8px;color:#207830;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 행 추가</button>
+          <span style="flex:1"></span>
+          <button onclick="sanReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본 명단 복원</button>
+          <button onclick="sanSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
         </div>
       </div>
     </div>
@@ -2997,6 +3031,7 @@ async function loadFromFirestore(){
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
+    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -3063,6 +3098,7 @@ function startRealtimeSync(){
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
+    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -3395,6 +3431,8 @@ function login(){
   g('tbu').textContent=cu.name;
   if(g('admin_badge')) g('admin_badge').style.display=cu.admin?'inline-flex':'none';
   setAdmin();
+  try{ rSanRail(); }catch(e){}   // 보험사 전산 바로가기 레일 — 로컬 캐시 기준 즉시 표시
+
   // 서버 캡처 렌더 모드(?rr=1) — 푸시 초기화·드라이브 폴더 정리 같은 부수효과는 생략
   var _rrMode=/[?&]rr=1/.test(location.search);
   if(!_rrMode){ try{ _pushInit(); }catch(e){} }   // 웹 푸시 알림 초기화
@@ -3406,7 +3444,7 @@ function login(){
     try{ if(_susEnforce()) return; }catch(e){}
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
-      [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts,rMgrs].forEach(function(f){
+      [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts,rMgrs,rSanRail].forEach(function(f){
         try{ f(); }catch(e){ console.warn('홈 렌더 오류:', (f&&f.name)||'', e); }
       });
     }, 300);
@@ -14103,10 +14141,163 @@ function _nsBuild(){
   });
   window._nsWork=w;
 }
+// ===== 보험사 전산 바로가기 레일 (환경설정 > 전산 사이트 관리, 2026-08-07) =====
+// 데이터: sansites = {items:[{id('sn_..'), grp('son'|'saeng'|'etc'), nm, url}]} — 동기화 키 tops_sansites(텍스트만).
+// 오른쪽 레일(#san_rail)은 url이 입력된 항목만 표시(평소 아이콘, 호버 시 이름). 편집·저장은 관리자만.
+var SAN_DEF_NAMES={
+  son:['AIG손보','KB손보','MG손보','DB손보','NH농협손보','라이나손보','롯데손보','메리츠화재','삼성화재','하나손보','한화손보','현대해상','흥국화재'],
+  saeng:['KDB생명','KB라이프','DB생명','IBK연금','NH농협생명','iM라이프','교보생명','동양생명','라이나생명','메트라이프','미래에셋생명','삼성생명','ABL생명','신한라이프','카디프생명','푸본현대생명','하나생명','한화생명','흥국생명']
+};
+function _sanDefItems(){
+  var out=[],n=0;
+  ['son','saeng'].forEach(function(gp){
+    SAN_DEF_NAMES[gp].forEach(function(nm){ out.push({id:'sn_def_'+gp+'_'+(n++), grp:gp, nm:nm, url:''}); });
+  });
+  return out;
+}
+function _sanData(){
+  var v=window.sansites;
+  if(!v){ try{ v=JSON.parse(localStorage.getItem('tops_sansites')||'null'); }catch(e){ v=null; } }
+  if(!v||typeof v!=='object'||Array.isArray(v)||!Array.isArray(v.items)) v={items:_sanDefItems()};
+  window.sansites=v;
+  return v;
+}
+// http/https 강제 — javascript: 등은 https:// 접두로 무력화(환경설정 외부 링크와 동일 정책)
+function _sanUrlClean(u){
+  u=String(u||'').trim();
+  if(!u) return '';
+  if(!/^https?:\/\//i.test(u)) u='https://'+u.replace(/^\/+/,'');
+  return u;
+}
+function _sanColor(nm){
+  var h=0; for(var i=0;i<nm.length;i++) h=(h*31+nm.charCodeAt(i))>>>0;
+  return 'hsl('+(h%360)+',55%,50%)';
+}
+// 아이콘: 사이트 파비콘 자동 로드, 실패하면 이름 첫 글자 색 원으로 대체
+function _sanIconHtml(it){
+  var host=''; try{ host=new URL(_sanUrlClean(it.url)).hostname; }catch(e){}
+  var fb='<span class="sanfb" style="background:'+_sanColor(it.nm||'?')+(host?';display:none':'')+'">'+_esc((it.nm||'?').charAt(0))+'</span>';
+  if(!host) return fb;
+  return '<img src="https://www.google.com/s2/favicons?domain='+encodeURIComponent(host)+'&sz=64" alt="" loading="lazy" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'flex\'">'+fb;
+}
+function rSanRail(){
+  var box=g('san_rail'), inn=g('san_rail_in'); if(!box||!inn) return;
+  var items=(_sanData().items||[]).filter(function(it){ return it&&it.nm&&it.url; });
+  if(!cu||!items.length){ box.style.display='none'; return; }
+  var html='';
+  ['son','saeng','etc'].forEach(function(gp){
+    var list=items.filter(function(it){ return (it.grp||'etc')===gp; });
+    if(!list.length) return;
+    if(html) html+='<div class="sandv"></div>';
+    html+=list.map(function(it){
+      return '<a class="sanit" href="'+_esc(_sanUrlClean(it.url))+'" target="_blank" rel="noopener" title="'+_esc(it.nm)+'">'
+        +_sanIconHtml(it)+'<span class="sanl">'+_esc(it.nm)+'</span></a>';
+    }).join('');
+  });
+  inn.innerHTML=html;
+  box.style.display='flex';
+}
+// ── 환경설정 탭 전환 (메뉴 구성 / 전산 사이트 관리) ──
+function nsTab(t){
+  window._nsTabCur=t;
+  var base='padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;';
+  [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san']].forEach(function(p){
+    var on=(p[0]===t);
+    var b=g(p[1]); if(b) b.style.cssText=base+(on?'border:1px solid #4858cc;background:#4858cc;color:#fff':'border:1px solid #ccd;background:#f6f6fa;color:#555');
+    var c=g(p[2]); if(c) c.style.display=on?'block':'none';
+  });
+  if(t==='san'){
+    if(!window._sanWork) window._sanWork=JSON.parse(JSON.stringify(_sanData().items||[]));
+    _sanDraw();
+  }
+}
+// 화면 입력값을 편집본(_sanWork)에 회수 — 행 조작·저장 전에 항상 호출(id 기반, 함정 A 안전)
+function _sanCollect(){
+  (window._sanWork||[]).forEach(function(it){
+    var gs=document.querySelector('[data-sang="'+it.id+'"]'); if(gs) it.grp=gs.value;
+    var ni=document.querySelector('[data-sann="'+it.id+'"]'); if(ni) it.nm=ni.value.trim();
+    var ui=document.querySelector('[data-sanu="'+it.id+'"]'); if(ui) it.url=ui.value.trim();
+  });
+}
+function _sanDraw(){
+  var box=g('san_list'); if(!box) return;
+  var w=window._sanWork||[];
+  var sb='padding:5px 8px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
+  if(!w.length){
+    box.innerHTML='<div style="padding:16px;text-align:center;color:#999;font-size:13.5px">등록된 사이트가 없습니다. [행 추가]로 등록하세요.</div>';
+    return;
+  }
+  box.innerHTML=w.map(function(it){
+    var sid=_esc(it.id);
+    var opts=[['son','손보'],['saeng','생보'],['etc','기타']].map(function(o){
+      return '<option value="'+o[0]+'"'+((it.grp||'etc')===o[0]?' selected':'')+'>'+o[1]+'</option>';
+    }).join('');
+    return '<div class="nsrow">'
+      +'<select data-sang="'+sid+'" style="padding:6px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#111;background:#fff">'+opts+'</select>'
+      +'<input data-sann="'+sid+'" value="'+_esc(it.nm||'')+'" placeholder="이름" style="width:120px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff;font-weight:700">'
+      +'<input data-sanu="'+sid+'" value="'+_esc(it.url||'')+'" placeholder="전산 사이트 주소 (https://...)" style="flex:1;min-width:160px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#111;background:#fff">'
+      +'<span style="display:flex;gap:4px;align-items:center">'
+      +'<button data-sanm="'+sid+'|-1" title="위로" style="'+sb+'"><i class="ti ti-arrow-up"></i></button>'
+      +'<button data-sanm="'+sid+'|1" title="아래로" style="'+sb+'"><i class="ti ti-arrow-down"></i></button>'
+      +'<button data-sand="'+sid+'" title="행 삭제" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i></button>'
+      +'</span></div>';
+  }).join('');
+  box.querySelectorAll('[data-sanm]').forEach(function(b){
+    b.addEventListener('click',function(){
+      _sanCollect();
+      var p=b.getAttribute('data-sanm').split('|');
+      var w2=window._sanWork||[], i=-1;
+      w2.forEach(function(x,k){ if(x.id===p[0]) i=k; });
+      var j=i+(+p[1]);
+      if(i<0||j<0||j>=w2.length) return;
+      var t=w2[i]; w2[i]=w2[j]; w2[j]=t;
+      _sanDraw();
+    });
+  });
+  box.querySelectorAll('[data-sand]').forEach(function(b){
+    b.addEventListener('click',function(){
+      _sanCollect();
+      var id=b.getAttribute('data-sand');
+      window._sanWork=(window._sanWork||[]).filter(function(x){ return x.id!==id; });
+      _sanDraw();
+    });
+  });
+}
+function sanAddRow(){
+  _sanCollect();
+  (window._sanWork=window._sanWork||[]).push({id:'sn_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), grp:'son', nm:'', url:''});
+  _sanDraw();
+  var box=g('san_list');
+  if(box){ var rows=box.querySelectorAll('input[data-sann]'); if(rows.length) rows[rows.length-1].focus(); }
+}
+function sanReset(){
+  if(!confirm('기본 보험사 명단으로 되돌릴까요? 입력한 링크는 목록에서 지워집니다. [저장]을 눌러야 실제 반영됩니다.')) return;
+  window._sanWork=_sanDefItems();
+  _sanDraw();
+}
+function sanSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  _sanCollect();
+  var items=(window._sanWork||[]).filter(function(it){ return it&&(String(it.nm||'').trim()||String(it.url||'').trim()); }).map(function(it){
+    return {id:it.id, grp:(it.grp==='son'||it.grp==='saeng')?it.grp:'etc', nm:String(it.nm||'').trim(), url:_sanUrlClean(it.url)};
+  });
+  var data={items:items};
+  window.sansites=data;
+  _lsSet('tops_sansites', JSON.stringify(data));
+  sv('tops_sansites', data);
+  window._sanWork=JSON.parse(JSON.stringify(items));
+  _sanDraw();
+  rSanRail();
+  toast('전산 사이트가 저장되었습니다. 링크가 입력된 항목이 오른쪽 바로가기에 표시됩니다.');
+}
+
 function rNavSet(){
   if(!_isAdmin()) return;
   _nsBuild();
   _nsDraw();
+  // 전산 사이트 편집본 — 페이지 진입 시 저장본 기준으로 초기화
+  window._sanWork=JSON.parse(JSON.stringify(_sanData().items||[]));
+  nsTab(window._nsTabCur||'menu');
 }
 // 숨김 항목을 각 목록(최상위/그룹) 맨 아래로 — 안정 정렬이라 나머지 순서는 유지
 function _nsSortHidden(){

@@ -183,6 +183,17 @@
   그 사이 다른 관리자가 추가한 행은 보존, 내가 삭제한 행(기준선에 있던 것)은 부활 안 함, 반대쪽 표는 클라우드 최신본 유지.
 - 편집 중엔 `window._mgrEditing[side]` 플래그로 실시간 재렌더 생략(입력값 보존), 편집 재진입도 무시.
 
+## 4.6 보험사 전산 바로가기 레일 (sansites, 2026-08-07)
+
+- 화면 오른쪽 가장자리 고정 레일(`#san_rail`) — 평소엔 파비콘 아이콘만(44px), 호버 시 이름까지 펼침(158px). 모바일(≤768px) 숨김.
+- 데이터: `sansites = {items:[{id('sn_..'), grp('son'|'saeng'|'etc'), nm, url}]}` — 동기화 키 `tops_sansites`(텍스트만).
+  **url이 입력된 항목만** 레일에 표시(손보 → 생보 → 기타 순, 그룹 구분선). 기본값 `SAN_DEF_NAMES`(보험사 이름만, url 빈값).
+- 아이콘: 구글 파비콘 서비스(`s2/favicons?domain=`) 자동 로드, 실패 시 이름 첫 글자 색 원(`.sanfb`) 대체.
+- 관리: 환경설정(`pg_navset`)에 탭 신설 — [메뉴 구성](`ns_tab_menu`) / [전산 사이트 관리](`ns_tab_san`, `nsTab()` 전환).
+  행별 구분/이름/링크 입력 + 행 추가/▲▼/삭제/기본 명단 복원/저장(`sanSave` — 관리자 가드, last-write-wins·navcfg와 동일 수용).
+  행 조작 전 `_sanCollect()`가 화면 입력값을 id 기준으로 회수(함정 A 안전). 링크는 http/https 강제(`_sanUrlClean` — javascript: 무력화).
+- 렌더 훅: login() 직후(로컬 캐시), 클라우드 초기 로드·onSnapshot의 `d.sansites`, 홈 강제 재렌더 배열. 열람 전원, 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.
