@@ -202,6 +202,15 @@
 - 버퍼 `window._custAlien`(toggle/editCust에서 리셋·로드). ✕로 뺀 새 업로드는 즉시 Storage 정리,
   저장된 파일은 [저장] 시 빠진 URL만 정리(취소하면 원상 유지). 수정 화면에서 열람(이미지 클릭 원본·PDF 링크).
 
+## 4.8 전역 파일 업로드 공용화 (uni, 2026-08-07)
+
+- 문서 레벨 공용 리스너(`_uniFindBox`/`_uniAssign` 등) — **모든 `<input type=file>` 칸**에 드래그앤드롭·붙여넣기(Ctrl+V) 지원.
+  파일 입력을 정확히 1개 품은 조상 영역을 찾아 input.files에 주입(DataTransfer) 후 change 이벤트 발생 → **기존 onchange 로직 그대로 동작**.
+- accept 필터 존중(image/*, .pdf 등 — 안 맞으면 토스트), 단일 입력엔 첫 파일만. 드래그 오버 시 `.uni-drop` 초록 표시.
+- 붙여넣기 대상: 마지막 클릭한 칸 → 화면에 파일 칸이 1개뿐이면 그 칸 → 여러 개면 "칸을 먼저 클릭" 토스트.
+- 전용 핸들러 구역(청구 서류 박스·고객등록 등록증)은 stopPropagation/defaultPrevented로 공용 처리에서 제외(이중 처리 없음).
+- ⚠️ 병력정리(f1~f3)는 accept=.pdf — 분석이 PDF 텍스트 추출 기반이라 사진은 불가(명확한 토스트로 안내).
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.

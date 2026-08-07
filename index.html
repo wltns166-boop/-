@@ -310,6 +310,7 @@ table.dt tr:last-child td{border-bottom:none;}
 #san_rail:hover .sanl{opacity:1}
 .sandv{border-top:1px solid #e4e7f2;margin:5px 4px}
 body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 끝을 가리지 않도록 본문 여백 확보 */
+.uni-drop{outline:2px dashed #2ea043!important;outline-offset:-2px;background:rgba(46,160,67,.07)!important} /* 파일을 끌어온 업로드 칸 표시 */
 @media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -358,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-10</div>
   </div>
 </div>
 
@@ -16235,6 +16236,102 @@ function _claimDrop(e,t){
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼이 열려 있는 동안만)
 document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)) e.preventDefault(); });
 document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)) e.preventDefault(); });
+
+// ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
+// 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
+// 그 입력에 파일을 넣고 change 이벤트를 발생시켜 기존 onchange 로직을 그대로 태운다.
+// 전용 핸들러가 있는 곳(청구 서류 박스·고객등록 등록증)은 stopPropagation/defaultPrevented로 여기까지 오지 않는다.
+function _uniFileVisible(inp){
+  if(!inp) return false;
+  if(inp.offsetParent!==null) return true;                    // 보이는 입력
+  var p=inp.parentElement;                                    // display:none 입력은 부모(label 등)가 보이면 사용 가능
+  return !!(p&&p.offsetParent!==null);
+}
+function _uniAccepts(inp,f){
+  var acc=(inp.getAttribute('accept')||'').trim();
+  if(!acc) return true;
+  return acc.split(',').some(function(a){
+    a=a.trim().toLowerCase(); if(!a) return false;
+    if(a==='image/*') return /^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||''));
+    if(a==='video/*') return /^video\//.test(f.type);
+    if(a==='audio/*') return /^audio\//.test(f.type);
+    if(a.charAt(0)==='.') return (f.name||'').toLowerCase().endsWith(a)||(a==='.pdf'&&f.type==='application/pdf');
+    return (f.type||'').toLowerCase()===a;
+  });
+}
+// el부터 위로 6단계까지: 사용 가능한 파일 입력을 정확히 1개 품은 가장 가까운 조상 — 여러 개면 모호하므로 중단
+function _uniFindBox(el){
+  var cur=el, d=0;
+  while(cur&&cur!==document.body&&cur.nodeType===1&&d<6){
+    var ins=Array.prototype.filter.call(cur.querySelectorAll('input[type="file"]'), _uniFileVisible);
+    if(ins.length===1) return {box:cur, inp:ins[0]};
+    if(ins.length>1) return null;
+    cur=cur.parentElement; d++;
+  }
+  return null;
+}
+function _uniAssign(inp, files, src){
+  var ok=(files||[]).filter(function(f){ return _uniAccepts(inp,f); });
+  if(!ok.length){
+    var acc=(inp.getAttribute('accept')||'').toLowerCase();
+    toast(acc.indexOf('pdf')>=0&&acc.indexOf('image')<0?'이 칸은 PDF 파일만 올릴 수 있습니다.':'이 칸에 올릴 수 없는 파일 형식입니다.');
+    return false;
+  }
+  if(!inp.multiple&&ok.length>1){ toast('이 칸은 한 개만 올릴 수 있어 첫 파일만 사용합니다.'); ok=[ok[0]]; }
+  try{
+    var dt=new DataTransfer();
+    ok.forEach(function(f){ dt.items.add(f); });
+    inp.files=dt.files;
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    if(src==='paste') toast('파일 '+ok.length+'개를 붙여넣었습니다.');
+    return true;
+  }catch(e){ console.warn('uni file assign err:', e); toast('파일을 넣지 못했습니다: '+(e.message||e)); return false; }
+}
+document.addEventListener('mousedown', function(e){
+  // 마지막으로 클릭(터치)한 업로드 칸 기억 — 여러 칸이 보일 때 붙여넣기 대상 결정용
+  try{ var hit=_uniFindBox(e.target); if(hit) window._uniLastInp=hit.inp; }catch(_e){}
+}, true);
+document.addEventListener('dragover', function(e){
+  try{
+    var types=(e.dataTransfer&&e.dataTransfer.types)||[];
+    if(Array.prototype.indexOf.call(types,'Files')<0) return;
+    var hit=_uniFindBox(e.target);
+    if(window._uniHl&&(!hit||window._uniHl!==hit.box)){ window._uniHl.classList.remove('uni-drop'); window._uniHl=null; }
+    if(hit){
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+      hit.box.classList.add('uni-drop'); window._uniHl=hit.box;
+    }
+  }catch(_e){}
+});
+document.addEventListener('drop', function(e){
+  if(window._uniHl){ window._uniHl.classList.remove('uni-drop'); window._uniHl=null; }
+  if(e.defaultPrevented) return; // 전용 핸들러(청구·등록증) 페이지에서 이미 처리/차단됨
+  var hit=_uniFindBox(e.target); if(!hit) return;
+  e.preventDefault(); e.stopPropagation();
+  var files=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
+  if(files.length) _uniAssign(hit.inp, files, 'drop');
+});
+document.addEventListener('paste', function(e){
+  if(e.defaultPrevented) return; // 청구·등록증 전용 붙여넣기가 처리함
+  var cd=e.clipboardData; if(!cd) return;
+  var files=[];
+  Array.prototype.forEach.call(cd.items||[], function(it){ if(it.kind==='file'){ var f=it.getAsFile(); if(f) files.push(f); } });
+  if(!files.length&&cd.files&&cd.files.length) files=Array.prototype.slice.call(cd.files);
+  if(!files.length) return;
+  // 입력칸에 텍스트를 붙여넣는 중이면(텍스트+파일 혼합 클립보드) 기본 동작 우선
+  var ae=document.activeElement, hasText=false;
+  try{ hasText=!!cd.getData('text'); }catch(_e){}
+  if(hasText&&ae&&/^(input|textarea)$/i.test(ae.tagName)) return;
+  var cands=Array.prototype.filter.call(document.querySelectorAll('input[type="file"]'), _uniFileVisible);
+  if(!cands.length) return;
+  var target=null;
+  if(window._uniLastInp&&cands.indexOf(window._uniLastInp)>=0) target=window._uniLastInp;
+  else if(cands.length===1) target=cands[0];
+  if(!target){ toast('업로드 칸이 여러 개입니다. 올릴 칸을 먼저 클릭한 뒤 붙여넣어 주세요.'); return; }
+  e.preventDefault();
+  _uniAssign(target, files, 'paste');
+});
 
 function saveClaim(){
   var name=(g('claim_cust_name')||{value:''}).value.trim();
