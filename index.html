@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-14</div>
   </div>
 </div>
 
@@ -893,7 +893,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <span style="flex:1"></span>
           <button id="wm_showall_btn" onclick="window._wmShowAll=!window._wmShowAll;rWm()" style="display:none;font-size:12.5px;padding:4px 12px;border:1px solid #ccd;border-radius:7px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit"></button>
         </div>
-        <div style="overflow-x:auto"><table class="dt"><thead><tr><th>작성일</th><th>고객명</th><th style="text-align:center">상세보기</th><th style="text-align:center">고지사항</th><th style="text-align:center">PDF</th><th style="text-align:center">엑셀</th><th style="text-align:center">삭제</th></tr></thead><tbody id="wm_tb"></tbody></table></div>
+        <div style="overflow-x:auto"><table class="dt"><thead><tr><th>작성일</th><th>고객명</th><th style="text-align:center">상세보기</th><th style="text-align:center">고지사항</th><th style="text-align:center">PDF저장 / 출력</th><th style="text-align:center">엑셀</th><th style="text-align:center">삭제</th></tr></thead><tbody id="wm_tb"></tbody></table></div>
       </div>
     </div>
 
@@ -7133,7 +7133,8 @@ function rWm(){
     </td>
     <td style="text-align:center;white-space:nowrap">
       <button onclick="saveMedPdfByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(200,40,40,.12);border:1px solid rgba(200,50,50,.25);border-radius:6px;color:#cc3030;cursor:pointer;font-family:inherit;margin-right:4px" title="전체 병력 PDF로 저장"><i class="ti ti-file-type-pdf"></i> 전체</button>
-      <button onclick="saveMedPdfByIdx(${i},true)" style="padding:4px 10px;font-size:13px;background:rgba(255,140,40,.12);border:1px solid rgba(255,140,40,.3);border-radius:6px;color:#c06010;cursor:pointer;font-family:inherit" title="치과진료 항목 제외 PDF"><i class="ti ti-file-type-pdf"></i> 치과제외</button>
+      <button onclick="saveMedPdfByIdx(${i},true)" style="padding:4px 10px;font-size:13px;background:rgba(255,140,40,.12);border:1px solid rgba(255,140,40,.3);border-radius:6px;color:#c06010;cursor:pointer;font-family:inherit;margin-right:4px" title="치과진료 항목 제외 PDF"><i class="ti ti-file-type-pdf"></i> 치과제외</button>
+      <button onclick="printMedByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:6px;color:#4858cc;cursor:pointer;font-family:inherit" title="전체 병력 프린터로 출력"><i class="ti ti-printer"></i> 전체출력</button>
     </td>
     <td style="text-align:center">
       <button onclick="saveMedExcelByIdx(${i})" style="padding:4px 10px;font-size:14px;background:rgba(20,140,60,.12);border:1px solid rgba(30,160,70,.25);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit"><i class="ti ti-file-spreadsheet"></i> 엑셀</button>
@@ -7415,6 +7416,18 @@ function saveMedPdfByIdx(i, excludeDental){
   const pw=window.open(url,'_blank');
   setTimeout(()=>URL.revokeObjectURL(url),15000);
   toast('새 창에서 인쇄 > PDF로 저장 선택하세요!');
+}
+
+// 전체 병력 인쇄 — PDF 저장과 같은 문서를 열되 안내만 인쇄용
+function printMedByIdx(i){
+  const m=mhx[i];
+  if(!m){toast('데이터 없음');return;}
+  const built=_medPdfDocHtml(m, false, {print:true});
+  const blob=new Blob([built.html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(url),15000);
+  toast('인쇄 창이 열렸습니다. 프린터를 선택해 출력하세요.');
 }
 
 function saveMedExcelByIdx(i){
