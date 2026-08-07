@@ -326,7 +326,8 @@
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
 - **반쪽 재생성 방지 (2026-08-07)**: `claims[].attachMeta={f,id,bank,ins}`(첨부 개수 메타 — 동기화 포함, saveClaim에서 기록).
   원본 base64는 동기화 제외라, **다른 기기의 자동 재생성이 첨부 없는 청구서만으로 팀 공유본(Storage pkgUrls)을
-  덮어쓰던 사고**를 generateClaimPackage 초입 가드로 차단(메타상 첨부가 있는데 로컬 원본이 없으면 생성 중단+안내).
+  덮어쓰던 사고**를 generateClaimPackage 초입 가드로 차단. **차단 기준은 병원서류(f·ins)만** —
+  신분증·통장사본은 없어도 생성 진행하고, 이 기기에 없으면 **보관함(claim_docs URL) fetch로 자동 병합**(2026-08-07 완화).
   구형 건(메타 없음)은 가드를 못 탐 — 등록 기기에서 재생성해야 완전한 파일이 공유됨.
 - **첨부 PDF 병합 폴백 (2026-08-07)**: 병원서류 PDF는 pdf-lib 직접 병합 → 실패 시(암호화된 병원 발급 PDF 등)
   `_pdfToImages`(pdf.js 페이지별 JPEG 렌더, 40쪽 상한, 파일별 캐시로 보험사 수만큼 반복 방지)로 병합.
