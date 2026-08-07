@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-22</div>
   </div>
 </div>
 
@@ -16549,6 +16549,7 @@ function saveClaim(){
   obj.attachMeta={f:_mf, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:_mins};
   // 병원서류·보험사청구파일 원본을 클라우드에 보관(백그라운드) — 다른 기기서도 재생성 가능해짐
   try{ if((obj.files&&obj.files.length)||(obj.insFiles&&obj.insFiles.length)) _claimAttachStore(obj); }catch(e){}
+  try{ _claimsCarryCloudMeta(claims); }catch(e){} // 공유 메타 회수(수정 저장이 pkgUrls 등을 지우는 것 방지)
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
   try{
     localStorage.setItem('tops_claims', JSON.stringify(claims.map(function(cl){
@@ -17575,8 +17576,25 @@ function _reloadClaims(){
   claims=ls;
 }
 // claims 저장: 로컬엔 생성 PDF 제외, 클라우드(Firestore)엔 대용량 이미지·서명까지 제외
+// 클라우드 최신본(window._claimsCloud)의 공유 메타를 저장 직전 회수 — 낡은 기기의 저장(상태 변경·수정 등)이
+// pkgUrls·pkgId·pkgStamp·attachUrls를 지워 총무 기기에서 청구파일이 사라지던 사고 방지 (2026-08-07 실제 발생)
+function _claimsCarryCloudMeta(arr){
+  try{
+    var cloud=window._claimsCloud; if(!Array.isArray(cloud)||!Array.isArray(arr)) return arr;
+    var byId={}; cloud.forEach(function(c){ if(c&&c.id) byId[c.id]=c; });
+    arr.forEach(function(c){
+      var cc=c&&c.id&&byId[c.id]; if(!cc) return;
+      ['pkgUrls','pkgId','packageDate','pkgStamp','attachUrls','attachMeta'].forEach(function(k){
+        var empty=(c[k]===undefined)||(k==='pkgUrls'&&c[k]&&typeof c[k]==='object'&&!Object.keys(c[k]).length);
+        if(empty&&cc[k]!==undefined) c[k]=cc[k];
+      });
+    });
+  }catch(e){}
+  return arr;
+}
 function _persistClaims(){
   _claimsEnsureIds(); // 저장 직전 고유 id 보장(없는 건에만 부여 — 멱등)
+  _claimsCarryCloudMeta(claims); // 공유 메타 회수(지움 방지)
   var clLocal=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp; });
   try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }
   catch(e){ console.warn('tops_claims 저장 실패(quota):', e); _claimsQuotaWarn(); }
@@ -17835,6 +17853,7 @@ async function generateClaimPackage(idx) {
   // 팀원별 구글드라이브 폴더에 청구파일 저장 (공용 드라이브 / 보험금청구 / 팀원이름 / 폴더)
   try{ _driveSaveClaimFiles(claims[idx], packagePDFs); }catch(e){ console.warn('drive claim save err:', e); }
 
+  try{ _claimsCarryCloudMeta(claims); }catch(e){} // 다른 건들의 공유 메타 회수(내 낡은 배열이 지우는 것 방지)
   // 로컬 저장: 큰 패키지 PDF는 별도 키에 있으므로 claims에서는 제외(첨부 이미지는 본인 편집용으로 유지)
   var clLocal = claims.map(function(cl){
     var cp = Object.assign({}, cl);

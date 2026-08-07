@@ -323,6 +323,10 @@
 - 보관 3계층: **메모리 → localStorage `tops_pkg_<id>__<ins>`(레거시 `tops_pkg_<idx>__<ins>` 읽기 폴백) → Firebase Storage(`pkgUrls[ins]`)**.
   - 삭제 시 `_claimPkgCachePurge`가 id 캐시 제거, `_claimsPkgSweep`가 고아 id 캐시 청소(클라우드 수신 후 세션 1회) — localStorage 포화 완화.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
+- **공유 메타 회수 (2026-08-07)**: 모든 claims 저장 경로(_persistClaims·saveClaim·generateClaimPackage 최종 sv) 직전에
+  `_claimsCarryCloudMeta` — 로컬 배열에 pkgUrls(빈 객체 포함)·pkgId·pkgStamp·attachUrls·attachMeta가 비어 있으면
+  `window._claimsCloud`(수신된 최신본)에서 id 기준으로 회수. 낡은 기기의 상태 변경·수정 저장이 공유 기록을
+  지워 총무 기기에서 청구파일이 사라지던 실사고의 재발 방지.
 - **캐시 무효화 (2026-08-07)**: 생성 시 `claims[].pkgStamp=Date.now()`(동기화) + 생성 기기는 `tops_pkgseen_<id>` 기록.
   `_claimPkgFor` 초입 `_claimPkgFreshCheck`가 도장이 더 새로우면 이 기기의 옛 캐시(메모리 packagePDFs·tops_pkg_*)를
   비우고 새 공유본을 받게 함 — 총무 기기가 반쪽 캐시를 계속 보여주던 문제 해결. 공유 업로드 실패는 생성 기기에 ⚠ 토스트.
