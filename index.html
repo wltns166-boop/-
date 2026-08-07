@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-20</div>
   </div>
 </div>
 
@@ -16521,15 +16521,31 @@ function saveClaim(){
   };
   // 고유 id: 수정이면 기존 id 유지, 신규면 새로 부여(병합·PDF 캐시 키의 기준)
   obj.id=(idx!==''&&claims[+idx]&&claims[+idx].id)?claims[+idx].id:_newClaimId();
+  var oldC=(idx!==''&&Array.isArray(claims))?claims[+idx]:null;
   if(idx!==''){
     obj.done=claims[+idx].done||false;
     // 편집 중 목록을 건드리지 않았는데 비어 있으면 기존 파일 유지(✕로 직접 뺀 경우는 제외)
     if(!files.length&&!(wrap&&wrap._filesEdited)&&claims[+idx].files) obj.files=claims[+idx].files;
+    // 진행상태·팀 공유본 정보는 수정 저장이 지우면 안 됨 — 이게 지워지면 다른 기기(총무)에서
+    // 공유 파일 URL이 사라지고, 원본 없는 기기는 재생성도 못 해 영영 복구 불가가 된다
+    if(oldC){
+      if(oldC.status!==undefined) obj.status=oldC.status;
+      if(oldC.pkgUrls) obj.pkgUrls=oldC.pkgUrls;
+      if(oldC.pkgId) obj.pkgId=oldC.pkgId;
+      if(oldC.packageDate) obj.packageDate=oldC.packageDate;
+      if(oldC.pkgStamp) obj.pkgStamp=oldC.pkgStamp;
+      if(oldC.packagePDFs) obj.packagePDFs=oldC.packagePDFs; // 이 기기 메모리의 병합본도 유지
+    }
     claims[+idx]=obj;
   } else { claims.push(obj); try{ pushNotify('ADMIN', '새 보험금청구 신청', (cu?cu.name+'님 / ':'')+'계약자 '+name, '/'); }catch(e){} }
   // 첨부 존재 메타 — 원본(base64)은 동기화에서 제외되므로, 개수만 남겨 다른 기기가
-  // "원본이 있어야 하는 건"을 알 수 있게 함(원본 없는 기기의 반쪽 재생성·공유본 덮어쓰기 방지)
-  obj.attachMeta={f:(obj.files||[]).length, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:(obj.insFiles||[]).length};
+  // "원본이 있어야 하는 건"을 알 수 있게 함(원본 없는 기기의 반쪽 재생성·공유본 덮어쓰기 방지).
+  // 원본이 없는 기기에서 수정 저장해도 기존 메타가 0으로 지워지지 않게 승계한다.
+  var _mf=(obj.files||[]).length;
+  if(!_mf&&oldC&&oldC.attachMeta&&!(wrap&&wrap._filesEdited)) _mf=+oldC.attachMeta.f||0;
+  var _mins=(obj.insFiles||[]).length;
+  if(!_mins&&oldC&&oldC.attachMeta) _mins=+oldC.attachMeta.ins||0;
+  obj.attachMeta={f:_mf, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:_mins};
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
   try{
     localStorage.setItem('tops_claims', JSON.stringify(claims.map(function(cl){
