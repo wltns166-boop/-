@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-23</div>
   </div>
 </div>
 
@@ -17695,7 +17695,10 @@ async function generateClaimPackage(idx) {
     if(_df.length||_di.length){ _filesUse=_df; _insUse=_di; _hasLocal=true; }
   }
   if(_needAttach&&!_hasLocal){
-    toast('병원서류 원본을 찾을 수 없습니다(이 기기·클라우드 보관본 모두 없음). 청구 수정에서 병원서류를 다시 올려 저장해주세요.');
+    var _hasShared=c.pkgUrls&&Object.keys(c.pkgUrls).length;
+    toast(_hasShared
+      ?'재생성은 병원서류 원본이 필요해 할 수 없지만, 이미 만들어진 청구파일은 [미리보기]·[다운로드]로 정상 조회됩니다. 서류를 바꾸려면 [수정]에서 병원서류를 다시 올려 저장하세요.'
+      :'병원서류 원본을 찾을 수 없습니다. [수정]에서 병원서류를 다시 올려 [저장]하면 파일이 만들어지고, 이후엔 어느 기기서든 재생성됩니다.');
     return false;
   }
   // 신분증·통장사본이 이 기기에 없으면 고객 보관함(Storage URL)에서 가져와 병합 — 어느 기기서든 완전한 파일 생성
