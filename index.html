@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-19</div>
   </div>
 </div>
 
@@ -17747,6 +17747,12 @@ async function generateClaimPackage(idx) {
   // Firebase Storage에 업로드 → 다운로드 URL을 Firestore로 공유(팀원 전체가 열람 가능)
   claims[idx].pkgUrls = claims[idx].pkgUrls || {};
   await uploadClaimPackagesToStorage(claims[idx].pkgId, packagePDFs, claims[idx].pkgUrls);
+  // 생성 시각 도장 — 다른 기기가 이 도장을 보고 자기 옛 캐시(반쪽 파일 등)를 버리고 새 공유본을 받게 함
+  claims[idx].pkgStamp=Date.now();
+  try{ _lsSet('tops_pkgseen_'+claims[idx].id, String(claims[idx].pkgStamp)); }catch(e){} // 이 기기는 방금 만든 게 최신
+  // 공유 업로드 실패는 조용히 넘기지 않음 — 다른 기기(총무 등)에서 파일이 안 보이는 직접 원인
+  var _upMiss=Object.keys(packagePDFs).filter(function(ins){ return !(claims[idx].pkgUrls&&claims[idx].pkgUrls[ins]); });
+  if(_upMiss.length) toast('⚠ 팀 공유 업로드 실패('+_upMiss.join(', ')+') — 다른 기기에서 이 청구파일이 보이지 않습니다. 네트워크 확인 후 [전체 재생성]을 해주세요.');
 
   // 팀원별 구글드라이브 폴더에 청구파일 저장 (공용 드라이브 / 보험금청구 / 팀원이름 / 폴더)
   try{ _driveSaveClaimFiles(claims[idx], packagePDFs); }catch(e){ console.warn('drive claim save err:', e); }
@@ -17790,8 +17796,26 @@ function rebuildClaimPackage(idx){
   });
 }
 
+// 다른 기기에서 새로 생성(pkgStamp 갱신)된 청구파일이 있으면 이 기기의 옛 캐시(반쪽 파일 등)를 비움 —
+// 총무 기기가 예전 로컬 캐시를 계속 보여주던 문제 방지. 생성한 기기는 도장 기록 직후라 no-op.
+function _claimPkgFreshCheck(idx){
+  try{
+    var c=claims[idx]; if(!c||!c.id||!c.pkgStamp) return;
+    var seen=0; try{ seen=+localStorage.getItem('tops_pkgseen_'+c.id)||0; }catch(e){}
+    if(+c.pkgStamp<=seen) return;
+    delete c.packagePDFs; delete c.packagePDF; // 메모리의 옛 병합본 제거 → 새 공유본(Storage URL)을 받게 됨
+    var insList=(c.insurerList&&c.insurerList.length)?c.insurerList:(c.insurer?String(c.insurer).split(/,\s*/):[]);
+    insList.concat(Object.keys(c.pkgUrls||{})).forEach(function(ins){
+      try{ localStorage.removeItem('tops_pkg_'+c.id+'__'+ins); }catch(e){}
+      try{ localStorage.removeItem('tops_pkg_'+idx+'__'+ins); }catch(e){}
+    });
+    try{ localStorage.removeItem('tops_pkg_'+idx); }catch(e){}
+    _lsSet('tops_pkgseen_'+c.id, String(+c.pkgStamp));
+  }catch(e){}
+}
 // 특정 청구건의 보험사별 PDF 데이터 URI 가져오기 (없으면 빈 문자열)
 function _claimPkgFor(idx, insurer){
+  _claimPkgFreshCheck(idx);
   try{
     if(claims[idx] && claims[idx].packagePDFs && claims[idx].packagePDFs[insurer]) return claims[idx].packagePDFs[insurer];
   }catch(e){}
