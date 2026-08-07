@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-17</div>
   </div>
 </div>
 
@@ -16527,6 +16527,9 @@ function saveClaim(){
     if(!files.length&&!(wrap&&wrap._filesEdited)&&claims[+idx].files) obj.files=claims[+idx].files;
     claims[+idx]=obj;
   } else { claims.push(obj); try{ pushNotify('ADMIN', '새 보험금청구 신청', (cu?cu.name+'님 / ':'')+'계약자 '+name, '/'); }catch(e){} }
+  // 첨부 존재 메타 — 원본(base64)은 동기화에서 제외되므로, 개수만 남겨 다른 기기가
+  // "원본이 있어야 하는 건"을 알 수 있게 함(원본 없는 기기의 반쪽 재생성·공유본 덮어쓰기 방지)
+  obj.attachMeta={f:(obj.files||[]).length, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:(obj.insFiles||[]).length};
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
   try{
     localStorage.setItem('tops_claims', JSON.stringify(claims.map(function(cl){
@@ -17577,6 +17580,15 @@ async function generateClaimPackage(idx) {
   _reloadClaims();
   var c=claims[idx]; if(!c){toast('청구 데이터 없음');return false;}
   if(typeof PDFLib==='undefined'){toast('PDF 라이브러리 미로드');return false;}
+  // 첨부가 있어야 하는 건인데 이 기기에 원본이 없음(원본 base64는 동기화 제외) —
+  // 청구서만 있는 반쪽 파일을 만들어 팀 공유본(Storage)을 덮어쓰지 않도록 생성 자체를 중단
+  var _am=c.attachMeta;
+  var _needAttach=_am&&(((+_am.f||0)+(+_am.id||0)+(+_am.bank||0)+(+_am.ins||0))>0);
+  var _hasLocal=(c.files&&c.files.length)||c.idImg||c.bankImg||(c.insFiles&&c.insFiles.length);
+  if(_needAttach&&!_hasLocal){
+    toast('이 기기에 원본 서류(병원서류·신분증·통장사본)가 없어 재생성할 수 없습니다. 청구를 등록한 기기에서 [전체 재생성]을 해주세요.');
+    return false;
+  }
 
   function textToPng(text,fontSize,maxWidth){
     if(!text||!String(text).trim()) return null;

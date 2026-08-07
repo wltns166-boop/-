@@ -324,6 +324,10 @@
   - 삭제 시 `_claimPkgCachePurge`가 id 캐시 제거, `_claimsPkgSweep`가 고아 id 캐시 청소(클라우드 수신 후 세션 1회) — localStorage 포화 완화.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
+- **반쪽 재생성 방지 (2026-08-07)**: `claims[].attachMeta={f,id,bank,ins}`(첨부 개수 메타 — 동기화 포함, saveClaim에서 기록).
+  원본 base64는 동기화 제외라, **다른 기기의 자동 재생성이 첨부 없는 청구서만으로 팀 공유본(Storage pkgUrls)을
+  덮어쓰던 사고**를 generateClaimPackage 초입 가드로 차단(메타상 첨부가 있는데 로컬 원본이 없으면 생성 중단+안내).
+  구형 건(메타 없음)은 가드를 못 탐 — 등록 기기에서 재생성해야 완전한 파일이 공유됨.
 - **첨부 PDF 병합 폴백 (2026-08-07)**: 병원서류 PDF는 pdf-lib 직접 병합 → 실패 시(암호화된 병원 발급 PDF 등)
   `_pdfToImages`(pdf.js 페이지별 JPEG 렌더, 40쪽 상한, 파일별 캐시로 보험사 수만큼 반복 방지)로 병합.
   그래도 실패하거나 일부만 들어가면 `attachWarn` 토스트로 알림(조용한 누락 금지).
