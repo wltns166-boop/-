@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-15</div>
   </div>
 </div>
 
@@ -1313,7 +1313,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
       <!-- 팀원 작성 현황 (팀장급 이상) -->
       <div class="card" id="rc_team_box" style="display:none;margin-top:14px">
-        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-users"></i> 팀원 작성 현황</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원 작성 현황</div>
+          <span style="flex:1"></span>
+          <select id="rc_team_sel" onchange="window._rcTeamSel=this.value;_rcTeamDraw()" style="padding:6px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#111;background:#fff;cursor:pointer"></select>
+          <button id="rc_targets_btn" onclick="rcTargetsOpen()" style="display:none;padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-user-cog"></i> 작성 대상자 관리</button>
+        </div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:10px">[보기]는 위 카드 화면에서 그 팀원의 카드로 이동합니다. [PDF]·[출력]은 그 팀원의 카드 전체를 한 번에 저장·인쇄합니다.</div>
         <div style="overflow-x:auto"><div id="rc_team_tb"></div></div>
       </div>
@@ -13989,14 +13994,39 @@ function _rcTeamDraw(){
   box.style.display=show?'':'none';
   if(!show) return;
   var myTeam=getMyTeam(); // null=전체(관리자)
+  // 팀 드롭다운 — 하부가 있거나 팀장급 직급인 구성원을 팀장으로 목록화(본인 가시 범위 내)
+  var LEADR=['FA(예비팀장)','TL','BM','SBM','RM','SRM'];
+  var hasSub={}; (mem||[]).forEach(function(m){ if(m&&m.belong) hasSub[m.belong]=1; });
+  var leaders=(mem||[]).filter(function(m){
+    return m&&m.name&&m.name.trim()&&!m.suspended&&(hasSub[m.name]||LEADR.indexOf(m.rank)>=0)
+      &&(myTeam===null||myTeam.indexOf(m.name)>=0);
+  }).sort(function(a,b){ return (+a.code||0)-(+b.code||0); }).map(function(m){ return m.name; });
+  var selEl=g('rc_team_sel');
+  if(selEl){
+    var curT=window._rcTeamSel||'';
+    if(curT&&leaders.indexOf(curT)<0){ curT=''; window._rcTeamSel=''; }
+    selEl.innerHTML='<option value="">전체 팀</option>'+leaders.map(function(n){
+      return '<option value="'+_esc(n)+'"'+(n===curT?' selected':'')+'>'+_esc(n)+' 팀</option>';
+    }).join('');
+    selEl.style.display=leaders.length?'':'none';
+  }
+  var tbtn=g('rc_targets_btn'); if(tbtn) tbtn.style.display=_isAdmin()?'':'none';
+  var teamSet=window._rcTeamSel?_rcTeamOf(window._rcTeamSel):null; // 선택 팀장 본인+산하(재귀)
+  var tg=(recruit&&Array.isArray(recruit.targets)&&recruit.targets.length)?recruit.targets:null; // 작성 대상자 명단(비어있으면 전체)
   var rows=[];
   (mem||[]).filter(function(m){ return m&&m.name&&m.name.trim()&&!m.suspended; })
     .filter(function(m){ return myTeam===null||myTeam.indexOf(m.name)>=0; })
+    .filter(function(m){ return !teamSet||teamSet.indexOf(m.name)>=0; })
+    .filter(function(m){ return !tg||tg.indexOf(m.name)>=0; })
     .sort(function(a,b){ return (+a.code||0)-(+b.code||0); })
     .forEach(function(m){ rows.push({name:m.name, rank:m.rank||''}); });
   var byOwner={};
   _rcVisible().forEach(function(c){ (byOwner[c.owner]=byOwner[c.owner]||[]).push(c); });
-  Object.keys(byOwner).forEach(function(nm){ if(!rows.some(function(r){return r.name===nm;})) rows.push({name:nm, rank:''}); }); // 명단 밖 작성자(관리자 등)
+  // 명단 밖 작성자(관리자 등) — 전체 팀 보기에서만, 대상자 명단이 있으면 명단에 든 사람만
+  if(!teamSet) Object.keys(byOwner).forEach(function(nm){
+    if(tg&&tg.indexOf(nm)<0) return;
+    if(!rows.some(function(r){return r.name===nm;})) rows.push({name:nm, rank:''});
+  });
   var bt='padding:4px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;';
   var th='padding:8px 10px;background:#f2f2f7;color:#444;font-size:13px;border-bottom:1px solid #ddd;text-align:left;white-space:nowrap';
   var td_='padding:8px 10px;border-bottom:1px solid #eee;font-size:13.5px;color:#333;white-space:nowrap';
@@ -14024,6 +14054,66 @@ function _rcTeamDraw(){
   tb.querySelectorAll('[data-rctv]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamView(b.getAttribute('data-rctv')); }); });
   tb.querySelectorAll('[data-rctp]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamPdf(b.getAttribute('data-rctp')); }); });
   tb.querySelectorAll('[data-rctpr]').forEach(function(b){ b.addEventListener('click',function(){ rcTeamPrint(b.getAttribute('data-rctpr')); }); });
+}
+// 팀장 이름 → 본인+산하 전체(재귀, getMyTeam과 동일한 belong 기준)
+function _rcTeamOf(leader){
+  var team=[leader];
+  (function f(p){
+    (mem||[]).forEach(function(m){
+      if(m&&m.name&&m.belong===p&&team.indexOf(m.name)<0){ team.push(m.name); f(m.name); }
+    });
+  })(leader);
+  return team;
+}
+// 작성 대상자 관리(관리자 전용) — 체크된 구성원만 팀원 작성 현황에 표시. 전원 체크/해제=전체 표시.
+// Firestore 중첩 병합(merge:true) 특성상 필드 삭제가 전파되지 않으므로 "전체"는 빈 배열로 저장한다.
+function rcTargetsOpen(){
+  if(!_isAdmin()){ toast('관리자만 관리할 수 있습니다.'); return; }
+  var old=g('rc_targets_pop'); if(old) old.remove();
+  var cur=(recruit&&Array.isArray(recruit.targets)&&recruit.targets.length)?recruit.targets:null;
+  var members=(mem||[]).filter(function(m){ return m&&m.name&&m.name.trim()&&!m.suspended; })
+    .sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+  var sb='padding:5px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;';
+  var ov=document.createElement('div');
+  ov.id='rc_targets_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,40,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px"><i class="ti ti-user-cog"></i> 리쿠르팅 작성 대상자 관리</div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">체크된 구성원만 팀원 작성 현황에 표시됩니다.<br>전원 체크(또는 전원 해제)하고 저장하면 전체 표시로 돌아갑니다.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +'<button data-rctall="1" style="'+sb+'">전체 선택</button>'
+    +'<button data-rctall="0" style="'+sb+'">전체 해제</button>'
+    +'</div>'
+    +'<div style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;padding:8px;min-height:120px">'
+    +members.map(function(m){
+      var on=cur?cur.indexOf(m.name)>=0:true;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:13.5px;color:#1a1a2e;cursor:pointer;border-radius:6px">'
+        +'<input type="checkbox" data-rct="'+_esc(m.name)+'"'+(on?' checked':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
+        +_esc(m.name)+' <span style="color:#9090bb;font-size:12px">'+_esc(m.rank||'')+'</span></label>';
+    }).join('')
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
+    +'<button onclick="document.getElementById(\'rc_targets_pop\').remove()" style="'+sb+'padding:8px 16px">취소</button>'
+    +'<button onclick="rcTargetsSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:7px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-rctall]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var on=b.getAttribute('data-rctall')==='1';
+      ov.querySelectorAll('input[data-rct]').forEach(function(c){ c.checked=on; });
+    });
+  });
+}
+async function rcTargetsSave(){
+  if(!_isAdmin()) return;
+  var boxes=document.querySelectorAll('#rc_targets_pop input[data-rct]');
+  var names=[];
+  boxes.forEach(function(c){ if(c.checked) names.push(c.getAttribute('data-rct')); });
+  var all=(!names.length||names.length===boxes.length);
+  await _rcFresh(function(r){ r.targets=all?[]:names; });
+  var p=g('rc_targets_pop'); if(p) p.remove();
+  _rcTeamDraw();
+  toast(all?'전체 표시로 저장되었습니다.':'작성 대상자 '+names.length+'명으로 저장되었습니다.');
 }
 function _rcCardsOf(name){ return _rcVisible().filter(function(c){ return c.owner===name; }); }
 // [보기] — 위 카드 화면을 그 팀원의 첫 카드로 이동
