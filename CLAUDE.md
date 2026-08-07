@@ -327,6 +327,10 @@
   `_claimPkgFor` 초입 `_claimPkgFreshCheck`가 도장이 더 새로우면 이 기기의 옛 캐시(메모리 packagePDFs·tops_pkg_*)를
   비우고 새 공유본을 받게 함 — 총무 기기가 반쪽 캐시를 계속 보여주던 문제 해결. 공유 업로드 실패는 생성 기기에 ⚠ 토스트.
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
+- **원본 서류 클라우드 보관 (2026-08-07)**: `claims[].attachUrls={files:[{u,n}],ins:[{u}]}` —
+  저장 시 `_claimAttachStore`가 병원서류·보험사청구파일 원본을 **Storage `claim_packages/attach/<청구id>/`** 에 올리고 URL만 동기화.
+  generateClaimPackage는 로컬 원본이 없으면 보관본을 내려받아 병합 — **어느 기기서든 완전한 재생성 가능**.
+  (배경: 클라우드 스냅샷이 로컬 tops_claims를 원본 빠진 사본으로 덮어써, 새로고침 후엔 등록 기기에서도 원본이 사라졌음)
 - **반쪽 재생성 방지 (2026-08-07)**: `claims[].attachMeta={f,id,bank,ins}`(첨부 개수 메타 — 동기화 포함, saveClaim에서 기록).
   원본 base64는 동기화 제외라, **다른 기기의 자동 재생성이 첨부 없는 청구서만으로 팀 공유본(Storage pkgUrls)을
   덮어쓰던 사고**를 generateClaimPackage 초입 가드로 차단. **차단 기준은 병원서류(f·ins)만** —

@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-21</div>
   </div>
 </div>
 
@@ -16535,6 +16535,7 @@ function saveClaim(){
       if(oldC.packageDate) obj.packageDate=oldC.packageDate;
       if(oldC.pkgStamp) obj.pkgStamp=oldC.pkgStamp;
       if(oldC.packagePDFs) obj.packagePDFs=oldC.packagePDFs; // 이 기기 메모리의 병합본도 유지
+      if(oldC.attachUrls) obj.attachUrls=oldC.attachUrls;    // 원본 서류 클라우드 보관본 승계
     }
     claims[+idx]=obj;
   } else { claims.push(obj); try{ pushNotify('ADMIN', '새 보험금청구 신청', (cu?cu.name+'님 / ':'')+'계약자 '+name, '/'); }catch(e){} }
@@ -16546,6 +16547,8 @@ function saveClaim(){
   var _mins=(obj.insFiles||[]).length;
   if(!_mins&&oldC&&oldC.attachMeta) _mins=+oldC.attachMeta.ins||0;
   obj.attachMeta={f:_mf, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:_mins};
+  // 병원서류·보험사청구파일 원본을 클라우드에 보관(백그라운드) — 다른 기기서도 재생성 가능해짐
+  try{ if((obj.files&&obj.files.length)||(obj.insFiles&&obj.insFiles.length)) _claimAttachStore(obj); }catch(e){}
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
   try{
     localStorage.setItem('tops_claims', JSON.stringify(claims.map(function(cl){
@@ -17590,20 +17593,91 @@ function _persistClaims(){
   }
 }
 
+// 병원서류·보험사청구파일 원본을 Storage에 보관(claim_packages/attach/<청구id>/) — 2026-08-07
+// 원본 base64는 기기 로컬에만 있고 클라우드 스냅샷이 로컬 저장본을 덮으면 사라지므로,
+// 저장 시 백그라운드로 올려 두면 어느 기기서든 내려받아 완전한 청구파일을 재생성할 수 있다.
+async function _claimAttachStore(c){
+  try{
+    if(!c||!c.id) return;
+    if(typeof firebase==='undefined'||!firebase.storage) return;
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    if(firebase.auth&&!(firebase.auth().currentUser)){ try{ await firebase.auth().signInAnonymously(); }catch(e){} }
+    var up=async function(dataUrl, name, tag, i){
+      var b64=dataUrl.split(',')[1]||''; var bin=atob(b64); var u8=new Uint8Array(bin.length);
+      for(var j=0;j<bin.length;j++) u8[j]=bin.charCodeAt(j);
+      var mime=dataUrl.slice(5).split(';')[0]||'application/octet-stream';
+      var ext=mime==='application/pdf'?'pdf':(mime==='image/png'?'png':'jpg');
+      var ref=firebase.storage().ref('claim_packages/attach/'+c.id+'/'+tag+i+'_'+Date.now()+'.'+ext);
+      await ref.put(u8,{contentType:mime});
+      return {u:await ref.getDownloadURL(), n:name||''};
+    };
+    var urls={files:[], ins:[]};
+    var fl=c.files||[];
+    for(var i=0;i<fl.length;i++){
+      var f=fl[i];
+      if(f&&typeof f.data==='string'&&f.data.startsWith('data:')){
+        try{ urls.files.push(await up(f.data, f.name, 'f', i)); }catch(e){ console.warn('attach 업로드 실패:', f.name, e); }
+      }
+    }
+    var il=c.insFiles||[];
+    for(var k=0;k<il.length;k++){
+      var s=il[k];
+      if(typeof s==='string'&&s.startsWith('data:')){
+        try{ urls.ins.push(await up(s, '', 'i', k)); }catch(e){ console.warn('insFile 업로드 실패:', e); }
+      }
+    }
+    if(!urls.files.length&&!urls.ins.length) return;
+    // 옛 보관본 정리(교체 저장 시 고아 파일 축소 — 실패 무방)
+    try{
+      var old=c.attachUrls;
+      if(old){ (old.files||[]).concat(old.ins||[]).forEach(function(o){ try{ if(o&&o.u) firebase.storage().refFromURL(o.u).delete().catch(function(){}); }catch(e){} }); }
+    }catch(e){}
+    c.attachUrls=urls;
+    _persistClaims();
+  }catch(e){ console.warn('claim attach store err:', e); }
+}
+
 // ===== 청구 패키지 PDF 생성 =====
 async function generateClaimPackage(idx) {
   // localStorage 재로드 시, 메모리의 생성 PDF·이미지·공유 URL 보존
   _reloadClaims();
   var c=claims[idx]; if(!c){toast('청구 데이터 없음');return false;}
   if(typeof PDFLib==='undefined'){toast('PDF 라이브러리 미로드');return false;}
-  // 병원서류가 있어야 하는 건인데 이 기기에 원본이 없음(원본 base64는 동기화 제외) —
-  // 청구서만 있는 반쪽 파일을 만들어 팀 공유본(Storage)을 덮어쓰지 않도록 생성 자체를 중단.
-  // 신분증·통장사본은 필수 아님 — 없으면 그대로, 보관함(claim_docs)에 있으면 아래에서 자동으로 가져와 병합.
+  // Storage URL → dataURL 공용 다운로드 헬퍼
+  var _fetchDataUrl=async function(u){
+    try{
+      var r=await fetch(u); if(!r.ok) return '';
+      var b=await r.blob();
+      return await new Promise(function(res){
+        var rd=new FileReader();
+        rd.onload=function(ev){ res(ev.target.result); };
+        rd.onerror=function(){ res(''); };
+        rd.readAsDataURL(b);
+      });
+    }catch(e){ return ''; }
+  };
+  // 병원서류가 있어야 하는 건인데 이 기기에 원본이 없으면, Storage 보관본(attachUrls)에서 내려받아 사용 —
+  // 어느 기기서든 완전한 재생성. 보관본마저 없으면 반쪽 파일로 공유본을 덮지 않도록 생성 중단.
   var _am=c.attachMeta;
   var _needAttach=_am&&(((+_am.f||0)+(+_am.ins||0))>0);
-  var _hasLocal=(c.files&&c.files.length)||(c.insFiles&&c.insFiles.length);
+  var _filesUse=c.files||[], _insUse=c.insFiles||[];
+  var _hasLocal=!!(_filesUse.length||_insUse.length);
+  if(_needAttach&&!_hasLocal&&c.attachUrls){
+    var _afl=c.attachUrls.files||[], _ail=c.attachUrls.ins||[];
+    if(_afl.length||_ail.length) toast('보관된 원본 서류를 내려받는 중...');
+    var _df=[], _di=[];
+    for(var _ai=0;_ai<_afl.length;_ai++){
+      var _dd=await _fetchDataUrl(_afl[_ai]&&_afl[_ai].u);
+      if(_dd) _df.push({name:(_afl[_ai].n||('서류'+(_ai+1))), data:_dd});
+    }
+    for(var _bi=0;_bi<_ail.length;_bi++){
+      var _dd2=await _fetchDataUrl(_ail[_bi]&&_ail[_bi].u);
+      if(_dd2) _di.push(_dd2);
+    }
+    if(_df.length||_di.length){ _filesUse=_df; _insUse=_di; _hasLocal=true; }
+  }
   if(_needAttach&&!_hasLocal){
-    toast('이 기기에 병원서류 원본이 없어 재생성할 수 없습니다. 청구를 등록한 기기에서 [전체 재생성]을 해주세요.');
+    toast('병원서류 원본을 찾을 수 없습니다(이 기기·클라우드 보관본 모두 없음). 청구 수정에서 병원서류를 다시 올려 저장해주세요.');
     return false;
   }
   // 신분증·통장사본이 이 기기에 없으면 고객 보관함(Storage URL)에서 가져와 병합 — 어느 기기서든 완전한 파일 생성
@@ -17611,20 +17685,8 @@ async function generateClaimPackage(idx) {
   if(!_idImgUse||!_bankImgUse){
     try{
       var _ent=(typeof _claimDocsFind==='function')?_claimDocsFind(c.custName, c.rrn):null;
-      var _fetchDoc=async function(u){
-        try{
-          var r=await fetch(u); if(!r.ok) return '';
-          var b=await r.blob();
-          return await new Promise(function(res){
-            var rd=new FileReader();
-            rd.onload=function(ev){ res(ev.target.result); };
-            rd.onerror=function(){ res(''); };
-            rd.readAsDataURL(b);
-          });
-        }catch(e){ return ''; }
-      };
-      if(!_idImgUse&&_ent&&_ent.id) _idImgUse=await _fetchDoc(_ent.id);
-      if(!_bankImgUse&&_ent&&_ent.bank) _bankImgUse=await _fetchDoc(_ent.bank);
+      if(!_idImgUse&&_ent&&_ent.id) _idImgUse=await _fetchDataUrl(_ent.id);
+      if(!_bankImgUse&&_ent&&_ent.bank) _bankImgUse=await _fetchDataUrl(_ent.bank);
     }catch(e){ console.warn('보관함 서류 조회 실패(생성은 계속):', e); }
   }
 
@@ -17695,10 +17757,10 @@ async function generateClaimPackage(idx) {
       var copied = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
       copied.forEach(function(p){ mergedDoc.addPage(p); });
 
-      // 첨부서류 (보험사별로 동일하게 모두 포함)
-      if(c.files && c.files.length){
-        for(var fi2=0; fi2<c.files.length; fi2++){
-          var f2=c.files[fi2]; var fData=f2.data||f2;
+      // 첨부서류 (보험사별로 동일하게 모두 포함 — 로컬 원본 또는 Storage 보관본)
+      if(_filesUse && _filesUse.length){
+        for(var fi2=0; fi2<_filesUse.length; fi2++){
+          var f2=_filesUse[fi2]; var fData=f2.data||f2;
           if(typeof fData==='string' && fData.startsWith('data:')){
             if(fData.includes('/pdf')){
               var pdfMerged=false;
@@ -17723,8 +17785,8 @@ async function generateClaimPackage(idx) {
       }
       if(_bankImgUse) await addImagePage(mergedDoc, _bankImgUse, '통장사본');
       if(_idImgUse)   await addImagePage(mergedDoc, _idImgUse,  '신분증');
-      if(c.insFiles && c.insFiles.length){
-        for(var fi3=0; fi3<c.insFiles.length; fi3++) await addImagePage(mergedDoc, c.insFiles[fi3], '보험사청구파일_'+(fi3+1));
+      if(_insUse && _insUse.length){
+        for(var fi3=0; fi3<_insUse.length; fi3++) await addImagePage(mergedDoc, _insUse[fi3], '보험사청구파일_'+(fi3+1));
       }
 
       var pdfBytes = await mergedDoc.save();
