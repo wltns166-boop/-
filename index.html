@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-11</div>
   </div>
 </div>
 
@@ -15043,8 +15043,8 @@ function bdWrite(name,pid){
     +'<input type="file" id="bd_cover" accept="image/*" style="display:none">'
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">첨부 파일 (사진·PDF·엑셀·PPT·동영상) <span style="color:#999;font-size:12px">— PDF는 페이지 미리보기 자동 생성, 동영상은 화면에서 바로 재생, 엑셀·PPT는 다운로드 버튼으로 제공됩니다</span></div>'
     +'<div id="bd_flist" style="margin-bottom:8px"></div>'
-    +'<input type="file" id="bd_file" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv,.ppt,.pptx,video/*" style="display:none">'
-    +'<button onclick="document.getElementById(\'bd_file\').click()" style="'+_bt+'padding:6px 12px;font-size:13px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-paperclip"></i> 파일 추가</button>'
+    +'<label style="'+_bt+'padding:6px 12px;font-size:13px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830;display:inline-block"><i class="ti ti-paperclip"></i> 파일 추가'
+    +'<input type="file" id="bd_file" multiple accept="image/*,application/pdf,.xls,.xlsx,.csv,.ppt,.pptx,video/*" style="display:none"></label>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
     +'<button onclick="document.getElementById(\'bd_overlay\').remove()" style="'+_bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
     +'<button id="bd_save_btn" onclick="bdSave()" style="'+_bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> '+(p?'수정 저장':'등록')+'</button>'
@@ -16259,10 +16259,10 @@ function _uniAccepts(inp,f){
     return (f.type||'').toLowerCase()===a;
   });
 }
-// el부터 위로 6단계까지: 사용 가능한 파일 입력을 정확히 1개 품은 가장 가까운 조상 — 여러 개면 모호하므로 중단
-function _uniFindBox(el){
-  var cur=el, d=0;
-  while(cur&&cur!==document.body&&cur.nodeType===1&&d<6){
+// el부터 위로 maxD단계까지: 사용 가능한 파일 입력을 정확히 1개 품은 가장 가까운 조상 — 여러 개면 모호하므로 중단
+function _uniFindBox(el, maxD){
+  var cur=el, d=0, lim=maxD||6;
+  while(cur&&cur!==document.body&&cur.nodeType===1&&d<lim){
     var ins=Array.prototype.filter.call(cur.querySelectorAll('input[type="file"]'), _uniFileVisible);
     if(ins.length===1) return {box:cur, inp:ins[0]};
     if(ins.length>1) return null;
@@ -16288,8 +16288,20 @@ function _uniAssign(inp, files, src){
   }catch(e){ console.warn('uni file assign err:', e); toast('파일을 넣지 못했습니다: '+(e.message||e)); return false; }
 }
 document.addEventListener('mousedown', function(e){
-  // 마지막으로 클릭(터치)한 업로드 칸 기억 — 여러 칸이 보일 때 붙여넣기 대상 결정용
-  try{ var hit=_uniFindBox(e.target); if(hit) window._uniLastInp=hit.inp; }catch(_e){}
+  // 마지막으로 클릭(터치)한 업로드 칸 기억 — 여러 칸이 보일 때 붙여넣기 대상 결정용.
+  // ⚠️ 범위를 좁게 유지할 것: 행/카드에 파일 입력이 1개라도 무관한 버튼·입력칸 클릭까지 기억하면
+  //    수험표·녹취처럼 남의 행에 붙여넣어지는 오귀속이 생긴다(파일 입력 자신·라벨·2단계 이내만).
+  try{
+    var t=e.target; if(!t||!t.closest) return;
+    if(t.tagName==='INPUT'&&t.type==='file'){ window._uniLastInp=t; return; }
+    if(t.closest('button,select,a,textarea')) return;           // 파일과 무관한 조작 요소
+    if(t.tagName==='INPUT') return;                             // 일반 입력칸 클릭도 제외
+    var lbl=t.closest('label');
+    var linp=lbl&&lbl.querySelector('input[type="file"]');
+    if(linp&&_uniFileVisible(linp)){ window._uniLastInp=linp; return; }
+    var hit=_uniFindBox(t, 2);                                  // 아주 가까운 범위만(업로드 박스 직접 클릭)
+    if(hit) window._uniLastInp=hit.inp;
+  }catch(_e){}
 }, true);
 document.addEventListener('dragover', function(e){
   try{
