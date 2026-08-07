@@ -358,7 +358,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-9</div>
   </div>
 </div>
 
@@ -16034,6 +16034,7 @@ function toggleClaimForm(){
 function cancelClaimForm(){
   var wrap=g('claim_form_wrap');
   if(wrap){ wrap.style.display='none'; _claimDocsFormReset(wrap); } // 진행 중이던 서류 자동등록 응답 무효화
+  window._claimFaxPre={}; var fxw=g('claim_fax_wrap'); if(fxw)fxw.innerHTML=''; // 닫은 폼의 팩스 입력값 잔존 방지
   var btn=g('btn_claim_toggle');if(btn)btn.innerHTML='<i class="ti ti-plus"></i> 신청';
 }
 
@@ -16259,7 +16260,21 @@ function saveClaim(){
     insurer:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}).join(', '),
     insurerList:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}),
     // 생명보험사별 청구서 발송 팩스번호 {보험사명: 번호}
-    faxNums:(function(){ var o={}; document.querySelectorAll('#claim_fax_wrap input[data-fax]').forEach(function(inp){ var v=inp.value.trim(); if(v) o[inp.getAttribute('data-fax')]=v; }); return o; })(),
+    faxNums:(function(){
+      var o={};
+      // 수정 시 기존 저장값 승계: 선택은 유지 중인데 보험사 목록 개편으로 입력칸이 안 뜬 회사의 번호가 조용히 지워지지 않게
+      try{
+        if(idx!==''&&claims[+idx]&&claims[+idx].faxNums){
+          var selNow={}; document.querySelectorAll('input[name="claim_ins"]:checked').forEach(function(cb){selNow[cb.value]=1;});
+          Object.keys(claims[+idx].faxNums).forEach(function(k){ if(selNow[k]) o[k]=claims[+idx].faxNums[k]; });
+        }
+      }catch(e){}
+      document.querySelectorAll('#claim_fax_wrap input[data-fax]').forEach(function(inp){
+        var v=inp.value.trim(), k=inp.getAttribute('data-fax');
+        if(v) o[k]=v; else delete o[k]; // 화면에서 지운 번호는 삭제로 반영
+      });
+      return o;
+    })(),
     idImg:wrap?wrap._idImg||'':'',
     bankImg:wrap?wrap._bankImg||'':'',
     insFiles:wrap&&wrap._insFiles?wrap._insFiles:[],
@@ -16368,6 +16383,8 @@ function editClaim(i){
   }
   _claimInsRender(c.insurerList||[]); // 저장된 보험사가 목록에서 빠졌어도 체크 유지
   document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){cb.checked=c.insurerList&&c.insurerList.includes(cb.value);});
+  // 이전에 열었던 폼의 팩스 입력칸이 DOM에 남아 이 청구의 값을 덮지 않도록 먼저 비움(값 오염 방지)
+  var _fxw=g('claim_fax_wrap'); if(_fxw)_fxw.innerHTML='';
   window._claimFaxPre=c.faxNums||{}; // 저장된 팩스번호를 입력칸에 미리 채움
   updateClaimInsDisplay();
   _claimImgSet('id', c.idImg||'');
