@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-16</div>
   </div>
 </div>
 
@@ -1457,6 +1457,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div class="fr">
               <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동"></div>
               <div class="fg"><div class="fl">주민번호</div><input class="fi" id="claim_ins_rrn" placeholder="000000-0000000" maxlength="14" oninput="formatRrn(this)"></div>
+              <div class="fg" style="max-width:170px"><div class="fl">계약자와의 관계</div>
+                <select class="fs" id="claim_ins_rel"><option value="">선택</option><option>본인</option><option>배우자</option><option>자녀</option><option>보호자</option><option>법정대리인</option></select>
+              </div>
             </div>
           </div>
 
@@ -16120,7 +16123,7 @@ function toggleClaimForm(){
     g('claim_form_title').textContent='청구신청';
     ['claim_cust_name','claim_rrn','claim_phone','claim_addr','claim_ins_name','claim_ins_rrn',
      'claim_insurer','claim_acc_year','claim_desc','claim_account_name','claim_account_rrn','claim_account_num'].forEach(function(id){var el=g(id);if(el)el.value='';});
-    ['claim_acc_month','claim_acc_day','claim_bank'].forEach(function(id){var el=g(id);if(el)el.value='';});
+    ['claim_acc_month','claim_acc_day','claim_bank','claim_ins_rel'].forEach(function(id){var el=g(id);if(el)el.value='';});
     document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=false;});
     _claimInsRender(); // 보험사 목록을 최신(고객등록 보험사 수정 기준)으로 다시 그림
     document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){cb.checked=false;});
@@ -16481,6 +16484,7 @@ function saveClaim(){
     addr:(g('claim_addr')||{value:''}).value.trim(),
     insName:(g('claim_ins_name')||{value:''}).value.trim(),
     insRrn:(g('claim_ins_rrn')||{value:''}).value.trim(),
+    insRel:(g('claim_ins_rel')||{value:''}).value, // 계약자와의 관계 (본인/배우자/자녀/보호자/법정대리인)
     insurer:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}).join(', '),
     insurerList:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}),
     // 생명보험사별 청구서 발송 팩스번호 {보험사명: 번호}
@@ -16584,6 +16588,7 @@ function editClaim(i){
     var parts=pair.split(':');var el=g(parts[0]);if(el)el.value=c[parts[1]]||'';
   });
   if(g('claim_bank'))g('claim_bank').value=c.bank||'';
+  if(g('claim_ins_rel'))g('claim_ins_rel').value=c.insRel||'';
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
   var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
   _claimDocsFormReset(wrap); // 직전에 다른 고객으로 진행 중이던 서류 자동등록 응답이 이 수정 폼에 들어오지 않도록
@@ -16866,6 +16871,7 @@ function fillInsuredSameAsContractor(){
   var insName=g('claim_ins_name'); var insRrn=g('claim_ins_rrn');
   if(insName&&name) insName.value=name.value;
   if(insRrn&&rrn) insRrn.value=rrn.value;
+  var rel=g('claim_ins_rel'); if(rel) rel.value='본인'; // 계약자=피보험자 → 관계는 본인
   toast('계약자 정보가 피보험자에 입력되었습니다.');
 }
 
@@ -18074,6 +18080,7 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'insRrn',     label:'피보험자 주민번호',  page:0, x:301.5, y:692.9},
   {key:'insRrnFront',label:'피보험자 주민번호(앞6)', page:0, x:301.5, y:692.9, defOn:false},
   {key:'insRrnBack', label:'피보험자 주민번호(뒤7)', page:0, x:360,   y:692.9, defOn:false},
+  {key:'insRel',     label:'계약자와의 관계',    page:0, x:430,   y:701.3, defOn:false},
   {key:'addr',       label:'피보험자 집주소',    page:0, x:153.9, y:654.2},
   {key:'phone',      label:'피보험자 휴대폰',    page:0, x:149.2, y:599.5},
   {key:'phoneFront', label:'피보험자 휴대폰(앞3)', page:0, x:149.2, y:599.5, defOn:false},
@@ -18180,6 +18187,7 @@ function claimMeta(){
     insRrn:{t:'rrn',s:9,pitch:25},
     insRrnFront:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.insRrn||'').slice(0,6);}},
     insRrnBack:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.insRrn||'').slice(6,13);}},
+    insRel:{t:'ko',s:9,w:60,v:function(c){return c.insRel||'';}},
     addr:{t:'ko',s:9,w:420,v:function(c){return (c.addr||'').slice(0,45);}},
     phone:{t:'asc',s:9,pitch:25,v:function(c){return c.phone?String(c.phone).replace(/-/g,'').slice(0,15):'';}},
     phoneFront:{t:'asc',s:9,pitch:25,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(0,3);}},
@@ -18635,6 +18643,7 @@ var CC_PREVIEW_SAMPLES = {
   ctAddr:'서울 강남구 테헤란로 123',
   insName:'홍길동', sign:'서명',
   insRrn:'900101-1234567', insRrnFront:'900101', insRrnBack:'1234567',
+  insRel:'본인',
   phone:'01012345678', phoneFront:'010', phoneMid:'1234', phoneBack:'5678',
   addr:'서울 강남구 테헤란로 123',
   acc_injury:'V', acc_disease:'V', acc_traffic:'V',
@@ -18796,6 +18805,7 @@ var CC_TOOLBOX_GROUPS = [
     {key:'insRrn',     label:'주민번호 (전체)'},
     {key:'insRrnFront',label:'주민번호 앞 6자리'},
     {key:'insRrnBack', label:'주민번호 뒤 7자리'},
+    {key:'insRel',     label:'계약자와의 관계'},
     {key:'phone',      label:'휴대폰 (전체)'},
     {key:'phoneFront', label:'휴대폰 앞 3자리'},
     {key:'phoneMid',   label:'휴대폰 가운데 4자리'},
