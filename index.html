@@ -358,7 +358,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-6</div>
   </div>
 </div>
 
@@ -17179,6 +17179,7 @@ async function generateClaimPackage(idx) {
   var packagePDFs = {};
   var firstErr = '';
   var okCount = 0;
+  var attachWarn = ''; // 첨부 병합 실패 안내(생성 자체는 계속) — 조용한 누락 방지
 
   for(var ii=0; ii<insurers.length; ii++){
     var insurer = insurers[ii];
@@ -17209,10 +17210,15 @@ async function generateClaimPackage(idx) {
           var f2=c.files[fi2]; var fData=f2.data||f2;
           if(typeof fData==='string' && fData.startsWith('data:')){
             if(fData.includes('/pdf')){
+              var pdfMerged=false;
               try{
                 var fDoc = await PDFDocument.load(Uint8Array.from(atob(fData.split(',')[1]), function(ch){return ch.charCodeAt(0);}));
                 (await mergedDoc.copyPages(fDoc, fDoc.getPageIndices())).forEach(function(p){ mergedDoc.addPage(p); });
-              }catch(e){ await addImagePage(mergedDoc, fData, '병원서류'); }
+                pdfMerged=true;
+              }catch(e){ console.warn('첨부 PDF 직접 병합 실패(→ 이미지 변환 시도):', (f2&&f2.name)||'', e.message); }
+              // 암호 걸린 병원 발급 PDF 등은 직접 병합이 안 됨 → pdf.js로 페이지를 이미지로 렌더해 병합
+              if(!pdfMerged) pdfMerged=await _pdfAppendAsImages(mergedDoc, fData, '병원서류');
+              if(!pdfMerged && !attachWarn) attachWarn='병원서류 PDF('+((f2&&f2.name)||'첨부')+')를 청구파일에 합치지 못했습니다. 해당 서류를 사진(캡처)으로 다시 올려주세요.';
             }else{ await addImagePage(mergedDoc, fData, '병원서류'); }
           }
         }
@@ -17239,6 +17245,7 @@ async function generateClaimPackage(idx) {
     toast(firstErr || 'PDF 생성 실패');
     return false;
   }
+  if(attachWarn){ try{ toast(attachWarn); }catch(e){} } // 청구서는 생성됐지만 일부 첨부가 빠졌음을 알림
 
   claims[idx].packagePDFs = packagePDFs;
   claims[idx].packageDate = tds();
@@ -17395,6 +17402,32 @@ async function previewClaimPackage(idx, insurer){
 }
 
 
+// PDF를 직접 병합할 수 없을 때(암호화·비표준 병원 발급 PDF) pdf.js로 페이지별 이미지를 만들어 병합.
+// 1쪽 이상 성공하면 true. pdf.js는 열람 제한(소유자 암호) PDF도 정상 렌더한다.
+async function _pdfAppendAsImages(doc, dataUrl, label){
+  try{
+    if(typeof pdfjsLib==='undefined') return false;
+    var b64=dataUrl.indexOf(',')>=0?dataUrl.split(',')[1]:dataUrl; if(!b64) return false;
+    var bytes=Uint8Array.from(atob(b64), function(ch){return ch.charCodeAt(0);});
+    var pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+    var n=Math.min(pdf.numPages, 40); // 폭주 방지 상한
+    var added=0;
+    for(var pn=1; pn<=n; pn++){
+      try{
+        var page=await pdf.getPage(pn);
+        var vp=page.getViewport({scale:2});
+        var cv=document.createElement('canvas');
+        cv.width=vp.width; cv.height=vp.height;
+        await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+        await addImagePage(doc, cv.toDataURL('image/jpeg',0.92), label+'_p'+pn);
+        added++;
+      }catch(pe){ console.warn('PDF 페이지 이미지 변환 실패:', label, pn, pe.message||pe); }
+    }
+    if(pdf.numPages>n) console.warn(label+' PDF '+pdf.numPages+'쪽 중 '+n+'쪽만 병합(상한)');
+    try{ pdf.destroy(); }catch(e){}
+    return added>0;
+  }catch(e){ console.warn('_pdfAppendAsImages err:', label, e.message||e); return false; }
+}
 async function addImagePage(doc, dataUrl, label) {
   try {
     var b64part = dataUrl.split(',')[1]; if(!b64part) return;

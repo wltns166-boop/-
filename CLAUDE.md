@@ -297,6 +297,8 @@
   - 삭제 시 `_claimPkgCachePurge`가 id 캐시 제거, `_claimsPkgSweep`가 고아 id 캐시 청소(클라우드 수신 후 세션 1회) — localStorage 포화 완화.
 - 조회: `_claimPkgFor` → 없으면 `resolveClaimPkg`(Storage fetch) → 없으면 `_ensureClaimPkg`(자동 재생성, idx별 플래그).
 - 생성: `generateClaimPackage(idx)`. 저장/재로드는 **반드시 `_persistClaims`/`_reloadClaims`** (함정 C 참조).
+- **첨부 PDF 병합 폴백 (2026-08-07)**: 병원서류 PDF는 pdf-lib 직접 병합 → 실패 시(암호화된 병원 발급 PDF 등)
+  `_pdfAppendAsImages`(pdf.js 페이지별 이미지 렌더, 40쪽 상한)로 병합. 그래도 실패하면 `attachWarn` 토스트로 알림(조용한 누락 금지).
 - **빈배열 덮어쓰기 가드 (2026-07-31)**: 클라우드 d.claims가 빈 배열이고 로컬에 내역이 있으면
   `_claimsCloudApply`가 로컬을 유지(+토스트). 단 `_persistClaims`가 0건 저장 시 남기는
   `claimsClearedAt` 표식이 "아직 처리 안 한 새 값"이면 의도된 전체 삭제로 보고 정상 반영
