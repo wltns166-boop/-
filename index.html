@@ -359,7 +359,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.07-24</div>
   </div>
 </div>
 
@@ -17645,12 +17645,16 @@ async function _claimAttachStore(c){
       }
     }
     if(!urls.files.length&&!urls.ins.length) return;
+    // 업로드 동안 _reloadClaims 등으로 claims 배열 객체가 교체됐을 수 있음 —
+    // 잡고 있던 옛 객체(고아)에 기록하면 유실되므로, id로 현재 배열의 실제 객체를 찾아 기록
+    var cur=c;
+    try{ (claims||[]).forEach(function(x){ if(x&&x.id===c.id) cur=x; }); }catch(e){}
     // 옛 보관본 정리(교체 저장 시 고아 파일 축소 — 실패 무방)
     try{
-      var old=c.attachUrls;
+      var old=cur.attachUrls;
       if(old){ (old.files||[]).concat(old.ins||[]).forEach(function(o){ try{ if(o&&o.u) firebase.storage().refFromURL(o.u).delete().catch(function(){}); }catch(e){} }); }
     }catch(e){}
-    c.attachUrls=urls;
+    cur.attachUrls=urls;
     _persistClaims();
   }catch(e){ console.warn('claim attach store err:', e); }
 }
