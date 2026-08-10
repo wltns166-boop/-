@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-13</div>
   </div>
 </div>
 
@@ -14043,9 +14043,15 @@ function rRecruit(){
   var mine=visAll.filter(function(c){ return c.owner===me; });
   var cur=window._rcCur?_rcCardById(window._rcCur):null;
   if(cur&&!visAll.some(function(c){return c.id===cur.id;})) cur=null;   // 가시 범위(권한) 밖이면 해제
-  if(!cur){ cur=mine.length?mine[0]:null; window._rcCur=cur?cur.id:null; }
+  if(!cur){
+    // 값을 입력 중인 미저장 초안을 보던 중이면 초안 화면 유지 — 실시간 수신으로 내 카드가
+    // 새로 생겨도(예: 사업계획서 연동 자동 생성) 입력하던 초안이 화면에서 밀려나지 않게 한다.
+    var keepDraft=!!(window._rcDraft&&window._rcCur===window._rcDraft.id&&_rcHasVals(window._rcDraft));
+    if(!keepDraft){ cur=mine.length?mine[0]:null; window._rcCur=cur?cur.id:null; }
+  }
   var foreign=!!(cur&&me&&cur.owner!==me);
   var vis=foreign?visAll.filter(function(c){ return c.owner===cur.owner; }):mine;
+  if(cur&&!foreign) window._rcMineLast=cur.id;   // [← 내 카드로] 복귀 시 마지막으로 보던 내 카드 기억
   // 다른 카드로 이동해 더는 보고 있지 않은 "빈" 초안은 정리(버퍼 고아 → 무관한 저장에 얹혀 부활 방지)
   if(window._rcDraft&&window._rcCur!==window._rcDraft.id&&!_rcHasVals(window._rcDraft)){
     if(window._rcDirty) delete window._rcDirty[window._rcDraft.id];
@@ -14067,14 +14073,19 @@ function rRecruit(){
   if(ll){
     if(vis.length){
       ll.innerHTML=(foreign?'<div class="rcli" data-rcmine="1" style="color:#3a40aa;font-weight:700" title="내가 작성한 카드 목록으로 돌아갑니다"><i class="ti ti-arrow-left"></i> 내 카드로</div>':'')
+        +(draft?'<div class="rcli on">새 카드 (미저장)</div>':'')
         +vis.map(function(c){
         var nm=_rcTargetName(c)||'(이름 미입력)';
-        var own=(cu&&c.owner!==cu.name)?' <span style="font-size:11.5px;color:#99a">'+_esc(c.owner)+'</span>':'';
-        return '<div class="rcli'+(cur&&c.id===cur.id?' on':'')+'" data-rcgo="'+_esc(c.id)+'" title="'+_esc(nm)+(c.owner?' ('+_esc(c.owner)+')':'')+'">'+_esc(nm)+own+'</div>';
+        return '<div class="rcli'+(cur&&c.id===cur.id?' on':'')+'" data-rcgo="'+_esc(c.id)+'" title="'+_esc(nm)+(c.owner?' ('+_esc(c.owner)+')':'')+'">'+_esc(nm)+'</div>';
       }).join('');
       ll.querySelectorAll('[data-rcgo]').forEach(function(b){ b.addEventListener('click',function(){ rcJump(b.getAttribute('data-rcgo')); }); });
       var mb=ll.querySelector('[data-rcmine]');
-      if(mb) mb.addEventListener('click',function(){ _rcCollect(); window._rcCur=null; rRecruit(); });
+      if(mb) mb.addEventListener('click',function(){
+        _rcCollect();
+        // 마지막으로 보던 내 카드로 복귀(없어졌으면 첫 카드)
+        window._rcCur=(window._rcMineLast&&_rcCardById(window._rcMineLast))?window._rcMineLast:null;
+        rRecruit();
+      });
     } else {
       ll.innerHTML=draft?'<div class="rcli on">새 카드 (미저장)</div>':'<div style="color:#a0a0b0;font-size:13px;padding:6px 2px">카드가 없습니다.</div>';
     }
