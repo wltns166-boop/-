@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-3</div>
   </div>
 </div>
 
@@ -764,10 +764,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px;color:#1a1a2e">
             <label>채우기
               <select id="hh_fit" onchange="_heroFitToggle();_heroPrevDraw()" style="padding:6px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:13px;font-family:inherit;color:#1a1a2e;background:#fff;margin-left:4px">
-                <option value="cover">꽉 채움</option><option value="contain">전체 보이기</option><option value="pct">배율 직접</option>
+                <option value="cover">꽉 채움</option><option value="contain">전체 보이기</option><option value="pct">크기 직접 조절</option>
               </select>
             </label>
-            <label id="hh_scale_wrap" style="display:none">배율 <input id="hh_scale" type="range" min="10" max="300" value="100" oninput="_heroPrevDraw()" style="vertical-align:middle;accent-color:#4858cc"> <span id="hh_scale_v">100</span>%</label>
+            <span id="hh_scale_wrap" style="display:none;align-items:center;gap:14px;flex-wrap:wrap">
+              <label>좌우(가로) <input id="hh_scale" type="range" min="10" max="300" value="100" oninput="_heroScaleInput('x')" style="vertical-align:middle;accent-color:#4858cc"> <span id="hh_scale_v">100</span>%</label>
+              <label>상하(세로) <input id="hh_sy" type="range" min="10" max="300" value="100" oninput="_heroScaleInput('y')" style="vertical-align:middle;accent-color:#4858cc"> <span id="hh_sy_v">100</span>%</label>
+              <label title="체크하면 가로·세로가 대각선 방향으로 함께 움직입니다"><input type="checkbox" id="hh_lock" checked style="vertical-align:middle;accent-color:#4858cc"> 대각선(함께 조절)</label>
+            </span>
             <label>선명도(투명도) <input id="hh_op" type="range" min="0" max="100" value="100" oninput="_heroPrevDraw()" style="vertical-align:middle;accent-color:#4858cc" title="왼쪽: 투명하게 · 오른쪽: 선명하게"> <span id="hh_op_v">100</span>%</label>
           </div>
         </div>
@@ -14653,7 +14657,7 @@ function sanSave(){
 // ===== 홈 화면 꾸미기 (herocfg, 2026-08-10, 관리자 전용 편집·전원 적용) =====
 // 설정: tops_herocfg = {t,ts,tf,tc, u,us,uf,uc, img,fit,scale,op} — 텍스트·URL만(함정 B).
 // 이미지 원본은 홈 배경과 같은 Storage home_bg/ 경로 재사용(_homeBgUpload), 설정엔 URL만 저장.
-var HERO_DEF={t:'TEAM TOPS', ts:70, tf:'', tc:'#1a1a2e', u:'INSURANCE BUSINESS MANAGEMENT SYSTEM', us:13, uf:'', uc:'#6060a0', img:'', fit:'cover', scale:100, op:100};
+var HERO_DEF={t:'TEAM TOPS', ts:70, tf:'', tc:'#1a1a2e', u:'INSURANCE BUSINESS MANAGEMENT SYSTEM', us:13, uf:'', uc:'#6060a0', img:'', fit:'cover', scale:100, sy:100, op:100};
 // 무료 한글 웹폰트 15종(구글 폰트). q가 있는 폰트만 필요할 때 로드 — 평소엔 선택된 폰트만, 환경설정 미리보기에서만 전체 로드.
 var HERO_FONTS=[
   {id:'',            nm:'기본 (노토 산스)',      css:'', q:''},
@@ -14705,6 +14709,7 @@ function _heroCfg(){
   o.img=String(o.img||'');
   o.fit=(o.fit==='contain'||o.fit==='pct')?o.fit:'cover';
   o.scale=Math.min(300,Math.max(10,parseInt(o.scale,10)||100));
+  o.sy=Math.min(300,Math.max(10,parseInt(o.sy,10)||100));
   var op=parseInt(o.op,10); o.op=isNaN(op)?100:Math.min(100,Math.max(0,op));
   return o;
 }
@@ -14727,7 +14732,7 @@ function _heroPaint(t,s,im,c,dataOk){
   if(ok){
     if(u.slice(0,5)!=='data:') u=u.replace(/"/g,'%22').replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\s/g,'%20');
     im.style.backgroundImage='url("'+u+'")';
-    im.style.backgroundSize=(c.fit==='contain')?'contain':(c.fit==='pct')?(c.scale+'% auto'):'cover';
+    im.style.backgroundSize=(c.fit==='contain')?'contain':(c.fit==='pct')?(c.scale+'% '+c.sy+'%'):'cover';
     im.style.opacity=String(c.op/100);
     im.style.display='block';
   } else { im.style.display='none'; }
@@ -14743,7 +14748,8 @@ function _heroApply(){
 function _heroFill(c){
   g('hh_t').value=c.t; g('hh_ts').value=c.ts; g('hh_tf').value=c.tf; g('hh_tc').value=c.tc;
   g('hh_u').value=c.u; g('hh_us').value=c.us; g('hh_uf').value=c.uf; g('hh_uc').value=c.uc;
-  g('hh_fit').value=c.fit; g('hh_scale').value=c.scale; g('hh_op').value=c.op;
+  g('hh_fit').value=c.fit; g('hh_scale').value=c.scale; g('hh_sy').value=c.sy; g('hh_op').value=c.op;
+  var lk=g('hh_lock'); if(lk) lk.checked=(c.scale===c.sy);   // 가로·세로가 같으면 대각선 모드로 시작
   var fi=g('hh_file'); if(fi) fi.value='';
   window._hhPick=null;
   _heroFitToggle();
@@ -14779,7 +14785,13 @@ function _heroPickFont(id,which){
 }
 function _heroFitToggle(){
   var w=g('hh_scale_wrap');
-  if(w) w.style.display=(g('hh_fit')||{}).value==='pct'?'':'none';
+  if(w) w.style.display=(g('hh_fit')||{}).value==='pct'?'inline-flex':'none';
+}
+// 크기 슬라이더 입력 — 대각선(함께 조절) 체크 시 가로·세로를 같은 값으로 동기화
+function _heroScaleInput(which){
+  var sx=g('hh_scale'), sy=g('hh_sy'), lk=g('hh_lock');
+  if(lk&&lk.checked&&sx&&sy){ if(which==='x') sy.value=sx.value; else sx.value=sy.value; }
+  _heroPrevDraw();
 }
 // 화면 입력값 → 설정 객체(이미지 제외 — 이미지는 _hhImg/_hhPick/파일선택으로 별도 관리)
 function _heroCollect(){
@@ -14787,7 +14799,7 @@ function _heroCollect(){
   return _heroCfgFrom({
     t:v('hh_t'), ts:v('hh_ts'), tf:v('hh_tf'), tc:v('hh_tc'),
     u:v('hh_u'), us:v('hh_us'), uf:v('hh_uf'), uc:v('hh_uc'),
-    fit:v('hh_fit'), scale:v('hh_scale'), op:v('hh_op'), img:String(window._hhImg||'')
+    fit:v('hh_fit'), scale:v('hh_scale'), sy:v('hh_sy'), op:v('hh_op'), img:String(window._hhImg||'')
   });
 }
 function _heroCfgFrom(raw){
@@ -14800,8 +14812,9 @@ function _heroCfgFrom(raw){
 function _heroPrevDraw(){
   var t=g('hhp_t'), s=g('hhp_s'), im=g('hhp_img');
   if(!t||!s||!im) return;
-  var sv1=g('hh_scale_v'), ov=g('hh_op_v');
+  var sv1=g('hh_scale_v'), sv2=g('hh_sy_v'), ov=g('hh_op_v');
   if(sv1) sv1.textContent=(g('hh_scale')||{}).value||'100';
+  if(sv2) sv2.textContent=(g('hh_sy')||{}).value||'100';
   if(ov) ov.textContent=(g('hh_op')||{}).value||'100';
   var c=_heroCollect();
   if(window._hhPick) c.img=window._hhPick;   // 방금 고른 파일은 dataURL로 미리보기

@@ -197,7 +197,8 @@
 ## 4.65 홈 화면 꾸미기 (herocfg, 2026-08-10)
 
 - 홈 상단 히어로(제목 `#hero_t`·부제 `#hero_s`·배경 `#hero_img`)를 환경설정 [홈 화면 꾸미기] 탭에서 편집.
-- 데이터: `herocfg = {t,ts,tf,tc, u,us,uf,uc, img,fit('cover'|'contain'|'pct'),scale,op}` — 동기화 키 `tops_herocfg`(텍스트·URL만, 함정 B).
+- 데이터: `herocfg = {t,ts,tf,tc, u,us,uf,uc, img,fit('cover'|'contain'|'pct'),scale(가로%),sy(세로%),op}` — 동기화 키 `tops_herocfg`(텍스트·URL만, 함정 B).
+  fit='pct'(크기 직접 조절)는 background-size `scale% sy%` — 가로/세로 슬라이더 + [대각선(함께 조절)] 체크(_heroScaleInput 동기화).
   `_heroCfg()`가 모든 저장값을 안전 범위로 정규화(크기 클램프, 색상 #rrggbb 정규식, 폰트 화이트리스트) — 외부 조작 데이터 방어.
 - 이미지: 홈 배경 시즌 사진(openHomeBgModal)과 **같은 Storage `home_bg/` 경로·업로더(`_homeBgUpload`) 재사용**,
   표시 전 `_HERO_URL_RE` 버킷 화이트리스트 + CSS 탈출 문자 제거(homebg와 동일 원칙). 투명도는 이미지 레이어(`.heroimg`)에만 적용.
