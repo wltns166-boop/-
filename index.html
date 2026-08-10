@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-10</div>
   </div>
 </div>
 
@@ -13193,6 +13193,17 @@ function _bizLoadForm(myName){
   if(!f.rank){ var me=mem.find(function(m){return m.name===myName;}); f.rank=(me&&me.rank)||'FA'; }
   while(f.prospects.length<10) f.prospects.push(_bizBlankProspect());
   while(f.recruits.length<5) f.recruits.push(_bizBlankRecruit());
+  // ③ 리쿠르팅 리스트에 등록된 내 카드의 대상자(이름·나이·직업)를 양식에 자동 채움 — 이름이 이미 있으면 건너뜀.
+  //    대상자를 양식에서 빼려면 리쿠르팅 리스트에서 카드를 삭제해야 함(카드가 남아 있으면 다시 채워짐).
+  try{
+    _rcCards().filter(function(c){ return c&&c.owner===myName&&_rcCardName(c); }).forEach(function(c){
+      var nm=_rcCardName(c);
+      if(f.recruits.some(function(p){ return p&&String(p.name||'').trim()===nm; })) return;
+      var row={name:nm, age:_rcCardAge(c), job:_rcCardJob(c)};
+      var empty=f.recruits.find(function(p){ return p&&!_bizRecruitNonEmpty(p); });
+      if(empty) Object.assign(empty,row); else f.recruits.push(Object.assign(_bizBlankRecruit(),row));
+    });
+  }catch(e){}
   _bizForm=f; _bizFormOwner=myName;
 }
 function bizFG(field,val){ if(_bizForm) _bizForm.goals[field]=val; }
@@ -13835,8 +13846,78 @@ async function saveBizForm(){
   if(prev){ bizplan.subs[bizplan.subs.indexOf(prev)]=obj; } else { bizplan.subs.push(obj); }
   sv('tops_bizplan',bizplan);
   try{ _driveSaveBizForm(myName, form, ts); }catch(e){ console.warn('biz form drive err:', e); }
+  try{ await _bizRecruitToCards(myName, form.recruits||[]); }catch(e){ console.warn('리쿠르팅 리스트 연동 오류:', e); }
   toast('사업계획서가 제출되었습니다!');
   rBizPlan();
+}
+
+// ===== 사업계획서 ↔ 리쿠르팅 리스트 연동 (2026-08-10) =====
+// 매칭은 "대상자 이름" 문자열 기준(동명이인 한계는 리쿠르팅 owner 이름 기준과 동일 계열).
+// 카드 값 매핑: vals.name=[이름,나이,거주지], vals.job=[현재직업,결혼여부] — 기본 양식(RC_DEF_FLDS) 키 기준.
+// 관리자가 양식 항목을 바꿔도 값은 이 키에 저장·보존되므로(_rcCollect의 숨은 값 유지) 연동은 계속 동작.
+function _rcCardName(c){ var v=c&&c.vals?c.vals.name:null; return String(Array.isArray(v)?(v[0]||''):(v||'')).trim(); }
+function _rcCardAge(c){ var v=c&&c.vals?c.vals.name:null; return Array.isArray(v)?String(v[1]||'').trim():''; }
+function _rcCardJob(c){ var v=c&&c.vals?c.vals.job:null; return String(Array.isArray(v)?(v[0]||''):(v||'')).trim(); }
+// ① 사업계획서 제출 → 양식의 리쿠르팅 대상자 중 리스트에 없는 이름은 카드 자동 생성(이름·나이·직업 채움)
+async function _bizRecruitToCards(owner, rows){
+  var wants=[];
+  (rows||[]).forEach(function(p){
+    var nm=String((p&&p.name)||'').trim(); if(!nm) return;
+    if(wants.some(function(w){ return w.nm===nm; })) return;   // 양식 안 중복 이름은 1회만
+    wants.push({nm:nm, age:String((p&&p.age)||'').trim(), job:String((p&&p.job)||'').trim()});
+  });
+  if(!wants.length||!owner) return;
+  var added=0;
+  await _rcFresh(function(r){
+    wants.forEach(function(w){
+      // 병합된 최신본 기준으로 같은 소유자·같은 이름 카드가 없을 때만 추가(중복 생성 방지)
+      if(r.cards.some(function(c){ return c&&c.owner===owner&&_rcCardName(c)===w.nm; })) return;
+      r.cards.push({ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:owner, ts:Date.now(), dt:tds(),
+        vals:{name:[w.nm, w.age, ''], job:[w.job, '']}, prints:[] });
+      added++;
+    });
+  });
+  if(added){
+    toast('리쿠르팅 리스트에 대상자 '+added+'장이 자동 등록되었습니다.');
+    try{ if(g('pg_recruit')&&g('pg_recruit').classList.contains('active')) rRecruit(); }catch(e){}
+  }
+}
+// ② 리쿠르팅 카드 저장 → 그 팀원의 사업계획서 양식(제출본)의 대상자 표에 이름·나이·직업 반영
+async function _rcCardToBiz(c){
+  var nm=_rcCardName(c); if(!nm) return;
+  var owner=String((c&&c.owner)||''); if(!owner) return;
+  var s=await _bizFreshSub(owner);
+  if(!s||!s.form||typeof s.form!=='object') return;   // 양식 제출 전이면 만들지 않음(가짜 제출 방지 — 양식을 열면 ③이 자동 채움)
+  var f=s.form;
+  if(!Array.isArray(f.recruits)) f.recruits=[];
+  var age=_rcCardAge(c), job=_rcCardJob(c);
+  var row=f.recruits.find(function(p){ return p&&String(p.name||'').trim()===nm; });
+  var changed=false;
+  if(!row){
+    row=Object.assign(_bizBlankRecruit(),{name:nm, age:age, job:job});
+    var empty=f.recruits.find(function(p){ return p&&!_bizRecruitNonEmpty(p); });
+    if(empty) Object.assign(empty,row); else f.recruits.push(row);
+    changed=true;
+  } else {
+    if(age&&String(row.age||'').trim()!==age){ row.age=age; changed=true; }
+    if(job&&String(row.job||'').trim()!==job){ row.job=job; changed=true; }
+  }
+  if(!changed) return;
+  sv('tops_bizplan',bizplan);
+  // 본인이 사업계획서 양식을 화면에 열어둔 상태면 작업본에도 같은 내용 반영(입력 중인 다른 값은 _bizForm에 실시간 반영되므로 보존됨)
+  try{
+    if(window._bizForm&&window._bizFormOwner===owner){
+      var wf=window._bizForm;
+      if(!Array.isArray(wf.recruits)) wf.recruits=[];
+      var wrow=wf.recruits.find(function(p){ return p&&String(p.name||'').trim()===nm; });
+      if(!wrow){
+        var wempty=wf.recruits.find(function(p){ return p&&!_bizRecruitNonEmpty(p); });
+        if(wempty) Object.assign(wempty,{name:nm, age:age, job:job});
+        else wf.recruits.push(Object.assign(_bizBlankRecruit(),{name:nm, age:age, job:job}));
+      } else { if(age) wrow.age=age; if(job) wrow.job=job; }
+      if(g('pg_bizplan')&&g('pg_bizplan').classList.contains('active')) rBizPlan(true);
+    }
+  }catch(e){}
 }
 
 // ===== 리쿠르팅 리스트 (2026-08-05) =====
@@ -14140,6 +14221,7 @@ async function saveRcCard(){
     if(i>=0) r.cards[i]=c; else r.cards.push(c);
   });
   if(window._rcDraft&&window._rcDraft.id===c.id) window._rcDraft=null;   // 기본 1페이지 초안이 실제 카드로 등록됨
+  try{ await _rcCardToBiz(c); }catch(e){ console.warn('사업계획서 연동 오류:', e); }
   toast('리쿠르팅 카드가 저장되었습니다.');
   rRecruit();
 }
