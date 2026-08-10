@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-11</div>
   </div>
 </div>
 
@@ -13855,9 +13855,19 @@ async function saveBizForm(){
 // 매칭은 "대상자 이름" 문자열 기준(동명이인 한계는 리쿠르팅 owner 이름 기준과 동일 계열).
 // 카드 값 매핑: vals.name=[이름,나이,거주지], vals.job=[현재직업,결혼여부] — 기본 양식(RC_DEF_FLDS) 키 기준.
 // 관리자가 양식 항목을 바꿔도 값은 이 키에 저장·보존되므로(_rcCollect의 숨은 값 유지) 연동은 계속 동작.
-function _rcCardName(c){ var v=c&&c.vals?c.vals.name:null; return String(Array.isArray(v)?(v[0]||''):(v||'')).trim(); }
-function _rcCardAge(c){ var v=c&&c.vals?c.vals.name:null; return Array.isArray(v)?String(v[1]||'').trim():''; }
-function _rcCardJob(c){ var v=c&&c.vals?c.vals.job:null; return String(Array.isArray(v)?(v[0]||''):(v||'')).trim(); }
+// 세부 칸 위치는 현재 양식(flds)의 칸 이름으로 찾는다 — 관리자가 항목 관리에서 칸 순서를 바꿔도
+// "이름/나이/직업" 라벨이 있으면 올바른 위치를 읽음(라벨에 키워드가 없으면 기본 위치로 폴백).
+function _rcSubIdx(fid, kw, def){
+  try{
+    var f=_rcFlds().find(function(x){ return x.id===fid; });
+    if(!f||!Array.isArray(f.subs)||!f.subs.length) return def;
+    for(var i=0;i<f.subs.length;i++){ if(String(f.subs[i]).indexOf(kw)>=0) return i; }
+  }catch(e){}
+  return def;
+}
+function _rcCardName(c){ var v=c&&c.vals?c.vals.name:null; return String(Array.isArray(v)?(v[_rcSubIdx('name','이름',0)]||''):(v||'')).trim(); }
+function _rcCardAge(c){ var v=c&&c.vals?c.vals.name:null; return Array.isArray(v)?String(v[_rcSubIdx('name','나이',1)]||'').trim():''; }
+function _rcCardJob(c){ var v=c&&c.vals?c.vals.job:null; return String(Array.isArray(v)?(v[_rcSubIdx('job','직업',0)]||''):(v||'')).trim(); }
 // ① 사업계획서 제출 → 양식의 리쿠르팅 대상자 중 리스트에 없는 이름은 카드 자동 생성(이름·나이·직업 채움)
 async function _bizRecruitToCards(owner, rows){
   var wants=[];
@@ -13872,8 +13882,23 @@ async function _bizRecruitToCards(owner, rows){
     wants.forEach(function(w){
       // 병합된 최신본 기준으로 같은 소유자·같은 이름 카드가 없을 때만 추가(중복 생성 방지)
       if(r.cards.some(function(c){ return c&&c.owner===owner&&_rcCardName(c)===w.nm; })) return;
+      // 값 위치는 현재 양식의 칸 이름 기준(_rcSubIdx) — 칸 순서가 바뀐 커스텀 양식에서도 올바른 자리에 기록.
+      // 양식에서 세부 칸을 없앤 필드는 배열 대신 단일 텍스트로 저장(화면 미표시·저장 시 유실 방지 — 2026-08-10 리뷰).
+      var fldN=null, fldJ=null, q;
+      try{ fldN=_rcFlds().find(function(x){ return x.id==='name'; }); fldJ=_rcFlds().find(function(x){ return x.id==='job'; }); }catch(e){}
+      var nameVal, jobVal;
+      if(fldN&&Array.isArray(fldN.subs)&&fldN.subs.length){
+        var ni=_rcSubIdx('name','이름',0), ai=_rcSubIdx('name','나이',1);
+        nameVal=[]; for(q=0;q<=Math.max(ni,ai);q++) nameVal[q]='';
+        nameVal[ni]=w.nm; nameVal[ai]=w.age;
+      } else nameVal=w.nm;
+      if(fldJ&&Array.isArray(fldJ.subs)&&fldJ.subs.length){
+        var ji=_rcSubIdx('job','직업',0);
+        jobVal=[]; for(q=0;q<=ji;q++) jobVal[q]='';
+        jobVal[ji]=w.job;
+      } else jobVal=w.job;
       r.cards.push({ id:'rc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), owner:owner, ts:Date.now(), dt:tds(),
-        vals:{name:[w.nm, w.age, ''], job:[w.job, '']}, prints:[] });
+        vals:{name:nameVal, job:jobVal}, prints:[] });
       added++;
     });
   });

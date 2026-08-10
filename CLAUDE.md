@@ -298,7 +298,8 @@
   ⚠️ [출력]/[PDF]의 _rcFresh 경유 저장은 미저장 버퍼(_rcDirty)도 함께 영구 저장함(설계상 의도 — 데이터 보존 우선).
 - **PDF 저장**: `rcSavePdf` — 기존 `_drEnsureLibs`/`_drPdfFromCanvas`(html2canvas+jsPDF) 재사용, 파일 다운로드.
 - **사업계획서 연동 (2026-08-10)**: 대상자 이름 문자열 기준 양방향(동명이인 한계 동일 계열). 카드 값 매핑은
-  `vals.name=[이름,나이,거주지]`/`vals.job=[직업,결혼]`(RC_DEF_FLDS 키 — 커스텀 양식이어도 이 키에 저장돼 유지).
+  `vals.name`/`vals.job` 키 — 세부 칸 위치는 **칸 라벨로 탐색**(`_rcSubIdx('name','이름',0)` 등, 순서 변경에 안전),
+  양식에서 세부 칸을 없앤 필드는 단일 텍스트로 저장(배열이 화면에 안 보여 저장 시 유실되던 리뷰 지적 반영).
   ① `saveBizForm`→`_bizRecruitToCards`: 양식의 대상자 중 리스트에 없는 이름은 카드 자동 생성(_rcFresh 병합 안에서 중복 검사).
   ② `saveRcCard`→`_rcCardToBiz`: 제출된 양식(sub.form)이 있으면 대상자 표에 행 추가/나이·직업 갱신(_bizFreshSub 경유,
   제출본 없으면 생성하지 않음 — 가짜 제출 방지). 본인이 양식을 열어둔 상태면 작업본(_bizForm)에도 반영.
