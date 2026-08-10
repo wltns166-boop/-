@@ -236,7 +236,9 @@ table.dt tr:last-child td{border-bottom:none;}
   .pg{padding:14px 12px;}
   /* 큰 타이틀 축소 */
   .hero{padding:6px 0 14px;}
-  .hero .ht,.ht_keep{font-size:34px!important;letter-spacing:3px;}
+  /* 제목은 설정 크기(--hero-ts)를 존중하되 화면 폭(10vw)까지만 — 설정이 작으면 그대로, 크면 자동 축소 */
+  .hero .ht{font-size:min(var(--hero-ts,70px),10vw)!important;letter-spacing:3px;}
+  .ht_keep{font-size:34px!important;letter-spacing:3px;}
   .hsub{font-size:11px;letter-spacing:2px;}
   /* 그리드 1~2열로 접기 */
   .hg{grid-template-columns:1fr;}
@@ -363,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-2</div>
   </div>
 </div>
 
@@ -731,7 +733,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="card" id="ns_tab_hero" style="display:none">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-brush"></i> 홈 화면 꾸미기</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
-          홈 화면 상단의 <b>제목·부제 문구와 배경 이미지</b>를 바꿉니다. 아래 미리보기에서 바로 확인하고, <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
+          홈 화면 상단의 <b>제목·부제 문구와 배경 이미지</b>를 바꿉니다. 아래 미리보기에서 바로 확인하고, <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.<br>
+          휴대폰처럼 좁은 화면에서는 제목이 화면 폭에 맞게 자동 축소되어 표시됩니다.
         </div>
         <div id="hh_prev" style="position:relative;overflow:hidden;border:1px solid #e2e4f0;border-radius:10px;background:#fff;text-align:center;padding:13px 0 24px;margin-bottom:14px">
           <div class="heroimg" id="hhp_img" style="display:none"></div>
@@ -14711,6 +14714,7 @@ function _heroPaint(t,s,im,c,dataOk){
   var ft=_heroFontById(c.tf), fu=_heroFontById(c.uf);
   t.textContent=c.t;
   t.style.fontSize=c.ts+'px';
+  t.style.setProperty('--hero-ts', c.ts+'px');   // 모바일 미디어쿼리(min(--hero-ts,10vw))가 설정 크기를 알 수 있게
   t.style.fontFamily=ft.css;
   t.style.color=c.tc;
   s.textContent=c.u;
