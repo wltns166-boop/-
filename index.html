@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-5</div>
   </div>
 </div>
 
@@ -1251,6 +1251,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
           <div id="mt_list_ttl" style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원별 미팅 현황</div>
           <select id="mt_team_sel" onchange="rMeetingList()" style="padding:6px 10px;font-size:13.5px;font-weight:700;background:#fff;color:#2a2a4a;border:1px solid #ccd2ec;border-radius:7px;font-family:inherit;cursor:pointer"></select>
+          <button id="mt_targets_btn" onclick="mtTargetsOpen()" style="display:none;padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-user-cog"></i> 작성 대상자 관리</button>
         </div>
         <div style="overflow-x:auto">
           <table class="dt" style="min-width:520px">
@@ -3120,6 +3121,7 @@ async function loadFromFirestore(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -3188,6 +3190,7 @@ function startRealtimeSync(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -12807,6 +12810,10 @@ function rMeetingList(){
   var tb=g('mt_list_tb'); if(!tb) return;
   var ym=_mtYm(), names=_mtRoster();
   var ttl=g('mt_list_ttl'); if(ttl) ttl.innerHTML='<i class="ti ti-users"></i> 팀원별 미팅 현황 · '+_mtYmLabel(ym);
+  var tbtn=g('mt_targets_btn'); if(tbtn) tbtn.style.display=_isAdmin()?'':'none';
+  // 작성 대상자 명단 필터(비어있으면 전체 — 리쿠르팅 rc_targets와 동일 패턴)
+  var tg=_mtTargets();
+  if(tg) names=names.filter(function(n){ return tg.indexOf(n)>=0; });
   // 팀별 필터 드롭다운 — 팀장(하위 인원 보유자) 목록으로 채우고, 선택 시 그 팀(하위 포함)만 표시
   var tSel=g('mt_team_sel');
   if(tSel){
@@ -12853,6 +12860,66 @@ function mtSaveNote(){
   var ta=g('mt_note'); if(ta) _mtLoadedNote=ta.value;   // 저장됨 → 미저장 상태 해제
   toast(name+'님 '+_mtYmLabel(ym)+' 미팅 내용이 저장되었습니다.');
   rMeetingList();
+}
+// ── 작성 대상자 명단 (관리자 전용, 리쿠르팅 rc_targets와 동일 패턴) ──
+// _mtCfg = {targets:[이름...]} — 동기화 키 tops_mtcfg(텍스트만). 빈 배열=전체 표시.
+// 필터는 팀원별 미팅 현황 표(rMeetingList)에만 적용 — 표1 팀원 선택·기록 권한(_mtRoster)은 무관.
+var _mtCfg; try{ _mtCfg=JSON.parse(localStorage.getItem('tops_mtcfg')||'null'); }catch(e){ _mtCfg=null; }
+if(!_mtCfg||typeof _mtCfg!=='object'||Array.isArray(_mtCfg)) _mtCfg={targets:[]};
+if(!Array.isArray(_mtCfg.targets)) _mtCfg.targets=[];
+function _mtTargets(){
+  var t=(_mtCfg&&Array.isArray(_mtCfg.targets))?_mtCfg.targets.filter(function(n){return typeof n==='string'&&n.trim();}):[];
+  return t.length?t:null;
+}
+function mtTargetsOpen(){
+  if(!_isAdmin()){ toast('관리자만 관리할 수 있습니다.'); return; }
+  var old=g('mt_targets_pop'); if(old) old.remove();
+  var cur=_mtTargets();
+  var members=(mem||[]).filter(function(m){ return m&&m.name&&m.name.trim()&&!m.suspended; })
+    .sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+  var sb='padding:5px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;';
+  var ov=document.createElement('div');
+  ov.id='mt_targets_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,40,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px"><i class="ti ti-user-cog"></i> 미팅 작성 대상자 관리</div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">체크된 구성원만 팀원별 미팅 현황에 표시됩니다.<br>전원 체크(또는 전원 해제)하고 저장하면 전체 표시로 돌아갑니다.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +'<button data-mttall="1" style="'+sb+'">전체 선택</button>'
+    +'<button data-mttall="0" style="'+sb+'">전체 해제</button>'
+    +'</div>'
+    +'<div style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;padding:8px;min-height:120px">'
+    +members.map(function(m){
+      var on=cur?cur.indexOf(m.name)>=0:true;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:13.5px;color:#1a1a2e;cursor:pointer;border-radius:6px">'
+        +'<input type="checkbox" data-mtt="'+_esc(m.name)+'"'+(on?' checked':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
+        +_esc(m.name)+' <span style="color:#9090bb;font-size:12px">'+_esc(m.rank||'')+'</span></label>';
+    }).join('')
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
+    +'<button onclick="document.getElementById(\'mt_targets_pop\').remove()" style="'+sb+'padding:8px 16px">취소</button>'
+    +'<button onclick="mtTargetsSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:7px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-mttall]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var on=b.getAttribute('data-mttall')==='1';
+      ov.querySelectorAll('input[data-mtt]').forEach(function(c){ c.checked=on; });
+    });
+  });
+}
+function mtTargetsSave(){
+  if(!_isAdmin()) return;
+  var boxes=document.querySelectorAll('#mt_targets_pop input[data-mtt]');
+  var names=[];
+  boxes.forEach(function(c){ if(c.checked) names.push(c.getAttribute('data-mtt')); });
+  var all=(!names.length||names.length===boxes.length);
+  _mtCfg={targets:all?[]:names};
+  sv('tops_mtcfg',_mtCfg);   // 관리자 전용·저빈도라 last-write-wins 수용(navcfg·sansites와 동일)
+  var p=g('mt_targets_pop'); if(p) p.remove();
+  rMeetingList();
+  toast(all?'전체 표시로 저장되었습니다.':'작성 대상자 '+names.length+'명으로 저장되었습니다.');
 }
 // 미팅 진행 여부 토글
 function mtToggleDone(name){
