@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/insurance-claim-document-reuse-fdje8i` (2026-08-07부터. 이전: claude/team-tops-intranet-continue-7wnjzh)
+- 작업 브랜치: `claude/team-tops-handoff-prompt-o9j855` (2026-08-10부터. 이전: claude/insurance-claim-document-reuse-fdje8i → claude/team-tops-intranet-continue-7wnjzh)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -194,6 +194,19 @@
   행 조작 전 `_sanCollect()`가 화면 입력값을 id 기준으로 회수(함정 A 안전). 링크는 http/https 강제(`_sanUrlClean` — javascript: 무력화).
 - 렌더 훅: login() 직후(로컬 캐시), 클라우드 초기 로드·onSnapshot의 `d.sansites`, 홈 강제 재렌더 배열. 열람 전원, 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
 
+## 4.65 홈 화면 꾸미기 (herocfg, 2026-08-10)
+
+- 홈 상단 히어로(제목 `#hero_t`·부제 `#hero_s`·배경 `#hero_img`)를 환경설정 [홈 화면 꾸미기] 탭에서 편집.
+- 데이터: `herocfg = {t,ts,tf,tc, u,us,uf,uc, img,fit('cover'|'contain'|'pct'),scale,op}` — 동기화 키 `tops_herocfg`(텍스트·URL만, 함정 B).
+  `_heroCfg()`가 모든 저장값을 안전 범위로 정규화(크기 클램프, 색상 #rrggbb 정규식, 폰트 화이트리스트) — 외부 조작 데이터 방어.
+- 이미지: 홈 배경 시즌 사진(openHomeBgModal)과 **같은 Storage `home_bg/` 경로·업로더(`_homeBgUpload`) 재사용**,
+  표시 전 `_HERO_URL_RE` 버킷 화이트리스트 + CSS 탈출 문자 제거(homebg와 동일 원칙). 투명도는 이미지 레이어(`.heroimg`)에만 적용.
+- 글씨체: `HERO_FONTS` 15종(구글 폰트, 기본 포함 16 항목) — **선택된 폰트만** `_heroFontLoad`로 지연 로드,
+  환경설정 탭에서만 전체 로드(미리보기 갤러리·셀렉트). 새 폰트 추가 시 css2 쿼리(q)만 추가하면 됨.
+- 렌더 훅: 부팅(로컬 캐시)·login()·loadFromFirestore·onSnapshot 네 곳에서 `_heroApply()` (sansites와 같은 패턴).
+- 편집 화면: 저장 전 미리보기(`hh_prev`, 방금 고른 파일은 dataURL로 미리보기만 — 저장 시엔 Storage URL만 기록),
+  [기본값 복원]은 화면만 되돌리고 [저장]해야 반영. 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
+
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 
 - 고객등록 폼 특이사항 옆 업로드 박스(`#cust_alien_box`) — 사진·PDF, 파일선택(모바일 사진첩)·붙여넣기(Ctrl+V)·드래그앤드롭.
@@ -368,7 +381,7 @@
 5. 가능하면 핵심 로직을 작은 node 스크립트로 **모의 실행** 검증.
 6. **의미 있는 변경이면** `intranet-guard` + `code-reviewer` 에이전트를 자동 호출해 점검 (1.5 규칙).
 7. **gs(서버) 코드를 바꿨는지** 확인 → 바꿨으면 재배포 필요 안내. (index.html만 고쳤으면 재배포 불필요)
-8. 커밋 후 `claude/team-tops-intranet-continue-7wnjzh` 로 푸시. (⚠️ `claude/**` 브랜치는 푸시 즉시 GitHub Actions가 라이브 배포함)
+8. 커밋 후 **1장의 현재 작업 브랜치**로 푸시. (⚠️ `claude/**` 브랜치는 푸시 즉시 GitHub Actions가 라이브 배포함 — 낡은 브랜치에서 푸시하면 옛 코드가 배포되니, 반드시 최신 작업 브랜치 위에서 작업할 것)
 
 ## 8. 새 세션 인계
 
