@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-8</div>
   </div>
 </div>
 
@@ -3121,7 +3121,7 @@ async function loadFromFirestore(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
-    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -3190,7 +3190,7 @@ function startRealtimeSync(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
-    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -12772,17 +12772,22 @@ function rMeeting(){
     for(var mo=1;mo<=12;mo++) mh+='<option value="'+mo+'"'+(mo===nowM?' selected':'')+'>'+mo+'월</option>';
     if(ms) ms.innerHTML=mh;
   }
-  // 팀원 선택 채우기 (구성원 변경 대비 매번 갱신, 기존 선택은 유지)
-  var sel=g('mt_mem');
-  if(sel){
-    var keep=sel.value, names=_mtRoster();
-    sel.innerHTML='<option value="">팀원 선택</option>'+names.map(function(n){
-      var mm=mem.find(function(x){return x.name===n;});
-      return '<option value="'+_esc(n)+'"'+(n===keep?' selected':'')+'>'+_esc(n)+((mm&&mm.rank)?' ('+_esc(mm.rank)+')':'')+'</option>';
-    }).join('');
-  }
+  _mtMemFill();
   rMeetingSec1();
   rMeetingList();
+}
+// 팀원 선택 드롭다운 채우기 (구성원 변경 대비 매번 갱신, 기존 선택은 유지)
+// 작성 대상자 명단(_mtTargets)이 있으면 명단에 든 팀원만 표시. 반환값=기존 선택 유지 여부.
+function _mtMemFill(){
+  var sel=g('mt_mem'); if(!sel) return true;
+  var keep=sel.value, names=_mtRoster();
+  var tg=_mtTargets();
+  if(tg) names=names.filter(function(n){ return tg.indexOf(n)>=0; });
+  sel.innerHTML='<option value="">팀원 선택</option>'+names.map(function(n){
+    var mm=mem.find(function(x){return x.name===n;});
+    return '<option value="'+_esc(n)+'"'+(n===keep?' selected':'')+'>'+_esc(n)+((mm&&mm.rank)?' ('+_esc(mm.rank)+')':'')+'</option>';
+  }).join('');
+  return !keep||sel.value===keep;
 }
 // 표1: 선택한 팀원의 해당 월 주마감보고(주차별) + 특이사항 입력
 function rMeetingSec1(){
@@ -12920,7 +12925,7 @@ function mtSaveNote(){
 }
 // ── 작성 대상자 명단 (관리자 전용, 리쿠르팅 rc_targets와 동일 패턴) ──
 // _mtCfg = {targets:[이름...]} — 동기화 키 tops_mtcfg(텍스트만). 빈 배열=전체 표시.
-// 필터는 팀원별 미팅 현황 표(rMeetingList)에만 적용 — 표1 팀원 선택·기록 권한(_mtRoster)은 무관.
+// 필터는 팀원별 미팅 현황 표(rMeetingList)와 표1 팀원 선택 드롭다운(_mtMemFill)에 적용 — 기록 권한(_mtRoster)은 무관.
 var _mtCfg; try{ _mtCfg=JSON.parse(localStorage.getItem('tops_mtcfg')||'null'); }catch(e){ _mtCfg=null; }
 if(!_mtCfg||typeof _mtCfg!=='object'||Array.isArray(_mtCfg)) _mtCfg={targets:[]};
 if(!Array.isArray(_mtCfg.targets)) _mtCfg.targets=[];
@@ -12975,6 +12980,7 @@ function mtTargetsSave(){
   _mtCfg={targets:all?[]:names};
   sv('tops_mtcfg',_mtCfg);   // 관리자 전용·저빈도라 last-write-wins 수용(navcfg·sansites와 동일)
   var p=g('mt_targets_pop'); if(p) p.remove();
+  if(!_mtMemFill()) rMeetingSec1();   // 선택 중이던 팀원이 명단에서 빠졌으면 표1 초기화
   rMeetingList();
   toast(all?'전체 표시로 저장되었습니다.':'작성 대상자 '+names.length+'명으로 저장되었습니다.');
 }

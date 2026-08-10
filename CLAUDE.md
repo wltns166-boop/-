@@ -216,8 +216,10 @@
 
 - 팀원별 미팅 현황 표 머리의 [작성 대상자 관리](`mt_targets_btn`, 관리자 전용 체크박스 모달 `mtTargetsOpen`).
 - 데이터: `_mtCfg={targets:[이름...]}` — 동기화 키 `tops_mtcfg`(텍스트만). **빈 배열=전체 표시**(리쿠르팅 rc_targets와 동일 패턴·수용 한계도 동일: last-write-wins, 이름 문자열 기반).
-- 필터는 **현황 표(rMeetingList)에만** 적용 — 표1 팀원 선택 드롭다운·기록 권한(`_mtRoster`)은 건드리지 않음(리더가 명단 밖 팀원 미팅을 기록하는 것은 그대로 가능).
-- 로드 훅: 부팅(로컬 캐시)·loadFromFirestore·onSnapshot의 `d.mtcfg`(herocfg와 같은 패턴, 수신 시 rMeetingList 재렌더).
+- 필터 적용: **현황 표(rMeetingList) + 표1 팀원 선택 드롭다운(`_mtMemFill`, 2026-08-10 확장)**. 기록 권한(`_mtRoster`)은 그대로
+  (명단 밖 팀원 기록도 데이터상 가능·기존 데이터 열람은 [보기] 경로 유지). 명단 저장 시 선택 중이던 팀원이 빠지면 표1 초기화.
+  실시간 수신 시엔 드롭다운만 갱신(rMeetingSec1 재렌더 안 함 — 편집 중 특이사항 보호).
+- 로드 훅: 부팅(로컬 캐시)·loadFromFirestore·onSnapshot의 `d.mtcfg`(herocfg와 같은 패턴, 수신 시 _mtMemFill+rMeetingList 재렌더).
 - **주차별 피드백 (2026-08-10)**: 표1 주마감보고 표에 [피드백] 열(작성완료/미작성 버튼) — 클릭 시 주차 행 아래 입력행 토글.
   저장은 `meetings[].wnotes={주차키:{note,by,ts}}`(동기화 포함, 텍스트만). 주차키('YYYY-MM-DD')가 식별자(함정 A)·정규식 가드.
   저장 시 전체 재렌더 대신 **버튼·입력행만 갱신**(월 특이사항 칸 미저장 입력 보존), 미저장 감지는 `data-orig` 비교(`_mtFbDirty` —
