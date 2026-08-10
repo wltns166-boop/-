@@ -222,7 +222,8 @@
   저장은 `meetings[].wnotes={주차키:{note,by,ts}}`(동기화 포함, 텍스트만). 주차키('YYYY-MM-DD')가 식별자(함정 A)·정규식 가드.
   저장 시 전체 재렌더 대신 **버튼·입력행만 갱신**(월 특이사항 칸 미저장 입력 보존), 미저장 감지는 `data-orig` 비교(`_mtFbDirty` —
   년/월/팀원 이동 가드 `_mtGuardUnsaved`에 포함). [보기] 새 창 주차 표에도 피드백 열 표시. 월 특이사항(mtSaveNote·mtToggleDone)은
-  Object.assign 복사라 wnotes 자동 보존.
+  Object.assign 복사라 wnotes 자동 보존. showPage 진입부에도 같은 가드(pg_meeting active + 미저장 시 confirm) —
+  사이드바 메뉴 이동으로 미저장 입력이 조용히 날아가던 기존 구멍 보완(2026-08-10 리뷰).
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 
