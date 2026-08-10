@@ -226,6 +226,10 @@
   년/월/팀원 이동 가드 `_mtGuardUnsaved`에 포함). [보기] 새 창 주차 표에도 피드백 열 표시. 월 특이사항(mtSaveNote·mtToggleDone)은
   Object.assign 복사라 wnotes 자동 보존. showPage 진입부에도 같은 가드(pg_meeting active + 미저장 시 confirm) —
   사이드바 메뉴 이동으로 미저장 입력이 조용히 날아가던 기존 구멍 보완(2026-08-10 리뷰).
+- **주차별 미팅 내용 (2026-08-10)**: 특이사항 영역이 주차별 입력칸(`#mt_wm_box`, data-mtwm=주차키)+월 종합 메모(`mt_note`)로 구성.
+  저장은 `meetings[].wmeet={주차키:{note,by,ts}}`(mtSaveNote가 월 메모와 함께 일괄 저장·빈 칸은 삭제, 텍스트만).
+  미저장 감지 `_mtWmDirty`(data-orig) — 이동 가드·대상자 저장 시 초기화 확인에 포함. [보기] 새 창도 주차별+월 종합 표시.
+  주차별 "피드백"(wnotes, 표1 피드백 열)과는 별개 필드 — 피드백=주마감보고에 대한 코멘트, wmeet=미팅에서 나눈 내용.
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 

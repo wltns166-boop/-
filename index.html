@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-9</div>
   </div>
 </div>
 
@@ -1242,6 +1242,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
         <div style="margin-top:14px">
           <div style="font-weight:600;font-size:14px;color:#3a3a5a;margin-bottom:6px"><i class="ti ti-pencil"></i> 특이사항 (미팅 내용)</div>
+          <div id="mt_wm_box"></div>
+          <div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:4px">월 종합 메모</div>
           <textarea id="mt_note" rows="4" style="width:100%;resize:vertical;padding:10px 13px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#1a1f3a;font-size:15px;line-height:1.6;outline:none;font-family:inherit;box-sizing:border-box"></textarea>
           <div style="text-align:right;margin-top:10px"><button class="bp bpd" onclick="mtSaveNote()"><i class="ti ti-device-floppy"></i> 저장</button></div>
         </div>
@@ -12735,12 +12737,18 @@ function _mtNoteDirty(){
   return !!(ta && !ta.disabled && ta.value!==_mtLoadedNote);
 }
 function _mtGuardUnsaved(){
-  if(!_mtNoteDirty()&&!_mtFbDirty()) return true;
+  if(!_mtNoteDirty()&&!_mtFbDirty()&&!_mtWmDirty()) return true;
   return confirm('저장하지 않은 특이사항이 있습니다.\n이동하면 입력한 내용이 사라집니다. 계속할까요?');
 }
 // 주차별 피드백 입력칸의 미저장 변경 감지(data-orig=마지막 저장값)
 function _mtFbDirty(){
   var ts=document.querySelectorAll('textarea[id^="mtfb_t_"]');
+  for(var i=0;i<ts.length;i++){ if(ts[i].value!==(ts[i].getAttribute('data-orig')||'')) return true; }
+  return false;
+}
+// 주차별 미팅 내용 칸의 미저장 변경 감지(같은 방식)
+function _mtWmDirty(){
+  var ts=document.querySelectorAll('#mt_wm_box textarea[data-mtwm]');
   for(var i=0;i<ts.length;i++){ if(ts[i].value!==(ts[i].getAttribute('data-orig')||'')) return true; }
   return false;
 }
@@ -12821,12 +12829,30 @@ function rMeetingSec1(){
       }).join('')||'<tr><td colspan="'+(WC_FIELDS.length+3)+'" class="em">해당 월에 주차가 없습니다.</td></tr>';
     }
   }
+  // 주차별 미팅 내용 입력칸 (meetings[].wmeet={주차키:{note,by,ts}} — 텍스트만, 동기화 포함)
+  var wmBox=g('mt_wm_box');
+  if(wmBox){
+    if(!name){ wmBox.innerHTML=''; }
+    else {
+      var wks2=_mtWeeksOf(ym);
+      var mrec2=mtRec(name,ym), wms=(mrec2&&mrec2.wmeet&&typeof mrec2.wmeet==='object')?mrec2.wmeet:{};
+      wmBox.innerHTML=wks2.map(function(wk,i){
+        var s2=new Date(wk),e2=new Date(wk); e2.setDate(e2.getDate()+6);
+        var lbl=(i+1)+'주차 ('+(s2.getMonth()+1)+'/'+s2.getDate()+' ~ '+(e2.getMonth()+1)+'/'+e2.getDate()+')';
+        var wnote=(wms[wk]&&wms[wk].note)?String(wms[wk].note):'';
+        return '<div style="margin-bottom:10px">'
+          +'<div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:4px">'+lbl+'</div>'
+          +'<textarea data-mtwm="'+wk+'" data-orig="'+_esc(wnote)+'" rows="2" placeholder="이 주차 미팅에서 나눈 내용을 입력하세요." style="width:100%;resize:vertical;padding:8px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#1a1f3a;font-size:14.5px;line-height:1.6;outline:none;font-family:inherit;box-sizing:border-box">'+_esc(wnote)+'</textarea>'
+          +'</div>';
+      }).join('');
+    }
+  }
   var ta=g('mt_note');
   if(ta){
     var rec=name?mtRec(name,ym):null;
     ta.value=(rec&&rec.note)||'';
     ta.disabled=!name;
-    ta.placeholder=name?(_mtYmLabel(ym)+' 미팅에서 나눈 내용·특이사항을 입력하세요.'):'먼저 위에서 팀원을 선택하세요.';
+    ta.placeholder=name?(_mtYmLabel(ym)+' 월 전체 종합 메모를 입력하세요. (주차별 내용은 위 칸에)'):'먼저 위에서 팀원을 선택하세요.';
     _mtLoadedNote=ta.value;   // 미저장 감지 기준값 갱신
   }
   _mtSel={y:g('mt_year')?g('mt_year').value:'', m:g('mt_month')?g('mt_month').value:'', mem:name};   // 취소 시 복원용
@@ -12915,11 +12941,23 @@ function mtSaveNote(){
   var prev=mtRec(name,ym);
   var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false};
   obj.note=g('mt_note')?g('mt_note').value.trim():'';
+  // 주차별 미팅 내용도 함께 저장 (비운 주차는 삭제)
+  var wm=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
+  var wmTa=document.querySelectorAll('#mt_wm_box textarea[data-mtwm]');
+  wmTa.forEach(function(t){
+    var wk=t.getAttribute('data-mtwm');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
+    var v=t.value.trim();
+    if(v) wm[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
+    else delete wm[wk];
+  });
+  obj.wmeet=wm;
   obj.by=cu?cu.name:''; obj.ts=Date.now();
   var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
   if(i>=0) meetings[i]=obj; else meetings.push(obj);
   sv('tops_meetings',meetings);
   var ta=g('mt_note'); if(ta) _mtLoadedNote=ta.value;   // 저장됨 → 미저장 상태 해제
+  wmTa.forEach(function(t){ t.setAttribute('data-orig', t.value.trim()); t.value=t.value.trim(); });   // 주차별 칸도 기준값 갱신
   toast(name+'님 '+_mtYmLabel(ym)+' 미팅 내용이 저장되었습니다.');
   rMeetingList();
 }
@@ -12980,7 +13018,11 @@ function mtTargetsSave(){
   _mtCfg={targets:all?[]:names};
   sv('tops_mtcfg',_mtCfg);   // 관리자 전용·저빈도라 last-write-wins 수용(navcfg·sansites와 동일)
   var p=g('mt_targets_pop'); if(p) p.remove();
-  if(!_mtMemFill()) rMeetingSec1();   // 선택 중이던 팀원이 명단에서 빠졌으면 표1 초기화
+  // 선택 중이던 팀원이 명단에서 빠졌으면 표1 초기화 — 미저장 입력이 있으면 확인 후(취소 시 화면 유지)
+  if(!_mtMemFill()){
+    if((!_mtNoteDirty()&&!_mtFbDirty()&&!_mtWmDirty())
+      || confirm('저장하지 않은 미팅 내용이 있습니다.\n선택 중이던 팀원이 명단에서 빠져 화면을 초기화하면 사라집니다. 초기화할까요?')) rMeetingSec1();
+  }
   rMeetingList();
   toast(all?'전체 표시로 저장되었습니다.':'작성 대상자 '+names.length+'명으로 저장되었습니다.');
 }
@@ -13037,6 +13079,17 @@ function mtView(name){
       +(rec&&rec.by?' &nbsp;|&nbsp; 작성자: '+esc(rec.by):'')
       +(rec&&rec.ts?' &nbsp;|&nbsp; 저장: '+esc(new Date(rec.ts).toLocaleString('ko-KR')):'')+'</div>'
     +'<h3>📝 특이사항 (미팅 내용)</h3>'
+    +(function(){
+      var wms=(rec&&rec.wmeet&&typeof rec.wmeet==='object')?rec.wmeet:{};
+      return weeks.map(function(wk,i){
+        var s2=new Date(wk),e2=new Date(wk); e2.setDate(e2.getDate()+6);
+        var lbl=(i+1)+'주차 ('+(s2.getMonth()+1)+'/'+s2.getDate()+' ~ '+(e2.getMonth()+1)+'/'+e2.getDate()+')';
+        var wnote=(wms[wk]&&wms[wk].note)?String(wms[wk].note):'';
+        return '<div style="font-size:13.5px;font-weight:700;color:#4a5090;margin:10px 0 4px">'+esc(lbl)+'</div>'
+          +'<div class="note" style="min-height:24px">'+(wnote?esc(wnote):'<span style="color:#999">-</span>')+'</div>';
+      }).join('');
+    })()
+    +'<div style="font-size:13.5px;font-weight:700;color:#4a5090;margin:10px 0 4px">월 종합 메모</div>'
     +'<div class="note">'+(rec&&rec.note?esc(rec.note):'<span style="color:#999">작성된 미팅 내용이 없습니다.</span>')+'</div>'
     +'<h3>📋 '+esc(_mtYmLabel(ym))+' 주마감보고</h3>'
     +'<div style="overflow-x:auto"><table>'+wcHead+wcRows+'</table></div>'
