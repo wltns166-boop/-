@@ -218,6 +218,11 @@
 - 데이터: `_mtCfg={targets:[이름...]}` — 동기화 키 `tops_mtcfg`(텍스트만). **빈 배열=전체 표시**(리쿠르팅 rc_targets와 동일 패턴·수용 한계도 동일: last-write-wins, 이름 문자열 기반).
 - 필터는 **현황 표(rMeetingList)에만** 적용 — 표1 팀원 선택 드롭다운·기록 권한(`_mtRoster`)은 건드리지 않음(리더가 명단 밖 팀원 미팅을 기록하는 것은 그대로 가능).
 - 로드 훅: 부팅(로컬 캐시)·loadFromFirestore·onSnapshot의 `d.mtcfg`(herocfg와 같은 패턴, 수신 시 rMeetingList 재렌더).
+- **주차별 피드백 (2026-08-10)**: 표1 주마감보고 표에 [피드백] 열(작성완료/미작성 버튼) — 클릭 시 주차 행 아래 입력행 토글.
+  저장은 `meetings[].wnotes={주차키:{note,by,ts}}`(동기화 포함, 텍스트만). 주차키('YYYY-MM-DD')가 식별자(함정 A)·정규식 가드.
+  저장 시 전체 재렌더 대신 **버튼·입력행만 갱신**(월 특이사항 칸 미저장 입력 보존), 미저장 감지는 `data-orig` 비교(`_mtFbDirty` —
+  년/월/팀원 이동 가드 `_mtGuardUnsaved`에 포함). [보기] 새 창 주차 표에도 피드백 열 표시. 월 특이사항(mtSaveNote·mtToggleDone)은
+  Object.assign 복사라 wnotes 자동 보존.
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 

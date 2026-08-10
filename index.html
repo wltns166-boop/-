@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-6</div>
   </div>
 </div>
 
@@ -12730,8 +12730,14 @@ function _mtNoteDirty(){
   return !!(ta && !ta.disabled && ta.value!==_mtLoadedNote);
 }
 function _mtGuardUnsaved(){
-  if(!_mtNoteDirty()) return true;
+  if(!_mtNoteDirty()&&!_mtFbDirty()) return true;
   return confirm('저장하지 않은 특이사항이 있습니다.\n이동하면 입력한 내용이 사라집니다. 계속할까요?');
+}
+// 주차별 피드백 입력칸의 미저장 변경 감지(data-orig=마지막 저장값)
+function _mtFbDirty(){
+  var ts=document.querySelectorAll('textarea[id^="mtfb_t_"]');
+  for(var i=0;i<ts.length;i++){ if(ts[i].value!==(ts[i].getAttribute('data-orig')||'')) return true; }
+  return false;
 }
 // 년/월 변경 — 미저장 내용이 있으면 확인 후 이동(취소 시 이전 선택 복원)
 function mtYmChange(){
@@ -12778,21 +12784,31 @@ function rMeetingSec1(){
   var name=g('mt_mem')?g('mt_mem').value:'';
   var ym=_mtYm();
   var thead=g('mt_wc_thead');
-  if(thead) thead.innerHTML='<tr><th style="text-align:left;min-width:120px">주차</th>'+WC_FIELDS.map(function(f){return '<th style="min-width:64px;text-align:center;font-size:13px">'+f.label+'</th>';}).join('')+'<th style="text-align:center">상태</th></tr>';
+  if(thead) thead.innerHTML='<tr><th style="text-align:left;min-width:120px">주차</th>'+WC_FIELDS.map(function(f){return '<th style="min-width:64px;text-align:center;font-size:13px">'+f.label+'</th>';}).join('')+'<th style="text-align:center">상태</th><th style="text-align:center">피드백</th></tr>';
   var tb=g('mt_wc_tb');
   if(tb){
     if(!name){
-      tb.innerHTML='<tr><td colspan="'+(WC_FIELDS.length+2)+'" class="em" style="padding:22px">팀원을 선택하면 '+_mtYmLabel(ym)+' 주마감보고 내용이 표시됩니다.</td></tr>';
+      tb.innerHTML='<tr><td colspan="'+(WC_FIELDS.length+3)+'" class="em" style="padding:22px">팀원을 선택하면 '+_mtYmLabel(ym)+' 주마감보고 내용이 표시됩니다.</td></tr>';
     } else {
       var weeks=_mtWeeksOf(ym);
+      var mrec=mtRec(name,ym), wns=(mrec&&mrec.wnotes&&typeof mrec.wnotes==='object')?mrec.wnotes:{};
       tb.innerHTML=weeks.map(function(wk){
         var r=wcRec(name,wk);
         var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
         var wlbl=(s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
         var cells=WC_FIELDS.map(function(f){return '<td style="text-align:center">'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('');
+        // 주차별 피드백 — wk('YYYY-MM-DD')를 id·핸들러 인자로 사용(함정 A: 고유 식별자)
+        var note=(wns[wk]&&wns[wk].note)?String(wns[wk].note):'';
+        var has=!!note.trim();
         return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'+cells
-          +'<td style="text-align:center">'+(r?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td></tr>';
-      }).join('')||'<tr><td colspan="'+(WC_FIELDS.length+2)+'" class="em">해당 월에 주차가 없습니다.</td></tr>';
+          +'<td style="text-align:center">'+(r?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td>'
+          +'<td style="text-align:center"><button id="mtfb_b_'+wk+'" onclick="mtFbToggle(\''+wk+'\')" title="클릭하면 이 주차의 피드백 입력칸이 열립니다" style="padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+_mtFbBtnCss(has)+'">'+(has?'작성완료':'미작성')+'</button></td></tr>'
+          +'<tr id="mtfb_r_'+wk+'" style="display:none"><td colspan="'+(WC_FIELDS.length+3)+'" style="background:#f8f9ff;padding:10px 14px;text-align:left">'
+          +'<div style="font-size:12.5px;font-weight:700;color:#4a5090;margin-bottom:6px"><i class="ti ti-pencil"></i> '+wlbl+' 주차 피드백</div>'
+          +'<textarea id="mtfb_t_'+wk+'" data-orig="'+_esc(note)+'" rows="2" placeholder="이 주차 보고에 대한 피드백·특이사항을 입력하세요." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccd2ec;border-radius:7px;font-size:13.5px;font-family:inherit;color:#1a1a2e;background:#fff;resize:vertical">'+_esc(note)+'</textarea>'
+          +'<div style="text-align:right;margin-top:6px"><button onclick="mtFbSave(\''+wk+'\')" style="padding:5px 16px;background:#4858cc;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button></div>'
+          +'</td></tr>';
+      }).join('')||'<tr><td colspan="'+(WC_FIELDS.length+3)+'" class="em">해당 월에 주차가 없습니다.</td></tr>';
     }
   }
   var ta=g('mt_note');
@@ -12842,6 +12858,42 @@ function rMeetingList(){
       +'<td style="text-align:center"><button onclick="'+ocV+'" style="padding:4px 14px;font-size:12.5px;background:rgba(80,80,200,.12);border:1px solid rgba(80,80,200,.32);border-radius:6px;color:#3a40cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye"></i> 보기</button></td>'
       +'</tr>';
   }).join('');
+}
+// ── 주차별 피드백 (meetings[].wnotes = {주차키:{note,by,ts}}, 동기화 포함 — 텍스트만) ──
+function _mtFbBtnCss(has){
+  return has?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40'
+            :'background:#f2f3f8;border:1px solid #ccd2ec;color:#667';
+}
+function mtFbToggle(wk){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
+  var row=g('mtfb_r_'+wk); if(!row) return;
+  var show=row.style.display==='none';
+  row.style.display=show?'':'none';
+  if(show){ var t=g('mtfb_t_'+wk); if(t) t.focus(); }
+}
+function mtFbSave(wk){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
+  if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  var name=g('mt_mem')?g('mt_mem').value:'';
+  if(!name){ toast('팀원을 먼저 선택하세요.'); return; }
+  if(_mtRoster().indexOf(name)<0){ toast('내 팀원만 저장할 수 있습니다.'); return; }
+  var ym=_mtYm();
+  var t=g('mtfb_t_'+wk), note=t?t.value.trim():'';
+  var prev=mtRec(name,ym);
+  var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false,note:''};
+  var wn=Object.assign({},(obj.wnotes&&typeof obj.wnotes==='object')?obj.wnotes:{});
+  if(note) wn[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
+  else delete wn[wk];   // 비우고 저장하면 그 주차 피드백 삭제
+  obj.wnotes=wn;
+  var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
+  if(i>=0) meetings[i]=obj; else meetings.push(obj);
+  sv('tops_meetings',meetings);
+  // 전체 재렌더 대신 버튼·입력행만 갱신 — 아래 월 특이사항 칸의 미저장 입력 보존
+  var b=g('mtfb_b_'+wk);
+  if(b){ b.textContent=note?'작성완료':'미작성'; b.style.cssText='padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+_mtFbBtnCss(!!note); }
+  if(t){ t.value=note; t.setAttribute('data-orig',note); }   // 저장됨 → 미저장 감지 기준 갱신
+  var row=g('mtfb_r_'+wk); if(row) row.style.display='none';
+  toast(note?('해당 주차 피드백이 저장되었습니다.'):('해당 주차 피드백을 삭제했습니다.'));
 }
 // 특이사항(미팅 내용) 저장
 function mtSaveNote(){
@@ -12945,14 +12997,17 @@ function mtView(name){
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
   var done=!!(rec&&rec.done);
   var weeks=_mtWeeksOf(ym);
-  var wcHead='<tr><th style="text-align:left">주차</th>'+WC_FIELDS.map(function(f){return '<th>'+esc(f.label)+'</th>';}).join('')+'<th>상태</th></tr>';
+  var wns=(rec&&rec.wnotes&&typeof rec.wnotes==='object')?rec.wnotes:{};
+  var wcHead='<tr><th style="text-align:left">주차</th>'+WC_FIELDS.map(function(f){return '<th>'+esc(f.label)+'</th>';}).join('')+'<th>상태</th><th>피드백</th></tr>';
   var wcRows=weeks.map(function(wk){
     var r=wcRec(name,wk);
     var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
     var wlbl=(s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
+    var note=(wns[wk]&&wns[wk].note)?String(wns[wk].note):'';
     return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'
       +WC_FIELDS.map(function(f){return '<td>'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('')
-      +'<td>'+(r?'<span class="ok">제출완료</span>':'<span class="no">미제출</span>')+'</td></tr>';
+      +'<td>'+(r?'<span class="ok">제출완료</span>':'<span class="no">미제출</span>')+'</td>'
+      +'<td style="text-align:left;white-space:pre-wrap;max-width:220px">'+(note?esc(note):'<span style="color:#aaa">-</span>')+'</td></tr>';
   }).join('');
   var css='body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:26px;color:#111;margin:0 auto;max-width:840px}'
     +'h2{font-size:21px;font-weight:700;margin:0 0 6px}'
