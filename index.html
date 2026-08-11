@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.10-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-1</div>
   </div>
 </div>
 
@@ -13214,6 +13214,50 @@ function bizDelRow(i){ if(!_bizForm) return; _bizForm.prospects.splice(i,1); if(
 function bizFR(i,field,val){ if(_bizForm&&_bizForm.recruits[i]) _bizForm.recruits[i][field]=val; }
 function bizAddRecRow(){ if(!_bizForm) _bizLoadForm(cu?cu.name:''); _bizForm.recruits.push(_bizBlankRecruit()); rBizPlan(true); }
 function bizDelRecRow(i){ if(!_bizForm) return; _bizForm.recruits.splice(i,1); if(!_bizForm.recruits.length) _bizForm.recruits.push(_bizBlankRecruit()); rBizPlan(true); }
+// [지난달 입력건 가져오기] — 지난달 제출본의 리쿠르팅 대상자 줄을 현재 양식에 채움 (2026-08-11).
+//   지난달 데이터 출처: ① 내 제출본(s.form)의 귀속월이 지난달이면 그대로,
+//   ② 이번 달 제출로 대체됐으면 saveBizForm이 남긴 스냅샷(s.prevForm/prevYm)에서.
+//   기존 값은 덮지 않음 — 같은 이름 줄은 빈 칸만 보완, 없는 이름은 새 줄 추가(빈 줄부터).
+function bizPullPrevRec(){
+  var myName=cu?cu.name:'';
+  if(!myName){ toast('로그인 정보를 확인할 수 없습니다.'); return; }
+  if(!_bizForm||_bizFormOwner!==myName) _bizLoadForm(myName);
+  var f=_bizForm;
+  var ym=_bizYmFor(+f.month||((new Date()).getMonth()+1));       // 현재 양식의 귀속월
+  var p=ym.split('-'), d=new Date(+p[0], +p[1]-2, 1);            // 그 바로 전 달
+  var prevYm=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  var pmTxt=(d.getMonth()+1)+'월';
+  var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x&&x.m===myName;}):null;
+  var src=null;
+  if(s&&s.form&&_bizSubYm(s)===prevYm) src=s.form.recruits;
+  else if(s&&s.prevForm&&s.prevYm===prevYm) src=s.prevForm.recruits;
+  src=(Array.isArray(src)?src:[]).filter(_bizRecruitNonEmpty);
+  if(!src.length){ toast(pmTxt+'에 입력한 리쿠르팅 대상자를 찾을 수 없습니다.'); return; }
+  var added=0, filled=0, same=0;
+  src.forEach(function(r){
+    var nm=String(r.name||'').trim();
+    var ex=nm?f.recruits.find(function(q){ return q&&String(q.name||'').trim()===nm; }):null;
+    if(ex){ // 이미 있는 이름 — 빈 칸만 지난달 값으로 보완(입력해 둔 값은 유지)
+      var ch=false;
+      ['age','job','ta','meetDate','meetYn','joinYn'].forEach(function(k){
+        var v=(r[k]!=null)?(''+r[k]).trim():'';
+        if(v && !((ex[k]!=null)&&(''+ex[k]).trim())){ ex[k]=r[k]; ch=true; }
+      });
+      if(ch) filled++; else same++;
+      return;
+    }
+    var row=Object.assign(_bizBlankRecruit(), r);
+    var empty=f.recruits.find(function(q){ return q&&!_bizRecruitNonEmpty(q); });
+    if(empty) Object.assign(empty,row); else f.recruits.push(row);
+    added++;
+  });
+  rBizPlan(true);
+  var parts=[];
+  if(added) parts.push('새 줄 '+added+'명');
+  if(filled) parts.push('기존 줄 빈 칸 보완 '+filled+'명');
+  if(!parts.length) parts.push('추가할 내용 없음 (전부 이미 입력됨)');
+  toast(pmTxt+' 입력건 가져오기: '+parts.join(' · ')+(same?' — 동일 '+same+'명 제외':''));
+}
 function _bizFormHtml(){
   var f=_bizForm; if(!f) return '';
   var ist='width:100%;border:0;padding:7px 8px;background:#fff;font-family:inherit;font-size:14px;color:#1a1a2e;box-sizing:border-box';
@@ -13274,7 +13318,8 @@ function _bizFormHtml(){
     +'<tr>'+rHeads.map(function(h2){return '<td style="'+cap+'">'+h2+'</td>';}).join('')+'<td style="'+cap+';width:42px"></td></tr>'
     +recHtml
     +'</table></div>'
-    +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
+    +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="bp bsm bpd" onclick="bizAddRecRow()"><i class="ti ti-plus"></i> 줄 추가</button>'
+    +'<button class="bp bsm bpd" onclick="bizPullPrevRec()" title="지난달 제출본의 리쿠르팅 대상자 줄을 가져옵니다 (기존 입력은 덮지 않음)"><i class="ti ti-history"></i> 지난달 입력건 가져오기</button></div>';
   // 관리자 피드백 — 리쿠르팅 대상자 아래. 내용 길이에 따라 상자가 자동으로 늘어난다(pre-wrap, 고정 높이 없음).
   // ⚠️ 관리자 전용 (2026-08-03 개정): 팀원에게는 이 칸 자체를 렌더하지 않는다 — 피드백 없는 양식만 보임.
   var g4='';
@@ -13842,7 +13887,12 @@ async function saveBizForm(){
   obj.m=myName; obj.form=form; obj.ts=ts;
   obj.ym=_bizYmFor(fm);   // 귀속 월을 제출 시점에 확정 기록(월별 현황의 기준)
   // 다른 달 계획으로 대체되면 이전 달의 관리자 피드백은 초기화(같은 달 재제출은 obj가 prev를 복사해 유지)
-  if(prev&&_bizSubYm(prev)!==obj.ym){ ['fb','fbBy','fbByRole','fbTs','fbPrintTs','fbPrintBy'].forEach(function(k){ delete obj[k]; }); }
+  if(prev&&_bizSubYm(prev)!==obj.ym){
+    ['fb','fbBy','fbByRole','fbTs','fbPrintTs','fbPrintBy'].forEach(function(k){ delete obj[k]; });
+    // 직전 달 양식 스냅샷 — [지난달 입력건 가져오기]의 데이터 원천(텍스트만, 함정 B 무관).
+    //   같은 달 재제출은 이 분기를 안 타므로 기존 스냅샷이 Object.assign 복사로 유지된다.
+    if(prev.form){ obj.prevForm=JSON.parse(JSON.stringify(prev.form)); obj.prevYm=_bizSubYm(prev); }
+  }
   if(prev){ bizplan.subs[bizplan.subs.indexOf(prev)]=obj; } else { bizplan.subs.push(obj); }
   sv('tops_bizplan',bizplan);
   try{ _driveSaveBizForm(myName, form, ts); }catch(e){ console.warn('biz form drive err:', e); }
