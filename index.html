@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-12</div>
   </div>
 </div>
 
@@ -16204,11 +16204,29 @@ function _bdCardHtml(p){
 // 첨부 표시 — 사진+PDF 페이지 미리보기를 보기 방식(vm)대로 인라인 표시 (상세 화면 전용).
 // 팀원: 원본 링크·다운로드 버튼 없음(이미지 클릭·드래그·우클릭 저장 억제 — 완전 차단은 브라우저 특성상 불가).
 // 관리자: 이미지 클릭=원본 새 창, [원본 PDF] 다운로드 버튼 표시.
+// 열람자 개인 워터마크 (2026-08-11) — 게시판 자료 위에 "이름 코드 · 날짜 시각"을 비스듬히 반복 표시.
+// 캡처 자체는 웹 기술로 못 막으므로, 캡처물이 유출되면 누가·언제 열람했는지 드러나게 하는 억제·추적용.
+// 팀원(비관리자)에게만 표시. 어두운 화면(동영상)에서도 보이게 밝은 글씨를 겹쳐 그림.
+// pointer-events:none — 넘김 버튼·썸네일 클릭 등 기존 조작은 그대로 동작.
+function _bdWmDiv(){
+  if(_isAdmin()) return '';
+  var who=(((cu&&cu.name)||'')+' '+((cu&&cu.code)||'')).trim();
+  if(!who) return '';
+  var now=new Date();
+  var txt=who+' · '+tds()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var safe=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170">'
+    +'<text x="151" y="86" font-size="14" fill="rgba(255,255,255,0.12)" text-anchor="middle" transform="rotate(-24 150 85)" font-family="sans-serif">'+safe+'</text>'
+    +'<text x="150" y="85" font-size="14" fill="rgba(30,40,90,0.13)" text-anchor="middle" transform="rotate(-24 150 85)" font-family="sans-serif">'+safe+'</text>'
+    +'</svg>';
+  return '<div style="position:absolute;inset:0;pointer-events:none;z-index:6;background-image:url(&quot;data:image/svg+xml;utf8,'+encodeURIComponent(svg)+'&quot;);background-repeat:repeat"></div>';
+}
 function _bdFilesHtml(p){
   var adm=_isAdmin();
   var sb='padding:4px 10px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12px;';
   var imgs=_bdViewImgs(p), pdfs=_bdPdfs(p);
   var noCtx=adm?'':' oncontextmenu="return false"';
+  var wm=_bdWmDiv(); // 열람자 워터마크(팀원만) — 이미지·동영상 래퍼마다 덧씌움
   function tag(u,style){
     var im='<img src="'+_esc(u)+'" loading="lazy" alt=""'+(adm?'':' draggable="false"')+' style="'+style+'">';
     return adm?'<a href="'+_esc(u)+'" target="_blank" rel="noopener">'+im+'</a>':im;
@@ -16219,7 +16237,7 @@ function _bdFilesHtml(p){
       fh+=_bdSwipeHtml(p);
     } else {
       fh+='<div'+noCtx+'>'+imgs.map(function(f){
-        return '<div style="margin-top:12px;text-align:center">'+tag(f.u,'max-width:100%;border-radius:8px')+'</div>';
+        return '<div style="margin-top:12px;text-align:center;position:relative">'+tag(f.u,'max-width:100%;border-radius:8px')+wm+'</div>';
       }).join('')+'</div>';
     }
   }
@@ -16227,7 +16245,7 @@ function _bdFilesHtml(p){
   var vids=_bdKindFiles(p,'vid');
   if(vids.length){
     fh+='<div'+noCtx+'>'+vids.map(function(f){
-      return '<div style="margin-top:12px;text-align:center"><video src="'+_esc(f.u)+'" controls preload="metadata" controlsList="nodownload" style="max-width:100%;max-height:72vh;border-radius:10px;background:#000"></video></div>';
+      return '<div style="margin-top:12px;text-align:center;position:relative"><video src="'+_esc(f.u)+'" controls preload="metadata" controlsList="nodownload" style="max-width:100%;max-height:72vh;border-radius:10px;background:#000"></video>'+wm+'</div>';
     }).join('')+'</div>';
   }
   // 엑셀·PPT — 인라인 미리보기가 불가한 작업용 파일(양식 등)이라 전원 다운로드 가능
@@ -16344,7 +16362,8 @@ function _bdSwipeHtml(p){
         +' title="'+(i+1)+'페이지" style="height:62px;border-radius:5px;cursor:pointer;flex:0 0 auto;'
         +(i===idx?'outline:2px solid #4858cc;opacity:1':'opacity:.55')+'">';
     }).join('')+'</div>';
-  return '<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;background:#f6f6fa;border-radius:10px;padding:10px 8px">'
+  return '<div id="bdc_'+_esc(p.id)+'"'+noCtx+' style="margin-top:12px;background:#f6f6fa;border-radius:10px;padding:10px 8px;position:relative">'
+    +_bdWmDiv() // 열람자 워터마크(팀원만) — 뷰어 전체(가운데·양옆·썸네일) 위에 표시, 클릭은 통과
     +'<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+side(idx-1)+center+side(idx+1)+'</div>'
     +'<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px">'
     +'<button data-bdnav="'+_esc(p.id)+'|-1" style="'+sb+'"'+(idx<=0?' disabled':'')+'><i class="ti ti-chevron-left"></i></button>'
