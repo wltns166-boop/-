@@ -368,7 +368,10 @@ async function _kkTripSend(test) {
   const d = dataSnap.exists ? (dataSnap.data() || {}) : {};
   const trips = Array.isArray(d.trips) ? d.trips : [];
   const today = _kkToday();
-  const todays = trips.filter((t) => t && t.dt === today);
+  // "오늘 신청" 판정은 신청 시각(ts)의 KST 날짜 우선 — 클라이언트 구버전 td()가 UTC 날짜를 저장해
+  // 새벽 0~9시(KST) 신청의 dt가 하루 전으로 적히던 문제를 서버에서 흡수(2026-08-11 리뷰). dt는 폴백.
+  const kstDateOf = (t) => (t && +t.ts) ? new Date((+t.ts) + 9 * 3600 * 1000).toISOString().slice(0, 10) : String((t && t.dt) || "");
+  const todays = trips.filter((t) => t && kstDateOf(t) === today);
   if (!todays.length && !test) return { ok: true, sent: 0, empty: true }; // 오늘 신청 없음 — 발송 생략(소음 방지). 시험 발송은 없어도 안내를 보냄
   const allow = Array.isArray(cfg.tripReportTo) ? cfg.tripReportTo : ["백동현", "박지순"];
   if (!allow.length) return { ok: true, sent: 0, off: true }; // 명단을 빈 배열로 저장 = 기능 끔
@@ -956,14 +959,22 @@ exports.kakaoDaily = onSchedule(
       } catch (e) { console.warn("마감 스냅샷 기록 실패(다음 턴 재시도):", String((e && e.message) || e)); }
     }
     // ── 출장 리스트 시험 발송 요청 처리 (tops/tripreq.ts — 클라이언트/운영자가 기록, 5분 내 반영·1회만) ──
+    // ⚠️ tops/*는 익명 인증으로도 쓸 수 있어(firestore.rules 구조적 한계) 표식만으로 무한 발송을
+    //    유발할 수 있으므로, 서버에서 하루 2회 상한을 강제한다(2026-08-11 리뷰 — 스팸 억제).
     if (cfg.restKey) {
       try {
         const reqSnap = await admin.firestore().collection("tops").doc("tripreq").get();
         const reqTs = reqSnap.exists ? (+(reqSnap.data() || {}).ts || 0) : 0;
         if (reqTs && String(reqTs) !== String(cfg.lastTripTestTs || "") && Date.now() - reqTs < 30 * 60 * 1000) {
-          await KK_CFG().set({ lastTripTestTs: String(reqTs) }, { merge: true }); // 먼저 소진 처리(중복 발송 방지)
-          const trT = await _kkTripSend(true);
-          console.log("출장 리스트 시험 발송:", JSON.stringify(trT.results || trT.error || trT));
+          const cntToday = (cfg.tripTestDate === today) ? (+cfg.tripTestCnt || 0) : 0;
+          // 소진 처리(중복 발송 방지)와 일일 카운트를 먼저 기록 — 상한 초과 요청도 '소진'되어 재시도로 못 쓰게 함
+          await KK_CFG().set({ lastTripTestTs: String(reqTs), tripTestDate: today, tripTestCnt: cntToday + 1 }, { merge: true });
+          if (cntToday >= 2) {
+            console.warn("출장 리스트 시험 발송 상한 초과(하루 2회) — 무시:", reqTs);
+          } else {
+            const trT = await _kkTripSend(true);
+            console.log("출장 리스트 시험 발송:", JSON.stringify(trT.results || trT.error || trT));
+          }
         }
       } catch (e) { console.warn("출장 시험 발송 처리 실패:", String((e && e.message) || e)); }
     }
