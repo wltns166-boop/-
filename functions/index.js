@@ -355,6 +355,63 @@ async function _kkSendAll(kind, onlyId) {
   return { ok: sent > 0, sent, results }; // 실적 요약 원문(text)은 응답에 넣지 않음 — 불필요한 노출 방지
 }
 
+// ── 출장 신청 리스트 밤 11시 발송 (2026-08-11) ──
+// 그날 신청된 출장 목록(신청인·일시·장소·사유·확인여부)을 수신자의 카톡 '나와의 채팅'으로 텍스트 발송.
+// 수신자: cfg.tripReportTo(이름 배열) — 미설정 시 기본 백동현·박지순(BM, 출장 확인 담당).
+// 일일보고 자동발송 설정(enabled/sendTime)과 독립 — restKey만 있으면 동작. 빈 배열로 저장하면 끔.
+async function _kkTripSend(test) {
+  const [cfgSnap, tokSnap, dataSnap] = await Promise.all([KK_CFG().get(), KK_TOK().get(), KK_DATA().get()]);
+  const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
+  if (!cfg.restKey) return { ok: false, error: "no restKey" };
+  const tok = tokSnap.exists ? (tokSnap.data() || {}) : {};
+  const users = tok.users || {};
+  const d = dataSnap.exists ? (dataSnap.data() || {}) : {};
+  const trips = Array.isArray(d.trips) ? d.trips : [];
+  const today = _kkToday();
+  const todays = trips.filter((t) => t && t.dt === today);
+  if (!todays.length && !test) return { ok: true, sent: 0, empty: true }; // 오늘 신청 없음 — 발송 생략(소음 방지). 시험 발송은 없어도 안내를 보냄
+  const allow = Array.isArray(cfg.tripReportTo) ? cfg.tripReportTo : ["백동현", "박지순"];
+  if (!allow.length) return { ok: true, sent: 0, off: true }; // 명단을 빈 배열로 저장 = 기능 끔
+  const ids = Object.keys(users).filter((id) => users[id] && users[id].approved && allow.indexOf(String(users[id].member || "")) >= 0);
+  if (!ids.length) return { ok: false, error: "수신자 카톡 미연동/미승인: " + allow.join(", ") };
+  const fmt = (v) => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? ((+m[2]) + "/" + (+m[3]) + " " + m[4] + ":" + m[5]) : String(v || "-"); };
+  const head = (test ? "[시험] " : "") + "[출장 신청 리스트] " + today.slice(5).replace("-", "/") + " — 오늘 " + todays.length + "건" + (todays.length ? "" : " (신청 없음)");
+  const lines = todays.map((t, i) => (i + 1) + ". " + (t.m || "-") + " · " + fmt(t.when) + " · " + (t.place || "-") + " · " + (t.reason || "-") + (t.okBy ? " ✔확인" : ""));
+  // 텍스트 템플릿 200자 제한 준수 — 줄 단위로 200자 이하 조각으로 나눠 최대 5통(dbassign과 동일 안전 규칙)
+  const chunks = [];
+  let curTxt = "";
+  [head].concat(lines).forEach((ln) => {
+    ln = String(ln).slice(0, 190);
+    if ((curTxt + (curTxt ? "\n" : "") + ln).length > 200) { if (curTxt) chunks.push(curTxt); curTxt = ln; }
+    else curTxt += (curTxt ? "\n" : "") + ln;
+  });
+  if (curTxt) chunks.push(curTxt);
+  const sendChunks = chunks.slice(0, 5);
+  const link = KK_SITE;
+  let sent = 0, tokChanged = false;
+  const results = [];
+  for (const id of ids) {
+    const u = users[id] || {};
+    const nick = u.nick || ("사용자" + String(id).slice(-4));
+    const t = await _kkAccessToken(cfg, u);
+    if (!t.at) {
+      if (t.relink) { u.needsRelink = true; tokChanged = true; }
+      results.push({ nick, ok: false, err: t.err });
+      continue;
+    }
+    if (t.upd) { Object.assign(u, t.upd); u.needsRelink = false; tokChanged = true; }
+    let okAll = true;
+    for (const c of sendChunks) {
+      const tpl = JSON.stringify({ object_type: "text", text: String(c).slice(0, 200), link: { web_url: link, mobile_web_url: link }, button_title: "인트라넷 열기" });
+      const s = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, t.at);
+      if (!s.ok) { okAll = false; results.push({ nick, ok: false, err: (s.data.msg || ("전송 실패 " + s.status)) }); break; }
+    }
+    if (okAll) { sent++; results.push({ nick, ok: true }); }
+  }
+  if (tokChanged) await KK_TOK().set({ users }, { merge: true }).catch(() => {});
+  return { ok: sent > 0, sent, results };
+}
+
 // /api 의 카카오 액션 분기 처리
 async function _kkHandle(body, res) {
   const action = String(body.kakao || "");
@@ -897,6 +954,32 @@ exports.kakaoDaily = onSchedule(
         // 실제 저장이 성공했을 때만 완료 처리 — 실패면 다음 5분 턴에 재시도 (자정 전 6회 기회)
         if (rec.wrote) await KK_CFG().set({ lastSnapDate: today }, { merge: true });
       } catch (e) { console.warn("마감 스냅샷 기록 실패(다음 턴 재시도):", String((e && e.message) || e)); }
+    }
+    // ── 출장 리스트 시험 발송 요청 처리 (tops/tripreq.ts — 클라이언트/운영자가 기록, 5분 내 반영·1회만) ──
+    if (cfg.restKey) {
+      try {
+        const reqSnap = await admin.firestore().collection("tops").doc("tripreq").get();
+        const reqTs = reqSnap.exists ? (+(reqSnap.data() || {}).ts || 0) : 0;
+        if (reqTs && String(reqTs) !== String(cfg.lastTripTestTs || "") && Date.now() - reqTs < 30 * 60 * 1000) {
+          await KK_CFG().set({ lastTripTestTs: String(reqTs) }, { merge: true }); // 먼저 소진 처리(중복 발송 방지)
+          const trT = await _kkTripSend(true);
+          console.log("출장 리스트 시험 발송:", JSON.stringify(trT.results || trT.error || trT));
+        }
+      } catch (e) { console.warn("출장 시험 발송 처리 실패:", String((e && e.message) || e)); }
+    }
+    // ── 밤 11시 출장 신청 리스트 발송 (2026-08-11) — 일일보고 자동발송 설정과 독립 ──
+    if (_kkHm() >= "23:00" && cfg.lastTripSentDate !== today && cfg.restKey) {
+      // 중복 방지: 먼저 오늘 날짜 기록, 총 실패 시 되돌려 다음 5분 턴에 재시도(자정 전까지)
+      await KK_CFG().set({ lastTripSentDate: today }, { merge: true });
+      let tr;
+      try { tr = await _kkTripSend(); }
+      catch (e) { tr = { ok: false, error: String((e && e.message) || e) }; }
+      if (!tr.ok) {
+        console.warn("출장 리스트 발송 실패 — 다음 턴 재시도:", JSON.stringify(tr.results || tr.error));
+        await KK_CFG().set({ lastTripSentDate: "" }, { merge: true });
+      } else {
+        console.log("출장 리스트 발송:", tr.empty ? "오늘 신청 없음(생략)" : tr.off ? "명단 비움(끔)" : (tr.sent + "명"));
+      }
     }
     // ── 이하 자동 발송 ──
     if (!cfg.enabled || !cfg.restKey) return;
