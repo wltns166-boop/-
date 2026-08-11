@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-10</div>
   </div>
 </div>
 
@@ -8133,7 +8133,8 @@ function submitTrip(){
     var _now=new Date(), _h=_now.getHours();
     if(_h>=22||_h<6){
       var _hm=String(_h).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');
-      (ADMINS||[]).forEach(function(a){
+      // 수신자: 백동현·박지순(BM)만 — 총무 제외(2026-08-11 요청)
+      (ADMINS||[]).filter(function(a){ return a&&a.role==='BM'; }).forEach(function(a){
         if(a&&a.name) pushAlert(null,'출장 심야 신청',
           who+'님이 심야('+_hm+')에 출장을 신청했습니다 — '+_tripFmt(when)+' · '+place+' · '+reason,
           {toName:a.name});
