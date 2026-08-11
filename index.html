@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-8</div>
   </div>
 </div>
 
@@ -7957,7 +7957,13 @@ async function exportMemPdf(){
 function _tripFmt(v){
   var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if(!m) return v?String(v):'-';
-  return m[2]+'월 '+m[3]+'일 '+m[4]+'시 '+m[5]+'분';
+  return (+m[2])+'월 '+(+m[3])+'일 '+m[4]+'시 '+m[5]+'분'; // 월·일 앞 0 제거 (08월→8월)
+}
+// 신청일 "YYYY-MM-DD" → "8월 11일" (출장 신청 내역 표시용)
+function _tripDtFmt(v){
+  var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return v?String(v):'-';
+  return (+m[2])+'월 '+(+m[3])+'일';
 }
 // 기간 입력: 숫자만 쭉 치면(202607150915) 2026-07-15 09:15 로 자동 포맷
 function _tripWhenFmt(el){
@@ -8057,8 +8063,8 @@ function rTrip(){
       ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#18a050;font-weight:700;white-space:nowrap'+(canOk?';cursor:pointer':'')+'"'+(canOk?' data-tripok="'+i+'" title="누르면 확인 취소"':'')+'><i class="ti ti-circle-check"></i>확인('+_esc(t.okBy)+')</span>'
       : (canOk?'<button data-tripok="'+i+'" style="padding:4px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-check"></i> 확인</button>':'');
     return '<tr>'
-      +'<td>'+_esc(t.dt||'-')+'</td>'
-      +'<td style="font-weight:600">'+_esc(t.m||'-')+'</td>'
+      +'<td style="white-space:nowrap">'+_esc(_tripDtFmt(t.dt))+'</td>'
+      +'<td style="font-weight:600;white-space:nowrap">'+_esc(t.m||'-')+'</td>'
       +'<td style="color:#2040cc;font-weight:600">'+_esc(_tripFmt(t.when))+'</td>'
       +'<td style="color:#444">'+_esc(t.reason||'-')+'</td>'
       +'<td style="color:#444">'+_esc(t.place||'-')+'</td>'
@@ -8112,8 +8118,21 @@ function submitTrip(){
   if(!when){ toast('기간을 숫자 12자리로 입력하세요 (예: 202607150915).'); return; }
   if(!reason){ toast('출장 사유를 입력하세요.'); return; }
   if(!place){ toast('장소를 입력하세요.'); return; }
-  trips.push({ m:g('trip_mem').value, when:when, reason:reason, place:place, dt:td(), ts:Date.now() });
+  var who=g('trip_mem').value;
+  trips.push({ m:who, when:when, reason:reason, place:place, dt:td(), ts:Date.now() });
   sv('tops_trips',trips);
+  // 심야 신청 알림 (2026-08-11) — 밤 10시~아침 6시 사이 신청이면 관리자(BM·총무) 전원에게 인앱 알림
+  try{
+    var _now=new Date(), _h=_now.getHours();
+    if(_h>=22||_h<6){
+      var _hm=String(_h).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');
+      (ADMINS||[]).forEach(function(a){
+        if(a&&a.name) pushAlert(null,'출장 심야 신청',
+          who+'님이 심야('+_hm+')에 출장을 신청했습니다 — '+_tripFmt(when)+' · '+place+' · '+reason,
+          {toName:a.name});
+      });
+    }
+  }catch(e){ console.warn('trip night alert err:', e); }
   g('m_trip').classList.remove('open');
   rTrip(); toast('출장 신청이 접수되었습니다.');
 }
