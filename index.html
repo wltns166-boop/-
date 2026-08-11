@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-13</div>
   </div>
 </div>
 
@@ -1186,7 +1186,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh"><div class="st"><i class="ti ti-user-plus"></i>고객등록 현황</div></div>
       <div class="card">
         <table class="dt">
-          <thead><tr><th style="width:80px">담당자</th><th style="width:90px">고객명</th><th>고객등록 진행여부</th><th style="width:100px">특이사항</th><th style="width:50px">삭제</th></tr></thead>
+          <thead><tr><th style="width:80px">담당자</th><th style="width:90px">고객명</th><th>고객등록 진행여부</th><th style="width:100px">특이사항</th><th style="width:50px">추가</th><th style="width:50px">삭제</th></tr></thead>
           <tbody id="cust_status_tb"></tbody>
         </table>
       </div>
@@ -12040,9 +12040,14 @@ function _reqInsLists(){
   if(son==null&&life==null||((son&&!son.length)&&(life&&!life.length))) return {son:_REQINS_DEFAULT.son.slice(), life:_REQINS_DEFAULT.life.slice()};
   return {son:(son||_REQINS_DEFAULT.son).slice(), life:(life||_REQINS_DEFAULT.life).slice()};
 }
-function _reqInsBoxes(arr){
+function _reqInsBoxes(arr, excludeArr){
+  var ex=Array.isArray(excludeArr)?excludeArr:[];
   return arr.map(function(ins){
     var sid=String(ins).replace(/\s/g,'_');
+    // 이미 요청된 보험사(고객등록 현황 [추가] 경로)는 비활성 + '요청됨' 표시 — 중복 요청 방지
+    if(ex.indexOf(ins)>=0){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;opacity:.55"><input type="checkbox" id="reqins_'+_esc(sid)+'" data-ins="'+_esc(ins)+'" disabled style="width:14px;height:14px"><label for="reqins_'+_esc(sid)+'" style="font-size:14px;color:#888">'+_esc(ins)+' <span style="font-size:12px;color:#1a9050">요청됨</span></label></div>';
+    }
     // data-ins가 발송(sendCustReq)의 기준 — id는 라벨 연결용
     return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" id="reqins_'+_esc(sid)+'" data-ins="'+_esc(ins)+'" style="accent-color:#4858cc;width:14px;height:14px"><label for="reqins_'+_esc(sid)+'" style="font-size:14px;cursor:pointer;color:#1a1a2e">'+_esc(ins)+'</label></div>';
   }).join('');
@@ -12118,7 +12123,9 @@ function saveReqInsEdit(){
   toast('보험사 목록 저장 완료! (손해 '+son.length+'개 · 생명 '+life.length+'개)');
 }
 
-function requestCustReg(idx, famIdx){
+function requestCustReg(idx, famIdx, opts){
+  // opts: 고객등록 현황 [추가] 경로 전용 — {agent:담당자 귀속, name:그룹 이름 귀속, exclude:이미 요청된 보험사 배열}
+  opts=opts||{};
   var c=custs[idx]; if(!c) return;
   var dispName=c.name;
   if(famIdx!=null){
@@ -12135,6 +12142,9 @@ function requestCustReg(idx, famIdx){
   if(popup) popup.remove();
   var el=document.createElement('div');
   el.id='req_ins_popup';
+  // 담당자·그룹이름 귀속 오버라이드는 전역이 아닌 팝업 DOM에 심음 — 취소 후 다른 경로 요청 시 오염 방지
+  if(opts.agent) el.setAttribute('data-agent-ov', opts.agent);
+  if(opts.name) el.setAttribute('data-name-ov', opts.name);
   el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
   el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:680px;max-width:96vw;max-height:86vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
     +'<div style="font-size:17px;font-weight:700;margin-bottom:4px;color:#1a1a2e">📋 발송 보험사 선택</div>'
@@ -12142,11 +12152,11 @@ function requestCustReg(idx, famIdx){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
       +'<div style="background:#f5f6ff;border-radius:10px;padding:14px">'
         +'<div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(80,80,200,.15)">🏢 손해보험사</div>'
-        +_reqInsBoxes(L.son)
+        +_reqInsBoxes(L.son, opts.exclude)
       +'</div>'
       +'<div style="background:#f5fff8;border-radius:10px;padding:14px">'
         +'<div style="font-size:14px;font-weight:700;color:#208050;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(40,160,80,.15)">🏦 생명보험사</div>'
-        +_reqInsBoxes(L.life)
+        +_reqInsBoxes(L.life, opts.exclude)
       +'</div>'
     +'</div>'
     +(isMinor?('<div style="margin-top:14px;background:#fff8f0;border:1px solid rgba(220,140,40,.35);border-radius:10px;padding:12px">'
@@ -12169,7 +12179,7 @@ function requestCustReg(idx, famIdx){
 }
 
 function selectAllReqIns(checked){
-  document.querySelectorAll('#req_ins_popup input[type=checkbox]').forEach(function(cb){cb.checked=checked;});
+  document.querySelectorAll('#req_ins_popup input[type=checkbox]').forEach(function(cb){ if(!cb.disabled) cb.checked=checked; });
 }
 
 
@@ -12187,7 +12197,7 @@ function sendCustReq(idx, famIdx){
   //   (팝업 열린 사이 다른 기기에서 목록 수정) 선택이 조용히 누락되는 레이스 방지
   var selected=[];
   document.querySelectorAll('#req_ins_popup input[data-ins]').forEach(function(cb){
-    if(!cb.checked) return;
+    if(!cb.checked||cb.disabled) return;   // disabled = 이미 요청된 보험사(요청됨 표시)
     var v=cb.getAttribute('data-ins');
     if(v&&selected.indexOf(v)<0) selected.push(v);
   });
@@ -12201,15 +12211,20 @@ function sendCustReq(idx, famIdx){
     // reqName은 현황 그룹핑·전체완료·삭제의 매칭 키라 변경 금지 — 부모는 parent 필드로만 저장·표시
   }
   var popup=document.getElementById('req_ins_popup');
+  // 현황 [추가] 경로: 요청 건을 원래 담당자·그룹 이름에 귀속 (총무 대리 추가·가족 관계 표기 변경에도 그룹이 갈라지지 않게)
+  var agentOv=popup?(popup.getAttribute('data-agent-ov')||''):'';
+  var nameOv=popup?(popup.getAttribute('data-name-ov')||''):'';
+  if(nameOv) reqName=nameOv;
   if(popup) popup.remove();
   if(!Array.isArray(window.custReqs)) window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
   selected.forEach(function(ins){
-    window.custReqs.push({name:reqName, ins:ins, note:reqNote, done:false, reason:'', parent:parentName, regTs:Date.now(), regDate:tds(), agent:_agentReal((cu&&cu.name)?cu.name:(window._lastAgent||''))});
+    window.custReqs.push({name:reqName, ins:ins, note:reqNote, done:false, reason:'', parent:parentName, regTs:Date.now(), regDate:tds(), agent:_agentReal(agentOv||((cu&&cu.name)?cu.name:(window._lastAgent||'')))});
   });
   try{ localStorage.setItem('tops_cust_reqs',JSON.stringify(window.custReqs)); }catch(e){ console.warn('tops_cust_reqs 저장 실패(quota):', e); }
   try{sv('tops_cust_reqs',window.custReqs);}catch(e){}
   _saveGuardian(idx, famIdx!=null?famIdx:null, parentName);
   notifyChongmuReg(notiName, selected.length);
+  try{ rCustStatus(); }catch(e){}   // 현황 화면에서 [추가]한 경우 즉시 반영
   toast(notiName+' 님 '+selected.length+'개사 고객등록 요청 완료!');
 }
 
@@ -12243,7 +12258,7 @@ function rCustStatus(){
   var sorted=reqs.slice().sort(function(a,b){ return _csrTs(b)-_csrTs(a); });
 
   if(!sorted.length){
-    tb.innerHTML='<tr><td colspan="5" class="em" style="padding:30px">등록 요청 내역이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">등록 요청 내역이 없습니다.</td></tr>';
     return;
   }
 
@@ -12272,7 +12287,7 @@ function rCustStatus(){
       return last ? _dayKey(last)===_todayKey : true;   // 시점 정보가 전혀 없으면 안전하게 유지
     });
     if(!order.length){
-      tb.innerHTML='<tr><td colspan="5" class="em" style="padding:30px">처리할 등록 요청이 없습니다. (완료된 내역은 다음날 자동 정리됩니다)</td></tr>';
+      tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">처리할 등록 요청이 없습니다. (완료된 내역은 다음날 자동 정리됩니다)</td></tr>';
       return;
     }
   }
@@ -12347,6 +12362,8 @@ function rCustStatus(){
 
     // 삭제 버튼: 총무는 전체, 팀원도 본인 요청 삭제 가능 (비총무 화면엔 본인 건만 있고, 삭제는 이름+담당자 일치 건만)
     var delBtn='<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>';
+    // 추가 버튼: 보험사를 골라 이 고객의 등록 요청을 추가 (기존 요청 보험사는 팝업에서 '요청됨' 비활성)
+    var addBtn='<div data-action="add" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_add" title="보험사 추가 요청" style="font-size:13px;padding:3px 7px;background:rgba(30,130,200,.1);border:1px solid rgba(30,130,200,.25);border-radius:5px;color:#1a60cc;cursor:pointer;display:inline-block"><i class="ti ti-plus"></i></div>';
 
     rows.push('<tr style="border-bottom:1px solid rgba(80,80,200,.08)">'
       +'<td style="vertical-align:middle;white-space:nowrap">'
@@ -12392,6 +12409,7 @@ function rCustStatus(){
         +'</div>'
       +'</td>'
       +'<td style="vertical-align:middle">'+noteCell+'</td>'
+      +'<td style="text-align:center;vertical-align:middle">'+addBtn+'</td>'
       +'<td style="text-align:center;vertical-align:middle">'+delBtn+'</td>'
       +'</tr>');
   });
@@ -12402,6 +12420,11 @@ function rCustStatus(){
     var box=e.target.closest('.csr_box');
     var notebtn=e.target.closest('.csr_note_btn');
     var delbtn=e.target.closest('.csr_del');
+    var addbtn=e.target.closest('.csr_add');
+    if(addbtn){
+      addCustReqFromStatus(addbtn.getAttribute('data-name'), addbtn.getAttribute('data-agent'));
+      return;
+    }
     if(box){
       var idx2=parseInt(box.getAttribute('data-idx'));
       var action=box.getAttribute('data-action');
@@ -12428,6 +12451,46 @@ function rCustStatus(){
       deleteAllCustReq(delbtn.getAttribute('data-name'), delbtn.getAttribute('data-agent'));
     }
   };
+}
+
+// 고객등록 현황 [추가] — 현황 행의 이름으로 고객정보를 찾아 보험사 선택 팝업을 연다.
+//   요청 건은 행의 원래 담당자(agentKey)에게 귀속되고, 이미 요청된 보험사는 팝업에서 '요청됨' 비활성.
+function addCustReqFromStatus(name, agentKey){
+  name=String(name||''); agentKey=String(agentKey||'');
+  // 고객 찾기: 이름만이 아니라 행의 담당자(agentKey)까지 일치해야 함 — 담당자가 다른 동명이인의
+  //   고객정보(미성년 판정·가족 목록)가 팝업에 노출되거나 법정대리인이 엉뚱한 레코드에 저장되는 사고 방지.
+  //   담당자 일치 고객이 없을 때는 이름 일치가 정확히 1명일 때만 폴백(옛 데이터 c.m 누락 대비), 여러 명이면 중단.
+  var _findCust=function(nm){
+    var byName=[]; (Array.isArray(custs)?custs:[]).forEach(function(c,i){ if(c&&c.name===nm) byName.push(i); });
+    var byAgent=byName.filter(function(i){ return _agentReal(custs[i].m||'')===agentKey; });
+    if(byAgent.length) return byAgent[0];
+    return byName.length===1?byName[0]:(byName.length?-2:-1);   // -2 = 동명이인 모호
+  };
+  // 그룹 이름 파싱 — 가족 요청은 '가족이름 (고객명님 관계)' 형식 (sendCustReq 참조)
+  var idx=-1, famIdx=null;
+  var parenIdx=name.indexOf('(');
+  if(parenIdx>0&&name.indexOf('님')>parenIdx){
+    var fname=name.slice(0,parenIdx).trim();
+    var custName=name.slice(parenIdx+1).split('님')[0].trim();
+    idx=_findCust(custName);
+    if(idx>=0){
+      var fi=(custs[idx].family||[]).findIndex(function(f){return f&&f.name===fname;});
+      if(fi<0){ idx=-1; } else { famIdx=fi; }
+    }
+  } else {
+    idx=_findCust(name);
+  }
+  if(idx===-2){ toast('담당자가 다른 동명이인 고객이 있어 특정할 수 없습니다. 고객정보 페이지에서 요청해주세요.'); return; }
+  if(idx<0){ toast(name+' 님을 고객정보에서 찾을 수 없습니다. 고객정보 페이지에서 요청해주세요.'); return; }
+  // 이 그룹(이름+담당자)에 이미 요청된 보험사 → 팝업에서 비활성 처리
+  var all=Array.isArray(window.custReqs)?window.custReqs:[];
+  var exclude=[];
+  all.forEach(function(r){
+    if(!r||r.name!==name) return;
+    if(_agentReal(r.agent||'')!==agentKey) return;
+    if(r.ins&&exclude.indexOf(r.ins)<0) exclude.push(r.ins);
+  });
+  requestCustReg(idx, famIdx, {agent:agentKey, name:name, exclude:exclude});
 }
 
 // ===== 고객정보 보기 (고객등록 현황 → 고객명 클릭) =====
