@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>TEAM TOPS</title>
+<title>TIMS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%233f51b5'/%3E%3Ctext x='32' y='44' font-size='34' font-family='Arial,sans-serif' font-weight='bold' fill='%23fff' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
@@ -15,7 +15,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 /* LOGIN */
 #ls{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:transparent;}
 .lb{position:relative;z-index:51;width:380px;background:rgba(2,10,35,.88);border:1px solid rgba(80,120,255,.38);border-radius:18px;padding:46px 40px;text-align:center;backdrop-filter:blur(20px);box-shadow:0 8px 60px rgba(0,0,40,.65);}
-.ll{font-size:36px;font-weight:900;letter-spacing:5px;color:#fff;margin-bottom:6px;text-shadow:0 0 40px rgba(120,160,255,.45);}
+.ll{font-size:var(--brand-ts,36px);font-weight:900;letter-spacing:5px;color:#fff;margin-bottom:6px;text-shadow:0 0 40px rgba(120,160,255,.45);}
 .ls2{font-size:13px;color:#4a5a90;margin-bottom:28px;letter-spacing:3px;}
 .lb input{width:100%;padding:12px 15px;margin-bottom:11px;background:rgba(255,255,255,.06);border:1px solid rgba(80,100,220,.28);border-radius:9px;color:#c8d0f0;font-size:16px;outline:none;font-family:inherit;transition:.2s;}
 .lb input:focus{border-color:rgba(100,140,255,.58);}
@@ -279,7 +279,7 @@ table.dt tr:last-child td{border-bottom:none;}
   .tb{overflow-x:auto;max-width:100%;flex-wrap:nowrap;}
   /* 로그인 박스 */
   .lb{width:auto;max-width:92vw;padding:36px 26px;}
-  .ll{font-size:30px;}
+  .ll{font-size:min(var(--brand-ts,36px),9vw);}   /* 설정 크기를 화면 폭까지만 축소(herocfg 방식) */
   /* 모달 여백 축소 */
   .mo{padding:18px;}
   /* 알림 박스 폭 제한 */
@@ -333,8 +333,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 <!-- LOGIN -->
 <div id="ls">
   <div class="lb">
-    <div class="ll">TEAM TOPS</div>
-    <div class="ls2">INTRANET SYSTEM</div>
+    <div class="ll" id="login_brand_t">TIMS</div>
+    <div class="ls2" id="login_brand_s">INTRANET SYSTEM</div>
     <input type="text" id="lid" placeholder="아이디">
     <input type="password" id="lpw" placeholder="비밀번호">
     <button class="lbtn" id="lbtn">로그인</button>
@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-4</div>
   </div>
 </div>
 
@@ -410,7 +410,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   <div id="san_rail" style="display:none"><div id="san_rail_in"></div></div>
 
   <nav id="sb">
-    <div class="sbl"><div class="sblt">TEAM TOPS</div><div class="sbu" id="sbu"></div></div>
+    <div class="sbl"><div class="sblt" id="sb_brand_t">TIMS</div><div class="sbu" id="sbu"></div></div>
     <div class="nlb">메뉴</div>
     <div class="ni" id="n_home"><i class="ti ti-home"></i>홈</div>
     <div class="ni" id="n_notice"><i class="ti ti-bell"></i>공지사항</div>
@@ -507,7 +507,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <!-- HOME -->
     <div class="pg active" id="pg_home" style="position:relative">
       <button id="hb_btn" onclick="openHomeBgModal()" title="홈 배경 사진 설정 (관리자 전용)" style="display:none;position:absolute;top:10px;right:10px;z-index:5;padding:6px 12px;background:rgba(255,255,255,.85);border:1px solid #d0d4e8;border-radius:8px;color:#4a5090;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> 배경 설정</button>
-      <div class="hero" id="hero_box"><div class="heroimg" id="hero_img" style="display:none"></div><div class="ht" id="hero_t" style="font-size:70px">TEAM TOPS</div><div class="hsub" id="hero_s">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
+      <div class="hero" id="hero_box"><div class="heroimg" id="hero_img" style="display:none"></div><div class="ht" id="hero_t" style="font-size:70px">TIMS</div><div class="hsub" id="hero_s">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
       <!-- 명예의 전당 3칸 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
         <div class="hc" style="min-height:0;padding:14px 16px">
@@ -699,6 +699,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <button id="ns_tabbtn_menu" onclick="nsTab('menu')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #4858cc;background:#4858cc;color:#fff"><i class="ti ti-menu-2"></i> 메뉴 구성</button>
         <button id="ns_tabbtn_san" onclick="nsTab('san')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-building-bank"></i> 전산 사이트 관리</button>
         <button id="ns_tabbtn_hero" onclick="nsTab('hero')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-brush"></i> 홈 화면 꾸미기</button>
+        <button id="ns_tabbtn_brand" onclick="nsTab('brand')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-badge"></i> 명칭 변경</button>
       </div>
       <div class="card" id="ns_tab_menu">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-menu-2"></i> 메뉴 구성</div>
@@ -738,7 +739,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
         <div id="hh_prev" style="position:relative;overflow:hidden;border:1px solid #e2e4f0;border-radius:10px;background:#fff;text-align:center;padding:13px 0 24px;margin-bottom:14px">
           <div class="heroimg" id="hhp_img" style="display:none"></div>
-          <div id="hhp_t" style="position:relative;font-size:70px">TEAM TOPS</div>
+          <div id="hhp_t" style="position:relative;font-size:70px">TIMS</div>
           <div id="hhp_s" style="position:relative;font-size:13px;color:#6060a0;letter-spacing:4px">INSURANCE BUSINESS MANAGEMENT SYSTEM</div>
         </div>
         <div style="display:grid;grid-template-columns:56px 1fr 90px 170px 60px;gap:8px;align-items:center;font-size:13.5px;color:#1a1a2e;margin-bottom:8px">
@@ -784,6 +785,51 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <span style="flex:1"></span>
           <button onclick="heroReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
           <button onclick="heroSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
+        </div>
+      </div>
+      <!-- 명칭 변경 (brandcfg, 2026-08-11) — 로그인 화면 제목·부제 + 사이드바 로고 + 브라우저 탭 제목 -->
+      <div class="card" id="ns_tab_brand" style="display:none">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-badge"></i> 명칭 변경</div>
+        <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
+          <b>로그인 화면의 제목·부제</b>와 <b>사이드바 상단 로고</b>, 브라우저 탭 제목을 바꿉니다. 아래 미리보기에서 바로 확인하고, <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.<br>
+          휴대폰처럼 좁은 화면에서는 제목이 화면 폭에 맞게 자동 축소됩니다. 처음 쓰는 기기는 첫 로그인 전까지 기본 명칭이 보일 수 있습니다.
+        </div>
+        <div id="bb_prev" style="border:1px solid #e2e4f0;border-radius:10px;background:linear-gradient(160deg,#070c26,#101a44);text-align:center;padding:26px 12px;margin-bottom:14px">
+          <div id="bbp_t" style="font-size:36px;font-weight:900;letter-spacing:5px;color:#fff;text-shadow:0 0 40px rgba(120,160,255,.45)">TIMS</div>
+          <div id="bbp_s" style="font-size:13px;color:#4a5a90;letter-spacing:3px;margin-top:4px">INTRANET SYSTEM</div>
+          <div style="margin:18px auto 0;border-top:1px solid rgba(120,140,220,.18);padding-top:12px;max-width:240px;text-align:left">
+            <div style="font-size:10.5px;color:#7d86b8;margin-bottom:4px">사이드바 미리보기</div>
+            <div id="bbp_sb" style="font-size:22px;font-weight:900;color:#6878ff;letter-spacing:3px">TIMS</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 90px 170px 60px;gap:8px;align-items:center;font-size:13.5px;color:#1a1a2e;margin-bottom:8px">
+          <div style="font-weight:700">제목</div>
+          <input id="bb_t" oninput="_brandPrevDraw()" placeholder="제목 문구 (비우면 로그인 화면에서 숨김)" style="padding:7px 10px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
+          <input id="bb_ts" type="number" min="12" max="80" oninput="_brandPrevDraw()" title="로그인 화면 글씨 크기(px)" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
+          <select id="bb_tf" onchange="_brandPrevDraw()" title="글씨체" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:13.5px;font-family:inherit;color:#1a1a2e;background:#fff"></select>
+          <input id="bb_tc" type="color" oninput="_brandPrevDraw()" title="글씨 색상" style="width:100%;height:34px;border:1px solid #d0d4e8;border-radius:7px;background:#fff;cursor:pointer">
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 90px 170px 60px;gap:8px;align-items:center;font-size:13.5px;color:#1a1a2e;margin-bottom:8px">
+          <div style="font-weight:700">부제</div>
+          <input id="bb_u" oninput="_brandPrevDraw()" placeholder="부제 문구 (비우면 표시 안 함)" style="padding:7px 10px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
+          <input id="bb_us" type="number" min="8" max="40" oninput="_brandPrevDraw()" title="글씨 크기(px)" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
+          <select id="bb_uf" onchange="_brandPrevDraw()" title="글씨체" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:13.5px;font-family:inherit;color:#1a1a2e;background:#fff"></select>
+          <input id="bb_uc" type="color" oninput="_brandPrevDraw()" title="글씨 색상" style="width:100%;height:34px;border:1px solid #d0d4e8;border-radius:7px;background:#fff;cursor:pointer">
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 90px 170px 60px;gap:8px;align-items:center;font-size:13.5px;color:#1a1a2e;margin-bottom:14px">
+          <div style="font-weight:700">사이드바</div>
+          <div style="font-size:12.5px;color:#8888aa">제목과 같은 문구·글씨체가 쓰입니다 — 크기·색상만 따로 조절</div>
+          <input id="bb_ss" type="number" min="10" max="40" oninput="_brandPrevDraw()" title="사이드바 글씨 크기(px)" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
+          <input id="bb_sc" type="color" oninput="_brandPrevDraw()" title="사이드바 글씨 색상" style="width:100%;height:34px;border:1px solid #d0d4e8;border-radius:7px;background:#fff;cursor:pointer;grid-column:span 2">
+        </div>
+        <div style="border-top:1px solid #eef0f8;padding-top:12px">
+          <div style="font-weight:700;font-size:13.5px;color:#1a1a2e;margin-bottom:6px"><i class="ti ti-typography"></i> 글씨체 미리보기 <span style="font-weight:400;color:#8888aa">(오른쪽 버튼으로 제목·부제에 바로 적용)</span></div>
+          <div id="bb_gallery" style="border:1px solid #eef0f8;border-radius:8px;max-height:340px;overflow-y:auto"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+          <span style="flex:1"></span>
+          <button onclick="brandReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
+          <button onclick="brandSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
         </div>
       </div>
     </div>
@@ -3144,6 +3190,7 @@ async function loadFromFirestore(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
+    if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
@@ -3213,6 +3260,7 @@ function startRealtimeSync(){
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
+    if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
@@ -3548,6 +3596,7 @@ function login(){
   setAdmin();
   try{ rSanRail(); }catch(e){}   // 보험사 전산 바로가기 레일 — 로컬 캐시 기준 즉시 표시
   try{ _heroApply(); }catch(e){}   // 홈 화면 꾸미기(문구·배경) — 로컬 캐시 기준 즉시 적용
+  try{ _brandApply(); }catch(e){}  // 명칭(로그인·사이드바) — 로컬 캐시 기준 즉시 적용
 
   // 서버 캡처 렌더 모드(?rr=1) — 푸시 초기화·드라이브 폴더 정리 같은 부수효과는 생략
   var _rrMode=/[?&]rr=1/.test(location.search);
@@ -15119,7 +15168,7 @@ function nsTab(t){
   if(window._nsTabCur==='san'&&t!=='san'){ try{ _sanCollect(); }catch(e){} }
   window._nsTabCur=t;
   var base='padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;';
-  [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san'],['hero','ns_tabbtn_hero','ns_tab_hero']].forEach(function(p){
+  [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san'],['hero','ns_tabbtn_hero','ns_tab_hero'],['brand','ns_tabbtn_brand','ns_tab_brand']].forEach(function(p){
     var on=(p[0]===t);
     var b=g(p[1]); if(b) b.style.cssText=base+(on?'border:1px solid #4858cc;background:#4858cc;color:#fff':'border:1px solid #ccd;background:#f6f6fa;color:#555');
     var c=g(p[2]); if(c) c.style.display=on?'block':'none';
@@ -15129,6 +15178,7 @@ function nsTab(t){
     _sanDraw();
   }
   if(t==='hero'){ try{ _heroTabInit(); }catch(e){} }
+  if(t==='brand'){ try{ _brandTabInit(); }catch(e){} }
 }
 // 화면 입력값을 편집본(_sanWork)에 회수 — 행 조작·저장 전에 항상 호출(id 기반, 함정 A 안전)
 function _sanCollect(){
@@ -15214,7 +15264,7 @@ function sanSave(){
 // ===== 홈 화면 꾸미기 (herocfg, 2026-08-10, 관리자 전용 편집·전원 적용) =====
 // 설정: tops_herocfg = {t,ts,tf,tc, u,us,uf,uc, img,fit,scale(가로%),sy(세로%),op} — 텍스트·URL만(함정 B).
 // 이미지 원본은 홈 배경과 같은 Storage home_bg/ 경로 재사용(_homeBgUpload), 설정엔 URL만 저장.
-var HERO_DEF={t:'TEAM TOPS', ts:70, tf:'', tc:'#1a1a2e', u:'INSURANCE BUSINESS MANAGEMENT SYSTEM', us:13, uf:'', uc:'#6060a0', img:'', fit:'cover', scale:100, sy:100, op:100, h:0};
+var HERO_DEF={t:'TIMS', ts:70, tf:'', tc:'#1a1a2e', u:'INSURANCE BUSINESS MANAGEMENT SYSTEM', us:13, uf:'', uc:'#6060a0', img:'', fit:'cover', scale:100, sy:100, op:100, h:0};
 // 무료 한글 웹폰트 15종(구글 폰트). q가 있는 폰트만 필요할 때 로드 — 평소엔 선택된 폰트만, 환경설정 미리보기에서만 전체 로드.
 var HERO_FONTS=[
   {id:'',            nm:'기본 (노토 산스)',      css:'', q:''},
@@ -15330,7 +15380,7 @@ function _heroTabInit(){
   if(box) box.innerHTML=HERO_FONTS.map(function(f){
     return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #f2f3fa">'
       +'<div style="width:158px;flex:none;font-size:12.5px;color:#667">'+f.nm+'</div>'
-      +'<div style="flex:1;font-size:22px;line-height:1.35;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">TEAM TOPS 팀탑스 1234</div>'
+      +'<div style="flex:1;font-size:22px;line-height:1.35;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">TIMS 인트라넷 1234</div>'
       +'<button onclick="_heroPickFont(\''+f.id+'\',\'t\')" style="padding:4px 10px;background:#eef2fd;border:1px solid #c8d2f0;border-radius:6px;color:#3848a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">제목</button>'
       +'<button onclick="_heroPickFont(\''+f.id+'\',\'u\')" style="padding:4px 10px;background:#f2eefd;border:1px solid #d4c8f0;border-radius:6px;color:#6a48a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">부제</button>'
       +'</div>';
@@ -15432,6 +15482,113 @@ async function heroSave(){
 try{ window.herocfg=JSON.parse(localStorage.getItem('tops_herocfg')||'null'); }catch(e){ window.herocfg=null; }
 try{ _heroApply(); }catch(e){}
 
+// ===== 명칭(브랜드) 설정 (brandcfg, 2026-08-11, 관리자 전용 편집·전원 적용) =====
+// 로그인 화면 제목(#login_brand_t)·부제(#login_brand_s) + 사이드바 로고(#sb_brand_t) + 브라우저 탭 제목.
+// herocfg와 같은 패턴: 정규화(_brandCfg)·훅(부팅/login/loadFromFirestore/onSnapshot)·환경설정 탭 편집.
+// 설정: tops_brandcfg = {t,ts,tf,tc, u,us,uf,uc, ss,sc} — 텍스트만(함정 B). 글씨체는 HERO_FONTS 공용.
+// ⚠️ 로그인 화면은 로그인 전이라 Firestore 미수신 — 처음 쓰는 기기는 첫 로그인 전까지 기본값(BRAND_DEF) 표시.
+var BRAND_DEF={t:'TIMS', ts:36, tf:'', tc:'#ffffff', u:'INTRANET SYSTEM', us:13, uf:'', uc:'#4a5a90', ss:22, sc:'#6878ff'};
+function _brandCfg(){
+  var c=window.brandcfg;
+  c=(c&&typeof c==='object'&&!Array.isArray(c))?c:{};
+  var o={}, k;
+  for(k in BRAND_DEF){ o[k]=(c[k]===undefined||c[k]===null)?BRAND_DEF[k]:c[k]; }
+  o.t=String(o.t==null?'':o.t).slice(0,30);
+  o.u=String(o.u==null?'':o.u).slice(0,60);
+  o.ts=Math.min(80,Math.max(12,parseInt(o.ts,10)||BRAND_DEF.ts));
+  o.us=Math.min(40,Math.max(8,parseInt(o.us,10)||BRAND_DEF.us));
+  o.ss=Math.min(40,Math.max(10,parseInt(o.ss,10)||BRAND_DEF.ss));
+  o.tf=_heroFontById(o.tf).id; o.uf=_heroFontById(o.uf).id;
+  o.tc=/^#[0-9a-fA-F]{6}$/.test(String(o.tc||''))?o.tc:BRAND_DEF.tc;
+  o.uc=/^#[0-9a-fA-F]{6}$/.test(String(o.uc||''))?o.uc:BRAND_DEF.uc;
+  o.sc=/^#[0-9a-fA-F]{6}$/.test(String(o.sc||''))?o.sc:BRAND_DEF.sc;
+  return o;
+}
+// varName을 주면 크기를 CSS 변수로 지정 — 로그인 제목(.ll)은 모바일 미디어쿼리가 min(--brand-ts,9vw)로 축소
+function _brandPaintOne(el,txt,size,fontId,color,varName){
+  if(!el) return;
+  el.textContent=txt;
+  el.style.display=txt.trim()?'':'none';
+  if(varName) el.style.setProperty(varName, size+'px'); else el.style.fontSize=size+'px';
+  el.style.fontFamily=_heroFontById(fontId).css;
+  el.style.color=color;
+}
+function _brandApply(){
+  var c=_brandCfg();
+  _heroFontLoad([c.tf,c.uf]);
+  _brandPaintOne(g('login_brand_t'), c.t, c.ts, c.tf, c.tc, '--brand-ts');
+  _brandPaintOne(g('login_brand_s'), c.u, c.us, c.uf, c.uc, null);
+  _brandPaintOne(g('sb_brand_t'), c.t.trim()||BRAND_DEF.t, c.ss, c.tf, c.sc, null); // 사이드바는 비워도 기본 명칭 유지(머리 영역 붕괴 방지)
+  try{ document.title=c.t.trim()||BRAND_DEF.t; }catch(e){}
+}
+// ── 환경설정 [명칭 변경] 탭 ──
+function _brandFill(c){
+  g('bb_t').value=c.t; g('bb_ts').value=c.ts; g('bb_tf').value=c.tf; g('bb_tc').value=c.tc;
+  g('bb_u').value=c.u; g('bb_us').value=c.us; g('bb_uf').value=c.uf; g('bb_uc').value=c.uc;
+  g('bb_ss').value=c.ss; g('bb_sc').value=c.sc;
+}
+function _brandTabInit(){
+  _heroFontLoad(HERO_FONTS.map(function(f){ return f.id; }));   // 미리보기 갤러리용 전체 로드(hero와 공용 캐시)
+  var selHtml=HERO_FONTS.map(function(f){
+    return '<option value="'+f.id+'" style="font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">'+f.nm+'</option>';
+  }).join('');
+  // 옵션은 최초 1회만 구성 — 탭을 오갈 때 미저장 선택이 초기화되는 것 방지(hero와 동일)
+  if(!g('bb_tf').options.length){ g('bb_tf').innerHTML=selHtml; g('bb_uf').innerHTML=selHtml; }
+  var box=g('bb_gallery');
+  if(box) box.innerHTML=HERO_FONTS.map(function(f){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #f2f3fa">'
+      +'<div style="width:158px;flex:none;font-size:12.5px;color:#667">'+f.nm+'</div>'
+      +'<div style="flex:1;font-size:22px;line-height:1.35;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">TIMS 인트라넷 1234</div>'
+      +'<button onclick="_brandPickFont(\''+f.id+'\',\'t\')" style="padding:4px 10px;background:#eef2fd;border:1px solid #c8d2f0;border-radius:6px;color:#3848a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">제목</button>'
+      +'<button onclick="_brandPickFont(\''+f.id+'\',\'u\')" style="padding:4px 10px;background:#f2eefd;border:1px solid #d4c8f0;border-radius:6px;color:#6a48a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">부제</button>'
+      +'</div>';
+  }).join('');
+  if(!window._bbInit){
+    window._bbInit=true;
+    _brandFill(_brandCfg());
+  }
+  _brandPrevDraw();
+}
+function _brandPickFont(id,which){
+  var s=g(which==='t'?'bb_tf':'bb_uf');
+  if(s) s.value=_heroFontById(id).id;
+  _brandPrevDraw();
+}
+// 화면 입력값 → 정규화된 설정 객체
+function _brandCollect(){
+  var v=function(id){ var el=g(id); return el?el.value:''; };
+  var keep=window.brandcfg;
+  try{
+    window.brandcfg={t:v('bb_t'), ts:v('bb_ts'), tf:v('bb_tf'), tc:v('bb_tc'), u:v('bb_u'), us:v('bb_us'), uf:v('bb_uf'), uc:v('bb_uc'), ss:v('bb_ss'), sc:v('bb_sc')};
+    return _brandCfg();
+  }finally{ window.brandcfg=keep; } // 예외가 나도 전역 설정 원복(리뷰 반영)
+}
+function _brandPrevDraw(){
+  if(!g('bbp_t')) return;
+  var c=_brandCollect();
+  _heroFontLoad([c.tf,c.uf]);
+  _brandPaintOne(g('bbp_t'), c.t, c.ts, c.tf, c.tc, null);
+  _brandPaintOne(g('bbp_s'), c.u, c.us, c.uf, c.uc, null);
+  _brandPaintOne(g('bbp_sb'), c.t.trim()||BRAND_DEF.t, c.ss, c.tf, c.sc, null);
+}
+function brandReset(){
+  if(!confirm('명칭(로그인 화면·사이드바) 설정을 기본값으로 되돌릴까요? [저장]을 눌러야 실제 반영됩니다.')) return;
+  _brandFill(Object.assign({},BRAND_DEF));
+  _brandPrevDraw();
+}
+function brandSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var c=_brandCollect();
+  window.brandcfg=c;
+  sv('tops_brandcfg', c);
+  _brandApply();
+  _brandPrevDraw();
+  toast('명칭이 저장되었습니다. (모든 사용자에게 적용)');
+}
+// 부팅 시 로컬 캐시로 즉시 적용(클라우드 수신 시 갱신) — 로그인 화면에도 반영되도록 herocfg보다 넓게 쓰임
+try{ window.brandcfg=JSON.parse(localStorage.getItem('tops_brandcfg')||'null'); }catch(e){ window.brandcfg=null; }
+try{ _brandApply(); }catch(e){}
+
 function rNavSet(){
   if(!_isAdmin()) return;
   _nsBuild();
@@ -15439,6 +15596,7 @@ function rNavSet(){
   // 전산 사이트 편집본 — 페이지 진입 시 저장본 기준으로 초기화
   window._sanWork=JSON.parse(JSON.stringify(_sanData().items||[]));
   window._hhInit=false;   // 홈 화면 꾸미기 탭 — 페이지 진입 시 저장본 기준으로 초기화
+  window._bbInit=false;   // 명칭 변경 탭 — 페이지 진입 시 저장본 기준으로 초기화
   nsTab(window._nsTabCur||'menu');
 }
 // 숨김 항목을 각 목록(최상위/그룹) 맨 아래로 — 안정 정렬이라 나머지 순서는 유지

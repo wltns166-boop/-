@@ -212,6 +212,18 @@
 - 편집 화면: 저장 전 미리보기(`hh_prev`, 방금 고른 파일은 dataURL로 미리보기만 — 저장 시엔 Storage URL만 기록),
   [기본값 복원]은 화면만 되돌리고 [저장]해야 반영. 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
 
+## 4.655 명칭(브랜드) 설정 (brandcfg, 2026-08-11)
+
+- 로그인 화면 제목(`#login_brand_t`)·부제(`#login_brand_s`) + 사이드바 로고(`#sb_brand_t`) + 브라우저 탭 제목을
+  환경설정 [명칭 변경] 탭에서 편집(관리자 전용 — herocfg와 같은 패턴). 기본 명칭은 **TIMS**(2026-08-11에 TEAM TOPS에서 변경).
+- 데이터: `brandcfg={t,ts,tf,tc, u,us,uf,uc, ss(사이드바 크기),sc(사이드바 색)}` — 동기화 키 `tops_brandcfg`(텍스트만, 함정 B).
+  `_brandCfg()` 정규화(크기 클램프·#rrggbb 정규식·폰트 화이트리스트), 글씨체는 `HERO_FONTS` 공용(_heroFontLoad 재사용).
+- 렌더 훅: 부팅(로컬 캐시)·login()·loadFromFirestore·onSnapshot 네 곳 `_brandApply()` (herocfg와 동일 패턴).
+- 로그인 제목 크기는 CSS 변수 `--brand-ts` — 모바일 미디어쿼리 `min(var(--brand-ts,36px),9vw)`로 축소(herocfg 방식,
+  ⚠️ 고정 px!important로 되돌리지 말 것). 제목 비우면 로그인 화면에선 숨김, **사이드바·탭 제목은 기본값 유지**(머리 붕괴 방지).
+- ⚠️ 로그인 화면은 로그인 전이라 Firestore 미수신 — 처음 쓰는 기기는 첫 로그인 전까지 기본값(BRAND_DEF) 표시.
+- HERO_DEF.t도 'TIMS'로 변경(홈 히어로 기본값 복원 시 표시 문구). 문서·보고서 내부의 "TEAM TOPS" 문구(CSV·계보도·일일보고 등)는 범위 밖 — 그대로 둠.
+
 ## 4.66 팀 미팅 — 작성 대상자 명단 (mtcfg, 2026-08-10)
 
 - 팀원별 미팅 현황 표 머리의 [작성 대상자 관리](`mt_targets_btn`, 관리자 전용 체크박스 모달 `mtTargetsOpen`).
