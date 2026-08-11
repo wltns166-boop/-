@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-5</div>
   </div>
 </div>
 
@@ -791,7 +791,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="card" id="ns_tab_brand" style="display:none">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-badge"></i> 명칭 변경</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
-          <b>로그인 화면의 제목·부제</b>와 <b>사이드바 상단 로고</b>, 브라우저 탭 제목을 바꿉니다. 아래 미리보기에서 바로 확인하고, <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.<br>
+          <b>로그인 화면의 제목·부제</b>와 <b>사이드바 상단 로고</b>(문구·글씨체·크기·색상 각각 설정), 브라우저 탭 제목을 바꿉니다. 아래 미리보기에서 바로 확인하고, <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.<br>
           휴대폰처럼 좁은 화면에서는 제목이 화면 폭에 맞게 자동 축소됩니다. 처음 쓰는 기기는 첫 로그인 전까지 기본 명칭이 보일 수 있습니다.
         </div>
         <div id="bb_prev" style="border:1px solid #e2e4f0;border-radius:10px;background:linear-gradient(160deg,#070c26,#101a44);text-align:center;padding:26px 12px;margin-bottom:14px">
@@ -818,9 +818,10 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
         <div style="display:grid;grid-template-columns:72px 1fr 90px 170px 60px;gap:8px;align-items:center;font-size:13.5px;color:#1a1a2e;margin-bottom:14px">
           <div style="font-weight:700">사이드바</div>
-          <div style="font-size:12.5px;color:#8888aa">제목과 같은 문구·글씨체가 쓰입니다 — 크기·색상만 따로 조절</div>
+          <input id="bb_st" oninput="_brandPrevDraw()" placeholder="사이드바 문구 (비우면 제목과 동일)" style="padding:7px 10px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
           <input id="bb_ss" type="number" min="10" max="40" oninput="_brandPrevDraw()" title="사이드바 글씨 크기(px)" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">
-          <input id="bb_sc" type="color" oninput="_brandPrevDraw()" title="사이드바 글씨 색상" style="width:100%;height:34px;border:1px solid #d0d4e8;border-radius:7px;background:#fff;cursor:pointer;grid-column:span 2">
+          <select id="bb_sf" onchange="_brandPrevDraw()" title="사이드바 글씨체" style="padding:7px 8px;border:1px solid #d0d4e8;border-radius:7px;font-size:13.5px;font-family:inherit;color:#1a1a2e;background:#fff"></select>
+          <input id="bb_sc" type="color" oninput="_brandPrevDraw()" title="사이드바 글씨 색상" style="width:100%;height:34px;border:1px solid #d0d4e8;border-radius:7px;background:#fff;cursor:pointer">
         </div>
         <div style="border-top:1px solid #eef0f8;padding-top:12px">
           <div style="font-weight:700;font-size:13.5px;color:#1a1a2e;margin-bottom:6px"><i class="ti ti-typography"></i> 글씨체 미리보기 <span style="font-weight:400;color:#8888aa">(오른쪽 버튼으로 제목·부제에 바로 적용)</span></div>
@@ -11204,6 +11205,7 @@ function toggleCustForm(){
     document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=false;});
     _custAlienReset([]); // 외국인 등록증 첨부 버퍼 초기화(이전 편집분 잔존 방지)
     _custDocReset('',''); // 신분증·통장사본 버퍼 초기화
+    _custFamDocsReset([]); // 가족 서류 버퍼 초기화
     window._custEditRef=null;
     wrap.style.display = 'block';
     var btn=document.getElementById('btn_cust_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
@@ -11235,13 +11237,14 @@ function editCust(idx){
   var fc=g('cust_family_cnt');if(fc){fc.value=c.familyCnt||0;renderFamilyFields();}
   // renderFamilyFields는 동기라 바로 채워도 됨 — setTimeout(50) 제거(연속 편집 클릭 레이스 예방)
   if(c.family) c.family.forEach(function(f,i){
-    var flds={name:'fam_name_',rel:'fam_rel_',rrn:'fam_rrn_',phone:'fam_phone_',carrier:'fam_carrier_',job:'fam_job_',drive:'fam_drive_',height:'fam_height_',weight:'fam_weight_',disease:'fam_disease_',region:'fam_region_',addr:'fam_addr_'};
+    var flds={name:'fam_name_',rel:'fam_rel_',rrn:'fam_rrn_',phone:'fam_phone_',carrier:'fam_carrier_',job:'fam_job_',drive:'fam_drive_',height:'fam_height_',weight:'fam_weight_',disease:'fam_disease_',region:'fam_region_',addr:'fam_addr_',bankName:'fam_bank_name_',bankNum:'fam_bank_num_'};
     Object.keys(flds).forEach(function(k){var el=g(flds[k]+i);if(el)el.value=f[k]||'';});
   });
   g('cust_edit_idx').value=idx;
   g('cust_del_btn').style.display='inline-flex';
   _custAlienReset(c.alienIds||[]); // 저장된 외국인 등록증 첨부 표시
   _custDocReset(c.name||'', c.rrn||''); // 보관함의 신분증·통장사본 표시
+  _custFamDocsReset(c.family||[]); // 가족 서류(등록증·신분증·통장사본) 표시 — 가족 칸 렌더 후 호출
   window._custEditRef=c; // 저장 시 Storage 정리의 대상 검증용(배열 밀림 오삭제 방지)
   document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=c.ins&&c.ins.includes(cb.value);});
   var wrap=document.getElementById('cust_form_wrap');if(wrap){wrap.style.display='block';var btn=document.getElementById('btn_cust_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';wrap.scrollIntoView({behavior:"smooth",block:"start"});}
@@ -11258,7 +11261,7 @@ function famCntStep(d){
 
 // 가족 입력칸의 값을 재렌더 후에도 유지하기 위한 임시 보관소 (폼 열기/수정 진입 시 초기화)
 window._famStash=[];
-var _FAM_KEYS=['name','rel','rrn','phone','carrier','job','drive','height','weight','disease','region','addr'];
+var _FAM_KEYS=['name','rel','rrn','phone','carrier','job','drive','height','weight','disease','region','addr','bank_name','bank_num'];
 
 function renderFamilyFields(){
   var cnt=parseInt((g('cust_family_cnt')||{value:0}).value)||0;
@@ -11275,6 +11278,19 @@ function renderFamilyFields(){
   var carriers='<option value="">선택</option><option>SKT</option><option>KT</option><option>LGU+</option><option>SKT 알뜰폰</option><option>KT 알뜰폰</option><option>LGU+ 알뜰폰</option>';
   var rels='<option value="">선택</option><option>배우자</option><option>자녀</option><option>부모</option><option>형제/자매</option><option>기타</option>';
   var regions='<option value="">선택</option><option>서울</option><option>경기</option><option>인천</option><option>부산</option><option>대구</option><option>광주</option><option>대전</option><option>울산</option><option>세종</option><option>강원</option><option>충북</option><option>충남</option><option>전북</option><option>전남</option><option>경북</option><option>경남</option><option>제주</option>';
+  var banks='<option value="">선택</option><option>국민은행</option><option>신한은행</option><option>우리은행</option><option>하나은행</option><option>농협은행</option><option>기업은행</option><option>SC제일은행</option><option>씨티은행</option><option>카카오뱅크</option><option>케이뱅크</option><option>토스뱅크</option><option>새마을금고</option><option>신협</option><option>우체국</option><option>부산은행</option><option>대구은행</option><option>경남은행</option><option>광주은행</option><option>전북은행</option><option>제주은행</option>';
+  // 서류 업로드 칸(외국인등록증·신분증·통장사본) 공용 생성기 — 클릭하면 붙여넣기 대상(연두색 표시)
+  var docBox=function(i,kind,label,icon,accept,multi){
+    var pre=_famDocPre(kind); // 종류→id 접두어 매핑은 전역 한 곳만 사용(중복 정의 금지 — 2026-08-11 리뷰)
+    return '<div id="'+pre+'box_'+i+'" style="border:1.5px solid #d8ddef;border-radius:10px;padding:8px 10px;background:#fff" onclick="_custDocTgt(\'f'+i+'_'+kind+'\')" ondragover="_famDocDragOver(event,'+i+',\''+kind+'\')" ondragleave="_famDocDragLeave('+i+',\''+kind+'\')" ondrop="_famDocDrop(event,'+i+',\''+kind+'\')">'
+      +'<div style="font-size:13px;color:#6070aa;margin-bottom:3px">'+label+'</div>'
+      +'<label style="font-size:12.5px;padding:5px 10px;border:1px solid rgba(72,88,204,.3);border-radius:7px;cursor:pointer;background:#f8f9ff;display:inline-block" onclick="event.stopPropagation();_custDocTgt(\'f'+i+'_'+kind+'\')">'
+        +'<i class="ti '+icon+'"></i> 올리기'
+        +'<input type="file" id="'+pre+'file_'+i+'" accept="'+accept+'"'+(multi?' multiple':'')+' onchange="famDocPick('+i+',\''+kind+'\')" style="display:none">'
+      +'</label>'
+      +'<div id="'+pre+'prev_'+i+'" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px"></div>'
+      +'</div>';
+  };
   var html='';
   for(var i=0;i<cnt;i++){
     html+='<div style="background:#f8f9ff;border:1px solid rgba(80,80,200,.12);border-radius:10px;padding:12px;margin-bottom:8px">'
@@ -11297,6 +11313,16 @@ function renderFamilyFields(){
         +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">몸무게(kg)</div><input class="fi" type="number" id="fam_weight_'+i+'" placeholder="65" style="font-size:14px"></div>'
       +'</div>'
       +'<div style="margin-bottom:6px"><div style="font-size:13px;color:#6070aa;margin-bottom:3px">병력사항</div><textarea class="fi" id="fam_disease_'+i+'" placeholder="특이 병력사항" rows="2" style="font-size:14px;resize:vertical"></textarea></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:6px">'
+        +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">은행명</div><select class="fs" id="fam_bank_name_'+i+'" style="font-size:14px">'+banks+'</select></div>'
+        +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">계좌번호</div><input class="fi" id="fam_bank_num_'+i+'" placeholder="계좌번호 (- 없이)" style="font-size:14px"></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">'
+        +docBox(i,'alien','외국인 등록증','ti-id','image/*,application/pdf',true)
+        +docBox(i,'id','신분증','ti-id-badge-2','image/*',false)
+        +docBox(i,'bank','통장사본','ti-credit-card','image/*',false)
+      +'</div>'
+      +'<div style="font-size:11px;color:#8888aa;margin-bottom:6px">칸을 클릭하면 <span style="color:#2ea043;font-weight:700">연두색</span>으로 표시되고, 붙여넣기(Ctrl+V)·끌어다 놓기가 그 칸으로 들어갑니다. 신분증·통장사본은 저장해 두면 청구신청 때 자동 등록됩니다.</div>'
       +'<div>'
         +'<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;margin-bottom:6px">'
           +'<input type="checkbox" id="fam_same_addr_'+i+'" onchange="fillSameAddr('+i+')" style="accent-color:#4858cc"> <span style="color:#4858cc;font-weight:600">위와 같은 주소</span>'
@@ -11317,6 +11343,7 @@ function renderFamilyFields(){
     _FAM_KEYS.forEach(function(k){var el=g('fam_'+k+'_'+ri); if(el&&o[k])el.value=o[k];});
     var sa=g('fam_same_addr_'+ri); if(sa&&o._same) sa.checked=true;
   }
+  try{ _famDocsDrawAll(); }catch(e){} // 서류 미리보기·붙여넣기 대상 표시 복원(재렌더로 지워진 DOM 다시 그림)
 }
 
 function fillSameAddr(i){
@@ -11444,10 +11471,12 @@ function _custAlienDragOver(e){
   var b=g('cust_alien_box'); if(b){ b.style.borderColor='#2ea043'; b.style.background='#f2fcf5'; }
 }
 function _custAlienDragLeave(){
+  if(typeof _custTgtPaint==='function'){ _custTgtPaint(); return; } // 선택 표시(연두색) 유지한 채 드래그 강조만 해제
   var b=g('cust_alien_box'); if(b){ b.style.borderColor='#d8ddef'; b.style.background='#fff'; }
 }
 function _custAlienDrop(e){
   e.preventDefault(); e.stopPropagation();
+  if(typeof _custDocTgt==='function') _custDocTgt('alien'); // 끌어다 놓은 칸을 다음 붙여넣기 대상으로
   _custAlienDragLeave();
   Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]).forEach(function(f){ _custAlienUpload(f); });
 }
@@ -11467,6 +11496,21 @@ document.addEventListener('paste', function(e){
   try{ hasText=!!cd.getData('text'); }catch(_e){}
   if(hasText&&ae&&/^(input|textarea)$/i.test(ae.tagName)) return;
   var t=window._custPasteTgt||'alien';
+  var fm=/^f(\d+)_(alien|id|bank)$/.exec(t); // 가족 칸 대상 (f<순번>_<종류>)
+  if(fm){
+    var fi=+fm[1], fk=fm[2];
+    if(!g(_famDocPre(fk)+'box_'+fi)){ // 인원 축소 등으로 칸이 사라짐 — 대상 해제 + 다른 리스너로 흘러가 엉뚱한 칸에 붙지 않게 차단(2026-08-11 리뷰)
+      e.preventDefault(); window._custPasteTgt=null; _custTgtPaint();
+      toast('선택했던 서류 칸이 없어졌습니다. 올릴 칸을 다시 클릭한 뒤 붙여넣어 주세요.');
+      return;
+    }
+    e.preventDefault();
+    if(fk==='alien'){ files.forEach(function(f){ _famDocUpload(fi,'alien',f); }); return; }
+    var fimg=files.filter(function(f){ return /^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||'')); })[0];
+    if(!fimg){ toast((fk==='id'?'신분증':'통장사본')+' 칸에는 사진(이미지)만 붙여넣을 수 있습니다.'); return; }
+    _famDocUpload(fi,fk,fimg);
+    return;
+  }
   if(t==='id'||t==='bank'){
     var img=files.filter(function(f){ return /^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||'')); })[0];
     if(!img){ e.preventDefault(); toast((t==='id'?'신분증':'통장사본')+' 칸에는 사진(이미지)만 붙여넣을 수 있습니다.'); return; } // preventDefault — 공용(uni) paste 리스너의 중복 토스트 방지
@@ -11485,7 +11529,20 @@ document.addEventListener('paste', function(e){
 // 신분증/계좌사진 칸에 자동 등록되므로, 청구 쪽은 코드 변경 없이 연동된다.
 // 버퍼: window._custDoc={id:{u,n,sv}|null, bank:{...}} — 종류별 1장(청구 폼 규격과 동일).
 var _CUSTDOC_IDS={id:'cust_iddoc_', bank:'cust_bankdoc_'};
-function _custDocTgt(t){ window._custPasteTgt=t; }
+// 붙여넣기 대상 칸 지정 + 연두색 표시(2026-08-11) — 클릭한 칸이 초록 테두리·배경으로 표시됨
+function _custDocTgt(t){ window._custPasteTgt=t; _custTgtPaint(); }
+function _custTgtPaint(){
+  var t=window._custPasteTgt;
+  var paint=function(id,on){ var b=g(id); if(!b) return; b.style.borderColor=on?'#2ea043':'#d8ddef'; b.style.background=on?'#f2fcf5':'#fff'; };
+  paint('cust_alien_box', t==='alien');
+  paint('cust_iddoc_box', t==='id');
+  paint('cust_bankdoc_box', t==='bank');
+  for(var i=0;g('fam_name_'+i);i++){ // 가족 칸 — 화면에 있는 만큼만
+    paint('fam_alien_box_'+i, t==='f'+i+'_alien');
+    paint('fam_iddoc_box_'+i, t==='f'+i+'_id');
+    paint('fam_bankdoc_box_'+i, t==='f'+i+'_bank');
+  }
+}
 function _custDocReset(name, rrn){
   // 세대 카운터: 폼이 다른 고객으로 바뀌면 진행 중이던 업로드 결과를 버림(오귀속 방지 — alienIds와 동일)
   window._custDocGen=(window._custDocGen||0)+1;
@@ -11501,6 +11558,7 @@ function _custDocReset(name, rrn){
     bank: ent.bank?{u:String(ent.bank), n:'통장사본', sv:1}:null
   };
   _custDocDraw('id'); _custDocDraw('bank');
+  _custTgtPaint(); // 대상 해제 상태로 연두색 표시 초기화
 }
 function _custDocDraw(kind){
   var box=g(_CUSTDOC_IDS[kind]+'preview'); if(!box) return;
@@ -11567,66 +11625,213 @@ function _custDocDragOver(e,kind){
   var b=g(_CUSTDOC_IDS[kind]+'box'); if(b){ b.style.borderColor='#2ea043'; b.style.background='#f2fcf5'; }
 }
 function _custDocDragLeave(kind){
-  var b=g(_CUSTDOC_IDS[kind]+'box'); if(b){ b.style.borderColor='#d8ddef'; b.style.background='#fff'; }
+  _custTgtPaint(); // 선택 표시(연두색) 유지한 채 드래그 강조만 해제
 }
 function _custDocDrop(e,kind){
   e.preventDefault(); e.stopPropagation();
-  _custDocDragLeave(kind);
-  window._custPasteTgt=kind; // 끌어다 놓은 칸을 다음 붙여넣기 대상으로도 기억
+  _custDocTgt(kind); // 끌어다 놓은 칸을 다음 붙여넣기 대상으로도 기억(연두색 표시 포함)
   var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
   if(fs.length) _custDocUpload(kind, fs[0]); // 1장 칸 — 첫 파일만
 }
-// [저장] 시 청구 보관함(tops_claim_docs) 반영 — 바뀐 것이 있을 때만 저장·동기화(_claimDocsStore와 같은 키별 병합).
+// [저장] 시 청구 보관함(tops_claim_docs) 반영의 공용 코어 — 바뀐 것이 있을 때만 저장·동기화(_claimDocsStore와 같은 키별 병합).
+// 반환: null=변경 없음/이름 없음, {norrn:true}=생년 없어 기록 생략(새 업로드 있었음 — 안내는 호출부가),
+//       {key,ent}=커밋 완료(ent는 항목 전체가 지워졌으면 null). 본인·가족 서류가 같은 코어를 쓴다(2026-08-11).
+function _docVaultCommit(name, rrn, buf, oldKey, loaded){
+  if(!buf) return null;
+  var newKey=_claimDocsKey(name, rrn); if(!newKey) return null;
+  // 생년 6자리가 없으면 보관함을 건드리지 않음 — 모호한 "이름|" 키를 동명이인끼리 공유해
+  // 서로의 사진을 덮어쓰고 원본까지 삭제하는 사고 방지(2026-08-11 리뷰).
+  if(!(newKey.split('|')[1]||'')){
+    var hasNew=(buf.id&&buf.id.u&&!buf.id.sv)||(buf.bank&&buf.bank.u&&!buf.bank.sv);
+    return hasNew?{norrn:true}:null;
+  }
+  var all=_claimDocsAll();
+  oldKey=oldKey||''; loaded=loaded||{};
+  var ent=Object.assign({}, (oldKey&&all[oldKey])||all[newKey]||{});
+  var changed=false, fsUpd={};
+  ['id','bank'].forEach(function(kind){
+    var u=(buf[kind]&&buf[kind].u)?String(buf[kind].u):'';
+    var cur=ent[kind]||'';
+    if(u===cur) return;
+    // 빈 칸으로의 변경(삭제)은 폼에 실제로 표시했던 사진을 ✕로 뺐을 때만 —
+    // 동명이인 신규 등록 등 "화면에 없던 보관함 사진"을 지우는 사고 방지
+    if(!u&&!loaded[kind]) return;
+    if(cur){ try{ if(typeof firebase!=='undefined'&&firebase.storage) firebase.storage().refFromURL(cur).delete().catch(function(){}); }catch(e){} } // 교체·삭제된 옛 사진 정리(실패 무방)
+    if(u){ ent[kind]=u; fsUpd[kind]=u; }
+    else{ delete ent[kind]; try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) fsUpd[kind]=firebase.firestore.FieldValue.delete(); }catch(e){} }
+    changed=true;
+  });
+  var keyMoved=!!(oldKey&&oldKey!==newKey&&all[oldKey]); // 주민번호 수정 등으로 보관함 키가 바뀜
+  if(!changed&&!keyMoved) return null;
+  if(changed){ ent.up=tds(); ent.agent=cu?cu.name:''; fsUpd.up=ent.up; fsUpd.agent=ent.agent; }
+  var payload={claim_docs:{}};
+  if(keyMoved){
+    delete all[oldKey];
+    try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[oldKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
+    fsUpd=Object.assign({}, ent); // 이동 시엔 항목 전체를 새 키에 실제 값으로 기록
+  }
+  var kept=!!(ent.id||ent.bank);
+  if(kept){ all[newKey]=ent; payload.claim_docs[newKey]=fsUpd; }
+  else{
+    delete all[newKey];
+    try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[newKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
+  }
+  window._claimDocs=all;
+  _lsSet('tops_claim_docs', JSON.stringify(all));
+  try{ if(window.FS_DOC) window.FS_DOC.set(payload,{merge:true}).catch(function(err){ console.warn('cust docs FS save err:',err); }); }catch(e){}
+  if(buf.id) buf.id.sv=1;
+  if(buf.bank) buf.bank.sv=1;
+  return {key:newKey, ent:kept?ent:null};
+}
+// 본인(고객) 서류 커밋 — 기존 동작 유지 래퍼
 function _custDocCommit(name, rrn){
   try{
-    var buf=window._custDoc; if(!buf) return;
-    var newKey=_claimDocsKey(name, rrn); if(!newKey) return;
-    // 생년 6자리가 없으면 보관함을 건드리지 않음 — 모호한 "이름|" 키를 동명이인끼리 공유해
-    // 서로의 사진을 덮어쓰고 원본까지 삭제하는 사고 방지(2026-08-11 리뷰). 새 업로드가 있었으면 안내만.
-    if(!(newKey.split('|')[1]||'')){
-      var hasNew=(buf.id&&buf.id.u&&!buf.id.sv)||(buf.bank&&buf.bank.u&&!buf.bank.sv);
-      if(hasNew) setTimeout(function(){ toast('주민번호(생년월일 6자리)를 입력해야 신분증·통장사본이 저장되어 청구신청과 연동됩니다.'); }, 1600);
+    var r=_docVaultCommit(name, rrn, window._custDoc, window._custDocLoadedKey||'', window._custDocLoaded||{});
+    if(!r) return;
+    if(r.norrn){ setTimeout(function(){ toast('주민번호(생년월일 6자리)를 입력해야 신분증·통장사본이 저장되어 청구신청과 연동됩니다.'); }, 1600); return; }
+    window._custDocLoadedKey=r.key;
+    window._custDocLoaded={id:!!(r.ent&&r.ent.id), bank:!!(r.ent&&r.ent.bank)};
+  }catch(e){ console.warn('cust doc commit err:', e); }
+}
+
+// ===== 고객등록 — 가족구성원 서류 첨부 (2026-08-11) =====
+// 가족별 외국인등록증(family[].alienIds — URL만, 함정 B)·신분증/통장사본(청구 보관함 "가족이름|생년6" 키).
+// 버퍼: window._custFamDocs = { i(가족 순번): {alien:[{u,k,n,sv}], id, bank, loadedKey, loaded} }.
+// 세대(_custDocGen)·업로드 중 저장 차단(_custDocBusy)은 본인 서류와 공유(폼 단위 리셋이라 동일 시점).
+// ⚠️ 저장된 가족 등록증을 ✕로 빼도 Storage 원본은 지우지 않음(이름 변경·재정렬 시 오삭제 위험 회피 — 고아 파일 수용).
+function _famDocs(i){
+  var m=window._custFamDocs=window._custFamDocs||{};
+  return m[i]=m[i]||{alien:[], id:null, bank:null, loadedKey:'', loaded:{id:false,bank:false}};
+}
+function _custFamDocsReset(family){
+  window._custFamDocs={};
+  (Array.isArray(family)?family:[]).forEach(function(f,i){
+    var d=_famDocs(i);
+    d.alien=(Array.isArray(f&&f.alienIds)?f.alienIds:[]).filter(function(x){ return x&&x.u; }).map(function(x){
+      return {u:String(x.u), k:x.k==='pdf'?'pdf':'img', n:String(x.n||''), sv:1};
+    });
+    var key=(f&&f.name)?_claimDocsFindKey(f.name, f.rrn):'';
+    var ent=key?(_claimDocsAll()[key]||{}):{};
+    d.loadedKey=key; d.loaded={id:!!ent.id, bank:!!ent.bank};
+    d.id=ent.id?{u:String(ent.id), n:'신분증', sv:1}:null;
+    d.bank=ent.bank?{u:String(ent.bank), n:'통장사본', sv:1}:null;
+  });
+  _famDocsDrawAll();
+}
+function _famDocPre(kind){ return kind==='alien'?'fam_alien_':(kind==='id'?'fam_iddoc_':'fam_bankdoc_'); }
+function _famDocsDrawAll(){
+  for(var i=0;g('fam_name_'+i);i++){ _famDocDraw(i,'alien'); _famDocDraw(i,'id'); _famDocDraw(i,'bank'); }
+  _custTgtPaint();
+}
+// 미리보기 1개 요소(이미지/PDF 링크 + ✕) — 가족 서류 공용
+function _famDocThumb(f, title, onRemove){
+  var d=document.createElement('div'); d.style.cssText='position:relative;display:inline-block';
+  if(f.k==='pdf'){
+    var a=document.createElement('a');
+    a.href=f.u; a.target='_blank'; a.rel='noopener';
+    a.textContent='📄 '+(f.n||'PDF');
+    a.style.cssText='display:inline-block;font-size:12px;color:#4858cc;padding:5px 9px;background:#f0f2ff;border:1px solid rgba(72,88,204,.2);border-radius:5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    a.onclick=function(ev){ ev.stopPropagation(); };
+    d.appendChild(a);
+  } else {
+    var img=document.createElement('img');
+    img.src=f.u; img.title=f.n||title;
+    img.style.cssText='max-width:90px;max-height:70px;border-radius:6px;border:1px solid #ddd;display:block;cursor:pointer';
+    img.onclick=function(ev){ ev.stopPropagation(); window.open(f.u,'_blank'); };
+    d.appendChild(img);
+  }
+  var x=document.createElement('button');
+  x.textContent='✕'; x.title='빼기';
+  x.style.cssText='position:absolute;top:-7px;right:-7px;width:18px;height:18px;line-height:15px;padding:0;border:1px solid #ccc;border-radius:50%;background:#fff;color:#a33;font-size:11px;cursor:pointer;font-family:inherit';
+  x.onclick=function(ev){ ev.stopPropagation(); ev.preventDefault(); onRemove(); };
+  d.appendChild(x);
+  return d;
+}
+function _famDocDraw(i,kind){
+  var box=g(_famDocPre(kind)+'prev_'+i); if(!box) return;
+  box.innerHTML='';
+  var d=_famDocs(i);
+  var rmUnsaved=function(rm){ // 미저장 새 업로드는 Storage에서도 즉시 정리(저장된 것은 보관함/저장 경로에서 처리)
+    if(rm&&!rm.sv&&rm.u){ try{ if(typeof firebase!=='undefined'&&firebase.storage) firebase.storage().refFromURL(rm.u).delete().catch(function(){}); }catch(e){} }
+  };
+  if(kind==='alien'){
+    // 버퍼를 정렬·필터 없이 그대로 그리므로 인덱스 사용 안전(함정 A 예외)
+    d.alien.forEach(function(f,idx){
+      box.appendChild(_famDocThumb(f, '외국인 등록증', function(){
+        var rm=d.alien.splice(idx,1)[0]; rmUnsaved(rm); _famDocDraw(i,'alien');
+      }));
+    });
+  } else {
+    var f=d[kind];
+    if(f&&f.u) box.appendChild(_famDocThumb({u:f.u,k:'img',n:f.n}, kind==='id'?'신분증':'통장사본', function(){
+      var rm=d[kind]; d[kind]=null; rmUnsaved(rm); _famDocDraw(i,kind);
+    }));
+  }
+}
+async function _famDocUpload(i,kind,file){
+  if(!file) return;
+  var label=kind==='alien'?'외국인 등록증':(kind==='id'?'신분증':'통장사본');
+  var isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name||'');
+  var isImg=/^image\//.test(file.type)||(!file.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name||''));
+  if(kind==='alien'){ if(!isPdf&&!isImg){ toast('이미지·PDF 파일만 올릴 수 있습니다.'); return; } }
+  else { if(!isImg){ toast(label+' 칸에는 사진(이미지)만 올릴 수 있습니다.'); return; } isPdf=false; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  if(isPdf&&file.size>25*1024*1024){ toast('PDF는 25MB 이하만 올릴 수 있습니다.'); return; }
+  toast('가족 '+label+' 올리는 중...');
+  var gen=window._custDocGen||0;
+  window._custDocBusy=(window._custDocBusy||0)+1;
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var ref;
+    var base=(kind==='alien'?'claim_packages/alien_ids/fam_':'claim_packages/cust_docs/fam_')+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    if(isPdf){
+      ref=firebase.storage().ref(base+'.pdf');
+      await ref.put(file,{contentType:'application/pdf'});
+    } else {
+      var dataUrl=await _custAlienShrink(file);   // 1600px JPEG 축소(등록증 업로더 재사용)
+      var bin=atob(dataUrl.split(',')[1]); var u8=new Uint8Array(bin.length);
+      for(var bi=0;bi<bin.length;bi++) u8[bi]=bin.charCodeAt(bi);
+      ref=firebase.storage().ref(base+'.jpg');
+      await ref.put(u8,{contentType:'image/jpeg'});
+    }
+    var url=await ref.getDownloadURL();
+    if(gen!==(window._custDocGen||0)){
+      // 업로드 도중 다른 고객 폼으로 바뀜 — 이 파일은 버리고 Storage에서도 정리(오귀속 방지)
+      try{ ref.delete().catch(function(){}); }catch(e){}
       return;
     }
-    var all=_claimDocsAll();
-    var oldKey=window._custDocLoadedKey||'';
-    var loaded=window._custDocLoaded||{};
-    var ent=Object.assign({}, (oldKey&&all[oldKey])||all[newKey]||{});
-    var changed=false, fsUpd={};
-    ['id','bank'].forEach(function(kind){
-      var u=(buf[kind]&&buf[kind].u)?String(buf[kind].u):'';
-      var cur=ent[kind]||'';
-      if(u===cur) return;
-      // 빈 칸으로의 변경(삭제)은 폼에 실제로 표시했던 사진을 ✕로 뺐을 때만 —
-      // 동명이인 신규 등록 등 "화면에 없던 보관함 사진"을 지우는 사고 방지
-      if(!u&&!loaded[kind]) return;
-      if(cur){ try{ if(typeof firebase!=='undefined'&&firebase.storage) firebase.storage().refFromURL(cur).delete().catch(function(){}); }catch(e){} } // 교체·삭제된 옛 사진 정리(실패 무방)
-      if(u){ ent[kind]=u; fsUpd[kind]=u; }
-      else{ delete ent[kind]; try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) fsUpd[kind]=firebase.firestore.FieldValue.delete(); }catch(e){} }
-      changed=true;
-    });
-    var keyMoved=!!(oldKey&&oldKey!==newKey&&all[oldKey]); // 주민번호 수정 등으로 보관함 키가 바뀜
-    if(!changed&&!keyMoved) return;
-    if(changed){ ent.up=tds(); ent.agent=cu?cu.name:''; fsUpd.up=ent.up; fsUpd.agent=ent.agent; }
-    var payload={claim_docs:{}};
-    if(keyMoved){
-      delete all[oldKey];
-      try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[oldKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
-      fsUpd=Object.assign({}, ent); // 이동 시엔 항목 전체를 새 키에 실제 값으로 기록
-    }
-    if(ent.id||ent.bank){ all[newKey]=ent; payload.claim_docs[newKey]=fsUpd; }
+    var d=_famDocs(i);
+    if(kind==='alien'){ d.alien.push({u:url, k:isPdf?'pdf':'img', n:file.name||(label+(isPdf?'.pdf':'.jpg'))}); }
     else{
-      delete all[newKey];
-      try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[newKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
+      var old=d[kind];
+      if(old&&!old.sv&&old.u){ try{ firebase.storage().refFromURL(old.u).delete().catch(function(){}); }catch(e){} } // 교체된 미저장 업로드 정리
+      d[kind]={u:url, n:file.name||(label+'.jpg')};
     }
-    window._claimDocs=all;
-    _lsSet('tops_claim_docs', JSON.stringify(all));
-    try{ if(window.FS_DOC) window.FS_DOC.set(payload,{merge:true}).catch(function(err){ console.warn('cust docs FS save err:',err); }); }catch(e){}
-    window._custDocLoadedKey=newKey;
-    window._custDocLoaded={id:!!ent.id, bank:!!ent.bank};
-    if(buf.id) buf.id.sv=1;
-    if(buf.bank) buf.bank.sv=1;
-  }catch(e){ console.warn('cust doc commit err:', e); }
+    _famDocDraw(i,kind);
+    toast('가족 '+label+'이(가) 첨부되었습니다. 아래 [저장]을 눌러야 반영됩니다.');
+  }catch(e){ console.warn('fam doc upload err:', e); toast(label+' 업로드 실패: '+(e.message||e)); }
+  finally{ if(gen===(window._custDocGen||0)) window._custDocBusy=Math.max(0,(window._custDocBusy||1)-1); }
+}
+function famDocPick(i,kind){
+  var inp=g(_famDocPre(kind)+'file_'+i); if(!inp||!inp.files||!inp.files.length) return;
+  var fs=Array.prototype.slice.call(inp.files);
+  if(kind==='alien') fs.forEach(function(f){ _famDocUpload(i,'alien',f); });
+  else _famDocUpload(i,kind,fs[0]); // 1장 칸 — 첫 파일만
+  inp.value=''; // 같은 파일 재선택 시 onchange가 다시 뜨도록
+}
+function _famDocDragOver(e,i,kind){
+  e.preventDefault(); e.stopPropagation();
+  try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+  var b=g(_famDocPre(kind)+'box_'+i); if(b){ b.style.borderColor='#2ea043'; b.style.background='#f2fcf5'; }
+}
+function _famDocDragLeave(i,kind){ _custTgtPaint(); }
+function _famDocDrop(e,i,kind){
+  e.preventDefault(); e.stopPropagation();
+  _custDocTgt('f'+i+'_'+kind); // 끌어다 놓은 칸을 다음 붙여넣기 대상으로(연두색 표시 포함)
+  var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
+  if(!fs.length) return;
+  if(kind==='alien') fs.forEach(function(f){ _famDocUpload(i,'alien',f); });
+  else _famDocUpload(i,kind,fs[0]);
 }
 
 function saveCust(){
@@ -11634,7 +11839,7 @@ function saveCust(){
   var name=(g('cust_name')||{value:''}).value.trim();
   if(!name){toast('성함을 입력하세요.');return;}
   if(window._custAlienBusy){ toast('외국인 등록증 업로드가 진행 중입니다. 잠시 후 저장해주세요.'); return; } // 업로드 완료 전 저장 → 첨부 누락 방지
-  if(window._custDocBusy){ toast('신분증·통장사본 업로드가 진행 중입니다. 잠시 후 저장해주세요.'); return; }
+  if(window._custDocBusy){ toast('서류(신분증·통장사본·등록증) 업로드가 진행 중입니다. 잠시 후 저장해주세요.'); return; }
   var ins=[];
   document.querySelectorAll('input[name="cust_ins"]:checked').forEach(function(cb){ins.push(cb.value);});
   var familyCnt=Math.max(0,Math.min(10,parseInt((g('cust_family_cnt')||{value:0}).value)||0)); // 직접 입력한 10 초과 값도 저장 전 클램프(family 배열 길이와 불일치 방지)
@@ -11652,7 +11857,13 @@ function saveCust(){
       weight:g('fam_weight_'+i)?g('fam_weight_'+i).value:'',
       disease:g('fam_disease_'+i)?g('fam_disease_'+i).value:'',
       region:g('fam_region_'+i)?g('fam_region_'+i).value:'',
-      addr:g('fam_addr_'+i)?g('fam_addr_'+i).value:''
+      addr:g('fam_addr_'+i)?g('fam_addr_'+i).value:'',
+      bankName:g('fam_bank_name_'+i)?g('fam_bank_name_'+i).value:'',
+      bankNum:g('fam_bank_num_'+i)?g('fam_bank_num_'+i).value.trim():'',
+      // 가족 외국인 등록증 — Storage URL만 저장(함정 B)
+      alienIds:(((window._custFamDocs||{})[i]||{}).alien||[]).filter(function(x){ return x&&x.u; }).map(function(x){
+        return {u:String(x.u), k:x.k==='pdf'?'pdf':'img', n:String(x.n||'')};
+      })
     });
   }
   var obj={
@@ -11704,6 +11915,31 @@ function saveCust(){
   window._custs = custs;
   sv('tops_custs',custs);
   try{ _custDocCommit(name, obj.rrn); }catch(e){ console.warn('cust doc commit err:', e); } // 신분증·통장사본 → 청구 보관함 반영(실패해도 고객 저장은 유지)
+  // 가족 신분증·통장사본 → 청구 보관함(가족 이름|생년6 키) — 가족 명의 청구에서도 자동 등록됨
+  try{
+    var famNoRrn=[], famDupKey=[];
+    // 같은 저장 액션 안에서 같은 보관함 키가 두 번 커밋되면 앞사람 사진이 조용히 삭제됨(2026-08-11 리뷰)
+    // — 본인 키 포함 사용된 키를 추적해 중복이면 뒷사람 커밋을 건너뛰고 안내
+    var usedKeys={};
+    try{ var mk=_claimDocsKey(name, obj.rrn); if(mk&&(mk.split('|')[1]||'')) usedKeys[mk]=1; }catch(e){}
+    family.forEach(function(f,fi){
+      var d=(window._custFamDocs||{})[fi]; if(!d||!f||!String(f.name||'').trim()) return;
+      try{
+        var fk2=_claimDocsKey(f.name, f.rrn);
+        if(fk2&&(fk2.split('|')[1]||'')){
+          if(usedKeys[fk2]){ famDupKey.push(f.name); return; }
+          usedKeys[fk2]=1;
+        }
+        var r=_docVaultCommit(f.name, f.rrn, d, d.loadedKey||'', d.loaded||{});
+        if(r&&r.norrn){ famNoRrn.push(f.name); return; }
+        if(r&&r.key){ d.loadedKey=r.key; d.loaded={id:!!(r.ent&&r.ent.id), bank:!!(r.ent&&r.ent.bank)}; }
+      }catch(e){ console.warn('fam doc commit err:', e); }
+    });
+    var famWarns=[];
+    if(famNoRrn.length) famWarns.push('가족('+famNoRrn.join(', ')+')의 주민번호를 입력해야 신분증·통장사본이 청구신청과 연동됩니다.');
+    if(famDupKey.length) famWarns.push('이름·생년이 같은 가족('+famDupKey.join(', ')+')의 신분증·통장사본은 충돌 방지를 위해 저장하지 않았습니다.');
+    if(famWarns.length) setTimeout(function(){ toast(famWarns.join(' ')); }, 1600);
+  }catch(e){ console.warn('fam docs commit err:', e); }
   cancelCustForm();rCustList();
   toast(idx!==''?'수정되었습니다.':'고객이 등록되었습니다.');
   } catch(e) { toast('오류: '+e.message); console.error(e); }
@@ -15485,9 +15721,9 @@ try{ _heroApply(); }catch(e){}
 // ===== 명칭(브랜드) 설정 (brandcfg, 2026-08-11, 관리자 전용 편집·전원 적용) =====
 // 로그인 화면 제목(#login_brand_t)·부제(#login_brand_s) + 사이드바 로고(#sb_brand_t) + 브라우저 탭 제목.
 // herocfg와 같은 패턴: 정규화(_brandCfg)·훅(부팅/login/loadFromFirestore/onSnapshot)·환경설정 탭 편집.
-// 설정: tops_brandcfg = {t,ts,tf,tc, u,us,uf,uc, ss,sc} — 텍스트만(함정 B). 글씨체는 HERO_FONTS 공용.
+// 설정: tops_brandcfg = {t,ts,tf,tc, u,us,uf,uc, st,sf,ss,sc} — 텍스트만(함정 B). 글씨체는 HERO_FONTS 공용.
 // ⚠️ 로그인 화면은 로그인 전이라 Firestore 미수신 — 처음 쓰는 기기는 첫 로그인 전까지 기본값(BRAND_DEF) 표시.
-var BRAND_DEF={t:'TIMS', ts:36, tf:'', tc:'#ffffff', u:'INTRANET SYSTEM', us:13, uf:'', uc:'#4a5a90', ss:22, sc:'#6878ff'};
+var BRAND_DEF={t:'TIMS', ts:36, tf:'', tc:'#ffffff', u:'INTRANET SYSTEM', us:13, uf:'', uc:'#4a5a90', st:'', sf:'', ss:22, sc:'#6878ff'}; // st(사이드바 문구)는 비우면 제목(t)과 동일
 function _brandCfg(){
   var c=window.brandcfg;
   c=(c&&typeof c==='object'&&!Array.isArray(c))?c:{};
@@ -15495,10 +15731,11 @@ function _brandCfg(){
   for(k in BRAND_DEF){ o[k]=(c[k]===undefined||c[k]===null)?BRAND_DEF[k]:c[k]; }
   o.t=String(o.t==null?'':o.t).slice(0,30);
   o.u=String(o.u==null?'':o.u).slice(0,60);
+  o.st=String(o.st==null?'':o.st).slice(0,30);
   o.ts=Math.min(80,Math.max(12,parseInt(o.ts,10)||BRAND_DEF.ts));
   o.us=Math.min(40,Math.max(8,parseInt(o.us,10)||BRAND_DEF.us));
   o.ss=Math.min(40,Math.max(10,parseInt(o.ss,10)||BRAND_DEF.ss));
-  o.tf=_heroFontById(o.tf).id; o.uf=_heroFontById(o.uf).id;
+  o.tf=_heroFontById(o.tf).id; o.uf=_heroFontById(o.uf).id; o.sf=_heroFontById(o.sf).id;
   o.tc=/^#[0-9a-fA-F]{6}$/.test(String(o.tc||''))?o.tc:BRAND_DEF.tc;
   o.uc=/^#[0-9a-fA-F]{6}$/.test(String(o.uc||''))?o.uc:BRAND_DEF.uc;
   o.sc=/^#[0-9a-fA-F]{6}$/.test(String(o.sc||''))?o.sc:BRAND_DEF.sc;
@@ -15515,17 +15752,18 @@ function _brandPaintOne(el,txt,size,fontId,color,varName){
 }
 function _brandApply(){
   var c=_brandCfg();
-  _heroFontLoad([c.tf,c.uf]);
+  _heroFontLoad([c.tf,c.uf,c.sf]);
   _brandPaintOne(g('login_brand_t'), c.t, c.ts, c.tf, c.tc, '--brand-ts');
   _brandPaintOne(g('login_brand_s'), c.u, c.us, c.uf, c.uc, null);
-  _brandPaintOne(g('sb_brand_t'), c.t.trim()||BRAND_DEF.t, c.ss, c.tf, c.sc, null); // 사이드바는 비워도 기본 명칭 유지(머리 영역 붕괴 방지)
+  // 사이드바는 자체 문구(st)·글씨체(sf) — 문구를 비우면 제목(t)과 동일, 둘 다 비면 기본 명칭(머리 영역 붕괴 방지)
+  _brandPaintOne(g('sb_brand_t'), c.st.trim()||c.t.trim()||BRAND_DEF.t, c.ss, c.sf, c.sc, null);
   try{ document.title=c.t.trim()||BRAND_DEF.t; }catch(e){}
 }
 // ── 환경설정 [명칭 변경] 탭 ──
 function _brandFill(c){
   g('bb_t').value=c.t; g('bb_ts').value=c.ts; g('bb_tf').value=c.tf; g('bb_tc').value=c.tc;
   g('bb_u').value=c.u; g('bb_us').value=c.us; g('bb_uf').value=c.uf; g('bb_uc').value=c.uc;
-  g('bb_ss').value=c.ss; g('bb_sc').value=c.sc;
+  g('bb_st').value=c.st; g('bb_ss').value=c.ss; g('bb_sf').value=c.sf; g('bb_sc').value=c.sc;
 }
 function _brandTabInit(){
   _heroFontLoad(HERO_FONTS.map(function(f){ return f.id; }));   // 미리보기 갤러리용 전체 로드(hero와 공용 캐시)
@@ -15533,7 +15771,7 @@ function _brandTabInit(){
     return '<option value="'+f.id+'" style="font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">'+f.nm+'</option>';
   }).join('');
   // 옵션은 최초 1회만 구성 — 탭을 오갈 때 미저장 선택이 초기화되는 것 방지(hero와 동일)
-  if(!g('bb_tf').options.length){ g('bb_tf').innerHTML=selHtml; g('bb_uf').innerHTML=selHtml; }
+  if(!g('bb_tf').options.length){ g('bb_tf').innerHTML=selHtml; g('bb_uf').innerHTML=selHtml; g('bb_sf').innerHTML=selHtml; }
   var box=g('bb_gallery');
   if(box) box.innerHTML=HERO_FONTS.map(function(f){
     return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #f2f3fa">'
@@ -15541,6 +15779,7 @@ function _brandTabInit(){
       +'<div style="flex:1;font-size:22px;line-height:1.35;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'+(f.css||'inherit').replace(/"/g,'&quot;')+'">TIMS 인트라넷 1234</div>'
       +'<button onclick="_brandPickFont(\''+f.id+'\',\'t\')" style="padding:4px 10px;background:#eef2fd;border:1px solid #c8d2f0;border-radius:6px;color:#3848a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">제목</button>'
       +'<button onclick="_brandPickFont(\''+f.id+'\',\'u\')" style="padding:4px 10px;background:#f2eefd;border:1px solid #d4c8f0;border-radius:6px;color:#6a48a8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">부제</button>'
+      +'<button onclick="_brandPickFont(\''+f.id+'\',\'s\')" style="padding:4px 10px;background:#eefdf2;border:1px solid #b8d8c0;border-radius:6px;color:#207838;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none">사이드바</button>'
       +'</div>';
   }).join('');
   if(!window._bbInit){
@@ -15550,7 +15789,7 @@ function _brandTabInit(){
   _brandPrevDraw();
 }
 function _brandPickFont(id,which){
-  var s=g(which==='t'?'bb_tf':'bb_uf');
+  var s=g(which==='t'?'bb_tf':(which==='s'?'bb_sf':'bb_uf'));
   if(s) s.value=_heroFontById(id).id;
   _brandPrevDraw();
 }
@@ -15559,17 +15798,17 @@ function _brandCollect(){
   var v=function(id){ var el=g(id); return el?el.value:''; };
   var keep=window.brandcfg;
   try{
-    window.brandcfg={t:v('bb_t'), ts:v('bb_ts'), tf:v('bb_tf'), tc:v('bb_tc'), u:v('bb_u'), us:v('bb_us'), uf:v('bb_uf'), uc:v('bb_uc'), ss:v('bb_ss'), sc:v('bb_sc')};
+    window.brandcfg={t:v('bb_t'), ts:v('bb_ts'), tf:v('bb_tf'), tc:v('bb_tc'), u:v('bb_u'), us:v('bb_us'), uf:v('bb_uf'), uc:v('bb_uc'), st:v('bb_st'), ss:v('bb_ss'), sf:v('bb_sf'), sc:v('bb_sc')};
     return _brandCfg();
   }finally{ window.brandcfg=keep; } // 예외가 나도 전역 설정 원복(리뷰 반영)
 }
 function _brandPrevDraw(){
   if(!g('bbp_t')) return;
   var c=_brandCollect();
-  _heroFontLoad([c.tf,c.uf]);
+  _heroFontLoad([c.tf,c.uf,c.sf]);
   _brandPaintOne(g('bbp_t'), c.t, c.ts, c.tf, c.tc, null);
   _brandPaintOne(g('bbp_s'), c.u, c.us, c.uf, c.uc, null);
-  _brandPaintOne(g('bbp_sb'), c.t.trim()||BRAND_DEF.t, c.ss, c.tf, c.sc, null);
+  _brandPaintOne(g('bbp_sb'), c.st.trim()||c.t.trim()||BRAND_DEF.t, c.ss, c.sf, c.sc, null);
 }
 function brandReset(){
   if(!confirm('명칭(로그인 화면·사이드바) 설정을 기본값으로 되돌릴까요? [저장]을 눌러야 실제 반영됩니다.')) return;

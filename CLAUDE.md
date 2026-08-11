@@ -216,7 +216,8 @@
 
 - 로그인 화면 제목(`#login_brand_t`)·부제(`#login_brand_s`) + 사이드바 로고(`#sb_brand_t`) + 브라우저 탭 제목을
   환경설정 [명칭 변경] 탭에서 편집(관리자 전용 — herocfg와 같은 패턴). 기본 명칭은 **TIMS**(2026-08-11에 TEAM TOPS에서 변경).
-- 데이터: `brandcfg={t,ts,tf,tc, u,us,uf,uc, ss(사이드바 크기),sc(사이드바 색)}` — 동기화 키 `tops_brandcfg`(텍스트만, 함정 B).
+- 데이터: `brandcfg={t,ts,tf,tc, u,us,uf,uc, st(사이드바 문구·비우면 t와 동일),sf(사이드바 글씨체), ss(사이드바 크기),sc(사이드바 색)}`
+  — 동기화 키 `tops_brandcfg`(텍스트만, 함정 B). 로그인 화면과 사이드바는 **각각 설정**(2026-08-11 확장, 글씨체 갤러리에 [사이드바] 버튼).
   `_brandCfg()` 정규화(크기 클램프·#rrggbb 정규식·폰트 화이트리스트), 글씨체는 `HERO_FONTS` 공용(_heroFontLoad 재사용).
 - 렌더 훅: 부팅(로컬 캐시)·login()·loadFromFirestore·onSnapshot 네 곳 `_brandApply()` (herocfg와 동일 패턴).
 - 로그인 제목 크기는 CSS 변수 `--brand-ts` — 모바일 미디어쿼리 `min(var(--brand-ts,36px),9vw)`로 축소(herocfg 방식,
@@ -264,6 +265,14 @@
   **생년6 없으면 보관함에 안 씀**(모호한 "이름|" 키를 동명이인이 공유해 타인 사진 오삭제·뒤섞임 — 2026-08-11 리뷰) + 안내 토스트.
 - 키 탐색은 `_claimDocsFindKey`(기존 `_claimDocsFind`에서 분리 — 모의 실행으로 동작 동일 검증).
 - ⚠️ 한계(기존 계열): 이름+생년6이 완전히 같은 동명이인은 같은 키를 공유 — `_claimDocsStore`(청구 저장 경로)와 동일한 구조적 한계.
+- **가족구성원 확장 (2026-08-11)**: 가족 칸에 은행명/계좌번호(`family[].bankName/bankNum`, `_FAM_KEYS`에 bank_name/bank_num) +
+  서류 3종 칸(외국인등록증 `family[].alienIds`(URL만) · 신분증/통장사본은 보관함 "가족이름|생년6" 키 — **가족 명의 청구에서도 자동 등록**).
+  버퍼 `window._custFamDocs={i:{alien,id,bank,loadedKey,loaded}}`(순번 기준 — 편집 세션 내 재정렬 없음), 커밋은 공용 코어 `_docVaultCommit`
+  (본인 `_custDocCommit`도 이 코어의 래퍼로 리팩터링 — 동작 동일). 가족도 생년6 없으면 보관함 미기록(이름 묶어 안내 토스트 1회).
+  ⚠️ 저장된 가족 등록증을 ✕로 빼도 Storage 원본은 안 지움(이름 변경 시 오삭제 위험 회피 — 고아 파일 수용).
+- **붙여넣기 대상 연두색 표시 (2026-08-11)**: 업로드 칸(본인 3개+가족 3×N개) 클릭 시 `_custDocTgt('alien'|'id'|'bank'|'f<i>_<종류>')` →
+  `_custTgtPaint()`가 선택 칸만 초록 테두리·배경. 드래그 강조 해제(dragleave)도 `_custTgtPaint()`로 복원(선택 표시 유지).
+  가족 칸 재렌더(renderFamilyFields) 후 `_famDocsDrawAll()`이 미리보기·선택 표시 복원.
 
 ## 4.8 전역 파일 업로드 공용화 (uni, 2026-08-07)
 
