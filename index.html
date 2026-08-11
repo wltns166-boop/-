@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-7</div>
   </div>
 </div>
 
@@ -1563,7 +1563,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             </div>
             <!-- 고객검색 결과 -->
             <div id="claim_cust_search_wrap" style="display:none;margin-bottom:10px">
-              <input class="fi" id="claim_cust_search_input" placeholder="이름 검색..." oninput="filterClaimCustSearch()" style="margin-bottom:6px">
+              <input class="fi" id="claim_cust_search_input" placeholder="이름 검색... (등록 고객·가족구성원 포함)" oninput="filterClaimCustSearch()" style="margin-bottom:6px">
               <div id="claim_cust_search_list" style="max-height:200px;overflow-y:auto;border:1px solid rgba(72,88,204,.2);border-radius:8px;background:#fff"></div>
             </div>
             <div class="fr">
@@ -18064,28 +18064,48 @@ function openClaimCustSearch(){
   }
 }
 
-function filterClaimCustSearch(){
+// 계약자 후보: 등록 고객 + 그 가족구성원 (2026-08-11 — 가족도 계약자로 선택 가능)
+function _claimCustCandidates(){
   if(Array.isArray(window._custs)){ custs=window._custs; }
   else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
-  var q=(g('claim_cust_search_input')||{value:''}).value.toLowerCase().trim();
   var chongmu=_isChongmu();
-  var list=custs.filter(function(c){
-    if(!c||!c.name) return false;
-    if(!chongmu && (!cu || c.m !== cu.name)) return false; // 본인 고객만 (총무는 전체) — rCustList와 동일 규칙
-    if(!q) return true;
-    return c.name.toLowerCase().includes(q)||(c.rrn&&c.rrn.includes(q));
+  var out=[];
+  (Array.isArray(custs)?custs:[]).forEach(function(c){
+    if(!c||!c.name) return;
+    if(!chongmu && (!cu || c.m !== cu.name)) return; // 본인 고객만 (총무는 전체) — rCustList와 동일 규칙
+    out.push({kind:'c', c:c});
+    (c.family||[]).forEach(function(f){
+      if(f&&f.name) out.push({kind:'f', c:c, f:f});
+    });
   });
+  return out;
+}
+function filterClaimCustSearch(){
+  var q=(g('claim_cust_search_input')||{value:''}).value.toLowerCase().trim();
+  var cands=_claimCustCandidates().filter(function(it){
+    if(!q) return true;
+    var nm=String((it.kind==='f'?it.f.name:it.c.name)||'').toLowerCase();
+    var rr=String((it.kind==='f'?it.f.rrn:it.c.rrn)||'');
+    return nm.includes(q)||rr.includes(q);
+  });
+  // 함정 A: 렌더된 목록 그대로를 보관하고 그 배열 인덱스만 onclick에 전달(원본 배열 재인덱싱 없음)
+  window._claimCustCands=cands;
   var el=g('claim_cust_search_list'); if(!el) return;
-  if(!list.length){
+  if(!cands.length){
     el.innerHTML='<div style="padding:14px;text-align:center;font-size:14px;color:#aaa">검색 결과 없음</div>';
     return;
   }
-  el.innerHTML=list.map(function(c,i){
-    var birth=c.rrn?c.rrn.slice(0,6):'-';
-    var realIdx=custs.indexOf(c);
-    return '<div onclick="selectClaimCust('+realIdx+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(72,88,204,.08);display:flex;align-items:center;justify-content:space-between" >'
-      +'<div><span style="font-weight:700;font-size:15px;color:#1a1a3a">'+_esc(c.name)+'</span>'
-      +(c.region?'<span style="font-size:13px;color:#8888bb;margin-left:6px">'+_esc(c.region)+'</span>':'')+'</div>'
+  el.innerHTML=cands.map(function(it,i){
+    var fam=(it.kind==='f');
+    var nm=fam?it.f.name:it.c.name;
+    var rr=String((fam?it.f.rrn:it.c.rrn)||'');
+    var birth=rr?rr.slice(0,6):'-';
+    var region=fam?(it.f.region||it.c.region||''):(it.c.region||'');
+    var label=fam?(it.c.name+'님 '+(String(it.f.rel||'').trim()||'가족')):'';
+    return '<div onclick="selectClaimCand('+i+')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(72,88,204,.08);display:flex;align-items:center;justify-content:space-between" >'
+      +'<div><span style="font-weight:700;font-size:15px;color:#1a1a3a">'+_esc(nm)+'</span>'
+      +(label?'<span style="font-size:12px;color:#3a48cc;background:rgba(72,88,204,.1);border-radius:8px;padding:1px 7px;margin-left:6px">'+_esc(label)+'</span>':'')
+      +(region?'<span style="font-size:13px;color:#8888bb;margin-left:6px">'+_esc(region)+'</span>':'')+'</div>'
       +'<span style="font-size:13px;color:#888">'+_esc(birth)+'</span>'
       +'</div>';
   }).join('');
@@ -18147,20 +18167,37 @@ function selectClaimInsCust(name,rrn){
   toast('피보험자 정보가 입력되었습니다.');
 }
 
-function selectClaimCust(idx){
-  if(!custs[idx]) return;
-  var c=custs[idx];
-  if(!_isChongmu() && (!cu || c.m !== cu.name)) return; // 본인 고객만 선택 가능 (검색 필터와 동일 규칙)
-  var nameEl=g('claim_cust_name'); if(nameEl) nameEl.value=c.name||'';
-  var rrnEl=g('claim_rrn'); if(rrnEl) rrnEl.value=c.rrn||'';
-  var phoneEl=g('claim_phone'); if(phoneEl) phoneEl.value=c.phone||'';
-  var addrEl=g('claim_addr'); if(addrEl) addrEl.value=(c.region?(c.region+' '):'')+(c.addr||'');
-  // 계좌정보 자동 입력 (등록된 계좌)
-  window._selectedCust=c;
-  fillClaimAccount(c);
-  try{ _claimDocsPrefill(c.name, c.rrn); }catch(e){} // 보관된 신분증·통장사본 자동 등록
+// 계약자 칸 일괄 채움 — p={name,rrn,phone,region,addr,bankName,bankNum} (고객 원본 또는 가족 정보로 구성)
+function _claimFillContractor(p){
+  if(!p) return;
+  var nameEl=g('claim_cust_name'); if(nameEl) nameEl.value=p.name||'';
+  var rrnEl=g('claim_rrn'); if(rrnEl) rrnEl.value=p.rrn||'';
+  var phoneEl=g('claim_phone'); if(phoneEl) phoneEl.value=p.phone||'';
+  var addrEl=g('claim_addr'); if(addrEl) addrEl.value=(p.region?(p.region+' '):'')+(p.addr||'');
+  // 계좌정보 자동 입력 (등록된 계좌 — 가족이면 가족 명의 은행/계좌)
+  window._selectedCust=p;
+  fillClaimAccount(p);
+  try{ _claimDocsPrefill(p.name, p.rrn); }catch(e){} // 보관된 신분증·통장사본 자동 등록(가족 키 포함)
   var wrap=g('claim_cust_search_wrap');if(wrap)wrap.style.display='none';
-  toast(c.name+' 님 정보가 입력되었습니다.');
+  toast(p.name+' 님 정보가 입력되었습니다.');
+}
+// 검색 목록(window._claimCustCands — 렌더된 그 배열)에서 선택. 고객 본인 또는 가족구성원.
+function selectClaimCand(i){
+  var it=(window._claimCustCands||[])[i]; if(!it||!it.c) return;
+  if(!_isChongmu() && (!cu || it.c.m !== cu.name)) return; // 본인 고객(의 가족)만 선택 가능 (검색 필터와 동일 규칙)
+  if(it.kind==='f'){
+    var f=it.f||{}, c=it.c;
+    var hasOwnAddr=!!(String(f.region||'').trim()||String(f.addr||'').trim());
+    _claimFillContractor({
+      name:f.name||'', rrn:f.rrn||'', phone:f.phone||'',
+      // 가족 주소가 비어 있으면 등록 고객(가족 대표)의 주소로 폴백
+      region:hasOwnAddr?(f.region||''):(c.region||''),
+      addr:hasOwnAddr?(f.addr||''):(c.addr||''),
+      bankName:f.bankName||'', bankNum:f.bankNum||''
+    });
+  } else {
+    _claimFillContractor(it.c);
+  }
 }
 
 function fillInsuredSameAsContractor(){
