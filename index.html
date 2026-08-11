@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-3</div>
   </div>
 </div>
 
@@ -1076,7 +1076,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <div class="fr">
           <div class="fg" style="flex:2"><div class="fl">특이사항</div><input class="fi" id="cust_note" placeholder="기타 특이사항"></div>
           <!-- 메리츠 가설동 신청칸은 요청으로 제거(2026-07-09) — 목록의 가설동 버튼은 유지 -->
-          <div class="fg" id="cust_alien_box" style="flex:1;min-width:230px;border:1.5px solid #d8ddef;border-radius:10px;padding:8px 12px;background:#fff" ondragover="_custAlienDragOver(event)" ondragleave="_custAlienDragLeave(event)" ondrop="_custAlienDrop(event)">
+          <div class="fg" id="cust_alien_box" style="flex:1;min-width:230px;border:1.5px solid #d8ddef;border-radius:10px;padding:8px 12px;background:#fff" onclick="_custDocTgt('alien')" ondragover="_custAlienDragOver(event)" ondragleave="_custAlienDragLeave(event)" ondrop="_custAlienDrop(event)">
             <div class="fl">외국인 등록증 <span style="font-size:11px;color:#999;font-weight:400;margin-left:2px">붙여넣기(Ctrl+V)·끌어다 놓기 가능</span></div>
             <label style="font-size:13.5px;padding:6px 12px;border:1px solid rgba(72,88,204,.3);border-radius:7px;cursor:pointer;background:#f8f9ff;display:inline-block;margin-top:4px">
               <i class="ti ti-id"></i> 사진·PDF 올리기
@@ -1085,6 +1085,27 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div id="cust_alien_preview" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px"></div>
           </div>
         </div>
+          <!-- 신분증·통장사본 (2026-08-11) — 저장 시 청구 보관함(tops_claim_docs)에 기록되어 청구신청 때 자동 등록 -->
+          <div class="fr">
+          <div class="fg" id="cust_iddoc_box" style="flex:1;min-width:230px;border:1.5px solid #d8ddef;border-radius:10px;padding:8px 12px;background:#fff" onclick="_custDocTgt('id')" ondragover="_custDocDragOver(event,'id')" ondragleave="_custDocDragLeave('id')" ondrop="_custDocDrop(event,'id')">
+            <div class="fl">신분증 <span style="font-size:11px;color:#999;font-weight:400;margin-left:2px">칸 클릭 후 붙여넣기(Ctrl+V)·끌어다 놓기 가능</span></div>
+            <label style="font-size:13.5px;padding:6px 12px;border:1px solid rgba(72,88,204,.3);border-radius:7px;cursor:pointer;background:#f8f9ff;display:inline-block;margin-top:4px" onclick="event.stopPropagation();_custDocTgt('id')">
+              <i class="ti ti-id-badge-2"></i> 사진 올리기
+              <input type="file" id="cust_iddoc_file" accept="image/*" onchange="custDocPick('id')" style="display:none">
+            </label>
+            <div style="font-size:11px;color:#8888aa;margin-top:4px">올려두면 청구신청 때 신분증 칸에 자동 등록됩니다</div>
+            <div id="cust_iddoc_preview" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+          <div class="fg" id="cust_bankdoc_box" style="flex:1;min-width:230px;border:1.5px solid #d8ddef;border-radius:10px;padding:8px 12px;background:#fff" onclick="_custDocTgt('bank')" ondragover="_custDocDragOver(event,'bank')" ondragleave="_custDocDragLeave('bank')" ondrop="_custDocDrop(event,'bank')">
+            <div class="fl">통장사본 <span style="font-size:11px;color:#999;font-weight:400;margin-left:2px">칸 클릭 후 붙여넣기(Ctrl+V)·끌어다 놓기 가능</span></div>
+            <label style="font-size:13.5px;padding:6px 12px;border:1px solid rgba(72,88,204,.3);border-radius:7px;cursor:pointer;background:#f8f9ff;display:inline-block;margin-top:4px" onclick="event.stopPropagation();_custDocTgt('bank')">
+              <i class="ti ti-credit-card"></i> 사진 올리기
+              <input type="file" id="cust_bankdoc_file" accept="image/*" onchange="custDocPick('bank')" style="display:none">
+            </label>
+            <div style="font-size:11px;color:#8888aa;margin-top:4px">올려두면 청구신청 때 계좌사진 칸에 자동 등록됩니다</div>
+            <div id="cust_bankdoc_preview" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+          </div>
           <div class="fg">
             <div class="fl">가족구성원 수</div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
@@ -11133,6 +11154,7 @@ function toggleCustForm(){
     var db=document.getElementById('cust_del_btn');if(db)db.style.display='none';
     document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=false;});
     _custAlienReset([]); // 외국인 등록증 첨부 버퍼 초기화(이전 편집분 잔존 방지)
+    _custDocReset('',''); // 신분증·통장사본 버퍼 초기화
     window._custEditRef=null;
     wrap.style.display = 'block';
     var btn=document.getElementById('btn_cust_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
@@ -11170,6 +11192,7 @@ function editCust(idx){
   g('cust_edit_idx').value=idx;
   g('cust_del_btn').style.display='inline-flex';
   _custAlienReset(c.alienIds||[]); // 저장된 외국인 등록증 첨부 표시
+  _custDocReset(c.name||'', c.rrn||''); // 보관함의 신분증·통장사본 표시
   window._custEditRef=c; // 저장 시 Storage 정리의 대상 검증용(배열 밀림 오삭제 방지)
   document.querySelectorAll('input[name="cust_ins"]').forEach(function(cb){cb.checked=c.ins&&c.ins.includes(cb.value);});
   var wrap=document.getElementById('cust_form_wrap');if(wrap){wrap.style.display='block';var btn=document.getElementById('btn_cust_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';wrap.scrollIntoView({behavior:"smooth",block:"start"});}
@@ -11379,7 +11402,8 @@ function _custAlienDrop(e){
   _custAlienDragLeave();
   Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]).forEach(function(f){ _custAlienUpload(f); });
 }
-// 카톡 사진·파일 붙여넣기(Ctrl+V) — 고객등록 폼이 열려 있을 때만
+// 카톡 사진·파일 붙여넣기(Ctrl+V) — 고객등록 폼이 열려 있을 때만.
+// 대상 칸은 마지막으로 클릭한 칸(_custPasteTgt: 'alien'|'id'|'bank') — 기본은 외국인 등록증(기존 동작 유지).
 document.addEventListener('paste', function(e){
   var box=g('cust_alien_box');
   if(!box||box.offsetParent===null) return;
@@ -11393,15 +11417,175 @@ document.addEventListener('paste', function(e){
   var ae=document.activeElement, hasText=false;
   try{ hasText=!!cd.getData('text'); }catch(_e){}
   if(hasText&&ae&&/^(input|textarea)$/i.test(ae.tagName)) return;
+  var t=window._custPasteTgt||'alien';
+  if(t==='id'||t==='bank'){
+    var img=files.filter(function(f){ return /^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||'')); })[0];
+    if(!img){ e.preventDefault(); toast((t==='id'?'신분증':'통장사본')+' 칸에는 사진(이미지)만 붙여넣을 수 있습니다.'); return; } // preventDefault — 공용(uni) paste 리스너의 중복 토스트 방지
+    e.preventDefault();
+    _custDocUpload(t, img);   // 1장 칸 — 첫 사진만
+    return;
+  }
   e.preventDefault();
   files.forEach(function(f){ _custAlienUpload(f); });
 });
+
+// ===== 고객등록 — 신분증·통장사본 첨부 (2026-08-11) =====
+// 원본은 Storage(claim_packages/cust_docs/)에 올리고, [저장] 시 청구 보관함(tops_claim_docs,
+// "이름|생년6" 키 — 6장 참고)에 URL만 기록한다(함정 B — base64를 sv 키에 넣지 않음).
+// 청구신청에서 고객 선택·이름 입력 시 기존 _claimDocsPrefill이 이 보관함을 읽어
+// 신분증/계좌사진 칸에 자동 등록되므로, 청구 쪽은 코드 변경 없이 연동된다.
+// 버퍼: window._custDoc={id:{u,n,sv}|null, bank:{...}} — 종류별 1장(청구 폼 규격과 동일).
+var _CUSTDOC_IDS={id:'cust_iddoc_', bank:'cust_bankdoc_'};
+function _custDocTgt(t){ window._custPasteTgt=t; }
+function _custDocReset(name, rrn){
+  // 세대 카운터: 폼이 다른 고객으로 바뀌면 진행 중이던 업로드 결과를 버림(오귀속 방지 — alienIds와 동일)
+  window._custDocGen=(window._custDocGen||0)+1;
+  window._custDocBusy=0;
+  window._custPasteTgt=null;
+  var key=(typeof _claimDocsFindKey==='function')?_claimDocsFindKey(name, rrn):'';
+  var ent=key?(_claimDocsAll()[key]||{}):{};
+  window._custDocLoadedKey=key;
+  // 폼에 실제로 표시했던 종류만 기록 — [저장] 때 "화면에 없던 보관함 사진"을 삭제로 오인하지 않게 함
+  window._custDocLoaded={id:!!ent.id, bank:!!ent.bank};
+  window._custDoc={
+    id: ent.id?{u:String(ent.id), n:'신분증', sv:1}:null,
+    bank: ent.bank?{u:String(ent.bank), n:'통장사본', sv:1}:null
+  };
+  _custDocDraw('id'); _custDocDraw('bank');
+}
+function _custDocDraw(kind){
+  var box=g(_CUSTDOC_IDS[kind]+'preview'); if(!box) return;
+  box.innerHTML='';
+  var f=window._custDoc&&window._custDoc[kind]; if(!f||!f.u) return;
+  var d=document.createElement('div'); d.style.cssText='position:relative;display:inline-block';
+  var img=document.createElement('img');
+  img.src=f.u; img.title=f.n||(kind==='id'?'신분증':'통장사본');
+  img.style.cssText='max-width:110px;max-height:80px;border-radius:6px;border:1px solid #ddd;display:block;cursor:pointer';
+  img.onclick=function(ev){ ev.stopPropagation(); window.open(f.u,'_blank'); };
+  d.appendChild(img);
+  var x=document.createElement('button');
+  x.textContent='✕'; x.title='빼기';
+  x.style.cssText='position:absolute;top:-7px;right:-7px;width:18px;height:18px;line-height:15px;padding:0;border:1px solid #ccc;border-radius:50%;background:#fff;color:#a33;font-size:11px;cursor:pointer;font-family:inherit';
+  x.onclick=function(ev){
+    ev.stopPropagation(); ev.preventDefault();
+    var rm=window._custDoc[kind]; window._custDoc[kind]=null;
+    // 아직 저장 안 된 새 업로드는 Storage에서도 바로 정리(고아 파일 방지).
+    // 보관함에 저장된 사진은 여기서 안 지움 — [저장] 시 반영(취소하면 원상 유지).
+    if(rm&&!rm.sv&&rm.u){ try{ if(typeof firebase!=='undefined'&&firebase.storage) firebase.storage().refFromURL(rm.u).delete().catch(function(){}); }catch(e){} }
+    _custDocDraw(kind);
+  };
+  d.appendChild(x);
+  box.appendChild(d);
+}
+async function _custDocUpload(kind, file){
+  if(!file||!_CUSTDOC_IDS[kind]) return;
+  var isImg=/^image\//.test(file.type)||(!file.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name||''));
+  var label=kind==='id'?'신분증':'통장사본';
+  if(!isImg){ toast(label+' 칸에는 사진(이미지)만 올릴 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  toast(label+' 올리는 중...');
+  var gen=window._custDocGen||0;
+  window._custDocBusy=(window._custDocBusy||0)+1;
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var dataUrl=await _custAlienShrink(file);   // 1600px JPEG 축소(등록증 업로더 재사용)
+    var bin=atob(dataUrl.split(',')[1]); var u8=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    var ref=firebase.storage().ref('claim_packages/cust_docs/reg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'_'+kind+'.jpg');
+    await ref.put(u8,{contentType:'image/jpeg'});
+    var url=await ref.getDownloadURL();
+    if(gen!==(window._custDocGen||0)){
+      // 업로드 도중 다른 고객 폼으로 바뀜 — 이 파일은 버리고 Storage에서도 정리
+      try{ ref.delete().catch(function(){}); }catch(e){}
+      return;
+    }
+    var old=window._custDoc&&window._custDoc[kind];
+    if(old&&!old.sv&&old.u){ try{ firebase.storage().refFromURL(old.u).delete().catch(function(){}); }catch(e){} } // 교체된 미저장 업로드 정리
+    (window._custDoc=window._custDoc||{})[kind]={u:url, n:file.name||(label+'.jpg')};
+    _custDocDraw(kind);
+    toast(label+' 사진이 첨부되었습니다. 아래 [저장]을 눌러야 반영됩니다.');
+  }catch(e){ console.warn('cust doc upload err:', e); toast(label+' 업로드 실패: '+(e.message||e)); }
+  finally{ if(gen===(window._custDocGen||0)) window._custDocBusy=Math.max(0,(window._custDocBusy||1)-1); }
+}
+function custDocPick(kind){
+  var inp=g(_CUSTDOC_IDS[kind]+'file'); if(!inp||!inp.files||!inp.files[0]) return;
+  _custDocUpload(kind, inp.files[0]);
+  inp.value=''; // 같은 파일 재선택 시 onchange가 다시 뜨도록
+}
+function _custDocDragOver(e,kind){
+  e.preventDefault(); e.stopPropagation();
+  try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+  var b=g(_CUSTDOC_IDS[kind]+'box'); if(b){ b.style.borderColor='#2ea043'; b.style.background='#f2fcf5'; }
+}
+function _custDocDragLeave(kind){
+  var b=g(_CUSTDOC_IDS[kind]+'box'); if(b){ b.style.borderColor='#d8ddef'; b.style.background='#fff'; }
+}
+function _custDocDrop(e,kind){
+  e.preventDefault(); e.stopPropagation();
+  _custDocDragLeave(kind);
+  window._custPasteTgt=kind; // 끌어다 놓은 칸을 다음 붙여넣기 대상으로도 기억
+  var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
+  if(fs.length) _custDocUpload(kind, fs[0]); // 1장 칸 — 첫 파일만
+}
+// [저장] 시 청구 보관함(tops_claim_docs) 반영 — 바뀐 것이 있을 때만 저장·동기화(_claimDocsStore와 같은 키별 병합).
+function _custDocCommit(name, rrn){
+  try{
+    var buf=window._custDoc; if(!buf) return;
+    var newKey=_claimDocsKey(name, rrn); if(!newKey) return;
+    // 생년 6자리가 없으면 보관함을 건드리지 않음 — 모호한 "이름|" 키를 동명이인끼리 공유해
+    // 서로의 사진을 덮어쓰고 원본까지 삭제하는 사고 방지(2026-08-11 리뷰). 새 업로드가 있었으면 안내만.
+    if(!(newKey.split('|')[1]||'')){
+      var hasNew=(buf.id&&buf.id.u&&!buf.id.sv)||(buf.bank&&buf.bank.u&&!buf.bank.sv);
+      if(hasNew) setTimeout(function(){ toast('주민번호(생년월일 6자리)를 입력해야 신분증·통장사본이 저장되어 청구신청과 연동됩니다.'); }, 1600);
+      return;
+    }
+    var all=_claimDocsAll();
+    var oldKey=window._custDocLoadedKey||'';
+    var loaded=window._custDocLoaded||{};
+    var ent=Object.assign({}, (oldKey&&all[oldKey])||all[newKey]||{});
+    var changed=false, fsUpd={};
+    ['id','bank'].forEach(function(kind){
+      var u=(buf[kind]&&buf[kind].u)?String(buf[kind].u):'';
+      var cur=ent[kind]||'';
+      if(u===cur) return;
+      // 빈 칸으로의 변경(삭제)은 폼에 실제로 표시했던 사진을 ✕로 뺐을 때만 —
+      // 동명이인 신규 등록 등 "화면에 없던 보관함 사진"을 지우는 사고 방지
+      if(!u&&!loaded[kind]) return;
+      if(cur){ try{ if(typeof firebase!=='undefined'&&firebase.storage) firebase.storage().refFromURL(cur).delete().catch(function(){}); }catch(e){} } // 교체·삭제된 옛 사진 정리(실패 무방)
+      if(u){ ent[kind]=u; fsUpd[kind]=u; }
+      else{ delete ent[kind]; try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) fsUpd[kind]=firebase.firestore.FieldValue.delete(); }catch(e){} }
+      changed=true;
+    });
+    var keyMoved=!!(oldKey&&oldKey!==newKey&&all[oldKey]); // 주민번호 수정 등으로 보관함 키가 바뀜
+    if(!changed&&!keyMoved) return;
+    if(changed){ ent.up=tds(); ent.agent=cu?cu.name:''; fsUpd.up=ent.up; fsUpd.agent=ent.agent; }
+    var payload={claim_docs:{}};
+    if(keyMoved){
+      delete all[oldKey];
+      try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[oldKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
+      fsUpd=Object.assign({}, ent); // 이동 시엔 항목 전체를 새 키에 실제 값으로 기록
+    }
+    if(ent.id||ent.bank){ all[newKey]=ent; payload.claim_docs[newKey]=fsUpd; }
+    else{
+      delete all[newKey];
+      try{ if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue) payload.claim_docs[newKey]=firebase.firestore.FieldValue.delete(); }catch(e){}
+    }
+    window._claimDocs=all;
+    _lsSet('tops_claim_docs', JSON.stringify(all));
+    try{ if(window.FS_DOC) window.FS_DOC.set(payload,{merge:true}).catch(function(err){ console.warn('cust docs FS save err:',err); }); }catch(e){}
+    window._custDocLoadedKey=newKey;
+    window._custDocLoaded={id:!!ent.id, bank:!!ent.bank};
+    if(buf.id) buf.id.sv=1;
+    if(buf.bank) buf.bank.sv=1;
+  }catch(e){ console.warn('cust doc commit err:', e); }
+}
 
 function saveCust(){
   try {
   var name=(g('cust_name')||{value:''}).value.trim();
   if(!name){toast('성함을 입력하세요.');return;}
   if(window._custAlienBusy){ toast('외국인 등록증 업로드가 진행 중입니다. 잠시 후 저장해주세요.'); return; } // 업로드 완료 전 저장 → 첨부 누락 방지
+  if(window._custDocBusy){ toast('신분증·통장사본 업로드가 진행 중입니다. 잠시 후 저장해주세요.'); return; }
   var ins=[];
   document.querySelectorAll('input[name="cust_ins"]:checked').forEach(function(cb){ins.push(cb.value);});
   var familyCnt=Math.max(0,Math.min(10,parseInt((g('cust_family_cnt')||{value:0}).value)||0)); // 직접 입력한 10 초과 값도 저장 전 클램프(family 배열 길이와 불일치 방지)
@@ -11470,6 +11654,7 @@ function saveCust(){
   try{ localStorage.setItem('tops_custs',JSON.stringify(custs)); }catch(e){ console.warn('tops_custs 저장 실패(quota):', e); }
   window._custs = custs;
   sv('tops_custs',custs);
+  try{ _custDocCommit(name, obj.rrn); }catch(e){ console.warn('cust doc commit err:', e); } // 신분증·통장사본 → 청구 보관함 반영(실패해도 고객 저장은 유지)
   cancelCustForm();rCustList();
   toast(idx!==''?'수정되었습니다.':'고객이 등록되었습니다.');
   } catch(e) { toast('오류: '+e.message); console.error(e); }
@@ -17608,20 +17793,25 @@ function _claimDocsAll(){
   window._claimDocs=v;
   return v;
 }
-function _claimDocsFind(name, rrn){
-  var key=_claimDocsKey(name, rrn); if(!key) return null;
+// 보관함에서 이 고객 항목이 실제로 저장된 키를 찾음 — 정확 키 우선, 없으면 생년 없이 저장된
+// 예전 키 등도 탐색하되 정확히 1건일 때만 사용(동명이인 오등록 방지). 고객등록 폼의
+// 신분증·통장사본(_custDocReset/_custDocCommit)도 이 키 규칙을 그대로 쓴다(2026-08-11).
+function _claimDocsFindKey(name, rrn){
+  var key=_claimDocsKey(name, rrn); if(!key) return '';
   var all=_claimDocsAll();
-  if(all[key]) return all[key];
-  // 주민번호가 아직 비어있거나 예전에 생년 없이 저장된 경우 —
-  // 이름이 같아도 생년이 다르면 제외하고, 남는 항목이 정확히 1건일 때만 사용(동명이인 오등록 방지)
+  if(all[key]) return key;
   var n=key.split('|')[0], birth=key.split('|')[1]||'', hits=[];
   Object.keys(all).forEach(function(k){
     if(k.split('|')[0]!==n) return;
     var kb=k.split('|')[1]||'';
     if(birth&&kb&&kb!==birth) return; // 생년이 서로 다르면 다른 사람
-    hits.push(all[k]);
+    hits.push(k);
   });
-  return hits.length===1?hits[0]:null;
+  return hits.length===1?hits[0]:'';
+}
+function _claimDocsFind(name, rrn){
+  var k=_claimDocsFindKey(name, rrn);
+  return k?(_claimDocsAll()[k]||null):null;
 }
 // Storage 경로용 식별자 — 경로에 고객 실명·생년이 그대로 노출되지 않도록 키를 해시로 변환
 function _claimDocsPathId(key){

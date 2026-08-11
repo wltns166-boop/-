@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/team-tops-handoff-prompt-o9j855` (2026-08-10부터. 이전: claude/insurance-claim-document-reuse-fdje8i → claude/team-tops-intranet-continue-7wnjzh)
+- 작업 브랜치: `claude/team-tops-intranet-continue-ozkg5p` (2026-08-11부터. 이전: claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i → claude/team-tops-intranet-continue-7wnjzh)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -238,6 +238,20 @@
   고객(`custs[].alienIds=[{u,k,n}]`)에는 **URL만**(함정 B — tops_custs에 base64 금지). 업로드는 첨부 즉시, [저장] 눌러야 고객에 기록.
 - 버퍼 `window._custAlien`(toggle/editCust에서 리셋·로드). ✕로 뺀 새 업로드는 즉시 Storage 정리,
   저장된 파일은 [저장] 시 빠진 URL만 정리(취소하면 원상 유지). 수정 화면에서 열람(이미지 클릭 원본·PDF 링크).
+
+## 4.75 고객등록 — 신분증·통장사본 첨부 (2026-08-11)
+
+- 외국인 등록증 칸 아래 신분증(`#cust_iddoc_box`)/통장사본(`#cust_bankdoc_box`) — 사진 1장씩, 파일선택·드래그앤드롭·붙여넣기(Ctrl+V).
+- 붙여넣기 대상은 마지막 클릭한 칸(`window._custPasteTgt`: 'alien'|'id'|'bank', 기본 alien — 기존 동작 유지).
+  드롭 핸들러는 칸에 전용 부착(4.8 경고 준수 — preventDefault+stopPropagation으로 문서 catch-all·uni 이중 처리 없음).
+- 원본은 Storage `claim_packages/cust_docs/`(1600px JPEG 축소 — `_custAlienShrink` 재사용), [저장] 시 `_custDocCommit`이
+  **청구 보관함 `tops_claim_docs`("이름|생년6" 키)에 URL만 기록**(함정 B) — 청구신청의 기존 `_claimDocsPrefill`이 그대로 읽어
+  신분증/계좌사진 칸에 자동 등록(청구 쪽 코드 무변경). 청구 폼에서 올린 사진도 같은 보관함이라 고객 수정 화면에 표시됨.
+- 버퍼 `window._custDoc{id,bank}` + 세대 카운터(`_custDocGen` — 폼 전환 중 업로드 오귀속 방지) + 업로드 중 저장 차단(`_custDocBusy`) — alienIds 패턴.
+- 안전 가드: 화면에 표시 안 됐던 보관함 사진은 삭제로 오인 안 함(`window._custDocLoaded`), 주민번호 수정 시 키 이동(옛 키 삭제+새 키 전체 기록),
+  **생년6 없으면 보관함에 안 씀**(모호한 "이름|" 키를 동명이인이 공유해 타인 사진 오삭제·뒤섞임 — 2026-08-11 리뷰) + 안내 토스트.
+- 키 탐색은 `_claimDocsFindKey`(기존 `_claimDocsFind`에서 분리 — 모의 실행으로 동작 동일 검증).
+- ⚠️ 한계(기존 계열): 이름+생년6이 완전히 같은 동명이인은 같은 키를 공유 — `_claimDocsStore`(청구 저장 경로)와 동일한 구조적 한계.
 
 ## 4.8 전역 파일 업로드 공용화 (uni, 2026-08-07)
 
