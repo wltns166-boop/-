@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-6</div>
   </div>
 </div>
 
@@ -1073,6 +1073,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh">
         <div class="st"><i class="ti ti-user-plus"></i>고객등록 및 신청</div>
         <div style="display:flex;gap:8px;align-items:center">
+          <button class="bp" id="btn_cust_dl" onclick="downloadCustList()" title="구글드라이브에 저장되는 정리 형식 그대로 엑셀(CSV)로 내려받습니다"><i class="ti ti-download"></i> 고객리스트 다운로드</button>
           <button class="bp" id="btn_reqins_edit" onclick="openReqInsEdit()" style="display:none"><i class="ti ti-list-check"></i> 고객등록 보험사 수정</button>
           <button class="bp bpd" id="btn_cust_toggle" onclick="toggleCustForm()"><i class="ti ti-plus"></i> 고객등록</button>
         </div>
@@ -2982,6 +2983,37 @@ function _famSummary(c){
 function _custTableRow(c){
   return [ c.name||'', c.rrn||'', c.phone||'', c.carrier||'', c.region||'', c.addr||'',
     c.height||'', c.weight||'', c.job||'', c.disease||'', c.bankName||'', c.bankNum||'', _famSummary(c) ];
+}
+// [고객리스트 다운로드] (2026-08-11) — 구글드라이브 팀원별 '고객리스트' 시트와 동일한 정리 표
+// (_CUST_TABLE_HEADERS/_custTableRow 재사용)를 엑셀에서 바로 열리는 CSV(BOM)로 내려받는다.
+// 가시성은 고객 목록과 동일: 본인 것만, 총무는 전체(+담당자 열). 서버(gs) 변경 없음.
+function downloadCustList(){
+  try{
+    var src=Array.isArray(window._custs)?window._custs:(Array.isArray(custs)?custs:[]);
+    var chongmu=(typeof _isChongmu==='function')&&_isChongmu();
+    var list=src.filter(function(c){
+      if(!c) return false;
+      if(!chongmu && (!cu || c.m!==cu.name)) return false; // rCustList와 동일한 가시성 규칙
+      return true;
+    });
+    if(!list.length){ toast('다운로드할 고객이 없습니다.'); return; }
+    var headers=_CUST_TABLE_HEADERS.slice();
+    if(chongmu) headers.push('담당자');
+    var esc=function(v){ v=(v==null)?'':String(v); return /[",\n\r]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
+    var lines=[headers.map(esc).join(',')];
+    list.forEach(function(c){
+      var row=_custTableRow(c);
+      if(chongmu) row.push(c.m||'');
+      lines.push(row.map(esc).join(','));
+    });
+    var blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}); // BOM — 엑셀 한글 깨짐 방지
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='고객리스트'+(chongmu?'(전체)':(_curUserName()?'_'+_curUserName():''))+'_'+tds().replace(/\./g,'-')+'.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 1000);
+    toast('고객리스트 '+list.length+'명을 내려받았습니다. (드라이브 저장본과 동일한 정리 형식)');
+  }catch(e){ toast('다운로드 실패: '+((e&&e.message)||e)); console.warn('cust list dl err:', e); }
 }
 // DB배정 통합 표(가로) — 헤더 + 리드 1명당 1행
 var _DB_TABLE_HEADERS = ['고객명','연락처','생년월일','성별','보험료','통화가능시간','주소','DB종류','지역','담당자','배정일'];
