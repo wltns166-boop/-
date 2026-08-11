@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-9</div>
   </div>
 </div>
 
@@ -7959,6 +7959,13 @@ function _tripFmt(v){
   if(!m) return v?String(v):'-';
   return (+m[2])+'월 '+(+m[3])+'일 '+m[4]+'시 '+m[5]+'분'; // 월·일 앞 0 제거 (08월→8월)
 }
+// 기간 2줄 표기 "8월 12일<br>11시00분" — 출장 신청 내역 표 전용(일일보고 등 한 줄 표기는 _tripFmt 그대로).
+// 값은 정규식으로 추출한 숫자만 사용해 안전, 매칭 실패 시엔 이스케이프한 원본 반환.
+function _tripFmtBr(v){
+  var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) return _esc(v?String(v):'-');
+  return (+m[2])+'월 '+(+m[3])+'일<br>'+m[4]+'시'+m[5]+'분';
+}
 // 신청일 "YYYY-MM-DD" → "8월 11일" (출장 신청 내역 표시용)
 function _tripDtFmt(v){
   var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -8065,7 +8072,7 @@ function rTrip(){
     return '<tr>'
       +'<td style="white-space:nowrap">'+_esc(_tripDtFmt(t.dt))+'</td>'
       +'<td style="font-weight:600;white-space:nowrap">'+_esc(t.m||'-')+'</td>'
-      +'<td style="color:#2040cc;font-weight:600">'+_esc(_tripFmt(t.when))+'</td>'
+      +'<td style="color:#2040cc;font-weight:600;white-space:nowrap">'+_tripFmtBr(t.when)+'</td>'
       +'<td style="color:#444">'+_esc(t.reason||'-')+'</td>'
       +'<td style="color:#444">'+_esc(t.place||'-')+'</td>'
       +'<td><div style="display:flex;gap:6px;align-items:center">'+okHtml+(canDel?'<button class="bd" data-tripi="'+i+'"><i class="ti ti-trash"></i></button>':'')+'</div></td>'
