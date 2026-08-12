@@ -9961,7 +9961,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var list = document.getElementById('wa_before_list');
       if(!list) return;
       list.innerHTML = Array.from(inp.files).map(function(f){
-        return '<div style="font-size:13px;color:#208050;padding:2px 0">&#10003; '+f.name+'</div>';
+        return '<div style="font-size:13px;color:#208050;padding:2px 0">&#10003; '+_esc(f.name)+'</div>';   // 파일명 이스케이프(XSS 방지)
       }).join('');
     });
   }
@@ -10667,7 +10667,7 @@ function _waTplListDraw(){
     var urlHtml=href?('<a href="'+href+'" target="_blank" rel="noopener" title="양식 시트 열기" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#4858cc;text-decoration:none">'+_esc(t.url||href)+'</a>')
                     :('<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#9090bb">'+_esc(t.url||'')+'</span>');
     return '<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid #eef0f6'+(on?';background:#f2fbf4':'')+'">'
-      +'<input value="'+_esc(t.nm||'')+'" data-wtid="'+_esc(t.id)+'" onchange="waTplRename(this)" title="양식 이름 (고치면 바로 저장)" style="flex:0 0 140px;padding:6px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+      +'<input value="'+_esc(t.nm||'')+'" data-wtid="'+_esc(t.id)+'" onchange="waTplRename(this)" onkeydown="if(event.key===\'Enter\')this.blur()" title="양식 이름 (고치면 바로 저장)" style="flex:0 0 140px;padding:6px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
       +urlHtml
       +(on?'<span style="flex:0 0 auto;font-size:12px;color:#1a7040;font-weight:700"><i class="ti ti-check"></i> 사용 중</span>'
           :'<button data-wtid="'+_esc(t.id)+'" onclick="waTplUse(this)" style="flex:0 0 auto;padding:6px 12px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.35);border-radius:6px;color:#1a7040;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">사용</button>')
@@ -10750,6 +10750,8 @@ function waTplDelete(btn){
   if(isCur) wacfg.curId='';
   sv('tops_wacfg', wacfg);
   _waTplListDraw(); _waTplStatus();
+  // 사용 중이던 양식을 지우면 서버는 계속 그 양식을 쓰므로, 화면에도 그 사실을 남긴다(다음 상태 갱신 때 자동 정리)
+  if(isCur){ var st=document.getElementById('wa_tpl_status'); if(st) st.textContent='삭제한 ['+(t.nm||'양식')+'] 양식이 계속 적용 중 — 새 양식을 등록하거나 [사용]을 눌러주세요'; }
   toast('삭제했습니다. (양식 구글시트 원본은 드라이브에 그대로 있습니다)');
 }
 
@@ -10906,7 +10908,7 @@ function checkWaAfterLimit(inp){
   }
   var list=document.getElementById('wa_after_list');
   list.innerHTML=Array.from(inp.files).map(function(f){
-    return '<div style="font-size:14px;color:#208050;padding:2px 0">&#10003; '+f.name+'</div>';
+    return '<div style="font-size:14px;color:#208050;padding:2px 0">&#10003; '+_esc(f.name)+'</div>';   // 파일명 이스케이프(XSS 방지)
   }).join('');
 }
 
@@ -10932,21 +10934,22 @@ function _waDrop(e, side){
   if(!dropped.length) return;
   var pdfs=dropped.filter(function(f){ return f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name||'')); });
   if(!pdfs.length){ toast('이 칸은 PDF 파일만 올릴 수 있습니다.'); return; }
-  if(pdfs.length<dropped.length) toast('PDF가 아닌 파일 '+(dropped.length-pdfs.length)+'개는 제외했습니다.');
+  // toast는 마지막 호출이 앞 메시지를 덮으므로, 제외 안내는 결과 메시지에 합쳐 한 번에 보여준다
+  var skipMsg=(pdfs.length<dropped.length)?(' · PDF 아닌 '+(dropped.length-pdfs.length)+'개 제외'):'';
   var merged=Array.prototype.slice.call(inp.files||[]);
   var added=0;
   pdfs.forEach(function(f){
     if(merged.some(function(o){ return o.name===f.name&&o.size===f.size; })) return; // 같은 파일 중복 방지
     merged.push(f); added++;
   });
-  if(!added){ toast('이미 올라가 있는 파일입니다.'); return; }
-  if(side==='after'&&merged.length>10){ toast('최대 10개까지 선택 가능합니다. (이미 '+(merged.length-added)+'개 선택됨 — '+added+'개를 더 넣을 수 없습니다)'); return; }
+  if(!added){ toast('이미 올라가 있는 파일입니다.'+skipMsg); return; }
+  if(side==='after'&&merged.length>10){ toast('최대 10개까지 선택 가능합니다. (이미 '+(merged.length-added)+'개 선택됨 — '+added+'개를 더 넣을 수 없습니다)'+skipMsg); return; }
   try{
     var dt=new DataTransfer();
     merged.forEach(function(f){ dt.items.add(f); });
     inp.files=dt.files;
     inp.dispatchEvent(new Event('change',{bubbles:true}));   // 기존 목록 표시 로직 그대로 동작
-    toast('PDF '+added+'개를 올렸습니다. (총 '+merged.length+'개)');
+    toast('PDF '+added+'개를 올렸습니다. (총 '+merged.length+'개)'+skipMsg);
   }catch(err){ console.warn('_waDrop', err); toast('파일을 넣지 못했습니다: '+(err.message||err)); }
 }
 
