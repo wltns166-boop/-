@@ -10627,7 +10627,7 @@ function _waTplStatus(){
   var st=document.getElementById('wa_tpl_status'); if(!st) return;
   var cur=_waTplCur();
   if(cur){ st.textContent='사용 중 양식: '+(cur.nm||''); }
-  else if(/^사용 중 양식/.test(st.textContent||'')) st.textContent='';
+  else if(/양식/.test(st.textContent||'')) st.textContent='';   // 옛 문구('구글시트 양식 등록됨' 등)도 정리
 }
 function waTplMgrOpen(){
   if(!_isAdmin()){ toast('관리자만 양식을 관리할 수 있습니다.'); return; }
@@ -10940,7 +10940,7 @@ function _waDrop(e, side){
     merged.push(f); added++;
   });
   if(!added){ toast('이미 올라가 있는 파일입니다.'); return; }
-  if(side==='after'&&merged.length>10){ toast('최대 10개까지 선택 가능합니다. (현재 '+(merged.length-added)+'개)'); return; }
+  if(side==='after'&&merged.length>10){ toast('최대 10개까지 선택 가능합니다. (이미 '+(merged.length-added)+'개 선택됨 — '+added+'개를 더 넣을 수 없습니다)'); return; }
   try{
     var dt=new DataTransfer();
     merged.forEach(function(f){ dt.items.add(f); });
