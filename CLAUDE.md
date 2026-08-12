@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/team-tops-intranet-continue-ozkg5p` (2026-08-11부터. 이전: claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i → claude/team-tops-intranet-continue-7wnjzh)
+- 작업 브랜치: `claude/insurance-customer-registration-button-c909l6` (2026-08-12부터. 이전: claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i)
 - 대화·주석은 **한국어**로.
 
 ---
