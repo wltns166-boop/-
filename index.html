@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.11-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.12-1</div>
   </div>
 </div>
 
@@ -856,7 +856,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 보장분석 -->
     <div class="pg" id="pg_wa">
-      <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div><button class="ao" onclick="registerWaTemplate()" style="display:none;padding:8px 16px;font-size:13px;background:rgba(106,64,176,.1);border:1px solid rgba(106,64,176,.35);border-radius:7px;color:#6a40b0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-link"></i> 구글시트 양식 등록 (관리자)</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div><button class="ao" onclick="waTplMgrOpen()" style="display:none;padding:8px 16px;font-size:13px;background:rgba(106,64,176,.1);border:1px solid rgba(106,64,176,.35);border-radius:7px;color:#6a40b0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-link"></i> 구글시트 양식 등록 (관리자)</button></div>
       <!-- 고객명 + 액션 -->
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -875,7 +875,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <!-- 왼쪽: PDF 업로드 -->
           <div style="display:flex;flex-direction:column;gap:12px">
             <!-- 리모델링 전 -->
-            <div style="border:2px dashed rgba(200,80,40,.3);border-radius:10px;padding:14px;background:#fffaf8;display:flex;flex-direction:column;gap:10px">
+            <div ondragover="_waDragOver(event)" ondragleave="_waDragLeave(event)" ondrop="_waDrop(event,'before')" style="border:2px dashed rgba(200,80,40,.3);border-radius:10px;padding:14px;background:#fffaf8;display:flex;flex-direction:column;gap:10px">
               <div style="font-weight:700;color:#cc6030"><i class="ti ti-file-minus"></i> 리모델링 전 (현재 가입)</div>
               <div style="font-size:12px;color:#9090bb">보험증권 PDF (여러 개 가능)</div>
               <input type="file" id="wa_before_file" multiple accept=".pdf" style="font-size:13px;cursor:pointer;width:100%">
@@ -883,7 +883,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
               <button onclick="analyzeWaSide('before')" style="padding:9px 14px;background:#cc6030;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px"><i class="ti ti-file-spreadsheet"></i> 작성 (전)</button>
             </div>
             <!-- 리모델링 후 -->
-            <div style="border:2px dashed rgba(40,80,200,.3);border-radius:10px;padding:14px;background:#f8faff;display:flex;flex-direction:column;gap:10px">
+            <div ondragover="_waDragOver(event)" ondragleave="_waDragLeave(event)" ondrop="_waDrop(event,'after')" style="border:2px dashed rgba(40,80,200,.3);border-radius:10px;padding:14px;background:#f8faff;display:flex;flex-direction:column;gap:10px">
               <div style="font-weight:700;color:#2080cc"><i class="ti ti-file-plus"></i> 리모델링 후 (제안)</div>
               <div style="font-size:12px;color:#9090bb">제안 보험 PDF (최대 10개)</div>
               <input type="file" id="wa_after_file" multiple accept=".pdf" style="font-size:13px;cursor:pointer;width:100%" onchange="checkWaAfterLimit(this)">
@@ -2685,6 +2685,7 @@ let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); //
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
 let mgrs=JSON.parse(localStorage.getItem('tops_mgrs')||'{"son":[],"saeng":[]}'); // 매니저 연락처 {son:[손보사],saeng:[생보사]}
+let wacfg=JSON.parse(localStorage.getItem('tops_wacfg')||'{"tpls":[],"curId":""}'); // 보장분석 구글시트 양식 목록 {tpls:[{id,nm,url,sid,by,dt}],curId} — 텍스트만(함정 B)
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
 // Firebase 초기화 (SDK 로드 후 실행)
 window.db = null;
@@ -3201,6 +3202,7 @@ async function loadFromFirestore(){
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
+    if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
     if(Array.isArray(d.dsnap)&&d.dsnap.length){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -3273,6 +3275,7 @@ function startRealtimeSync(){
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
+    if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
     if(Array.isArray(d.dsnap)){ dsnap=d.dsnap; try{ localStorage.setItem('tops_dsnap',JSON.stringify(dsnap)); }catch(e){} }
     if(d.drcfg&&typeof d.drcfg==='object'&&!Array.isArray(d.drcfg)){ drCfg=d.drcfg; try{ localStorage.setItem('tops_drcfg',JSON.stringify(drCfg)); }catch(e){} }
@@ -10291,6 +10294,7 @@ async function loadWaTemplatesOnEnter(){
   window._waSheet = null;
   var fr=document.getElementById('wa_embed'); if(fr){ fr.src='about:blank'; fr.style.display='none'; }
   var es=document.getElementById('wa_embed_status'); if(es) es.style.display='';
+  try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){}   // 사용 중 양식 이름 표시
 }
 
 // ===== 보장분석 AI 자동 기입 =====
@@ -10611,25 +10615,142 @@ function _waInjectTotalPremium(edits, grid, sheetIdx){
   return out;
 }
 
-// 관리자: 공용 드라이브의 "구글시트 양식" 주소를 등록 (변환 없이 그대로 복사·사용)
-async function registerWaTemplate(){
-  if(!(typeof cu!=='undefined' && cu && cu.admin)){ toast('관리자만 양식을 등록할 수 있습니다.'); return; }
-  var url = window.prompt('보장분석 양식 구글시트 주소(URL)를 붙여넣으세요.\n예) https://docs.google.com/spreadsheets/d/....../edit', '');
-  if(url==null) return;
-  url = url.trim(); if(!url){ return; }
+// ===== 보장분석 — 구글시트 양식 관리 모달 (2026-08-12, 관리자 전용) =====
+// 데이터: wacfg={tpls:[{id('wt_..'),nm,url,sid,by,dt}],curId} — 동기화 키 tops_wacfg(텍스트만, 함정 B).
+// 서버(Apps Script)는 WA_TPL_ID 단일 활성 양식 — [등록]/[사용]이 waRegister를 호출해 서버 활성 양식을 바꾼다(gs 무변경).
+// 관리자 전용(navcfg 계열, last-write-wins 수용). 행 조작은 양식 id 기준(함정 A).
+function _waSheetIdOf(s){ s=String(s||'').trim(); var m=s.match(/\/d\/([a-zA-Z0-9_-]{20,})/); if(m) return m[1]; if(/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s; return ''; }
+function _waTplList(){ return (wacfg&&Array.isArray(wacfg.tpls))?wacfg.tpls:[]; }
+function _waTplById(id){ return _waTplList().filter(function(t){ return t&&t.id===id; })[0]||null; }
+function _waTplCur(){ return _waTplById((wacfg&&wacfg.curId)||''); }
+function _waTplStatus(){
+  var st=document.getElementById('wa_tpl_status'); if(!st) return;
+  var cur=_waTplCur();
+  if(cur){ st.textContent='사용 중 양식: '+(cur.nm||''); }
+  else if(/^사용 중 양식/.test(st.textContent||'')) st.textContent='';
+}
+function waTplMgrOpen(){
+  if(!_isAdmin()){ toast('관리자만 양식을 관리할 수 있습니다.'); return; }
+  var old=document.getElementById('wa_tpl_pop'); if(old) old.remove();
+  var ov=document.createElement('div');
+  ov.id='wa_tpl_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,40,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:600px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-table-options"></i> 구글시트 양식 관리</span><span onclick="document.getElementById(\'wa_tpl_pop\').remove()" style="cursor:pointer;color:#8888aa;font-size:22px;line-height:1;padding:0 4px">×</span></div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">양식 구글시트 주소를 등록하면 목록에 보관되고, <b style="color:#1a7040">[사용]</b>한 양식이 [작성] 시 복사되어 채워집니다.<br>예전에 등록해 둔 양식은 주소를 다시 등록하면 목록에 나타납니다. 이름 칸은 고치면 바로 저장됩니다.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<input id="wa_tpl_nm_in" placeholder="양식 이름" style="flex:0 0 130px;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+    +'<input id="wa_tpl_url_in" placeholder="https://docs.google.com/spreadsheets/d/... (양식 주소)" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+    +'<button onclick="waTplAdd()" style="padding:8px 16px;background:#6a40b0;border:none;border-radius:7px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 등록</button>'
+    +'</div>'
+    +'<div id="wa_tpl_list" style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;min-height:100px"></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  _waTplListDraw();
+}
+function _waTplListDraw(){
+  var box=document.getElementById('wa_tpl_list'); if(!box) return;
+  // 이름 수정 중 실시간 재렌더가 입력값을 날리지 않게 — 모달 안 입력칸에 포커스가 있으면 생략
+  try{
+    var pop=document.getElementById('wa_tpl_pop'), ae=document.activeElement;
+    if(pop&&ae&&pop.contains(ae)&&/^(input|textarea)$/i.test(ae.tagName)) return;
+  }catch(_e){}
+  var L=_waTplList();
+  if(!L.length){ box.innerHTML='<div style="padding:24px 12px;text-align:center;color:#a0a0c0;font-size:13px">등록된 양식이 없습니다.<br>위 칸에 이름과 구글시트 주소를 넣고 [등록]을 눌러주세요.</div>'; return; }
+  var curId=(wacfg&&wacfg.curId)||'';
+  box.innerHTML=L.map(function(t){
+    if(!t||!t.id) return '';
+    var on=(t.id===curId);
+    var sid=_waSheetIdOf(t.sid||t.url||'');
+    var href=sid?('https://docs.google.com/spreadsheets/d/'+sid+'/edit'):'';   // id 문자셋만 허용된 안전한 주소
+    var urlHtml=href?('<a href="'+href+'" target="_blank" rel="noopener" title="양식 시트 열기" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#4858cc;text-decoration:none">'+_esc(t.url||href)+'</a>')
+                    :('<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#9090bb">'+_esc(t.url||'')+'</span>');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid #eef0f6'+(on?';background:#f2fbf4':'')+'">'
+      +'<input value="'+_esc(t.nm||'')+'" data-wtid="'+_esc(t.id)+'" onchange="waTplRename(this)" title="양식 이름 (고치면 바로 저장)" style="flex:0 0 140px;padding:6px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+      +urlHtml
+      +(on?'<span style="flex:0 0 auto;font-size:12px;color:#1a7040;font-weight:700"><i class="ti ti-check"></i> 사용 중</span>'
+          :'<button data-wtid="'+_esc(t.id)+'" onclick="waTplUse(this)" style="flex:0 0 auto;padding:6px 12px;background:rgba(30,140,80,.12);border:1px solid rgba(30,140,80,.35);border-radius:6px;color:#1a7040;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">사용</button>')
+      +'<button data-wtid="'+_esc(t.id)+'" onclick="waTplDelete(this)" style="flex:0 0 auto;padding:6px 10px;background:rgba(200,60,60,.08);border:1px solid rgba(200,60,60,.3);border-radius:6px;color:#c04040;font-size:12.5px;cursor:pointer;font-family:inherit">삭제</button>'
+      +'</div>';
+  }).join('');
+}
+// [등록] — 주소 검증(waRegister) 후 목록에 추가하고 곧바로 사용 중으로 설정
+async function waTplAdd(){
+  if(!_isAdmin()){ toast('관리자만 양식을 등록할 수 있습니다.'); return; }
+  var nmEl=document.getElementById('wa_tpl_nm_in'), urlEl=document.getElementById('wa_tpl_url_in');
+  var nm=(nmEl&&nmEl.value||'').trim(), url=(urlEl&&urlEl.value||'').trim();
+  if(!url){ toast('양식 구글시트 주소를 붙여넣어 주세요.'); if(urlEl) urlEl.focus(); return; }
+  var sid=_waSheetIdOf(url);
+  if(!sid){ toast('구글시트 주소 형식이 아닙니다. (https://docs.google.com/spreadsheets/d/... 전체를 붙여넣어주세요)'); return; }
+  if(_waTplList().some(function(t){ return t&&_waSheetIdOf(t.sid||t.url||'')===sid; })){ toast('이미 목록에 있는 양식입니다.'); return; }
+  if(!nm) nm='양식 '+(_waTplList().length+1);
+  if(window._waTplBusy) return; window._waTplBusy=true;
   toast('양식 등록 중...');
   try{
-    var resp = await _driveProxy({ action:'waRegister', url:url });
-    if(!resp || !resp.ok){
-      var em = (resp && resp.error && (resp.error.message || resp.error)) || '등록 실패';
-      if(em==='invalid_url') em = '구글시트 주소 형식이 아닙니다. (https://docs.google.com/spreadsheets/d/... 전체를 붙여넣어주세요)';
-      if(em==='cannot_open') em = '그 시트를 열 수 없습니다. 양식 시트를 서버 계정이 접근할 수 있게 공유했는지 확인하세요.';
+    var resp=await _driveProxy({ action:'waRegister', url:url });
+    if(!resp||!resp.ok){
+      var em=(resp&&resp.error&&(resp.error.message||resp.error))||'등록 실패';
+      if(em==='invalid_url') em='구글시트 주소 형식이 아닙니다. (https://docs.google.com/spreadsheets/d/... 전체를 붙여넣어주세요)';
+      if(em==='cannot_open') em='그 시트를 열 수 없습니다. 양식 시트를 서버 계정이 접근할 수 있게 공유했는지 확인하세요.';
       throw new Error(em);
     }
-    window._waTplGrids = null;   // 새 양식 → 그리드 캐시 갱신
-    var st0=document.getElementById('wa_tpl_status'); if(st0) st0.textContent='구글시트 양식 등록됨';
-    toast('구글시트 양식이 등록되었습니다! 이제 [작성] 시 이 양식이 복사되어 채워집니다.');
-  }catch(e){ console.warn('registerWaTemplate', e); toast('양식 등록 실패: '+e.message); }
+    if(!wacfg||typeof wacfg!=='object'||Array.isArray(wacfg)) wacfg={tpls:[],curId:''};
+    if(!Array.isArray(wacfg.tpls)) wacfg.tpls=[];
+    var t={ id:'wt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), nm:nm, url:url, sid:sid, by:(typeof cu!=='undefined'&&cu&&cu.name)||'', dt:td() };
+    wacfg.tpls.push(t); wacfg.curId=t.id;
+    sv('tops_wacfg', wacfg);
+    window._waTplGrids=null;   // 새 양식 → 그리드 캐시 갱신
+    if(nmEl) nmEl.value=''; if(urlEl) urlEl.value='';
+    _waTplListDraw(); _waTplStatus();
+    toast('['+nm+'] 양식이 등록되어 지금부터 사용됩니다.');
+  }catch(e){ console.warn('waTplAdd', e); toast('양식 등록 실패: '+(e.message||e)); }
+  finally{ window._waTplBusy=false; }
+}
+// [사용] — 그 양식을 서버 활성 양식으로 전환
+async function waTplUse(btn){
+  if(!_isAdmin()){ toast('관리자만 양식을 바꿀 수 있습니다.'); return; }
+  var t=_waTplById(btn&&btn.getAttribute('data-wtid')); if(!t){ toast('양식을 찾지 못했습니다.'); return; }
+  if(window._waTplBusy) return; window._waTplBusy=true;
+  toast('양식 전환 중...');
+  try{
+    var resp=await _driveProxy({ action:'waRegister', url:t.url||t.sid });
+    if(!resp||!resp.ok){
+      var em=(resp&&resp.error&&(resp.error.message||resp.error))||'전환 실패';
+      if(em==='cannot_open') em='그 시트를 열 수 없습니다. 삭제됐거나 공유가 풀렸는지 확인하세요.';
+      throw new Error(em);
+    }
+    wacfg.curId=t.id;
+    sv('tops_wacfg', wacfg);
+    window._waTplGrids=null;
+    _waTplListDraw(); _waTplStatus();
+    toast('['+(t.nm||'양식')+'] 양식을 사용합니다. 이제 [작성] 시 이 양식이 복사됩니다.');
+  }catch(e){ console.warn('waTplUse', e); toast('양식 전환 실패: '+(e.message||e)); }
+  finally{ window._waTplBusy=false; }
+}
+// 이름 칸 수정 → 바로 저장
+function waTplRename(inp){
+  if(!_isAdmin()) return;
+  var t=_waTplById(inp&&inp.getAttribute('data-wtid')); if(!t) return;
+  var nm=(inp.value||'').trim();
+  if(!nm){ inp.value=t.nm||''; toast('양식 이름은 비울 수 없습니다.'); return; }
+  if(nm===t.nm) return;
+  t.nm=nm;
+  sv('tops_wacfg', wacfg);
+  _waTplStatus();
+  toast('양식 이름을 저장했습니다.');
+}
+// [삭제] — 목록에서 제거(서버 등록은 그대로 — 사용 중 양식을 지워도 다른 양식을 [사용]하기 전까지 작성은 계속 동작)
+function waTplDelete(btn){
+  if(!_isAdmin()){ toast('관리자만 삭제할 수 있습니다.'); return; }
+  var t=_waTplById(btn&&btn.getAttribute('data-wtid')); if(!t) return;
+  var isCur=((wacfg&&wacfg.curId)||'')===t.id;
+  if(!confirm('['+(t.nm||'양식')+'] 양식을 목록에서 삭제할까요?'+(isCur?'\n(지금 사용 중인 양식입니다 — 삭제해도 다른 양식을 [사용]하기 전까지 작성은 이 양식으로 계속 동작합니다)':''))) return;
+  wacfg.tpls=_waTplList().filter(function(x){ return x&&x.id!==t.id; });
+  if(isCur) wacfg.curId='';
+  sv('tops_wacfg', wacfg);
+  _waTplListDraw(); _waTplStatus();
+  toast('삭제했습니다. (양식 구글시트 원본은 드라이브에 그대로 있습니다)');
 }
 
 // [작성] — PDF를 AI로 분석해 구글 스프레드시트(전=0/후=1 탭)에 기입하고 화면에 임베드
@@ -10787,6 +10908,46 @@ function checkWaAfterLimit(inp){
   list.innerHTML=Array.from(inp.files).map(function(f){
     return '<div style="font-size:14px;color:#208050;padding:2px 0">&#10003; '+f.name+'</div>';
   }).join('');
+}
+
+// ===== 보장분석 PDF 칸 전용 드래그앤드롭 (2026-08-12) =====
+// 칸(전/후 박스) 어디에 떨어뜨려도 받고, 기존 선택에 "추가" 누적한다(공용 uni는 통째 교체라 전용 처리).
+// ⚠️ 페이지 차단막(document catch-all)이 pg_wa에서 uni drop을 막으므로(4.8 경고와 동일 구조)
+//    이 페이지에 새 파일 칸을 추가하면 전용 드롭 핸들러를 직접 달아야 한다.
+function _waDragOver(e){
+  e.preventDefault(); e.stopPropagation();
+  try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+  e.currentTarget.classList.add('uni-drop');
+}
+function _waDragLeave(e){
+  // 박스 안 자식으로 이동할 때 나는 가짜 leave는 무시
+  try{ if(e.relatedTarget&&e.currentTarget.contains(e.relatedTarget)) return; }catch(_e){}
+  e.currentTarget.classList.remove('uni-drop');
+}
+function _waDrop(e, side){
+  e.preventDefault(); e.stopPropagation();
+  e.currentTarget.classList.remove('uni-drop');
+  var inp=g('wa_'+side+'_file'); if(!inp) return;
+  var dropped=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
+  if(!dropped.length) return;
+  var pdfs=dropped.filter(function(f){ return f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name||'')); });
+  if(!pdfs.length){ toast('이 칸은 PDF 파일만 올릴 수 있습니다.'); return; }
+  if(pdfs.length<dropped.length) toast('PDF가 아닌 파일 '+(dropped.length-pdfs.length)+'개는 제외했습니다.');
+  var merged=Array.prototype.slice.call(inp.files||[]);
+  var added=0;
+  pdfs.forEach(function(f){
+    if(merged.some(function(o){ return o.name===f.name&&o.size===f.size; })) return; // 같은 파일 중복 방지
+    merged.push(f); added++;
+  });
+  if(!added){ toast('이미 올라가 있는 파일입니다.'); return; }
+  if(side==='after'&&merged.length>10){ toast('최대 10개까지 선택 가능합니다. (현재 '+(merged.length-added)+'개)'); return; }
+  try{
+    var dt=new DataTransfer();
+    merged.forEach(function(f){ dt.items.add(f); });
+    inp.files=dt.files;
+    inp.dispatchEvent(new Event('change',{bubbles:true}));   // 기존 목록 표시 로직 그대로 동작
+    toast('PDF '+added+'개를 올렸습니다. (총 '+merged.length+'개)');
+  }catch(err){ console.warn('_waDrop', err); toast('파일을 넣지 못했습니다: '+(err.message||err)); }
 }
 
 // ===== 리모델링 전 보장분석 작성 (모달 텍스트) =====
@@ -17734,9 +17895,9 @@ function _claimDrop(e,t){
   var files=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
   _claimAcceptFiles(t, files, '올렸');
 }
-// 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼이 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)) e.preventDefault(); });
+// 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
