@@ -312,6 +312,13 @@
   [삭제]는 목록에서만 제거 — 사용 중 양식을 지워도 다른 양식을 [사용]하기 전까지 서버는 그 양식으로 계속 동작(confirm에 안내).
   예전 prompt 방식으로 등록만 해둔 양식은 목록에 없음 — 주소 재등록하면 나타남. `wa_tpl_status`에 "사용 중 양식: 이름" 표시(`_waTplStatus`).
   링크 렌더는 시트 id로 정규 주소를 재조립(임의 URL 주입 방지). 실시간 수신 시 모달 목록 재렌더(이름 입력 중이면 생략). 관리자 전용 last-write-wins(navcfg 계열 수용).
+- **특약 매핑 관리 (2026-08-13)**: [특약 매핑 관리] 버튼(관리자 `.ao`) → 모달(`waMapMgrOpen`)에서
+  "양식의 대상 행(셀렉트 — `_waTplLabels`가 등록 양식 그리드에서 라벨 추출, 로드 실패 시 직접 입력) ← 특약 이름들(쉼표)" 규칙 등록.
+  데이터: `wacfg.maps=[{id('wm_..'),tgt,names}]`(텍스트만). 모달은 **초안(draft) 방식** — [저장] 눌러야 반영, 행 조작은 id 기준(`_waMapCollect`, 함정 A).
+  [작성] 시 `_waBuildFillPrompt`가 규칙 14("이 이름들은 반드시 tgt 행에 — 규칙 12보다 우선")로 AI 지시문에 주입. AI 기반이라 100% 강제는 아님(프롬프트 수준).
+- **43490 사고 수정 (2026-08-13)**: AI가 가입날짜를 숫자 서식의 보장합산 열에 넣어 날짜 일련번호(43490)로 표시되던 문제 —
+  ① 규칙 3에 "헤더 행(가입회사·가입날짜·납기/만기·종류) 값은 상품 열 전용, 합산 열 금지" 명시,
+  ② 안전망 `_waStripHeaderColEdits`(analyzeWaSide에서 헤더 행 라벨 감지 후 c<6 기입 제거 — 보험료·보장 금액 행의 합산은 유지).
 - **AI는 Gemini 고정 (2026-08-13)**: `AI_WA_MODEL='gemini-2.5-flash'` — 공용 `tops_ai_model` 오버라이드와 분리(비상용 `tops_ai_wa_model`만 적용).
   Gemini 키는 **GitHub 저장소 Secrets `GEMINI_API_KEY`** → 배포 워크플로(functions-deploy.yml)가 `functions/.env`로 주입 → `process.env`로 읽음.
   ⚠️ `defineSecret("GEMINI_API_KEY")` 바인딩 금지 — Secret Manager에 키가 없으면 CI 배포가 값 입력 프롬프트에서 멈춰 **실패**함(2026-08-13 실사고).

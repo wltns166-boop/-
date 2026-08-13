@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-3</div>
   </div>
 </div>
 
@@ -856,7 +856,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 보장분석 -->
     <div class="pg" id="pg_wa">
-      <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div><button class="ao" onclick="waTplMgrOpen()" style="display:none;padding:8px 16px;font-size:13px;background:rgba(106,64,176,.1);border:1px solid rgba(106,64,176,.35);border-radius:7px;color:#6a40b0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-link"></i> 구글시트 양식 등록 (관리자)</button></div>
+      <div class="sh"><div class="st"><i class="ti ti-file-text"></i>보장분석 작성</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ao" onclick="waMapMgrOpen()" style="display:none;padding:8px 16px;font-size:13px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.35);border-radius:7px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-list-details"></i> 특약 매핑 관리 (관리자)</button><button class="ao" onclick="waTplMgrOpen()" style="display:none;padding:8px 16px;font-size:13px;background:rgba(106,64,176,.1);border:1px solid rgba(106,64,176,.35);border-radius:7px;color:#6a40b0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-link"></i> 구글시트 양식 등록 (관리자)</button></div></div>
       <!-- 고객명 + 액션 -->
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -10445,7 +10445,7 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   L.push('규칙:');
   L.push('1) 라벨(가입회사·가입날짜·납기/만기·종류(상품명)·보험료·총 납입보험료, 그리고 실비·암·항암·뇌·심장 등 담보별 진단비/한도) 칸의 "값 칸"을 채운다. 값 칸은 보통 라벨 같은 행의 오른쪽 열, 또는 상품별 열이다.');
   L.push('2) 금액은 양식 단위에 맞춰 숫자만 넣어라(예: 5천만원·5000만원 → 5000). 단위 글자(만원/원)가 이미 양식에 있으면 다시 쓰지 말 것.');
-  L.push('3) ★모든 보장 담보의 금액·보험료·납기/만기는 반드시 "상품 열"에 넣어라. 상품 열은 0기준으로 6,8,10,12,14,16,18 번 열이다(보장합산 열 바로 오른쪽부터 2칸 간격). 첫 상품 = 6번 열. ★상품이 1개뿐이어도 보장합산이 아니라 6번 열에 전부 넣어라. "보장합산"(왼쪽 합계 열)에는 각 보장 행마다 상품 열들의 합계만 넣는다(상품 1개면 그 값과 동일). 절대 보장값을 상품 열 없이 보장합산 열에만 넣지 마라.');
+  L.push('3) ★모든 보장 담보의 금액·보험료·납기/만기는 반드시 "상품 열"에 넣어라. 상품 열은 0기준으로 6,8,10,12,14,16,18 번 열이다(보장합산 열 바로 오른쪽부터 2칸 간격). 첫 상품 = 6번 열. ★상품이 1개뿐이어도 보장합산이 아니라 6번 열에 전부 넣어라. "보장합산"(왼쪽 합계 열)에는 각 보장 행마다 상품 열들의 합계만 넣는다(상품 1개면 그 값과 동일). 절대 보장값을 상품 열 없이 보장합산 열에만 넣지 마라. ★단, 가입회사·가입날짜·납기/만기·종류(상품명) 같은 머리(헤더) 행의 값은 상품 열에만 넣고 보장합산 열에는 절대 넣지 마라(합산 열은 보장 "금액" 행의 합계 전용 — 날짜·회사명·상품명을 넣으면 안 된다).');
   L.push('4) PDF에 없는 항목은 채우지 말고 그 칸은 건너뛴다.');
   L.push('5) 라벨(글자) 칸은 절대 수정하지 말고 값 칸만 채운다.');
   L.push('6) ★납기/만기 행: 값을 "숫자만" 넣어라. 한 상품의 값 영역이 두 칸으로 나뉘어 있으면 "왼쪽 칸=납기(납입연수 숫자)", "오른쪽 칸=만기(만기나이 숫자)"로 각각 넣어라. 예: 15년납100세 → 왼쪽=15, 오른쪽=100. "년납"·"세" 같은 글자나 단위는 절대 쓰지 말고 숫자만(15, 100) 넣어라. (값 칸이 하나뿐이면 납기 숫자만 넣는다.)');
@@ -10460,6 +10460,17 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   } else {
     L.push('13) ★[리모델링 전 전용] 첫 번째 상품 열(0기준 6번)에는 반드시 "실손의료비(실비)" 보험을 넣어라(고객이 현재 가입한 실손보험). 나머지 현재 가입 상품들은 8,10,12,… 번 열에 채워라.');
   }
+  // 특약 매핑 규칙(관리자가 [특약 매핑 관리]로 등록) — AI의 자체 매칭 판단보다 우선
+  try{
+    var _mm=(typeof _waMaps==='function'?_waMaps():[]).filter(function(m){ return m&&String(m.tgt||'').trim()&&String(m.names||'').trim(); });
+    if(_mm.length){
+      L.push('14) ★특약 매핑 규칙(최우선 — 규칙 12의 자체 판단보다 우선한다): 아래 각 줄 왼쪽의 특약 이름들(표기가 조금 달라도 같은 특약이면 포함)은 반드시 양식에서 오른쪽 라벨이 있는 행에 넣어라. 다른 행에 넣지 마라.');
+      _mm.forEach(function(m){
+        var names=String(m.names).split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ');
+        L.push('    - ['+names+'] → "'+String(m.tgt).trim()+'" 행');
+      });
+    }
+  }catch(_e){}
   L.push('');
   L.push('출력: 다른 설명·머리말 없이 JSON 객체 하나만 출력. 형식:');
   L.push('{"name":"고객이름","age":"나이숫자","edits":[{"r":행번호,"c":열번호,"v":값}, ...]}');
@@ -10557,6 +10568,24 @@ async function _waGetTplGrids(){
   }
   window._waTplGrids = resp.sheets || [];
   return window._waTplGrids;
+}
+
+// 헤더 행(가입회사·가입날짜·납기/만기·종류) 값은 상품 열(0기준 6+) 전용 —
+//   AI가 규칙을 어겨 합산·라벨 열(c<6)에 넣어도 여기서 걸러낸다.
+//   (실사고: 가입날짜가 숫자 서식의 보장합산 열에 들어가 날짜 일련번호 "43490"으로 표시 — 2026-08-13)
+function _waStripHeaderColEdits(absEdits, grid, sheetIdx){
+  var hdr={};
+  (grid||[]).forEach(function(row, r){
+    var t=(typeof _waGridRowLabel==='function'?_waGridRowLabel(row):'').replace(/\s/g,'');
+    if(t&&/가입회사|가입날짜|납기|만기|종류|상품명/.test(t)) hdr[r]=1;
+  });
+  var dropped=0;
+  var kept=(absEdits||[]).filter(function(e){
+    if(e && e.s===sheetIdx && hdr[e.r] && (e.c|0)<6){ dropped++; return false; }
+    return true;
+  });
+  if(dropped) console.warn('WA: 헤더 행의 합산/라벨 열 기입 '+dropped+'건 제거(43490 방지)');
+  return kept;
 }
 
 // AI 편집[{r,c,v}](0기준)을 구글시트 기입용 edits[{s,r,c,v}]로 변환(+양식 범위 클램프)
@@ -10778,6 +10807,115 @@ function waTplDelete(btn){
   toast('삭제했습니다. (양식 구글시트 원본은 드라이브에 그대로 있습니다)');
 }
 
+// ===== 보장분석 — 특약 매핑 관리 (2026-08-13, 관리자 전용 모달) =====
+// 데이터: wacfg.maps=[{id('wm_..'), tgt(양식의 대상 행 라벨), names(매칭할 특약 이름들 — 콤마 구분)}]
+//   — tops_wacfg 동기화(텍스트만, 함정 B). [작성] 시 AI 지시문에 "이 이름들은 반드시 tgt 행에" 규칙으로 주입.
+//   모달은 초안(draft) 방식: [저장]을 눌러야 반영(last-write-wins — 관리자 전용, navcfg 계열 수용). 행 조작은 id 기준(함정 A).
+function _waMaps(){ return (wacfg&&Array.isArray(wacfg.maps))?wacfg.maps:[]; }
+// 그리드 한 행의 라벨 = 라벨 열(0~5) 중 첫 비어있지 않은 셀
+function _waGridRowLabel(row){
+  if(!row) return '';
+  for(var c=0;c<Math.min(row.length,6);c++){ var t=String(row[c]==null?'':row[c]).trim(); if(t) return t; }
+  return '';
+}
+// 등록 양식(전 시트)에서 매핑 대상 후보 라벨 목록(중복 제거, 헤더 4행 이후)
+function _waTplLabels(grids){
+  var out=[], seen={};
+  var g=(grids&&grids[0])||null;
+  ((g&&g.grid)||[]).forEach(function(row, r){
+    if(r<3) return;                       // 제목·머리 부분 제외
+    var t=_waGridRowLabel(row);
+    if(!t || t.length>40 || seen[t]) return;
+    seen[t]=1; out.push(t);
+  });
+  return out;
+}
+async function waMapMgrOpen(){
+  if(!_isAdmin()){ toast('관리자만 매핑을 관리할 수 있습니다.'); return; }
+  var old=document.getElementById('wa_map_pop'); if(old) old.remove();
+  // 대상 행 후보: 등록 양식에서 로드(실패해도 직접 입력으로 계속 사용 가능)
+  window._waMapLabels=[];
+  try{ window._waMapLabels=_waTplLabels(await _waGetTplGrids()); }
+  catch(e){ console.warn('waMapMgrOpen 라벨 로드', e); toast('양식을 불러오지 못해 대상 행을 직접 입력해야 합니다: '+(e.message||e)); }
+  // 초안 = 저장본 복사(저장 전엔 wacfg를 건드리지 않음)
+  window._waMapDraft=_waMaps().map(function(m){ return { id:(m&&m.id)||_waMapNewId(), tgt:String((m&&m.tgt)||''), names:String((m&&m.names)||'') }; });
+  var ov=document.createElement('div');
+  ov.id='wa_map_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,40,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:640px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-list-details"></i> 특약 매핑 관리</span><span onclick="document.getElementById(\'wa_map_pop\').remove()" style="cursor:pointer;color:#8888aa;font-size:22px;line-height:1;padding:0 4px">×</span></div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">왼쪽에 <b style="color:#2a2a4a">양식의 입력 위치(대상 행)</b>를 고르고, 오른쪽에 그 행에 들어가야 하는 <b style="color:#2a2a4a">특약 이름들</b>(비슷한 이름 포함, 쉼표로 여러 개)을 적어주세요.<br>[작성] 시 AI가 이 규칙을 최우선으로 따라 지정한 행에 기입합니다. <b style="color:#c04040">[저장]을 눌러야 반영됩니다.</b></div>'
+    +'<div id="wa_map_list" style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;min-height:100px"></div>'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
+    +'<button onclick="waMapAddRow()" style="padding:8px 14px;background:#f6f6fa;border:1px solid #ccd;border-radius:7px;color:#555;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 규칙 추가</button>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="document.getElementById(\'wa_map_pop\').remove()" style="padding:8px 16px;background:#f6f6fa;border:1px solid #ccd;border-radius:7px;color:#555;font-size:13px;cursor:pointer;font-family:inherit">취소</button>'
+    +'<button onclick="waMapSave()" style="padding:8px 18px;background:#1a7040;border:none;border-radius:7px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  _waMapListDraw();
+}
+function _waMapNewId(){ return 'wm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+function _waMapListDraw(){
+  var box=document.getElementById('wa_map_list'); if(!box) return;
+  var L=window._waMapDraft||[];
+  if(!L.length){ box.innerHTML='<div style="padding:24px 12px;text-align:center;color:#a0a0c0;font-size:13px">등록된 매핑 규칙이 없습니다.<br>[+ 규칙 추가]로 첫 규칙을 만들어주세요.</div>'; return; }
+  var labels=window._waMapLabels||[];
+  box.innerHTML=L.map(function(m){
+    // 대상 행: 양식 라벨이 있으면 셀렉트(저장된 값이 목록에 없으면 그 값도 항목으로 추가), 없으면 직접 입력
+    var tgtHtml;
+    if(labels.length){
+      var opts=labels.slice();
+      if(m.tgt && opts.indexOf(m.tgt)<0) opts.unshift(m.tgt);
+      tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+        +'<option value=""'+(m.tgt?'':' selected')+'>대상 행 선택…</option>'
+        +opts.map(function(o){ return '<option value="'+_esc(o)+'"'+(o===m.tgt?' selected':'')+'>'+_esc(o)+'</option>'; }).join('')
+        +'</select>';
+    }else{
+      tgtHtml='<input value="'+_esc(m.tgt||'')+'" data-wmtgt="'+_esc(m.id)+'" placeholder="양식의 대상 행 라벨" style="flex:0 0 190px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">';
+    }
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eef0f6">'
+      +tgtHtml
+      +'<span style="flex:0 0 auto;color:#9090bb;font-size:13px">←</span>'
+      +'<input value="'+_esc(m.names||'')+'" data-wmnm="'+_esc(m.id)+'" placeholder="특약 이름들 (쉼표로 여러 개: 통합암진단비, 암진단특약)" style="flex:1;min-width:120px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+      +'<button data-wmdel="'+_esc(m.id)+'" onclick="waMapDelRow(this)" style="flex:0 0 auto;padding:6px 10px;background:rgba(200,60,60,.08);border:1px solid rgba(200,60,60,.3);border-radius:6px;color:#c04040;font-size:12.5px;cursor:pointer;font-family:inherit">삭제</button>'
+      +'</div>';
+  }).join('');
+}
+// 화면 입력값을 초안으로 회수(id 기준 — 함정 A)
+function _waMapCollect(){
+  (window._waMapDraft||[]).forEach(function(m){
+    var t=document.querySelector('[data-wmtgt="'+(CSS&&CSS.escape?CSS.escape(m.id):m.id)+'"]');
+    var n=document.querySelector('[data-wmnm="'+(CSS&&CSS.escape?CSS.escape(m.id):m.id)+'"]');
+    if(t) m.tgt=String(t.value||'').trim();
+    if(n) m.names=String(n.value||'').trim();
+  });
+}
+function waMapAddRow(){
+  _waMapCollect();
+  (window._waMapDraft=window._waMapDraft||[]).push({ id:_waMapNewId(), tgt:'', names:'' });
+  _waMapListDraw();
+}
+function waMapDelRow(btn){
+  _waMapCollect();
+  var id=btn&&btn.getAttribute('data-wmdel');
+  window._waMapDraft=(window._waMapDraft||[]).filter(function(m){ return m&&m.id!==id; });
+  _waMapListDraw();
+}
+function waMapSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  _waMapCollect();
+  var rows=(window._waMapDraft||[]).filter(function(m){ return m&&(m.tgt||m.names); });
+  var bad=rows.filter(function(m){ return !m.tgt||!m.names; });
+  if(bad.length){ toast('대상 행과 특약 이름을 모두 채워주세요. (미완성 '+bad.length+'건)'); return; }
+  if(!wacfg||typeof wacfg!=='object'||Array.isArray(wacfg)) wacfg={tpls:[],curId:''};
+  wacfg.maps=rows.map(function(m){ return { id:m.id, tgt:m.tgt, names:m.names }; });
+  sv('tops_wacfg', wacfg);
+  var pop=document.getElementById('wa_map_pop'); if(pop) pop.remove();
+  toast('특약 매핑 '+rows.length+'건을 저장했습니다. 다음 [작성]부터 적용됩니다.');
+}
+
 // [작성] — PDF를 AI로 분석해 구글 스프레드시트(전=0/후=1 탭)에 기입하고 화면에 임베드
 async function analyzeWaSide(side){
   var sheetIdx  = (side==='after') ? 1 : 0;
@@ -10822,6 +10960,7 @@ async function analyzeWaSide(side){
     maxR = Math.max(maxR, 92);   // 보장행 ~93(0기준92)까지 허용 — 양식이 짧아도 상품 편집을 버리지 않음
     maxC = Math.max(maxC, 19);   // 상품 열 ~T(0기준19)까지 허용
     var absEdits = _waEditsForGrid(edits, sheetIdx, maxR, maxC);
+    absEdits = _waStripHeaderColEdits(absEdits, grid, sheetIdx);     // 헤더 값의 합산 열 기입 차단(43490 방지)
     var dupCols = _waFindDupCols(absEdits, grid, sheetIdx);          // 같은 내용이 반복되는 상품 열 탐지
     if(dupCols.length) absEdits = absEdits.filter(function(e){ return !(e.s===sheetIdx && dupCols.indexOf(e.c)>=0); });
     absEdits = _waInjectTotalPremium(absEdits, grid, sheetIdx);      // 총 납입보험료 자동계산 주입(중복 열 제외 후)
