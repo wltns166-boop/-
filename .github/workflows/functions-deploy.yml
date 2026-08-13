@@ -2,6 +2,8 @@ name: Deploy Functions
 
 # functions/ 코드가 바뀐 푸시에서만 Cloud Functions를 배포한다.
 # (호스팅/규칙은 firebase-deploy.yml이 담당 — 함수 배포는 느리므로 분리)
+# ⚠️ 과거엔 firebase-functions.yml 이 같은 조건으로 중복 배포됐음(2026-08-13 통합·삭제)
+#    — 중복 실행은 .env(GEMINI_API_KEY) 없는 쪽이 나중에 끝나면 키가 빠진 채 배포되는 경쟁을 만들었다.
 on:
   push:
     branches:
@@ -11,6 +13,11 @@ on:
       - "functions/**"
       - ".github/workflows/functions-deploy.yml"
   workflow_dispatch: {}
+
+# 연속 푸시 시 이전 배포가 끝나기 전에 겹치지 않게 직렬화
+concurrency:
+  group: functions-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -27,6 +34,17 @@ jobs:
           cat > "$RUNNER_TEMP/gcp-sa.json" <<'EOF'
           ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           EOF
+
+      # Gemini API 키 주입 — 저장소 Secrets에 GEMINI_API_KEY 를 등록하면 함수 환경변수로 배포됨
+      #   (Secret Manager 미사용 — defineSecret 바인딩은 CI 배포를 멈추게 하므로 금지)
+      - name: Write Gemini API key (.env)
+        run: |
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            printf 'GEMINI_API_KEY=%s\n' "${{ secrets.GEMINI_API_KEY }}" > functions/.env
+            echo "GEMINI_API_KEY 주입 완료"
+          else
+            echo "::warning::GEMINI_API_KEY 시크릿이 없습니다 — Gemini 호출 시 '키 미설정' 오류가 납니다"
+          fi
 
       - name: Deploy Cloud Functions
         run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force

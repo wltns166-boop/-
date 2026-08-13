@@ -1016,15 +1016,15 @@ exports.kakaoDaily = onSchedule(
 
 // Firebase 시크릿에 저장한 API 키
 //   설정: firebase functions:secrets:set ANTHROPIC_API_KEY (Claude 키)
-//        firebase functions:secrets:set GEMINI_API_KEY    (Gemini 키 — 보장분석 기본 사용, 2026-08-13 바인딩)
-// ⚠️ 시크릿을 함수 secrets 배열에 바인딩해야 런타임에서 읽힌다(선언만으론 process.env 에 안 들어옴).
-//    GEMINI_API_KEY 시크릿이 Secret Manager에 없으면 배포가 실패하니, 배포 전 위 명령으로 먼저 등록할 것.
+// Gemini 키는 Secret Manager가 아니라 **GitHub 저장소 Secrets(GEMINI_API_KEY)** 로 관리 —
+//   배포 워크플로가 functions/.env 로 주입해 process.env.GEMINI_API_KEY 로 읽힌다.
+// ⚠️ defineSecret("GEMINI_API_KEY")로 바인딩하지 말 것 — Secret Manager에 키가 없으면
+//    CI 배포가 값 입력 프롬프트에서 멈춰 실패한다(2026-08-13 실사고).
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 exports.api = onRequest(
   // memory 2GiB: 카카오 발송(sendnow)이 보고서 캡처용 헤드리스 크로미움을 띄우므로 필요
-  { secrets: [ANTHROPIC_API_KEY, GEMINI_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
+  { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
   async (req, res) => {
     // 호스팅 rewrite로 같은 도메인에서 호출되므로 CORS는 기본적으로 불필요하지만 방어적으로 허용
     res.set("Access-Control-Allow-Origin", "*");
@@ -1137,10 +1137,8 @@ exports.api = onRequest(
     //   응답을 Anthropic과 같은 형태 { content:[{text}] } 로 정규화 → 프론트는 그대로 사용.
     if (/^gemini/i.test(model)) {
       try {
-        let gKey = "";
-        try { gKey = GEMINI_API_KEY.value() || ""; } catch (e) { gKey = ""; }   // 시크릿 미바인딩 등 예외 시 env 폴백
-        gKey = gKey || process.env.GEMINI_API_KEY || "";
-        if (!gKey) { res.status(400).json({ error: { message: "Gemini API 키가 설정되지 않았습니다. (firebase functions:secrets:set GEMINI_API_KEY 후 functions 재배포 필요)" } }); return; }
+        const gKey = process.env.GEMINI_API_KEY || "";
+        if (!gKey) { res.status(400).json({ error: { message: "Gemini API 키가 설정되지 않았습니다. (GitHub 저장소 Secrets에 GEMINI_API_KEY 등록 후 functions 재배포 필요)" } }); return; }
         const gUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
           + encodeURIComponent(model) + ":generateContent?key=" + gKey;
         // 2.5 Flash 계열은 기본으로 '생각(thinking)'을 켜서 출력 토큰을 잡아먹으므로 끈다
