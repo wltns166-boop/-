@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-6</div>
   </div>
 </div>
 
@@ -10847,24 +10847,65 @@ function _waGridRowLabel(row){
   return '';
 }
 // 등록 양식(전 시트)에서 매핑 대상 후보 라벨 목록(중복 제거, 헤더 4행 이후)
+// 행의 첫 글자 칸만 보면 분류 칸(세로 병합)이 있는 행의 세부 담보명("뇌혈관 / 허혈성" 등)이 빠지므로,
+// 라벨 열(0~5)의 모든 글자 칸을 수집한다(금액·숫자 칸은 제외).
 function _waTplLabels(grids){
   var out=[], seen={};
   var g=(grids&&grids[0])||null;
   ((g&&g.grid)||[]).forEach(function(row, r){
-    if(r<3) return;                       // 제목·머리 부분 제외
-    var t=_waGridRowLabel(row);
-    if(!t || t.length>40 || seen[t]) return;
-    seen[t]=1; out.push(t);
+    if(r<3 || !row) return;               // 제목·머리 부분 제외
+    for(var c=0;c<Math.min(row.length,6);c++){
+      var t=String(row[c]==null?'':row[c]).trim();
+      if(!t || t.length<2 || t.length>40 || seen[t]) continue;
+      if(/^[\d,.\s원%~\-()]+$/.test(t)) continue;   // 숫자·금액·단위만 있는 칸 제외
+      seen[t]=1; out.push(t);
+    }
   });
   return out;
+}
+// 라벨 로컬 캐시(양식 sid 기준) — 모달을 서버 응답 없이 즉시 열기 위한 기기 캐시(_lsSet, 함정 B)
+function _waLabelCacheGet(){
+  try{
+    var cur=(typeof _waTplCur==='function')?_waTplCur():null;
+    var sid=cur?_waSheetIdOf(cur.sid||cur.url||''):'';
+    var o=JSON.parse(localStorage.getItem('tops_wa_map_labels')||'null');
+    if(o&&Array.isArray(o.labels)&&(!sid||o.sid===sid)) return o.labels;
+  }catch(e){}
+  return [];
+}
+function _waLabelCacheSet(labels){
+  try{
+    var cur=(typeof _waTplCur==='function')?_waTplCur():null;
+    var sid=cur?_waSheetIdOf(cur.sid||cur.url||''):'';
+    _lsSet('tops_wa_map_labels', JSON.stringify({ sid:sid, labels:labels||[] }));
+  }catch(e){}
+}
+// 라벨을 백그라운드로 로드해 캐시·화면 갱신(force=캐시 무효화 후 강제 재로드)
+async function _waMapLabelsLoad(force){
+  if(window._waMapLblBusy) return false; window._waMapLblBusy=true;
+  var st=document.getElementById('wa_map_loading'); if(st) st.style.display='';
+  try{
+    if(force) window._waTplGrids=null;
+    var labels=_waTplLabels(await _waGetTplGrids());
+    _waLabelCacheSet(labels);
+    var changed=JSON.stringify(labels)!==JSON.stringify(window._waMapLabels||[]);
+    window._waMapLabels=labels;
+    if(changed && document.getElementById('wa_map_pop')){ _waMapCollect(); _waMapListDraw(); }
+    return true;
+  }catch(e){
+    console.warn('_waMapLabelsLoad', e);
+    if(document.getElementById('wa_map_pop')) toast('양식 라벨을 불러오지 못했습니다: '+(e.message||e));
+    return false;
+  }finally{
+    window._waMapLblBusy=false;
+    var st2=document.getElementById('wa_map_loading'); if(st2) st2.style.display='none';
+  }
 }
 async function waMapMgrOpen(){
   if(!_isAdmin()){ toast('관리자만 매핑을 관리할 수 있습니다.'); return; }
   var old=document.getElementById('wa_map_pop'); if(old) old.remove();
-  // 대상 행 후보: 등록 양식에서 로드(실패해도 직접 입력으로 계속 사용 가능)
-  window._waMapLabels=[];
-  try{ window._waMapLabels=_waTplLabels(await _waGetTplGrids()); }
-  catch(e){ console.warn('waMapMgrOpen 라벨 로드', e); toast('양식을 불러오지 못해 대상 행을 직접 입력해야 합니다: '+(e.message||e)); }
+  // 모달은 즉시 열고(지난번 라벨 캐시 우선 표시), 최신 라벨은 백그라운드로 받아와 갱신 — 서버 왕복을 기다리지 않는다
+  window._waMapLabels=(window._waMapLabels&&window._waMapLabels.length)?window._waMapLabels:_waLabelCacheGet();
   // 초안 = 저장본 복사(저장 전엔 wacfg를 건드리지 않음)
   window._waMapDraft=_waMaps().map(function(m){ return { id:(m&&m.id)||_waMapNewId(), tgt:String((m&&m.tgt)||''), names:String((m&&m.names)||'') }; });
   var ov=document.createElement('div');
@@ -10877,6 +10918,7 @@ async function waMapMgrOpen(){
     +'<div style="display:flex;gap:6px;margin-bottom:8px">'
     +'<button onclick="waMapOpenSheet()" style="padding:6px 12px;background:rgba(40,80,200,.08);border:1px solid rgba(40,80,200,.3);border-radius:6px;color:#2a4ab0;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-external-link"></i> 양식 시트 열기</button>'
     +'<button onclick="waMapReloadLabels()" style="padding:6px 12px;background:#f6f6fa;border:1px solid #ccd;border-radius:6px;color:#555;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-refresh"></i> 라벨 새로고침</button>'
+    +'<span id="wa_map_loading" style="display:none;align-self:center;font-size:12px;color:#8888aa">양식 라벨 불러오는 중…</span>'
     +'</div>'
     +'<div id="wa_map_list" style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;min-height:100px"></div>'
     +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
@@ -10887,6 +10929,7 @@ async function waMapMgrOpen(){
     +'</div></div>';
   document.body.appendChild(ov);
   _waMapListDraw();
+  _waMapLabelsLoad();   // 최신 라벨 백그라운드 로드(도착하면 셀렉트만 갱신 — 입력값 보존)
 }
 function _waMapNewId(){ return 'wm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
 // 사용 중 양식 구글시트를 새 탭으로 — 행 라벨(실비 등)을 직접 고칠 수 있게
@@ -10898,15 +10941,9 @@ function waMapOpenSheet(){
 }
 // 양식 시트에서 라벨을 고친 뒤 누르면 캐시를 비우고 다시 불러온다(작성 중 입력값은 보존)
 async function waMapReloadLabels(){
-  if(window._waMapBusy) return; window._waMapBusy=true;
-  try{
-    _waMapCollect();                 // 화면 입력값 먼저 회수(초안 보존)
-    window._waTplGrids=null;         // 그리드 캐시 무효화 — [작성]의 AI 매칭에도 새 라벨 반영
-    window._waMapLabels=_waTplLabels(await _waGetTplGrids());
-    _waMapListDraw();
-    toast('양식 라벨을 다시 불러왔습니다. ('+(window._waMapLabels||[]).length+'개)');
-  }catch(e){ console.warn('waMapReloadLabels', e); toast('양식을 불러오지 못했습니다: '+(e.message||e)); }
-  finally{ window._waMapBusy=false; }
+  _waMapCollect();                   // 화면 입력값 먼저 회수(초안 보존)
+  var ok=await _waMapLabelsLoad(true);   // 그리드 캐시 무효화 — [작성]의 AI 매칭에도 새 라벨 반영
+  if(ok) toast('양식 라벨을 다시 불러왔습니다. ('+(window._waMapLabels||[]).length+'개)');
 }
 function _waMapListDraw(){
   var box=document.getElementById('wa_map_list'); if(!box) return;
