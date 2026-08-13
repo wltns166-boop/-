@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.12-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-1</div>
   </div>
 </div>
 
@@ -2097,11 +2097,13 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 // 병력정리·보장분석 AI 기능이 동작한다. (localStorage 'tops_ai_proxy_url'로도 덮어쓰기 가능)
 window.AI_PROXY_URL = "";
 
-// AI 모델 — 병력정리·보장분석 공용. 중계 함수(/api/analyze)가 모델명으로 분기한다:
+// AI 모델 — 중계 함수(/api/analyze)가 모델명으로 분기한다:
 //   "gemini-*" → 구글 Gemini(GEMINI_API_KEY 필요) / "claude-*" → Anthropic(ANTHROPIC_API_KEY)
 // 재배포 없이 바꾸려면 브라우저 저장소 'tops_ai_model' 값에 모델명(claude-sonnet-4-6 등)을 넣으면 됨
 window.AI_MODEL = (function(){ try{ return localStorage.getItem('tops_ai_model')||''; }catch(e){ return ''; } })() || "gemini-2.5-flash";
-window.AI_WA_MODEL = window.AI_MODEL;
+// 보장분석은 Gemini 고정(2026-08-13 교체) — tops_ai_model(공용 오버라이드)의 영향을 받지 않는다.
+//   비상시에만 'tops_ai_wa_model'에 다른 모델명을 넣어 되돌릴 수 있음.
+window.AI_WA_MODEL = (function(){ try{ return localStorage.getItem('tops_ai_wa_model')||''; }catch(e){ return ''; } })() || "gemini-2.5-flash";
 
 // 처리 결과를 팀 공용 구글드라이브(구글 시트)에 자동 저장하는 Apps Script 웹앱 URL.
 // 배포 후 아래 따옴표 안에 /exec URL을 넣으면 고객등록·DB배정현황·병력정리·보장분석이
@@ -10443,10 +10445,10 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   return L.join('\n');
 }
 
-// Claude 프록시 호출(병력분석과 동일 패턴: 한도/과부하 자동 재시도)
+// AI 프록시 호출(병력분석과 동일 패턴: 한도/과부하 자동 재시도) — 보장분석은 Gemini 기본
 async function _waCallAI(prompt, loadEl, label){
   var _aiUrl = (function(){ try{ return localStorage.getItem('tops_ai_proxy_url')||''; }catch(e){ return ''; } })() || (window.AI_PROXY_URL||'') || '/api/analyze';
-  var model = (window.AI_WA_MODEL||'claude-sonnet-4-6');
+  var model = (window.AI_WA_MODEL||'gemini-2.5-flash');
   var data=null, lastErr='';
   for(var attempt=0; attempt<4 && !data; attempt++){
     var res = await fetch(_aiUrl, {

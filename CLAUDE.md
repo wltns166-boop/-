@@ -312,6 +312,10 @@
   [삭제]는 목록에서만 제거 — 사용 중 양식을 지워도 다른 양식을 [사용]하기 전까지 서버는 그 양식으로 계속 동작(confirm에 안내).
   예전 prompt 방식으로 등록만 해둔 양식은 목록에 없음 — 주소 재등록하면 나타남. `wa_tpl_status`에 "사용 중 양식: 이름" 표시(`_waTplStatus`).
   링크 렌더는 시트 id로 정규 주소를 재조립(임의 URL 주입 방지). 실시간 수신 시 모달 목록 재렌더(이름 입력 중이면 생략). 관리자 전용 last-write-wins(navcfg 계열 수용).
+- **AI는 Gemini 고정 (2026-08-13)**: `AI_WA_MODEL='gemini-2.5-flash'` — 공용 `tops_ai_model` 오버라이드와 분리(비상용 `tops_ai_wa_model`만 적용).
+  functions `/api/analyze`의 Gemini 분기가 **GEMINI_API_KEY 시크릿을 함수에 바인딩**해 읽음(`secrets:[...]` — env 폴백 유지).
+  ⚠️ Secret Manager에 GEMINI_API_KEY가 없으면 functions **배포가 실패**함 — `firebase functions:secrets:set GEMINI_API_KEY` 먼저.
+  ⚠️ 표 작성·임베드는 여전히 앱스크립트(waGrid/waCreate) — 웹앱 배포가 로그인 페이지를 돌려주면(액세스 권한이 '모든 사용자'가 아님) 작성 실패.
 
 ## 5. 사업계획서 (bizplan)
 
