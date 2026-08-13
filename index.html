@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-5</div>
   </div>
 </div>
 
@@ -10873,7 +10873,11 @@ async function waMapMgrOpen(){
   // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
   ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:640px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column">'
     +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-list-details"></i> 특약 매핑 관리</span><span onclick="document.getElementById(\'wa_map_pop\').remove()" style="cursor:pointer;color:#8888aa;font-size:22px;line-height:1;padding:0 4px">×</span></div>'
-    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">왼쪽에 <b style="color:#2a2a4a">양식의 입력 위치(대상 행)</b>를 고르고, 오른쪽에 그 행에 들어가야 하는 <b style="color:#2a2a4a">특약 이름들</b>(비슷한 이름 포함, 쉼표로 여러 개)을 적어주세요.<br>[작성] 시 AI가 이 규칙을 최우선으로 따라 지정한 행에 기입합니다. <b style="color:#c04040">[저장]을 눌러야 반영됩니다.</b></div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:8px;line-height:1.6">왼쪽에 <b style="color:#2a2a4a">양식의 입력 위치(대상 행)</b>를 고르고, 오른쪽에 그 행에 들어가야 하는 <b style="color:#2a2a4a">특약 이름들</b>(비슷한 이름 포함, 쉼표로 여러 개)을 적어주세요.<br>[작성] 시 AI가 이 규칙을 최우선으로 따라 지정한 행에 기입합니다. <b style="color:#c04040">[저장]을 눌러야 반영됩니다.</b><br>대상 행 이름(실비 등)은 <b style="color:#2a2a4a">양식 구글시트의 행 라벨 그대로</b>입니다 — 이름을 바꾸려면 [양식 시트 열기]에서 그 칸 글자를 고친 뒤 [라벨 새로고침]을 눌러주세요.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +'<button onclick="waMapOpenSheet()" style="padding:6px 12px;background:rgba(40,80,200,.08);border:1px solid rgba(40,80,200,.3);border-radius:6px;color:#2a4ab0;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-external-link"></i> 양식 시트 열기</button>'
+    +'<button onclick="waMapReloadLabels()" style="padding:6px 12px;background:#f6f6fa;border:1px solid #ccd;border-radius:6px;color:#555;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-refresh"></i> 라벨 새로고침</button>'
+    +'</div>'
     +'<div id="wa_map_list" style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;min-height:100px"></div>'
     +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
     +'<button onclick="waMapAddRow()" style="padding:8px 14px;background:#f6f6fa;border:1px solid #ccd;border-radius:7px;color:#555;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 규칙 추가</button>'
@@ -10885,6 +10889,25 @@ async function waMapMgrOpen(){
   _waMapListDraw();
 }
 function _waMapNewId(){ return 'wm_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+// 사용 중 양식 구글시트를 새 탭으로 — 행 라벨(실비 등)을 직접 고칠 수 있게
+function waMapOpenSheet(){
+  var cur=(typeof _waTplCur==='function')?_waTplCur():null;
+  var sid=cur?_waSheetIdOf(cur.sid||cur.url||''):'';
+  if(!sid){ toast('사용 중 양식이 목록에 없습니다. [구글시트 양식 등록]에서 양식 주소를 (다시) 등록해주세요.'); return; }
+  window.open('https://docs.google.com/spreadsheets/d/'+sid+'/edit', '_blank');
+}
+// 양식 시트에서 라벨을 고친 뒤 누르면 캐시를 비우고 다시 불러온다(작성 중 입력값은 보존)
+async function waMapReloadLabels(){
+  if(window._waMapBusy) return; window._waMapBusy=true;
+  try{
+    _waMapCollect();                 // 화면 입력값 먼저 회수(초안 보존)
+    window._waTplGrids=null;         // 그리드 캐시 무효화 — [작성]의 AI 매칭에도 새 라벨 반영
+    window._waMapLabels=_waTplLabels(await _waGetTplGrids());
+    _waMapListDraw();
+    toast('양식 라벨을 다시 불러왔습니다. ('+(window._waMapLabels||[]).length+'개)');
+  }catch(e){ console.warn('waMapReloadLabels', e); toast('양식을 불러오지 못했습니다: '+(e.message||e)); }
+  finally{ window._waMapBusy=false; }
+}
 function _waMapListDraw(){
   var box=document.getElementById('wa_map_list'); if(!box) return;
   var L=window._waMapDraft||[];
@@ -10894,11 +10917,12 @@ function _waMapListDraw(){
     // 대상 행: 양식 라벨이 있으면 셀렉트(저장된 값이 목록에 없으면 그 값도 항목으로 추가), 없으면 직접 입력
     var tgtHtml;
     if(labels.length){
+      var missing=!!(m.tgt && labels.indexOf(m.tgt)<0);   // 양식 라벨이 바뀌어(예: 실비→통원의료비) 규칙만 옛 이름인 경우
       var opts=labels.slice();
-      if(m.tgt && opts.indexOf(m.tgt)<0) opts.unshift(m.tgt);
-      tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+      if(missing) opts.unshift(m.tgt);
+      tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" title="'+(missing?'양식에 이 이름의 행이 없습니다 — 새 라벨로 다시 선택해주세요':'')+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid '+(missing?'#e08080':'#dfe2ee')+';border-radius:6px;font-family:inherit;font-size:13px;color:'+(missing?'#c04040':'#1a1a2e')+';background:#fff">'
         +'<option value=""'+(m.tgt?'':' selected')+'>대상 행 선택…</option>'
-        +opts.map(function(o){ return '<option value="'+_esc(o)+'"'+(o===m.tgt?' selected':'')+'>'+_esc(o)+'</option>'; }).join('')
+        +opts.map(function(o){ var mo=(missing&&o===m.tgt); return '<option value="'+_esc(o)+'"'+(o===m.tgt?' selected':'')+'>'+_esc(o)+(mo?' (양식에 없음)':'')+'</option>'; }).join('')
         +'</select>';
     }else{
       tgtHtml='<input value="'+_esc(m.tgt||'')+'" data-wmtgt="'+_esc(m.id)+'" placeholder="양식의 대상 행 라벨" style="flex:0 0 190px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">';
