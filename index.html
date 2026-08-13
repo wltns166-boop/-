@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-2</div>
   </div>
 </div>
 
@@ -9955,6 +9955,27 @@ function saveCalEvent(){
 
 // ===== 보장분석 — 공용 엑셀 미리보기 및 양식 관리 =====
 
+// 업로드 PDF 목록 한 줄 HTML — 파일명 + 개별 삭제 ✕ (파일명 이스케이프: XSS 방지)
+// idx는 input.files를 정렬·필터 없이 그대로 그린 순번이라 원본과 항상 일치(함정 A 예외 — 삭제 시마다 재렌더)
+function _waFileRow(side, f, idx, fs){
+  return '<div style="display:flex;align-items:center;gap:6px;font-size:'+fs+'px;padding:2px 0">'
+    +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#208050">&#10003; '+_esc(f.name)+'</span>'
+    +'<span onclick="waRemoveFile(\''+side+'\','+idx+')" title="이 파일 빼기" style="flex:0 0 auto;cursor:pointer;color:#c04040;font-weight:700;padding:0 4px;line-height:1">&#10005;</span>'
+    +'</div>';
+}
+// 목록의 ✕ — 그 파일만 선택에서 제거하고 change 재발생(목록 재렌더)
+function waRemoveFile(side, idx){
+  var inp = document.getElementById('wa_'+side+'_file');
+  if(!inp || !inp.files || idx==null || idx<0 || idx>=inp.files.length) return;
+  var name = (inp.files[idx]&&inp.files[idx].name)||'';
+  try{
+    var dt = new DataTransfer();
+    Array.prototype.forEach.call(inp.files, function(f, i){ if(i!==idx) dt.items.add(f); });
+    inp.files = dt.files;
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    toast('뺐습니다: '+name+(inp.files.length?' (남은 '+inp.files.length+'개)':''));
+  }catch(e){ console.warn('waRemoveFile', e); toast('파일을 빼지 못했습니다: '+(e.message||e)); }
+}
 // PDF 파일 선택 시 목록 표시 (리모델링 전)
 document.addEventListener('DOMContentLoaded', function(){
   var inp = document.getElementById('wa_before_file');
@@ -9962,8 +9983,8 @@ document.addEventListener('DOMContentLoaded', function(){
     inp.addEventListener('change', function(){
       var list = document.getElementById('wa_before_list');
       if(!list) return;
-      list.innerHTML = Array.from(inp.files).map(function(f){
-        return '<div style="font-size:13px;color:#208050;padding:2px 0">&#10003; '+_esc(f.name)+'</div>';   // 파일명 이스케이프(XSS 방지)
+      list.innerHTML = Array.from(inp.files).map(function(f, i){
+        return _waFileRow('before', f, i, 13);
       }).join('');
     });
   }
@@ -10809,9 +10830,12 @@ async function analyzeWaSide(side){
     setStatus('📊 구글 스프레드시트에 기입 중... (잠시 걸릴 수 있어요)');
     var resp = await _driveProxy({ action:'waCreate', member:_memberName(), cust:cust, edits:absEdits, nameAge:nameAge });
     if(!resp || !resp.ok){
-      var em = (resp && resp.error && (resp.error.message || resp.error)) || '구글시트 생성 실패';
+      var em = (resp && resp.error && (resp.error.message || resp.error))
+               || (resp && resp.raw && ('서버 응답이 JSON이 아닙니다(앱스크립트 배포 확인): '+String(resp.raw).slice(0,160)))
+               || '구글시트 생성 실패';
       if(em==='no_template') em = '서버에 양식이 등록되지 않았습니다. 관리자가 [구글시트 양식 등록]을 먼저 해주세요.';
-      throw new Error(em);
+      if(em==='cannot_open') em = '등록된 양식 시트를 열 수 없습니다. 삭제됐거나 서버 계정 공유가 풀렸는지 확인하세요.';
+      throw new Error('구글시트 생성 실패: '+em);
     }
     window._waSheet = { id:resp.id, url:resp.url, embedUrl:resp.embedUrl };
     var fr = document.getElementById('wa_embed');
@@ -10909,8 +10933,8 @@ function checkWaAfterLimit(inp){
     return;
   }
   var list=document.getElementById('wa_after_list');
-  list.innerHTML=Array.from(inp.files).map(function(f){
-    return '<div style="font-size:14px;color:#208050;padding:2px 0">&#10003; '+_esc(f.name)+'</div>';   // 파일명 이스케이프(XSS 방지)
+  list.innerHTML=Array.from(inp.files).map(function(f, i){
+    return _waFileRow('after', f, i, 14);
   }).join('');
 }
 
