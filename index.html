@@ -10576,6 +10576,7 @@ async function _waGetTplGrids(){
 function _waStripHeaderColEdits(absEdits, grid, sheetIdx){
   var hdr={};
   (grid||[]).forEach(function(row, r){
+    if(r>=11) return; // 헤더는 보장표 시작(1기준 12행) 전 상단에만 — "만기환급" 같은 보장 라벨 오탐 방지
     var t=(typeof _waGridRowLabel==='function'?_waGridRowLabel(row):'').replace(/\s/g,'');
     if(t&&/가입회사|가입날짜|납기|만기|종류|상품명/.test(t)) hdr[r]=1;
   });
