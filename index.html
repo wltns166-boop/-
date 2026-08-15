@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-11</div>
   </div>
 </div>
 
@@ -10978,7 +10978,10 @@ function _waMapListDraw(){
     var tgtHtml;
     if(labels.length && !m.manual){
       var missing=!!(m.tgt && labels.indexOf(m.tgt)<0);   // 양식 라벨이 바뀌어(예: 실비→통원의료비) 규칙만 옛 이름인 경우
-      var opts=labels.slice();
+      // 다른 규칙에서 이미 선택한 항목은 목록에서 숨김(자기 행의 현재 선택값은 유지)
+      var used={};
+      L.forEach(function(x){ if(x&&x.id!==m.id&&x.tgt) used[x.tgt]=1; });
+      var opts=labels.filter(function(o){ return !used[o]; });
       if(missing) opts.unshift(m.tgt);
       tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" onchange="_waMapTgtChg(this)" title="'+(missing?'양식에 이 이름의 행이 없습니다 — 새 라벨로 다시 선택해주세요':'')+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid '+(missing?'#e08080':'#dfe2ee')+';border-radius:6px;font-family:inherit;font-size:13px;color:'+(missing?'#c04040':'#1a1a2e')+';background:#fff">'
         +'<option value=""'+(m.tgt?'':' selected')+'>대상 행 선택…</option>'
@@ -11009,9 +11012,10 @@ function _waMapCollect(){
     if(n) m.names=String(n.value||'').trim();
   });
 }
-// 셀렉트에서 [✏ 직접 입력…] 선택 → 그 줄을 자유 입력칸으로 전환
+// 셀렉트 변경 — [✏ 직접 입력…]이면 자유 입력칸으로 전환, 일반 선택이면 재렌더(이미 쓴 항목을 다른 드롭다운에서 숨김)
 function _waMapTgtChg(sel){
-  if(!sel || sel.value!=='__manual__') return;
+  if(!sel) return;
+  if(sel.value!=='__manual__'){ _waMapCollect(); _waMapListDraw(); return; }
   _waMapCollect();
   var id=sel.getAttribute('data-wmtgt');
   (window._waMapDraft||[]).forEach(function(m){ if(m&&m.id===id) m.manual=true; });
