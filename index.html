@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-8</div>
   </div>
 </div>
 
@@ -10846,18 +10846,19 @@ function _waGridRowLabel(row){
   for(var c=0;c<Math.min(row.length,6);c++){ var t=String(row[c]==null?'':row[c]).trim(); if(t) return t; }
   return '';
 }
-// 등록 양식(전 시트)에서 매핑 대상 후보 라벨 목록(중복 제거, 헤더 4행 이후)
+// 등록 양식(전 시트)에서 매핑 대상 후보 라벨 목록(중복 제거)
 // 행의 첫 글자 칸만 보면 분류 칸(세로 병합)이 있는 행의 세부 담보명("뇌혈관 / 허혈성" 등)이 빠지므로,
-// 라벨 열(0~5)의 모든 글자 칸을 수집한다(금액·숫자 칸은 제외).
+// 라벨 열(0~5)의 모든 글자 칸을 수집한다. 범위는 표 전체(4행~93행, 0기준 3~92) —
+// "암" 같은 한 글자 라벨·"10,000원" 같은 한도 표기도 포함(순수 숫자·기호만 있는 칸만 제외).
 function _waTplLabels(grids){
   var out=[], seen={};
   var g=(grids&&grids[0])||null;
   ((g&&g.grid)||[]).forEach(function(row, r){
-    if(r<3 || !row) return;               // 제목·머리 부분 제외
+    if(r<3 || r>92 || !row) return;       // 제목·머리(1~3행)와 표 밖(94행~) 제외
     for(var c=0;c<Math.min(row.length,6);c++){
       var t=String(row[c]==null?'':row[c]).trim();
-      if(!t || t.length<2 || t.length>40 || seen[t]) continue;
-      if(/^[\d,.\s원%~\-()]+$/.test(t)) continue;   // 숫자·금액·단위만 있는 칸 제외
+      if(!t || t.length>60 || seen[t]) continue;
+      if(/^[\d,.\s%~\-()/]+$/.test(t)) continue;   // 순수 숫자·구분 기호만 있는 칸 제외
       seen[t]=1; out.push(t);
     }
   });
