@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-9</div>
   </div>
 </div>
 
@@ -10960,16 +10960,21 @@ function _waMapListDraw(){
   box.innerHTML=L.map(function(m){
     // 대상 행: 양식 라벨이 있으면 셀렉트(저장된 값이 목록에 없으면 그 값도 항목으로 추가), 없으면 직접 입력
     var tgtHtml;
-    if(labels.length){
+    if(labels.length && !m.manual){
       var missing=!!(m.tgt && labels.indexOf(m.tgt)<0);   // 양식 라벨이 바뀌어(예: 실비→통원의료비) 규칙만 옛 이름인 경우
       var opts=labels.slice();
       if(missing) opts.unshift(m.tgt);
-      tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" title="'+(missing?'양식에 이 이름의 행이 없습니다 — 새 라벨로 다시 선택해주세요':'')+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid '+(missing?'#e08080':'#dfe2ee')+';border-radius:6px;font-family:inherit;font-size:13px;color:'+(missing?'#c04040':'#1a1a2e')+';background:#fff">'
+      tgtHtml='<select data-wmtgt="'+_esc(m.id)+'" onchange="_waMapTgtChg(this)" title="'+(missing?'양식에 이 이름의 행이 없습니다 — 새 라벨로 다시 선택해주세요':'')+'" style="flex:0 0 190px;padding:7px 8px;border:1px solid '+(missing?'#e08080':'#dfe2ee')+';border-radius:6px;font-family:inherit;font-size:13px;color:'+(missing?'#c04040':'#1a1a2e')+';background:#fff">'
         +'<option value=""'+(m.tgt?'':' selected')+'>대상 행 선택…</option>'
         +opts.map(function(o){ var mo=(missing&&o===m.tgt); return '<option value="'+_esc(o)+'"'+(o===m.tgt?' selected':'')+'>'+_esc(o)+(mo?' (양식에 없음)':'')+'</option>'; }).join('')
+        +'<option value="__manual__">&#9998; 직접 입력…</option>'
         +'</select>';
     }else{
-      tgtHtml='<input value="'+_esc(m.tgt||'')+'" data-wmtgt="'+_esc(m.id)+'" placeholder="양식의 대상 행 라벨" style="flex:0 0 190px;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">';
+      // 직접 입력 모드(또는 양식 라벨 미로드) — ▼ 버튼으로 목록 선택으로 복귀
+      tgtHtml='<span style="flex:0 0 190px;display:flex;gap:4px;align-items:center">'
+        +'<input value="'+_esc(m.tgt||'')+'" data-wmtgt="'+_esc(m.id)+'" placeholder="행 라벨 직접 입력" style="flex:1;min-width:0;padding:7px 8px;border:1px solid #dfe2ee;border-radius:6px;font-family:inherit;font-size:13px;color:#1a1a2e;background:#fff">'
+        +(labels.length?'<button data-wmid="'+_esc(m.id)+'" onclick="_waMapTgtBackToSel(this)" title="목록에서 선택" style="flex:0 0 auto;padding:7px 8px;background:#f6f6fa;border:1px solid #ccd;border-radius:6px;color:#555;font-size:11px;cursor:pointer;font-family:inherit">&#9660;</button>':'')
+        +'</span>';
     }
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eef0f6">'
       +tgtHtml
@@ -10984,9 +10989,25 @@ function _waMapCollect(){
   (window._waMapDraft||[]).forEach(function(m){
     var t=document.querySelector('[data-wmtgt="'+(CSS&&CSS.escape?CSS.escape(m.id):m.id)+'"]');
     var n=document.querySelector('[data-wmnm="'+(CSS&&CSS.escape?CSS.escape(m.id):m.id)+'"]');
-    if(t) m.tgt=String(t.value||'').trim();
+    if(t){ var tv=String(t.value||'').trim(); if(tv!=='__manual__') m.tgt=tv; }   // '직접 입력…' 선택값은 tgt 아님
     if(n) m.names=String(n.value||'').trim();
   });
+}
+// 셀렉트에서 [✏ 직접 입력…] 선택 → 그 줄을 자유 입력칸으로 전환
+function _waMapTgtChg(sel){
+  if(!sel || sel.value!=='__manual__') return;
+  _waMapCollect();
+  var id=sel.getAttribute('data-wmtgt');
+  (window._waMapDraft||[]).forEach(function(m){ if(m&&m.id===id) m.manual=true; });
+  _waMapListDraw();
+  try{ var inp=document.querySelector('input[data-wmtgt="'+(CSS&&CSS.escape?CSS.escape(id):id)+'"]'); if(inp) inp.focus(); }catch(e){}
+}
+// 직접 입력칸의 ▼ → 다시 목록 선택으로
+function _waMapTgtBackToSel(btn){
+  _waMapCollect();
+  var id=btn&&btn.getAttribute('data-wmid');
+  (window._waMapDraft||[]).forEach(function(m){ if(m&&m.id===id) m.manual=false; });
+  _waMapListDraw();
 }
 function waMapAddRow(){
   _waMapCollect();
