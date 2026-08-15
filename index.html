@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-16</div>
   </div>
 </div>
 
@@ -10449,7 +10449,7 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   L.push('3) ★모든 보장 담보의 금액·보험료·납기/만기는 반드시 "상품 열"에 넣어라. 상품 열은 0기준으로 6,8,10,12,14,16,18 번 열이다(보장합산 열 바로 오른쪽부터 2칸 간격). 첫 상품 = 6번 열. ★상품이 1개뿐이어도 보장합산이 아니라 6번 열에 전부 넣어라. "보장합산"(왼쪽 합계 열)에는 각 보장 행마다 상품 열들의 합계만 넣는다(상품 1개면 그 값과 동일). 절대 보장값을 상품 열 없이 보장합산 열에만 넣지 마라. ★단, 가입회사·가입날짜·납기/만기·종류(상품명) 같은 머리(헤더) 행의 값은 상품 열에만 넣고 보장합산 열에는 절대 넣지 마라(합산 열은 보장 "금액" 행의 합계 전용 — 날짜·회사명·상품명을 넣으면 안 된다).');
   L.push('3-1) ★값 칸이 좌우 두 열로 병합돼 한 칸처럼 보이는 경우(예: 6~7열이 한 칸), 반드시 왼쪽 열 번호(6,8,10,…)로 넣어라. 오른쪽 열 번호(7,9,11,…)에 넣으면 값이 표시되지 않는다. 오른쪽 열을 쓰는 경우는 규칙 6의 납기/만기 행(오른쪽=만기)뿐이다.');
   L.push('4) PDF에 없는 항목은 채우지 말고 그 칸은 건너뛴다.');
-  L.push('5) 라벨(글자) 칸은 절대 수정하지 말고 값 칸만 채운다.');
+  L.push('5) ★양식에서 이미 글자나 값이 들어 있는 칸(라벨·미리 적힌 기준값·안내 문구 전부)은 절대 수정·덮어쓰기 금지 — 위 [엑셀 양식]에서 "빈 값 칸"인 곳만 채운다.');
   L.push('6) ★납기/만기 행: 값을 "숫자만" 넣어라. 한 상품의 값 영역이 두 칸으로 나뉘어 있으면 "왼쪽 칸=납기(납입연수 숫자)", "오른쪽 칸=만기(만기나이 숫자)"로 각각 넣어라. 예: 15년납100세 → 왼쪽=15, 오른쪽=100. "년납"·"세" 같은 글자나 단위는 절대 쓰지 말고 숫자만(15, 100) 넣어라. (값 칸이 하나뿐이면 납기 숫자만 넣는다.)');
   L.push('7) ★실손의료비(실비): "실비" 또는 "질병/상해 의료비" 라벨이 있는 칸(보장표의 첫 번째 보장 항목 칸)에 반드시 실손의료비 보장을 넣어라.');
   L.push('8) ★양식에 이미 존재하는 칸에만 값을 넣는다. 새로운 행·열을 만들거나 표를 넓히지 마라. 위에 준 양식의 행·열 번호 범위를 절대 벗어나지 마라.');
@@ -10616,6 +10616,21 @@ function _waShiftMergedCols(absEdits, grid, sheetIdx){
   });
   if(moved) console.warn('WA: 병합 칸 오른쪽 열 기입 '+moved+'건을 왼쪽 열로 교정');
   return absEdits;
+}
+
+// 양식에 이미 글자·값이 있는 칸으로 가는 기입을 전부 차단 — AI가 기존 셀을 덮어쓰는 사고 방지(2026-08-13).
+//   양식 그리드(원본 표시값) 기준: 비어 있지 않던 칸은 라벨이든 기준값("각 5000만원")이든 수정 금지.
+function _waStripPresetCellEdits(absEdits, grid, sheetIdx){
+  var dropped=0;
+  var kept=(absEdits||[]).filter(function(e){
+    if(!e || e.s!==sheetIdx) return true;
+    var row=(grid||[])[e.r|0];
+    var cur=row?String(row[e.c|0]==null?'':row[e.c|0]).trim():'';
+    if(cur!==''){ dropped++; return false; }   // 양식에 원래 있던 칸 → 기입 금지
+    return true;
+  });
+  if(dropped) console.warn('WA: 양식 기존 칸 덮어쓰기 '+dropped+'건 차단');
+  return kept;
 }
 
 // AI 편집[{r,c,v}](0기준)을 구글시트 기입용 edits[{s,r,c,v}]로 변환(+양식 범위 클램프)
@@ -11123,6 +11138,7 @@ async function analyzeWaSide(side){
     var absEdits = _waEditsForGrid(edits, sheetIdx, maxR, maxC);
     absEdits = _waStripHeaderColEdits(absEdits, grid, sheetIdx);     // 헤더 값의 합산 열 기입 차단(43490 방지)
     absEdits = _waShiftMergedCols(absEdits, grid, sheetIdx);         // 병합 칸 오른쪽 열 기입 → 왼쪽 앵커로 교정
+    absEdits = _waStripPresetCellEdits(absEdits, grid, sheetIdx);    // 양식에 원래 있던 칸 덮어쓰기 차단
     var dupCols = _waFindDupCols(absEdits, grid, sheetIdx);          // 같은 내용이 반복되는 상품 열 탐지
     if(dupCols.length) absEdits = absEdits.filter(function(e){ return !(e.s===sheetIdx && dupCols.indexOf(e.c)>=0); });
     absEdits = _waInjectTotalPremium(absEdits, grid, sheetIdx);      // 총 납입보험료 자동계산 주입(중복 열 제외 후)
