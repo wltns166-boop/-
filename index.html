@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-14</div>
   </div>
 </div>
 
@@ -10996,7 +10996,7 @@ function _waMapListDraw(){
         +(labels.length?'<button data-wmid="'+_esc(m.id)+'" onclick="_waMapTgtBackToSel(this)" title="목록에서 선택" style="flex:0 0 auto;padding:7px 8px;background:#f6f6fa;border:1px solid #ccd;border-radius:6px;color:#555;font-size:11px;cursor:pointer;font-family:inherit">&#9660;</button>':'')
         +'</span>';
     }
-    return '<div style="padding:8px 10px;border-bottom:1px solid #eef0f6">'
+    return '<div data-wmrow="'+_esc(m.id)+'" onfocusin="_waMapRowFocus(this)" style="padding:8px 10px;border-bottom:1px solid #eef0f6">'
       +'<div style="display:flex;align-items:center;gap:8px">'
       +tgtHtml
       +'<span style="flex:0 0 auto;color:#9090bb;font-size:13px">←</span>'
@@ -11006,6 +11006,23 @@ function _waMapListDraw(){
       +'<input value="'+_esc(m.note||'')+'" data-wmnote="'+_esc(m.id)+'" placeholder="입력 조건(선택): 예) 암통합치료비 5000만원이면 1000, 3000만원이면 750" style="width:100%;margin-top:5px;padding:6px 8px;border:1px dashed #dfe2ee;border-radius:6px;font-family:inherit;font-size:12px;color:#4a4a6a;background:#fbfbfe;box-sizing:border-box">'
       +'</div>';
   }).join('');
+  _waMapRowPaint();   // 재렌더 후에도 작업 중이던 행의 초록 강조 복원
+}
+// 작업 중(포커스)인 규칙 행을 초록색으로 표시 — 다른 행으로 이동하면 강조도 이동
+function _waMapRowFocus(div){
+  var id=div&&div.getAttribute('data-wmrow');
+  if(!id || window._waMapFocusId===id) return;
+  window._waMapFocusId=id;
+  _waMapRowPaint();
+}
+function _waMapRowPaint(){
+  var cur=window._waMapFocusId||'';
+  document.querySelectorAll('#wa_map_list [data-wmrow]').forEach(function(el){
+    var on=(el.getAttribute('data-wmrow')===cur);
+    el.style.background=on?'#eefaf1':'';
+    el.style.boxShadow=on?'inset 0 0 0 2px rgba(46,160,67,.45)':'';
+    el.style.borderRadius=on?'8px':'';
+  });
 }
 // 화면 입력값을 초안으로 회수(id 기준 — 함정 A)
 function _waMapCollect(){
