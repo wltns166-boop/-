@@ -365,7 +365,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-10</div>
   </div>
 </div>
 
@@ -10851,6 +10851,22 @@ function _waGridRowLabel(row){
 // 라벨 열(0~5)의 모든 글자 칸을 수집한다. 범위는 표 전체(4행~93행, 0기준 3~92) —
 // "암" 같은 한 글자 라벨·"10,000원" 같은 한도 표기도 포함(순수 숫자·기호만 있는 칸만 제외).
 function _waTplLabels(grids){
+  // ① 양식 시트에 이름에 "매핑"이 들어간 탭(예: '매핑대상')이 있으면 — 관리자가 직접 지정한 목록으로 사용.
+  //    그 탭의 글자 칸을 적힌 순서 그대로 드롭다운에 보여준다(자동 추출 무시).
+  //    ⚠️ 서버(waGrid)는 앞 5개 탭만 읽으므로 전/후/비교 뒤 4~5번째 탭으로 만들 것(숨김 탭도 인식).
+  var man=(grids||[]).filter(function(g){ return g&&/매핑/.test(String(g.name||'')); })[0];
+  if(man){
+    var out2=[], seen2={};
+    (man.grid||[]).forEach(function(row){
+      (row||[]).forEach(function(v){
+        var t=String(v==null?'':v).trim();
+        if(!t || t.length>60 || seen2[t]) return;
+        seen2[t]=1; out2.push(t);
+      });
+    });
+    if(out2.length) return out2;
+  }
+  // ② 전용 탭이 없으면 전(前) 시트 표에서 자동 추출
   var out=[], seen={};
   var g=(grids&&grids[0])||null;
   ((g&&g.grid)||[]).forEach(function(row, r){
@@ -10915,7 +10931,7 @@ async function waMapMgrOpen(){
   // 밝은 흰 카드 + 검정 글씨 인라인 지정(함정 D)
   ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:640px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column">'
     +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-list-details"></i> 특약 매핑 관리</span><span onclick="document.getElementById(\'wa_map_pop\').remove()" style="cursor:pointer;color:#8888aa;font-size:22px;line-height:1;padding:0 4px">×</span></div>'
-    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:8px;line-height:1.6">왼쪽에 <b style="color:#2a2a4a">양식의 입력 위치(대상 행)</b>를 고르고, 오른쪽에 그 행에 들어가야 하는 <b style="color:#2a2a4a">특약 이름들</b>(비슷한 이름 포함, 쉼표로 여러 개)을 적어주세요.<br>[작성] 시 AI가 이 규칙을 최우선으로 따라 지정한 행에 기입합니다. <b style="color:#c04040">[저장]을 눌러야 반영됩니다.</b><br>대상 행 이름(실비 등)은 <b style="color:#2a2a4a">양식 구글시트의 행 라벨 그대로</b>입니다 — 이름을 바꾸려면 [양식 시트 열기]에서 그 칸 글자를 고친 뒤 [라벨 새로고침]을 눌러주세요.</div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:8px;line-height:1.6">왼쪽에 <b style="color:#2a2a4a">양식의 입력 위치(대상 행)</b>를 고르고, 오른쪽에 그 행에 들어가야 하는 <b style="color:#2a2a4a">특약 이름들</b>(비슷한 이름 포함, 쉼표로 여러 개)을 적어주세요.<br>[작성] 시 AI가 이 규칙을 최우선으로 따라 지정한 행에 기입합니다. <b style="color:#c04040">[저장]을 눌러야 반영됩니다.</b><br>대상 행 이름(실비 등)은 <b style="color:#2a2a4a">양식 구글시트의 행 라벨 그대로</b>입니다 — 이름을 바꾸려면 [양식 시트 열기]에서 그 칸 글자를 고친 뒤 [라벨 새로고침]을 눌러주세요.<br>목록을 직접 정하고 싶으면 양식 시트에 <b style="color:#2a2a4a">"매핑대상" 탭</b>(이름에 매핑 포함, 전/후/비교 뒤 4번째)을 만들어 원하는 이름을 적어주세요 — 드롭다운이 그 목록으로 대체됩니다.</div>'
     +'<div style="display:flex;gap:6px;margin-bottom:8px">'
     +'<button onclick="waMapOpenSheet()" style="padding:6px 12px;background:rgba(40,80,200,.08);border:1px solid rgba(40,80,200,.3);border-radius:6px;color:#2a4ab0;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-external-link"></i> 양식 시트 열기</button>'
     +'<button onclick="waMapReloadLabels()" style="padding:6px 12px;background:#f6f6fa;border:1px solid #ccd;border-radius:6px;color:#555;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-refresh"></i> 라벨 새로고침</button>'
