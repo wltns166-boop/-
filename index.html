@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-19</div>
   </div>
 </div>
 
@@ -10467,10 +10467,22 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
     var _mm=(typeof _waMaps==='function'?_waMaps():[]).filter(function(m){ return m&&String(m.tgt||'').trim()&&String(m.names||'').trim(); });
     if(_mm.length){
       L.push('14) ★특약 매핑 규칙(최우선 — 규칙 12의 자체 판단보다 우선한다): 아래 각 줄 왼쪽의 특약 이름들(표기가 조금 달라도 같은 특약이면 포함)은 반드시 양식에서 오른쪽 라벨이 있는 행에 넣어라. 다른 행에 넣지 마라. 같은 상품 안에서 왼쪽 이름 여러 개가 동시에 매칭되면 그 금액들을 합산해 그 행에 넣어라. ★단, 왼쪽 이름의 특약이 PDF에 실제로 없으면 이 규칙은 그 특약에 대해 적용하지 말고 그 행은 비워둬라(규칙 4가 항상 우선).');
+      // 대상 라벨의 실제 행 번호를 코드가 찾아 지시문에 박아준다 — AI가 행을 검색하다 틀리는 오류 제거
+      var _rowOf=function(tgt){
+        tgt=String(tgt||'').trim(); if(!tgt) return -1;
+        for(var r=0;r<(grid||[]).length;r++){
+          var row=grid[r]||[];
+          for(var c=0;c<Math.min(row.length,6);c++){
+            if(String(row[c]==null?'':row[c]).trim()===tgt) return r;
+          }
+        }
+        return -1;
+      };
       _mm.forEach(function(m){
         var names=String(m.names).split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ');
         var note=String(m.note||'').trim();
-        L.push('    - ['+names+'] → "'+String(m.tgt).trim()+'" 행'+(note?(' (입력 조건: '+note+')'):''));
+        var rr=_rowOf(m.tgt);
+        L.push('    - ['+names+'] → "'+String(m.tgt).trim()+'" 행'+(rr>=0?(' = 정확히 '+rr+'번 행(0기준)에 넣어라'):'')+(note?(' (입력 조건: '+note+')'):''));
       });
     }
   }catch(_e){}
