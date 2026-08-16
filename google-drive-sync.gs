@@ -329,19 +329,29 @@ function _waCreateSheet(body, out) {
     } catch (_e) {}
 
     // G) 색칠: G12:T93의 실제 최종값 기준
+    //   ★표 밖(라벨 열 A~F가 전부 빈 행 — 표가 93행보다 짧을 때 그 아래)은 빨강 대신 흰색으로 —
+    //     고정 범위를 통째로 칠해 표 밖까지 빨개지던 문제 수정(2026-08-13). 흰색 기입이라 이전 실행의 잔여 빨강도 정리됨.
     var nR = rEnd - CR1 + 1, nC = cEnd - CC1 + 1;
     if (nR >= 1 && nC >= 1) {
       var rng = sheet.getRange(CR1, CC1, nR, nC);
       var vals; try { vals = rng.getValues(); } catch (_e) { vals = null; }
+      var labs; try { labs = sheet.getRange(CR1, 1, nR, CC1 - 1).getValues(); } catch (_e) { labs = null; }
       if (vals) {
         var bg = [];
         for (var i2 = 0; i2 < nR; i2++) {
+          var hasLabel = true;   // 라벨 조회 실패 시엔 기존 동작(빨강 허용)
+          if (labs && labs[i2]) {
+            hasLabel = false;
+            for (var lq = 0; lq < labs[i2].length; lq++) {
+              if (String(labs[i2][lq] == null ? '' : labs[i2][lq]).trim() !== '') { hasLabel = true; break; }
+            }
+          }
           var rowEmpty = true;
           for (var k = 0; k < nC; k++) { var cv = vals[i2][k]; if (cv !== '' && cv !== null) { rowEmpty = false; break; } }
           var rowBg = [];
           for (var k2 = 0; k2 < nC; k2++) {
             var cv2 = vals[i2][k2], filled = (cv2 !== '' && cv2 !== null);
-            rowBg.push(filled ? YELLOW : (rowEmpty ? REDFILL : WHITE));
+            rowBg.push(filled ? YELLOW : ((rowEmpty && hasLabel) ? REDFILL : WHITE));
           }
           bg.push(rowBg);
         }

@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-21</div>
   </div>
 </div>
 
@@ -10468,7 +10468,7 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   try{
     var _mm=(typeof _waMaps==='function'?_waMaps():[]).filter(function(m){ return m&&String(m.tgt||'').trim()&&String(m.names||'').trim(); });
     if(_mm.length){
-      L.push('14) ★특약 매핑 규칙(최우선 — 규칙 12의 자체 판단보다 우선한다): 아래 각 줄 왼쪽의 특약 이름들(표기가 조금 달라도 같은 특약이면 포함)이 PDF에 있으면, 그 값을 edits에 넣지 말고 별도의 "mapped" 배열로만 출력하라. 형식: {"row":아래에 지정한 행 번호 그대로, "c":그 상품의 열 번호(가입회사를 넣은 상품 열과 같은 6,8,10,…), "v":값}. 같은 상품에서 왼쪽 이름 여러 개가 동시에 매칭되면 금액을 합산해 하나로 출력하라. ★왼쪽 이름의 특약이 PDF에 실제로 없으면 그 규칙은 무시하라(규칙 4가 항상 우선 — 억지로 만들지 마라).');
+      L.push('14) ★특약 매핑 규칙(최우선 — 규칙 12의 자체 판단보다 우선한다): 아래 각 줄 왼쪽의 특약 이름들(표기가 조금 달라도 같은 특약이면 포함)이 PDF에 있으면, 그 값을 edits에 넣지 말고 별도의 "mapped" 배열로만 출력하라. 형식: {"row":아래에 지정한 행 번호 그대로, "c":그 상품의 열 번호(가입회사를 넣은 상품 열과 같은 6,8,10,…), "v":값}. "v"에는 반드시 PDF에서 읽은 금액 숫자를 넣어라 — "만원" 같은 단위 글자만 넣는 것 금지, 값을 모르는 항목은 mapped에 아예 넣지 마라. 같은 상품에서 왼쪽 이름 여러 개가 동시에 매칭되면 금액을 합산해 하나로 출력하라. ★왼쪽 이름의 특약이 PDF에 실제로 없으면 그 규칙은 무시하라(규칙 4가 항상 우선 — 억지로 만들지 마라).');
       _mm.forEach(function(m){
         var names=String(m.names).split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ');
         var note=String(m.note||'').trim();
@@ -10535,18 +10535,31 @@ function _waMergeMappedEdits(edits, mapped, grid){
       var r=_waGridRowOf(grid, m.tgt); if(r>=0) mapRows[r]=1;
     });
   }catch(_e){}
-  if(!mapped || !mapped.length) return edits;   // mapped 미출력(구응답) 시엔 기존 동작 유지
-  var out=(edits||[]).filter(function(e){ return !(e && mapRows[(e.r|0)]); });   // 매핑 행은 코드 배치만 허용
-  var placed=0;
+  if(!mapped || !mapped.length){
+    // mapped 미출력 — 규칙 14의 행 번호 명시(row N) 기반 기존 동작으로 폴백(값 유실보다 낫다). 관측용 경고만 남김.
+    if(Object.keys(mapRows).length) console.warn('WA: 매핑 규칙이 있는데 AI가 mapped를 출력하지 않음 — 행 번호 명시 기반으로 폴백');
+    return edits;
+  }
+  // 유효한 mapped 항목만 수집(지정 행·상품 열·숫자 포함 값 — "만원" 같은 단위 글자만 온 쓰레기 값 거절)
+  var valid=[];
   mapped.forEach(function(mm){
     if(!mm || mm.v==null || mm.v==='') return;
     var r=((mm.row!=null?mm.row:mm.r)|0), c=(mm.c|0);
     if(!mapRows[r]) return;                      // 지정된 매핑 행이 아니면 버림
     if(c<6 || c>19) return;                      // 상품 열만
     if(c%2===1) c-=1;                            // 병합 칸 왼쪽 앵커
-    out.push({ r:r, c:c, v:mm.v }); placed++;
+    if(!/\d/.test(String(mm.v))) return;         // 금액에 숫자가 없으면(예: "만원") 버림
+    if(valid.some(function(x){ return x.r===r&&x.c===c; })) console.warn('WA: mapped 중복 좌표 '+r+':'+c+' — 뒤 값이 우선');
+    valid.push({ r:r, c:c, v:mm.v });
   });
-  if(placed) console.log('WA: 매핑 특약 '+placed+'건을 코드 좌표로 확정 배치');
+  if(!valid.length) return edits;               // 쓸만한 mapped가 없으면 기존 동작 유지
+  // ★AI가 형식을 부분적으로만 따라도 값이 유실되지 않게 — mapped가 실제 값을 준 "행"만
+  //   자유 기입(edits)을 걷어내고 코드 배치로 교체한다(2026-08-13 실사고: 전체 매핑 행을 걷어내 빈 칸 발생).
+  var covered={};
+  valid.forEach(function(v){ covered[v.r]=1; });
+  var out=(edits||[]).filter(function(e){ return !(e && covered[(e.r|0)]); });
+  valid.forEach(function(v){ out.push(v); });
+  console.log('WA: 매핑 특약 '+valid.length+'건 코드 좌표 배치(행 '+Object.keys(covered).join(',')+')');
   return out;
 }
 
@@ -11210,6 +11223,7 @@ async function analyzeWaSide(side){
       edits = _waParseEdits(aiText);
       mapped = _waParseMapped(aiText);
     }
+    window._waLastAiText = aiText;   // 진단용(메모리 전용) — 오배치 문의 시 원문 확인
     edits = _waMergeMappedEdits(edits, mapped, grid);   // 매핑 특약은 코드가 좌표 확정 배치
     if(!edits.length){
       console.warn('WA: AI 원문 응답(파싱 실패) ↓\n', aiText);
@@ -11226,7 +11240,8 @@ async function analyzeWaSide(side){
     var absEdits = _waEditsForGrid(edits, sheetIdx, maxR, maxC);
     absEdits = _waStripHeaderColEdits(absEdits, grid, sheetIdx);     // 헤더 값의 합산 열 기입 차단(43490 방지)
     absEdits = _waShiftMergedCols(absEdits, grid, sheetIdx);         // 병합 칸 오른쪽 열 기입 → 왼쪽 앵커로 교정
-    absEdits = _waStripPresetCellEdits(absEdits, grid, sheetIdx);    // 양식에 원래 있던 칸 덮어쓰기 차단
+    // ※ _waStripPresetCellEdits는 체인에서 제외(2026-08-13 리뷰): 구역 잠금이 왼쪽 영역을 전면 차단하고,
+    //    상품 영역은 서버가 매 작성마다 통째로 비우므로 남는 효과가 없고 매핑 확정 배치 값을 오히려 지울 수 있음.
     absEdits = _waZoneLockEdits(absEdits, sheetIdx);                 // 상품 열(G~T) 밖 기입 전면 차단(구역 잠금)
     var dupCols = _waFindDupCols(absEdits, grid, sheetIdx);          // 같은 내용이 반복되는 상품 열 탐지
     if(dupCols.length) absEdits = absEdits.filter(function(e){ return !(e.s===sheetIdx && dupCols.indexOf(e.c)>=0); });
