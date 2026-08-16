@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-22</div>
   </div>
 </div>
 
@@ -10445,7 +10445,7 @@ function _waBuildFillPrompt(grid, pdfText, sideLabel){
   L.push('');
   L.push('규칙:');
   L.push('1) 라벨(가입회사·가입날짜·납기/만기·종류(상품명)·보험료·총 납입보험료, 그리고 실비·암·항암·뇌·심장 등 담보별 진단비/한도) 칸의 "값 칸"을 채운다. 값 칸은 보통 라벨 같은 행의 오른쪽 열, 또는 상품별 열이다.');
-  L.push('2) 금액은 양식 단위에 맞춰 숫자만 넣어라(예: 5천만원·5000만원 → 5000). 단위 글자(만원/원)가 이미 양식에 있으면 다시 쓰지 말 것.');
+  L.push('2) 금액은 양식 단위에 맞춰 숫자만 넣어라(예: 5천만원·5000만원 → 5000). 단위 글자(만원/원)가 이미 양식에 있으면 다시 쓰지 말 것. ★값을 모르는 칸은 아예 출력하지 마라 — "만원"처럼 단위 글자만 넣는 것 절대 금지(그런 출력은 시스템이 버린다).');
   L.push('3) ★모든 값은 반드시 "상품 열"에만 넣어라. 상품 열은 0기준으로 6,8,10,12,14,16,18 번 열이다(2칸 간격, 오른쪽 짝 7,9,…,19는 만기 등 규칙 6의 경우만). 첫 상품 = 6번 열. ★상품이 1개뿐이어도 6번 열에 전부 넣어라. ★0~5번 열(라벨·보장합산·기준값 등 왼쪽 영역)에는 어떤 값도 절대 넣지 마라 — 합산·기준값은 양식의 수식과 시스템이 처리한다.');
   L.push('3-1) ★값 칸이 좌우 두 열로 병합돼 한 칸처럼 보이는 경우(예: 6~7열이 한 칸), 반드시 왼쪽 열 번호(6,8,10,…)로 넣어라. 오른쪽 열 번호(7,9,11,…)에 넣으면 값이 표시되지 않는다. 오른쪽 열을 쓰는 경우는 규칙 6의 납기/만기 행(오른쪽=만기)뿐이다.');
   L.push('4) ★PDF에 실제로 존재하는 담보만 채워라. PDF 원문에서 그 담보의 이름과 금액을 직접 찾을 수 있는 경우에만 기입하고, 근거를 못 찾으면 그 칸은 반드시 비워둬라. 추측·유추·일반 상식으로 채우는 것을 절대 금지한다.');
@@ -10699,6 +10699,20 @@ function _waShiftMergedCols(absEdits, grid, sheetIdx){
   });
   if(moved) console.warn('WA: 병합 칸 오른쪽 열 기입 '+moved+'건을 왼쪽 열로 교정');
   return absEdits;
+}
+
+// 보장표 영역(행 11 이후)의 값은 금액 — 숫자가 하나도 없는 값("만원" 등 단위 글자만)은 버린다(2026-08-13).
+//   헤더 행(가입회사·상품명 등 글자 값이 정상인 행, r<11)은 건드리지 않음. mapped 경로엔 같은 필터가 이미 있음.
+function _waStripUnitOnlyEdits(absEdits, sheetIdx){
+  var dropped=0;
+  var kept=(absEdits||[]).filter(function(e){
+    if(!e || e.s!==sheetIdx) return true;
+    var r=(e.r|0), c=(e.c|0);
+    if(r>=11 && c>=6 && !/\d/.test(String(e.v==null?'':e.v))){ dropped++; return false; }
+    return true;
+  });
+  if(dropped) console.warn('WA: 숫자 없는 보장값("만원" 등) '+dropped+'건 제거');
+  return kept;
 }
 
 // 구역 잠금 — AI 기입은 상품 열(0기준 6~19, 행 3~92) 안에서만 허용. 왼쪽 영역(라벨·합산·기준값)은 절대 금지.
@@ -11243,6 +11257,7 @@ async function analyzeWaSide(side){
     // ※ _waStripPresetCellEdits는 체인에서 제외(2026-08-13 리뷰): 구역 잠금이 왼쪽 영역을 전면 차단하고,
     //    상품 영역은 서버가 매 작성마다 통째로 비우므로 남는 효과가 없고 매핑 확정 배치 값을 오히려 지울 수 있음.
     absEdits = _waZoneLockEdits(absEdits, sheetIdx);                 // 상품 열(G~T) 밖 기입 전면 차단(구역 잠금)
+    absEdits = _waStripUnitOnlyEdits(absEdits, sheetIdx);            // 숫자 없는 보장값("만원" 등) 제거
     var dupCols = _waFindDupCols(absEdits, grid, sheetIdx);          // 같은 내용이 반복되는 상품 열 탐지
     if(dupCols.length) absEdits = absEdits.filter(function(e){ return !(e.s===sheetIdx && dupCols.indexOf(e.c)>=0); });
     absEdits = _waInjectTotalPremium(absEdits, grid, sheetIdx);      // 총 납입보험료 자동계산 주입(중복 열 제외 후)
