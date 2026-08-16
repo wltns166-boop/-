@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.13-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.16-1</div>
   </div>
 </div>
 
@@ -10701,6 +10701,65 @@ function _waShiftMergedCols(absEdits, grid, sheetIdx){
   return absEdits;
 }
 
+// ===== 신용정보원 보장분석 제안서(보분표) 자동 해석 (2026-08-16) =====
+// 이 형식은 텍스트 추출 시 상품별 담보 값이 "라벨 없는 숫자 나열"(요약 담보 목록과 같은 순서)로 나와
+// AI가 위치를 못 맞춘다. 요약 목록에서 담보 순서를 뽑고 상품별 숫자를 위치로 짝지어 정답 데이터를 만들어 붙인다.
+function _waBBPIsVal(t){ return /^(0|(?:[\d,]+억)?[\d,]+만|[\d,]+억)$/.test(t); }
+function _waBBPManwon(v){   // '2억'→20000, '1억6,900만'→16900, '120만'→120, '0'→0
+  v=String(v).replace(/,/g,'');
+  if(v==='0') return 0;
+  var m=v.match(/^(?:(\d+)억)?(?:(\d+)만)?$/);
+  if(!m||(!m[1]&&!m[2])) return null;
+  return (m[1]?parseInt(m[1],10)*10000:0)+(m[2]?parseInt(m[2],10):0);
+}
+function _waBoBunPyoRefine(text){
+  try{
+    var t=String(text||'');
+    if(!/보험사별\s*계약정보/.test(t) || !/상품별\s*가입현황/.test(t)) return text;
+    // ① 담보 라벨 순서: 첫 상품표 머리 이전(요약 구간)에서 "값 토큰 직전의 글자들"을 차례로 수집
+    var seg=t.split(/보험사\s+상품명\s+보장시기\s+보장기간\s+월보험료/)[0]||'';
+    var toks=seg.split(/\s+/).filter(Boolean);
+    var labels=[], buf=[];
+    toks.forEach(function(tk){
+      if(/^(가입현황|세부내역|보험사별계약정보|0\d|=+)$/.test(tk)) return;   // 페이지 머리·구분선 찌꺼기 제외(01·02 등 — 값 "0"은 제외 아님)
+      if(_waBBPIsVal(tk)){ if(buf.length) labels.push(buf.slice(-3).join(' ')); buf=[]; }
+      else buf.push(tk);
+    });
+    if(labels.length<40 || labels.length>60) return text;   // 표준 목록(약 50개)이 아니면 해석 포기
+    // ② 상품 블록: "(N)보험사 상품명 … 날짜 날짜 보험료 값들…"
+    var parts=t.split(/\((\d+)\)/);
+    if(parts.length<3) return text;
+    var out=[];
+    for(var i=1;i<parts.length;i+=2){
+      var no=parts[i], btoks=(parts[i+1]||'').split(/\s+/).filter(Boolean);
+      var di=[];
+      for(var j=0;j<btoks.length && di.length<2;j++){ if(/^\d{4}\.\d{2}\.\d{2}$/.test(btoks[j])) di.push(j); }
+      if(di.length<2) continue;
+      var prem=btoks[di[1]+1]||'', vstart=di[1]+2;
+      if(!/원$|미표시/.test(prem)){ prem=''; vstart=di[1]+1; }
+      var vals=[];
+      for(var k=vstart;k<btoks.length && vals.length<labels.length;k++){
+        if(_waBBPIsVal(btoks[k])) vals.push(btoks[k]); else break;
+      }
+      if(vals.length<Math.min(labels.length,30)) continue;   // 숫자 나열이 짧으면 이 상품 해석 생략(오짝지음 방지)
+      var items=[];
+      for(var q=0;q<vals.length && q<labels.length;q++){
+        if(vals[q]==='0') continue;
+        var mw=_waBBPManwon(vals[q]);
+        items.push(labels[q]+' = '+(mw!=null?mw:vals[q]));
+      }
+      out.push('상품('+no+') '+btoks.slice(0,di[0]).join(' ')+' | 가입일 '+btoks[di[0]]+' | 만기 '+btoks[di[1]]+(prem?(' | 월보험료 '+prem):'')
+        +'\n  '+(items.length?('담보(단위 만원): '+items.join(', ')):'(유효 담보 없음)'));
+    }
+    if(!out.length) return text;
+    return t+'\n\n=== [시스템 자동 해석 — 상품별 담보 내역(정답 데이터)] ===\n'
+      +'★중요: 위 원문의 "라벨 없는 숫자 나열"은 절대 사용하지 마라. 상품별 담보와 금액은 반드시 아래 해석을 정답으로 사용하라. 금액은 이미 만원 단위 숫자다(그대로 기입).\n'
+      +'★값이 0인 담보는 이미 제외돼 있다 — 아래에 없는 담보는 그 상품에 없는 것이니 절대 채우지 마라.\n'
+      +'★납기/만기(보장기간) 행은 이 데이터로 채우지 마라(가입일·만기는 참고용). 가입날짜 행은 "가입일"을 사용해도 된다.\n'
+      +out.join('\n');
+  }catch(e){ console.warn('_waBoBunPyoRefine', e); return text; }
+}
+
 // 보장표 영역(행 11 이후)의 값은 금액 — 숫자가 하나도 없는 값("만원" 등 단위 글자만)은 버린다(2026-08-13).
 //   헤더 행(가입회사·상품명 등 글자 값이 정상인 행, r<11)은 건드리지 않음. mapped 경로엔 같은 필터가 이미 있음.
 function _waStripUnitOnlyEdits(absEdits, sheetIdx){
@@ -11224,7 +11283,13 @@ async function analyzeWaSide(side){
     setStatus('📄 '+sideLabel+' PDF 읽는 중...');
     var pdfText = await _waExtractSideText(side, stEl);
     if(!pdfText.trim()) throw new Error('PDF에서 내용을 읽지 못했습니다. (스캔 이미지/비밀번호 PDF)');
-    if(pdfText.length > 60000) pdfText = pdfText.slice(0, 60000);
+    pdfText = _waBoBunPyoRefine(pdfText);   // 신정원 보분표면 상품별 담보를 코드로 해석해 정답 데이터 첨부
+    if(pdfText.length > 60000){
+      // 자동 해석 블록은 정답 데이터라 잘리면 안 됨 — 원문 쪽을 줄여 맞춘다
+      var _mi=pdfText.indexOf('=== [시스템 자동 해석');
+      if(_mi>=0){ var _tail=pdfText.slice(_mi); pdfText=pdfText.slice(0, Math.max(0, 60000-_tail.length-20))+'\n…(원문 일부 생략)\n'+_tail; }
+      else pdfText=pdfText.slice(0, 60000);
+    }
 
     setStatus('🤖 AI가 보장내용을 분석 중...');
     var prompt = _waBuildFillPrompt(grid, pdfText, sideLabel);
