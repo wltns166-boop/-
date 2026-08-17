@@ -368,6 +368,14 @@
   ① `gh` CLI로 시크릿 등록(`gh secret set CLASPRC_JSON --repo wltns166-boop/- < %USERPROFILE%\.clasprc.json`) — API는 정상이라 웹이 죽어도 됨,
   ② **`deploy-gs.ps1`**(신설, 윈도우) — GitHub 없이 내 PC에서 clasp로 바로 push+deploy 후 `?ping=1`로 라이브 버전까지 자체 확인.
   즉 **시크릿 등록은 자동화용일 뿐, gs 수정을 라이브에 올리는 데 필수가 아니다**(막히면 ②로 즉시 배포).
+  **라이브 배포 완료 (2026-08-18)**: `gsheet-15`가 라이브 확인됨(`?ping=1`). 단 clasp 경로는 둘 다 실패해
+  **편집기 직접 붙여넣기**로 배포함: PC에서 `clasp push`는 성공 메시지에도 실제 반영 안 됐고(편집기 코드가 옛것 그대로),
+  `clasp deploy`는 "User has not enabled the Apps Script API" 오류(설정 ON 후에도 전파 지연 추정). 확실한 수동 경로는:
+  로컬 gs 파일을 클립보드로(`Get-Content -Raw | Set-Clipboard`) → script.google.com TOPS drive 편집기 Code.gs에 전체 붙여넣기 →
+  저장 → 배포 관리 ✏️ → "새 버전" → 배포(기존 배포 ID 유지) → `?ping=1&v=N`(캐시 우회 쿼리)으로 버전 대조.
+  ⚠️ ping 확인은 반드시 새 요청으로 — googleusercontent.com/echo 결과 페이지 새로고침은 옛 응답을 다시 보여줌.
+  ⚠️ deploy-gs.ps1은 UTF-8 BOM 필수(PS 5.1이 BOM 없으면 한글 프롬프트가 깨짐 — 2026-08-18 수정됨).
+  시크릿(CLASPRC_JSON/GS_SCRIPT_ID)은 여전히 미등록 — 자동 배포는 아직 비활성, gs 수정 시 위 수동 경로 사용.
 
 ## 5. 사업계획서 (bizplan)
 
