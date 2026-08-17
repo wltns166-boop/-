@@ -364,6 +364,10 @@
   ⚠️ 그래서 **gs를 의미 있게 고치면 `SERVER_VERSION`도 함께 올릴 것**(안 올리면 이 확인이 옛 배포를 통과시킴). 현재 `gsheet-15`.
   clasp 2.4.2가 옛 버전이라 러너 Node를 20으로 고정(setup-node). 시크릿이 없으면 실행 요약(Job Summary)에 등록 안내 표가 뜬다.
   ⚠️ **2026-08-17 현재 시크릿 미등록 상태** — run #1(push)·#2(dispatch) 모두 배포 단계가 skipped로 끝났음(로그로 확인). 등록 전엔 gs 수정이 라이브에 반영되지 않는다.
+  **웹 UI 우회 (2026-08-17)**: GitHub 저장소 Settings 페이지가 503(유니콘)으로 안 열려 시크릿 등록이 계속 막힘. 두 우회로를 준비:
+  ① `gh` CLI로 시크릿 등록(`gh secret set CLASPRC_JSON --repo wltns166-boop/- < %USERPROFILE%\.clasprc.json`) — API는 정상이라 웹이 죽어도 됨,
+  ② **`deploy-gs.ps1`**(신설, 윈도우) — GitHub 없이 내 PC에서 clasp로 바로 push+deploy 후 `?ping=1`로 라이브 버전까지 자체 확인.
+  즉 **시크릿 등록은 자동화용일 뿐, gs 수정을 라이브에 올리는 데 필수가 아니다**(막히면 ②로 즉시 배포).
 
 ## 5. 사업계획서 (bizplan)
 
