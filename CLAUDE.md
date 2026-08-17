@@ -354,6 +354,10 @@
   ⚠️ `defineSecret("GEMINI_API_KEY")` 바인딩 금지 — Secret Manager에 키가 없으면 CI 배포가 값 입력 프롬프트에서 멈춰 **실패**함(2026-08-13 실사고).
   ⚠️ functions 배포 워크플로는 **functions-deploy.yml 하나만** — 과거 firebase-functions.yml 중복(같은 조건 이중 배포, .env 없는 쪽이 키를 지우는 경쟁)은 삭제됨.
   ⚠️ 표 작성·임베드는 여전히 앱스크립트(waGrid/waCreate) — 웹앱 배포가 로그인 페이지를 돌려주면(액세스 권한이 '모든 사용자'가 아님) 작성 실패.
+- **gs 자동 배포 (2026-08-16)**: `.github/workflows/gs-deploy.yml` — google-drive-sync.gs 변경 푸시 시 clasp@2.4.2로
+  Code.gs+appsscript.json 스테이징 push 후 **기존 배포 ID 갱신**(/exec URL 유지, deploy-gs.sh와 동일 방식).
+  GitHub Secrets `CLASPRC_JSON`(~/.clasprc.json 전체)·`GS_SCRIPT_ID` 필요 — 없으면 경고만 남기고 건너뜀(실패 아님).
+  최초 1회: 본인 PC에서 `npx @google/clasp@2.4.2 login`(clasp 3.x는 인증 파일 형식이 달라 버전 고정) + Apps Script API ON.
 
 ## 5. 사업계획서 (bizplan)
 

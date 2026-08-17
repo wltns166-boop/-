@@ -1,0 +1,73 @@
+name: Deploy Apps Script
+
+# google-drive-sync.gs 가 바뀐 푸시에서 구글 Apps Script 웹앱을 자동 배포한다.
+# (deploy-gs.sh 와 같은 방식: Code.gs + appsscript.json 스테이징 → clasp push → 기존 배포 갱신으로 /exec URL 유지)
+#
+# 최초 1회 준비(본인 PC에서):
+#   1) npx --yes @google/clasp@2.4.2 login   (서버 소유 구글 계정으로 브라우저 로그인)
+#   2) 생성된 ~/.clasprc.json 내용 전체 → GitHub 저장소 Secrets 에 CLASPRC_JSON 으로 등록
+#   3) Apps Script 편집기 → 프로젝트 설정 ⚙️ → 스크립트 ID → Secrets 에 GS_SCRIPT_ID 로 등록
+#   4) https://script.google.com/home/usersettings 에서 "Apps Script API" 사용 ON
+# 시크릿이 없으면 경고만 남기고 건너뛴다(빌드 실패 아님).
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+    paths:
+      - "google-drive-sync.gs"
+      - "apps-script/appsscript.json"
+      - ".github/workflows/gs-deploy.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: gs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # 기존 웹앱 /exec URL 의 배포 ID (index.html DRIVE_SYNC_URL 과 동일) — 이 배포를 새 버전으로 갱신해 URL 을 유지한다
+      GS_DEPLOYMENT_ID: AKfycbwpknpHr2g8xh1C0gP7Bo6fR7PxpCarjTvQuSUys_5DTXMxNkDASGfOkSktDqpjdDU2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 시크릿 확인
+        id: check
+        run: |
+          if [ -z "${{ secrets.CLASPRC_JSON }}" ] || [ -z "${{ secrets.GS_SCRIPT_ID }}" ]; then
+            echo "::warning::CLASPRC_JSON / GS_SCRIPT_ID 시크릿이 없어 앱스크립트 자동 배포를 건너뜁니다. (Settings → Secrets and variables → Actions 에 등록 — 워크플로 파일 상단 안내 참고)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: clasp 로그인 정보 작성
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          cat > ~/.clasprc.json <<'EOF'
+          ${{ secrets.CLASPRC_JSON }}
+          EOF
+
+      - name: 스테이징 준비 (Code.gs + appsscript.json)
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          rm -rf .gs-deploy && mkdir -p .gs-deploy
+          cp google-drive-sync.gs .gs-deploy/Code.gs
+          cp apps-script/appsscript.json .gs-deploy/appsscript.json
+          printf '{ "scriptId": "%s", "rootDir": "." }\n' "${{ secrets.GS_SCRIPT_ID }}" > .gs-deploy/.clasp.json
+
+      - name: 코드 업로드(clasp push)
+        if: steps.check.outputs.ready == 'true'
+        working-directory: .gs-deploy
+        run: npx --yes @google/clasp@2.4.2 push -f
+
+      - name: 기존 배포 갱신(clasp deploy — /exec URL 유지)
+        if: steps.check.outputs.ready == 'true'
+        working-directory: .gs-deploy
+        run: |
+          npx --yes @google/clasp@2.4.2 deploy -i "$GS_DEPLOYMENT_ID" -d "auto deploy ${GITHUB_SHA::7}"
+          echo "✅ 배포 완료 — 웹앱 URL 유지: https://script.google.com/macros/s/$GS_DEPLOYMENT_ID/exec"
