@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/insurance-customer-registration-button-c909l6` (2026-08-12부터. 이전: claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i)
+- 작업 브랜치: `claude/tims-gs-auto-deploy-ih0edz` (2026-08-17부터. 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i)
 - 대화·주석은 **한국어**로.
 
 ---
@@ -358,6 +358,12 @@
   Code.gs+appsscript.json 스테이징 push 후 **기존 배포 ID 갱신**(/exec URL 유지, deploy-gs.sh와 동일 방식).
   GitHub Secrets `CLASPRC_JSON`(~/.clasprc.json 전체)·`GS_SCRIPT_ID` 필요 — 없으면 경고만 남기고 건너뜀(실패 아님).
   최초 1회: 본인 PC에서 `npx @google/clasp@2.4.2 login`(clasp 3.x는 인증 파일 형식이 달라 버전 고정) + Apps Script API ON.
+  **배포 자체 검증 (2026-08-17)**: 마지막 단계가 웹앱 `?ping=1`을 호출해 응답의 `version`이 `google-drive-sync.gs`의 `SERVER_VERSION`과
+  같은지 대조한다(최대 6회·5초 간격 재시도 — 반영 지연 흡수). 다르면 실패로 끊고 원인을 구분해 안내:
+  로그인 페이지가 오면 **배포 액세스 권한이 '모든 사용자'가 아님**, 버전만 다르면 **배포 ID가 실제 /exec와 다름**.
+  ⚠️ 그래서 **gs를 의미 있게 고치면 `SERVER_VERSION`도 함께 올릴 것**(안 올리면 이 확인이 옛 배포를 통과시킴). 현재 `gsheet-15`.
+  clasp 2.4.2가 옛 버전이라 러너 Node를 20으로 고정(setup-node). 시크릿이 없으면 실행 요약(Job Summary)에 등록 안내 표가 뜬다.
+  ⚠️ **2026-08-17 현재 시크릿 미등록 상태** — run #1(push)·#2(dispatch) 모두 배포 단계가 skipped로 끝났음(로그로 확인). 등록 전엔 gs 수정이 라이브에 반영되지 않는다.
 
 ## 5. 사업계획서 (bizplan)
 
