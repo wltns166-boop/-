@@ -398,6 +398,17 @@
   ⚠️ deploy-gs.ps1은 UTF-8 BOM 필수(PS 5.1이 BOM 없으면 한글 프롬프트가 깨짐 — 2026-08-18 수정됨).
   시크릿(CLASPRC_JSON/GS_SCRIPT_ID)은 여전히 미등록 — 자동 배포는 아직 비활성, gs 수정 시 위 수동 경로 사용.
 
+## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
+
+- 업무관리 > 증권바인더 아래 메뉴(`n_delayreq` → `pg_delayreq`, 전원 사용). 보험금 지급지연 사유 확인·지급 촉구 요청서 작성 도구
+  (사용자 제공 단일 HTML을 SPA에 통합한 것).
+- **저장·동기화 없음** — 입력은 화면에서만 유효(함정 B 무관, 화면에 안내 문구 있음). 모든 id는 `dq_` 접두(함정 E),
+  문서 미리보기 CSS는 `.dqsheet` 스코프(흰 종이·검정 글씨 — 함정 D 역방향).
+- 입력(13칸: 보험사/손해사정사/청구인/연락처/이메일/계약자/피보험자/증권번호/상품명/날짜 4종) → `dqRender()`가
+  `#pg_delayreq [data-k]` 스팬에 실시간 반영(빈칸=밑줄), 전화/날짜 자동 하이픈(`dqPhone`/`dqDate`), 작성일 기본값=오늘(`rDelayReq`).
+- **인쇄는 새 창**(`dqPrint` — SPA 전체가 인쇄되는 것 방지): 미리보기 innerHTML을 A4 인쇄 CSS와 함께 새 창에 써서 print()
+  (mtView·printRcCard 패턴, 팝업 차단 토스트). 값은 textContent로 들어가 innerHTML 복사도 XSS 안전. [텍스트 복사]=`dqCopy`(클립보드).
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.

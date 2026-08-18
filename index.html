@@ -319,6 +319,22 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .uni-drop{outline:2px dashed #2ea043!important;outline-offset:-2px;background:rgba(46,160,67,.07)!important} /* 파일을 끌어온 업로드 칸 표시 */
 #wa_map_list [data-wmrow]:hover{background:#eefaf1;box-shadow:inset 0 0 0 2px rgba(46,160,67,.45);border-radius:8px} /* 특약 매핑 행 호버 초록 강조(포커스 강조는 인라인이라 그대로 우선) */
 @media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
+/* ── 지급지연 요청서 (pg_delayreq) — 문서 미리보기: 흰 종이·검정 글씨(함정 D 역방향), dq 접두 스코프 ── */
+.dqsheet{background:#fff;border:1px solid #c9cdd6;border-radius:4px;padding:34px 30px;box-shadow:0 2px 10px rgba(20,30,50,.08);font-family:'Noto Serif KR','Batang',serif;font-size:14.5px;line-height:1.8;color:#1c1e26;}
+.dqsheet h2{text-align:center;font-size:20px;letter-spacing:1px;margin:0 0 26px;font-family:inherit;color:#1c1e26;}
+.dqsheet p{margin:0;}
+.dqsheet .dqsec{font-weight:700;font-size:15.5px;margin:20px 0 8px;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;}
+.dqsheet table{width:100%;border-collapse:collapse;margin-bottom:6px;}
+.dqsheet th,.dqsheet td{border:1px solid #444;padding:7px 9px;font-size:13.5px;text-align:left;font-weight:400;color:#1c1e26;background:#fff;}
+.dqsheet th{background:#f2f2f2;width:34%;font-weight:700;}
+.dqsheet ol{padding-left:22px;margin:0;}
+.dqsheet ol li{margin-bottom:7px;}
+.dqsheet .dqsign{margin-top:34px;text-align:center;}
+.dqsheet .dqsign .dqname{margin-top:14px;text-align:right;}
+.dqsheet .dqv{border-bottom:1px solid #888;padding:0 6px;display:inline-block;min-width:60px;text-align:center;}
+.dqsheet .dqv.empty{color:#b0b6c2;letter-spacing:2px;}
+.dqsheet+.dqsheet{margin-top:16px;}
+@media(max-width:560px){ .dqsheet{padding:24px 16px;font-size:13.5px} #dq_grid{grid-template-columns:1fr!important} }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -366,7 +382,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-6</div>
   </div>
 </div>
 
@@ -471,6 +487,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="ns"><div class="ni" id="n_calc">실비계산기</div></div>
       <div class="ns"><div class="ni" id="n_report">보고서 작성</div></div>
       <div class="ns"><div class="ni" id="n_binder">증권바인더 제작</div></div>
+      <div class="ns"><div class="ni" id="n_delayreq">지급지연 요청서</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -1808,6 +1825,76 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <button class="bco" onclick="saveReqUnified()">저장</button>
       </div>
     </div></div>
+
+    <!-- 지급지연 요청서 (업무관리) — 보험금 지급지연 사유 확인·지급 촉구 요청서 작성 도구 (저장 없음, 이 화면에서만) -->
+    <div class="pg" id="pg_delayreq">
+      <div class="sh"><div class="st"><i class="ti ti-file-alert"></i>지급지연 요청서</div></div>
+      <div class="card" style="max-width:860px">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px">보험금 지급지연 요청서 작성</div>
+        <div style="font-size:13px;color:#8888aa;margin-bottom:14px">아래 항목을 입력하면 아래 미리보기에 요청서가 자동으로 완성됩니다. 빈칸은 밑줄로 표시됩니다.</div>
+        <div id="dq_grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px">
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">보험사명</label><input id="dq_insurer" oninput="dqRender()" placeholder="예: ○○생명 / ○○손해보험" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">담당 손해사정사</label><input id="dq_adjuster" oninput="dqRender()" placeholder="성명 (모르면 비워두세요)" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">청구인 성명</label><input id="dq_claimant" oninput="dqRender()" placeholder="본인 성명" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">청구인 연락처</label><input id="dq_phone" inputmode="numeric" maxlength="13" oninput="dqPhone(this);dqRender()" placeholder="숫자만 입력 (자동으로 - 표시)" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">회신받을 이메일</label><input id="dq_email" inputmode="email" oninput="dqRender()" placeholder="example@naver.com" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">계약자</label><input id="dq_holder" oninput="dqRender()" placeholder="계약자 성명" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">피보험자</label><input id="dq_insured" oninput="dqRender()" placeholder="피보험자 성명" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">증권(계약)번호</label><input id="dq_policyNo" oninput="dqRender()" placeholder="증권번호" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">상품명</label><input id="dq_product" oninput="dqRender()" placeholder="가입 상품명" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">사고(진단)일자</label><input id="dq_accidentDate" inputmode="numeric" maxlength="10" oninput="dqDate(this);dqRender()" placeholder="예: 20250215" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">보험금 청구 접수일</label><input id="dq_claimDate" inputmode="numeric" maxlength="10" oninput="dqDate(this);dqRender()" placeholder="예: 20250407" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">손해사정 서류 제출 완료일</label><input id="dq_docsDate" inputmode="numeric" maxlength="10" oninput="dqDate(this);dqRender()" placeholder="예: 20260522" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+          <div><label style="display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px">작성일</label><input id="dq_today" inputmode="numeric" maxlength="10" oninput="dqDate(this);dqRender()" placeholder="예: 20260818" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+          <button onclick="dqPrint()" style="font-family:inherit;font-size:15px;font-weight:700;padding:11px 18px;border-radius:8px;border:1px solid #1f4e8c;background:#1f4e8c;color:#fff;cursor:pointer">인쇄 / PDF로 저장</button>
+          <button onclick="dqCopy()" style="font-family:inherit;font-size:15px;font-weight:700;padding:11px 18px;border-radius:8px;border:1px solid #1f4e8c;background:#e8eef7;color:#1f4e8c;cursor:pointer">텍스트 복사</button>
+        </div>
+        <div style="font-size:12px;color:#8888aa;margin-top:10px">휴대폰에서는 [인쇄 / PDF로 저장] → 프린터 선택에서 "PDF로 저장"을 고르면 파일로 저장됩니다. 입력 내용은 저장되지 않으니 화면을 벗어나기 전에 인쇄/복사하세요.</div>
+      </div>
+      <div style="max-width:860px">
+        <div class="dqsheet" id="dq_doc">
+          <h2>보험금 지급지연 사유 확인 및 지급 촉구 요청서</h2>
+          <div style="margin-bottom:22px">
+            <div style="margin-bottom:3px">수신: <span data-k="insurer" data-w="140"></span> 보험금지급심사팀 귀중</div>
+            <div style="margin-bottom:3px">참조: 담당 손해사정사 <span data-k="adjuster" data-w="100"></span></div>
+            <div style="margin-bottom:3px">발신: 청구인(수익자) <span data-k="claimant" data-w="100"></span> (연락처: <span data-k="phone" data-w="130"></span>)</div>
+            <div>회신용 이메일: <span data-k="email" data-w="200"></span></div>
+          </div>
+          <div class="dqsec">1. 계약 및 청구 내역</div>
+          <table>
+            <tr><th>계약자 / 피보험자</th><td><span data-k="holder" data-w="80"></span> / <span data-k="insured" data-w="80"></span></td></tr>
+            <tr><th>증권(계약)번호</th><td><span data-k="policyNo" data-w="160"></span></td></tr>
+            <tr><th>상품명</th><td><span data-k="product" data-w="200"></span></td></tr>
+            <tr><th>사고(진단)일자</th><td><span data-k="accidentDate" data-date data-w="120"></span></td></tr>
+            <tr><th>보험금 청구 접수일</th><td><span data-k="claimDate" data-date data-w="120"></span></td></tr>
+            <tr><th>손해사정 서류 제출 완료일</th><td><span data-k="docsDate" data-date data-w="120"></span> (조사에 필요한 서류 일체 제출 완료)</td></tr>
+          </table>
+          <div class="dqsec">2. 요청 취지</div>
+          <p>청구인은 위 보험금 청구 건과 관련하여 귀사(또는 귀사가 위탁한 손해사정사)가 조사에 필요하다고 요청한 서류 일체를 <span data-k="docsDate" data-date data-w="120"></span>에 제출 완료하였습니다. 그럼에도 불구하고 현재까지 보험금이 지급되지 않았으며, 지급 지연 사유 및 지급 예정일에 대한 서면 안내 또한 받은 사실이 없습니다.</p>
+          <p style="margin-top:8px">이는 보험 표준약관상 보험금 지급 절차에 관한 규정에 반하는 것으로 판단되는바, 아래 사항을 요청하오니 본 요청서 수령일로부터 7영업일 이내에 서면 또는 전자문서(이메일: <span data-k="email" data-w="180"></span>)로 회신하여 주시기 바랍니다.</p>
+          <div class="dqsec">3. 요청 사항</div>
+          <ol>
+            <li>보험금 지급이 지연되고 있는 구체적 사유를 서면으로 안내해 주십시오.</li>
+            <li>보험금 지급 예정일을 명확한 날짜로 특정하여 통지해 주십시오.</li>
+            <li>손해사정이 완료된 경우 손해사정서(사본)를 교부해 주시고, 미완료된 경우 지연 사유와 완료 예정일을 안내해 주십시오.</li>
+            <li>지급기일 경과에 따른 지연이자(보험계약대출이율 기준)를 보험금에 더하여 지급해 주십시오.</li>
+            <li>지급이 추가로 지연될 경우 표준약관에 따른 가지급보험금(추정 보험금의 50% 이내) 지급 절차를 안내해 주십시오.</li>
+          </ol>
+        </div>
+        <div class="dqsheet" id="dq_doc2">
+          <div class="dqsec" style="margin-top:0">4. 관련 근거</div>
+          <p>보험 표준약관(보험금의 지급절차)에 따르면, 회사는 보험금 청구 서류를 접수한 후 3영업일 이내에 보험금을 지급하여야 하고, 지급사유의 조사나 확인이 필요한 경우에도 접수일부터 10영업일 이내에 지급하여야 합니다. 지급기일 내 지급이 어려운 경우에는 그 구체적 사유, 지급 예정일 및 가지급제도를 서면으로 통지하여야 하며, 지급 예정일은 원칙적으로 서류 접수일부터 30영업일을 초과할 수 없습니다. 또한 지급기일을 초과하여 지급하는 경우에는 지연 기간에 대한 이자를 더하여 지급하여야 합니다.</p>
+          <div class="dqsec">5. 기타</div>
+          <p>위 기한 내에 합리적인 사유의 소명 및 지급(또는 지급 예정일 통지)이 이루어지지 않을 경우, 청구인은 금융감독원 금융민원(국번 없이 1332) 제기 및 금융분쟁조정 신청 등 관련 법령에 따른 절차를 진행할 예정임을 알려드립니다.</p>
+          <div class="dqsign">
+            <div><span data-k="today" data-date data-w="140"></span></div>
+            <div class="dqname">청구인: <span data-k="claimant" data-w="100"></span> (서명 또는 인)</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 실비계산기 (업무관리) -->
     <div class="pg" id="pg_calc">
@@ -4209,6 +4296,7 @@ g('n_wc').addEventListener('click',function(){showPage('wc');});
 g('n_calc') && g('n_calc').addEventListener('click',function(){showPage('calc');});
 g('n_report') && g('n_report').addEventListener('click',function(){showPage('report');});
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
+g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
@@ -4230,9 +4318,90 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',
+  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정'};
+// ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
+// 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
+function _dqFmtDate(v){
+  if(!v) return '';
+  var m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return v;
+  return m[1]+'년 '+parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일';
+}
+// 전화번호 자동 하이픈 (01050595059 → 010-5059-5059)
+function dqPhone(el){
+  var d=el.value.replace(/\D/g,'').slice(0,11), out=d;
+  if(d.slice(0,2)==='02'){
+    if(d.length>2) out=d.slice(0,2)+'-'+d.slice(2);
+    if(d.length>6) out=d.slice(0,2)+'-'+d.slice(2,d.length-4)+'-'+d.slice(-4);
+  } else {
+    if(d.length>3) out=d.slice(0,3)+'-'+d.slice(3);
+    if(d.length>7) out=d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);
+  }
+  el.value=out;
+}
+// 날짜 자동 하이픈 (20250401 → 2025-04-01)
+function dqDate(el){
+  var d=el.value.replace(/\D/g,'').slice(0,8), out=d;
+  if(d.length>4) out=d.slice(0,4)+'-'+d.slice(4);
+  if(d.length>6) out=d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6);
+  el.value=out;
+}
+function dqRender(){
+  document.querySelectorAll('#pg_delayreq [data-k]').forEach(function(s){
+    var el=g('dq_'+s.getAttribute('data-k'));
+    var v=el?el.value.trim():'';
+    if(s.hasAttribute('data-date')) v=_dqFmtDate(v);
+    if(v){ s.textContent=v; s.className='dqv'; s.style.minWidth='0'; }
+    else { s.textContent=' '; s.className='dqv empty'; s.style.minWidth=(s.getAttribute('data-w')||'80')+'px'; }
+  });
+}
+function rDelayReq(){
+  var t=g('dq_today');
+  if(t&&!t.value){
+    var d=new Date();
+    t.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  dqRender();
+}
+function dqCopy(){
+  var d1=g('dq_doc'), d2=g('dq_doc2');
+  if(!d1||!d2) return;
+  dqRender();
+  var text=d1.innerText+'\n\n'+d2.innerText;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('요청서 내용이 복사되었습니다.'); })
+      .catch(function(){ toast('복사에 실패했습니다. 인쇄 화면에서 직접 복사해 주세요.'); });
+  } else { toast('이 브라우저에서는 자동 복사가 지원되지 않습니다.'); }
+}
+function dqPrint(){
+  dqRender();
+  var d1=g('dq_doc'), d2=g('dq_doc2');
+  if(!d1||!d2) return;
+  var w=window.open('','_blank','width=900,height=800');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  var css='body{margin:0;background:#fff;color:#1c1e26;font-family:\'Noto Serif KR\',\'Batang\',serif;font-size:14.5px;line-height:1.8}'
+    +'.dqsheet{padding:18mm 15mm;max-width:860px;margin:0 auto}'
+    +'.dqsheet h2{text-align:center;font-size:20px;letter-spacing:1px;margin:0 0 26px}'
+    +'.dqsheet p{margin:0}'
+    +'.dqsec{font-weight:700;font-size:15.5px;margin:20px 0 8px;font-family:\'Malgun Gothic\',\'Noto Sans KR\',sans-serif}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:6px}'
+    +'th,td{border:1px solid #444;padding:7px 9px;font-size:13.5px;text-align:left;font-weight:400}'
+    +'th{background:#f2f2f2;width:34%;font-weight:700}'
+    +'ol{padding-left:22px;margin:0}ol li{margin-bottom:7px}'
+    +'.dqsign{margin-top:34px;text-align:center}.dqsign .dqname{margin-top:14px;text-align:right}'
+    +'.dqv{border-bottom:1px solid #888;padding:0 6px;display:inline-block;min-width:60px;text-align:center}'
+    +'.dqv.empty{color:#b0b6c2;letter-spacing:2px}'
+    +'@page{size:A4;margin:0}'
+    +'.dqp2{page-break-before:always;break-before:page}';
+  var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>보험금 지급지연 요청서</title><style>'+css+'</style></head><body>'
+    +'<div class="dqsheet">'+d1.innerHTML+'</div>'
+    +'<div class="dqsheet dqp2">'+d2.innerHTML+'</div>'
+    +'</body></html>';
+  w.document.write(body); w.document.close();
+  setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },350);
+}
 function showPage(name){
   // 팀 미팅 페이지를 떠나거나 다시 그리기 전, 미저장 특이사항·주차 피드백 보호(드롭다운 이동과 동일한 확인창)
   try{
@@ -4264,7 +4433,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
   if(String(name).indexOf('cm_')!==0) window._bdOpenPost=null;   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
