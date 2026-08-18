@@ -14207,7 +14207,13 @@ function mtFbSave(wk){
   obj.wnotes=wn;
   // (2026-08-18) 상단 피드백 ↔ 하단 주차별 미팅 칸 동기화 — 실제로 수정한 경우에만 미러링
   // (수정 없이 저장한 빈 칸이 반대쪽 기존 내용을 지우지 않게 — 구버전의 서로 다른 데이터 보호)
-  if(note!==fbOrig){
+  var doMirror=(note!==fbOrig);
+  var wmT=document.querySelector('#mt_wm_box textarea[data-mtwm="'+wk+'"]');
+  // 아래 칸에 저장 안 한 다른 내용을 입력 중이면 무통보 덮어쓰기 금지 — 확인 후에만 미러링
+  if(doMirror && wmT && wmT.value!==(wmT.getAttribute('data-orig')||'') && wmT.value.trim()!==note){
+    doMirror=confirm('아래 주차별 미팅 칸에 저장하지 않은 다른 내용이 있습니다.\n피드백 내용으로 덮어쓸까요? (취소하면 피드백만 저장됩니다)');
+  }
+  if(doMirror){
     var wmMir=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
     if(note) wmMir[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
     else delete wmMir[wk];
@@ -14221,10 +14227,7 @@ function mtFbSave(wk){
   if(b){ b.textContent=note?'작성완료':'미작성'; b.style.cssText='padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+_mtFbBtnCss(!!note); }
   if(t){ t.value=note; t.setAttribute('data-orig',note); }   // 저장됨 → 미저장 감지 기준 갱신
   // 하단 주차별 미팅 칸도 같은 내용으로 갱신 (wk는 위 정규식 검증을 통과한 값)
-  if(note!==fbOrig){
-    var wmT=document.querySelector('#mt_wm_box textarea[data-mtwm="'+wk+'"]');
-    if(wmT){ wmT.value=note; wmT.setAttribute('data-orig',note); }
-  }
+  if(doMirror && wmT){ wmT.value=note; wmT.setAttribute('data-orig',note); }
   var row=g('mtfb_r_'+wk); if(row) row.style.display='none';
   toast(note?('해당 주차 피드백이 저장되었습니다.'):('해당 주차 피드백을 삭제했습니다.'));
 }
@@ -14252,6 +14255,12 @@ function mtSaveNote(){
     // (2026-08-18) 하단 주차 칸 ↔ 상단 피드백(wnotes) 동기화 — 실제로 수정한 주차만 미러링
     // (안 건드린 주차의 기존 피드백은 보존 — 구버전의 서로 다른 데이터 보호)
     if(v!==(t.getAttribute('data-orig')||'')){
+      // 상단 피드백 칸에 저장 안 한 다른 내용을 입력 중이면 무통보 덮어쓰기 금지 — 확인 후에만 미러링
+      var ft0=g('mtfb_t_'+wk);
+      if(ft0 && ft0.value!==(ft0.getAttribute('data-orig')||'') && ft0.value.trim()!==v){
+        var s0=new Date(wk);
+        if(!confirm((s0.getMonth()+1)+'/'+s0.getDate()+' 주차 상단 피드백 칸에 저장하지 않은 다른 내용이 있습니다.\n이 주차 미팅 내용으로 덮어쓸까요? (취소하면 이 주차는 미팅 내용만 저장됩니다)')) return;
+      }
       if(v) wn[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
       else delete wn[wk];
       wmChanged.push(wk);
