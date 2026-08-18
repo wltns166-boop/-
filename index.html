@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-3</div>
   </div>
 </div>
 
@@ -1323,11 +1323,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
           <div id="mt_list_ttl" style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-users"></i> 팀원별 미팅 현황</div>
           <select id="mt_team_sel" onchange="rMeetingList()" style="padding:6px 10px;font-size:13.5px;font-weight:700;background:#fff;color:#2a2a4a;border:1px solid #ccd2ec;border-radius:7px;font-family:inherit;cursor:pointer"></select>
+          <select id="mt_week_sel" onchange="rMeetingList()" title="주차를 고르면 그 주차의 작성여부가 표시됩니다" style="padding:6px 10px;font-size:13.5px;font-weight:700;background:#fff;color:#2a2a4a;border:1px solid #ccd2ec;border-radius:7px;font-family:inherit;cursor:pointer"></select>
           <button id="mt_targets_btn" onclick="mtTargetsOpen()" style="display:none;padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-user-cog"></i> 작성 대상자 관리</button>
         </div>
         <div style="overflow-x:auto">
-          <table class="dt" style="min-width:520px">
-            <thead><tr><th style="text-align:left">이름</th><th style="text-align:center">직급</th><th style="text-align:center">미팅 진행 여부</th><th style="text-align:center">미팅내용</th></tr></thead>
+          <table class="dt" style="min-width:620px">
+            <thead><tr><th style="text-align:left">이름</th><th style="text-align:center">직급</th><th style="text-align:center">미팅 진행 여부</th><th style="text-align:center" id="mt_wk_th">주차 작성여부</th><th style="text-align:center">미팅내용</th></tr></thead>
             <tbody id="mt_list_tb"></tbody>
           </table>
         </div>
@@ -14169,10 +14170,33 @@ function rMeetingList(){
       names=names.filter(function(n){ return tset.indexOf(n)>=0; });
     }
   }
-  if(!names.length){ tb.innerHTML='<tr><td colspan="4" class="em" style="padding:24px">표시할 팀원이 없습니다.</td></tr>'; return; }
+  // 주차 선택 드롭다운 — 주차별 작성여부 확인용 (빈 값=전체 주차 요약, 월 바뀌면 전체로 복귀)
+  var wSel=g('mt_week_sel'), lWeeks=_mtWeeksOf(ym);
+  if(wSel){
+    var curW=wSel.value;
+    wSel.innerHTML='<option value="">전체 주차</option>'+lWeeks.map(function(wk,i){
+      var ws=new Date(wk),we=new Date(wk); we.setDate(we.getDate()+6);
+      return '<option value="'+wk+'">'+(i+1)+'주차 ('+(ws.getMonth()+1)+'/'+ws.getDate()+'~'+(we.getMonth()+1)+'/'+we.getDate()+')</option>';
+    }).join('');
+    if(curW&&lWeeks.indexOf(curW)>=0) wSel.value=curW;
+  }
+  var selWk=wSel?wSel.value:'';
+  var wkTh=g('mt_wk_th');
+  if(wkTh) wkTh.textContent=selWk?((lWeeks.indexOf(selWk)+1)+'주차 작성여부'):'주차 작성여부';
+  if(!names.length){ tb.innerHTML='<tr><td colspan="5" class="em" style="padding:24px">표시할 팀원이 없습니다.</td></tr>'; return; }
   tb.innerHTML=names.map(function(nm){
     var mm=mem.find(function(x){return x.name===nm;});
     var rec=mtRec(nm,ym), done=!!(rec&&rec.done);
+    // 주차 작성여부 셀 — 주차 선택 시 그 주차 배지, 전체면 "n/m주 작성" 요약
+    var wkCell;
+    if(selWk){
+      var w1=_mtWkWritten(rec,selWk);
+      wkCell='<span style="display:inline-block;padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;white-space:nowrap;'+(w1?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40':'background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);color:#c04040')+'">'+(w1?'작성완료':'미작성')+'</span>';
+    } else {
+      var wCnt=0; lWeeks.forEach(function(wk){ if(_mtWkWritten(rec,wk)) wCnt++; });
+      var wCol=(lWeeks.length&&wCnt>=lWeeks.length)?'#1a7a40':(wCnt>0?'#b07010':'#c04040');
+      wkCell='<span style="font-weight:700;color:'+wCol+'">'+wCnt+'/'+lWeeks.length+'주 작성</span>';
+    }
     // 함정 A: 핸들러에 배열 인덱스가 아닌 고유 식별자(이름)를 넘긴다.
     var ocT=('mtToggleDone('+JSON.stringify(nm)+')').replace(/"/g,'&quot;');
     var ocV=('mtView('+JSON.stringify(nm)+')').replace(/"/g,'&quot;');
@@ -14180,6 +14204,7 @@ function rMeetingList(){
       +'<td style="font-weight:600;text-align:left">'+_esc(nm)+'</td>'
       +'<td style="text-align:center">'+_esc((mm&&mm.rank)||'-')+'</td>'
       +'<td style="text-align:center"><button onclick="'+ocT+'" title="클릭하면 진행 여부가 바뀝니다" style="padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+(done?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40':'background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);color:#c04040')+'">'+(done?'진행완료':'미진행')+'</button></td>'
+      +'<td style="text-align:center">'+wkCell+'</td>'
       +'<td style="text-align:center"><button onclick="'+ocV+'" style="padding:4px 14px;font-size:12.5px;background:rgba(80,80,200,.12);border:1px solid rgba(80,80,200,.32);border-radius:6px;color:#3a40cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye"></i> 보기</button></td>'
       +'</tr>';
   }).join('');
@@ -14190,6 +14215,12 @@ function _mtWEntry(cur, other, v){
   if(cur&&cur.note===v) return cur;
   if(other&&other.note===v) return {note:v, by:other.by||'', ts:other.ts||Date.now()};
   return {note:v, by:cu?cu.name:'', ts:Date.now()};
+}
+// 해당 주차 작성 여부 — 표시 폴백과 같은 규칙(피드백 wnotes·미팅 내용 wmeet 어느 쪽이든 있으면 작성)
+function _mtWkWritten(rec,wk){
+  var a=rec&&rec.wnotes&&rec.wnotes[wk]&&rec.wnotes[wk].note;
+  var b=rec&&rec.wmeet&&rec.wmeet[wk]&&rec.wmeet[wk].note;
+  return !!((a&&String(a).trim())||(b&&String(b).trim()));
 }
 function _mtFbBtnCss(has){
   return has?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40'
