@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-4</div>
   </div>
 </div>
 
@@ -14187,11 +14187,13 @@ function rMeetingList(){
   tb.innerHTML=names.map(function(nm){
     var mm=mem.find(function(x){return x.name===nm;});
     var rec=mtRec(nm,ym), done=!!(rec&&rec.done);
-    // 주차 작성여부 셀 — 주차 선택 시 그 주차 배지, 전체면 "n/m주 작성" 요약
+    // 주차 작성여부 셀 — 주차 선택 시 그 주차 배지(클릭=표1에서 바로 작성), 전체면 "n/m주 작성" 요약
     var wkCell;
     if(selWk){
       var w1=_mtWkWritten(rec,selWk);
-      wkCell='<span style="display:inline-block;padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;white-space:nowrap;'+(w1?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40':'background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);color:#c04040')+'">'+(w1?'작성완료':'미작성')+'</span>';
+      // 함정 A: 배열 인덱스 대신 이름+주차키(고유 식별자)를 넘긴다
+      var ocW=('mtWkWrite('+JSON.stringify(nm)+','+JSON.stringify(selWk)+')').replace(/"/g,'&quot;');
+      wkCell='<button onclick="'+ocW+'" title="클릭하면 위 표에서 이 주차 내용을 바로 작성/수정할 수 있습니다" style="padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+(w1?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40':'background:rgba(200,60,60,.1);border:1px solid rgba(200,60,60,.35);color:#c04040')+'">'+(w1?'작성완료':'미작성')+'</button>';
     } else {
       var wCnt=0; lWeeks.forEach(function(wk){ if(_mtWkWritten(rec,wk)) wCnt++; });
       var wCol=(lWeeks.length&&wCnt>=lWeeks.length)?'#1a7a40':(wCnt>0?'#b07010':'#c04040');
@@ -14215,6 +14217,22 @@ function _mtWEntry(cur, other, v){
   if(cur&&cur.note===v) return cur;
   if(other&&other.note===v) return {note:v, by:other.by||'', ts:other.ts||Date.now()};
   return {note:v, by:cu?cu.name:'', ts:Date.now()};
+}
+// 현황 표 주차 배지 클릭 — 표1에서 그 팀원·그 주차 입력칸을 바로 연다(작성/수정)
+function mtWkWrite(nm,wk){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
+  var sel=g('mt_mem'); if(!sel) return;
+  if(sel.value!==nm){
+    if(!_mtGuardUnsaved()) return;   // 표1에 미저장 입력이 있으면 확인 후 이동(취소 시 유지)
+    var ok=false; for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===nm){ ok=true; break; } }
+    if(!ok){ toast('팀원 선택 목록에 없는 팀원입니다.'); return; }
+    sel.value=nm;
+    rMeetingSec1();
+  }
+  var row=g('mtfb_r_'+wk);
+  if(row&&row.style.display==='none') mtFbToggle(wk);   // 입력행 열기(+포커스)
+  var t=g('mtfb_t_'+wk);
+  if(t){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} t.focus(); }
 }
 // 해당 주차 작성 여부 — 표시 폴백과 같은 규칙(피드백 wnotes·미팅 내용 wmeet 어느 쪽이든 있으면 작성)
 function _mtWkWritten(rec,wk){
