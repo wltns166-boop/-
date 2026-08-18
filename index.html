@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-2</div>
   </div>
 </div>
 
@@ -14093,6 +14093,7 @@ function rMeetingSec1(){
     } else {
       var weeks=_mtWeeksOf(ym);
       var mrec=mtRec(name,ym), wns=(mrec&&mrec.wnotes&&typeof mrec.wnotes==='object')?mrec.wnotes:{};
+      var wmsF=(mrec&&mrec.wmeet&&typeof mrec.wmeet==='object')?mrec.wmeet:{};   // 표시 폴백용(피드백 비면 미팅 내용 표시)
       tb.innerHTML=weeks.map(function(wk){
         var r=wcRec(name,wk);
         var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
@@ -14100,6 +14101,8 @@ function rMeetingSec1(){
         var cells=WC_FIELDS.map(function(f){return '<td style="text-align:center">'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('');
         // 주차별 피드백 — wk('YYYY-MM-DD')를 id·핸들러 인자로 사용(함정 A: 고유 식별자)
         var note=(wns[wk]&&wns[wk].note)?String(wns[wk].note):'';
+        // (2026-08-18) 표시 폴백: 피드백이 비어 있으면 같은 주차 미팅 내용을 표시 — 미러링 전 기존 데이터도 양쪽에 보이게
+        if(!note.trim()&&wmsF[wk]&&wmsF[wk].note) note=String(wmsF[wk].note);
         var has=!!note.trim();
         return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'+cells
           +'<td style="text-align:center">'+(r?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td>'
@@ -14119,10 +14122,13 @@ function rMeetingSec1(){
     else {
       var wks2=_mtWeeksOf(ym);
       var mrec2=mtRec(name,ym), wms=(mrec2&&mrec2.wmeet&&typeof mrec2.wmeet==='object')?mrec2.wmeet:{};
+      var wnsF=(mrec2&&mrec2.wnotes&&typeof mrec2.wnotes==='object')?mrec2.wnotes:{};   // 표시 폴백용(미팅 내용 비면 피드백 표시)
       wmBox.innerHTML=wks2.map(function(wk,i){
         var s2=new Date(wk),e2=new Date(wk); e2.setDate(e2.getDate()+6);
         var lbl=(i+1)+'주차 ('+(s2.getMonth()+1)+'/'+s2.getDate()+' ~ '+(e2.getMonth()+1)+'/'+e2.getDate()+')';
         var wnote=(wms[wk]&&wms[wk].note)?String(wms[wk].note):'';
+        // (2026-08-18) 표시 폴백: 미팅 내용이 비어 있으면 같은 주차 피드백을 표시
+        if(!wnote.trim()&&wnsF[wk]&&wnsF[wk].note) wnote=String(wnsF[wk].note);
         return '<div style="margin-bottom:10px">'
           +'<div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:4px">'+lbl+'</div>'
           +'<textarea data-mtwm="'+wk+'" data-orig="'+_esc(wnote)+'" rows="2" placeholder="이 주차 미팅에서 나눈 내용을 입력하세요." style="width:100%;resize:vertical;padding:8px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#1a1f3a;font-size:14.5px;line-height:1.6;outline:none;font-family:inherit;box-sizing:border-box">'+_esc(wnote)+'</textarea>'
@@ -14374,12 +14380,14 @@ function mtView(name){
   var done=!!(rec&&rec.done);
   var weeks=_mtWeeksOf(ym);
   var wns=(rec&&rec.wnotes&&typeof rec.wnotes==='object')?rec.wnotes:{};
+  var wmsV=(rec&&rec.wmeet&&typeof rec.wmeet==='object')?rec.wmeet:{};   // 표시 폴백용(본 화면과 동일 규칙)
   var wcHead='<tr><th style="text-align:left">주차</th>'+WC_FIELDS.map(function(f){return '<th>'+esc(f.label)+'</th>';}).join('')+'<th>상태</th><th>피드백</th></tr>';
   var wcRows=weeks.map(function(wk){
     var r=wcRec(name,wk);
     var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6);
     var wlbl=(s.getMonth()+1)+'/'+s.getDate()+' ~ '+(e.getMonth()+1)+'/'+e.getDate();
     var note=(wns[wk]&&wns[wk].note)?String(wns[wk].note):'';
+    if(!note.trim()&&wmsV[wk]&&wmsV[wk].note) note=String(wmsV[wk].note);   // 피드백 비면 미팅 내용 폴백
     return '<tr><td style="text-align:left;font-weight:600">'+wlbl+'</td>'
       +WC_FIELDS.map(function(f){return '<td>'+(r&&r[f.k]!=null?r[f.k]:'-')+'</td>';}).join('')
       +'<td>'+(r?'<span class="ok">제출완료</span>':'<span class="no">미제출</span>')+'</td>'
@@ -14408,6 +14416,7 @@ function mtView(name){
         var s2=new Date(wk),e2=new Date(wk); e2.setDate(e2.getDate()+6);
         var lbl=(i+1)+'주차 ('+(s2.getMonth()+1)+'/'+s2.getDate()+' ~ '+(e2.getMonth()+1)+'/'+e2.getDate()+')';
         var wnote=(wms[wk]&&wms[wk].note)?String(wms[wk].note):'';
+        if(!wnote.trim()&&wns[wk]&&wns[wk].note) wnote=String(wns[wk].note);   // 미팅 내용 비면 피드백 폴백
         return '<div style="font-size:13.5px;font-weight:700;color:#4a5090;margin:10px 0 4px">'+esc(lbl)+'</div>'
           +'<div class="note" style="min-height:24px">'+(wnote?esc(wnote):'<span style="color:#999">-</span>')+'</div>';
       }).join('');
