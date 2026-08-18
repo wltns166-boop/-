@@ -366,7 +366,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.16-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-1</div>
   </div>
 </div>
 
@@ -14198,12 +14198,21 @@ function mtFbSave(wk){
   if(_mtRoster().indexOf(name)<0){ toast('내 팀원만 저장할 수 있습니다.'); return; }
   var ym=_mtYm();
   var t=g('mtfb_t_'+wk), note=t?t.value.trim():'';
+  var fbOrig=t?(t.getAttribute('data-orig')||''):'';   // 마지막 저장값 — 실제 수정 여부 판정용
   var prev=mtRec(name,ym);
   var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false,note:''};
   var wn=Object.assign({},(obj.wnotes&&typeof obj.wnotes==='object')?obj.wnotes:{});
   if(note) wn[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
   else delete wn[wk];   // 비우고 저장하면 그 주차 피드백 삭제
   obj.wnotes=wn;
+  // (2026-08-18) 상단 피드백 ↔ 하단 주차별 미팅 칸 동기화 — 실제로 수정한 경우에만 미러링
+  // (수정 없이 저장한 빈 칸이 반대쪽 기존 내용을 지우지 않게 — 구버전의 서로 다른 데이터 보호)
+  if(note!==fbOrig){
+    var wmMir=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
+    if(note) wmMir[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
+    else delete wmMir[wk];
+    obj.wmeet=wmMir;
+  }
   var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
   if(i>=0) meetings[i]=obj; else meetings.push(obj);
   sv('tops_meetings',meetings);
@@ -14211,6 +14220,11 @@ function mtFbSave(wk){
   var b=g('mtfb_b_'+wk);
   if(b){ b.textContent=note?'작성완료':'미작성'; b.style.cssText='padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+_mtFbBtnCss(!!note); }
   if(t){ t.value=note; t.setAttribute('data-orig',note); }   // 저장됨 → 미저장 감지 기준 갱신
+  // 하단 주차별 미팅 칸도 같은 내용으로 갱신 (wk는 위 정규식 검증을 통과한 값)
+  if(note!==fbOrig){
+    var wmT=document.querySelector('#mt_wm_box textarea[data-mtwm="'+wk+'"]');
+    if(wmT){ wmT.value=note; wmT.setAttribute('data-orig',note); }
+  }
   var row=g('mtfb_r_'+wk); if(row) row.style.display='none';
   toast(note?('해당 주차 피드백이 저장되었습니다.'):('해당 주차 피드백을 삭제했습니다.'));
 }
@@ -14226,6 +14240,8 @@ function mtSaveNote(){
   obj.note=g('mt_note')?g('mt_note').value.trim():'';
   // 주차별 미팅 내용도 함께 저장 (비운 주차는 삭제)
   var wm=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
+  var wn=Object.assign({},(obj.wnotes&&typeof obj.wnotes==='object')?obj.wnotes:{});
+  var wmChanged=[];   // 실제 수정된 주차 키 — 상단 피드백 미러링 대상
   var wmTa=document.querySelectorAll('#mt_wm_box textarea[data-mtwm]');
   wmTa.forEach(function(t){
     var wk=t.getAttribute('data-mtwm');
@@ -14233,14 +14249,29 @@ function mtSaveNote(){
     var v=t.value.trim();
     if(v) wm[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
     else delete wm[wk];
+    // (2026-08-18) 하단 주차 칸 ↔ 상단 피드백(wnotes) 동기화 — 실제로 수정한 주차만 미러링
+    // (안 건드린 주차의 기존 피드백은 보존 — 구버전의 서로 다른 데이터 보호)
+    if(v!==(t.getAttribute('data-orig')||'')){
+      if(v) wn[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
+      else delete wn[wk];
+      wmChanged.push(wk);
+    }
   });
   obj.wmeet=wm;
+  obj.wnotes=wn;
   obj.by=cu?cu.name:''; obj.ts=Date.now();
   var i=meetings.findIndex(function(r){return r.m===name&&r.ym===ym;});
   if(i>=0) meetings[i]=obj; else meetings.push(obj);
   sv('tops_meetings',meetings);
   var ta=g('mt_note'); if(ta) _mtLoadedNote=ta.value;   // 저장됨 → 미저장 상태 해제
   wmTa.forEach(function(t){ t.setAttribute('data-orig', t.value.trim()); t.value=t.value.trim(); });   // 주차별 칸도 기준값 갱신
+  // 미러링된 주차의 상단 피드백 입력칸·버튼도 같은 내용으로 갱신(전체 재렌더 없이 — 미저장 입력 보존)
+  wmChanged.forEach(function(wk){
+    var v=(wn[wk]&&wn[wk].note)?String(wn[wk].note):'';
+    var ft=g('mtfb_t_'+wk); if(ft){ ft.value=v; ft.setAttribute('data-orig',v); }
+    var fb=g('mtfb_b_'+wk);
+    if(fb){ fb.textContent=v?'작성완료':'미작성'; fb.style.cssText='padding:4px 14px;font-size:12.5px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap;'+_mtFbBtnCss(!!v); }
+  });
   toast(name+'님 '+_mtYmLabel(ym)+' 미팅 내용이 저장되었습니다.');
   rMeetingList();
 }
