@@ -14208,7 +14208,7 @@ function mtFbSave(wk){
   var prev=mtRec(name,ym);
   var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false,note:''};
   var wn=Object.assign({},(obj.wnotes&&typeof obj.wnotes==='object')?obj.wnotes:{});
-  if(note) wn[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
+  if(note){ var oldN=wn[wk]; wn[wk]=(oldN&&oldN.note===note)?oldN:{note:note, by:cu?cu.name:'', ts:Date.now()}; }   // 내용 그대로면 by/ts 보존
   else delete wn[wk];   // 비우고 저장하면 그 주차 피드백 삭제
   obj.wnotes=wn;
   // (2026-08-18) 상단 피드백 ↔ 하단 주차별 미팅 칸 동기화 — 실제로 수정한 경우에만 미러링
@@ -14219,9 +14219,13 @@ function mtFbSave(wk){
   if(doMirror && wmT && wmT.value!==(wmT.getAttribute('data-orig')||'') && wmT.value.trim()!==note){
     doMirror=confirm('아래 주차별 미팅 칸에 저장하지 않은 다른 내용이 있습니다.\n피드백 내용으로 덮어쓸까요? (취소하면 피드백만 저장됩니다)');
   }
+  // 빈 값 저장(삭제)이 아래 미팅 내용의 실제 저장값까지 지우는 경우 — 확인 후에만 함께 삭제(무통보 유실 금지)
+  if(doMirror && !note && obj.wmeet && obj.wmeet[wk] && obj.wmeet[wk].note && String(obj.wmeet[wk].note).trim()){
+    doMirror=confirm('아래 주차별 미팅 내용도 함께 삭제됩니다.\n함께 삭제할까요? (취소하면 미팅 내용은 유지되고, 화면에는 다시 표시됩니다)');
+  }
   if(doMirror){
     var wmMir=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
-    if(note) wmMir[wk]={note:note, by:cu?cu.name:'', ts:Date.now()};
+    if(note){ var oldW=wmMir[wk]; wmMir[wk]=(oldW&&oldW.note===note)?oldW:{note:note, by:cu?cu.name:'', ts:Date.now()}; }
     else delete wmMir[wk];
     obj.wmeet=wmMir;
   }
@@ -14256,7 +14260,7 @@ function mtSaveNote(){
     var wk=t.getAttribute('data-mtwm');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
     var v=t.value.trim();
-    if(v) wm[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
+    if(v){ var oldM=wm[wk]; wm[wk]=(oldM&&oldM.note===v)?oldM:{note:v, by:cu?cu.name:'', ts:Date.now()}; }   // 내용 그대로면 by/ts 보존
     else delete wm[wk];
     // (2026-08-18) 하단 주차 칸 ↔ 상단 피드백(wnotes) 동기화 — 실제로 수정한 주차만 미러링
     // (안 건드린 주차의 기존 피드백은 보존 — 구버전의 서로 다른 데이터 보호)
@@ -14266,6 +14270,11 @@ function mtSaveNote(){
       if(ft0 && ft0.value!==(ft0.getAttribute('data-orig')||'') && ft0.value.trim()!==v){
         var s0=new Date(wk);
         if(!confirm((s0.getMonth()+1)+'/'+s0.getDate()+' 주차 상단 피드백 칸에 저장하지 않은 다른 내용이 있습니다.\n이 주차 미팅 내용으로 덮어쓸까요? (취소하면 이 주차는 미팅 내용만 저장됩니다)')) return;
+      }
+      // 빈 값 저장(삭제)이 상단 피드백의 실제 저장값까지 지우는 경우 — 확인 후에만 함께 삭제(무통보 유실 금지)
+      if(!v && wn[wk] && wn[wk].note && String(wn[wk].note).trim()){
+        var s1=new Date(wk);
+        if(!confirm((s1.getMonth()+1)+'/'+s1.getDate()+' 주차 상단 피드백 내용도 함께 삭제됩니다.\n함께 삭제할까요? (취소하면 피드백은 유지되고, 화면에는 다시 표시됩니다)')) return;
       }
       if(v) wn[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
       else delete wn[wk];
