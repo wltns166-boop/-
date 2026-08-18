@@ -4341,12 +4341,19 @@ function dqPhone(el){
   }
   el.value=out;
 }
-// 날짜 자동 하이픈 (20250401 → 2025-04-01)
+// 날짜 자동 하이픈 (20250401 → 2025-04-01) + 월·일 범위 검사(오타가 문서에 그대로 들어가는 것 경고)
 function dqDate(el){
   var d=el.value.replace(/\D/g,'').slice(0,8), out=d;
   if(d.length>4) out=d.slice(0,4)+'-'+d.slice(4);
   if(d.length>6) out=d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6);
   el.value=out;
+  var bad=false;
+  if(d.length===8){
+    var mo=+d.slice(4,6), da=+d.slice(6,8);
+    bad=!(mo>=1&&mo<=12&&da>=1&&da<=31);
+  }
+  el.style.borderColor=bad?'#d04040':'#c9cdd6';
+  el.title=bad?'날짜가 올바르지 않습니다 (예: 20250215)':'';
 }
 function dqRender(){
   document.querySelectorAll('#pg_delayreq [data-k]').forEach(function(s){
@@ -4379,7 +4386,7 @@ function dqPrint(){
   dqRender();
   var d1=g('dq_doc'), d2=g('dq_doc2');
   if(!d1||!d2) return;
-  var w=window.open('','_blank','width=900,height=800');
+  var w=window.open('','_blank','width=900,height=800,scrollbars=yes,resizable=yes');
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
   var css='body{margin:0;background:#fff;color:#1c1e26;font-family:\'Noto Serif KR\',\'Batang\',serif;font-size:14.5px;line-height:1.8}'
     +'.dqsheet{padding:18mm 15mm;max-width:860px;margin:0 auto}'
@@ -4398,9 +4405,10 @@ function dqPrint(){
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>보험금 지급지연 요청서</title><style>'+css+'</style></head><body>'
     +'<div class="dqsheet">'+d1.innerHTML+'</div>'
     +'<div class="dqsheet dqp2">'+d2.innerHTML+'</div>'
+    // 인쇄는 새 창 자체의 onload 후 실행 — 레이아웃 완성 전에 다이얼로그가 뜨는 것 방지(기존 인쇄 함수들과 동일 관례)
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},200);};<\/scr'+'ipt>'
     +'</body></html>';
   w.document.write(body); w.document.close();
-  setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },350);
 }
 function showPage(name){
   // 팀 미팅 페이지를 떠나거나 다시 그리기 전, 미저장 특이사항·주차 피드백 보호(드롭다운 이동과 동일한 확인창)
