@@ -14185,6 +14185,12 @@ function rMeetingList(){
   }).join('');
 }
 // ── 주차별 피드백 (meetings[].wnotes = {주차키:{note,by,ts}}, 동기화 포함 — 텍스트만) ──
+// 주차 항목 기록 — 같은 내용이면 기존 항목(cur), 반대쪽 필드 항목(other)의 by·ts를 보존(폴백 수렴 시 작성자·시각 메타 정확성)
+function _mtWEntry(cur, other, v){
+  if(cur&&cur.note===v) return cur;
+  if(other&&other.note===v) return {note:v, by:other.by||'', ts:other.ts||Date.now()};
+  return {note:v, by:cu?cu.name:'', ts:Date.now()};
+}
 function _mtFbBtnCss(has){
   return has?'background:rgba(30,150,70,.14);border:1px solid rgba(30,150,70,.4);color:#1a7a40'
             :'background:#f2f3f8;border:1px solid #ccd2ec;color:#667';
@@ -14208,7 +14214,7 @@ function mtFbSave(wk){
   var prev=mtRec(name,ym);
   var obj=prev?Object.assign({},prev):{m:name,ym:ym,done:false,note:''};
   var wn=Object.assign({},(obj.wnotes&&typeof obj.wnotes==='object')?obj.wnotes:{});
-  if(note){ var oldN=wn[wk]; wn[wk]=(oldN&&oldN.note===note)?oldN:{note:note, by:cu?cu.name:'', ts:Date.now()}; }   // 내용 그대로면 by/ts 보존
+  if(note) wn[wk]=_mtWEntry(wn[wk], (obj.wmeet&&obj.wmeet[wk])||null, note);   // 내용 그대로면 by/ts 보존(폴백 수렴 포함)
   else delete wn[wk];   // 비우고 저장하면 그 주차 피드백 삭제
   obj.wnotes=wn;
   // (2026-08-18) 상단 피드백 ↔ 하단 주차별 미팅 칸 동기화 — 실제로 수정한 경우에만 미러링
@@ -14225,7 +14231,7 @@ function mtFbSave(wk){
   }
   if(doMirror){
     var wmMir=Object.assign({},(obj.wmeet&&typeof obj.wmeet==='object')?obj.wmeet:{});
-    if(note){ var oldW=wmMir[wk]; wmMir[wk]=(oldW&&oldW.note===note)?oldW:{note:note, by:cu?cu.name:'', ts:Date.now()}; }
+    if(note) wmMir[wk]=_mtWEntry(wmMir[wk], wn[wk], note);
     else delete wmMir[wk];
     obj.wmeet=wmMir;
   }
@@ -14260,7 +14266,7 @@ function mtSaveNote(){
     var wk=t.getAttribute('data-mtwm');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
     var v=t.value.trim();
-    if(v){ var oldM=wm[wk]; wm[wk]=(oldM&&oldM.note===v)?oldM:{note:v, by:cu?cu.name:'', ts:Date.now()}; }   // 내용 그대로면 by/ts 보존
+    if(v) wm[wk]=_mtWEntry(wm[wk], wn[wk], v);   // 내용 그대로면 by/ts 보존(폴백 수렴 포함)
     else delete wm[wk];
     // (2026-08-18) 하단 주차 칸 ↔ 상단 피드백(wnotes) 동기화 — 실제로 수정한 주차만 미러링
     // (안 건드린 주차의 기존 피드백은 보존 — 구버전의 서로 다른 데이터 보호)
@@ -14276,7 +14282,7 @@ function mtSaveNote(){
         var s1=new Date(wk);
         if(!confirm((s1.getMonth()+1)+'/'+s1.getDate()+' 주차 상단 피드백 내용도 함께 삭제됩니다.\n함께 삭제할까요? (취소하면 피드백은 유지되고, 화면에는 다시 표시됩니다)')) return;
       }
-      if(v) wn[wk]={note:v, by:cu?cu.name:'', ts:Date.now()};
+      if(v) wn[wk]=_mtWEntry(wn[wk], wm[wk], v);
       else delete wn[wk];
       wmChanged.push(wk);
     }
