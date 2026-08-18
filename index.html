@@ -14223,16 +14223,16 @@ function mtWkWrite(nm,wk){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(String(wk))) return;
   var sel=g('mt_mem'); if(!sel) return;
   if(sel.value!==nm){
-    if(!_mtGuardUnsaved()) return;   // 표1에 미저장 입력이 있으면 확인 후 이동(취소 시 유지)
     var ok=false; for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===nm){ ok=true; break; } }
     if(!ok){ toast('팀원 선택 목록에 없는 팀원입니다.'); return; }
+    if(!_mtGuardUnsaved()) return;   // 표1에 미저장 입력이 있으면 확인 후 이동(취소 시 유지)
     sel.value=nm;
     rMeetingSec1();
   }
   var row=g('mtfb_r_'+wk);
   if(row&&row.style.display==='none') mtFbToggle(wk);   // 입력행 열기(+포커스)
   var t=g('mtfb_t_'+wk);
-  if(t){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} t.focus(); }
+  if(t){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} try{ t.focus({preventScroll:true}); }catch(e2){ t.focus(); } }
 }
 // 해당 주차 작성 여부 — 표시 폴백과 같은 규칙(피드백 wnotes·미팅 내용 wmeet 어느 쪽이든 있으면 작성)
 function _mtWkWritten(rec,wk){
