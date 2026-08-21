@@ -382,7 +382,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.18-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-1</div>
   </div>
 </div>
 
@@ -18660,13 +18660,70 @@ function _claimDocAdd(name,dataUrl){
 
 function _claimReadErr(){ toast('파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.'); }
 
+// dataURL 이미지를 JPEG dataURL로 캔버스 변환(최대 2000px, 흰 배경) — 2026-08-21
+// 카톡 사진은 WebP가 많아 pdf-lib(embedPng/embedJpg)가 못 읽어 청구파일에서 조용히 빠졌고,
+// 클립보드 캡처(PNG 원본)는 용량이 커 localStorage 저장(quota)을 터뜨렸다 — 둘 다 여기서 해소.
+function _imgDataUrlToJpeg(dataUrl){
+  return new Promise(function(res,rej){
+    var img=new Image();
+    img.onload=function(){
+      try{
+        if(!(img.width>0&&img.height>0)) throw new Error('이미지 크기를 알 수 없습니다.'); // 0×0 → 1×1 빈 캔버스로 "성공" 처리되는 것 방지
+        var max=2000, sc=Math.min(1, max/Math.max(img.width,img.height));
+        var cv=document.createElement('canvas');
+        cv.width=Math.max(1,Math.round(img.width*sc)); cv.height=Math.max(1,Math.round(img.height*sc));
+        var ctx=cv.getContext('2d');
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); // 투명 PNG가 검은 배경이 되는 것 방지
+        ctx.drawImage(img,0,0,cv.width,cv.height);
+        res(cv.toDataURL('image/jpeg',0.92));
+      }catch(e){ rej(e); }
+    };
+    img.onerror=function(){ rej(new Error('이미지 형식을 읽을 수 없습니다.')); };
+    img.src=dataUrl;
+  });
+}
+// 청구 첨부용 이미지 파일 정규화 — 브라우저가 못 읽는 형식(HEIC 등)은 reject(호출부가 안내 후 제외)
+function _claimImgShrink(file){
+  return new Promise(function(res,rej){
+    var rd=new FileReader();
+    rd.onload=function(ev){ _imgDataUrlToJpeg(ev.target.result).then(res,rej); };
+    rd.onerror=function(){ rej(new Error('파일을 읽을 수 없습니다.')); };
+    rd.readAsDataURL(file);
+  });
+}
+function _claimImgUnusableToast(name){
+  toast('사진'+(name?(' ('+name+')'):'')+' 형식을 읽을 수 없어 제외했습니다. 캡처(스크린샷)하거나 JPG로 저장해 다시 올려주세요.');
+}
+// 이미지 변환(비동기) 등록 공용 래퍼 — 변환 중 [저장] 차단(wrap._imgBusy),
+// 변환 도중 폼이 초기화/다른 건으로 전환되면 도착분 폐기(wrap._imgGen — 오귀속 방지, _custAlienGen 패턴).
+// always(ok)는 성공·실패·폐기 어느 경우든 마지막에 1회 호출(완료 집계용).
+function _claimImgApply(file, apply, always){
+  var wrap=g('claim_form_wrap'); if(!wrap){ if(always) always(false); return; }
+  var gen=wrap._imgGen||0;
+  wrap._imgBusy=(wrap._imgBusy||0)+1;
+  var fin=function(ok){ wrap._imgBusy=Math.max(0,(wrap._imgBusy||1)-1); if(always) always(ok); };
+  _claimImgShrink(file).then(function(dataUrl){
+    if((wrap._imgGen||0)!==gen){ fin(false); return; } // 폼이 바뀜 — 이 파일은 버림
+    apply(dataUrl); fin(true);
+  }, function(){
+    if((wrap._imgGen||0)===gen) _claimImgUnusableToast(file&&file.name);
+    fin(false);
+  });
+}
+
 function previewClaimFile(){
   var inp=g('claim_file'); if(!inp||!inp.files.length) return;
   Array.from(inp.files).forEach(function(file){
-    var reader=new FileReader();
-    reader.onload=function(ev){ _claimDocAdd(file.name, ev.target.result); };
-    reader.onerror=_claimReadErr;
-    reader.readAsDataURL(file);
+    var isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name||'');
+    if(isPdf){
+      var reader=new FileReader();
+      reader.onload=function(ev){ _claimDocAdd(file.name, ev.target.result); };
+      reader.onerror=_claimReadErr;
+      reader.readAsDataURL(file);
+    } else {
+      // 이미지는 JPEG로 정규화 — 카톡 WebP가 청구파일 병합에서 조용히 빠지던 사고 방지 + 용량 축소(함정 B)
+      _claimImgApply(file, function(dataUrl){ _claimDocAdd(file.name, dataUrl); });
+    }
   });
   inp.value=''; // 같은 파일을 다시 선택해도 onchange가 뜨도록 초기화
 }
@@ -18733,24 +18790,24 @@ function _claimAcceptFiles(t, files, verb){
   };
   if(t==='id'||t==='bank'){
     if(imgs.length){
-      var reader=new FileReader();
-      reader.onload=function(ev){
-        _claimImgSet(t, ev.target.result);
+      // JPEG 정규화(카톡 WebP → 청구파일 병합 가능 형식) 후 등록
+      _claimImgApply(imgs[0], function(dataUrl){
+        _claimImgSet(t, dataUrl);
         toast((t==='id'?'신분증':'통장사본')+' 사진을 '+verb+'습니다.'+(imgs.length>1?' (여러 장 중 첫 장만 사용)':''));
-      };
-      reader.onerror=_claimReadErr;
-      reader.readAsDataURL(imgs[0]);
+      });
     }
   } else {
+    // 토스트는 전부 변환·등록이 끝난 뒤에 — "등록됐다" 토스트를 보고 바로 [저장]을 눌러 누락되는 레이스 방지
+    var _okN=0, _doneN=0, _total=imgs.length;
     imgs.forEach(function(f){
-      var reader=new FileReader();
-      reader.onload=function(ev){
-        _claimDocAdd(nameOf(f, ((f.type.split('/')[1]||'png')).replace('jpeg','jpg')), ev.target.result);
-      };
-      reader.onerror=_claimReadErr;
-      reader.readAsDataURL(f);
+      _claimImgApply(f, function(dataUrl){ _claimDocAdd(nameOf(f,'jpg'), dataUrl); }, function(ok){
+        if(ok) _okN++;
+        _doneN++;
+        // 집계 토스트에 제외 건수도 함께 — 개별 실패 토스트가 덮여도 누락 사실이 보이게(전부 실패면 개별 실패 토스트가 남음)
+        if(_doneN===_total&&_okN)
+          toast('병원서류에 사진 '+_okN+'장을 '+verb+'습니다.'+(_total>_okN?(' ('+(_total-_okN)+'장은 형식 문제로 제외 — 캡처하거나 JPG로 다시 올려주세요)'):''));
+      });
     });
-    if(imgs.length) toast('병원서류에 사진 '+imgs.length+'장을 '+verb+'습니다.');
   }
   pdfs.forEach(function(f){
     var reader=new FileReader();
@@ -18907,6 +18964,8 @@ function saveClaim(){
   var name=(g('claim_cust_name')||{value:''}).value.trim();
   if(!name){toast('계약자 고객명을 입력하세요.');return;}
   var wrap=g('claim_form_wrap');
+  // 붙여넣기·업로드 사진이 아직 JPEG 변환 중이면 저장 보류 — 변환 완료 전 저장으로 첨부가 빠지는 레이스 방지
+  if(wrap&&wrap._imgBusy){ toast('사진 등록(변환) 중입니다. 잠시 후 다시 [저장]을 눌러주세요.'); return; }
   var files=wrap&&wrap._files?wrap._files:[];
   var acc=[];
   document.querySelectorAll('input[name="claim_accident"]:checked').forEach(function(cb){acc.push(cb.value);});
@@ -19161,19 +19220,13 @@ function _claimFaxDraw(sel){
 
 function previewClaimId(){
   var inp=g('claim_id_file'); if(!inp||!inp.files[0]) return;
-  var reader=new FileReader();
-  reader.onload=function(ev){ _claimImgSet('id', ev.target.result); };
-  reader.onerror=_claimReadErr;
-  reader.readAsDataURL(inp.files[0]);
+  _claimImgApply(inp.files[0], function(dataUrl){ _claimImgSet('id', dataUrl); }); // JPEG 정규화(WebP 대비)
   inp.value='';
 }
 
 function previewClaimBank(){
   var inp=g('claim_bank_file'); if(!inp||!inp.files[0]) return;
-  var reader=new FileReader();
-  reader.onload=function(ev){ _claimImgSet('bank', ev.target.result); };
-  reader.onerror=_claimReadErr;
-  reader.readAsDataURL(inp.files[0]);
+  _claimImgApply(inp.files[0], function(dataUrl){ _claimImgSet('bank', dataUrl); }); // JPEG 정규화(WebP 대비)
   inp.value='';
 }
 
@@ -19531,6 +19584,7 @@ function _claimDocsDelete(e,kind){
 function _claimDocsFormReset(wrap){
   if(!wrap) return;
   wrap._docsPrefillToken=(wrap._docsPrefillToken||0)+1;
+  wrap._imgGen=(wrap._imgGen||0)+1; wrap._imgBusy=0; // 진행 중이던 이미지 변환 결과를 폐기(오귀속 방지)
   wrap._idAuto=false; wrap._bankAuto=false; wrap._idVault=false; wrap._bankVault=false; wrap._docsAutoKey='';
   ['claim_docs_del_id','claim_docs_del_bank'].forEach(function(id){ var b=g(id); if(b) b.style.display='none'; });
 }
@@ -20286,14 +20340,22 @@ async function generateClaimPackage(idx) {
                 if(pdfMerged && conv.total>addedN && !attachWarn) attachWarn='병원서류 PDF('+((f2&&f2.name)||'첨부')+') 전체 '+conv.total+'쪽 중 '+addedN+'쪽만 포함되었습니다.';
               }
               if(!pdfMerged && !attachWarn) attachWarn='병원서류 PDF('+((f2&&f2.name)||'첨부')+')를 청구파일에 합치지 못했습니다. 해당 서류를 사진(캡처)으로 다시 올려주세요.';
-            }else{ await addImagePage(mergedDoc, fData, '병원서류'); }
+            }else{
+              // 실패(미지원 형식 등)를 조용히 건너뛰지 않고 안내 — 병원서류가 소리 없이 빠지는 것 방지
+              if(!await addImagePage(mergedDoc, fData, '병원서류') && !attachWarn)
+                attachWarn='병원서류 사진('+((f2&&f2.name)||'첨부')+')을 청구파일에 넣지 못했습니다. 캡처(스크린샷)하거나 JPG로 저장해 다시 올려 [저장]해주세요.';
+            }
           }
         }
       }
-      if(_bankImgUse) await addImagePage(mergedDoc, _bankImgUse, '통장사본');
-      if(_idImgUse)   await addImagePage(mergedDoc, _idImgUse,  '신분증');
+      if(_bankImgUse && !await addImagePage(mergedDoc, _bankImgUse, '통장사본') && !attachWarn)
+        attachWarn='통장사본 사진을 청구파일에 넣지 못했습니다. 다시 올려 [저장]해주세요.';
+      if(_idImgUse && !await addImagePage(mergedDoc, _idImgUse, '신분증') && !attachWarn)
+        attachWarn='신분증 사진을 청구파일에 넣지 못했습니다. 다시 올려 [저장]해주세요.';
       if(_insUse && _insUse.length){
-        for(var fi3=0; fi3<_insUse.length; fi3++) await addImagePage(mergedDoc, _insUse[fi3], '보험사청구파일_'+(fi3+1));
+        for(var fi3=0; fi3<_insUse.length; fi3++)
+          if(!await addImagePage(mergedDoc, _insUse[fi3], '보험사청구파일_'+(fi3+1)) && !attachWarn)
+            attachWarn='보험사청구파일 '+(fi3+1)+'번을 청구파일에 넣지 못했습니다. 다시 올려 [저장]해주세요.';
       }
 
       var pdfBytes = await mergedDoc.save();
@@ -20527,7 +20589,15 @@ async function addImagePage(doc, dataUrl, label) {
     var imgBytes = Uint8Array.from(atob(b64part), function(ch){return ch.charCodeAt(0);});
     var img;
     try { img = await doc.embedPng(imgBytes); }
-    catch(e2) { img = await doc.embedJpg(imgBytes); }
+    catch(e2) {
+      try { img = await doc.embedJpg(imgBytes); }
+      catch(e3) {
+        // pdf-lib 미지원 형식(카톡 WebP 등) — 캔버스로 JPEG 변환 후 재시도.
+        // 기존엔 여기서 실패하면 조용히 빠져 "병원서류가 없어지는" 사고였음 (2026-08-21)
+        var jd = await _imgDataUrlToJpeg(dataUrl);
+        img = await doc.embedJpg(Uint8Array.from(atob(jd.split(',')[1]), function(ch){return ch.charCodeAt(0);}));
+      }
+    }
     var iDims = img.scale(1);
     var maxW=595, maxH=842;
     var scale = Math.min(maxW/iDims.width, maxH/iDims.height, 1);
