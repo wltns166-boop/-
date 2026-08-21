@@ -339,14 +339,15 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #pg_samdocs .sdl{display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px}
 #pg_samdocs .sdi{width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26}
 #pg_samdocs .sdsec{font-size:14px;font-weight:700;color:#3040aa;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(80,80,160,.15)}
-#sd_grid,#sd_grid2,#sd_grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+#sd_grid,#sd_grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 #sd_grid3{grid-template-columns:1fr;max-width:420px} /* 모집자 성명 한 칸뿐 — 반쪽 빈 그리드 방지 */
 #pg_samdocs .sdrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;padding:8px;border:1px solid rgba(72,88,204,.12);border-radius:8px;background:#fbfcff}
 #pg_samdocs .sdrow .sdno{width:22px;font-size:14px;font-weight:700;color:#3040aa;padding-bottom:9px;text-align:center}
 #pg_samdocs .sdrow .sdcell{flex:1;min-width:150px}
 #pg_samdocs .sdxdel{width:26px;height:26px;margin-bottom:6px;line-height:22px;padding:0;border:1px solid rgba(200,80,80,.4);border-radius:50%;background:#fff;color:#c04040;font-size:13px;cursor:pointer;font-family:inherit}
+#pg_samdocs .sdwl{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;color:#1c1e26;cursor:pointer;padding:8px 10px;margin-bottom:2px;border:1px solid rgba(72,88,204,.25);border-radius:7px;background:#fff;white-space:nowrap}
 .sd-drop{border:1.5px dashed rgba(72,88,204,.4);border-radius:8px;padding:10px 12px;text-align:center;font-size:13px;color:#4858cc;cursor:pointer;background:#f8f9ff}
-@media(max-width:560px){ #sd_grid,#sd_grid2,#sd_grid3{grid-template-columns:1fr} }
+@media(max-width:560px){ #sd_grid,#sd_grid3{grid-template-columns:1fr} }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -394,7 +395,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-7</div>
   </div>
 </div>
 
@@ -1919,53 +1920,25 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="font-size:13px;color:#8888aa;margin-bottom:6px">정보를 입력하고 [PDF 미리보기]/[PDF 다운로드]를 누르면 등록된 양식 PDF의 지정 위치에 자동으로 기입됩니다. 입력 내용은 저장되지 않고 이 화면에서만 사용됩니다.</div>
         <div class="ao" style="font-size:13px;color:#7080c0;margin-bottom:6px">관리자: 오른쪽 위 [관리]에서 문서별 양식 PDF 업로드와 [좌표 설정](기입 위치 지정)을 할 수 있습니다.</div>
 
-        <div class="sdsec">👤 계약자</div>
+        <div class="sdsec">👤 계약자 · 피보험자</div>
         <div id="sd_grid">
-          <div><label class="sdl">성명</label><input class="sdi" id="sd_ct_name" placeholder="홍길동"></div>
-        </div>
-
-        <div class="sdsec">🧑 피보험자 <button class="bp" onclick="sdInsSame()" style="font-size:12px;padding:3px 10px;margin-left:8px;vertical-align:middle"><i class="ti ti-copy"></i> 계약자 동일</button></div>
-        <div id="sd_grid2">
-          <div><label class="sdl">성명</label><input class="sdi" id="sd_ins_name" placeholder="홍길동 (비우면 계약자와 동일 취급)"></div>
+          <div><label class="sdl">계약자 성명</label><input class="sdi" id="sd_ct_name" placeholder="홍길동"></div>
+          <div><label class="sdl">피보험자 성명 <button class="bp" onclick="sdInsSame()" style="font-size:11px;padding:2px 8px;margin-left:6px;vertical-align:middle"><i class="ti ti-copy"></i> 계약자 동일</button></label><input class="sdi" id="sd_ins_name" placeholder="홍길동 (비우면 계약자와 동일 취급)"></div>
         </div>
 
         <div class="sdsec">📄 계약 정보 <button class="bp" onclick="sdRowAdd(true)" style="font-size:12px;padding:3px 10px;margin-left:8px;vertical-align:middle"><i class="ti ti-plus"></i> 계약 추가</button></div>
-        <div style="font-size:12px;color:#98a;margin-bottom:8px">계약이 여러 건이면 [＋ 계약 추가]로 줄을 늘리세요 — 계약(줄)마다 선택한 문서 세트가 각각 만들어져 한 PDF로 합쳐집니다.</div>
+        <div style="font-size:12px;color:#98a;margin-bottom:8px">계약(줄)마다 <b>개인정보처리동의서 + 고지의무확인서</b>가 만들어지고, <b>[종신]</b>에 체크하면 그 계약엔 <b>완전판매동의서</b>까지 추가됩니다 — 전부 한 PDF로 합쳐집니다.</div>
         <div id="sd_ct_rows"></div>
         <div id="sd_grid3" style="margin-top:12px">
           <div><label class="sdl">모집자(설계사) 성명</label><input class="sdi" id="sd_agent" placeholder="설계사 성명 (자동 입력)"></div>
-        </div>
-
-        <div class="sdsec">✍️ 서명</div>
-        <div style="display:flex;gap:24px;flex-wrap:wrap">
-          <div>
-            <label class="sdl">계약자 서명</label>
-            <div style="border:1.5px solid rgba(72,88,204,.25);border-radius:10px;overflow:hidden;background:#fff;position:relative;width:240px;max-width:100%">
-              <canvas id="sd_sign_ct" width="480" height="120" style="display:block;cursor:crosshair;touch-action:none;width:240px;max-width:100%;height:60px"></canvas>
-              <button onclick="sdClearSign('sd_sign_ct')" style="position:absolute;top:3px;right:4px;font-size:10px;padding:1px 5px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5fa;font-family:inherit;color:#666">지우기</button>
-            </div>
-          </div>
-          <div>
-            <label class="sdl">피보험자 서명 <span style="font-weight:400;color:#98a">(비우면 계약자 서명 사용)</span></label>
-            <div style="border:1.5px solid rgba(30,150,80,.3);border-radius:10px;overflow:hidden;background:#fff;position:relative;width:240px;max-width:100%">
-              <canvas id="sd_sign_ins" width="480" height="120" style="display:block;cursor:crosshair;touch-action:none;width:240px;max-width:100%;height:60px"></canvas>
-              <button onclick="sdClearSign('sd_sign_ins')" style="position:absolute;top:3px;right:4px;font-size:10px;padding:1px 5px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5fa;font-family:inherit;color:#666">지우기</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sdsec">📑 만들 문서 선택</div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:6px;font-size:15px;color:#1c1e26;cursor:pointer;padding:7px 14px;border:1px solid rgba(80,80,200,.2);border-radius:7px;background:#f8f9ff"><input type="checkbox" id="sd_chk_gae" checked style="accent-color:#4858cc;width:14px;height:14px"> <span id="sd_lb_gae">개인정보처리동의서</span></label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:15px;color:#1c1e26;cursor:pointer;padding:7px 14px;border:1px solid rgba(80,80,200,.2);border-radius:7px;background:#f8f9ff"><input type="checkbox" id="sd_chk_goji" checked style="accent-color:#4858cc;width:14px;height:14px"> <span id="sd_lb_goji">고지의무확인서</span></label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:15px;color:#1c1e26;cursor:pointer;padding:7px 14px;border:1px solid rgba(80,80,200,.2);border-radius:7px;background:#f8f9ff"><input type="checkbox" id="sd_chk_wan" checked style="accent-color:#4858cc;width:14px;height:14px"> <span id="sd_lb_wan">완전판매동의서</span></label>
         </div>
 
         <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
           <button class="bp" onclick="sdPreview()" style="font-size:15px;padding:10px 18px"><i class="ti ti-eye"></i> PDF 미리보기</button>
           <button class="bp bco" onclick="sdDownload()" style="font-size:15px;padding:10px 18px"><i class="ti ti-download"></i> PDF 다운로드</button>
         </div>
-        <div style="font-size:12px;color:#98a;margin-top:10px">작성일(년·월·일)은 만드는 날짜로 자동 기입됩니다. 체크(V)·서명 등 각 항목이 문서 어디에 찍힐지는 관리자가 [관리] → [좌표 설정]에서 지정합니다.</div>
+        <div id="sd_tpl_note" style="font-size:12px;color:#c04040;margin-top:10px"></div>
+        <div style="font-size:12px;color:#98a;margin-top:6px">작성일(년·월·일)은 만드는 날짜로 자동 기입됩니다. 서명은 출력 후 자필로 받으세요. 체크(V) 등 각 항목이 문서 어디에 찍힐지는 관리자가 [관리] → [좌표 설정]에서 지정합니다.</div>
       </div>
     </div>
 
@@ -4498,7 +4471,6 @@ function _sdDoc(k){ for(var i=0;i<SAMDOC_LIST.length;i++) if(SAMDOC_LIST[i].k===
 function rSamdocs(){
   var ag=g('sd_agent'); if(ag&&!ag.value&&typeof cu!=='undefined'&&cu&&cu.name) ag.value=cu.name; // 모집자=로그인 사용자 자동
   var rows=g('sd_ct_rows'); if(rows&&!rows.querySelector('.sdrow')) sdRowAdd(false); // 기본 계약 1줄
-  _sdInitSign('sd_sign_ct'); _sdInitSign('sd_sign_ins');
   sdTplStatus();
 }
 
@@ -4513,6 +4485,7 @@ function sdRowAdd(focus){
     +'<div class="sdcell"><label class="sdl">보험회사</label><input class="sdi" data-sd-co placeholder="예: 삼성화재"></div>'
     +'<div class="sdcell"><label class="sdl">상품명</label><input class="sdi" data-sd-prod placeholder="가입 상품명"></div>'
     +'<div class="sdcell"><label class="sdl">증권(청약)번호</label><input class="sdi" data-sd-pol placeholder="증권번호 또는 청약번호"></div>'
+    +'<label class="sdwl" title="체크하면 이 계약엔 완전판매동의서까지 추가됩니다"><input type="checkbox" data-sd-wl style="accent-color:#4858cc;width:14px;height:14px"> 종신</label>'
     +'<button class="sdxdel" title="이 계약 줄 빼기" onclick="sdRowDel(this)">✕</button>';
   box.appendChild(div);
   _sdRowsRenum();
@@ -4536,32 +4509,18 @@ function _sdRowsRenum(){
   });
 }
 
-// 서명 패드 — initClaimSign 패턴 + _drawn 플래그(빈 캔버스는 PDF에 안 찍음)
-function _sdInitSign(id){
-  var canvas=g(id); if(!canvas||canvas._sdBound) return; canvas._sdBound=true;
-  var ctx=canvas.getContext('2d'); var drawing=false;
-  function pos(e){
-    var r=canvas.getBoundingClientRect();
-    var sX=canvas.width/r.width, sY=canvas.height/r.height;
-    var s=e.touches?e.touches[0]:e;
-    return {x:(s.clientX-r.left)*sX, y:(s.clientY-r.top)*sY};
-  }
-  canvas.onmousedown=canvas.ontouchstart=function(e){e.preventDefault();drawing=true;canvas._drawn=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);};
-  canvas.onmousemove=canvas.ontouchmove=function(e){e.preventDefault();if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#1a1a3a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();};
-  canvas.onmouseup=canvas.ontouchend=canvas.onmouseleave=function(){drawing=false;};
-}
-function sdClearSign(id){ var c=g(id); if(!c) return; c.getContext('2d').clearRect(0,0,c.width,c.height); c._drawn=false; }
-
 // 양식 등록 상태 표시 — claimTemplateFor가 idb→Storage 순 조회(받으면 idb에 자동 캐시)
 async function sdTplStatus(){
+  var missing=[];
   for(var i=0;i<SAMDOC_LIST.length;i++){
     var d=SAMDOC_LIST[i]; var ok=false;
     try{ ok=!!(await claimTemplateFor(d.tpl)); }catch(e){}
     d._has=ok;
+    if(!ok) missing.push(d.nm);
     var st=g('sd_st_'+d.k); if(st){ st.textContent=ok?'✅ 양식 등록됨':'❌ 양식 없음 — PDF를 올려주세요'; st.style.color=ok?'#1a7f37':'#c04040'; }
-    var lb=g('sd_lb_'+d.k); if(lb) lb.textContent=d.nm+(ok?'':' (양식 없음)');
-    var cb=g('sd_chk_'+d.k); if(cb){ cb.disabled=!ok; if(!ok) cb.checked=false; }
   }
+  var note=g('sd_tpl_note');
+  if(note) note.textContent=missing.length?('⚠ 아직 양식이 등록되지 않은 문서: '+missing.join(', ')+' — 관리자가 [관리]에서 양식 PDF를 올려야 해당 문서가 만들어집니다.'):'';
 }
 
 // [관리] 모달 (관리자 전용)
@@ -4653,46 +4612,52 @@ async function _sdDtx(page,doc,text,x,y,fontSize,maxWidth){
 }
 
 function _sdVal(id){ var el=g(id); return el?String(el.value||'').trim():''; }
-function _sdSignData(id){ var c=g(id); return (c&&c._drawn)?c.toDataURL():''; }
 
-// 선택된 문서들을 채워 한 PDF로 병합 — 실패 문서는 안내(조용한 누락 금지)
+// 계약(줄)마다 문서 세트를 채워 한 PDF로 병합 — 기본 세트는 개인정보처리동의서+고지의무확인서,
+// [종신] 체크된 계약은 완전판매동의서 추가. 실패 문서는 안내(조용한 누락 금지).
 async function _sdBuild(){
   if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.'); return null; }
-  var sel=SAMDOC_LIST.filter(function(d){ var cb=g('sd_chk_'+d.k); return cb&&cb.checked&&!cb.disabled; });
-  if(!sel.length){ toast('만들 문서를 선택하세요. (양식이 등록된 문서만 선택할 수 있습니다)'); return null; }
-  // 가짜 청구건 객체 — drawClaimFields의 ctx 규칙: 계약자=custName, 피보험자=insName(비면 계약자 폴백),
-  // 서명: sign=피보험자·ctSign=계약자(피보험자 서명이 비면 계약자 서명 사용 — 화면 안내와 동일).
-  // 주민번호·연락처·주소 입력칸은 제거됨(2026-08-21 — 성명만 입력) → 해당 좌표 항목엔 값이 안 찍힘.
-  var ctSign=_sdSignData('sd_sign_ct'), insSign=_sdSignData('sd_sign_ins');
+  // 가짜 청구건 객체 — drawClaimFields의 ctx 규칙: 계약자=custName, 피보험자=insName(비면 계약자 폴백).
+  // 성명만 입력(주민번호·연락처·주소·서명 없음 — 서명은 출력 후 자필) → 해당 좌표 항목엔 값이 안 찍힘.
   var base={
     custName:_sdVal('sd_ct_name'), rrn:'', phone:'', addr:'',
     insName:_sdVal('sd_ins_name'), insRrn:'',
     agentName:_sdVal('sd_agent'), designNum:'',
-    ctSign:ctSign, sign:insSign||ctSign,
     accident:[], desc:''
   };
-  // 계약 정보 줄 수집 — 값이 하나라도 있는 줄만. 없으면 빈 계약 1건(계약정보 칸만 빈 채 생성)
+  // 계약 정보 줄 수집 — 값이 하나라도 있는 줄만(wl=종신 체크). 없으면 빈 계약 1건(계약정보 칸만 빈 채 생성)
   var rows=[];
   document.querySelectorAll('#sd_ct_rows .sdrow').forEach(function(r){
     var v=function(q){ var el=r.querySelector(q); return el?String(el.value||'').trim():''; };
     var co=v('[data-sd-co]'), prod=v('[data-sd-prod]'), pol=v('[data-sd-pol]');
-    if(co||prod||pol) rows.push({coName:co, prodName:prod, polNum:pol});
+    var wlEl=r.querySelector('[data-sd-wl]');
+    if(co||prod||pol||(wlEl&&wlEl.checked)) rows.push({coName:co, prodName:prod, polNum:pol, wl:!!(wlEl&&wlEl.checked)});
   });
-  if(!rows.length) rows.push({coName:'', prodName:'', polNum:''});
+  if(!rows.length) rows.push({coName:'', prodName:'', polNum:'', wl:false});
+  // 계약별 문서 세트: 개인정보(gae)+고지의무(goji), 종신이면 완전판매(wan) 추가
+  var docsOf=function(row){
+    var ds=[_sdDoc('gae'), _sdDoc('goji')];
+    if(row.wl) ds.push(_sdDoc('wan'));
+    return ds.filter(Boolean);
+  };
   var PDFDocument=PDFLib.PDFDocument;
-  // 문서별 양식은 한 번만 조회(계약 수만큼 반복 방지)
+  // 필요한 문서 양식만 한 번씩 조회(계약 수만큼 반복 방지)
+  var needWan=rows.some(function(r){return r.wl;});
+  var needDocs=SAMDOC_LIST.filter(function(d){ return d.k!=='wan'||needWan; });
   var tplMap={};
-  for(var ti=0;ti<sel.length;ti++){
-    try{ tplMap[sel[ti].k]=await claimTemplateFor(sel[ti].tpl); }catch(e){ tplMap[sel[ti].k]=''; }
+  for(var ti=0;ti<needDocs.length;ti++){
+    try{ tplMap[needDocs[ti].k]=await claimTemplateFor(needDocs[ti].tpl); }catch(e){ tplMap[needDocs[ti].k]=''; }
   }
   var merged=await PDFDocument.create();
   var okN=0, miss=[];
-  var total=rows.length*sel.length, done=0;
+  var total=0; rows.forEach(function(r){ total+=docsOf(r).length; });
+  var done=0;
   for(var ri=0;ri<rows.length;ri++){
-    var c=Object.assign({}, base, rows[ri]);   // 계약(줄)마다 보험회사/상품명/증권번호만 갈아끼움
+    var c=Object.assign({}, base, {coName:rows[ri].coName, prodName:rows[ri].prodName, polNum:rows[ri].polNum});
     var rowTag=(rows.length>1)?('계약 '+(ri+1)+' — '):'';
-    for(var i=0;i<sel.length;i++){
-      var d=sel[i]; done++;
+    var docs=docsOf(rows[ri]);
+    for(var i=0;i<docs.length;i++){
+      var d=docs[i]; done++;
       try{
         toast(rowTag+d.nm+' 작성 중... ('+done+'/'+total+')');
         var b64=tplMap[d.k];
@@ -4707,7 +4672,7 @@ async function _sdBuild(){
       }catch(e){ console.warn('samdoc build', d.nm, e); miss.push(rowTag+d.nm+': '+(e.message||e)); }
     }
   }
-  if(!okN){ toast('문서를 만들지 못했습니다. '+(miss[0]||'')); return null; }
+  if(!okN){ toast('문서를 만들지 못했습니다. '+(miss[0]||'양식이 등록되지 않았습니다 — 관리자 [관리]에서 업로드해주세요.')); return null; }
   if(miss.length) toast('일부 문서가 빠졌습니다 — '+miss.join(' / '));
   return await merged.save();
 }
@@ -21909,8 +21874,9 @@ function ccToggleField(key){
 
 // ===== 도구박스 (오른쪽 패널) =====
 // 3종서류 좌표 편집 모드에서 노출하는 항목 — 3종서류 폼에 입력칸이 있는 값만
-// (주민번호·휴대폰·주소·설계번호·관계는 폼에서 제거됨 → 배치해도 값이 안 찍혀 혼란만 주므로 숨김)
-var CC_SAM_KEYS={ctName:1,ctSign:1,insName:1,sign:1,coName:1,prodName:1,polNum:1,agentName:1,vchk:1,wY:1,wY2:1,wM:1,wD:1,signName:1};
+// (주민번호·휴대폰·주소·설계번호·관계·서명 캔버스는 폼에서 제거됨 → 배치해도 값이 안 찍혀 혼란만 주므로 숨김.
+//  서명은 출력 후 자필 — signName(서명 옆 성명 인쇄)은 유지)
+var CC_SAM_KEYS={ctName:1,insName:1,coName:1,prodName:1,polNum:1,agentName:1,vchk:1,wY:1,wY2:1,wM:1,wD:1,signName:1};
 var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 표시되는 그룹
   { title:'계약자', sam:1, items:[
     {key:'ctName',       label:'성명'},
