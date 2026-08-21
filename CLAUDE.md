@@ -415,8 +415,12 @@
   양식 PDF에 입력값(계약자/피보험자/계약정보/서명)을 자동 기입해 **병합 1개 PDF**로 미리보기/다운로드.
 - **청구서 파이프라인 재사용(가상 보험사 슬롯)**: `SAMDOC_LIST[].tpl`('3종_개인정보처리동의서' 등 3개 이름)이
   양식(idb `tpl_<이름>` + Storage `claim_templates/<이름>.pdf` — `claimTemplateFor`/`uploadTemplateToStorage`, storage.rules 무변경),
-  좌표(`tops_claim_coords_v2` — `claimCoordsFor`), 좌표 편집(청구서 좌표 직접설정 모달 `m_claimcal` — `ccPopulateInsurers`가
-  CLAIM_INSURERS 뒤에 3종 슬롯 추가, `window._ccPresetInsurer`로 진입 시 초기 선택)을 전부 공유.
+  좌표(`tops_claim_coords_v2` — `claimCoordsFor`), 좌표 편집(청구서 좌표 직접설정 모달 `m_claimcal`)을 전부 공유.
+- **편집기 모드 분리 (2026-08-21)**: 같은 `m_claimcal` 모달을 `window._ccMode`('claim'|'samdocs')로 분리 —
+  3종서류 [좌표 설정] 진입(`_ccPresetInsurer`가 3종 슬롯)이면 'samdocs': 제목 "3종서류 좌표 설정", 셀렉트에 **문서 3종만**
+  (라벨=문서 이름), 일괄 업로드 버튼·청구건 미리보기 데이터 숨김(`_ccDataClaim=null`), 도구박스는 `sam:1` 그룹만
+  (계약자/피보험자/계약정보·범용/작성일·기타 — 사고·계좌·동의V 숨김). 청구서 진입은 'claim': 보험사만 표시(3종 슬롯 안 섞임).
+  모드 전환 재진입 시 이전 선택이 목록에 없으면 DB손해보험 복귀. UI 토글은 openClaimCal에서 매번 재설정(원복 보장).
   생성은 `_sdBuild()` — 가짜 청구건 객체(custName/rrn=계약자, insName/insRrn=피보험자, sign/ctSign=서명 캔버스 2개)로
   `drawClaimFields` 호출 + `_sdDtx`(generateClaimPackage 내부 dtx의 독립 사본 — 한글 캔버스 PNG 임베드).
 - **좌표 항목 카탈로그 신규 6종**(CLAIM_FIELDS_DEFAULT/claimMeta/CC_PREVIEW_SAMPLES/CC_TOOLBOX_GROUPS '계약정보·범용'):
