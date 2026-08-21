@@ -389,7 +389,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-5</div>
   </div>
 </div>
 
@@ -21957,6 +21957,7 @@ function ccRefreshToolbox(){
         +'<input type="checkbox" data-tb="'+it.key+'" '+checked+' onchange="ccTbToggle(\''+it.key+'\',this.checked)" style="accent-color:#4858cc;width:14px;height:14px;cursor:pointer">'
         +'<label onclick="ccTbToggle(\''+it.key+'\',!('+cnt+'>0))" style="flex:1;cursor:pointer;color:#1a1a3a">'+it.label+(cnt>1?' <span style="color:#888;font-size:11px">×'+cnt+'</span>':'')+'</label>'
         +'<button onclick="ccTbAdd(\''+it.key+'\')" title="배치 추가" style="font-size:11px;padding:2px 6px;background:#fff;border:1px solid rgba(72,88,204,.4);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit">+ 추가</button>'
+        +'<button onclick="ccTbRemove(\''+it.key+'\')" title="마지막 배치본 제거 (하나 남으면 숨김)" '+(cnt>0?'':'disabled ')+'style="font-size:11px;padding:2px 6px;background:#fff;border:1px solid rgba(200,80,80,.4);border-radius:4px;color:#c04040;cursor:pointer;font-family:inherit'+(cnt>0?'':';opacity:.35;cursor:default')+'">− 제거</button>'
         +'</div>';
     });
     html+='</div>';
@@ -21983,6 +21984,32 @@ function ccTbToggle(baseKey, checked){
   ccPlaceChips();
 }
 
+// [− 제거] — [+ 추가]의 반대: 켜진 배치본을 번호 큰 추가본(_N)부터 하나씩 제거.
+// 마지막 하나는 삭제 대신 숨김(체크 해제와 동일) — 삭제하면 저장 후 기본 좌표(defOn)로 부활하는 혼란 방지(Delete 키와 다른 점).
+function ccTbRemove(baseKey){
+  if(!window._ccWork) return;
+  var live=Object.keys(window._ccWork).filter(function(k){
+    return ccBaseKey(k)===baseKey && window._ccWork[k] && window._ccWork[k].on!==false;
+  });
+  if(!live.length){ toast('배치된 항목이 없습니다.'); return; }
+  var drop=function(k){
+    if(window._ccSelKey===k) window._ccSelKey=null;
+    window._ccSelKeys=(window._ccSelKeys||[]).filter(function(x){return x!==k;});
+  };
+  if(live.length>1){
+    live.sort(function(a,b){
+      var na=(a===baseKey)?1:(+(a.split('_').pop())||1);
+      var nb=(b===baseKey)?1:(+(b.split('_').pop())||1);
+      return nb-na;   // 번호 큰 추가본 먼저
+    });
+    delete window._ccWork[live[0]];
+    drop(live[0]);
+  } else {
+    window._ccWork[live[0]].on=false;
+    drop(live[0]);
+  }
+  ccPlaceChips();
+}
 function ccTbAdd(baseKey){
   if(!window._ccWork) window._ccWork={};
   var W=window._ccPageW||595, H=window._ccPageH||841.9;
