@@ -395,7 +395,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-8</div>
   </div>
 </div>
 
@@ -1929,6 +1929,19 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div class="sdsec">📄 계약 정보 <button class="bp" onclick="sdRowAdd(true)" style="font-size:12px;padding:3px 10px;margin-left:8px;vertical-align:middle"><i class="ti ti-plus"></i> 계약 추가</button></div>
         <div style="font-size:12px;color:#98a;margin-bottom:8px">계약(줄)마다 <b>개인정보처리동의서 + 고지의무확인서</b>가 만들어지고, <b>[종신]</b>에 체크하면 그 계약엔 <b>완전판매동의서</b>까지 추가됩니다 — 전부 한 PDF로 합쳐집니다.</div>
         <div id="sd_ct_rows"></div>
+
+        <div style="margin-top:12px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="sdl">계약(작성) 일자 <span style="font-weight:400;color:#98a">— 년 칸에 20250205 처럼 한 번에 입력해도 됩니다</span></label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="sdi" id="sd_wy" inputmode="numeric" placeholder="2025" style="width:130px" oninput="sdDateInput(this)"> <span style="color:#556;font-size:14px">년</span>
+              <input class="sdi" id="sd_wm" inputmode="numeric" maxlength="2" placeholder="02" style="width:58px" oninput="sdDateInput(this)"> <span style="color:#556;font-size:14px">월</span>
+              <input class="sdi" id="sd_wd" inputmode="numeric" maxlength="2" placeholder="05" style="width:58px" oninput="sdDateInput(this)"> <span style="color:#556;font-size:14px">일</span>
+            </div>
+          </div>
+          <label class="sdwl" title="체크하면 오늘 날짜가 자동 입력됩니다"><input type="checkbox" id="sd_today" onchange="sdTodayChg()" style="accent-color:#4858cc;width:14px;height:14px"> 오늘자 계약</label>
+        </div>
+
         <div id="sd_grid3" style="margin-top:12px">
           <div><label class="sdl">모집자(설계사) 성명</label><input class="sdi" id="sd_agent" placeholder="설계사 성명 (자동 입력)"></div>
         </div>
@@ -1936,6 +1949,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
           <button class="bp" onclick="sdPreview()" style="font-size:15px;padding:10px 18px"><i class="ti ti-eye"></i> PDF 미리보기</button>
           <button class="bp bco" onclick="sdDownload()" style="font-size:15px;padding:10px 18px"><i class="ti ti-download"></i> PDF 다운로드</button>
+          <button class="bp" onclick="sdPrint()" style="font-size:15px;padding:10px 18px"><i class="ti ti-printer"></i> 출력</button>
         </div>
         <div id="sd_tpl_note" style="font-size:12px;color:#c04040;margin-top:10px"></div>
         <div style="font-size:12px;color:#98a;margin-top:6px">작성일(년·월·일)은 만드는 날짜로 자동 기입됩니다. 서명은 출력 후 자필로 받으세요. 체크(V) 등 각 항목이 문서 어디에 찍힐지는 관리자가 [관리] → [좌표 설정]에서 지정합니다.</div>
@@ -4471,7 +4485,41 @@ function _sdDoc(k){ for(var i=0;i<SAMDOC_LIST.length;i++) if(SAMDOC_LIST[i].k===
 function rSamdocs(){
   var ag=g('sd_agent'); if(ag&&!ag.value&&typeof cu!=='undefined'&&cu&&cu.name) ag.value=cu.name; // 모집자=로그인 사용자 자동
   var rows=g('sd_ct_rows'); if(rows&&!rows.querySelector('.sdrow')) sdRowAdd(false); // 기본 계약 1줄
+  // 계약(작성) 일자 기본값 = 오늘 ([오늘자 계약] 체크 상태로 시작)
+  var wy=g('sd_wy');
+  if(wy&&!wy.value){ _sdSetDate(new Date()); var cb=g('sd_today'); if(cb) cb.checked=true; }
   sdTplStatus();
+}
+
+// ── 계약(작성) 일자 — 년/월/일 분리 입력, 년 칸에 YYYYMMDD 한 번에 입력 시 자동 분배 ──
+function _sdSetDate(d){
+  var y=g('sd_wy'), m=g('sd_wm'), dd=g('sd_wd');
+  if(y) y.value=String(d.getFullYear());
+  if(m) m.value=('0'+(d.getMonth()+1)).slice(-2);
+  if(dd) dd.value=('0'+d.getDate()).slice(-2);
+}
+function sdTodayChg(){
+  var cb=g('sd_today');
+  if(cb&&cb.checked) _sdSetDate(new Date());
+}
+function sdDateInput(el){
+  var cb=g('sd_today'); if(cb) cb.checked=false;   // 날짜를 손으로 고치면 [오늘자 계약] 해제
+  var v=String(el.value||'').replace(/[^0-9]/g,'');
+  if(el.id==='sd_wy'){
+    if(v.length>8) v=v.slice(0,8);                 // '2025-02-05' 같은 구분자 붙여넣기도 숫자만 추려 처리
+    if(v.length===8){                              // 20250205 → 년/월/일 분배
+      el.value=v.slice(0,4);
+      var m=g('sd_wm'), d=g('sd_wd');
+      if(m) m.value=v.slice(4,6);
+      if(d){ d.value=v.slice(6,8); d.focus(); }
+      return;
+    }
+    if(el.value!==v) el.value=v;
+  } else {
+    v=v.slice(0,2);
+    if(el.value!==v) el.value=v;
+    if(el.id==='sd_wm'&&v.length===2){ var d2=g('sd_wd'); if(d2) d2.focus(); } // 월 2자리 → 일 칸으로
+  }
 }
 
 // ── 계약 정보 줄(보험회사/상품명/증권번호) — [＋ 계약 추가]로 여러 건, 계약마다 문서 세트 생성 ──
@@ -4625,6 +4673,19 @@ async function _sdBuild(){
     agentName:_sdVal('sd_agent'), designNum:'',
     accident:[], desc:''
   };
+  // 계약(작성) 일자 — 입력값이 있으면 작성일(wY/wM/wD)로 사용, 전부 비었으면 오늘(엔진 기본).
+  // 법적 문서라 어중간한 날짜(일부만 입력·범위 밖)는 조용히 넘기지 않고 중단.
+  var wy=_sdVal('sd_wy'), wm=_sdVal('sd_wm'), wdd=_sdVal('sd_wd');
+  if(wy||wm||wdd){
+    var Y=+wy, M=+wm, D=+wdd;
+    var _cal=new Date(Y,M-1,D); // 실제 달력 검증(2월 31일 등 차단 — 법적 문서)
+    if(!(wy.length===4&&Y>=2000&&Y<=2100&&M>=1&&M<=12&&D>=1&&D<=31
+        &&_cal.getFullYear()===Y&&_cal.getMonth()===M-1&&_cal.getDate()===D)){
+      toast('계약(작성) 일자를 확인해주세요. 예: 2025 / 02 / 05 — 또는 [오늘자 계약]을 체크하세요.');
+      return null;
+    }
+    base.wDate=wy+'.'+('0'+M).slice(-2)+'.'+('0'+D).slice(-2);
+  }
   // 계약 정보 줄 수집 — 값이 하나라도 있는 줄만(wl=종신 체크). 없으면 빈 계약 1건(계약정보 칸만 빈 채 생성)
   var rows=[];
   document.querySelectorAll('#sd_ct_rows .sdrow').forEach(function(r){
@@ -4698,6 +4759,27 @@ async function sdDownload(){
     setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },10000);
     toast('3종서류 PDF를 다운로드했습니다.');
   }catch(e){ toast('다운로드 실패: '+(e.message||e)); }
+}
+// [출력] — 새 탭을 클릭 제스처 안에서 동기로 먼저 열고(sdPreview 패턴 — 팝업 차단 회피·무통보 실패 방지),
+// PDF를 그 탭에 실은 뒤 인쇄 대화상자를 시도. 자동 인쇄가 안 되는 브라우저여도 탭에 PDF가 보이므로
+// 사용자가 그 화면의 인쇄 버튼으로 이어갈 수 있다(숨김 iframe 방식은 조용히 실패해 폐기 — 2026-08-21 리뷰).
+async function sdPrint(){
+  if(window._sdPrintBusy){ toast('출력 준비 중입니다. 잠시만 기다려주세요.'); return; } // 연타 가드(_sdUpBusy 패턴)
+  var w=null;
+  try{ w=window.open('about:blank'); }catch(e){}
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.'); return; }
+  window._sdPrintBusy=true;
+  try{
+    var bytes=await _sdBuild();
+    if(!bytes){ w.close(); return; }
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    w.location=url;
+    // PDF 뷰어 로드 후 인쇄 대화상자 시도 — 실패해도 탭이 열려 있어 수동 인쇄 가능
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },800);
+    toast('출력 창을 열었습니다. 인쇄 대화상자가 뜨지 않으면 그 화면의 인쇄(🖨) 버튼을 눌러주세요.');
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },120000); // 인쇄 대화상자 동안 URL 유지
+  }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
+  finally{ window._sdPrintBusy=false; }
 }
 function dqCopy(){
   var d1=g('dq_doc'), d2=g('dq_doc2');
@@ -21284,6 +21366,10 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
   var rgb=PDFLib.rgb, StandardFonts=PDFLib.StandardFonts;
   var blk=rgb(0,0,0);
   var now=new Date();
+  // 작성일 오버라이드(3종서류 계약 일자 등) — c.wDate('YYYY.MM.DD')가 있으면 오늘 대신 사용.
+  // 청구건에는 wDate가 없어 기존 동작(오늘) 그대로. ⚠️ ccBuildCtx(미리보기)와 복붙 두 곳 — 고칠 땐 둘 다.
+  var _wd=null;
+  try{ if(c&&typeof c.wDate==='string'&&/^\d{4}\.\d{2}\.\d{2}$/.test(c.wDate)) _wd=c.wDate.split('.'); }catch(e){}
   var ctx={
     insName:(c.insName||c.custName||'').slice(0,20),
     insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
@@ -21295,10 +21381,10 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     ctRrn:(c.ctRrn||c.contractorRrn||c.rrn||c.insRrn||'').replace(/-/g,'').slice(0,14),
     ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
     ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
-    yy:String(now.getFullYear()),
-    yy2:String(now.getFullYear()).slice(-2),
-    mm:('0'+(now.getMonth()+1)).slice(-2),
-    dd:('0'+now.getDate()).slice(-2)
+    yy:_wd?_wd[0]:String(now.getFullYear()),
+    yy2:(_wd?_wd[0]:String(now.getFullYear())).slice(-2),
+    mm:_wd?_wd[1]:('0'+(now.getMonth()+1)).slice(-2),
+    dd:_wd?_wd[2]:('0'+now.getDate()).slice(-2)
   };
   var hv=await srcDoc.embedFont(StandardFonts.Helvetica);
   var hvB=await srcDoc.embedFont(StandardFonts.HelveticaBold);
@@ -21772,6 +21858,8 @@ function ccSelectData(){
 // drawClaimFields의 ctx와 동일한 규칙으로 청구건 → 값 컨텍스트 생성
 function ccBuildCtx(c){
   var now=new Date();
+  var _wd=null; // 작성일 오버라이드 — drawClaimFields와 동일 규칙(복붙 두 곳)
+  try{ if(c&&typeof c.wDate==='string'&&/^\d{4}\.\d{2}\.\d{2}$/.test(c.wDate)) _wd=c.wDate.split('.'); }catch(e){}
   return {
     insName:(c.insName||c.custName||'').slice(0,20),
     insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
@@ -21781,8 +21869,8 @@ function ccBuildCtx(c){
     ctRrn:(c.ctRrn||c.contractorRrn||c.rrn||c.insRrn||'').replace(/-/g,'').slice(0,14),
     ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
     ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
-    yy:String(now.getFullYear()), yy2:String(now.getFullYear()).slice(-2),
-    mm:('0'+(now.getMonth()+1)).slice(-2), dd:('0'+now.getDate()).slice(-2)
+    yy:_wd?_wd[0]:String(now.getFullYear()), yy2:(_wd?_wd[0]:String(now.getFullYear())).slice(-2),
+    mm:_wd?_wd[1]:('0'+(now.getMonth()+1)).slice(-2), dd:_wd?_wd[2]:('0'+now.getDate()).slice(-2)
   };
 }
 // 실제 생성과 같은 규칙으로 항목(bk)의 표시 텍스트 계산 (이미지 서명은 [서명]으로 표기)
