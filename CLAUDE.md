@@ -409,6 +409,34 @@
 - **인쇄는 새 창**(`dqPrint` — SPA 전체가 인쇄되는 것 방지): 미리보기 innerHTML을 A4 인쇄 CSS와 함께 새 창에 써서 print()
   (mtView·printRcCard 패턴, 팝업 차단 토스트). 값은 textContent로 들어가 innerHTML 복사도 XSS 안전. [텍스트 복사]=`dqCopy`(클립보드).
 
+## 4.96 3종서류 (samdocs, 2026-08-21)
+
+- 업무관리 > 지급지연 요청서 아래 메뉴(`n_samdocs` → `pg_samdocs`, 전원). 개인정보처리동의서·고지의무확인서·완전판매동의서
+  양식 PDF에 입력값(계약자/피보험자/계약정보/서명)을 자동 기입해 **병합 1개 PDF**로 미리보기/다운로드.
+- **청구서 파이프라인 재사용(가상 보험사 슬롯)**: `SAMDOC_LIST[].tpl`('3종_개인정보처리동의서' 등 3개 이름)이
+  양식(idb `tpl_<이름>` + Storage `claim_templates/<이름>.pdf` — `claimTemplateFor`/`uploadTemplateToStorage`, storage.rules 무변경),
+  좌표(`tops_claim_coords_v2` — `claimCoordsFor`), 좌표 편집(청구서 좌표 직접설정 모달 `m_claimcal` — `ccPopulateInsurers`가
+  CLAIM_INSURERS 뒤에 3종 슬롯 추가, `window._ccPresetInsurer`로 진입 시 초기 선택)을 전부 공유.
+  생성은 `_sdBuild()` — 가짜 청구건 객체(custName/rrn=계약자, insName/insRrn=피보험자, sign/ctSign=서명 캔버스 2개)로
+  `drawClaimFields` 호출 + `_sdDtx`(generateClaimPackage 내부 dtx의 독립 사본 — 한글 캔버스 PNG 임베드).
+- **좌표 항목 카탈로그 신규 6종**(CLAIM_FIELDS_DEFAULT/claimMeta/CC_PREVIEW_SAMPLES/CC_TOOLBOX_GROUPS '계약정보·범용'):
+  `coName`(보험회사명)/`prodName`(상품명)/`polNum`(증권·청약번호)/`designNum`(설계번호)/`agentName`(모집자 성명)/
+  `vchk`(범용 체크V — ＋추가로 여러 개 배치). 전부 `defOn:false`라 기존 보험사 청구서에는 배치 전까지 안 찍힘(청구서에서도 사용 가능).
+- **입력값 저장·동기화 없음**(delayreq 패턴 — 함정 B 무관). id는 `sd_` 접두(함정 E), 페이지·관리 모달은 밝은 카드(함정 D 역방향 —
+  m_samdocs는 `.mo`에 흰 배경 인라인 오버라이드). 작성일(wY/wM/wD)은 생성 시점 자동.
+- **관리 모달 `m_samdocs`(관리자)**: 문서별 양식 업로드(클릭·드래그앤드롭 — 전용 핸들러 stopPropagation, 4.8 규칙)+[좌표 설정].
+  문서 조작은 `k`('gae'|'goji'|'wan') 문자열 키(함정 A 안전). 문서 레벨 drop 캐치올에 `m_samdocs` open 조건 추가(빗나간 드롭이
+  브라우저 PDF 열기로 새지 않게 — 모달 열린 동안 pg 쪽 uni drop은 어차피 모달에 가려짐).
+- 양식 상태(`sdTplStatus`)는 `claimTemplateFor` 조회 결과로 표시 — 미등록 문서는 체크박스 disabled.
+  피보험자 칸 비우면 계약자와 동일 취급(ctx 폴백), 피보험자 서명 비우면 계약자 서명 사용.
+- **⚠️ 3종 슬롯은 전 항목 기본 꺼짐(2026-08-21 리뷰)**: `claimCoordsFor`가 3종 슬롯(`SAMDOC_LIST[].tpl` 일치)이면
+  `defOn`을 전부 false로 강제 — 청구서 기본 좌표(defOn 미지정=true인 피보험자·작성일·서명·동의V 등 36개)가
+  좌표 설정 전 새 양식에 무단으로 찍히던 결함 방지. 관리자가 도구박스에서 체크한 항목만 배치됨.
+  기타 리뷰 반영: sdPreview 팝업 차단 토스트(무통보 실패 금지), openClaimCal 조기 return 시 `_ccPresetInsurer` 정리,
+  업로드 25MB 상한+연타 가드(`_sdUpBusy`), 다운로드 파일명 금지문자 정리, sdOpenCoords는 상태 미조회 시 직접 확인.
+- ⚠️ 수용 한계(기존 계열): 좌표·양식은 관리자 전용 UI지만 서버 검증 없음(navcfg 계열), 좌표 편집기의 [저장](saveClaimCal)은
+  3종 슬롯이면 재생성 대상 청구건이 없어 좌표 저장만 하고 끝남.
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.
