@@ -382,7 +382,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-2</div>
   </div>
 </div>
 
@@ -20948,8 +20948,10 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
     insPhone:String(c.phone||'').replace(/[^0-9]/g,''),
     insAddr:(c.addr||''),
-    ctName:(c.ctName||c.contractorName||c.insName||c.custName||'').slice(0,20),
-    ctRrn:(c.ctRrn||c.contractorRrn||c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    // 계약자(ct*) 칸은 폼의 계약자 정보(custName/rrn)가 1순위 — 예전엔 insName(피보험자)이 먼저라
+    // 계약자·피보험자가 다른 청구에서 계약자 칸에 피보험자 정보가 찍혔음(2026-08-21 수정, ccBuildCtx와 동일 규칙 유지)
+    ctName:(c.ctName||c.contractorName||c.custName||c.insName||'').slice(0,20),
+    ctRrn:(c.ctRrn||c.contractorRrn||c.rrn||c.insRrn||'').replace(/-/g,'').slice(0,14),
     ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
     ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
     yy:String(now.getFullYear()),
@@ -21404,8 +21406,8 @@ function ccBuildCtx(c){
     insRrn:(c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
     insPhone:String(c.phone||'').replace(/[^0-9]/g,''),
     insAddr:(c.addr||''),
-    ctName:(c.ctName||c.contractorName||c.insName||c.custName||'').slice(0,20),
-    ctRrn:(c.ctRrn||c.contractorRrn||c.insRrn||c.rrn||'').replace(/-/g,'').slice(0,14),
+    ctName:(c.ctName||c.contractorName||c.custName||c.insName||'').slice(0,20), // 계약자 우선(drawClaimFields와 동일 규칙)
+    ctRrn:(c.ctRrn||c.contractorRrn||c.rrn||c.insRrn||'').replace(/-/g,'').slice(0,14),
     ctPhone:String(c.ctPhone||c.contractorPhone||c.phone||'').replace(/[^0-9]/g,''),
     ctAddr:(c.ctAddr||c.contractorAddr||c.addr||''),
     yy:String(now.getFullYear()), yy2:String(now.getFullYear()).slice(-2),
