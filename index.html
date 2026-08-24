@@ -395,7 +395,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-11</div>
   </div>
 </div>
 
@@ -4614,6 +4614,15 @@ function _sdSyncRows(){
   _sdLabelRefresh();
 }
 // 번호·소속 라벨만 갱신(비파괴 — 성명 타이핑 중에도 안전, 줄 요소는 재생성하지 않음)
+// 계약자별 구분 색(순번 순환) — 계약자 성명 줄과 소속 계약 줄을 같은 색 띠·배경으로 묶어 표시
+var SD_CT_COLORS=[
+  {c:'#d84040', bg:'#fdf3f3'},   // 1번 빨강
+  {c:'#3a58c8', bg:'#f2f5fd'},   // 2번 파랑
+  {c:'#1f8a3c', bg:'#f0faf3'},   // 3번 초록
+  {c:'#d0801e', bg:'#fdf7ec'},   // 4번 주황
+  {c:'#8a45c0', bg:'#f8f2fd'},   // 5번 보라
+  {c:'#1e8f98', bg:'#eefafa'}    // 6번 청록 (7번째부터 다시 빨강)
+];
 function _sdLabelRefresh(){
   var box=g('sd_ct_rows'); if(!box) return;
   var cts=_sdCts();
@@ -4624,12 +4633,23 @@ function _sdLabelRefresh(){
     var no=r.querySelector('.sdno'); if(no) no.textContent=(i+1)+'.';
     var oid=r.getAttribute('data-sd-owner');
     perCt[oid]=(perCt[oid]||0)+1;
+    var ci=(ord[oid]!=null?ord[oid]:0);
+    var pal=SD_CT_COLORS[ci%SD_CT_COLORS.length];
+    r.style.borderLeft='4px solid '+pal.c;
+    r.style.background=pal.bg;
     var ow=r.querySelector('.sdown');
-    if(ow) ow.textContent='👤 '+(names[oid]||('계약자 '+((ord[oid]!=null?ord[oid]:0)+1)+' (성명 미입력)'))+' — '+perCt[oid]+'번째 계약';
+    if(ow){
+      ow.textContent='👤 '+(names[oid]||('계약자 '+(ci+1)+' (성명 미입력)'))+' — '+perCt[oid]+'번째 계약';
+      ow.style.color=pal.c;
+    }
   });
   var crows=document.querySelectorAll('#sd_cts .sdctrow');
   crows.forEach(function(r,i2){
     var no2=r.querySelector('.sdno'); if(no2) no2.textContent=(i2+1)+'.';
+    var pal2=SD_CT_COLORS[i2%SD_CT_COLORS.length];
+    r.style.borderLeft='4px solid '+pal2.c;
+    r.style.background=pal2.bg;
+    if(no2) no2.style.color=pal2.c;
     var del=r.querySelector('.sdxdel'); if(del) del.style.visibility=(crows.length>1)?'visible':'hidden';
   });
 }
