@@ -396,7 +396,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.24-1</div>
   </div>
 </div>
 
@@ -4725,8 +4725,10 @@ async function sdOpenCoords(k){
 }
 
 
-// 한글 텍스트 → PNG 임베드 (generateClaimPackage 내부 dtx와 동일 방식의 독립 사본 — 그쪽 검증된 동작 유지)
-function _sdTextToPng(text,fontSize,maxWidth){
+// 한글 텍스트 → PNG 임베드 (generateClaimPackage 내부 dtx의 독립 사본).
+// 차이점: 최대 폭을 넘는 긴 값(증권번호 등)을 잘라내지 않고 캔버스에 전부 그린 뒤,
+// _sdDtx가 폭에 맞춰 축소해 찍는다(글자가 중간에 잘리던 문제 — 2026-08-24 수정).
+function _sdTextToPng(text,fontSize){
   if(!text||!String(text).trim()) return null;
   var cv=document.createElement('canvas');
   var fs=fontSize||9; var sc=3;
@@ -4734,7 +4736,7 @@ function _sdTextToPng(text,fontSize,maxWidth){
   var ctx=cv.getContext('2d');
   ctx.font=(fs*sc)+'px "Malgun Gothic","나눔고딕","Apple SD Gothic Neo","맑은 고딕",Arial,sans-serif';
   var tw=ctx.measureText(String(text)).width;
-  cv.width=Math.min(tw+6,(maxWidth||300)*sc);
+  cv.width=Math.min(tw+6, 6000);   // 전체 글자 폭 그대로(과대 입력 안전 상한만)
   ctx=cv.getContext('2d');
   ctx.font=(fs*sc)+'px "Malgun Gothic","나눔고딕","Apple SD Gothic Neo","맑은 고딕",Arial,sans-serif';
   ctx.fillStyle='#000000'; ctx.textBaseline='alphabetic';
@@ -4743,14 +4745,17 @@ function _sdTextToPng(text,fontSize,maxWidth){
 }
 async function _sdDtx(page,doc,text,x,y,fontSize,maxWidth){
   if(!text||!String(text).trim()) return;
-  var png=_sdTextToPng(text,fontSize||9,maxWidth||250);
+  var png=_sdTextToPng(text,fontSize||9);
   if(!png) return;
   try{
     var arr=Uint8Array.from(atob(png.split(',')[1]),function(ch){return ch.charCodeAt(0);});
     var img=await doc.embedPng(arr);
     var lh=(fontSize||9)*1.4;
-    var baselineOffset=lh*0.22; // 캔버스 글자 바닥선 보정(dtx와 동일)
-    page.drawImage(img,{x:x,y:y-baselineOffset,width:img.width/3,height:lh});
+    var natW=img.width/3;
+    var maxW=maxWidth||250;
+    var scale=(natW>maxW)?(maxW/natW):1;   // 폭 초과 시 잘라내지 않고 비율 축소
+    var baselineOffset=lh*0.22*scale; // 캔버스 글자 바닥선 보정(dtx와 동일, 축소 비율 반영)
+    page.drawImage(img,{x:x,y:y-baselineOffset,width:natW*scale,height:lh*scale});
   }catch(e){console.warn('sdDtx',text,e);}
 }
 
@@ -21418,7 +21423,7 @@ function claimMeta(){
     // 계약정보·범용 항목 (3종서류, 2026-08-21) — 값은 청구건/3종서류 폼 객체의 동명 필드
     coName:{t:'ko',s:9,w:150,v:function(c){return c.coName||'';}},
     prodName:{t:'ko',s:9,w:220,v:function(c){return c.prodName||'';}},
-    polNum:{t:'ko',s:9,w:160,v:function(c){return c.polNum||'';}},
+    polNum:{t:'ko',s:9,w:240,v:function(c){return c.polNum||'';}},
     designNum:{t:'ko',s:9,w:160,v:function(c){return c.designNum||'';}},
     agentName:{t:'ko',s:9,w:108,v:function(c){return c.agentName||'';}},
     vchk:{t:'chk',s:9,cond:T},

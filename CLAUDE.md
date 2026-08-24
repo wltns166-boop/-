@@ -455,6 +455,9 @@
   값은 `c.wYear/c.wMonth/c.wDay`(wDay ''=빈칸)로 전달 — **drawClaimFields·ccBuildCtx의 ctx.yy/mm/dd가 각각 오버라이드**
   (복붙 두 곳 동시 수정, 청구건에는 이 필드들이 없어 기존 '오늘' 그대로). 엔진의 `c.wDate`(전체 날짜 'YYYY.MM.DD') 지원도
   잔존(보내는 곳 없음). 계약 줄은 min-width:0으로 **한 줄 배치**(종신 포함 — 모바일만 줄바꿈).
+  **긴 값 축소 기입 (2026-08-24)**: `_sdDtx`는 항목 최대 폭(m.w)을 넘는 값(긴 증권번호 등)을 잘라내지 않고
+  **비율 축소해 전부 찍는다**(_sdTextToPng가 전체 폭 캔버스 생성 → 폭 초과분만큼 배율 축소, polNum w 160→240).
+  청구서 쪽 dtx(generateClaimPackage 내부)는 기존 잘림 방식 그대로 — 3종 전용 개선.
   [출력](`sdPrint`)은 **새 탭을 클릭 제스처 안에서 동기로 먼저 열고**(sdPreview 패턴 — 팝업 차단 즉시 안내) PDF를 실은 뒤
   `w.print()` 시도 — 자동 인쇄가 안 돼도 탭에 PDF가 보여 무통보 실패 없음. 연타 가드 `_sdPrintBusy`.
   ⚠️ 숨김 iframe+`contentWindow.print()` 방식은 조용한 실패·팝업 차단 폴백 문제로 폐기(2026-08-21 리뷰) — 되돌리지 말 것.
