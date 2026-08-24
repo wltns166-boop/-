@@ -339,15 +339,15 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #pg_samdocs .sdl{display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px}
 #pg_samdocs .sdi{width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26}
 #pg_samdocs .sdsec{font-size:14px;font-weight:700;color:#3040aa;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(80,80,160,.15)}
-#sd_grid,#sd_grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
-#sd_grid3{grid-template-columns:1fr;max-width:420px} /* 모집자 성명 한 칸뿐 — 반쪽 빈 그리드 방지 */
-#pg_samdocs .sdrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;padding:8px;border:1px solid rgba(72,88,204,.12);border-radius:8px;background:#fbfcff}
-#pg_samdocs .sdrow .sdno{width:22px;font-size:14px;font-weight:700;color:#3040aa;padding-bottom:9px;text-align:center}
-#pg_samdocs .sdrow .sdcell{flex:1;min-width:150px}
+#sd_grid3{display:grid;grid-template-columns:1fr;gap:10px 12px}
+#sd_grid3{max-width:420px} /* 모집자 성명 한 칸뿐 */
+#pg_samdocs .sdrow,#pg_samdocs .sdctrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;padding:8px;border:1px solid rgba(72,88,204,.12);border-radius:8px;background:#fbfcff}
+#pg_samdocs .sdrow .sdno,#pg_samdocs .sdctrow .sdno{width:22px;font-size:14px;font-weight:700;color:#3040aa;padding-bottom:9px;text-align:center}
+#pg_samdocs .sdrow .sdcell,#pg_samdocs .sdctrow .sdcell{flex:1;min-width:150px}
+#pg_samdocs .sdrow .sdown{flex-basis:100%;font-size:12px;font-weight:700;color:#3040aa;margin-bottom:-2px}
 #pg_samdocs .sdxdel{width:26px;height:26px;margin-bottom:6px;line-height:22px;padding:0;border:1px solid rgba(200,80,80,.4);border-radius:50%;background:#fff;color:#c04040;font-size:13px;cursor:pointer;font-family:inherit}
 #pg_samdocs .sdwl{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;color:#1c1e26;cursor:pointer;padding:8px 10px;margin-bottom:2px;border:1px solid rgba(72,88,204,.25);border-radius:7px;background:#fff;white-space:nowrap}
 .sd-drop{border:1.5px dashed rgba(72,88,204,.4);border-radius:8px;padding:10px 12px;text-align:center;font-size:13px;color:#4858cc;cursor:pointer;background:#f8f9ff}
-@media(max-width:560px){ #sd_grid,#sd_grid3{grid-template-columns:1fr} }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -395,7 +395,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.21-10</div>
   </div>
 </div>
 
@@ -1920,13 +1920,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="font-size:13px;color:#8888aa;margin-bottom:6px">정보를 입력하고 [PDF 미리보기]/[PDF 다운로드]를 누르면 등록된 양식 PDF의 지정 위치에 자동으로 기입됩니다. 입력 내용은 저장되지 않고 이 화면에서만 사용됩니다.</div>
         <div class="ao" style="font-size:13px;color:#7080c0;margin-bottom:6px">관리자: 오른쪽 위 [관리]에서 문서별 양식 PDF 업로드와 [좌표 설정](기입 위치 지정)을 할 수 있습니다.</div>
 
-        <div class="sdsec">👤 계약자</div>
-        <div id="sd_grid">
-          <div><label class="sdl">계약자 성명</label><input class="sdi" id="sd_ct_name" placeholder="홍길동"></div>
-        </div>
+        <div class="sdsec">👤 계약자 <button class="bp" onclick="sdCtAdd(true)" style="font-size:12px;padding:3px 10px;margin-left:8px;vertical-align:middle"><i class="ti ti-plus"></i> 계약자 추가</button></div>
+        <div style="font-size:12px;color:#98a;margin-bottom:8px">계약자마다 <b>건수</b>를 지정하면 아래 계약 정보에 그 수만큼 줄이 자동으로 생깁니다 — 예: 계약자 2명이 각 2건이면 1·2번 줄은 1번 계약자, 3·4번 줄은 2번 계약자의 계약입니다.</div>
+        <div id="sd_cts"></div>
 
-        <div class="sdsec">📄 계약 정보 <button class="bp" onclick="sdRowAdd(true)" style="font-size:12px;padding:3px 10px;margin-left:8px;vertical-align:middle"><i class="ti ti-plus"></i> 계약 추가</button></div>
-        <div style="font-size:12px;color:#98a;margin-bottom:8px">계약(줄)마다 <b>개인정보처리동의서 + 고지의무확인서</b>가 만들어지고, <b>[종신]</b>에 체크하면 그 계약엔 <b>완전판매동의서</b>까지 추가됩니다 — 전부 한 PDF로 합쳐집니다. 피보험자 성명을 비우면 계약자와 동일 취급합니다.</div>
+        <div class="sdsec">📄 계약 정보</div>
+        <div style="font-size:12px;color:#98a;margin-bottom:8px">계약(줄)마다 <b>개인정보처리동의서 + 고지의무확인서</b>가 만들어지고, <b>[종신]</b>에 체크하면 그 계약엔 <b>완전판매동의서</b>까지 추가됩니다 — 전부 한 PDF로 합쳐집니다. 피보험자 성명을 비우면 그 계약의 계약자와 동일 취급합니다.</div>
         <div id="sd_ct_rows"></div>
 
         <div style="margin-top:12px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
@@ -4483,7 +4482,7 @@ function _sdDoc(k){ for(var i=0;i<SAMDOC_LIST.length;i++) if(SAMDOC_LIST[i].k===
 
 function rSamdocs(){
   var ag=g('sd_agent'); if(ag&&!ag.value&&typeof cu!=='undefined'&&cu&&cu.name) ag.value=cu.name; // 모집자=로그인 사용자 자동
-  var rows=g('sd_ct_rows'); if(rows&&!rows.querySelector('.sdrow')) sdRowAdd(false); // 기본 계약 1줄
+  var cts=g('sd_cts'); if(cts&&!cts.querySelector('.sdctrow')) sdCtAdd(false); // 기본 계약자 1명(계약 1줄 자동 생성)
   // 계약(작성) 일자 기본값 = 오늘 ([오늘자 계약] 체크 상태로 시작)
   var wy=g('sd_wy');
   if(wy&&!wy.value){ _sdSetDate(new Date()); var cb=g('sd_today'); if(cb) cb.checked=true; }
@@ -4521,40 +4520,136 @@ function sdDateInput(el){
   }
 }
 
-// ── 계약 정보 줄(보험회사/상품명/증권번호) — [＋ 계약 추가]로 여러 건, 계약마다 문서 세트 생성 ──
-// 줄 조작은 DOM 요소 자기 자신 기준(closest — 함정 A: 표시 인덱스 미사용). 입력값은 저장 안 함(화면 전용).
-function sdRowAdd(focus){
-  var box=g('sd_ct_rows'); if(!box) return;
+// ── 계약자 줄(성명/건수) + 계약 정보 줄(피보험자/보험회사/상품명/증권번호/종신) ──
+// 계약자마다 건수를 지정하면 계약 줄이 그 합만큼 자동 생성되고, 줄은 순서대로 각 계약자에 소속된다
+// (예: 1번 계약자 2건 → 1·2번 줄, 2번 계약자 2건 → 3·4번 줄). 줄 조작은 DOM 요소 자기 자신 기준
+// (closest — 함정 A: 표시 인덱스 미사용). 입력값은 저장 안 함(화면 전용).
+function _sdNewCtId(){ return 'ct_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+function sdCtAdd(focus){
+  var box=g('sd_cts'); if(!box) return;
   var div=document.createElement('div');
-  div.className='sdrow';
+  div.className='sdctrow';
+  div.setAttribute('data-sd-ctid', _sdNewCtId());   // 줄 소속 매칭용 고유 id(함정 A — 위치 아닌 id 기준)
   div.innerHTML=
     '<div class="sdno"></div>'
+    +'<div class="sdcell"><label class="sdl">계약자 성명</label><input class="sdi" data-sd-ctname placeholder="홍길동" oninput="_sdLabelRefresh()"></div>'
+    +'<div style="width:86px"><label class="sdl">건수</label><input class="sdi" type="number" data-sd-ctcnt min="1" max="20" value="1" onchange="this.value=Math.max(1,Math.min(20,parseInt(this.value,10)||1));_sdSyncRows()"></div>'
+    +'<button class="sdxdel" title="이 계약자 빼기 (소속 계약 줄도 함께 삭제)" onclick="sdCtDel(this)">✕</button>';
+  box.appendChild(div);
+  _sdSyncRows();
+  if(focus){ var i=div.querySelector('[data-sd-ctname]'); if(i) i.focus(); }
+}
+// 계약자의 소속 계약 줄에 입력값(텍스트·종신 체크)이 있는지
+function _sdRowsHaveVal(rows){
+  return Array.prototype.some.call(rows,function(r){
+    return Array.prototype.some.call(r.querySelectorAll('input'),function(inp){
+      return inp.type==='checkbox'?inp.checked:!!String(inp.value||'').trim();
+    });
+  });
+}
+function sdCtDel(btn){
+  var box=g('sd_cts'); var row=btn&&btn.closest?btn.closest('.sdctrow'):null;
+  if(!box||!row) return;
+  var id=row.getAttribute('data-sd-ctid')||'';
+  var nm=(row.querySelector('[data-sd-ctname]')||{value:''}).value.trim();
+  var myRows=document.querySelectorAll('#sd_ct_rows .sdrow[data-sd-owner="'+id+'"]');
+  var hasVal=_sdRowsHaveVal(myRows);
+  if(box.querySelectorAll('.sdctrow').length<=1){ // 마지막 계약자는 지우는 대신 초기화
+    if(hasVal&&!confirm('입력된 계약 줄이 초기화됩니다. 계속할까요?')) return;
+    var n=row.querySelector('[data-sd-ctname]'); if(n) n.value='';
+    var c=row.querySelector('[data-sd-ctcnt]'); if(c) c.value='1';
+    Array.prototype.forEach.call(myRows,function(r){ r.remove(); });
+    _sdSyncRows(); return;
+  }
+  if(hasVal&&!confirm((nm||'이 계약자')+'의 입력된 계약 줄 '+myRows.length+'개가 함께 삭제됩니다. 계속할까요?')) return;
+  row.remove();
+  _sdSyncRows();   // 고아가 된 소속 줄은 동기화 초입에서 제거
+}
+// 계약자 목록 [{id,name,cnt,cntEl}] — 건수는 1~20으로 클램프
+function _sdCts(){
+  var out=[];
+  document.querySelectorAll('#sd_cts .sdctrow').forEach(function(r){
+    var cntEl=r.querySelector('[data-sd-ctcnt]');
+    var c=parseInt((cntEl||{value:'1'}).value,10);
+    if(!(c>=1)) c=1; if(c>20) c=20;
+    out.push({
+      id:r.getAttribute('data-sd-ctid')||'',
+      name:(r.querySelector('[data-sd-ctname]')||{value:''}).value.trim(),
+      cnt:c, cntEl:cntEl
+    });
+  });
+  return out;
+}
+// 계약 줄 동기화 — 계약자 id 블록 단위로만 추가/제거(다른 계약자의 줄은 절대 안 건드림 — 2026-08-21 리뷰).
+// 블록 축소로 입력된 줄이 지워질 땐 confirm(취소 시 건수 되돌림). 파괴적 동기화는 건수 onchange에서만 호출됨.
+function _sdSyncRows(){
+  var box=g('sd_ct_rows'); if(!box) return;
+  var cts=_sdCts();
+  var valid={}; cts.forEach(function(ct){ if(ct.id) valid[ct.id]=1; });
+  // 소속 계약자가 삭제된 고아 줄 제거(sdCtDel에서 confirm을 이미 받음)
+  Array.prototype.forEach.call(box.querySelectorAll('.sdrow'),function(r){
+    if(!valid[r.getAttribute('data-sd-owner')]) r.remove();
+  });
+  var anchor=null; // 직전 블록의 마지막 줄 — 다음 블록 신규 줄의 삽입 기준(계약자 순서 유지)
+  cts.forEach(function(ct){
+    if(!ct.id) return;
+    var sel='.sdrow[data-sd-owner="'+ct.id+'"]';   // id는 내부 생성 값(영숫자_)이라 셀렉터 안전
+    var rows=box.querySelectorAll(sel);
+    for(var i=rows.length;i<ct.cnt;i++){           // 부족 → 이 블록 끝에 추가
+      var after=rows.length?rows[rows.length-1]:anchor;
+      _sdRowInsert(box, ct.id, after);
+      rows=box.querySelectorAll(sel);
+    }
+    if(rows.length>ct.cnt){                        // 초과 → 이 블록 끝에서 제거(값 있으면 확인)
+      var doomed=Array.prototype.slice.call(rows, ct.cnt);
+      if(_sdRowsHaveVal(doomed)&&!confirm((ct.name||'이 계약자')+'의 입력된 계약 줄 '+doomed.length+'개가 삭제됩니다. 계속할까요?')){
+        if(ct.cntEl) ct.cntEl.value=String(rows.length);   // 취소 — 건수를 실제 줄 수로 되돌림
+      } else {
+        doomed.forEach(function(r){ r.remove(); });
+      }
+      rows=box.querySelectorAll(sel);
+    }
+    if(rows.length) anchor=rows[rows.length-1];
+  });
+  _sdLabelRefresh();
+}
+// 번호·소속 라벨만 갱신(비파괴 — 성명 타이핑 중에도 안전, 줄 요소는 재생성하지 않음)
+function _sdLabelRefresh(){
+  var box=g('sd_ct_rows'); if(!box) return;
+  var cts=_sdCts();
+  var names={}, ord={};
+  cts.forEach(function(ct,i){ names[ct.id]=ct.name; ord[ct.id]=i; });
+  var perCt={};
+  Array.prototype.forEach.call(box.querySelectorAll('.sdrow'),function(r,i){
+    var no=r.querySelector('.sdno'); if(no) no.textContent=(i+1)+'.';
+    var oid=r.getAttribute('data-sd-owner');
+    perCt[oid]=(perCt[oid]||0)+1;
+    var ow=r.querySelector('.sdown');
+    if(ow) ow.textContent='👤 '+(names[oid]||('계약자 '+((ord[oid]!=null?ord[oid]:0)+1)+' (성명 미입력)'))+' — '+perCt[oid]+'번째 계약';
+  });
+  var crows=document.querySelectorAll('#sd_cts .sdctrow');
+  crows.forEach(function(r,i2){
+    var no2=r.querySelector('.sdno'); if(no2) no2.textContent=(i2+1)+'.';
+    var del=r.querySelector('.sdxdel'); if(del) del.style.visibility=(crows.length>1)?'visible':'hidden';
+  });
+}
+// 계약 줄 생성 — afterEl 바로 뒤(없으면 목록 맨 앞)에 삽입해 블록 순서 유지
+function _sdRowInsert(box, ownerId, afterEl){
+  var div=document.createElement('div');
+  div.className='sdrow';
+  div.setAttribute('data-sd-owner', ownerId||'');
+  div.innerHTML=
+    '<div class="sdown"></div>'
+    +'<div class="sdno"></div>'
     +'<div class="sdcell"><label class="sdl">피보험자 성명</label><input class="sdi" data-sd-ins placeholder="비우면 계약자와 동일"></div>'
     +'<div class="sdcell"><label class="sdl">보험회사</label><input class="sdi" data-sd-co placeholder="예: 삼성화재"></div>'
     +'<div class="sdcell"><label class="sdl">상품명</label><input class="sdi" data-sd-prod placeholder="가입 상품명"></div>'
     +'<div class="sdcell"><label class="sdl">증권(청약)번호</label><input class="sdi" data-sd-pol placeholder="증권번호 또는 청약번호"></div>'
-    +'<label class="sdwl" title="체크하면 이 계약엔 완전판매동의서까지 추가됩니다"><input type="checkbox" data-sd-wl style="accent-color:#4858cc;width:14px;height:14px"> 종신</label>'
-    +'<button class="sdxdel" title="이 계약 줄 빼기" onclick="sdRowDel(this)">✕</button>';
-  box.appendChild(div);
-  _sdRowsRenum();
-  if(focus){ var i=div.querySelector('[data-sd-co]'); if(i) i.focus(); }
-}
-function sdRowDel(btn){
-  var box=g('sd_ct_rows'); var row=btn&&btn.closest?btn.closest('.sdrow'):null;
-  if(!box||!row) return;
-  if(box.querySelectorAll('.sdrow').length<=1){ // 마지막 줄은 지우는 대신 값만 비움
-    row.querySelectorAll('input').forEach(function(i){ i.value=''; });
-    return;
-  }
-  row.remove(); _sdRowsRenum();
-}
-function _sdRowsRenum(){
-  var box=g('sd_ct_rows'); if(!box) return;
-  var rows=box.querySelectorAll('.sdrow');
-  rows.forEach(function(r,i){
-    var no=r.querySelector('.sdno'); if(no) no.textContent=(i+1)+'.';
-    var del=r.querySelector('.sdxdel'); if(del) del.style.visibility=(rows.length>1)?'visible':'hidden';
-  });
+    +'<label class="sdwl" title="체크하면 이 계약엔 완전판매동의서까지 추가됩니다"><input type="checkbox" data-sd-wl style="accent-color:#4858cc;width:14px;height:14px"> 종신</label>';
+  if(afterEl&&afterEl.parentNode===box) box.insertBefore(div, afterEl.nextSibling);
+  else if(!afterEl) box.insertBefore(div, box.firstChild);
+  else box.appendChild(div);
+  return div;
 }
 
 // 양식 등록 상태 표시 — claimTemplateFor가 idb→Storage 순 조회(받으면 idb에 자동 캐시)
@@ -4664,8 +4759,7 @@ async function _sdBuild(){
   // 가짜 청구건 객체 — drawClaimFields의 ctx 규칙: 계약자=custName, 피보험자=insName(비면 계약자 폴백).
   // 성명만 입력(주민번호·연락처·주소·서명 없음 — 서명은 출력 후 자필) → 해당 좌표 항목엔 값이 안 찍힘.
   var base={
-    custName:_sdVal('sd_ct_name'), rrn:'', phone:'', addr:'',
-    insRrn:'',   // 피보험자 성명은 계약 줄별 입력(비우면 엔진 폴백으로 계약자와 동일 취급)
+    rrn:'', phone:'', addr:'', insRrn:'',   // 계약자·피보험자 성명은 계약 줄별로 지정(피보험자 비우면 엔진 폴백으로 계약자와 동일)
     agentName:_sdVal('sd_agent'), designNum:'',
     accident:[], desc:''
   };
@@ -4682,15 +4776,19 @@ async function _sdBuild(){
     }
     base.wDate=wy+'.'+('0'+M).slice(-2)+'.'+('0'+D).slice(-2);
   }
-  // 계약 정보 줄 수집 — 값이 하나라도 있는 줄만(wl=종신 체크). 없으면 빈 계약 1건(계약정보 칸만 빈 채 생성)
+  // 계약 정보 줄 수집 — 소속 계약자는 줄의 data-sd-owner(계약자 id)로 직접 조회(위치 계산 없음 — 함정 A).
+  // 값이 하나라도 있는 줄만 생성 대상. 전부 비면 빈 계약 1건(첫 계약자 명의).
+  var cts=_sdCts();
+  var nameOf={}; cts.forEach(function(ct){ nameOf[ct.id]=ct.name; });
   var rows=[];
   document.querySelectorAll('#sd_ct_rows .sdrow').forEach(function(r){
     var v=function(q){ var el=r.querySelector(q); return el?String(el.value||'').trim():''; };
     var ins=v('[data-sd-ins]'), co=v('[data-sd-co]'), prod=v('[data-sd-prod]'), pol=v('[data-sd-pol]');
     var wlEl=r.querySelector('[data-sd-wl]');
-    if(ins||co||prod||pol||(wlEl&&wlEl.checked)) rows.push({insName:ins, coName:co, prodName:prod, polNum:pol, wl:!!(wlEl&&wlEl.checked)});
+    if(ins||co||prod||pol||(wlEl&&wlEl.checked))
+      rows.push({owner:nameOf[r.getAttribute('data-sd-owner')]||'', insName:ins, coName:co, prodName:prod, polNum:pol, wl:!!(wlEl&&wlEl.checked)});
   });
-  if(!rows.length) rows.push({insName:'', coName:'', prodName:'', polNum:'', wl:false});
+  if(!rows.length) rows.push({owner:(cts[0]&&cts[0].name)||'', insName:'', coName:'', prodName:'', polNum:'', wl:false});
   // 계약별 문서 세트: 개인정보(gae)+고지의무(goji), 종신이면 완전판매(wan) 추가
   var docsOf=function(row){
     var ds=[_sdDoc('gae'), _sdDoc('goji')];
@@ -4710,8 +4808,8 @@ async function _sdBuild(){
   var total=0; rows.forEach(function(r){ total+=docsOf(r).length; });
   var done=0;
   for(var ri=0;ri<rows.length;ri++){
-    var c=Object.assign({}, base, {insName:rows[ri].insName, coName:rows[ri].coName, prodName:rows[ri].prodName, polNum:rows[ri].polNum});
-    var rowTag=(rows.length>1)?('계약 '+(ri+1)+' — '):'';
+    var c=Object.assign({}, base, {custName:rows[ri].owner, insName:rows[ri].insName, coName:rows[ri].coName, prodName:rows[ri].prodName, polNum:rows[ri].polNum});
+    var rowTag=(rows.length>1)?('계약 '+(ri+1)+(rows[ri].owner?('('+rows[ri].owner+')'):'')+' — '):'';
     var docs=docsOf(rows[ri]);
     for(var i=0;i<docs.length;i++){
       var d=docs[i]; done++;
@@ -4749,7 +4847,10 @@ async function sdDownload(){
     var bytes=await _sdBuild(); if(!bytes) return;
     var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
     var a=document.createElement('a');
-    var nm=(_sdVal('sd_ct_name')||'고객').replace(/[\\/:*?"<>|]/g,'_'); // 파일명 금지 문자 정리(피보험자는 계약 줄별이라 계약자명 기준)
+    // 파일명: 첫 계약자명 기준(계약자가 여럿이면 '외 n명'), 금지 문자 정리
+    var _all=_sdCts();
+    var _named=_all.filter(function(x){return x.name;});
+    var nm=((_named[0]&&_named[0].name)||'고객').replace(/[\\/:*?"<>|]/g,'_')+(_all.length>1?('_외'+(_all.length-1)+'명'):'');
     a.href=url; a.download='3종서류_'+nm+'_'+tds().replace(/\./g,'')+'.pdf';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },10000);
