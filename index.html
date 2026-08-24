@@ -396,7 +396,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.24-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.24-2</div>
   </div>
 </div>
 
@@ -3408,7 +3408,7 @@ async function loadFromFirestore(){
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
-    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ _lsSet('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -3479,7 +3479,7 @@ function startRealtimeSync(){
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
-    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ localStorage.setItem('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ _lsSet('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -19566,20 +19566,23 @@ function saveClaim(){
   try{ if((obj.files&&obj.files.length)||(obj.insFiles&&obj.insFiles.length)) _claimAttachStore(obj); }catch(e){}
   try{ _claimsCarryCloudMeta(claims); }catch(e){} // 공유 메타 회수(수정 저장이 pkgUrls 등을 지우는 것 방지)
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
+  var _clSaved=false;
   try{
-    localStorage.setItem('tops_claims', JSON.stringify(claims.map(function(cl){
+    _clSaved=_lsSet('tops_claims', JSON.stringify(claims.map(function(cl){
       var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp;
     })));
-  }catch(qe){
-    // QuotaExceeded - insFiles 등 제거 후 재시도
+  }catch(e){}
+  if(!_clSaved){
+    // QuotaExceeded 등 전체 저장 실패 - insFiles 등 제거한 경량본으로 재시도
     var claimsLight = claims.map(function(cl){
       var cp = Object.assign({}, cl);
       delete cp.packagePDF; delete cp.packagePDFs;
       delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign;
       return cp;
     });
-    try{ localStorage.setItem('tops_claims', JSON.stringify(claimsLight)); }
-    catch(e2){ console.warn('save failed:', e2); _claimsQuotaWarn(); }
+    var _clLightSaved=false;
+    try{ _clLightSaved=_lsSet('tops_claims', JSON.stringify(claimsLight)); }catch(e2){}
+    if(!_clLightSaved) _claimsQuotaWarn();
   }
   // Firestore: 대용량 base64(이미지·서명·PDF) 제외, 메타데이터 + Storage URL(pkgUrls)만 동기화
   try{
