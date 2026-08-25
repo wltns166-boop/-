@@ -396,7 +396,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.24-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.25-1</div>
   </div>
 </div>
 
@@ -4248,6 +4248,10 @@ function setAdmin(){
     var el=g(id); if(!el||!el.parentElement) return;
     el.parentElement.style.display=isAdmin?'':'none';   // .ns 통째 숨김
   });
+  // DB관리 메뉴 전체(그룹 머리+하위 묶음)는 관리자만 (2026-08-25 — 팀원 화면에서 완전히 숨김)
+  [g('n_db'), g('nch_db')].forEach(function(el){
+    if(el) el.style.display=isAdmin?'':'none';
+  });
   // 요청관리 하위 nav 항목은 통합 페이지 사용으로 숨김
   ['n_edu_apply','n_goods_apply','n_suggestion'].forEach(function(id){
     var el=g(id); if(!el) return;
@@ -4374,8 +4378,8 @@ g('n_db').addEventListener('click',function(){tnav('db');});
 // 신청현황·배정현황은 관리자 전용 (메뉴는 setAdmin에서 숨김 — 여기는 이중 안전장치)
 g('n_db_apply').addEventListener('click',function(){if(!_isAdmin()){toast('관리자만 볼 수 있습니다.');return;}showPage('db_apply');});
 g('n_db_assign').addEventListener('click',function(){if(!_isAdmin()){toast('관리자만 볼 수 있습니다.');return;}showPage('db_assign');});
-g('n_db_info').addEventListener('click',function(){showPage('db_info');});
-g('n_db_exchange').addEventListener('click',function(){showPage('db_exchange');});
+g('n_db_info').addEventListener('click',function(){if(!_isAdmin()){toast('관리자만 볼 수 있습니다.');return;}showPage('db_info');});
+g('n_db_exchange').addEventListener('click',function(){if(!_isAdmin()){toast('관리자만 볼 수 있습니다.');return;}showPage('db_exchange');});
 g('n_claim_menu').addEventListener('click',function(){tnav('claim');});
 g('n_claim_apply').addEventListener('click',function(){showPage('claim_apply');});
 g('n_claim_status').addEventListener('click',function(){showPage('claim_status');});
