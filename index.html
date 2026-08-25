@@ -396,7 +396,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.25-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.25-2</div>
   </div>
 </div>
 
@@ -4767,6 +4767,28 @@ function _sdVal(id){ var el=g(id); return el?String(el.value||'').trim():''; }
 
 // 계약(줄)마다 문서 세트를 채워 한 PDF로 병합 — 기본 세트는 개인정보처리동의서+고지의무확인서,
 // [종신] 체크된 계약은 완전판매동의서 추가. 실패 문서는 안내(조용한 누락 금지).
+// 3종서류 페이지 A4 정규화 — A4보다 큰 양식(고해상도 스캔본 등)은 비율 축소해 A4 가운데 배치.
+// 개인정보처리동의서처럼 원본이 A4보다 큰 양식이 인쇄에서 잘리던 문제 해결(2026-08-25).
+// A4 이하 페이지(고지의무확인서 등 정상 양식)는 손대지 않고, 실패 시 원본 그대로 둔다.
+function _sdFitA4(p){
+  try{
+    var A4W=595.28, A4H=841.89;
+    var w=p.getWidth(), h=p.getHeight();
+    var W=(w>h)?A4H:A4W, H=(w>h)?A4W:A4H;   // 가로 양식은 A4 가로 방향 기준
+    if(w<=W+2 && h<=H+2) return;             // A4 이하는 그대로
+    var s=Math.min(W/w, H/h);
+    p.scale(s, s);                            // 내용·주석·페이지 크기 함께 축소(좌표 상대 위치 유지)
+    var dx=(W-w*s)/2, dy=(H-h*s)/2;
+    if(dx>0.5||dy>0.5) p.translateContent(dx,dy);   // 남는 여백 가운데 정렬
+    p.setSize(W,H);
+    // CropBox 등 부속 박스가 원본(축소 전) 좌표로 남으면 뷰어/프린터에서 또 잘림 —
+    // setSize는 "CropBox==기존 MediaBox일 때만" 함께 갱신하므로 명시적으로 새 크기로 강제(2026-08-25 리뷰).
+    try{ p.setCropBox(0,0,W,H); }catch(e){}
+    try{ p.setBleedBox(0,0,W,H); }catch(e){}
+    try{ p.setTrimBox(0,0,W,H); }catch(e){}
+    try{ p.setArtBox(0,0,W,H); }catch(e){}
+  }catch(e){ console.warn('3종서류 A4 정규화 실패(원본 유지):', e); }
+}
 async function _sdBuild(){
   if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.'); return null; }
   // 가짜 청구건 객체 — drawClaimFields의 ctx 규칙: 계약자=custName, 피보험자=insName(비면 계약자 폴백).
@@ -4836,7 +4858,7 @@ async function _sdBuild(){
         var srcDoc=await PDFDocument.load(bytes,{ignoreEncryption:true});
         var coords=claimCoordsFor(d.tpl);
         await drawClaimFields(srcDoc, coords, c, _sdDtx);
-        (await merged.copyPages(srcDoc, srcDoc.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+        (await merged.copyPages(srcDoc, srcDoc.getPageIndices())).forEach(function(p){ _sdFitA4(p); merged.addPage(p); });
         okN++;
       }catch(e){ console.warn('samdoc build', d.nm, e); miss.push(rowTag+d.nm+': '+(e.message||e)); }
     }
