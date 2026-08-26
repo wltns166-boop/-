@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-8</div>
   </div>
 </div>
 
@@ -1697,7 +1697,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
           <!-- 서명 -->
           <div class="fg">
-            <div class="fl">서명</div>
+            <div class="fl">계약자 서명</div>
             <div style="margin-top:6px;border:1.5px solid rgba(72,88,204,.25);border-radius:10px;overflow:hidden;background:#fff;position:relative;width:240px;max-width:100%;margin-left:auto;margin-right:auto">
               <canvas id="claim_sign_canvas" width="480" height="120" style="display:block;cursor:crosshair;touch-action:none;width:240px;max-width:100%;height:60px"></canvas>
               <button onclick="clearClaimSign()" style="position:absolute;top:3px;right:4px;font-size:10px;padding:1px 5px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5fa;font-family:inherit;color:#666">지우기</button>
@@ -22228,7 +22228,7 @@ var CC_SAM_KEYS={ctName:1,insName:1,coName:1,prodName:1,polNum:1,agentName:1,vch
 var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 표시되는 그룹
   { title:'계약자', sam:1, items:[
     {key:'ctName',       label:'성명'},
-    {key:'ctSign',       label:'서명'},
+    {key:'ctSign',       label:'계약자 서명'},
     {key:'ctRrn',        label:'주민번호 (전체)'},
     {key:'ctRrnFront',   label:'주민번호 앞 6자리'},
     {key:'ctRrnBack',    label:'주민번호 뒤 7자리'},
@@ -22240,7 +22240,7 @@ var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 
   ]},
   { title:'피보험자', sam:1, items:[
     {key:'insName',    label:'성명'},
-    {key:'sign',       label:'서명'},
+    {key:'sign',       label:'피보험자 서명'},
     {key:'insRrn',     label:'주민번호 (전체)'},
     {key:'insRrnFront',label:'주민번호 앞 6자리'},
     {key:'insRrnBack', label:'주민번호 뒤 7자리'},
@@ -22327,7 +22327,7 @@ function ccRefreshToolbox(){
     items.forEach(function(it){
       var cnt=counts[it.key]||0;
       var checked=cnt>0?'checked':'';
-      html+='<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:12.5px">'
+      html+='<div data-tbrow="'+it.key+'" style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:12.5px;border-radius:5px">'
         +'<input type="checkbox" data-tb="'+it.key+'" '+checked+' onchange="ccTbToggle(\''+it.key+'\',this.checked)" style="accent-color:#4858cc;width:14px;height:14px;cursor:pointer">'
         +'<label onclick="ccTbToggle(\''+it.key+'\',!('+cnt+'>0))" style="flex:1;cursor:pointer;color:#1a1a3a">'+it.label+(cnt>1?' <span style="color:#888;font-size:11px">×'+cnt+'</span>':'')+'</label>'
         +'<button onclick="ccTbAdd(\''+it.key+'\')" title="배치 추가" style="font-size:11px;padding:2px 6px;background:#fff;border:1px solid rgba(72,88,204,.4);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit">+ 추가</button>'
@@ -22337,6 +22337,22 @@ function ccRefreshToolbox(){
     html+='</div>';
   });
   box.innerHTML=html;
+  ccTbHighlight();   // 재렌더로 지워진 선택 강조 복원
+}
+
+// 캔버스에서 선택된 칩의 항목 행을 도구박스에서 색으로 강조(칩 선택 테두리와 같은 주황) + 보이게 스크롤(2026-08-26)
+function ccTbHighlight(){
+  var box=g('cc_toolbox'); if(!box) return;
+  var sel=window._ccSelKeys||[];
+  var selBase={}; sel.forEach(function(k){ selBase[ccBaseKey(k)]=1; });
+  var first=null;
+  Array.prototype.forEach.call(box.querySelectorAll('[data-tbrow]'),function(r){
+    var on=!!selBase[r.getAttribute('data-tbrow')];
+    r.style.background=on?'rgba(255,170,0,.16)':'';
+    r.style.boxShadow=on?'inset 0 0 0 1px rgba(255,170,0,.6)':'';
+    if(on&&!first) first=r;
+  });
+  if(first){ try{ first.scrollIntoView({block:'nearest'}); }catch(e){} }
 }
 
 function ccTbToggle(baseKey, checked){
@@ -22480,6 +22496,7 @@ function ccUpdateHighlights(){
   Array.prototype.forEach.call(ov.querySelectorAll('.cc_chip'),function(c){
     c.style.outline = sel.indexOf(c.dataset.key)>=0 ? '2px solid #ffaa00' : 'none';
   });
+  try{ ccTbHighlight(); }catch(e){}   // 도구박스의 해당 항목 행도 함께 강조
 }
 function ccSelectChip(key, additive){
   if(!Array.isArray(window._ccSelKeys)) window._ccSelKeys=[];
