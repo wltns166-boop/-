@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-7</div>
   </div>
 </div>
 
@@ -22038,6 +22038,7 @@ function ccPlaceChips(){
     var fpage=(typeof co.page==='number')?co.page:(def.page||0);
     if(fpage!==pageIdx) return;
     var off=(co.on===false);
+    if(off) return;   // 꺼진 항목은 캔버스에 표시하지 않음 — 도구박스에서 체크/[+ 추가]하면 표시(2026-08-26)
     var ax=co.x*sc, ay=(H-co.y)*sc;
     var chip=document.createElement('div');
     chip.className='cc_chip'; chip.dataset.key=key;
@@ -22277,7 +22278,15 @@ var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 
     {key:'p4v2', label:'4p 동의 V #2'},
     {key:'p5v1', label:'5p 동의 V #1'},
     {key:'p5v2', label:'5p 동의 V #2'},
-    {key:'p5v3', label:'5p 동의 V #3'}
+    {key:'p5v3', label:'5p 동의 V #3'},
+    // 5p 동의서 작성일·성명·서명 — 도구박스에 없으면 숨긴 뒤 되살릴 경로가 없음(2026-08-26 리뷰:
+    // 꺼진 항목 칩 미표시로 캔버스 직접 토글 경로가 사라져 도구박스가 유일한 재추가 수단)
+    {key:'p5Y',    label:'5p 작성일: 년 (4자리)'},
+    {key:'p5Y2',   label:'5p 작성일: 년 (2자리)'},
+    {key:'p5M',    label:'5p 작성일: 월'},
+    {key:'p5D',    label:'5p 작성일: 일'},
+    {key:'p5Name', label:'5p 성명'},
+    {key:'p5Sign', label:'5p 서명'}
   ]},
   { title:'계약정보·범용 (3종서류 등)', sam:1, items:[
     {key:'coName',    label:'보험회사명'},
@@ -22569,14 +22578,20 @@ function ccNudgeSetup(){
     if(!keys.length) return;
     // Escape → 선택 해제
     if(e.key==='Escape'){ e.preventDefault(); ccSelectChip(null); return; }
-    // Delete/Backspace → 모두 제거
+    // Delete/Backspace → 모두 제거.
+    //   기본 항목은 delete 대신 숨김(on:false) — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가
+    //   기본 좌표(defOn)로 되살리던 부활 버그(2026-08-26). 숨김은 저장에 on:false로 남아 영구 유지되고,
+    //   도구박스 체크/[+ 추가]로만 다시 나타난다. 추가 인스턴스(_N)는 저장본에서 빠지면 안 살아나므로 완전 삭제.
     if(e.key==='Delete'||e.key==='Backspace'){
       e.preventDefault();
       var n=keys.length;
-      keys.forEach(function(k){ delete window._ccWork[k]; });
+      keys.forEach(function(k){
+        if(/_\d+$/.test(k)) delete window._ccWork[k];
+        else if(window._ccWork[k]) window._ccWork[k].on=false;
+      });
       window._ccSelKey=null; window._ccSelKeys=[];
       ccPlaceChips();
-      toast(n+'개 항목을 제거했습니다. (저장을 눌러야 영구 반영)');
+      toast(n+'개 항목을 제거했습니다. [저장]하면 다시 나타나지 않습니다. (도구박스에서 다시 추가 가능)');
       return;
     }
     // 방향키 → 다중 이동
