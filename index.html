@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-9</div>
   </div>
 </div>
 
@@ -20987,7 +20987,7 @@ async function generateClaimPackage(idx) {
         for(var fi2=0; fi2<_filesUse.length; fi2++){
           var f2=_filesUse[fi2]; var fData=f2.data||f2;
           if(typeof fData==='string' && fData.startsWith('data:')){
-            if(fData.includes('/pdf')){
+            if(/^data:[^,]*\/pdf/i.test(fData)){ // MIME 헤더만 검사 — 본문 base64에 우연히 '/pdf'가 들면 사진이 PDF로 오분류되던 실사고(2026-08-26)
               var pdfMerged=false;
               try{
                 var fDoc = await PDFDocument.load(Uint8Array.from(atob(fData.split(',')[1]), function(ch){return ch.charCodeAt(0);}));
