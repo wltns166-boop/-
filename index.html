@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-6</div>
   </div>
 </div>
 
@@ -3559,6 +3559,18 @@ function _pdfRelayShow(url){
 }
 try{
   var _pdfQ=new URLSearchParams(location.search).get('pdf');
+  // 카톡 등 일부 인앱 브라우저가 링크를 한 번 디코드해 열면 Storage URL의 &token= 이 별도 파라미터로
+  // 쪼개져 토큰 없는 주소로 이동 → 403(Permission denied) 실사고(2026-08-26).
+  // 토큰이 안 보이면 pdf= 뒤 전체를 원문 그대로 복원한다(인코딩 잔존 시에만 1회 디코드).
+  if(_pdfQ && !/[?&]token=/.test(_pdfQ)){
+    var _pdfRaw=location.search.slice(1);
+    var _pdfP=_pdfRaw.indexOf('pdf=');
+    if(_pdfP>=0){
+      var _pdfRest=_pdfRaw.slice(_pdfP+4);
+      if(/^https%3A/i.test(_pdfRest)){ try{ _pdfRest=decodeURIComponent(_pdfRest); }catch(e){ _pdfRest=''; } }
+      if(/^https:\/\//.test(_pdfRest)) _pdfQ=_pdfRest;
+    }
+  }
   if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2F/.test(_pdfQ)){
     var _pdfShareOk=false;
     try{
