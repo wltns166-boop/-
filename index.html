@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-3</div>
   </div>
 </div>
 
@@ -13822,10 +13822,9 @@ function rCustStatus(){
           if(parenIdx>0){
             var mainN=name.slice(0,parenIdx).trim();
             var subN=name.slice(parenIdx+1).replace(')','').trim();
-            var sp=subN.split(' ');
-            nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(mainN)+'</div>'
-              +(sp[0]?'<div style="font-size:13px;color:#8888bb;margin-top:2px">'+_esc(sp[0])+'</div>':'')
-              +(sp.slice(1).join(' ')?'<div style="font-size:13px;color:#8888bb">'+_esc(sp.slice(1).join(' '))+'</div>':'');
+            // 이름 + 부가정보(소유 고객님 관계)를 한 줄로 표기 (2026-08-26)
+            nameInner='<div style="font-size:15px;line-height:1.4"><span style="font-weight:700;color:#2040cc;text-decoration:underline">'+_esc(mainN)+'</span>'
+              +(subN?' <span style="font-size:13px;color:#8888bb">'+_esc(subN)+'</span>':'')+'</div>';
           } else {
             nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(name)+'</div>';
           }
