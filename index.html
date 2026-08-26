@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-5</div>
   </div>
 </div>
 
@@ -3506,12 +3506,68 @@ function startRealtimeSync(){
 function td(){return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);} // KST 날짜 — UTC였던 옛 구현은 새벽 0~9시에 하루 전 날짜가 기록되던 버그(2026-08-11 리뷰)
 function tds(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');}
 function g(id){return document.getElementById(id);}
-// 카톡 청구파일 링크 경유 — /?pdf=<Storage URL> 로 들어오면 해당 PDF로 즉시 이동.
+// 카톡 청구파일 링크 경유 — /?pdf=<Storage URL> 로 들어오면 해당 PDF로 이동.
 // (카카오 링크 버튼은 등록된 인트라넷 도메인만 허용돼 인트라넷을 경유한다.
 //  이 프로젝트 버킷의 claim_packages 경로만 허용 — 타 프로젝트 버킷을 포함한 오픈 리다이렉트 방지)
+// 휴대폰이고 파일 공유(Web Share)가 되는 브라우저면 [공유하기] 중간 화면을 먼저 보여줌(2026-08-26) —
+//   공유 시트에서 모바일팩스 앱을 고르면 PDF가 팩스 앱에 바로 첨부된다. 그 외(PC·미지원)는 기존처럼 즉시 이동.
+function _pdfRelayShow(url){
+  var draw=function(){
+    var fn='청구파일.pdf';
+    // 파일명: URL 경로의 마지막 조각(%2F 구분)을 디코드 — 한글 파일명(%인코딩)도 처리, 실패·비PDF는 기본명
+    try{
+      var seg=url.split('?')[0].split('%2F').pop();
+      if(seg){ var d=decodeURIComponent(seg); if(/\.pdf$/i.test(d)) fn=d.replace(/[<>&"']/g,''); }
+    }catch(e){}
+    var BTN='display:block;width:100%;padding:13px 14px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:800;font-size:15px;margin-top:10px;';
+    var wrap=document.createElement('div');
+    wrap.id='pdfr_wrap';
+    wrap.style.cssText='position:fixed;inset:0;z-index:99999;background:#f2f4fb;display:flex;align-items:center;justify-content:center;padding:20px';
+    wrap.innerHTML='<div style="background:#fff;border:1px solid #dfe3f2;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 30px rgba(40,60,140,.12)">'
+      +'<div style="font-size:38px;line-height:1">📄</div>'
+      +'<div style="font-weight:800;font-size:17px;color:#1a1a3a;margin:10px 0 4px">청구파일</div>'
+      +'<div style="font-size:13px;color:#7a84ad;word-break:break-all;margin-bottom:14px">'+fn+'</div>'
+      +'<button id="pdfr_share" style="'+BTN+'background:#1a9050;color:#fff;border:1px solid #1a9050">📤 공유하기 — 모바일팩스로 보내기</button>'
+      +'<button id="pdfr_open" style="'+BTN+'background:#fff;color:#3a48cc;border:1px solid rgba(72,88,204,.4)">PDF 열기 · 다운로드</button>'
+      +'<div id="pdfr_msg" style="font-size:12.5px;color:#8890b8;margin-top:12px;line-height:1.6">[공유하기]를 누른 뒤 목록에서 <b>모바일팩스</b> 앱을 선택하면<br>파일이 팩스 앱에 바로 첨부됩니다.</div>'
+      +'</div>';
+    document.body.appendChild(wrap);
+    // PDF를 미리 내려받아 두면 버튼 클릭 시 지연 없이 공유창이 뜬다(iOS 사용자 제스처 시간 제한 대응)
+    var blobP=fetch(url).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); });
+    blobP.catch(function(){});   // 실패는 버튼 클릭 시 안내(콘솔 unhandled 방지)
+    var shareHtml='📤 공유하기 — 모바일팩스로 보내기';
+    g('pdfr_open').onclick=function(){ location.href=url; };
+    g('pdfr_share').onclick=function(){
+      var btn=g('pdfr_share'); if(!btn||btn.disabled) return;
+      btn.disabled=true; btn.textContent='파일 준비 중...';
+      blobP.then(function(b){
+        var f=new File([b], fn, {type:'application/pdf'});
+        return navigator.share({files:[f], title:fn});
+      }).then(function(){
+        btn.disabled=false; btn.innerHTML=shareHtml;
+      }).catch(function(e){
+        btn.disabled=false; btn.innerHTML=shareHtml;
+        if(e && e.name==='AbortError') return;   // 사용자가 공유창을 닫은 것 — 오류 아님
+        var msg=g('pdfr_msg');
+        if(msg) msg.innerHTML=(e&&e.name==='NotAllowedError')
+          ?'공유창이 열리지 않았습니다 — <b>한 번 더</b> 눌러 주세요.'
+          :'공유가 안 되면 [PDF 열기]로 저장한 뒤, 모바일팩스 앱에서 파일을 불러와 주세요.';
+      });
+    };
+  };
+  if(document.body) draw(); else document.addEventListener('DOMContentLoaded', draw);
+}
 try{
   var _pdfQ=new URLSearchParams(location.search).get('pdf');
-  if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2F/.test(_pdfQ)) location.replace(_pdfQ);
+  if(_pdfQ && /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2F/.test(_pdfQ)){
+    var _pdfShareOk=false;
+    try{
+      _pdfShareOk=/Android|iPhone|iPad/i.test(navigator.userAgent)
+        && !!(navigator.canShare && navigator.canShare({files:[new File([''],'t.pdf',{type:'application/pdf'})]}));
+    }catch(e){}
+    if(_pdfShareOk) _pdfRelayShow(_pdfQ);
+    else location.replace(_pdfQ);   // PC·파일 공유 미지원 브라우저는 기존 동작 그대로
+  }
 }catch(e){}
 // 모바일 사이드바(서랍) 토글
 function toggleSidebar(){var sb=g('sb'),ov=g('sb_overlay');if(!sb)return;var open=sb.classList.toggle('open');if(ov)ov.classList.toggle('open',open);}
