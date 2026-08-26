@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-10</div>
   </div>
 </div>
 
@@ -2130,13 +2130,13 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">파란 칩을 드래그해 칸 위에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. <b>다중 선택</b>: ① 빈 공간을 드래그해 박스로 묶기 ② Ctrl/Shift+클릭으로 하나씩 추가 ③ Ctrl/⌘+A로 현재 페이지 전체. 여러개 선택 상태에서 드래그하면 함께 이동, <b>방향키</b>로도 함께 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 함께 제거, <b>Esc</b>로 선택 해제. 칩 한 개 클릭하면 아래에서 <b>글씨크기·글자간격</b> 조정. <b>저장</b> 시 해당 보험사 청구파일이 자동 재생성됩니다.</div>
+  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">파란 칩을 드래그해 칸 위에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. <b>다중 선택</b>: ① 빈 공간을 드래그해 박스로 묶기 ② Ctrl/Shift+클릭으로 하나씩 추가 ③ Ctrl/⌘+A로 현재 페이지 전체. 여러개 선택 상태에서 드래그하면 함께 이동, <b>방향키</b>로도 함께 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 함께 제거, <b>Esc</b>로 선택 해제. 칩을 클릭(여러 개 선택 가능)하면 아래에서 <b>글씨크기·글자간격</b> 조정 — 값 입력 후 <b>엔터</b> 또는 [적용]하면 선택한 칩 전부에 반영. <b>저장</b> 시 해당 보험사 청구파일이 자동 재생성됩니다.</div>
   <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
     <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
     <span style="flex:1"></span>
-    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글씨크기 <input id="cc_props_size" type="number" step="0.5" min="5" max="24" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="9"></label>
-    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글자간격 <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
+    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글씨크기 <input id="cc_props_size" type="number" step="0.5" min="5" max="24" onkeydown="if(event.key==='Enter'){event.preventDefault();ccApplyProps();}" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="9"></label>
+    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글자간격 <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" onkeydown="if(event.key==='Enter'){event.preventDefault();ccApplyProps();}" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
     <button class="bp bco" onclick="ccApplyProps()" style="font-size:13px;padding:5px 12px">적용</button>
   </div>
   <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
@@ -22426,6 +22426,7 @@ function ccTbAdd(baseKey){
     on: true
   };
   window._ccSelKey=newKey;
+  window._ccSelKeys=[newKey]; // 다중선택 배열도 동기화 — 어긋나면 크기·간격 적용이 이전 선택 칩에 가는 버그(2026-08-26 리뷰)
   ccPlaceChips();
   toast(ccLabelFor(newKey)+' 배치됨. 드래그해서 위치를 맞추세요.');
 }
@@ -22638,35 +22639,57 @@ function ccNudgeSetup(){
     });
   });
 }
+function _ccPropsTargets(){ // 크기·간격 적용 대상 — 다중 선택 전체(없으면 마지막 클릭 1개), _ccWork에 실제 있는 키만
+  var keys=(Array.isArray(window._ccSelKeys)?window._ccSelKeys:[]).slice();
+  if(!keys.length && window._ccSelKey) keys=[window._ccSelKey];
+  return keys.filter(function(k){ return k && window._ccWork && window._ccWork[k]; });
+}
 function ccUpdatePropsPanel(){
-  var key=window._ccSelKey;
   var panel=g('cc_props'); if(!panel) return;
-  if(!key || !window._ccWork || !window._ccWork[key]){
+  var keys=_ccPropsTargets();
+  if(!keys.length){
     g('cc_props_name').textContent='— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)';
     g('cc_props_size').value=''; g('cc_props_pitch').value='';
     g('cc_props_size').placeholder='—'; g('cc_props_pitch').placeholder='—';
     return;
   }
+  var sizeInput=g('cc_props_size'), pitchInput=g('cc_props_pitch');
+  var key=keys[keys.length-1];
   var co=window._ccWork[key];
   var meta=(typeof claimMeta==='function')?(claimMeta()[key]||{}):{};
   var defField=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===key;})||{};
+  if(keys.length>1){
+    // 다중 선택 — 전 항목 값이 같으면 그 값 표시, 다르면 빈 칸(빈 칸=각자 유지)
+    g('cc_props_name').textContent=(defField.label||key)+' 외 '+(keys.length-1)+'개 — 입력한 값만 전체 적용(빈 칸은 각자 유지)';
+    var szs=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.size==='number'&&w.size>0)?w.size:null; });
+    var pts=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.pitch==='number'&&w.pitch>0)?w.pitch:null; });
+    var sameSz=szs.every(function(v){return v===szs[0];});
+    var samePt=pts.every(function(v){return v===pts[0];});
+    sizeInput.value=(sameSz&&szs[0]!=null)?szs[0]:'';
+    pitchInput.value=(samePt&&pts[0]!=null)?pts[0]:'';
+    sizeInput.placeholder=sameSz?((meta.s!=null)?String(meta.s):'9'):'(여러 값)';
+    pitchInput.placeholder=samePt?((meta.pitch!=null)?String(meta.pitch):'(없음)'):'(여러 값)';
+    return;
+  }
   g('cc_props_name').textContent=defField.label||key;
-  var sizeInput=g('cc_props_size'), pitchInput=g('cc_props_pitch');
   sizeInput.placeholder=(meta.s!=null)?String(meta.s):'9';
   pitchInput.placeholder=(meta.pitch!=null)?String(meta.pitch):'(없음)';
   sizeInput.value=(typeof co.size==='number'&&co.size>0)?co.size:'';
   pitchInput.value=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:'';
 }
 function ccApplyProps(){
-  var key=window._ccSelKey;
-  if(!key){ toast('항목을 먼저 클릭하세요.'); return; }
-  if(!window._ccWork[key]) window._ccWork[key]={};
+  var keys=_ccPropsTargets();
+  if(!keys.length){ toast('항목을 먼저 클릭하세요.'); return; }
   var s=parseFloat((g('cc_props_size')||{}).value);
   var p=parseFloat((g('cc_props_pitch')||{}).value);
-  if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else delete window._ccWork[key].size;
-  if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else delete window._ccWork[key].pitch;
+  var multi=keys.length>1;
+  keys.forEach(function(key){
+    // 다중 선택에선 빈 칸=각자 유지(다른 값들이 조용히 지워지는 사고 방지), 단일 선택은 기존대로 빈 칸=기본값 복귀
+    if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else if(!multi) delete window._ccWork[key].size;
+    if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else if(!multi) delete window._ccWork[key].pitch;
+  });
   ccPlacePreviews();
-  toast('적용. "저장"을 눌러 영구 저장하세요.');
+  toast(multi?(keys.length+'개 항목에 적용. "저장"을 눌러 영구 저장하세요.'):'적용. "저장"을 눌러 영구 저장하세요.');
 }
 function ccCommit(chip){
   var key=chip.dataset.key; var sc=window._ccScale, H=window._ccPageH;
@@ -22747,6 +22770,7 @@ function resetClaimCal(){
   });
   window._ccWork=def;
   window._ccSelKey=null;
+  window._ccSelKeys=[]; // 다중선택 배열도 함께 초기화(2026-08-26 리뷰)
   ccPlaceChips();
   toast('기본값으로 되돌렸습니다. "저장"을 눌러 적용하세요.');
 }
