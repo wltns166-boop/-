@@ -396,7 +396,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.25-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-1</div>
   </div>
 </div>
 
@@ -1219,7 +1219,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh"><div class="st"><i class="ti ti-user-plus"></i>고객등록 현황</div></div>
       <div class="card">
         <table class="dt">
-          <thead><tr><th style="width:80px">담당자</th><th style="width:90px">고객명</th><th>고객등록 진행여부</th><th style="width:100px">특이사항</th><th style="width:50px">추가</th><th style="width:50px">삭제</th></tr></thead>
+          <thead><tr><th style="width:80px">담당자</th><th style="width:250px">고객명 · 고객정보</th><th>고객등록 진행여부</th><th style="width:100px">특이사항</th><th style="width:50px">추가</th><th style="width:50px">삭제</th></tr></thead>
           <tbody id="cust_status_tb"></tbody>
         </table>
       </div>
@@ -13771,6 +13771,25 @@ function rCustStatus(){
       noteCell='<span style="font-size:14px;color:#777">'+(hasNote?_esc(note||'-'):'-')+'</span>';
     }
 
+    // 고객 상세 인라인 표시 — 이름 클릭 모달 없이 목록에서 바로 확인(2026-08-26).
+    //   권한은 모달(openCustInfo)과 동일: 총무 또는 담당자 본인일 때만. 조회도 모달과 같은 _findCustByReqName.
+    var infoHtml='';
+    try{
+      var _found=_findCustByReqName(name);
+      if(_found && _found.cust && (isAdmin || (cu && _found.cust.m===cu.name))){
+        var _who=_found.member||_found.cust;
+        var _items=[];
+        var _it=function(lb,v){ if(v==null||(''+v).trim()===''||v==='-') return; _items.push('<div style="font-size:12.5px;line-height:1.5;color:#333;white-space:normal"><span style="color:#8890b8">'+lb+'</span> '+_esc(''+v)+'</div>'); };
+        if(_who.rrn) _it('주민번호', _fullRrn(_who.rrn));
+        _it('연락처', _who.phone);
+        _it('주소', _who.addr);
+        if(_who.height||_who.weight) _it('키/몸무게', [_who.height?_who.height+'cm':'', _who.weight?_who.weight+'kg':''].filter(Boolean).join(' / '));
+        _it('직업', _who.job);
+        _it('운전여부', _who.drive);
+        if(_items.length) infoHtml='<div style="margin-top:6px;padding:6px 9px;background:#f7f8fd;border:1px solid #e3e6f3;border-radius:7px;max-width:250px;text-align:left">'+_items.join('')+'</div>';
+      }
+    }catch(e){}
+
     // 삭제 버튼: 총무는 전체, 팀원도 본인 요청 삭제 가능 (비총무 화면엔 본인 건만 있고, 삭제는 이름+담당자 일치 건만)
     var delBtn='<div data-action="del" data-name="'+_alertEsc(name)+'" data-agent="'+_alertEsc(agentKey)+'" class="csr_del" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>';
     // 추가 버튼: 보험사를 골라 이 고객의 등록 요청을 추가 (기존 요청 보험사는 팝업에서 '요청됨' 비활성)
@@ -13806,7 +13825,8 @@ function rCustStatus(){
             nameInner='<div style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(name)+'</div>';
           }
           return wrapO+nameInner+'</div>'
-            +(parentNm?'<div style="font-size:12px;color:#a05a10;margin-top:3px;white-space:nowrap">👨‍👩‍👧 법정대리인: '+_esc(parentNm)+'</div>':'');
+            +(parentNm?'<div style="font-size:12px;color:#a05a10;margin-top:3px;white-space:nowrap">👨‍👩‍👧 법정대리인: '+_esc(parentNm)+'</div>':'')
+            +infoHtml;
         })()
       +'</td>'
       +'<td style="vertical-align:middle"><div style="display:flex;flex-wrap:wrap;padding:4px 0">'+tags+'</div>'
