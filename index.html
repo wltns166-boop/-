@@ -288,6 +288,9 @@ table.dt tr:last-child td{border-bottom:none;}
 }
 /* 환경설정에서 숨긴 메뉴 — !important로 setAdmin의 인라인 표시값과 무관하게 숨김(클래스 제거로 복원) */
 .cfg-hide{display:none !important}
+/* 고객등록 현황 인라인 정보 — 클릭 복사 가능한 줄 */
+.csrcp{cursor:pointer;border-radius:4px;padding:0 3px;margin:0 -3px}
+.csrcp:hover{background:#e6ebfa}
 /* 환경설정 목록 행 — 마우스가 가리키는 줄을 연하게 표시 */
 .nsrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:5px 8px;border-radius:8px;margin-bottom:2px}
 .nsrow:hover{background:rgba(80,100,220,.10)}
@@ -396,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.26-2</div>
   </div>
 </div>
 
@@ -13779,10 +13782,12 @@ function rCustStatus(){
       if(_found && _found.cust && (isAdmin || (cu && _found.cust.m===cu.name))){
         var _who=_found.member||_found.cust;
         var _items=[];
-        var _it=function(lb,v){ if(v==null||(''+v).trim()===''||v==='-') return; _items.push('<div style="font-size:12.5px;line-height:1.5;color:#333;white-space:normal"><span style="color:#8890b8">'+lb+'</span> '+_esc(''+v)+'</div>'); };
-        if(_who.rrn) _it('주민번호', _fullRrn(_who.rrn));
-        _it('연락처', _who.phone);
-        _it('주소', _who.addr);
+        // cp=true면 클릭 복사 — 값은 data-copy 속성으로 전달(함정 A: 인덱스 없음), 속성 삽입은 _alertEsc
+        var _it=function(lb,v,cp){ if(v==null||(''+v).trim()===''||v==='-') return; var s=(''+v).trim();
+          _items.push('<div'+(cp?' class="csrcp" data-copy="'+_alertEsc(s)+'" data-cplb="'+_alertEsc(lb)+'" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다"':'')+' style="font-size:12.5px;line-height:1.5;color:#333;white-space:normal"><span style="color:#8890b8">'+lb+'</span> '+_esc(s)+'</div>'); };
+        if(_who.rrn) _it('주민번호', _fullRrn(_who.rrn), true);
+        _it('연락처', _who.phone, true);
+        _it('주소', _who.addr, true);
         if(_who.height||_who.weight) _it('키/몸무게', [_who.height?_who.height+'cm':'', _who.weight?_who.weight+'kg':''].filter(Boolean).join(' / '));
         _it('직업', _who.job);
         _it('운전여부', _who.drive);
@@ -13980,6 +13985,21 @@ function _saveGuardian(custIdx, famIdx, parentName){
 }
 // 주민번호 전체 표시(하이픈 정리) — 고객정보 모달용. 모달 자체가 총무·담당자만 열람 가능.
 function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) return '-'; return rrn.length>6 ? rrn.slice(0,6)+'-'+rrn.slice(6) : rrn; }
+// 고객등록 현황 인라인 정보 값 클릭 복사 — 값·라벨은 data 속성으로 전달(mgrCopyPh 패턴)
+function _csrCopyVal(el){
+  var v=(el&&el.getAttribute('data-copy'))||''; if(!v) return;
+  var lb=(el&&el.getAttribute('data-cplb'))||'값';
+  var done=function(){ toast(lb+' 복사 완료: '+v); };
+  var fallback=function(){
+    try{
+      var ta=document.createElement('textarea'); ta.value=v; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); var ok=document.execCommand('copy'); document.body.removeChild(ta);
+      ok?done():toast('복사에 실패했습니다. 길게 눌러 복사해 주세요.');
+    }catch(e){ toast('복사에 실패했습니다. 길게 눌러 복사해 주세요.'); }
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done,fallback);
+  else fallback();
+}
 // 요청명(예: "홍길동" 또는 "철수 (홍길동님 자녀)")으로 custs에서 고객/가족 찾기
 function _findCustByReqName(reqName){
   // 클라우드에서 받은 최신 사본(window._custs) 우선 — rCustList와 동일 패턴.
