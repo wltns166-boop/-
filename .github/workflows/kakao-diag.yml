@@ -30,3 +30,22 @@ jobs:
           echo "HTTP $CODE"
           echo "── status 응답 ──"
           python3 -m json.tool /tmp/status.json || cat /tmp/status.json || true
+      - name: GCP 장애 확인
+        if: always()
+        run: |
+          curl -sS -m 30 https://status.cloud.google.com/incidents.json -o /tmp/inc.json || true
+          python3 - <<'EOF'
+          import json,datetime
+          try: inc=json.load(open('/tmp/inc.json'))
+          except Exception as e: print('incidents.json 로드 실패:',e); raise SystemExit
+          now=datetime.datetime.now(datetime.timezone.utc)
+          shown=0
+          for i in inc:
+              if i.get('end'): continue  # 진행 중만
+              prods=[p.get('title','') for p in i.get('affected_products',[])]
+              print('▶ 진행중 장애:', i.get('external_desc','')[:160])
+              print('   제품:', ', '.join(prods)[:200])
+              print('   시작:', i.get('begin',''), '심각도:', i.get('severity',''))
+              shown+=1
+          if not shown: print('진행 중인 GCP 장애 없음')
+          EOF
