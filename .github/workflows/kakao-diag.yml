@@ -22,7 +22,8 @@ jobs:
             -H 'Content-Type: application/json' -d '{"returnSecureToken":true}' \
             | python3 -c 'import sys,json;print(json.load(sys.stdin)["idToken"])')
           echo "익명 토큰 확보(${#TOK}자)"
-          CODE=$(curl -sS -m 60 -X POST "https://team-tops-intranet.web.app/api" \
+          # 주의: 호스팅 rewrite가 '/api/**'(하위 경로 필수)라 '/api'만 쓰면 함수가 아닌 404 HTML이 온다
+          CODE=$(curl -sS -m 60 -X POST "https://team-tops-intranet.web.app/api/kakao" \
             -H 'Content-Type: application/json' \
             -d "{\"kakao\":\"status\",\"idToken\":\"$TOK\"}" \
             -o /tmp/status.json -w '%{http_code}' || echo "000")
