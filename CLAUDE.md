@@ -174,6 +174,19 @@
   23:30 마감 기록이 그날 기준값이 됨(기존 동작 폴백).
 - ⚠️ 관리자 명단·발송시간을 바꿔도 규칙은 "자동발송 시점 확정" — 시간 기반이 아니라 이벤트 기반.
 
+### 3.11 Firebase Blaze 요금제 의존 — 2026-08-27 결제 정지 실사고
+
+- **functions(서버) 전체는 Blaze(종량제)에서만 동작** — 결제 계정이 닫히면 프로젝트가 Spark로 강등되고
+  `/api`(500/503)와 스케줄러(kakaoDaily)가 통째로 멈춘다. 일일보고·출장 리스트·DB배정 카톡·보장분석 AI·
+  카톡 청구파일 발송 전부 중단. Firestore/Hosting/Auth(무료 등급)는 계속 돌아 **앱은 멀쩡해 보이는 게 함정**.
+- 2026-08-27 실사고: 결제 계정 소멸 → Spark 강등 → 18:30 일일보고 미발송. 새 결제 계정 생성·Blaze 재연결만으로
+  **재배포 없이** 함수·스케줄러가 자동 복구됐고(할당량 반영 수 분, 그동안 429), 미발송분은 스케줄러가 살아나며 즉시 발송됨.
+- **진단 도구 `.github/workflows/kakao-diag.yml`**: Claude 작업 컨테이너는 인트라넷 도메인이 차단되므로
+  `.kakao-diag-run` 파일을 갱신해 푸시하면 GitHub Actions 러너가 `/api/kakao` status(설정·연동 계정·최근 발송 로그 31건)와
+  GCP 진행중 장애를 대신 조회해 로그에 남긴다. ⚠️ rewrite가 `/api/**`(하위 경로 필수)라 `/api`가 아닌 `/api/kakao`로 호출.
+- 자동발송 실행 여부는 콘솔 없이도 판별 가능: `tops/data`의 `dsnap`에서 그날 `fin:1` 유무(익명 인증 Firestore REST로 읽힘 —
+  fin은 카톡 전송 전에 찍히므로 "없음 = 발송 로직 미실행", 카톡 실패와 구별됨).
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.
