@@ -1,0 +1,28 @@
+# 카톡 일일보고 서버 상태 진단 (수동 실행 전용)
+# — Claude 작업 컨테이너는 네트워크 정책상 인트라넷 도메인 접근이 차단되므로,
+#   GitHub Actions 러너에서 /api 의 kakao:'status'(읽기 전용)를 호출해
+#   자동발송 설정·연동 계정 상태·최근 발송 로그를 확인한다.
+# — 인증은 앱과 동일한 익명 Firebase 토큰(공개 웹 API 키). 민감값은 응답에 없음
+#   (REST 키는 앞뒤 4자리 힌트만, 카카오 토큰류는 응답에 포함되지 않음).
+name: Kakao Diag
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: kakao status 조회
+        run: |
+          set -e
+          TOK=$(curl -sS -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBg8dwkOHXU_lZO3C9k4hvOH0OnatJEWwY" \
+            -H 'Content-Type: application/json' -d '{"returnSecureToken":true}' \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["idToken"])')
+          echo "익명 토큰 확보(${#TOK}자)"
+          CODE=$(curl -sS -m 60 -X POST "https://team-tops-intranet.web.app/api" \
+            -H 'Content-Type: application/json' \
+            -d "{\"kakao\":\"status\",\"idToken\":\"$TOK\"}" \
+            -o /tmp/status.json -w '%{http_code}' || echo "000")
+          echo "HTTP $CODE"
+          echo "── status 응답 ──"
+          python3 -m json.tool /tmp/status.json || cat /tmp/status.json || true
