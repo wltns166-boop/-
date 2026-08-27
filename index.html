@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.27-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.27-2</div>
   </div>
 </div>
 
@@ -20422,7 +20422,10 @@ async function claimKakaoSend(i){
     toast('청구파일 준비 중... (생성/업로드)');
     try{
       var ok=await generateClaimPackage(i);
-      if(!ok){ toast('청구파일 생성 실패 — 보험사 양식 등록 여부를 확인하세요.'); return; }
+      if(!ok){
+        var _gf=(window._genClaimFailMap||{})[((c&&c.id)||('i'+i))];
+        toast((_gf&&_gf.msg)||'청구파일 생성 실패 — 보험사 양식 등록 여부를 확인하세요.'); return;
+      }
     }catch(e){ toast('청구파일 생성 오류: '+((e&&e.message)||e)); return; }
     c=claims[i]||c;
   }
@@ -20628,18 +20631,22 @@ async function uploadClaimPackagesToStorage(pkgId, packagePDFs, urlMap){
 
 // 청구 패키지 PDF(base64 dataURL)를 반환. 로컬에 없으면 Storage URL에서 받아 로컬 캐시 후 반환.
 async function resolveClaimPkg(idx, insurer){
-  // 실패 유형 기록('nourl'|'http:상태코드'|'network') — _ensureClaimPkg가 정확한 안내를 띄우기 위함(2026-08-27)
-  window._resolvePkgFail='';
+  // 실패 유형 기록('nourl'|'http:상태코드'|'network') — _ensureClaimPkg가 정확한 안내를 띄우기 위함(2026-08-27).
+  // 청구건+보험사 키별 맵: 동시 호출(다른 건 미리보기·백그라운드 생성)이 교차해도 사유가 섞이지 않게(2026-08-27 리뷰)
+  window._resolvePkgFailMap=window._resolvePkgFailMap||{};
+  var _c0=claims[idx];
+  var _rkey=((_c0&&_c0.id)||('i'+idx))+'|'+insurer;
+  delete window._resolvePkgFailMap[_rkey];
   var local = _claimPkgFor(idx, insurer);
   if(local) return local;
   try{
     var c = claims[idx];
     var url = c && c.pkgUrls && c.pkgUrls[insurer];
-    if(!url){ window._resolvePkgFail='nourl'; return ''; }
+    if(!url){ window._resolvePkgFailMap[_rkey]='nourl'; return ''; }
     var resp;
     try{ resp = await fetch(url); }
     catch(e0){ resp = await fetch(url); } // 순간적인 네트워크 오류는 1회 재시도
-    if(!resp.ok){ window._resolvePkgFail='http:'+resp.status; return ''; }
+    if(!resp.ok){ window._resolvePkgFailMap[_rkey]='http:'+resp.status; return ''; }
     var ab = await resp.arrayBuffer();
     var arr = new Uint8Array(ab);
     var chunks=[]; var cs=8192;
@@ -20647,7 +20654,7 @@ async function resolveClaimPkg(idx, insurer){
     var dataUrl = 'data:application/pdf;base64,'+btoa(chunks.join(''));
     try{ localStorage.setItem('tops_pkg_'+((c&&c.id)||idx)+'__'+insurer, dataUrl); }catch(e){}
     return dataUrl;
-  }catch(e){ console.warn('resolveClaimPkg err:', e); window._resolvePkgFail='network'; return ''; }
+  }catch(e){ console.warn('resolveClaimPkg err:', e); window._resolvePkgFailMap[_rkey]='network'; return ''; }
 }
 
 // 청구파일 확보: 로컬/Storage 에 없으면 자동으로 재생성 후 다시 시도
@@ -20667,25 +20674,38 @@ async function _ensureClaimPkg(idx, insurer){
     var ok=false;
     var genErr='';
     try{ ok=await generateClaimPackage(idx); }catch(e){ genErr=e.message||String(e); console.warn('auto gen err:', e); }
+    var _c=claims[idx];
+    var _key=(_c&&_c.id)||('i'+idx);
+    var _gf=(window._genClaimFailMap||{})[_key]||null;
     if(ok){
       pdf=_claimPkgFor(idx, insurer) || await resolveClaimPkg(idx, insurer);
       if(!pdf){
-        // 생성은 됐지만 해당 insurer 파일이 없는 경우 (양식 미등록 등)
-        reason=( insurer?insurer+' ':'' )+'청구 양식이 등록되지 않았습니다. 관리자에게 양식 업로드를 요청하세요.';
+        // 생성은 됐지만 해당 insurer 파일이 없는 경우 — 일부 실패 사유(디코딩·로드 오류 등)가 있으면 그걸 표시(2026-08-27 리뷰)
+        reason=(_gf&&_gf.t==='partial'&&_gf.msg)
+          ? _gf.msg
+          : ( insurer?insurer+' ':'' )+'청구 양식이 등록되지 않았습니다. 관리자에게 양식 업로드를 요청하세요.';
       }
     } else {
       // generateClaimPackage 가 false 반환 — 구체 사유(공유본 다운로드 실패/보관본 부재/양식 미등록)를
       // 일반 문구로 덮지 않고 그대로 전달(2026-08-27: 원인 파악 불가하던 문제 수정)
-      var _c=claims[idx];
-      var _rf=window._resolvePkgFail||'';
+      var _rf=(window._resolvePkgFailMap||{})[_key+'|'+insurer]||'';
       if(genErr){
         reason='재생성 실패: '+genErr;
       } else if(_rf==='network'){
         reason='팀 공유 청구파일을 내려받지 못했습니다(네트워크 오류). 인터넷 연결을 확인한 뒤 다시 시도해주세요.';
       } else if(_rf.indexOf('http:')===0){
-        reason='팀 공유 청구파일 다운로드가 거부되었습니다(오류 '+_rf.slice(5)+'). 담당자('+((_c&&_c.agent)||'등록자')+') 기기에서 [전체 재생성]을 해주세요.';
-      } else if(window._genClaimFail){
-        reason=window._genClaimFail;
+        // 상태코드별 안내 — 404/5xx까지 "거부"로 뭉뚱그리면 권한 문제로 오해(2026-08-27 리뷰)
+        var _st=_rf.slice(5);
+        reason=(_st==='401'||_st==='403')
+          ? '팀 공유 청구파일 접근 권한이 거부되었습니다(오류 '+_st+'). 담당자('+((_c&&_c.agent)||'등록자')+') 기기에서 [전체 재생성]을 해주세요.'
+          : (_st==='404'
+            ? '팀 공유 청구파일을 찾을 수 없습니다(삭제되었을 수 있음). 담당자('+((_c&&_c.agent)||'등록자')+') 기기에서 [전체 재생성]을 해주세요.'
+            : '팀 공유 청구파일 다운로드에 실패했습니다(오류 코드 '+_st+'). 잠시 후 다시 시도해주세요.');
+      } else if(_gf&&_gf.t==='att-shared'){
+        // 이 보험사 공유본은 없는 상태(resolve='nourl')라 "정상 조회됩니다" 문구는 자기모순 — 보험사별 안내로 교체(2026-08-27 리뷰)
+        reason=(insurer?insurer+' ':'')+'공유 청구파일이 없고, 재생성에 필요한 병원서류 원본도 이 기기에 없습니다. 담당자('+((_c&&_c.agent)||'등록자')+') 기기에서 [전체 재생성]을 해주세요.';
+      } else if(_gf&&_gf.msg){
+        reason=_gf.msg;
       } else {
         // 메모리 claims 에 이미지가 있는지 확인하여 사유 특정(위 기록이 없을 때의 폴백)
         var hasImgs=_c&&(_c.idImg||_c.bankImg||(_c.insFiles&&_c.insFiles.length)||(_c.files&&_c.files.length));
@@ -20873,12 +20893,18 @@ async function _claimAttachStore(c){
 
 // ===== 청구 패키지 PDF 생성 =====
 async function generateClaimPackage(idx) {
-  // 실패 시 구체 사유 기록 — _ensureClaimPkg가 일반 문구로 덮지 않고 그대로 사용자에게 전달(2026-08-27)
-  window._genClaimFail='';
+  // 실패 시 구체 사유 기록 — _ensureClaimPkg가 일반 문구로 덮지 않고 그대로 사용자에게 전달(2026-08-27).
+  // 청구건 키별 맵: 동시 생성(일괄 재생성·다른 건 미리보기)이 교차해도 남의 건 사유가 표시되지 않게(2026-08-27 리뷰)
+  window._genClaimFailMap=window._genClaimFailMap||{};
+  var _gkey='i'+idx;
+  var _gfSet=function(t,msg){ window._genClaimFailMap[_gkey]={t:t,msg:msg}; };
   // localStorage 재로드 시, 메모리의 생성 PDF·이미지·공유 URL 보존
   _reloadClaims();
-  var c=claims[idx]; if(!c){toast('청구 데이터 없음');window._genClaimFail='청구 데이터를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.';return false;}
-  if(typeof PDFLib==='undefined'){toast('PDF 라이브러리 미로드');window._genClaimFail='PDF 라이브러리가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.';return false;}
+  var c=claims[idx];
+  if(c&&c.id) _gkey=c.id;
+  delete window._genClaimFailMap[_gkey];
+  if(!c){toast('청구 데이터 없음');_gfSet('nodata','청구 데이터를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.');return false;}
+  if(typeof PDFLib==='undefined'){toast('PDF 라이브러리 미로드');_gfSet('nolib','PDF 라이브러리가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');return false;}
   // Storage URL → dataURL 공용 다운로드 헬퍼
   var _fetchDataUrl=async function(u){
     try{
@@ -20916,12 +20942,13 @@ async function generateClaimPackage(idx) {
   }
   if(_needAttach&&!_hasLocal){
     var _hasShared=c.pkgUrls&&Object.keys(c.pkgUrls).length;
+    var _bt=_attTried?'att-net':(_hasShared?'att-shared':'att-none');
     var _bm=_attTried
       ?'클라우드에 보관된 원본 서류를 내려받지 못했습니다(네트워크 오류 가능). 인터넷 연결을 확인한 뒤 다시 시도해주세요.'
       :(_hasShared
         ?'재생성은 병원서류 원본이 필요해 할 수 없지만, 이미 만들어진 청구파일은 [미리보기]·[다운로드]로 정상 조회됩니다. 서류를 바꾸려면 [수정]에서 병원서류를 다시 올려 저장하세요.'
         :'병원서류 원본이 이 기기에도, 클라우드 보관함에도 없습니다. 담당자('+(c.agent||'등록자')+')가 등록한 기기에서 [전체 재생성]을 하거나, [수정]에서 병원서류를 다시 올려 [저장]하면 해결됩니다.');
-    toast(_bm); window._genClaimFail=_bm;
+    toast(_bm); _gfSet(_bt,_bm);
     return false;
   }
   // 신분증·통장사본이 이 기기에 없으면 고객 보관함(Storage URL)에서 가져와 병합 — 어느 기기서든 완전한 파일 생성
@@ -21055,7 +21082,7 @@ async function generateClaimPackage(idx) {
 
   if(okCount===0){
     var _fm=firstErr || 'PDF 생성 실패';
-    toast(_fm); window._genClaimFail=_fm;
+    toast(_fm); _gfSet('gen',_fm);
     return false;
   }
   if(attachWarn){ try{ toast(attachWarn); }catch(e){} } // 청구서는 생성됐지만 일부 첨부가 빠졌음을 알림
@@ -21065,6 +21092,7 @@ async function generateClaimPackage(idx) {
   delete claims[idx].packagePDF;
   // 저장 경로이므로 고유 id 보장(캐시 키·병합 기준. 배열 인덱스가 바뀌어도 유지)
   if(!claims[idx].id){ claims[idx].id=_newClaimId(); }
+  _gkey=claims[idx].id; // 방금 부여된 id 반영 — 실패 사유 맵 키가 _ensureClaimPkg의 조회 키와 어긋나지 않게
   // 안정적인 패키지 식별자(배열 인덱스가 바뀌어도 Storage 경로 유지)
   if(!claims[idx].pkgId){ claims[idx].pkgId = 'pkg_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
   // 보험사별로 별도 localStorage 키에 저장(본인 기기 캐시) — id 기반 키.
@@ -21108,6 +21136,7 @@ async function generateClaimPackage(idx) {
 
   if(firstErr && okCount < insurers.length){
     toast('일부 실패: ' + firstErr);
+    _gfSet('partial', firstErr); // 일부 보험사만 실패 — _ensureClaimPkg가 "양식 미등록" 고정 문구 대신 실제 사유 표시(2026-08-27 리뷰)
   }
   return true;
 }
@@ -21125,7 +21154,7 @@ function rebuildClaimPackage(idx){
       toast('청구파일이 생성되었습니다!');
     }
     // 실패 시: generateClaimPackage 내부에서 이미 구체적인 사유 toast를 띄웠음 (덮어쓰지 않음)
-  });
+  }).catch(function(e){ toast('청구파일 생성 오류: '+((e&&e.message)||e)); }); // 예상 못한 예외가 조용히 묻히지 않게(2026-08-27 리뷰)
 }
 
 // 다른 기기에서 새로 생성(pkgStamp 갱신)된 청구파일이 있으면 이 기기의 옛 캐시(반쪽 파일 등)를 비움 —

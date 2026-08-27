@@ -677,11 +677,16 @@
   화이트리스트 검증은 복원 후 동일 적용. 정상 인코딩/디코드 쪼개짐/일반 접속 모의 실행 검증.
 - **미리보기/다운로드 실패 사유 구체화 (2026-08-27)**: "청구파일을 가져오지 못했습니다" 일반 문구가
   구체 사유(양식 미등록·보관본 부재·공유본 다운로드 실패 등) 토스트를 **덮어써** 원인 파악이 불가하던 문제 수정.
-  `generateClaimPackage`가 실패 시 `window._genClaimFail`에 사유를 기록(시작 시 초기화)하고,
-  `resolveClaimPkg`가 실패 유형을 `window._resolvePkgFail`('nourl'|'http:상태코드'|'network')에 기록 + **fetch 1회 재시도**.
-  `_ensureClaimPkg`의 reason 우선순위: genErr → 공유본 network → 공유본 http 거부(담당자 기기 재생성 안내)
-  → _genClaimFail → 기존 폴백 문구. 보관본(attachUrls) 다운로드는 `_attTried`로 "시도했는데 실패(네트워크)"와
-  "보관본 자체 없음(담당자 기기 재생성 또는 [수정] 재업로드 안내)"을 구분. 표시 전용 변경 — 생성·저장 로직 무변경.
+  `generateClaimPackage`가 실패 시 `window._genClaimFailMap[청구id]={t,msg}`에 사유를 기록(시작 시 자기 키만 삭제,
+  성공 후 일부 보험사 실패는 t:'partial')하고, `resolveClaimPkg`가 실패 유형을
+  `window._resolvePkgFailMap[청구id|보험사]`('nourl'|'http:상태코드'|'network')에 기록 + **fetch 1회 재시도**.
+  ⚠️ **반드시 키별 맵으로** — 단일 전역 값이면 동시 호출(다른 건 미리보기·저장 직후 백그라운드 생성·좌표 저장 일괄 재생성)이
+  교차할 때 남의 건 사유가 표시된다(2026-08-27 리뷰에서 단일 값 → 맵으로 수정).
+  `_ensureClaimPkg`의 reason 우선순위: genErr → 공유본 network → 공유본 http(401/403 권한·404 삭제·기타 코드 구분,
+  담당자 기기 재생성 안내) → t:'att-shared'(해당 보험사 공유본 없음 — "정상 조회됩니다" 자기모순 문구 대체) →
+  _genClaimFailMap msg → 기존 폴백 문구. 보관본(attachUrls) 다운로드는 `_attTried`로 "시도했는데 실패(네트워크)"와
+  "보관본 자체 없음(담당자 기기 재생성 또는 [수정] 재업로드 안내)"을 구분. 생성 중 id 신규 부여 시 `_gkey`도 갱신(키 어긋남 방지).
+  claimKakaoSend 실패 안내도 같은 맵 사용, rebuildClaimPackage에 `.catch()` 추가. 표시 전용 변경 — 생성·저장 로직 무변경.
 
 ---
 
