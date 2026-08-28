@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-3</div>
   </div>
 </div>
 
@@ -2632,8 +2632,9 @@ function rSchedulePage(){
 <!-- 함정 D: 공용 .mo는 어두운 테마 — 이 모달은 흰 배경이라 글씨·입력칸을 인라인으로 오버라이드 (m_dbreq와 동일 패턴) -->
 <div class="mb" id="m_db"><div class="mo" style="background:#fff;color:#1a1a2e;width:600px;max-height:90vh;overflow-y:auto">
   <div class="mth" style="color:#1a1a2e;border-bottom:1px solid #e6e9f6"><span id="m_db_t">DB 배정</span><span class="mc" id="m_db_c" style="color:#888">×</span></div>
-  <div class="fg"><div class="fl" style="color:#5560a8">구성원</div><select class="fs" id="mdb_mem" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0"></select></div>
-  <div class="fr">
+  <!-- 배정 모드에선 구성원·종류/지역·배정종류를 숨기고 자동 기입(구성원=로그인 사용자, 종류=★머리말★ 자동, 배정종류=현월) — 2026-08-28 간소화. 신청 모드(openDbaAdmin)에선 그대로 표시 -->
+  <div class="fg" id="mdb_mem_wrap"><div class="fl" style="color:#5560a8">구성원</div><select class="fs" id="mdb_mem" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0"></select></div>
+  <div class="fr" id="mdb_kr_wrap">
     <div class="fg"><div class="fl" style="color:#5560a8">DB 종류</div>
       <select class="fs" id="mdb_kind" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0">
         <option value="">선택하세요</option>
@@ -2657,7 +2658,7 @@ function rSchedulePage(){
     </div>
   </div>
   <div class="fr">
-    <div class="fg"><div class="fl" style="color:#5560a8">배정수량 (건)</div><input class="fi" type="number" id="mdb_qty" placeholder="건" min="1" oninput="genDbNotes()" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0"></div>
+    <div class="fg"><div class="fl" id="mdb_qty_lbl" style="color:#5560a8">입력수량 (건)</div><input class="fi" type="number" id="mdb_qty" placeholder="건" min="1" oninput="genDbNotes()" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0"></div>
     <!-- 배정종류: 어느 재고에서 차감할지 (현월=이번 달 구매분, 이월=전월 잔여, 교환=교환완료분) -->
     <div class="fg" id="mdb_src_wrap"><div class="fl" style="color:#5560a8">배정종류</div>
       <select class="fs" id="mdb_src" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0">
@@ -7972,7 +7973,12 @@ function rDbs(){
   tb.querySelectorAll('[data-dsi]').forEach(b=>b.addEventListener('click',()=>{if(confirm('삭제?')){dbs.splice(+b.dataset.dsi,1);sv('tops_dbs',dbs);rDbs();}}));
   setAdmin();
 }
-function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_note'))g('mdb_note').value='';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap'))g('mdb_kk_wrap').style.display='none';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
+function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_note'))g('mdb_note').value='';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap'))g('mdb_kk_wrap').style.display='none';
+  // 신청 모드는 기존 폼 그대로 표시(배정 모드 간소화의 숨김 복원)
+  if(g('mdb_mem_wrap'))g('mdb_mem_wrap').style.display='';
+  if(g('mdb_kr_wrap'))g('mdb_kr_wrap').style.display='';
+  if(g('mdb_qty_lbl'))g('mdb_qty_lbl').textContent='배정수량 (건)';
+  if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
 // ===== DB 신청 (다중 행) — 여러 신청인·여러 종류를 행으로 추가해 한 번에 저장 =====
 function _dreqMemOptsHtml(selName){
   var names=[];
@@ -8067,7 +8073,14 @@ function _fillDbKindSel(){
     return '<option value="'+_esc(d.kind)+'">'+_esc(d.kind)+(price?' — 건당 '+price.toLocaleString()+'원':'')+'</option>';
   }).join('');
 }
-function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_src'))g('mdb_src').value='현월';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap')){g('mdb_kk_wrap').style.display='';g('mdb_kk_txt').value='';g('mdb_kk_stat').textContent='';}g('m_db').classList.add('open');}
+function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_src'))g('mdb_src').value='현월';
+  // 배정 모드 간소화(2026-08-28): 구성원·종류/지역·배정종류 숨김 — 구성원은 로그인 사용자로 자동, 종류는 카톡 ★머리말★ 인식 시 자동, 배정종류는 현월 고정
+  try{ if(cu&&cu.name) g('mdb_mem').value=cu.name; }catch(e){}
+  if(g('mdb_mem_wrap'))g('mdb_mem_wrap').style.display='none';
+  if(g('mdb_kr_wrap'))g('mdb_kr_wrap').style.display='none';
+  if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';
+  if(g('mdb_qty_lbl'))g('mdb_qty_lbl').textContent='입력수량 (건)';
+  g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap')){g('mdb_kk_wrap').style.display='';g('mdb_kk_txt').value='';g('mdb_kk_stat').textContent='';}g('m_db').classList.add('open');}
 g('m_db_c').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_cancel').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_save').addEventListener('click',()=>{
@@ -8090,6 +8103,7 @@ g('m_db_save').addEventListener('click',()=>{
   if(mode!=='apply'&&g('mdb_src')) obj.src=g('mdb_src').value||'현월';
   if(mode==='apply'){dba.push(obj);sv('tops_dba',dba);g('m_db').classList.remove('open');rDba();}
   else{dbs.push(obj);sv('tops_dbs',dbs);g('m_db').classList.remove('open');rDbs();
+    try{ if(typeof rDbInfo==='function'&&g('db_info_cards')) rDbInfo(); }catch(e){}   // DB 정보 표 즉시 반영(2026-08-28)
     try{ pushNotify([obj.m], 'DB 배정', (obj.k?obj.k+' ':'')+'DB '+(obj.q||0)+'건이 배정되었습니다.', '/'); }catch(e){}
     try{ _kkDbAssignNotify(obj); }catch(e){}   // 카톡 배정 알림 (연동한 팀원만)
   }
