@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.27-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-1</div>
   </div>
 </div>
 
@@ -2667,6 +2667,15 @@ function rSchedulePage(){
       </select>
     </div>
     <div class="fg"><div class="fl" style="color:#5560a8">배정일</div><input class="fi" type="date" id="mdb_date" style="background:#fff;color:#1a1a2e;border:1px solid #c8cdf0;color-scheme:light"></div>
+  </div>
+  <!-- 카톡 DB 자동입력 (배정 모드 전용) — 본부장 카톡 내용을 붙여넣으면 수량·고객 정보 칸 자동 채움 -->
+  <div id="mdb_kk_wrap" style="margin:6px 0 10px;border:1.5px dashed #8fa0e8;border-radius:10px;padding:10px 12px;background:#f4f6ff">
+    <div style="font-size:13.5px;font-weight:700;color:#3040cc;margin-bottom:6px">📋 카톡 DB 자동입력 <span style="font-weight:400;color:#667">— 받은 카톡 내용을 그대로 붙여넣고 [자동 인식]</span></div>
+    <textarea id="mdb_kk_txt" rows="5" placeholder="★굿데이터★&#10;고객명: 홍길동&#10;연락처: 010-1234-5678&#10;생년월일: 1991-07-29&#10;… (여러 명이면 통째로 붙여넣어도 됩니다)" style="width:100%;font-size:13px;background:#fff;color:#111;border:1px solid #c8cdf0;border-radius:8px;padding:8px;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
+      <button type="button" onclick="dbKkParse()" style="font-size:13px;padding:6px 14px;background:#3040cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">자동 인식</button>
+      <span id="mdb_kk_stat" style="font-size:12.5px;color:#667"></span>
+    </div>
   </div>
   <!-- 수량별 동적 비고칸 -->
   <div id="mdb_notes_wrap"></div>
@@ -7963,7 +7972,7 @@ function rDbs(){
   tb.querySelectorAll('[data-dsi]').forEach(b=>b.addEventListener('click',()=>{if(confirm('삭제?')){dbs.splice(+b.dataset.dsi,1);sv('tops_dbs',dbs);rDbs();}}));
   setAdmin();
 }
-function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';g('mdb_note').value='';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
+function openDbaAdmin(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';if(g('mdb_region'))g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_note'))g('mdb_note').value='';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap'))g('mdb_kk_wrap').style.display='none';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='none';g('mdb_mode').value='apply';g('m_db_t').textContent='DB 신청 추가 (관리자)';g('m_db').classList.add('open');}
 // ===== DB 신청 (다중 행) — 여러 신청인·여러 종류를 행으로 추가해 한 번에 저장 =====
 function _dreqMemOptsHtml(selName){
   var names=[];
@@ -8058,7 +8067,7 @@ function _fillDbKindSel(){
     return '<option value="'+_esc(d.kind)+'">'+_esc(d.kind)+(price?' — 건당 '+price.toLocaleString()+'원':'')+'</option>';
   }).join('');
 }
-function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_src'))g('mdb_src').value='현월';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';g('m_db').classList.add('open');}
+function openDbs(){fillSel('mdb_mem');_fillDbKindSel();g('mdb_kind').value='';g('mdb_region').value='';g('mdb_qty').value='';if(g('mdb_src'))g('mdb_src').value='현월';if(g('mdb_src_wrap'))g('mdb_src_wrap').style.display='';g('mdb_date').value=td();g('mdb_mode').value='assign';g('m_db_t').textContent='DB 배정';g('mdb_notes_wrap').innerHTML='';if(g('mdb_kk_wrap')){g('mdb_kk_wrap').style.display='';g('mdb_kk_txt').value='';g('mdb_kk_stat').textContent='';}g('m_db').classList.add('open');}
 g('m_db_c').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_cancel').addEventListener('click',()=>g('m_db').classList.remove('open'));
 g('m_db_save').addEventListener('click',()=>{
@@ -9516,6 +9525,115 @@ function _dbNoteFmtBirth(el){
 function _dbNoteFmtPremium(el){
   var d=el.value.replace(/\D/g,'').slice(0,6);
   el.value=d?(String(+d)+'만원'):'';
+}
+
+// ===== 카톡 DB 자동입력 (2026-08-28) =====
+// 본부장 카톡 메시지(라벨 형식: 고객명/연락처/생년월일/주소/성별/메모/월보험료 …)를 붙여넣으면
+// ★머리말★·라벨을 인식해 고객별 블록으로 나누고, 배정수량 + 비고칸(mdb_note_*)을 자동으로 채운다.
+// 저장·배정알림·재고차감은 기존 [저장] 버튼 로직 그대로 (함정 A: 폼 입력만 채움 — 인덱스 전달 없음. 함정 B: 저장 없음).
+var DB_KK_LABELS=[
+  {key:'name',    re:/^(?:고객명|성함|이름)/},
+  {key:'phone',   re:/^(?:연락처|전화번호|휴대폰|핸드폰|전화)/},
+  {key:'birth',   re:/^(?:생년월일|생년|생일)/},
+  {key:'gender',  re:/^성별/},
+  {key:'premium', re:/^(?:월\s*보험료|보험료)/},
+  {key:'address', re:/^(?:주소|지역)/},
+  {key:'calltime',re:/^(?:통화\s*가능\s*시간|통화희망|통화시간)/},
+  {key:'memo',    re:/^(?:메모|비고|특이사항)/},
+  {key:'age',     re:/^나이/}   // 나이는 생년월일에서 파생 가능 — 기록 안 함(칸도 없음)
+];
+function _dbKkPhoneFmt(s){
+  var d=String(s||'').replace(/\D/g,'').slice(0,11);
+  if(d.length===11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+  if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+  return String(s||'').trim();
+}
+function _dbKkBirthFmt(s){
+  var t=String(s||'').trim();
+  var d=t.replace(/\D/g,'');
+  if(d.length===8) return (+d.slice(0,4))+'년'+(+d.slice(4,6))+'월'+(+d.slice(6,8))+'일';   // _dbNoteFmtBirth와 동일 표기
+  return t;   // 6자리 생년 등 나머지는 원문 유지(정보 유실 방지)
+}
+function dbKkParse(){
+  var txt=(g('mdb_kk_txt')&&g('mdb_kk_txt').value)||'';
+  var stat=g('mdb_kk_stat');
+  var lines=txt.split(/\r?\n/);
+  var custs=[]; var cur=null; var kinds=[];
+  var curKey='';   // 직전 라벨 — 라벨 없는 다음 줄은 그 항목에 이어붙임(긴 주소·메모 줄바꿈 대응)
+  for(var li=0; li<lines.length; li++){
+    var raw=lines[li].trim();
+    if(!raw){ curKey=''; continue; }
+    var hd=/^[★☆*■\[]+\s*([^★☆*■\]]+?)\s*[★☆*■\]]+$/.exec(raw);   // ★굿데이터★ 같은 머리말 = DB 종류 후보
+    if(hd){ kinds.push(hd[1].trim()); curKey=''; continue; }
+    var matched=null;
+    for(var mi=0; mi<DB_KK_LABELS.length; mi++){
+      if(DB_KK_LABELS[mi].re.test(raw)){ matched=DB_KK_LABELS[mi]; break; }
+    }
+    if(matched){
+      var v=raw.replace(matched.re,'').replace(/^[\s:：\-–~]+/,'').trim();
+      if(matched.key!=='age'){
+        // 같은 라벨이 반복되면 새 고객 블록 시작(라벨 순서가 메시지마다 달라도 안전)
+        if(!cur||cur[matched.key]!==undefined){ cur={}; custs.push(cur); }
+        if(v) cur[matched.key]=v;
+      }
+      curKey=(matched.key==='age')?'':matched.key;
+    } else if(/^01[016789][\s.\-]?\d{3,4}[\s.\-]?\d{4}$/.test(raw)){
+      if(!cur){ cur={}; custs.push(cur); }
+      if(!cur.phone) cur.phone=raw;
+      curKey='';
+    } else if(cur&&curKey&&curKey!=='name'){
+      cur[curKey]=(cur[curKey]?cur[curKey]+' ':'')+raw;
+    }
+  }
+  custs=custs.filter(function(c){ return c.name||c.phone; });
+  if(!custs.length){
+    if(stat) stat.textContent='인식된 고객이 없습니다. "고객명:", "연락처:" 같은 라벨이 있는지 확인해주세요.';
+    toast('인식된 고객이 없습니다. 카톡 내용을 그대로 붙여넣었는지 확인해주세요.');
+    return;
+  }
+  if(custs.length>50){ custs=custs.slice(0,50); toast('한 번에 최대 50명까지 인식합니다.'); }
+  g('mdb_qty').value=custs.length;
+  genDbNotes();
+  custs.forEach(function(c,i){
+    var vals={
+      name:(c.name||'').trim(),
+      phone:_dbKkPhoneFmt(c.phone||''),
+      birth:_dbKkBirthFmt(c.birth||''),
+      gender:/여/.test(c.gender||'')?'여':(/남/.test(c.gender||'')?'남':''),
+      premium:(c.premium||'').trim(),   // '10만원대' 같은 표기 원문 유지(숫자 포맷터 미적용)
+      calltime:[c.calltime||'',c.memo||''].filter(Boolean).join(' / '),   // 메모는 통화가능시간 칸에 함께 표시
+      address:(c.address||'').trim()
+    };
+    Object.keys(vals).forEach(function(f){
+      var el=g('mdb_note_'+i+'_'+f);
+      if(el) el.value=vals[f];
+    });
+  });
+  // ★머리말★이 등록된 DB 종류와 맞으면 자동 선택
+  var kindMsg='';
+  if(kinds.length){
+    var sel=g('mdb_kind'); var hd0=kinds[0];
+    if(sel&&hd0){
+      var hit='';
+      for(var oi=0; oi<sel.options.length; oi++){
+        var ov=sel.options[oi].value; if(!ov) continue;
+        if(ov===hd0||ov.indexOf(hd0)>=0||hd0.indexOf(ov)>=0){ hit=ov; break; }
+      }
+      if(hit){ sel.value=hit; kindMsg=' · DB종류 "'+hit+'" 자동 선택'; }
+      else kindMsg=' · 머리말 "'+hd0+'" — 등록된 DB종류와 달라 직접 선택 필요';
+    }
+  }
+  // 기존 배정 내역과 연락처 중복 감지(등록 차단은 안 함 — 확인용 경고만)
+  var dupNames=[];
+  try{
+    var seen={};
+    (dbs||[]).forEach(function(d){ (d.notes||[]).forEach(function(n){ var p=String((n&&n.phone)||'').replace(/\D/g,''); if(p) seen[p]=1; }); });
+    custs.forEach(function(c){ var p=String(c.phone||'').replace(/\D/g,''); if(p&&seen[p]&&dupNames.length<10) dupNames.push(c.name||p); });
+  }catch(e){}
+  var msg=custs.length+'명 인식됨'+kindMsg;
+  if(dupNames.length) msg+=' · ⚠ 기존 배정과 연락처 중복: '+dupNames.join(', ');
+  if(stat) stat.textContent=msg;
+  toast(custs.length+'명 자동 입력 완료 — 내용 확인 후 팀원·DB종류를 선택하고 [저장]하세요.');
 }
 
 // ===== 데이터 백업 & 복원 =====
