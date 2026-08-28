@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-4</div>
   </div>
 </div>
 
@@ -8098,14 +8098,22 @@ g('m_db_save').addEventListener('click',()=>{
     });
     notes.push(note);
   }
-  const obj={m:g('mdb_mem').value,k:g('mdb_kind').value,region:g('mdb_region')?g('mdb_region').value:'',q:qty,notes,dt:g('mdb_date')?g('mdb_date').value||td():td()};
+  // 담당자 폴백(2026-08-28 리뷰): 숨긴 셀렉트에 cu.name 대입이 실패(옵션 불일치)하면 ''가 조용히 저장돼
+  // 배정이 화면·알림에서 유실됨 — 값이 비면 로그인 사용자 이름을 직접 기록
+  const obj={m:g('mdb_mem').value||((typeof cu!=='undefined'&&cu&&cu.name)||''),k:g('mdb_kind').value,region:g('mdb_region')?g('mdb_region').value:'',q:qty,notes,dt:g('mdb_date')?g('mdb_date').value||td():td()};
+  // DB종류 미지정 확인(2026-08-28 리뷰): 종류 칸이 숨겨져 있어 자동 인식 실패 시 고칠 수 없던 모순 —
+  // 비어 있으면 종류/지역 줄을 다시 보여주고 확인 후에만 진행(종류 없는 저장은 재고 집계에서 빠짐)
+  if(mode!=='apply' && !obj.k){
+    if(g('mdb_kr_wrap')) g('mdb_kr_wrap').style.display='';
+    if(!confirm('DB 종류가 지정되지 않았습니다.\n종류 없이 저장하면 재고(구매수량) 집계에서 빠집니다.\n그래도 저장할까요?\n(취소하면 위에 나타난 [DB 종류] 칸에서 선택할 수 있습니다)')) return;
+  }
   // 배정종류(어느 재고에서 차감할지) — 배정 모드에서만 기록
   if(mode!=='apply'&&g('mdb_src')) obj.src=g('mdb_src').value||'현월';
   if(mode==='apply'){dba.push(obj);sv('tops_dba',dba);g('m_db').classList.remove('open');rDba();}
   else{dbs.push(obj);sv('tops_dbs',dbs);g('m_db').classList.remove('open');rDbs();
     try{ if(typeof rDbInfo==='function'&&g('db_info_cards')) rDbInfo(); }catch(e){}   // DB 정보 표 즉시 반영(2026-08-28)
-    try{ pushNotify([obj.m], 'DB 배정', (obj.k?obj.k+' ':'')+'DB '+(obj.q||0)+'건이 배정되었습니다.', '/'); }catch(e){}
-    try{ _kkDbAssignNotify(obj); }catch(e){}   // 카톡 배정 알림 (연동한 팀원만)
+    // 카톡 배정알림·웹푸시 발송 제거(2026-08-28 사용자 요청) — 저장은 DB 정보 기록만.
+    // 복원하려면: pushNotify([obj.m],'DB 배정',...) + _kkDbAssignNotify(obj)
   }
   toast('저장되었습니다.');
 });
@@ -9653,9 +9661,11 @@ function dbKkParse(){
         if(ov===hd0||ov.indexOf(hd0)>=0||hd0.indexOf(ov)>=0){ hit=ov; break; }
       }
       if(hit){ sel.value=hit; kindMsg=' · DB종류 "'+hit+'" 자동 선택'; }
-      else kindMsg=' · 머리말 "'+hd0+'" — 등록된 DB종류와 달라 직접 선택 필요';
+      else kindMsg=' · 머리말 "'+hd0+'" — 등록된 DB종류와 달라 아래 [DB 종류] 칸에서 선택하세요';
     }
   }
+  // 종류가 안 정해졌으면 숨겨둔 종류/지역 줄을 보여줘 직접 고를 수 있게(2026-08-28 리뷰 — 안내와 UI 모순 해소)
+  if(!(g('mdb_kind')&&g('mdb_kind').value) && g('mdb_kr_wrap')) g('mdb_kr_wrap').style.display='';
   // 기존 배정 내역과 연락처 중복 감지(등록 차단은 안 함 — 확인용 경고만)
   var dupNames=[];
   try{
@@ -9666,7 +9676,7 @@ function dbKkParse(){
   var msg=custs.length+'명 인식됨'+kindMsg;
   if(dupNames.length) msg+=' · ⚠ 기존 배정과 연락처 중복: '+dupNames.join(', ');
   if(stat) stat.textContent=msg;
-  toast(custs.length+'명 자동 입력 완료 — 내용 확인 후 팀원·DB종류를 선택하고 [저장]하세요.');
+  toast(custs.length+'명 자동 입력 완료 — 내용 확인 후 [저장]하세요.');
 }
 
 // ===== 데이터 백업 & 복원 =====
