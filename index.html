@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-13</div>
   </div>
 </div>
 
@@ -2461,6 +2461,26 @@ function rSchedulePage(){
   <div class="mth"><span id="m_dbcall_t">통화 내역</span><span class="mc" onclick="closeDbCallModal()">×</span></div>
   <div id="m_dbcall_body"></div>
   <div class="mf"><button class="bca" onclick="closeDbCallModal()">닫기</button></div>
+</div></div>
+
+<!-- DB 정보 고객 내용 수정 (2026-08-28) — 흰 카드+검정 글씨 인라인 오버라이드(함정 D), id는 dbe_ 접두(함정 E) -->
+<div class="mb" id="m_dbedit"><div class="mo" style="width:460px;max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+  <div class="mth" style="color:#1a1a2e"><span>DB 고객 정보 수정</span><span class="mc" onclick="closeDbEdit()" style="color:#555">×</span></div>
+  <div style="color:#1a1a2e;display:flex;flex-direction:column;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label style="font-size:13px;color:#555">성함<input id="dbe_name" type="text" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+      <label style="font-size:13px;color:#555">연락처<input id="dbe_phone" type="text" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+      <label style="font-size:13px;color:#555">생년월일<input id="dbe_birth" type="text" placeholder="1991년7월29일" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+      <label style="font-size:13px;color:#555">성별<select id="dbe_gender" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"><option value="">선택</option><option value="여">여</option><option value="남">남</option></select></label>
+    </div>
+    <label style="font-size:13px;color:#555">보험료<input id="dbe_premium" type="text" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+    <label style="font-size:13px;color:#555">통화가능시간 / 메모<input id="dbe_calltime" type="text" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+    <label style="font-size:13px;color:#555">주소<input id="dbe_address" type="text" style="width:100%;margin-top:3px;padding:8px;border:1px solid #ccd0e8;border-radius:7px;background:#fff;color:#1a1a2e;font-family:inherit;font-size:14px"></label>
+  </div>
+  <div class="mf">
+    <button onclick="dbInfoEditSave()" style="padding:8px 22px;background:#2d41aa;border:none;border-radius:7px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">저장</button>
+    <button onclick="closeDbEdit()" style="padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">취소</button>
+  </div>
 </div></div>
 
 <div class="mb" id="m_custinfo"><div class="mo" style="width:560px;max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
@@ -9146,6 +9166,7 @@ function rDbInfo(){
                 : '-'}</td>
               <td style="white-space:nowrap">${r._ni>=0
                 ? `<button onclick="dbInfoSendKk(${ri})" title="배정자 카톡(나와의 채팅)으로 이 고객 정보 발송" style="font-size:13px;padding:3px 10px;background:#fee500;border:1px solid #e0ca00;border-radius:5px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:700">카톡</button>`
+                  +`<div style="margin-top:4px"><button onclick="dbInfoEdit(${ri})" title="입력된 고객 내용 수정" style="font-size:12px;padding:2px 12px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:5px;color:#2a2a4a;cursor:pointer;font-family:inherit;font-weight:600">수정</button></div>`
                   +(r.kkSentAt?`<div style="font-size:11px;color:#1a7040;margin-top:3px">✓ ${_dbKkSentFmt(r.kkSentAt)}${r.kkSentTo?' → '+_esc(r.kkSentTo):''}</div>`:'')
                 : '-'}</td>`:''}
             </tr>`;
@@ -9248,6 +9269,58 @@ async function dbInfoSendKk(ri){
     }
   }catch(e){ toast('카톡 발송 오류: '+((e&&e.message)||e)); }
   finally{ window._dbInfoKkBusy=false; }
+}
+// DB 정보 고객 내용 수정 모달 (2026-08-28) — 대상은 열 때 키(dt/m/k+ni+이름/연락처)로 기억,
+// 저장 시 현재 dbs에서 재탐색(dbInfoSendKk와 동일 — 모달 열린 사이 실시간 스냅샷이 배열을 교체해도 안전, 함정 A)
+function dbInfoEdit(ri){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  const rows=g('db_info_cards')&&g('db_info_cards')._rows;
+  if(!rows||!rows[ri]) return;
+  const r=rows[ri];
+  if(r._ni<0){ toast('고객 정보가 없는 행입니다.'); return; }
+  const n=r._d.notes[r._ni];
+  window._dbEditCtx={d:r._d, ni:r._ni, dt:r._d.dt||'', m:r._d.m||'', k:r._d.k||'', name:n.name||'', phone:n.phone||''};
+  g('dbe_name').value=n.name||'';
+  g('dbe_phone').value=n.phone||'';
+  g('dbe_birth').value=n.birth||'';
+  g('dbe_gender').value=(n.gender==='여'||n.gender==='남')?n.gender:'';
+  g('dbe_premium').value=n.premium||'';
+  g('dbe_calltime').value=n.calltime||'';
+  g('dbe_address').value=n.address||'';
+  g('m_dbedit').classList.add('open');
+}
+function closeDbEdit(){ window._dbEditCtx=null; var m=g('m_dbedit'); if(m) m.classList.remove('open'); }
+function dbInfoEditSave(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); closeDbEdit(); return; }
+  const c=window._dbEditCtx;
+  if(!c){ closeDbEdit(); return; }
+  // 현재 dbs에서 대상 재탐색 — 원본 객체가 살아 있으면 그대로, 교체됐으면 키+원래 이름/연락처로 찾음
+  var n=null;
+  try{
+    if(dbs.indexOf(c.d)>=0){ n=(c.d.notes||[])[c.ni]||null; }
+    if(!n){
+      for(var di=0; di<dbs.length; di++){
+        var d2=dbs[di];
+        if(!d2||d2.dt!==c.dt||d2.m!==c.m||d2.k!==c.k) continue;
+        var nn=(d2.notes||[])[c.ni];
+        if(nn&&nn.phone===c.phone&&nn.name===c.name){ n=nn; break; }
+      }
+    }
+  }catch(e){}
+  if(!n){ toast('대상 고객을 찾지 못했습니다. 목록을 새로 불러온 뒤 다시 시도해주세요.'); closeDbEdit(); rDbInfo(); return; }
+  var name=g('dbe_name').value.trim();
+  if(!name){ toast('성함을 입력해주세요.'); return; }
+  n.name=name;
+  n.phone=g('dbe_phone').value.trim();
+  n.birth=g('dbe_birth').value.trim();
+  n.gender=g('dbe_gender').value;
+  n.premium=g('dbe_premium').value.trim();
+  n.calltime=g('dbe_calltime').value.trim();
+  n.address=g('dbe_address').value.trim();
+  sv('tops_dbs', dbs);   // 로컬 캐시는 sv()가 _slimForStorage로 저장 — raw setItem 금지(함정 B, 통화 녹음 base64)
+  closeDbEdit();
+  rDbInfo();
+  toast(name+' 고객 정보가 수정되었습니다.');
 }
 function setConsult(ri, val){
   const rows = g('db_info_cards')._rows;
