@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-10</div>
   </div>
 </div>
 
@@ -9097,16 +9097,15 @@ function rDbInfo(){
 
   el.innerHTML=`
     <div style="overflow-x:auto">
-      <table class="dt" style="min-width:1560px">
+      <table class="dt" style="min-width:${_isAdm?1480:1280}px">
         <thead>
           <tr>
-            <th>배정일</th><th>신청인</th><th>DB종류</th>
+            <th>배정일</th><th>DB종류</th>
             <th>성함</th><th>연락처</th><th>생년월일</th><th>성별</th>
             <th>보험료</th><th>통화가능시간</th><th style="min-width:220px">주소</th>
             <th style="width:230px">녹취파일</th>
             <th style="width:110px">상담여부</th>
-            <th style="width:110px">배정자</th>
-            <th style="width:95px">발송</th>
+            ${_isAdm?'<th style="width:110px">배정자</th><th style="width:95px">발송</th>':''}
           </tr>
         </thead>
         <tbody>
@@ -9130,7 +9129,6 @@ function rDbInfo(){
             // 자유 텍스트 칸은 전부 _esc — 카톡 붙여넣기 등 외부 원문이 그대로 저장되므로 HTML로 실행되면 안 됨(2026-08-28 리뷰)
             return `<tr>
               <td style="white-space:nowrap">${_esc(r.dt)}</td>
-              <td style="font-weight:600;color:#3040aa;white-space:nowrap">${_esc(r.assignee)}</td>
               <td style="font-weight:700;color:#2040cc;white-space:nowrap">${_esc(r.kind)}</td>
               <td style="font-weight:600;white-space:nowrap">${_esc(r.name||'-')}</td>
               <td>${phoneCell}</td>
@@ -9141,7 +9139,7 @@ function rDbInfo(){
               <td style="min-width:220px;word-break:keep-all">${_esc(r.address||'-')}</td>
               <td>${r.recUrl?`<audio controls preload="none" src="${_esc(r.recUrl)}" style="height:30px;width:215px;max-width:100%"></audio>`:'-'}</td>
               <td>${sel}</td>
-              <td>${r._ni>=0
+              ${_isAdm?`<td>${r._ni>=0
                 ? `<select onchange="dbInfoAssign(${ri},this.value)" style="font-size:13px;padding:2px 4px;border:1px solid #c8cdf0;border-radius:5px;color:#223;background:#fff;cursor:pointer;font-family:inherit;width:100%">
                     <option value="">선택</option>${_asgNames.map(nm=>`<option value="${_esc(nm)}" ${r.assignTo===nm?'selected':''}>${_esc(nm)}</option>`).join('')}
                   </select>`
@@ -9149,7 +9147,7 @@ function rDbInfo(){
               <td style="white-space:nowrap">${r._ni>=0
                 ? `<button onclick="dbInfoSendKk(${ri})" title="배정자 카톡(나와의 채팅)으로 이 고객 정보 발송" style="font-size:13px;padding:3px 10px;background:#fee500;border:1px solid #e0ca00;border-radius:5px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:700">카톡</button>`
                   +(r.kkSentAt?`<div style="font-size:11px;color:#1a7040;margin-top:3px">✓ ${_dbKkSentFmt(r.kkSentAt)}${r.kkSentTo?' → '+_esc(r.kkSentTo):''}</div>`:'')
-                : '-'}</td>
+                : '-'}</td>`:''}
             </tr>`;
           }).join('')}
         </tbody>
