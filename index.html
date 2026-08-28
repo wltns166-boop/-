@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-2</div>
   </div>
 </div>
 
@@ -9088,21 +9088,22 @@ function rDbInfo(){
             const histClick=hasCalls?`onclick="openDbCallLog(${ri})"`:'';
             const histCursor=hasCalls?'cursor:pointer;':'';
             const phoneCell=callable
-              ? `<a href="tel:${phoneDigits}" onclick="dbCall(${ri})" style="color:#1466c4;font-weight:700;text-decoration:none;white-space:nowrap"><i class="ti ti-phone-call"></i> ${r.phone}</a>`
+              ? `<a href="tel:${phoneDigits}" onclick="dbCall(${ri})" style="color:#1466c4;font-weight:700;text-decoration:none;white-space:nowrap"><i class="ti ti-phone-call"></i> ${_esc(r.phone)}</a>`
                 + `<div id="dbcall_hist_${ri}" ${histClick} style="${histCursor}font-size:11px;color:#8a8aa8;margin-top:3px">${_dbCallHistHtml(r.calls)}</div>`
-              : (r.phone||'-');
+              : _esc(r.phone||'-');
+            // 자유 텍스트 칸은 전부 _esc — 카톡 붙여넣기 등 외부 원문이 그대로 저장되므로 HTML로 실행되면 안 됨(2026-08-28 리뷰)
             return `<tr>
-              <td style="white-space:nowrap">${r.dt}</td>
-              <td style="font-weight:600;color:#3040aa;white-space:nowrap">${r.assignee}</td>
-              <td style="font-weight:700;color:#2040cc;white-space:nowrap">${r.kind}</td>
-              <td style="white-space:nowrap">${r.region}</td>
-              <td style="font-weight:600;white-space:nowrap">${r.name||'-'}</td>
+              <td style="white-space:nowrap">${_esc(r.dt)}</td>
+              <td style="font-weight:600;color:#3040aa;white-space:nowrap">${_esc(r.assignee)}</td>
+              <td style="font-weight:700;color:#2040cc;white-space:nowrap">${_esc(r.kind)}</td>
+              <td style="white-space:nowrap">${_esc(r.region)}</td>
+              <td style="font-weight:600;white-space:nowrap">${_esc(r.name||'-')}</td>
               <td>${phoneCell}</td>
-              <td style="white-space:nowrap">${r.birth||'-'}</td>
-              <td style="white-space:nowrap">${r.gender||'-'}</td>
-              <td style="white-space:nowrap">${r.premium||'-'}</td>
-              <td style="white-space:nowrap">${r.calltime||'-'}</td>
-              <td>${r.address||'-'}</td>
+              <td style="white-space:nowrap">${_esc(r.birth||'-')}</td>
+              <td style="white-space:nowrap">${_esc(r.gender||'-')}</td>
+              <td style="white-space:nowrap">${_esc(r.premium||'-')}</td>
+              <td style="white-space:nowrap">${_esc(r.calltime||'-')}</td>
+              <td>${_esc(r.address||'-')}</td>
               <td>${r.recUrl?`<audio controls preload="none" src="${_esc(r.recUrl)}" style="height:30px;width:215px;max-width:100%"></audio>`:'-'}</td>
               <td>${sel}</td>
             </tr>`;
@@ -9551,8 +9552,8 @@ function _dbKkPhoneFmt(s){
 function _dbKkBirthFmt(s){
   var t=String(s||'').trim();
   var d=t.replace(/\D/g,'');
-  if(d.length===8) return (+d.slice(0,4))+'년'+(+d.slice(4,6))+'월'+(+d.slice(6,8))+'일';   // _dbNoteFmtBirth와 동일 표기
-  return t;   // 6자리 생년 등 나머지는 원문 유지(정보 유실 방지)
+  if(d.length===8) return (+d.slice(0,4))+'년'+(+d.slice(4,6))+'월'+(+d.slice(6,8))+'일';   // 8자리만 _dbNoteFmtBirth와 동일 표기로 변환
+  return t;   // 6자리 생년(YYMMDD)은 세기 판단이 모호해 원문 유지(정보 유실 방지)
 }
 function dbKkParse(){
   var txt=(g('mdb_kk_txt')&&g('mdb_kk_txt').value)||'';
@@ -9563,18 +9564,24 @@ function dbKkParse(){
   for(var li=0; li<lines.length; li++){
     var raw=lines[li].trim();
     if(!raw){ curKey=''; continue; }
-    var hd=/^[★☆*■\[]+\s*([^★☆*■\]]+?)\s*[★☆*■\]]+$/.exec(raw);   // ★굿데이터★ 같은 머리말 = DB 종류 후보
+    var hd=/^[★☆*■]+\s*([^★☆*■]+?)\s*[★☆*■]+$/.exec(raw);   // ★굿데이터★ 같은 머리말 = DB 종류 후보([대괄호]는 "[긴급]" 오탐 방지로 제외)
     if(hd){ kinds.push(hd[1].trim()); curKey=''; continue; }
     var matched=null;
     for(var mi=0; mi<DB_KK_LABELS.length; mi++){
       if(DB_KK_LABELS[mi].re.test(raw)){ matched=DB_KK_LABELS[mi]; break; }
     }
+    var rest='';
     if(matched){
-      var v=raw.replace(matched.re,'').replace(/^[\s:：\-–~]+/,'').trim();
+      rest=raw.replace(matched.re,'');
+      // 라벨 뒤에 바로 한글이 이어지면 자연문("전화 받기 편한 시간" 등) — 라벨로 안 봄(2026-08-28 리뷰)
+      if(/^\s*[가-힣]/.test(rest)) matched=null;
+    }
+    if(matched){
+      var suf=/^\s*\d{1,2}\s*[:：\-–~]/.test(rest);   // "연락처1:" 같은 번호 라벨 — 같은 고객의 추가 항목
+      var v=rest.replace(/^\s*\d{0,2}\s*[:：\-–~\s]+/,'').trim();
       if(matched.key!=='age'){
-        // 같은 라벨이 반복되면 새 고객 블록 시작(라벨 순서가 메시지마다 달라도 안전)
-        if(!cur||cur[matched.key]!==undefined){ cur={}; custs.push(cur); }
-        if(v) cur[matched.key]=v;
+        if(!cur||(cur[matched.key]!==undefined&&!suf)){ cur={}; custs.push(cur); }   // 같은 라벨 반복=새 고객(번호 라벨은 예외)
+        if(v) cur[matched.key]=cur[matched.key]!==undefined?cur[matched.key]+' / '+v:v;
       }
       curKey=(matched.key==='age')?'':matched.key;
     } else if(/^01[016789][\s.\-]?\d{3,4}[\s.\-]?\d{4}$/.test(raw)){
@@ -9592,12 +9599,24 @@ function dbKkParse(){
     return;
   }
   if(custs.length>50){ custs=custs.slice(0,50); toast('한 번에 최대 50명까지 인식합니다.'); }
+  // 이미 손으로 채운 칸(녹취 포함)이 있으면 확인 후 덮어씀 — 무통보 유실 방지(2026-08-28 리뷰)
+  var hasOld=false;
+  try{
+    var oldQty=Math.min(+g('mdb_qty').value||0,50);
+    for(var qi=0; qi<oldQty&&!hasOld; qi++){
+      ['name','phone','birth','gender','premium','calltime','address','recUrl'].forEach(function(f){
+        var oe=g('mdb_note_'+qi+'_'+f); if(oe&&oe.value) hasOld=true;
+      });
+    }
+  }catch(e){}
+  if(hasOld&&!confirm('이미 입력된 고객 정보 칸이 있습니다.\n붙여넣기 인식 결과로 전부 덮어쓸까요?')) return;
   g('mdb_qty').value=custs.length;
   genDbNotes();
   custs.forEach(function(c,i){
     var vals={
       name:(c.name||'').trim(),
-      phone:_dbKkPhoneFmt(c.phone||''),
+      // 연락처1/2처럼 번호가 여러 개 합쳐진 값(' / ' 포함)은 원문 유지 — 하이픈 정규화가 두 번호를 합쳐버리는 것 방지
+      phone:String(c.phone||'').indexOf('/')>=0?String(c.phone).trim():_dbKkPhoneFmt(c.phone||''),
       birth:_dbKkBirthFmt(c.birth||''),
       gender:/여/.test(c.gender||'')?'여':(/남/.test(c.gender||'')?'남':''),
       premium:(c.premium||'').trim(),   // '10만원대' 같은 표기 원문 유지(숫자 포맷터 미적용)
