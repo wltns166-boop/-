@@ -185,6 +185,14 @@
   ③ DB종류 미지정 시 [저장]에서 confirm + 숨겼던 종류/지역 줄(mdb_kr_wrap) 재표시, [자동 인식]도 종류 미확정이면 재표시
   (숨김 UI 때문에 자동 인식 실패를 고칠 수 없던 모순 해소). fillSel이 _admList() 아닌 정적 ADMINS를 쓰는 기존 버그는
   ②의 폴백으로 이 경로에선 무해화(근본 수정은 별도 과제).
+- **v-5 (2026-08-28) 표 사진 인식**: 엑셀 캡처 등 **표 이미지**도 자동입력 — 붙여넣기 칸에 사진 붙여넣기(Ctrl+V)·
+  드래그·[📷 사진으로 인식] 버튼(`dbKkImgRecognize`, 최대 4장·1800px JPEG 축소 `_dbKkImgShrink`).
+  서버 `/api/analyze` Gemini 분기에 `body.images`(dataURL 배열→inline_data) 지원 추가(**functions 수정 — 자동 배포**,
+  텍스트 전용 호출은 무변경). 모델 gemini-2.5-flash(비상 오버라이드 `tops_ai_dbocr_model`), 프롬프트가 열 이름 이형
+  (연락처/배송지 주소/기타내용)과 주민번호→생년월일·성별 변환을 지시, JSON 배열만 출력. 결과는 텍스트 파싱과 공용
+  `_dbKkApply`(수량+칸 채움+종류 자동선택+중복 경고, dbKkParse에서 분리)로 합류. 전용 paste/drop 핸들러는
+  stopPropagation(4.8 규칙 — uni 이중 처리 방지). 연타 가드 `_dbKkOcrBusy`.
+  ⚠️ 고객 PII가 Gemini API로 전송됨 — 보장분석(병력 PDF 텍스트)과 동일 계열의 기존 수용 사항.
 
 ### 3.9 인트라넷 사용량 집계 (2026-07-30)
 

@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-5</div>
   </div>
 </div>
 
@@ -2671,10 +2671,12 @@ function rSchedulePage(){
   </div>
   <!-- 카톡 DB 자동입력 (배정 모드 전용) — 본부장 카톡 내용을 붙여넣으면 수량·고객 정보 칸 자동 채움 -->
   <div id="mdb_kk_wrap" style="margin:6px 0 10px;border:1.5px dashed #8fa0e8;border-radius:10px;padding:10px 12px;background:#f4f6ff">
-    <div style="font-size:13.5px;font-weight:700;color:#3040cc;margin-bottom:6px">📋 카톡 DB 자동입력 <span style="font-weight:400;color:#667">— 받은 카톡 내용을 그대로 붙여넣고 [자동 인식]</span></div>
+    <div style="font-size:13.5px;font-weight:700;color:#3040cc;margin-bottom:6px">📋 카톡 DB 자동입력 <span style="font-weight:400;color:#667">— 카톡 글은 붙여넣고 [자동 인식], 표 사진은 붙여넣기·드래그 또는 [📷 사진으로 인식]</span></div>
     <textarea id="mdb_kk_txt" rows="5" placeholder="★굿데이터★&#10;고객명: 홍길동&#10;연락처: 010-1234-5678&#10;생년월일: 1991-07-29&#10;… (여러 명이면 통째로 붙여넣어도 됩니다)" style="width:100%;font-size:13px;background:#fff;color:#111;border:1px solid #c8cdf0;border-radius:8px;padding:8px;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
     <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
       <button type="button" onclick="dbKkParse()" style="font-size:13px;padding:6px 14px;background:#3040cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">자동 인식</button>
+      <button type="button" onclick="g('mdb_kk_img').click()" style="font-size:13px;padding:6px 14px;background:#fff;color:#3040cc;border:1.5px solid #3040cc;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600">📷 사진으로 인식</button>
+      <input type="file" id="mdb_kk_img" accept="image/*" multiple style="display:none" onchange="dbKkImgRecognize(this.files);this.value='';">
       <span id="mdb_kk_stat" style="font-size:12.5px;color:#667"></span>
     </div>
   </div>
@@ -9620,6 +9622,11 @@ function dbKkParse(){
     toast('인식된 고객이 없습니다. 카톡 내용을 그대로 붙여넣었는지 확인해주세요.');
     return;
   }
+  _dbKkApply(custs, kinds);
+}
+// 인식 결과(텍스트 파싱·사진 AI 공용)를 폼에 반영 — 수량 설정+칸 생성+값 채움+종류 자동 선택+중복 경고
+function _dbKkApply(custs, kinds){
+  var stat=g('mdb_kk_stat');
   if(custs.length>50){ custs=custs.slice(0,50); toast('한 번에 최대 50명까지 인식합니다.'); }
   // 이미 손으로 채운 칸(녹취 포함)이 있으면 확인 후 덮어씀 — 무통보 유실 방지(2026-08-28 리뷰)
   var hasOld=false;
@@ -9678,6 +9685,87 @@ function dbKkParse(){
   if(stat) stat.textContent=msg;
   toast(custs.length+'명 자동 입력 완료 — 내용 확인 후 [저장]하세요.');
 }
+
+// ── 카톡 DB 사진 인식 (2026-08-28) — 표 스크린샷을 Gemini(/api/analyze images)로 읽어 같은 흐름에 합류 ──
+function _dbKkImgShrink(file){
+  return new Promise(function(res,rej){
+    var rd=new FileReader();
+    rd.onload=function(ev){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var MAX=1800;   // 표 글자가 뭉개지지 않는 선에서 축소(전송량 절감)
+          var w=img.width,h=img.height;
+          if(w>MAX||h>MAX){ var r=Math.min(MAX/w,MAX/h); w=Math.round(w*r); h=Math.round(h*r); }
+          var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          var ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+          res(cv.toDataURL('image/jpeg',0.9));
+        }catch(e){ rej(e); }
+      };
+      img.onerror=function(){ rej(new Error('이미지를 읽지 못했습니다.')); };
+      img.src=ev.target.result;
+    };
+    rd.onerror=function(){ rej(new Error('파일을 읽지 못했습니다.')); };
+    rd.readAsDataURL(file);
+  });
+}
+async function dbKkImgRecognize(fileList){
+  var files=Array.prototype.slice.call(fileList||[]).filter(function(f){ return /^image\//.test(f.type); }).slice(0,4);
+  if(!files.length){ toast('이미지 파일이 아닙니다. 표가 찍힌 사진(캡처)을 넣어주세요.'); return; }
+  if(window._dbKkOcrBusy){ toast('이미 사진을 인식하는 중입니다. 잠시만 기다려주세요.'); return; }
+  window._dbKkOcrBusy=true;
+  var stat=g('mdb_kk_stat');
+  if(stat) stat.textContent='📷 사진 인식 중… (AI 분석, 수 초~수십 초 걸립니다)';
+  try{
+    var imgs=[];
+    for(var i=0;i<files.length;i++) imgs.push(await _dbKkImgShrink(files[i]));
+    var prompt='아래 사진(고객 목록 표)에서 모든 고객 행을 추출해 JSON 배열만 출력해. 설명·코드펜스 없이 JSON 배열만.\n'
+      +'각 항목 형식: {"name":"고객명","phone":"전화/연락처(숫자·하이픈)","birth":"생년월일 YYYY-MM-DD (주민번호면 앞 6자리와 뒤 첫 자리로 변환: 1·2=19xx, 3·4=20xx. 불명확하면 원문)","gender":"남 또는 여 또는 빈문자(성별 열이 없으면 주민번호 뒤 첫 자리 1·3=남, 2·4=여)","premium":"월보험료 원문 그대로(없으면 빈문자)","calltime":"메모/기타내용/통화희망 등 비고 전체","address":"주소 또는 배송지 주소"}\n'
+      +'열 이름이 달라도 의미로 매핑(연락처=전화번호, 배송지 주소=주소, 기타내용=메모). No/대리점/시도/나이/접수유형/진행상태/대분류/제조사/상담원/납품일/납품상태/접수일 열은 무시. 표의 모든 행을 빠짐없이 포함해.';
+    var mdl=(function(){ try{ return localStorage.getItem('tops_ai_dbocr_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+    var res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:mdl, prompt:prompt, images:imgs, max_tokens:8000})});
+    var data=null; try{ data=await res.json(); }catch(e){}
+    if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('서버 오류 '+res.status));
+    var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'';
+    var m=/\[[\s\S]*\]/.exec(text);
+    if(!m) throw new Error('AI 응답에서 고객 목록을 찾지 못했습니다.');
+    var arr=JSON.parse(m[0]);
+    if(!Array.isArray(arr)) throw new Error('AI 응답 형식 오류');
+    var custs=arr.map(function(o){ o=o||{}; return {
+      name:String(o.name||'').trim(), phone:String(o.phone||''), birth:String(o.birth||''),
+      gender:String(o.gender||''), premium:String(o.premium||''), calltime:String(o.calltime||''), address:String(o.address||'') };
+    }).filter(function(c){ return c.name||c.phone; });
+    if(!custs.length){
+      if(stat) stat.textContent='사진에서 고객을 찾지 못했습니다. 표가 선명하게 나온 캡처인지 확인해주세요.';
+      toast('사진에서 고객 정보를 찾지 못했습니다.');
+      return;
+    }
+    _dbKkApply(custs, []);
+  }catch(e){
+    var em=(e&&e.message)||String(e);
+    if(stat) stat.textContent='사진 인식 실패: '+em;
+    toast('사진 인식 실패: '+em);
+  }finally{ window._dbKkOcrBusy=false; }
+}
+// 사진 입력 경로 연결 — 붙여넣기(Ctrl+V)·드래그앤드롭은 전용 핸들러(4.8 규칙: stopPropagation으로 공용 uni와 이중 처리 방지)
+(function(){
+  var ta=g('mdb_kk_txt'), kw=g('mdb_kk_wrap');
+  if(ta) ta.addEventListener('paste',function(ev){
+    var items=(ev.clipboardData&&ev.clipboardData.items)||[]; var fs=[];
+    for(var i=0;i<items.length;i++){ var it=items[i]; if(it.kind==='file'&&/^image\//.test(it.type)){ var f=it.getAsFile(); if(f) fs.push(f); } }
+    if(fs.length){ ev.preventDefault(); ev.stopPropagation(); dbKkImgRecognize(fs); }
+  });
+  if(kw){
+    kw.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); });
+    kw.addEventListener('drop',function(e){
+      e.preventDefault(); e.stopPropagation();
+      var fs=(e.dataTransfer&&e.dataTransfer.files)||[];
+      var imgs=Array.prototype.filter.call(fs,function(f){ return /^image\//.test(f.type); });
+      if(imgs.length) dbKkImgRecognize(imgs);
+    });
+  }
+})();
 
 // ===== 데이터 백업 & 복원 =====
 function exportData(){

@@ -1145,11 +1145,22 @@ exports.api = onRequest(
         //   (2.5 Pro는 thinkingBudget 0을 허용하지 않아 flash 계열에만 적용)
         const genCfg = { maxOutputTokens: maxTokens, temperature: 0 };
         if (/2\.5-flash/i.test(model)) genCfg.thinkingConfig = { thinkingBudget: 0 };
+        // 이미지 인식 지원(2026-08-28) — body.images: dataURL(JPEG/PNG 등) 배열, 최대 4장.
+        //   카톡 DB 표 사진 자동입력용. 텍스트 전용 호출(보장분석 등)은 기존 그대로.
+        const gParts = [{ text: prompt }];
+        if (Array.isArray(body.images)) {
+          for (const im of body.images.slice(0, 4)) {
+            const m = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i.exec(String(im || ""));
+            if (!m) continue;
+            if (m[2].length > 6 * 1024 * 1024) continue; // base64 ~6MB(원본 ~4.5MB) 초과 장은 스킵
+            gParts.push({ inline_data: { mime_type: m[1].toLowerCase(), data: m[2] } });
+          }
+        }
         const r = await fetch(gUrl, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ parts: gParts }],
             generationConfig: genCfg
           })
         });
