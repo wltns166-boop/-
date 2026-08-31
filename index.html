@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.31-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.31-2</div>
   </div>
 </div>
 
@@ -3469,6 +3469,17 @@ async function loadFromFirestore(){
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _claimsIdMigrate(); }catch(e){}
     // 리쿠르팅 항목 예전 기본형 → 새 분할 양식 마이그레이션 — 관리자 기기 세션 1회(멱등)
     try{ if(typeof _isAdmin==='function'&&_isAdmin()&&typeof _rcFldsMigrate==='function') _rcFldsMigrate(); }catch(e){}
+    // 병력정리 클라우드 슬림 마이그레이션(2026-08-31): 기존 저장분의 noteHtml을 클라우드에서 제거해
+    //   tops/data 1MiB 한도 압박(~700KB) 해소. sv('tops_mhx')가 이제 슬림본을 저장하므로 재저장 1회면 됨.
+    //   관리자 기기 세션 1회(멱등 — noteHtml 없으면 저장 안 함). 표시·PDF는 _medNoteToHtml 재생성으로 동일.
+    try{
+      if(typeof _isAdmin==='function'&&_isAdmin()&&!window._mhxSlimMigrated
+         &&Array.isArray(mhx)&&mhx.some(function(m){return m&&m.noteHtml;})){
+        window._mhxSlimMigrated=true;
+        sv('tops_mhx',mhx);
+        console.log('mhx 클라우드 슬림 마이그레이션 실행 — noteHtml 제거 저장');
+      }
+    }catch(e){}
     // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
     //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
     try{ _authDocSync(); }catch(e){}
