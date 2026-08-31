@@ -228,6 +228,24 @@
 - 자동발송 실행 여부는 콘솔 없이도 판별 가능: `tops/data`의 `dsnap`에서 그날 `fin:1` 유무(익명 인증 Firestore REST로 읽힘 —
   fin은 카톡 전송 전에 찍히므로 "없음 = 발송 로직 미실행", 카톡 실패와 구별됨).
 
+## 3.12 Firestore tops/data 1MiB 한도 — 2026-08-31 저장 거부 실사고 (함정 B 계열)
+
+- **증상**: 팀원 리쿠르팅 카드가 6장째부터 "저장은 되는데 새로고침하면 사라짐". 실제로는 **팀 전체의
+  문서를 키우는 모든 저장이 거부**되고 있었음 — `tops/data` 문서가 1,048,284/1,048,576바이트(여유 292B).
+- **원인**: 병력정리 `mhx[].noteHtml`(AI 생성 HTML, 건당 최대 103KB)이 28건 누적 814KB(문서의 78%).
+  sv()의 FS 실패가 console.warn으로만 삼켜져 아무도 인지 못 함(조용한 유실).
+- **수정(v2026.08.31-1/-2)**: ① sv()가 `tops_mhx`는 Firestore에도 **슬림본(noteHtml 제외)** 저장
+  (_slimForStorage 재사용 — 로컬 캐시와 동일 기준). ② `_medNoteToHtml(note)`(renderMedResult 코어 추출)로
+  열람·PDF(_medPdfDocHtml)·엑셀 3곳이 note 원문에서 **완전 동치 HTML 재생성**(클라우드 28건 전수 모의검증 —
+  바이트 동일). ③ loadFromFirestore에 관리자 세션 1회 멱등 마이그레이션 — 클라우드 mhx에 noteHtml 있으면
+  재저장으로 일괄 제거(~700KB 확보. 문서를 줄이는 쓰기라 한도 초과 상태에서도 성공). ④ **FS 저장 실패 시
+  토스트**(1분 1회 스로틀, 용량 한도/네트워크 구분) — 조용한 유실 재발 방지.
+- **규칙**: 대용량 파생 데이터(AI 생성 HTML·긴 추출 텍스트 등)는 tops/data에 넣지 말 것 — 원문에서
+  재생성하거나(이번 방식), 별도 문서(tops/devices·tops/usage 패턴)나 Storage로. 진단은 익명 REST로
+  `?mask.fieldPaths=<필드>` 조회 후 Firestore 공식(문자열 UTF-8+1, 숫자 8, 맵=키+1+값 합) 크기 계산.
+- ⚠️ 문서가 다시 차오르면(현재 최대 필드: claim_coords_v2·custs·cust_reqs) 같은 증상이 재발함 —
+  "저장했는데 사라짐" 제보가 오면 **문서 크기부터 확인**할 것.
+
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.
