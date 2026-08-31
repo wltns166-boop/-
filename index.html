@@ -399,7 +399,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.28-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.31-1</div>
   </div>
 </div>
 
@@ -3016,8 +3016,23 @@ function sv(k,v){
   if(!window.FS_DOC) return;
   FS_DOC = window.FS_DOC;
   const fsKey = k.replace('tops_','');
-  // Firestore 에는 원본(noteHtml 포함) 그대로 저장
-  FS_DOC.set({[fsKey]: v}, {merge:true}).catch(function(e){console.warn('FS save err:',e);});
+  // Firestore 저장 — 단 tops_mhx는 슬림본(noteHtml 제외)으로 저장한다(2026-08-31 실사고):
+  //   병력정리 AI HTML(건당 최대 100KB+)이 tops/data 문서를 1MiB 한도까지 채워
+  //   팀 전체의 신규 저장(리쿠르팅 카드 등)이 조용히 거부되던 원인. 표시·PDF·엑셀은
+  //   note(원문 텍스트)에서 _medNoteToHtml로 동일 서식을 재생성하므로 데이터 손실 없음.
+  var fsVal = (k==='tops_mhx') ? _slimForStorage(k, v) : v;
+  FS_DOC.set({[fsKey]: fsVal}, {merge:true}).catch(function(e){
+    console.warn('FS save err:',e);
+    // 조용한 유실 방지: 클라우드 저장 실패를 사용자에게 알림(1분에 1회로 제한 — 재시도 폭주 시 토스트 도배 방지)
+    try{
+      var now=Date.now();
+      if(!window._fsSaveErrTs || now-window._fsSaveErrTs>60000){
+        window._fsSaveErrTs=now;
+        var msg=(e&&e.message)||'';
+        toast('⚠ 클라우드 저장 실패('+k.replace('tops_','')+') — '+(/maximum size|exceeds/i.test(msg)?'저장소 용량 한도 초과. 관리자에게 알려주세요.':'네트워크 확인 후 다시 저장해주세요.'));
+      }
+    }catch(e2){}
+  });
   // 계정 정보 변경 시 로그인 전용 문서(tops/auth)도 함께 최신화
   if(fsKey==='mem'||fsKey==='admov'){ try{ _authDocSync(); }catch(e){} }
 }
@@ -8364,7 +8379,7 @@ function viewMedDetail(i){
     +'</style></head><body>'
     +'<h2>'+m.cust+' 병력정리</h2>'
     +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m+'</div>'
-    +(m.noteHtml||(m.note?m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'):''))
+    +(m.noteHtml||_medNoteToHtml(m.note)||'')
     +'</body></html>';
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -8403,8 +8418,8 @@ function _filterDentalFromHtml(html){
 // 병력정리 PDF용 HTML 생성 (인쇄 창·서버 드라이브 저장 공용) — {html, removed} 반환
 function _medPdfDocHtml(m, excludeDental, opts){
   opts=opts||{};
-  // noteHtml 이 없으면(localStorage 슬림 저장 후 재로드 케이스) note 평문을 HTML로 변환해 폴백
-  var noteHtml = m.noteHtml || (m.note ? m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') : '');
+  // noteHtml 이 없으면(슬림 저장 — 로컬·클라우드 공통) note 원문에서 동일 서식 재생성
+  var noteHtml = m.noteHtml || _medNoteToHtml(m.note) || '';
   var titleSuffix = '';
   var removedCount = 0;
   if(excludeDental && noteHtml){
@@ -8471,8 +8486,8 @@ function saveMedExcelByIdx(i){
   const m=mhx[i];
   if(!m){toast('데이터 없음');return;}
   const div=document.createElement('div');
-  // noteHtml 이 없으면(localStorage 슬림 저장 후 재로드 케이스) note 평문 폴백
-  div.innerHTML=m.noteHtml||(m.note ? m.note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') : '');
+  // noteHtml 이 없으면(슬림 저장) note 원문에서 표 HTML 재생성 — 엑셀 변환용 table 태그 복원
+  div.innerHTML=m.noteHtml||_medNoteToHtml(m.note)||'';
   const table=div.querySelector('table');
   if(!table){
     // 표 없으면 텍스트로 저장
@@ -10465,9 +10480,11 @@ function showMedRaw(){
   w.document.close();
 }
 
-function renderMedResult(text){
-  var el = document.getElementById('med_result_text');
-  var lines = text.split('\n');
+// note(마크다운 표 텍스트) → 서식 HTML 재생성 — 저장본에 noteHtml이 없어도(슬림 저장) 동일 화면·PDF·엑셀.
+// noteHtml은 이 함수로 언제든 재생성 가능하므로 클라우드에 저장하지 않는다(2026-08-31, tops/data 1MiB 실사고).
+function _medNoteToHtml(text){
+  if(!text) return '';
+  var lines = String(text).split('\n');
   var html = '';
   var tableRows = [];
   var inTable = false;
@@ -10486,7 +10503,11 @@ function renderMedResult(text){
     }
   }
   if(inTable && tableRows.length) html += buildTable(tableRows);
-  el.innerHTML = html || '<div class="em">결과가 없습니다.</div>';
+  return html;
+}
+function renderMedResult(text){
+  var el = document.getElementById('med_result_text');
+  el.innerHTML = _medNoteToHtml(text) || '<div class="em">결과가 없습니다.</div>';
 }
 
 // AI 출력·PDF 유래 텍스트를 innerHTML에 넣기 전 이스케이프 — 악성 PDF가 AI 출력에 태그를 심는 저장형 XSS 방어
