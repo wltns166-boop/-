@@ -404,7 +404,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-2</div>
   </div>
 </div>
 
@@ -726,7 +726,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <select id="us_month" onchange="_usageDraw()" style="padding:8px 12px;font-size:14px;font-weight:700;background:#fff;color:#1a1a3a;border:1px solid rgba(80,100,220,.3);border-radius:7px;font-family:inherit;cursor:pointer"></select></div>
         <button onclick="rUsage()" style="padding:9px 14px;font-size:13px;background:rgba(80,100,220,.16);border:1px solid rgba(90,110,230,.35);border-radius:7px;color:#8a9af0;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-refresh"></i> 새로고침</button>
       </div>
-      <div class="card" style="overflow-x:auto"><div id="us_tb" style="font-size:14px;color:#333">불러오는 중…</div></div>
+      <div class="card" id="us_scroll" style="overflow-x:auto"><div id="us_tb" style="font-size:14px;color:#333">불러오는 중…</div></div>
       <div style="font-size:12px;color:#8a93c8;line-height:1.65;margin-top:10px">
         · 구성원이 메뉴(페이지)를 열 때마다 1회로 집계됩니다. (2026-07-30부터 집계 시작 — 그 이전 사용량은 없음)<br>
         · 로그인·새로고침 직후 자동으로 열리는 홈, 서버 자동 캡처, 이 페이지 자신은 집계에서 제외됩니다. (홈은 메뉴 클릭 시에만 집계)
@@ -5148,8 +5148,44 @@ function _usageTrack(name){
 }
 // 페이지 진입/새로고침 — 문서를 읽어 월 목록 채우고 표를 그린다
 var _usageCache=null;
+// 표 드래그 스크롤 — 마우스로 누른 채 끌어서 좌우·상하 이동(스크롤바 대신). 요소당 1회만 부착(멱등).
+// 왼쪽 버튼 + 비조작 요소에서만 시작, 4px 이내 움직임은 일반 클릭으로 취급(글자 선택·셀 클릭 보존).
+function _dragScroll(el){
+  if(!el||el._dsOn) return;
+  el._dsOn=1;
+  el.style.cursor='grab';
+  var down=false, moved=false, sx=0, sy=0, sl=0, st=0;
+  var end=function(){
+    if(!down) return;
+    down=false;
+    el.style.cursor='grab';
+    document.body.style.userSelect='';
+  };
+  el.addEventListener('mousedown', function(e){
+    if(e.button!==0) return;
+    if(e.target&&e.target.closest&&e.target.closest('a,button,input,select,textarea,label')) return;
+    down=true; moved=false; sx=e.clientX; sy=e.clientY; sl=el.scrollLeft; st=el.scrollTop;
+  });
+  document.addEventListener('mousemove', function(e){
+    if(!down) return;
+    // 창 밖·다른 프로그램 위에서 버튼을 놓으면 mouseup이 안 와서 드래그가 고착됨 — 실제 버튼 상태로 종료
+    if(e.buttons!==undefined&&(e.buttons&1)===0){ end(); return; }
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    if(!moved&&Math.abs(dx)<4&&Math.abs(dy)<4) return;
+    moved=true;
+    el.style.cursor='grabbing';
+    document.body.style.userSelect='none';   // 드래그 중 글자 선택 방지(end에서 복원)
+    el.scrollLeft=sl-dx; el.scrollTop=st-dy;
+    e.preventDefault();
+  });
+  document.addEventListener('mouseup', end);
+  window.addEventListener('blur', end);      // 드래그 중 창 전환(Alt-Tab 등)에도 상태 정리
+  // 실제로 끌었던 직후의 클릭 1회는 무시 — 드래그를 놓는 순간 셀 안 요소가 눌리는 오클릭 방지
+  el.addEventListener('click', function(e){ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } }, true);
+}
 function rUsage(){
   if(!_isAdmin()) return;
+  _dragScroll(g('us_scroll'));
   var box=g('us_tb'); if(!box) return;
   var ref=_usageRef();
   if(!ref){ box.textContent='클라우드 연결 후 이용할 수 있습니다.'; return; }
