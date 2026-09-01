@@ -404,7 +404,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-5</div>
   </div>
 </div>
 
@@ -15235,15 +15235,16 @@ function rWClose(){
     return '<tr'+(nm===myName?' style="background:rgba(72,88,204,.06)"':'')+'>'
       +'<td style="font-weight:600;text-align:left">'+nm+'</td>'+cells
       +'<td style="text-align:center">'+(done?'<span style="color:#1a7040;font-weight:700">제출완료</span>':'<span style="color:#c04040">미제출</span>')+'</td>'
-      +'<td style="text-align:center;white-space:nowrap;font-size:13px;color:#556">'+(done?_wcTsFmt(r.ts):'-')+'</td>'+editCell+'</tr>';
+      +'<td style="text-align:center;white-space:nowrap;font-size:14px;color:#556">'+(done?_wcTsFmt(r.ts):'-')+'</td>'+editCell+'</tr>';
   }).join('');
 }
-// 제출시각 표시: 월/일/0시0분 (예: 9/1/18시45분). ts 없는 옛 기록은 '-'
+// 제출시각 표시: 0월0일00시00분 (예: 9월1일18시45분·9월1일00시05분). ts 없는 옛 기록은 '-'
 function _wcTsFmt(ts){
   if(!ts) return '-';
   var d=new Date(+ts);
   if(isNaN(d.getTime())) return '-';
-  return (d.getMonth()+1)+'/'+d.getDate()+'/'+d.getHours()+'시'+d.getMinutes()+'분';
+  var p2=function(n){ return String(n).padStart(2,'0'); };
+  return (d.getMonth()+1)+'월'+d.getDate()+'일'+p2(d.getHours())+'시'+p2(d.getMinutes())+'분';
 }
 function saveWClose(){
   try{ _cuFixName(); }catch(e){}   // 저장 직전 세션 이름 보정('(코드)' 이름으로 저장되는 사고 방지)
