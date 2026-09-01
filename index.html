@@ -404,7 +404,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-3</div>
   </div>
 </div>
 
@@ -2944,14 +2944,15 @@ function _slimForStorage(k, v){
       return slim;
     });
   }
-  // Firestore 연결 시: 인라인 base64(data)는 localStorage 캐시에서 제외 — quota 초과 방지
-  // (원본은 Firestore·메모리에 그대로 보존, 화면은 url을 우선 사용)
+  // Firestore 연결 시: 인라인 base64(data)는 localStorage 캐시에서 제외 — quota 초과 방지.
+  // 2026-09-01부터 sv()가 이 키들은 Firestore에도 슬림본으로 저장(문서 1MiB 초과 저장 거부 방지) —
+  // 파일 원본은 Storage(URL)가 정본이고, 화면은 url을 우선 사용.
   if(window.FS_DOC){
     if(k==='tops_not' && Array.isArray(v)){
       return v.map(function(n){
         if(!n||!Array.isArray(n.files)||!n.files.some(function(f){return f&&f.data;})) return n;
         var c=Object.assign({},n);
-        c.files=n.files.map(function(f){ if(f&&f.data){ var ff=Object.assign({},f); delete ff.data; return ff; } return f; });
+        c.files=n.files.map(function(f){ if(f&&f.data){ if(!f.url) console.warn('슬림: url 없는 공지 첨부 base64 제거 —', f.name||''); var ff=Object.assign({},f); delete ff.data; return ff; } return f; });
         return c;
       });
     }
@@ -2965,7 +2966,7 @@ function _slimForStorage(k, v){
           if(!n||!Array.isArray(n.calls)) return n;
           var nn=Object.assign({},n);
           nn.calls=n.calls.map(function(x){
-            if(x&&typeof x==='object'&&x.audio&&x.audio.data){ var xx=Object.assign({},x); xx.audio=Object.assign({},x.audio); delete xx.audio.data; return xx; }
+            if(x&&typeof x==='object'&&x.audio&&x.audio.data){ if(!x.audio.url) console.warn('슬림: url 없는 통화 음성 base64 제거'); var xx=Object.assign({},x); xx.audio=Object.assign({},x.audio); delete xx.audio.data; return xx; }
             return x;
           });
           return nn;
@@ -2977,7 +2978,7 @@ function _slimForStorage(k, v){
       var heavy2=v.subs.some(function(s){return s&&s.file&&s.file.data;});
       if(heavy2){
         var c2=Object.assign({},v);
-        c2.subs=v.subs.map(function(s){ if(s&&s.file&&s.file.data){ var ss=Object.assign({},s); ss.file=Object.assign({},s.file); delete ss.file.data; return ss; } return s; });
+        c2.subs=v.subs.map(function(s){ if(s&&s.file&&s.file.data){ if(!s.file.url) console.warn('슬림: url 없는 사업계획서 첨부 base64 제거 —', s.m||''); var ss=Object.assign({},s); ss.file=Object.assign({},s.file); delete ss.file.data; return ss; } return s; });
         return c2;
       }
     }
@@ -3025,11 +3026,14 @@ function sv(k,v){
   if(!window.FS_DOC) return;
   FS_DOC = window.FS_DOC;
   const fsKey = k.replace('tops_','');
-  // Firestore 저장 — 단 tops_mhx는 슬림본(noteHtml 제외)으로 저장한다(2026-08-31 실사고):
-  //   병력정리 AI HTML(건당 최대 100KB+)이 tops/data 문서를 1MiB 한도까지 채워
-  //   팀 전체의 신규 저장(리쿠르팅 카드 등)이 조용히 거부되던 원인. 표시·PDF·엑셀은
-  //   note(원문 텍스트)에서 _medNoteToHtml로 동일 서식을 재생성하므로 데이터 손실 없음.
-  var fsVal = (k==='tops_mhx') ? _slimForStorage(k, v) : v;
+  // Firestore 저장 — 무거운 파생 데이터는 슬림본으로 저장한다(함정 B·3.12 계열):
+  //   · tops_mhx(2026-08-31 실사고): AI HTML이 문서를 1MiB 한도까지 채워 팀 전체 저장 거부.
+  //   · tops_not/tops_dbs/tops_bizplan(2026-09-01 실사고): 기기 메모리에 남은 레거시 인라인
+  //     base64(file.data·audio.data)가 저장 시 통째로 실려 "문서 1MiB 초과"로 쓰기 거부 —
+  //     사업계획서 제출이 용량초과로 실패한 원인. 원본 파일은 Storage(URL)가 정본이며,
+  //     측정 결과 클라우드 문서에는 이미 인라인 base64가 남아있지 않아 제거 손실 없음.
+  var FS_SLIM_KEYS={tops_mhx:1, tops_not:1, tops_dbs:1, tops_bizplan:1};
+  var fsVal = FS_SLIM_KEYS[k] ? _slimForStorage(k, v) : v;
   FS_DOC.set({[fsKey]: fsVal}, {merge:true}).catch(function(e){
     console.warn('FS save err:',e);
     // 조용한 유실 방지: 클라우드 저장 실패를 사용자에게 알림(1분에 1회로 제한 — 재시도 폭주 시 토스트 도배 방지)
@@ -10796,14 +10800,14 @@ async function uploadToFirestore(){
     toast('업로드 중...');
     await FS_DOC.set({
       mem: mem,
-      not: not,
+      not: _slimForStorage('tops_not', not),   // 슬림 저장 — sv()의 FS_SLIM_KEYS와 동일 불변식(1MiB 초과 방지)
       prf: prf,
       gls: gls,
       prm: prm,
       dba: dba,
-      dbs: dbs,
+      dbs: _slimForStorage('tops_dbs', dbs),
       ana: ana,
-      mhx: mhx,
+      mhx: _slimForStorage('tops_mhx', mhx),
       clm: clm,
       wst: wst,
       dbInfo: dbInfo,
@@ -11021,9 +11025,9 @@ async function _uploadNoticeFile(file){
     }
     return obj;
   }
-  // Storage 미연결 시 최후수단: 소용량 base64 보관
-  var dataUrl=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(file);});
-  return {name:file.name, type:file.type||'', data:dataUrl};
+  // Storage 미연결 시 base64 보관 폴백은 폐기(2026-09-01) — 인라인 base64가 tops/data 문서를
+  // 부풀려 1MiB 초과 저장 거부를 일으키는 통로였음(함정 B). 명확한 실패가 조용한 사고보다 낫다.
+  throw new Error('클라우드 파일 저장소에 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.');
 }
 
 // ===== 홈 배경(시즌 사진) 설정 (2026-08-05, 관리자 전용) =====

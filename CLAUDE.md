@@ -245,6 +245,14 @@
   `?mask.fieldPaths=<필드>` 조회 후 Firestore 공식(문자열 UTF-8+1, 숫자 8, 맵=키+1+값 합) 크기 계산.
 - ⚠️ 문서가 다시 차오르면(현재 최대 필드: claim_coords_v2·custs·cust_reqs) 같은 증상이 재발함 —
   "저장했는데 사라짐" 제보가 오면 **문서 크기부터 확인**할 것.
+- **2026-09-01 후속 사고(같은 계열, 반대 방향)**: 팀원(구지원) 사업계획서 제출이 "클라우드 저장 실패 —
+  용량 한도 초과" 토스트와 함께 거부됨. 문서 실측은 387KB(36.9%)로 정상이었고, 다른 팀원 제출은 같은 날 성공 —
+  즉 한도 재발이 아니라 **그 기기 메모리의 bizplan에 남은 레거시 인라인 base64(subs[].file.data)가 sv()의
+  Firestore 쓰기에 통째로 실려 결과 문서가 1MiB를 넘긴 것**(당시 sv는 tops_mhx만 FS 슬림). 수정(v2026.09.01-3):
+  ① sv()의 FS 슬림을 `FS_SLIM_KEYS`(tops_mhx·tops_not·tops_dbs·tops_bizplan — _slimForStorage 대상 전체)로 확대,
+  ② `_uploadNoticeFile`의 "Storage 미연결 시 base64 보관" 무제한 폴백 폐기(명확한 오류 throw — 공지·사업계획서
+  파일·음성메모 호출부 전부 catch·토스트 있음). 측정 결과 클라우드 문서에 인라인 base64가 이미 없어 제거 손실 없음.
+  진단 스크립트는 익명 REST + Firestore 크기 공식(문자열 UTF-8+1·숫자 8·맵 키+1+값) — 3.12 규칙 절차 그대로.
 
 ## 4. 알림 시스템 (`pushAlert` / `rAlerts` / `nalerts`)
 
