@@ -320,6 +320,11 @@ table.dt tr:last-child td{border-bottom:none;}
 .sandv{border-top:1px solid #e4e7f2;margin:5px 4px}
 body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 끝을 가리지 않도록 본문 여백 확보 */
 .uni-drop{outline:2px dashed #2ea043!important;outline-offset:-2px;background:rgba(46,160,67,.07)!important} /* 파일을 끌어온 업로드 칸 표시 */
+/* 공지 등록 모달 — 흰 카드 스코프 오버라이드(함정 D 역방향 — 전역 .fi/.fl은 건드리지 않음) */
+#m_notice .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+#m_notice .fi::placeholder{color:#9aa3c8}
+#m_notice .fl{color:#3a4468}
+#m_notice .mn-selected{border-color:#2ea043!important;background:rgba(46,160,67,.08)!important} /* 첨부 칸 선택(붙여넣기 대상) 초록 표시 */
 #wa_map_list [data-wmrow]:hover{background:#eefaf1;box-shadow:inset 0 0 0 2px rgba(46,160,67,.45);border-radius:8px} /* 특약 매핑 행 호버 초록 강조(포커스 강조는 인라인이라 그대로 우선) */
 @media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
 /* ── 지급지연 요청서 (pg_delayreq) — 문서 미리보기: 흰 종이·검정 글씨(함정 D 역방향), dq 접두 스코프 ── */
@@ -399,7 +404,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.08.31-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-1</div>
   </div>
 </div>
 
@@ -2437,22 +2442,26 @@ function rSchedulePage(){
   <div class="mf"><button class="bca" onclick="g('m_wcedit').classList.remove('open')">닫기</button><button class="bco" onclick="saveWCEdit()">저장</button></div>
 </div></div>
 
-<div class="mb" id="m_notice"><div class="mo" style="width:560px">
-  <div class="mth"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()">×</span></div>
-  <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500"></div>
-  <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#8f9fe8;font-weight:600;padding:2px 0">
+<!-- 공지 등록 모달 — 흰 카드+검정 글씨 인라인/스코프 오버라이드(함정 D 역방향, m_dbedit 패턴) -->
+<div class="mb" id="m_notice"><div class="mo" style="width:560px;background:#fff;border:1px solid rgba(45,65,170,.18)">
+  <div class="mth" style="color:#1a1a2e"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()" style="color:#555">×</span></div>
+  <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500;border:1px solid #c9cfec"></div>
+  <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#31419e;font-weight:600;padding:2px 0">
     <input type="checkbox" id="mn_track" style="width:17px;height:17px;accent-color:#4858cc;cursor:pointer">열람내역 확인 <span style="font-weight:400;color:#5a68a8;font-size:13px">(누가 언제 읽었는지 기록)</span>
   </label></div>
   <div class="fg"><div class="fl">제목</div><input class="fi" id="mn_title" placeholder="공지 제목을 입력하세요"></div>
   <div class="fg"><div class="fl">내용</div><textarea class="fi" id="mn_cont" rows="5" placeholder="공지 내용을 입력하세요" style="resize:vertical"></textarea></div>
   <div class="fg"><div class="fl">이미지 / 파일 첨부</div>
-    <input type="file" id="mn_file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" style="font-size:15px;cursor:pointer;width:100%">
-    <div id="mn_file_list" style="margin-top:6px;font-size:14px;color:#6070aa"></div>
+    <div id="mn_file_box" onclick="_mnBoxSel()" style="border:2px dashed #c5cbe8;border-radius:10px;padding:12px;background:#fafbff;transition:border-color .15s,background .15s">
+      <input type="file" id="mn_file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" style="font-size:15px;cursor:pointer;width:100%">
+      <div style="margin-top:6px;font-size:13px;color:#8892bb">이 칸을 클릭한 뒤 붙여넣기(Ctrl+V)하거나, 파일을 끌어다 놓아도 됩니다.</div>
+      <div id="mn_file_list" style="margin-top:6px;font-size:14px;color:#4a5690"></div>
+    </div>
   </div>
   <input type="hidden" id="mn_edit_idx">
   <div class="mf">
     <button class="bca" onclick="closeNoticeModal()">취소</button>
-    <button class="bd ao" id="mn_del_btn" onclick="deleteCurrentNotice()" style="display:none">삭제</button>
+    <button class="bd ao" id="mn_del_btn" onclick="deleteCurrentNotice()" style="display:none;color:#c03434;background:rgba(200,60,60,.10);border:1px solid rgba(200,60,60,.35)">삭제</button>
     <button class="bco" onclick="saveNotice()">저장</button>
   </div>
 </div></div>
@@ -6125,7 +6134,7 @@ function rTree(){
 }
 
 // NOTICES
-g('btn_notice_add') && g('btn_notice_add').addEventListener('click',()=>{g('mn_title').value='';g('mn_cont').value='';g('mn_edit_idx').value='';g('m_not_title').textContent='공지사항 추가';g('mn_del_btn').style.display='none';g('m_notice').classList.add('open');});
+g('btn_notice_add') && g('btn_notice_add').addEventListener('click',()=>{openNoticeAddPage();g('m_not_title').textContent='공지사항 추가';});
 // handled via onclick
 // handled via onclick
 // handled via onclick
@@ -10798,7 +10807,118 @@ function closeNoticeModal(){
   document.getElementById('mn_edit_idx').value='';
   document.getElementById('mn_del_btn').style.display='none';
   document.getElementById('m_not_title').textContent='공지사항 등록';
+  _mnFileReset(); // 다음에 열 때 이전 선택 파일·초록 표시가 남지 않게
 }
+
+// ── 공지 첨부 칸: 초록 선택 표시 + 드래그앤드롭·붙여넣기(누적) (2026-09-01) ──
+function _mnBoxSel(on){
+  var b=g('mn_file_box'); if(!b) return;
+  b.classList[on===false?'remove':'add']('mn-selected');
+}
+function _mnFileReset(){
+  var inp=g('mn_file'); if(inp) inp.value='';
+  window._mnPrev=[];   // 누적 첨부 스냅샷(네이티브 파일 선택의 통째 교체와 병합용)
+  window._mnExistTxt='';
+  _mnBoxSel(false);
+  _mnFileListDraw();
+}
+function _mnFileListDraw(){
+  var fl=g('mn_file_list'), inp=g('mn_file'); if(!fl||!inp) return;
+  var fs=Array.prototype.slice.call(inp.files||[]);
+  if(!fs.length){ fl.textContent=window._mnExistTxt||''; return; }
+  // input.files 원본 순서 그대로 렌더 — 정렬·필터 없음이라 인덱스 삭제 안전(함정 A 예외)
+  fl.innerHTML=fs.map(function(f,i){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0">'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.name)+' <span style="color:#8892bb">('+Math.max(1,Math.round(f.size/1024))+'KB)</span></span>'
+      +'<span onclick="event.stopPropagation();_mnFileDel('+i+')" title="빼기" style="cursor:pointer;color:#c04545;font-weight:700;padding:0 4px">✕</span></div>';
+  }).join('')
+  +(window._mnExistTxt?'<div style="margin-top:4px;color:#8892bb">'+_esc(window._mnExistTxt)+'</div>':'');
+}
+function _mnFileDel(i){
+  var inp=g('mn_file'); if(!inp) return;
+  try{
+    var dt=new DataTransfer();
+    Array.prototype.forEach.call(inp.files||[], function(f,j){ if(j!==i) dt.items.add(f); });
+    inp.files=dt.files;
+    window._mnPrev=Array.prototype.slice.call(inp.files||[]);
+  }catch(e){ console.warn('mn file del err:', e); toast('파일을 빼지 못했습니다.'); }
+  _mnFileListDraw();
+}
+function _mnAddFiles(files){
+  var inp=g('mn_file'); if(!inp) return;
+  var ok=(files||[]).filter(function(f){ return _uniAccepts(inp,f); });
+  var rej=(files||[]).length-ok.length;
+  if(!ok.length){ if(rej) toast('이 칸에 올릴 수 없는 파일 형식입니다.'); return; }
+  try{
+    var cur=Array.prototype.slice.call(inp.files||[]);
+    var dt=new DataTransfer();
+    cur.forEach(function(f){ dt.items.add(f); });
+    var add=0;
+    ok.forEach(function(f){
+      if(cur.some(function(c){ return c.name===f.name&&c.size===f.size; })) return; // 같은 파일 중복 방지
+      dt.items.add(f); add++;
+    });
+    inp.files=dt.files;
+    window._mnPrev=Array.prototype.slice.call(inp.files||[]);
+    _mnFileListDraw();
+    if(add||rej) toast('파일 '+add+'개 추가'+(rej?' ('+rej+'개 형식 제외)':'')+' — 총 '+inp.files.length+'개');
+  }catch(e){ toast('파일을 넣지 못했습니다: '+(e.message||e)); }
+}
+(function(){
+  var mo=document.querySelector('#m_notice .mo'), box=g('mn_file_box'), inp=g('mn_file');
+  if(!mo||!box||!inp) return;
+  // [파일 선택] 다이얼로그는 input.files를 통째로 교체함(표준 동작) — 붙여넣기·드롭으로 쌓아둔 파일과 병합해 유지
+  inp.addEventListener('change', function(){
+    var picked=Array.prototype.slice.call(inp.files||[]);
+    var merged=(window._mnPrev||[]).slice();
+    picked.forEach(function(f){
+      if(merged.some(function(c){ return c.name===f.name&&c.size===f.size; })) return;
+      merged.push(f);
+    });
+    if(merged.length!==picked.length){
+      try{
+        var dt=new DataTransfer();
+        merged.forEach(function(f){ dt.items.add(f); });
+        inp.files=dt.files;
+      }catch(e){ console.warn('mn file merge err:', e); } // 병합 실패 시 이번 선택분만 유지
+    }
+    window._mnPrev=Array.prototype.slice.call(inp.files||[]);
+    _mnFileListDraw();
+  });
+  // 첨부 칸 밖(제목·내용 등) 클릭 시 초록 선택 해제
+  mo.addEventListener('click', function(e){ if(!box.contains(e.target)) _mnBoxSel(false); });
+  // 드롭은 모달 어디에 떨어뜨려도 첨부로 — 전용 핸들러라 stopPropagation으로 uni 이중 처리 차단(4.8 규칙)
+  mo.addEventListener('dragover', function(e){
+    var types=(e.dataTransfer&&e.dataTransfer.types)||[];
+    if(Array.prototype.indexOf.call(types,'Files')<0) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+    box.classList.add('uni-drop');
+  });
+  mo.addEventListener('dragleave', function(e){ if(!mo.contains(e.relatedTarget)) box.classList.remove('uni-drop'); });
+  mo.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation();
+    box.classList.remove('uni-drop');
+    var files=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);
+    if(files.length){ _mnBoxSel(); _mnAddFiles(files); }
+  });
+  // 붙여넣기: 모달 열림 + 클립보드에 파일이면 첨부(캡처 단계 — 문서 레벨 uni 붙여넣기보다 먼저 처리)
+  document.addEventListener('paste', function(e){
+    var m=g('m_notice'); if(!m||!m.classList.contains('open')) return;
+    var cd=e.clipboardData; if(!cd) return;
+    var files=[];
+    Array.prototype.forEach.call(cd.items||[], function(it){ if(it.kind==='file'){ var f=it.getAsFile(); if(f) files.push(f); } });
+    if(!files.length&&cd.files&&cd.files.length) files=Array.prototype.slice.call(cd.files);
+    if(!files.length) return;
+    // 텍스트+파일 혼합 클립보드로 제목·내용 입력 중이면 텍스트 붙여넣기 우선(uni와 동일 규칙)
+    var ae=document.activeElement, hasText=false;
+    try{ hasText=!!cd.getData('text'); }catch(_e){}
+    if(hasText&&ae&&/^(input|textarea)$/i.test(ae.tagName)) return;
+    e.preventDefault(); e.stopPropagation();
+    _mnBoxSel();
+    _mnAddFiles(files);
+  }, true);
+})();
 
 function openNoticeAddPage(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
@@ -11058,9 +11178,11 @@ function openNoticeEdit(i){
   g('mn_edit_idx').value=i;
   g('mn_del_btn').style.display=cu&&cu.admin?'inline-flex':'none';
   g('m_not_title').textContent='공지사항 수정';
-  const fl=g('mn_file_list');
-  if(fl&&n.files&&n.files.length) fl.textContent='기존 파일: '+n.files.map(function(f){return typeof f==='string'?f:(f.name||'파일');}).join(', ')+' (새 파일을 고르면 교체됩니다)';
-  else if(fl) fl.textContent='';
+  _mnFileReset(); // 이전 선택 파일·초록 표시 정리 후 기존 첨부 안내 표시
+  if(n.files&&n.files.length){
+    window._mnExistTxt='기존 파일: '+n.files.map(function(f){return typeof f==='string'?f:(f.name||'파일');}).join(', ')+' (새 파일을 넣으면 교체됩니다)';
+    _mnFileListDraw();
+  }
   document.getElementById('m_notice').classList.add('open');
 }
 
@@ -19931,8 +20053,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
