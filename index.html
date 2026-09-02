@@ -404,7 +404,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-6</div>
   </div>
 </div>
 
@@ -19723,6 +19723,14 @@ function rClaimApply(){
   // 본인 것만 (관리자는 전체)
   var visibleClaims=[];
   claims.forEach(function(c,i){ if(_isAdmin()||(cu&&c.agent&&c.agent===cu.name)) visibleClaims.push({c:c,i:i}); });
+  // 최근 신청이 위로 — 신청일(regDate, 'YYYY.MM.DD' 0패딩이라 문자열 비교 안전) 내림차순,
+  // 같은 날은 나중에 등록된 것(원본 인덱스 큰 쪽) 먼저. 핸들러는 {c,i}의 원본 인덱스를
+  // 그대로 받으므로 정렬해도 안전(함정 A 예외 패턴 유지).
+  visibleClaims.sort(function(a,b){
+    var ka=String(a.c.regDate||''), kb=String(b.c.regDate||'');
+    if(ka!==kb) return ka>kb?-1:1;
+    return b.i-a.i;
+  });
   if(!visibleClaims.length){
     tb.innerHTML='<tr><td colspan="8" class="em" style="padding:30px">청구신청 내역이 없습니다.</td></tr>';
     return;
