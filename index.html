@@ -330,6 +330,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_trip .fi::placeholder{color:#9aa3c8}
 #m_trip .fl{color:#3a4468}
 #m_trip .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+/* 일정 등록 모달 — 흰 배경 전환(함정 D 역방향, 같은 패턴. 2026-09-04) */
+#m_cal_add .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8;color-scheme:light}
+#m_cal_add .fi::placeholder{color:#9aa3c8}
+#m_cal_add .fl{color:#3a4468}
+#m_cal_add .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
 #wa_map_list [data-wmrow]:hover{background:#eefaf1;box-shadow:inset 0 0 0 2px rgba(46,160,67,.45);border-radius:8px} /* 특약 매핑 행 호버 초록 강조(포커스 강조는 인라인이라 그대로 우선) */
 @media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
 /* ── 지급지연 요청서 (pg_delayreq) — 문서 미리보기: 흰 종이·검정 글씨(함정 D 역방향), dq 접두 스코프 ── */
@@ -409,7 +414,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-4</div>
   </div>
 </div>
 
@@ -2204,9 +2209,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   <div style="font-size:12px;color:#98a;margin-top:8px;line-height:1.5">좌표 설정은 <b>청구서 좌표 직접설정</b> 화면이 열립니다 — 도구박스에서 항목을 체크해 파란 칩을 원하는 위치로 끌어 놓고 [저장]하세요. 체크(V)는 [＋ 추가]로 같은 항목을 여러 곳에 놓을 수 있습니다.</div>
 </div></div>
 
-<!-- 일정등록 모달 -->
-<div class="mb" id="m_cal_add"><div class="mo">
-  <div class="mth"><span id="cal_modal_title">일정 등록</span><span class="mc" onclick="closeCalModal()">×</span></div>
+<!-- 일정등록 모달 — 흰 배경(함정 D 역방향, 2026-09-04) -->
+<div class="mb" id="m_cal_add"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18)">
+  <div class="mth" style="color:#1a1a2e"><span id="cal_modal_title">일정 등록</span><span class="mc" onclick="closeCalModal()" style="color:#555">×</span></div>
   <div class="fg"><div class="fl">날짜</div><input class="fi" type="date" id="cal_date"></div>
   <div class="fr">
     <div class="fg" style="flex:1"><div class="fl">오전/오후</div>
@@ -2221,6 +2226,10 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     </div>
   </div>
   <div class="fg"><div class="fl">일정 내용</div><input class="fi" id="cal_title" placeholder="일정 내용을 입력하세요"></div>
+  <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#b03040;font-weight:600;padding:2px 0">
+    <input type="checkbox" id="cal_cw" style="width:17px;height:17px;accent-color:#c03040;cursor:pointer">총무휴가
+    <span style="font-weight:400;color:#5a68a8;font-size:13px">(휴가 전날부터 끝나는 날까지 접속 시 안내 팝업)</span>
+  </label></div>
   <div class="fg"><div class="fl">글씨 색상</div>
     <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:15px">
@@ -2236,7 +2245,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <input type="radio" name="cal_color" value="#1a8a40" style="accent-color:#1a8a40"> <span style="color:#1a8a40;font-weight:600">초록</span>
       </label>
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:15px">
-        <input type="radio" name="cal_color" value="" checked> <span style="font-weight:500">기본</span>
+        <input type="radio" name="cal_color" value="" checked> <span style="font-weight:500;color:#333">기본</span>
       </label>
     </div>
   </div>
@@ -5302,6 +5311,9 @@ function rHome(){
   try{ _homeBgApply(); }catch(e){}
   // 일일보고서용 실적 스냅샷 — 관리자가 접속만 해도 그날 기록이 쌓인다 (내부에서 관리자·변동 여부 확인)
   try{ if(typeof _dsnapRecord==='function') _dsnapRecord(); }catch(e){}
+  // 총무휴가 안내 팝업(2026-09-04) — 휴가 전날~종료일 접속 시 1회, 클릭으로 닫음.
+  // 새 기기(로컬 캐시 없음)는 클라우드 cal 수신 후 홈 재렌더 때 이 경로로 다시 시도된다.
+  try{ _cwVacPopup(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -11322,6 +11334,7 @@ function openCalAdd(){
   document.getElementById('cal_ampm').value='';
   document.getElementById('cal_time_input').value='';
   document.querySelectorAll('input[name="cal_color"]').forEach(function(r){if(r.value==='')r.checked=true;});
+  var _cw=g('cal_cw'); if(_cw) _cw.checked=false;
   document.getElementById('cal_edit_idx').value='';
   window._calEditRef=null;   // 새 일정 등록 — 이전 편집 참조 제거
   document.getElementById('cal_del_btn').style.display='none';
@@ -11344,6 +11357,7 @@ function openCalEdit(idx){
   document.getElementById('cal_time_input').value=timeVal||'';
   var colorEl=document.querySelector('input[name="cal_color"][value="'+(ev.color||'')+'"]');
   if(colorEl) colorEl.checked=true;
+  var _cw=g('cal_cw'); if(_cw) _cw.checked=!!ev.cw;
   // 함정 A 예방: 편집 대상을 인덱스가 아닌 고유 id(+내용 스냅샷)로 기억.
   //   모달이 열린 사이 실시간 동기화로 배열이 통째로 교체돼도 저장/삭제 시점에 재탐색한다.
   if(!ev.cid) ev.cid=_calNewId();
@@ -11396,6 +11410,7 @@ function saveCalEvent(){
   if(!window._calEvents) window._calEvents=JSON.parse(localStorage.getItem('tops_cal')||'[]');
   var editIdx=document.getElementById('cal_edit_idx').value;
   var obj={date:date,title:title,time:time,color:color};
+  if(g('cal_cw')&&g('cal_cw').checked) obj.cw=1;   // 총무휴가 표시(2026-09-04) — 수정 시 obj가 통째로 교체되므로 해제하면 자연 소거
   if(editIdx!==''){
     // 함정 A 예방: 저장 시점에 id로 재탐색 (모달 열린 사이 실시간 교체 대비)
     var ti=_calFindEditIdx();
@@ -11418,6 +11433,57 @@ function saveCalEvent(){
     }catch(e){}
   }
   toast(editIdx!==''?'수정되었습니다.':'일정이 등록되었습니다.');
+}
+
+// ===== 총무휴가 안내 팝업 (2026-09-04) =====
+// 일정에 [총무휴가](cw:1) 체크된 날짜들을 연속 구간으로 묶고, 각 구간의 "전날 ~ 마지막 날" 동안
+// 홈 화면에 들어오면 중앙 팝업으로 안내한다. 팝업은 화면 아무 데나 한 번 누르면 닫힘.
+// 접속(페이지 로드)당 1회만 표시(window._cwVacShown) — 저장·동기화 없음(함정 B 무관), id는 cwvac_ 접두(함정 E).
+function _cwDayShift(ds,n){ var d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _cwVacRanges(){
+  var days=(window._calEvents||[]).filter(function(e){ return e&&e.cw&&/^\d{4}-\d{2}-\d{2}$/.test(String(e.date||'')); }).map(function(e){ return e.date; });
+  days=Array.from(new Set(days)).sort();
+  var ranges=[];
+  days.forEach(function(d){
+    var last=ranges[ranges.length-1];
+    if(last && _cwDayShift(last.e,1)===d) last.e=d;
+    else ranges.push({s:d,e:d});
+  });
+  return ranges;
+}
+function _cwDateLabel(ds){
+  var w=['일','월','화','수','목','금','토'][new Date(ds+'T12:00:00').getDay()];
+  return (+ds.slice(5,7))+'월 '+(+ds.slice(8,10))+'일('+w+')';
+}
+function _cwVacPopup(){
+  try{
+    if(window._cwVacShown) return;                       // 접속당 1회
+    if(!cu) return;                                      // 로그인 후에만
+    if(/[?&]rr=1/.test(location.search)) return;         // 서버 캡처 화면 제외
+    var today=td();
+    var hits=_cwVacRanges().filter(function(r){ return today>=_cwDayShift(r.s,-1) && today<=r.e; });
+    if(!hits.length) return;
+    window._cwVacShown=true;
+    var old=g('cwvac_pop'); if(old) old.remove();
+    var lines=hits.map(function(r){
+      var label=(r.s===r.e)?_cwDateLabel(r.s):(_cwDateLabel(r.s)+' ~ '+_cwDateLabel(r.e));
+      var status=(today<r.s)?'내일부터 총무 휴가입니다':'총무 휴가 중입니다';
+      return '<div style="font-size:17px;font-weight:700;color:#c02040;margin-top:6px">'+label+'</div>'
+        +'<div style="font-size:14.5px;color:#444;margin-top:2px">'+status+'</div>';
+    }).join('');
+    var ov=document.createElement('div');
+    ov.id='cwvac_pop';
+    ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(3,8,30,.55);cursor:pointer;padding:16px';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:26px 24px;text-align:center;box-shadow:0 12px 44px rgba(0,0,0,.4)">'
+      +'<div style="font-size:34px;line-height:1">🏖️</div>'
+      +'<div style="font-size:19px;font-weight:800;color:#1a1a2e;margin-top:8px">총무 휴가 안내</div>'
+      +lines
+      +'<div style="font-size:13px;color:#666;margin-top:12px">휴가 기간에는 고객등록·청구 등 총무 처리 업무가 지연될 수 있습니다.</div>'
+      +'<div style="font-size:12px;color:#98a0c0;margin-top:14px">화면을 누르면 닫힙니다</div>'
+      +'</div>';
+    ov.addEventListener('click',function(){ ov.remove(); });
+    document.body.appendChild(ov);
+  }catch(e){ console.warn('cwvac popup err:', e); }
 }
 
 // ===== 보장분석 — 공용 엑셀 미리보기 및 양식 관리 =====
