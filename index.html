@@ -325,6 +325,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_notice .fi::placeholder{color:#9aa3c8}
 #m_notice .fl{color:#3a4468}
 #m_notice .mn-selected{border-color:#2ea043!important;background:rgba(46,160,67,.08)!important} /* 첨부 칸 선택(붙여넣기 대상) 초록 표시 */
+/* 출장 신청 모달 — 흰 배경 전환(함정 D 역방향, m_notice 패턴. 2026-09-04) */
+#m_trip .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+#m_trip .fi::placeholder{color:#9aa3c8}
+#m_trip .fl{color:#3a4468}
+#m_trip .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
 #wa_map_list [data-wmrow]:hover{background:#eefaf1;box-shadow:inset 0 0 0 2px rgba(46,160,67,.45);border-radius:8px} /* 특약 매핑 행 호버 초록 강조(포커스 강조는 인라인이라 그대로 우선) */
 @media(max-width:768px){#san_rail{display:none!important}body.san-on #mn{margin-right:0}}
 /* ── 지급지연 요청서 (pg_delayreq) — 문서 미리보기: 흰 종이·검정 글씨(함정 D 역방향), dq 접두 스코프 ── */
@@ -404,7 +409,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.01-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-1</div>
   </div>
 </div>
 
@@ -1533,6 +1538,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh">
         <div class="st"><i class="ti ti-plane"></i>출장보고</div>
         <div style="display:flex;gap:8px;align-items:center">
+          <button class="bp ao" id="trip_block_btn" onclick="tripBlockToggleMode()" title="달력에서 출장 불가일을 지정/해제합니다 (관리자)"><i class="ti ti-calendar-off"></i> 불가일 지정</button>
           <button class="bp bpd" onclick="openTripReq()"><i class="ti ti-send"></i> 신청</button>
         </div>
       </div>
@@ -2067,15 +2073,15 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   </div>
 </div></div>
 
-<!-- 출장 신청 모달 -->
-<div class="mb" id="m_trip"><div class="mo">
-  <div class="mth"><span>출장 신청</span><span class="mc" onclick="g('m_trip').classList.remove('open')">×</span></div>
+<!-- 출장 신청 모달 — 흰 배경(함정 D 역방향, 2026-09-04) -->
+<div class="mb" id="m_trip"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18)">
+  <div class="mth" style="color:#1a1a2e"><span>출장 신청</span><span class="mc" onclick="g('m_trip').classList.remove('open')" style="color:#555">×</span></div>
   <div class="fg"><div class="fl">신청인</div><select class="fs" id="trip_mem"></select></div>
   <div class="fg"><div class="fl">기간 — 숫자 12자리 입력 (예: 202607150915 → 2026-07-15 09:15)</div>
     <div style="display:flex;gap:6px;align-items:center;position:relative">
       <input class="fi" id="trip_when" inputmode="numeric" placeholder="202607150915" maxlength="16" oninput="_tripWhenFmt(this)" style="flex:1">
-      <button type="button" onclick="_tripWhenPick()" title="달력에서 선택" style="flex:none;padding:9px 11px;font-size:15px;background:rgba(80,100,220,.16);border:1px solid rgba(90,110,230,.35);border-radius:8px;color:#8a9af0;cursor:pointer;font-family:inherit"><i class="ti ti-calendar"></i></button>
-      <input type="datetime-local" id="trip_when_pick" tabindex="-1" onchange="_tripWhenPickChange(this)" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;color-scheme:dark">
+      <button type="button" onclick="_tripWhenPick()" title="달력에서 선택" style="flex:none;padding:9px 11px;font-size:15px;background:#eef1fd;border:1px solid #c5cbe8;border-radius:8px;color:#4858cc;cursor:pointer;font-family:inherit"><i class="ti ti-calendar"></i></button>
+      <input type="datetime-local" id="trip_when_pick" tabindex="-1" onchange="_tripWhenPickChange(this)" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;color-scheme:light">
     </div>
   </div>
   <div class="fg"><div class="fl">출장 사유</div><input class="fi" id="trip_reason" placeholder="출장 사유를 입력하세요"></div>
@@ -2907,6 +2913,9 @@ if(!Array.isArray(wcWriters)) wcWriters=null;
 let bizplan=JSON.parse(localStorage.getItem('tops_bizplan')||'{"url":"","subs":[]}'); // 사업계획서
 let expects=JSON.parse(localStorage.getItem('tops_expects')||'[]');         // 예상계약건
 let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // 출장보고
+// 출장 불가일(관리자 지정, 2026-09-04) — days는 [{d:'YYYY-MM-DD',by,ts}] 배열(Firestore merge가 맵을 깊게 병합해
+// 해제(키 삭제)가 클라우드에 반영되지 않는 함정 회피 — 배열은 통째로 교체됨). 텍스트만(함정 B).
+let tripblock=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_tripblock')||'{"days":[]}'); if(v&&Array.isArray(v.days)) return v; }catch(e){} return {days:[]}; })();
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
@@ -3443,6 +3452,7 @@ async function loadFromFirestore(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} }
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
+    if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -3527,6 +3537,7 @@ function startRealtimeSync(){
     if(d.bizplan&&typeof d.bizplan==='object'){ bizplan=d.bizplan; try{ localStorage.setItem('tops_bizplan',JSON.stringify(_slimForStorage('tops_bizplan',bizplan))); }catch(e){} changed=true; }
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
+    if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} changed=true; }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -5099,6 +5110,15 @@ function showPage(name){
   try{
     var _mpg=g('pg_meeting');
     if(_mpg&&_mpg.classList.contains('active')&&typeof _mtGuardUnsaved==='function'&&!_mtGuardUnsaved()) return;
+  }catch(e){}
+  // 출장 불가일 지정 모드는 페이지를 이동하면 자동 해제(2026-09-04 리뷰) —
+  // SPA라 모드가 켜진 채 남아 있으면 나중에 달력 클릭이 본인도 모르게 불가일을 지정/해제함.
+  try{
+    if(window._tripBlockMode && name!=='trip'){
+      window._tripBlockMode=false;
+      var _tbb=g('trip_block_btn');
+      if(_tbb){ _tbb.style.background=''; _tbb.style.color=''; _tbb.style.border=''; _tbb.innerHTML='<i class="ti ti-calendar-off"></i> 불가일 지정'; }
+    }
   }catch(e){}
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
@@ -8949,12 +8969,46 @@ function tripCalNav(d){
   if(m<0){m=11;y--;} if(m>11){m=0;y++;}
   window._tripCalM=m; window._tripCalY=y; rTrip();
 }
-// 출장 캘린더 (페이지 좌측) — 확인됨=초록, 대기=파랑
+// 출장 불가일 조회 — 'YYYY-MM-DD' → {d,by,ts} | null
+function _tripBlockOf(ds){
+  var arr=(tripblock&&tripblock.days)||[];
+  for(var i=0;i<arr.length;i++){ if(arr[i]&&arr[i].d===ds) return arr[i]; }
+  return null;
+}
+// [불가일 지정] 모드 토글(관리자) — 켜진 동안 달력 날짜 클릭으로 지정/해제
+function tripBlockToggleMode(){
+  if(!_isAdmin()){ toast('관리자만 지정할 수 있습니다.'); return; }
+  window._tripBlockMode=!window._tripBlockMode;
+  var b=g('trip_block_btn');
+  if(b){
+    if(window._tripBlockMode){ b.style.background='#c02040'; b.style.color='#fff'; b.style.border='1px solid #c02040'; b.innerHTML='<i class="ti ti-check"></i> 지정 완료'; }
+    else { b.style.background=''; b.style.color=''; b.style.border=''; b.innerHTML='<i class="ti ti-calendar-off"></i> 불가일 지정'; }
+  }
+  if(window._tripBlockMode) toast('달력에서 날짜를 클릭해 출장 불가일을 지정/해제하세요.');
+  rTrip();
+}
+// 달력 날짜 클릭 — 불가일 지정/해제 (날짜 문자열 기준 — 함정 A 안전)
+function tripBlockDay(ds){
+  if(!window._tripBlockMode||!_isAdmin()) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(ds||''))) return;
+  var cur=_tripBlockOf(ds);
+  if(cur){ tripblock.days=(tripblock.days||[]).filter(function(b){ return !(b&&b.d===ds); }); }
+  else {
+    // 이미 그 날짜에 출장 신청이 있으면 관리자에게 알리고 확인(2026-09-04 리뷰 — 기존 신청은 삭제되지 않음)
+    var exist=trips.filter(function(t){ return String(t.when||'').slice(0,10)===ds; }).length;
+    if(exist && !confirm('이 날짜에 이미 출장 신청 '+exist+'건이 있습니다. 그래도 불가일로 지정하시겠습니까?\n(기존 신청은 삭제되지 않습니다)')) return;
+    (tripblock.days=tripblock.days||[]).push({d:ds, by:(cu&&cu.name)||'', ts:Date.now()});
+  }
+  sv('tops_tripblock',tripblock);
+  rTrip();
+}
+// 출장 캘린더 (페이지 좌측) — 확인됨=초록, 대기=파랑, 불가일=빨강
 function _rTripCal(visible){
   var el=g('trip_cal'); if(!el) return;
   if(window._tripCalY==null){ var n=new Date(); window._tripCalY=n.getFullYear(); window._tripCalM=n.getMonth(); }
   var y=window._tripCalY, mo=window._tripCalM;
   var today=new Date(), fd=new Date(y,mo,1).getDay(), days=new Date(y,mo+1,0).getDate();
+  var blockMode=!!(window._tripBlockMode&&_isAdmin());
   var byDate={};
   visible.forEach(function(t){ var d=String(t.when||'').slice(0,10); (byDate[d]=byDate[d]||[]).push(t); });
   var h='<div class="cn"><button onclick="tripCalNav(-1)">‹</button><span>'+y+'년 '+(mo+1)+'월</span><button onclick="tripCalNav(1)">›</button></div>';
@@ -8964,12 +9018,19 @@ function _rTripCal(visible){
     var ds=y+'-'+String(mo+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var evs=byDate[ds]||[];
     var isToday=(d===today.getDate()&&mo===today.getMonth()&&y===today.getFullYear());
+    var blk=_tripBlockOf(ds);
     var evHtml=evs.map(function(t){
       var hm=String(t.when||'').slice(11,16);
       var col=t.okBy?'#18a050':'#2a3aaa', bg=t.okBy?'rgba(30,160,80,.14)':'rgba(80,100,220,.16)';
       return '<div style="font-size:13px;background:'+bg+';color:'+col+';border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||''))+'">'+_esc(t.m||'')+' '+hm+'</div>';
     }).join('');
-    h+='<div class="cd'+(isToday?' td':'')+'"'+(evs.length?' style="background:rgba(80,100,220,.05)"':'')+'>'+d+evHtml+'</div>';
+    if(blk) evHtml='<div style="font-size:12px;background:rgba(220,50,70,.14);color:#c02040;font-weight:700;border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="출장 불가일'+(blk.by?' — '+_esc(blk.by)+' 지정':'')+'">⛔ 출장불가</div>'+evHtml;
+    var cellStyle=blk?'background:rgba(220,50,70,.06)':(evs.length?'background:rgba(80,100,220,.05)':'');
+    if(blockMode) cellStyle+=(cellStyle?';':'')+'cursor:pointer';
+    h+='<div class="cd'+(isToday?' td':'')+'"'
+      +(cellStyle?' style="'+cellStyle+'"':'')
+      +(blockMode?' onclick="tripBlockDay(\''+ds+'\')" title="클릭: 불가일 '+(blk?'해제':'지정')+'"':'')
+      +'>'+d+evHtml+'</div>';
   }
   el.innerHTML=h+'</div>';
 }
@@ -9050,6 +9111,13 @@ function submitTrip(){
   if(!when){ toast('기간을 숫자 12자리로 입력하세요 (예: 202607150915).'); return; }
   if(!reason){ toast('출장 사유를 입력하세요.'); return; }
   if(!place){ toast('장소를 입력하세요.'); return; }
+  // 출장 불가일 차단(2026-09-04) — 관리자는 confirm 후 예외 신청 가능
+  var _blkDay=when.slice(0,10), _blk=_tripBlockOf(_blkDay);
+  if(_blk){
+    var _blkTxt=(+_blkDay.slice(5,7))+'월 '+(+_blkDay.slice(8,10))+'일';
+    if(_isAdmin()){ if(!confirm(_blkTxt+'은 출장 불가일로 지정된 날짜입니다. 그래도 신청하시겠습니까?')) return; }
+    else { toast('⛔ '+_blkTxt+'은 출장 불가일로 지정되어 있어 신청할 수 없습니다.'); return; }
+  }
   var who=g('trip_mem').value;
   trips.push({ m:who, when:when, reason:reason, place:place, dt:td(), ts:Date.now() });
   sv('tops_trips',trips);
