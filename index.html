@@ -414,7 +414,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-5</div>
   </div>
 </div>
 
@@ -5130,6 +5130,9 @@ function showPage(name){
       if(_tbb){ _tbb.style.background=''; _tbb.style.color=''; _tbb.style.border=''; _tbb.innerHTML='<i class="ti ti-calendar-off"></i> 불가일 지정'; }
     }
   }catch(e){}
+  // 매니저 행별 수정 중 홈을 떠나면 자동 취소(2026-09-04 리뷰) — _mgrEditing 플래그가 남아
+  // 그 표의 실시간 재렌더가 영구 생략되는 고착 방지(미저장 입력은 버려짐 — 행 단위 소량 입력이라 수용)
+  try{ if(window._mgrRowEdit && name!=='home') mgrRowCancel(window._mgrRowEdit.side); }catch(e){}
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
@@ -5349,24 +5352,114 @@ function _mgrPhFmt(v){
   if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
   return s;
 }
-function _mgrHead(withMng){
+function _mgrHead(withMng, withEdit){
   return '<tr>'+_MGR_COLS.map(function(c){return '<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:left;font-weight:700">'+c[1]+'</th>';}).join('')
-    +(withMng?'<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:center;font-weight:700;width:52px">삭제</th>':'')+'</tr>';
+    +(withMng?'<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:center;font-weight:700;width:52px">삭제</th>':'')
+    +(withEdit?'<th style="padding:7px 4px;border-bottom:2px solid rgba(60,80,180,.25);width:96px"></th>':'')+'</tr>';
 }
 function rMgrs(){ ['son','saeng'].forEach(function(s){ if(!window._mgrEditing[s]) _mgrDraw(s); }); }
 function _mgrDraw(side){
   var el=g('mgr_'+side); if(!el) return;
   var rows=_mgrRows(side);
   if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
-  el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false)+'</thead><tbody>'
+  var adm=_isAdmin();
+  // 행별 [수정]은 id 기준(함정 A) — 옛 데이터에 id가 없으면 표시 시점에 부여(메모리만, 다음 저장 때 함께 기록)
+  if(adm) rows.forEach(function(r){ if(r&&!r.id) r.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); });
+  var editing=window._mgrRowEdit&&window._mgrRowEdit.side===side?window._mgrRowEdit.id:null;
+  el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false, adm)+'</thead><tbody>'
     +rows.map(function(r){
+      if(editing&&r.id===editing) return _mgrRowEditHtml(side, r);
+      // 버튼 인자는 onclick 문자열이 아닌 data 속성으로(함정 A 규칙 — id에 따옴표가 섞여도 안전)
+      var btn=adm?'<td style="padding:4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center;white-space:nowrap"><button data-mgract="edit" data-mgrid="'+_esc(r.id||'')+'" style="padding:4px 10px;font-size:12.5px;color:#31419e;background:#fff;border:1px solid #b8c2e8;border-radius:6px;cursor:pointer;font-family:inherit">수정</button></td>':'';
       return '<tr class="mgrow">'+_MGR_COLS.map(function(c){
         var red=(c[0]==='mg'&&r.mg==='지점장');   // 지점장 직급은 빨간색 강조
         var val=(c[0]==='ph')?_mgrPhFmt(r.ph):(r[c[0]]||'');
         var copy=(c[0]==='ph'&&val)?' onclick="mgrCopyPh(this)" title="클릭하면 번호가 복사됩니다" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"':'';
         return '<td'+copy+' style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;'+(copy?'cursor:pointer;':'')+'color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(val)+'</td>';
-      }).join('')+'</tr>';
+      }).join('')+btn+'</tr>';
     }).join('')+'</tbody></table>';
+  el.querySelectorAll('button[data-mgract]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var act=b.getAttribute('data-mgract');
+      if(act==='edit') mgrRowEdit(side, b.getAttribute('data-mgrid')||'');
+      else if(act==='done') mgrRowDone(side, b.getAttribute('data-mgrid')||'');
+      else if(act==='cancel') mgrRowCancel(side);
+    });
+  });
+}
+// ── 행별 인라인 수정 (2026-09-04): [수정] → 그 줄만 입력칸 + [완료]/[취소] ──
+// 행 식별은 id(함정 A). 편집 중엔 _mgrEditing[side] 플래그로 실시간 재렌더 생략(전체 편집과 공용 보호).
+// [완료]는 클라우드 최신본에서 같은 id 행만 교체(mgrSave의 병합 취지 — 남의 다른 행 변경 보존).
+function _mgrRowEditHtml(side, r){
+  var inp='width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;color:#111;background:#fff;border:1px solid #ccd;border-radius:6px;font-family:inherit';
+  return '<tr class="mgrow" data-mgrowid="'+_esc(r.id)+'">'
+    +_MGR_COLS.map(function(c){
+      var td='<td style="padding:4px;border-bottom:1px solid rgba(80,80,180,.12)">';
+      if(c[0]==='mg'){
+        var cur=r.mg||'', opts=MGR_RANKS.slice();
+        if(cur&&opts.indexOf(cur)<0) opts.push(cur);
+        return td+'<select data-mgf="mg" style="'+inp+'"><option value="">선택</option>'
+          +opts.map(function(o){ return '<option value="'+_esc(o)+'"'+(o===cur?' selected':'')+'>'+_esc(o)+'</option>'; }).join('')+'</select></td>';
+      }
+      var iv=(c[0]==='ph')?_mgrPhFmt(r.ph):(r[c[0]]||'');
+      return td+'<input data-mgf="'+c[0]+'" value="'+_esc(iv)+'"'+(c[0]==='ph'?' oninput="formatPhone(this)" placeholder="010-0000-0000"':'')+' style="'+inp+'"></td>';
+    }).join('')
+    +'<td style="padding:4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center;white-space:nowrap">'
+    +'<button data-mgract="done" data-mgrid="'+_esc(r.id)+'" style="padding:4px 9px;font-size:12.5px;color:#fff;background:#4858cc;border:1px solid #4858cc;border-radius:6px;cursor:pointer;font-family:inherit">완료</button>'
+    +'<button data-mgract="cancel" style="padding:4px 7px;font-size:12.5px;color:#888;background:#fff;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-family:inherit;margin-left:4px">취소</button>'
+    +'</td></tr>';
+}
+function mgrRowEdit(side,id){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  if(!id) return;
+  if(window._mgrRowEdit){ toast('다른 행을 편집 중입니다. 먼저 [완료] 또는 [취소]를 눌러주세요.'); return; }
+  if(window._mgrEditing[side]) return;   // 전체 편집([등록]) 중이면 무시
+  var row=null; _mgrRows(side).forEach(function(r){ if(r&&r.id===id) row=r; });
+  if(!row) return;
+  // orig = 편집 시작 시점 원본 값 스냅샷 — [완료]의 클라우드 병합에서 id 매칭이 실패할 때
+  // (렌더 시점에 메모리에만 부여된 id라 클라우드 행엔 id가 없는 레거시 케이스) 내용으로 재탐색하는 기준.
+  window._mgrRowEdit={side:side, id:id, orig:{co:row.co||'', mg:row.mg||'', nm:row.nm||'', ph:row.ph||''}};
+  window._mgrEditing[side]=1;            // 편집 중 실시간 재렌더 생략(입력값 보존)
+  _mgrDraw(side);
+}
+function mgrRowCancel(side){
+  window._mgrRowEdit=null;
+  delete window._mgrEditing[side];
+  _mgrDraw(side);
+}
+function mgrRowDone(side,id){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var tr=document.querySelector('#mgr_'+side+' tr[data-mgrowid]'); if(!tr) return;
+  var o={id:id};
+  tr.querySelectorAll('input[data-mgf],select[data-mgf]').forEach(function(inp){ o[inp.getAttribute('data-mgf')]=inp.value.trim(); });
+  o.ph=_mgrPhFmt(o.ph);
+  if(!(o.co||o.mg||o.nm||o.ph)){ toast('내용을 입력하거나 [취소]를 눌러주세요.'); return; }
+  var fin=function(cloud){
+    var cur=(cloud&&typeof cloud==='object'&&!Array.isArray(cloud))?cloud:mgrs;
+    if(!cur||typeof cur!=='object'||Array.isArray(cur)) cur={son:[],saeng:[]};
+    var merged={son:Array.isArray(cur.son)?cur.son.slice():[],saeng:Array.isArray(cur.saeng)?cur.saeng.slice():[]};
+    var hit=-1; merged[side].forEach(function(r,i){ if(r&&r.id===id) hit=i; });
+    if(hit<0){
+      // 레거시 무id 행: 렌더 시점에 메모리에만 부여한 id는 클라우드 행에 없다 — 그대로 push하면
+      // "옛 값 행 + 수정본 행"으로 중복 등록되는 사고(2026-09-04 리뷰). 편집 시작 시점의 원본 값으로
+      // 무id 행을 재탐색해 그 자리를 교체한다(수정본에 새 id가 실려 이후엔 id 매칭으로 수렴).
+      var og=window._mgrRowEdit&&window._mgrRowEdit.orig;
+      if(og) merged[side].forEach(function(r,i){
+        if(hit<0&&r&&!r.id&&(r.co||'')===og.co&&(r.mg||'')===og.mg&&(r.nm||'')===og.nm&&(r.ph||'')===og.ph) hit=i;
+      });
+    }
+    if(hit>=0) merged[side][hit]=Object.assign({},merged[side][hit],o);
+    else merged[side].push(o);   // 그래도 없음(다른 기기서 삭제됨) — 수정본으로 재등록
+    mgrs=merged;
+    sv('tops_mgrs',mgrs);
+    window._mgrRowEdit=null;
+    delete window._mgrEditing[side];
+    _mgrDraw(side);
+    toast('매니저 정보가 수정되었습니다.');
+  };
+  if(window.FS_DOC){
+    window.FS_DOC.get().then(function(s){ fin(s&&s.exists?(s.data()||{}).mgrs:null); }).catch(function(){ fin(null); });
+  } else fin(null);
 }
 function mgrEdit(side){
   if(!_isAdmin()){ toast('관리자만 등록할 수 있습니다.'); return; }
