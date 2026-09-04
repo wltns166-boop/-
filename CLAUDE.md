@@ -11,7 +11,8 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/tims-gs-auto-deploy-ih0edz` (2026-08-17부터. 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i)
+- 작업 브랜치: `claude/tims-gs-auto-deploy-ih0edz-g13v3j` (2026-09-01부터 — 세션 접미사 브랜치. 이전: claude/tims-gs-auto-deploy-ih0edz(fe1d72b에서 분기, 그 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i))
+  ⚠️ 새 세션은 **원격 `claude/tims-gs-auto-deploy-ih0edz-g13v3j`의 최신 커밋** 위에서 시작할 것 — `claude/**` 푸시는 즉시 라이브 배포되므로 낡은 브랜치(fe1d72b의 ih0edz 등)에서 푸시하면 옛 코드가 배포된다.
 - 대화·주석은 **한국어**로.
 
 ---
