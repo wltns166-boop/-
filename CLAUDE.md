@@ -633,8 +633,16 @@
 ## 5.6 환경설정 — 메뉴 구성 (navcfg, 2026-08-05, 관리자 전용)
 
 - 사이드바 맨 아래 [환경설정](`n_navset`, `.ao`) — 메뉴 이름 변경·순서 변경·숨김·메뉴 추가·기본값 복원.
-- 데이터: `navcfg = {ren:{navId:이름}, hide:{navId:1}, ord:{'_top'|nch_아이디:[navId...]}, customs:[{id('cm_..'),label,loc,type('page'|'link'),url?,content?}]}`
+- 데이터: `navcfg = {ren:{navId:이름}, hide:{navId:단계}, ord:{'_top'|nch_아이디:[navId...]}, customs:[{id('cm_..'),label,loc,type('page'|'link'),url?,content?}]}`
   — 동기화 키 `tops_navcfg`(텍스트만). 로드·실시간 수신 시 `_navApply()` 즉시 적용.
+- **숨김 3단계 (2026-09-04)**: hide 값 1=[전체인원 숨김](레거시 1·true 호환), 2=[팀원+팀장만 숨김](관리자만 표시),
+  3=[팀원만 숨김](`_isLeader` 이상 표시), 0=해제 표식. 설정 목록 행마다 체크박스 3개(상호 배타, data-nsh+data-nshv).
+  판정은 `_navApply`에서 로그인 역할 기준(`(lvl===1)||(lvl===2&&!_isAdmin())||(lvl===3&&!_isLeader())`) — 표시 전용,
+  showPage 접근 가드는 기존 그대로(숨김≠권한).
+  ⚠️ **해제는 0 명시 기록**: sv()의 Firestore merge:true가 맵을 깊게 병합해 키 삭제만으론 클라우드에서 안 지워져
+  다른 기기에서 숨김이 부활 — nsSave가 해제 키에 0을 쓴다. **비교 기준은 편집 세션 시작 스냅샷 `_nsHideBase`**
+  (살아있는 navcfg 기준이면 편집 중 다른 관리자가 새로 숨긴 항목까지 0으로 되돌림 — 2026-09-04 리뷰).
+  `nsReset`(기본값 복원)도 같은 이유로 빈 객체 대신 기존 키마다 표식(hide=0·ren=''·ord=[])을 명시 기록.
 - **적용 방식(`_navApply`)**: 정적 사이드바 DOM을 손보는 멱등 함수. `setAdmin()` 끝에서 매번 재적용.
   - 이름: 텍스트 노드만 교체(아이콘·접기 화살표 보존). 페이지 상단 제목은 `_ptitle(name)`(showPage)이 반영.
   - 순서: 같은 컨테이너 안에서만 이동(최상위 블록=.ni+.nch 묶음, 그룹 내부=.ns). `n_navset`은 항상 맨 아래 고정.
