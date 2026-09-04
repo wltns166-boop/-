@@ -156,8 +156,9 @@
 
 ### 3.86 출장 불가일 지정 (tripblock, 2026-09-04)
 
-- 출장보고 헤더 [불가일 지정](`trip_block_btn`, `.ao` 관리자 전용) — 모드 토글(`tripBlockToggleMode`) 후
-  달력 날짜 클릭(`tripBlockDay('YYYY-MM-DD')` — 날짜 문자열 식별자, 함정 A 안전)으로 지정/해제.
+- **관리자는 달력 날짜를 바로 클릭**해 지정/해제(`tripBlockDay('YYYY-MM-DD')` — 날짜 문자열 식별자, 함정 A 안전.
+  모드 밖 클릭은 confirm으로 의사 확인 — 열람 중 오클릭 방지, 2026-09-04 v-3). 헤더 [불가일 지정](`trip_block_btn`,
+  `.ao` 관리자 전용) 모드를 켜면 confirm 없이 연속 클릭 토글(여러 날짜 빠른 편집용, `tripBlockToggleMode`).
   불가일은 달력에 ⛔ 빨간 배지(전원 표시), `submitTrip`은 불가일이면 팀원=토스트 거부·관리자=confirm 예외 허용.
 - 데이터: `tripblock={days:[{d:'YYYY-MM-DD',by,ts}]}` — 동기화 키 `tops_tripblock`(텍스트만, 함정 B).
   **days는 맵이 아닌 배열** — Firestore merge:true가 맵을 깊게 병합해 해제(키 삭제)가 클라우드에 반영 안 되는

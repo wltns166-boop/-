@@ -409,7 +409,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-3</div>
   </div>
 </div>
 
@@ -8976,7 +8976,8 @@ function _tripBlockOf(ds){
   for(var i=0;i<arr.length;i++){ if(arr[i]&&arr[i].d===ds) return arr[i]; }
   return null;
 }
-// [불가일 지정] 모드 토글(관리자) — 켜진 동안 달력 날짜 클릭으로 지정/해제
+// [불가일 지정] 모드 토글(관리자) — 켜진 동안은 confirm 없이 연속 클릭으로 지정/해제(여러 날짜 빠른 편집용).
+// 모드가 꺼져 있어도 관리자는 날짜를 바로 클릭해 지정/해제할 수 있다(confirm 확인, 2026-09-04 사용자 요청).
 function tripBlockToggleMode(){
   if(!_isAdmin()){ toast('관리자만 지정할 수 있습니다.'); return; }
   window._tripBlockMode=!window._tripBlockMode;
@@ -8985,23 +8986,32 @@ function tripBlockToggleMode(){
     if(window._tripBlockMode){ b.style.background='#c02040'; b.style.color='#fff'; b.style.border='1px solid #c02040'; b.innerHTML='<i class="ti ti-check"></i> 지정 완료'; }
     else { b.style.background=''; b.style.color=''; b.style.border=''; b.innerHTML='<i class="ti ti-calendar-off"></i> 불가일 지정'; }
   }
-  if(window._tripBlockMode) toast('달력에서 날짜를 클릭해 출장 불가일을 지정/해제하세요.');
+  if(window._tripBlockMode) toast('달력에서 날짜를 클릭해 출장 불가일을 지정/해제하세요 (확인 없이 바로 토글).');
   rTrip();
 }
-// 달력 날짜 클릭 — 불가일 지정/해제 (날짜 문자열 기준 — 함정 A 안전)
+// 달력 날짜 클릭 — 불가일 지정/해제 (날짜 문자열 기준 — 함정 A 안전).
+// 지정 모드 밖 클릭은 confirm으로 의사 확인(열람 중 오클릭이 곧바로 전 팀 설정을 바꾸는 사고 방지).
 function tripBlockDay(ds){
-  if(!window._tripBlockMode||!_isAdmin()) return;
+  if(!_isAdmin()) return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(String(ds||''))) return;
   var cur=_tripBlockOf(ds);
-  if(cur){ tripblock.days=(tripblock.days||[]).filter(function(b){ return !(b&&b.d===ds); }); }
-  else {
+  var label=(+ds.slice(5,7))+'월 '+(+ds.slice(8,10))+'일';
+  if(cur){
+    if(!window._tripBlockMode && !confirm(label+'의 출장 불가일 지정을 해제하시겠습니까?')) return;
+    tripblock.days=(tripblock.days||[]).filter(function(b){ return !(b&&b.d===ds); });
+  }else{
     // 이미 그 날짜에 출장 신청이 있으면 관리자에게 알리고 확인(2026-09-04 리뷰 — 기존 신청은 삭제되지 않음)
     var exist=trips.filter(function(t){ return String(t.when||'').slice(0,10)===ds; }).length;
-    if(exist && !confirm('이 날짜에 이미 출장 신청 '+exist+'건이 있습니다. 그래도 불가일로 지정하시겠습니까?\n(기존 신청은 삭제되지 않습니다)')) return;
+    if(window._tripBlockMode){
+      if(exist && !confirm('이 날짜에 이미 출장 신청 '+exist+'건이 있습니다. 그래도 불가일로 지정하시겠습니까?\n(기존 신청은 삭제되지 않습니다)')) return;
+    }else{
+      if(!confirm(label+'을(를) 출장 불가일로 지정하시겠습니까?'+(exist?'\n(이미 출장 신청 '+exist+'건 있음 — 기존 신청은 삭제되지 않습니다)':''))) return;
+    }
     (tripblock.days=tripblock.days||[]).push({d:ds, by:(cu&&cu.name)||'', ts:Date.now()});
   }
   sv('tops_tripblock',tripblock);
   rTrip();
+  toast(cur?(label+' 출장 불가일이 해제되었습니다.'):('⛔ '+label+'이 출장 불가일로 지정되었습니다.'));
 }
 // 출장 캘린더 (페이지 좌측) — 확인됨=초록, 대기=파랑, 불가일=빨강
 function _rTripCal(visible){
@@ -9009,7 +9019,7 @@ function _rTripCal(visible){
   if(window._tripCalY==null){ var n=new Date(); window._tripCalY=n.getFullYear(); window._tripCalM=n.getMonth(); }
   var y=window._tripCalY, mo=window._tripCalM;
   var today=new Date(), fd=new Date(y,mo,1).getDay(), days=new Date(y,mo+1,0).getDate();
-  var blockMode=!!(window._tripBlockMode&&_isAdmin());
+  var canBlock=_isAdmin();   // 관리자는 언제나 날짜 클릭으로 불가일 지정/해제(모드 밖은 confirm — tripBlockDay)
   var byDate={};
   visible.forEach(function(t){ var d=String(t.when||'').slice(0,10); (byDate[d]=byDate[d]||[]).push(t); });
   var h='<div class="cn"><button onclick="tripCalNav(-1)">‹</button><span>'+y+'년 '+(mo+1)+'월</span><button onclick="tripCalNav(1)">›</button></div>';
@@ -9023,14 +9033,15 @@ function _rTripCal(visible){
     var evHtml=evs.map(function(t){
       var hm=String(t.when||'').slice(11,16);
       var col=t.okBy?'#18a050':'#2a3aaa', bg=t.okBy?'rgba(30,160,80,.14)':'rgba(80,100,220,.16)';
-      return '<div style="font-size:13px;background:'+bg+';color:'+col+';border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||''))+'">'+_esc(t.m||'')+' '+hm+'</div>';
+      // 배지 클릭은 셀로 전파 안 함(2026-09-04 리뷰) — 관리자가 신청 내용을 보려고 배지를 눌렀을 때 불가일 confirm이 뜨는 것 방지
+      return '<div onclick="event.stopPropagation()" style="font-size:13px;background:'+bg+';color:'+col+';border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||''))+'">'+_esc(t.m||'')+' '+hm+'</div>';
     }).join('');
     if(blk) evHtml='<div style="font-size:12px;background:rgba(220,50,70,.14);color:#c02040;font-weight:700;border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="출장 불가일'+(blk.by?' — '+_esc(blk.by)+' 지정':'')+'">⛔ 출장불가</div>'+evHtml;
     var cellStyle=blk?'background:rgba(220,50,70,.06)':(evs.length?'background:rgba(80,100,220,.05)':'');
-    if(blockMode) cellStyle+=(cellStyle?';':'')+'cursor:pointer';
+    if(canBlock) cellStyle+=(cellStyle?';':'')+'cursor:pointer';
     h+='<div class="cd'+(isToday?' td':'')+'"'
       +(cellStyle?' style="'+cellStyle+'"':'')
-      +(blockMode?' onclick="tripBlockDay(\''+ds+'\')" title="클릭: 불가일 '+(blk?'해제':'지정')+'"':'')
+      +(canBlock?' onclick="tripBlockDay(\''+ds+'\')" title="클릭: 출장 불가일 '+(blk?'해제':'지정')+'"':'')
       +'>'+d+evHtml+'</div>';
   }
   el.innerHTML=h+'</div>';
