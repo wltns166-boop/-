@@ -391,6 +391,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   .dash-grid, .dash-grid2 { grid-template-columns: 1fr; }
   .topbar { flex-wrap: wrap; padding: 12px 14px; }
   .cal-cell { min-height: 62px; padding: 4px 5px; }
+  .bars { gap: 4px; }
+  .bar-pair { gap: 2px; }
   .bud-set-row .nm { flex-basis: 100px; }
   .rank-nm { flex-basis: 88px; }
 }
@@ -438,32 +440,31 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
           <div class="stat"><div class="lbl">🎯 예산 사용률</div><div class="val c-accent" id="d-budget">-</div><div class="cmp" id="d-budget-cmp"></div></div>
         </div>
 
-        <div class="dash-grid">
-          <div class="card">
-            <div class="card-h">📊 최근 6개월 추이<span class="sub">수입 vs 지출</span></div>
-            <div class="card-b">
-              <div class="bars" id="d-bars"></div>
-              <div class="chart-legend">
-                <span><span class="dot" style="background:var(--income)"></span>수입</span>
-                <span><span class="dot" style="background:var(--expense)"></span>지출</span>
-              </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">📊 최근 12개월 추이<span class="sub">수입 vs 지출</span></div>
+          <div class="card-b">
+            <div class="bars" id="d-bars"></div>
+            <div class="chart-legend">
+              <span><span class="dot" style="background:var(--income)"></span>수입</span>
+              <span><span class="dot" style="background:var(--expense)"></span>지출</span>
             </div>
-          </div>
-          <div class="card">
-            <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
-            <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
           </div>
         </div>
 
         <div class="dash-grid2">
           <div class="card">
+            <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
+            <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
+          </div>
+          <div class="card">
             <div class="card-h">🎯 예산 진행 상황<span class="sub">이번 달</span></div>
             <div class="card-b" id="d-budget-bars"></div>
           </div>
-          <div class="card">
-            <div class="card-h">🕐 최근 거래<span class="sub" id="d-recent-sub"></span></div>
-            <div class="card-b"><div class="tx-list" id="d-recent"></div></div>
-          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="card-h">🕐 최근 거래<span class="sub" id="d-recent-sub"></span></div>
+          <div class="card-b"><div class="tx-list" id="d-recent"></div></div>
         </div>
       </section>
 
@@ -1001,11 +1002,11 @@ function cmpText(cur, prev, label) {
   return `${label} 대비 ${diff > 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
 }
 
-/* 최근 6개월 막대 차트 */
+/* 최근 12개월 막대 차트 */
 function renderTrendBars() {
   const el = document.getElementById('d-bars');
   const months = [];
-  for (let i = 5; i >= 0; i--) months.push(ymAdd(selYM, -i));
+  for (let i = 11; i >= 0; i--) months.push(ymAdd(selYM, -i));
   const data = months.map(ym => {
     const list = txOfMonth(ym);
     return { ym, inc: sumBy(list, 'income'), exp: sumBy(list, 'expense') };
