@@ -539,7 +539,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
           </div>
         </div>
         <div class="card">
-          <div class="card-h">📂 카테고리별 예산<span class="sub">비워두면 예산 없음</span></div>
+          <div class="card-h">📂 카테고리별 예산<span class="sub"><button class="btn ghost sm" onclick="openCatModal()">✏️ 수정</button></span></div>
           <div class="card-b" id="b-cat-list"></div>
         </div>
       </section>
@@ -670,6 +670,22 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <div class="modal-foot">
         <button class="btn ghost" onclick="closeModal('rec-modal')">취소</button>
         <button class="btn" onclick="saveRec()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 지출 카테고리 수정 모달 ═══ -->
+<div class="modal-bg" id="cat-modal">
+  <div class="modal">
+    <div class="modal-h"><span>📂 지출 카테고리 수정</span><button class="close" onclick="closeModal('cat-modal')">✕</button></div>
+    <div class="modal-b">
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">▲▼ 순서 이동 · 칸을 고쳐 이름/아이콘 변경 · ✕ 삭제. 이름을 바꾸면 기존 내역에도 새 이름이 적용됩니다.</div>
+      <div id="cat-m-list"></div>
+      <div class="cat-add" style="margin-top:14px">
+        <input class="emo" id="cat-m-emo" placeholder="🍕" maxlength="4">
+        <input id="cat-m-name" placeholder="새 카테고리 이름" maxlength="12" style="flex:1;min-width:100px">
+        <button class="btn sm" onclick="addCatModal()">＋ 추가</button>
       </div>
     </div>
   </div>
@@ -1757,6 +1773,108 @@ function addMenu() {
   renderData();
   toast('메뉴가 추가되었습니다');
 }
+/* ═══════════════════════════════════════
+   지출 카테고리 수정 모달 (예산 페이지)
+═══════════════════════════════════════ */
+function openCatModal() { renderCatModal(); document.getElementById('cat-modal').classList.add('open'); }
+function renderCatModal() {
+  const list = getCats().expense;
+  document.getElementById('cat-m-list').innerHTML = list.length ? list.map((c, i) => `
+    <div class="bud-set-row" style="gap:8px">
+      <button class="icon-btn edit" title="위로" ${i === 0 ? 'disabled style="opacity:.3"' : ''} onclick="moveCat(${i}, -1)">▲</button>
+      <button class="icon-btn edit" title="아래로" ${i === list.length - 1 ? 'disabled style="opacity:.3"' : ''} onclick="moveCat(${i}, 1)">▼</button>
+      <input class="bud-input" style="width:52px;text-align:center" maxlength="4" title="아이콘"
+        value="${esc(c.emoji || '')}" onchange="renCatEmoji(${i}, this.value)">
+      <input class="bud-input" style="text-align:left;flex:1;width:auto" maxlength="12"
+        value="${esc(c.name)}" onchange="renCat(${i}, this.value)">
+      <button class="icon-btn" title="삭제" onclick="removeCatAt(${i})">✕</button>
+    </div>`).join('')
+    : `<div class="empty" style="padding:16px">카테고리가 없습니다. 아래에서 추가하세요.</div>`;
+}
+function saveCatsExpense(list) {
+  const cats = getCats();
+  cats.expense = list;
+  lsSet('cats', cats);
+}
+function moveCat(i, d) {
+  const list = getCats().expense;
+  const j = i + d;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  saveCatsExpense(list);
+  renderCatModal();
+  render();
+}
+function renCatEmoji(i, v) {
+  const list = getCats().expense;
+  if (!list[i]) return;
+  list[i].emoji = String(v || '').trim() || '🏷️';
+  saveCatsExpense(list);
+  renderCatModal();
+  render();
+}
+function renCat(i, v) {
+  const list = getCats().expense;
+  const c = list[i];
+  if (!c) return;
+  v = String(v || '').trim();
+  if (!v) { toast('이름을 입력하세요'); renderCatModal(); return; }
+  if (v === c.name) return;
+  if (list.some((x, j) => j !== i && x.name === v)) { toast('이미 있는 이름입니다'); renderCatModal(); return; }
+  const old = c.name;
+  c.name = v;
+  saveCatsExpense(list);
+  renameCategoryEverywhere(old, v);
+  renderCatModal();
+  render();
+  toast(`'${old}' → '${v}'로 변경되었습니다`);
+}
+/* 이름을 바꾸면 기존 거래·고정항목·예산에도 새 이름 적용 */
+function renameCategoryEverywhere(oldName, newName) {
+  const tx = txAll();
+  let ch = false;
+  tx.forEach(t => { if (t.type === 'expense' && t.category === oldName) { t.category = newName; ch = true; } });
+  if (ch) txSave(tx);
+  const recs = ls('recurring', []);
+  let ch2 = false;
+  recs.forEach(r => { if (r.type === 'expense' && r.category === oldName) { r.category = newName; ch2 = true; } });
+  if (ch2) lsSet('recurring', recs);
+  const budgets = ls('budgets', { total: 0, byCat: {} });
+  if (budgets.byCat && oldName in budgets.byCat) {
+    budgets.byCat[newName] = budgets.byCat[oldName];
+    delete budgets.byCat[oldName];
+    lsSet('budgets', budgets);
+  }
+}
+function removeCatAt(i) {
+  const list = getCats().expense;
+  const c = list[i];
+  if (!c) return;
+  const used = txAll().some(t => t.category === c.name);
+  if (!confirm(`'${c.name}' 카테고리를 삭제할까요?${used ? '\n기존 거래의 분류명은 그대로 유지됩니다.' : ''}`)) return;
+  list.splice(i, 1);
+  saveCatsExpense(list);
+  const budgets = ls('budgets', { total: 0, byCat: {} });
+  if (budgets.byCat && c.name in budgets.byCat) { delete budgets.byCat[c.name]; lsSet('budgets', budgets); }
+  renderCatModal();
+  render();
+  toast('카테고리가 삭제되었습니다');
+}
+function addCatModal() {
+  const emoEl = document.getElementById('cat-m-emo');
+  const nmEl = document.getElementById('cat-m-name');
+  const name = nmEl.value.trim();
+  if (!name) { toast('이름을 입력하세요'); return; }
+  const list = getCats().expense;
+  if (list.some(c => c.name === name)) { toast('이미 있는 카테고리입니다'); return; }
+  list.push({ name, emoji: emoEl.value.trim() || '🏷️' });
+  saveCatsExpense(list);
+  emoEl.value = ''; nmEl.value = '';
+  renderCatModal();
+  render();
+  toast(`'${name}' 카테고리가 추가되었습니다`);
+}
+
 function addCategory(type) {
   const emoEl = document.getElementById(type === 'expense' ? 'cat-e-emo' : 'cat-i-emo');
   const nmEl = document.getElementById(type === 'expense' ? 'cat-e-nm' : 'cat-i-nm');
