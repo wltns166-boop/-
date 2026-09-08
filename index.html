@@ -330,10 +330,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_trip .fi::placeholder{color:#9aa3c8}
 #m_trip .fl{color:#3a4468}
 #m_trip .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
-/* 명함신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴) */
-#m_cardreq .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8}
-#m_cardreq .fi::placeholder{color:#9aa3c8}
-#m_cardreq .fl{color:#3a4468}
+/* 요청관리 신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴). 명함신청 통합(2026-09-08) */
+#m_req_unified .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+#m_req_unified .fi::placeholder{color:#9aa3c8}
+#m_req_unified .fl{color:#3a4468}
+#m_req_unified .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
 /* 일정 등록 모달 — 흰 배경 전환(함정 D 역방향, 같은 패턴. 2026-09-04) */
 #m_cal_add .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8;color-scheme:light}
 #m_cal_add .fi::placeholder{color:#9aa3c8}
@@ -418,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-4</div>
   </div>
 </div>
 
@@ -532,7 +533,6 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="ns"><div class="ni" id="n_edu_apply">교육신청</div></div>
       <div class="ns"><div class="ni" id="n_goods_apply">물품신청</div></div>
       <div class="ns"><div class="ni" id="n_suggestion">건의사항</div></div>
-      <div class="ns"><div class="ni" id="n_card_apply">명함신청</div></div>
     </div>
 
     <div class="ni" id="n_new_menu"><i class="ti ti-user-check"></i>신입관리<i class="ti ti-chevron-down nc" id="nc_new"></i></div>
@@ -1848,66 +1848,57 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
       </div>
     </div>
-    <!-- 요청관리 신청 모달 -->
-    <div class="mb" id="m_req_unified"><div class="mo">
-      <div class="mth"><span>요청 신청</span><span class="mc" onclick="g('m_req_unified').classList.remove('open')">×</span></div>
+    <!-- 요청관리 신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴). 명함신청·물품신청 선택 통합(2026-09-08) -->
+    <div class="mb" id="m_req_unified"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18)">
+      <div class="mth" style="color:#1a1a2e"><span id="req_unified_mt">요청 신청</span><span class="mc" onclick="g('m_req_unified').classList.remove('open')" style="color:#555">×</span></div>
       <div class="fg"><div class="fl">종류 *</div>
-        <select class="fs" id="req_unified_kind">
+        <select class="fs" id="req_unified_kind" onchange="_reqKindChange()">
           <option value="">선택</option>
           <option value="교육신청">교육신청</option>
           <option value="물품신청">물품신청</option>
+          <option value="명함신청">명함신청</option>
           <option value="건의사항">건의사항</option>
         </select>
       </div>
-      <div class="fg"><div class="fl">내역 *</div><textarea class="fi" id="req_unified_content" rows="4" placeholder="내용을 입력하세요" style="resize:vertical"></textarea></div>
+      <!-- 물품신청: 품목 선택 (2026-09-08) -->
+      <div class="fg" id="req_goods_wrap" style="display:none"><div class="fl">신청 물품 — 해당 품목에 체크하세요</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px 12px;border:1px solid #c5cbe8;border-radius:8px;background:#fafbfd">
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="증권바인더" style="width:16px;height:16px;accent-color:#4858cc"> 증권바인더</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="대봉투" style="width:16px;height:16px;accent-color:#4858cc"> 대봉투</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="쇼핑백" style="width:16px;height:16px;accent-color:#4858cc"> 쇼핑백</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="증권용지" style="width:16px;height:16px;accent-color:#4858cc"> 증권용지</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="고객정보용지" style="width:16px;height:16px;accent-color:#4858cc"> 고객정보용지</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" class="req-goods-item" value="A4용지" style="width:16px;height:16px;accent-color:#4858cc"> A4용지</label>
+        </div>
+      </div>
+      <!-- 명함신청: 입력·선택 항목 (2026-09-08 — 별도 메뉴에서 통합) -->
+      <div id="req_card_wrap" style="display:none">
+        <div class="fr">
+          <div class="fg" style="flex:1"><div class="fl">이름 *</div><input class="fi" id="cardreq_name" placeholder="예: 홍길동"></div>
+          <div class="fg" style="flex:1"><div class="fl">영문이름</div><input class="fi" id="cardreq_ename" placeholder="예: HONG GIL DONG"></div>
+        </div>
+        <div class="fr">
+          <div class="fg" style="flex:1"><div class="fl">연락처</div><input class="fi" id="cardreq_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
+          <div class="fg" style="flex:1"><div class="fl">팩스번호</div><input class="fi" id="cardreq_fax" inputmode="tel" placeholder="예: 02-000-0000"></div>
+        </div>
+        <div class="fg"><div class="fl">이메일주소</div><input class="fi" id="cardreq_email" inputmode="email" placeholder="example@naver.com"></div>
+        <div class="fg"><div class="fl">선택사항 — 해당하는 항목에 체크하세요</div>
+          <div style="display:flex;flex-direction:column;gap:7px;padding:10px 12px;border:1px solid #c5cbe8;border-radius:8px;background:#fafbfd">
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_photo" onchange="_cardPhotoToggle()" style="width:16px;height:16px;accent-color:#4858cc"> 프로필사진 — 사진파일 첨부</label>
+            <div id="cardreq_photo_wrap" style="display:none;padding:8px 10px;border:1px dashed #c5cbe8;border-radius:8px;background:#fff">
+              <input type="file" id="cardreq_photo_file" accept="image/*" onchange="cardPhotoPick()" style="font-size:13px;color:#16203c;max-width:100%">
+              <div id="cardreq_photo_prev" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_mdrt" style="width:16px;height:16px;accent-color:#4858cc"> MDRT 첨부</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_afpk" style="width:16px;height:16px;accent-color:#4858cc"> AFPK 첨부</label>
+          </div>
+        </div>
+        <input type="hidden" id="cardreq_edit_id">
+      </div>
+      <div class="fg" id="req_content_wrap"><div class="fl" id="req_content_lbl">내역 *</div><textarea class="fi" id="req_unified_content" rows="4" placeholder="내용을 입력하세요" style="resize:vertical"></textarea></div>
       <div class="fr" style="justify-content:flex-end;gap:8px;margin-top:10px">
         <button class="bca" onclick="g('m_req_unified').classList.remove('open')">취소</button>
-        <button class="bco" onclick="saveReqUnified()">저장</button>
-      </div>
-    </div></div>
-
-    <!-- 명함신청 (요청관리 하위) -->
-    <div class="pg" id="pg_card_apply">
-      <div class="sh">
-        <div class="st"><i class="ti ti-id"></i>명함신청</div>
-        <button class="bp" onclick="openCardReqModal()"><i class="ti ti-plus"></i> 신청</button>
-      </div>
-      <div class="card">
-        <div style="overflow-x:auto">
-          <table class="dt">
-            <thead><tr><th>신청일</th><th>신청자</th><th>이름</th><th>영문이름</th><th>연락처</th><th>팩스번호</th><th>이메일주소</th><th>선택항목</th><th>상태</th><th>관리</th></tr></thead>
-            <tbody id="cardreq_tb"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <!-- 명함신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴). 행 수정도 이 모달 재사용(cardreq_edit_id) -->
-    <div class="mb" id="m_cardreq"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18)">
-      <div class="mth" style="color:#1a1a2e"><span id="cardreq_mt">명함 신청</span><span class="mc" onclick="g('m_cardreq').classList.remove('open')" style="color:#555">×</span></div>
-      <div class="fr">
-        <div class="fg" style="flex:1"><div class="fl">이름 *</div><input class="fi" id="cardreq_name" placeholder="예: 홍길동"></div>
-        <div class="fg" style="flex:1"><div class="fl">영문이름</div><input class="fi" id="cardreq_ename" placeholder="예: HONG GIL DONG"></div>
-      </div>
-      <div class="fr">
-        <div class="fg" style="flex:1"><div class="fl">연락처</div><input class="fi" id="cardreq_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
-        <div class="fg" style="flex:1"><div class="fl">팩스번호</div><input class="fi" id="cardreq_fax" inputmode="tel" placeholder="예: 02-000-0000"></div>
-      </div>
-      <div class="fg"><div class="fl">이메일주소</div><input class="fi" id="cardreq_email" inputmode="email" placeholder="example@naver.com"></div>
-      <div class="fg"><div class="fl">선택사항 — 해당하는 항목에 체크하세요</div>
-        <div style="display:flex;flex-direction:column;gap:7px;padding:10px 12px;border:1px solid #c5cbe8;border-radius:8px;background:#fafbfd">
-          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_photo" onchange="_cardPhotoToggle()" style="width:16px;height:16px;accent-color:#4858cc"> 프로필사진 — 사진파일 첨부</label>
-          <div id="cardreq_photo_wrap" style="display:none;padding:8px 10px;border:1px dashed #c5cbe8;border-radius:8px;background:#fff">
-            <input type="file" id="cardreq_photo_file" accept="image/*" onchange="cardPhotoPick()" style="font-size:13px;color:#16203c;max-width:100%">
-            <div id="cardreq_photo_prev" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_mdrt" style="width:16px;height:16px;accent-color:#4858cc"> MDRT 첨부</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_afpk" style="width:16px;height:16px;accent-color:#4858cc"> AFPK 첨부</label>
-        </div>
-      </div>
-      <input type="hidden" id="cardreq_edit_id">
-      <div class="mf">
-        <button class="bca" onclick="g('m_cardreq').classList.remove('open')">취소</button>
-        <button class="bco" id="cardreq_save_btn" onclick="saveCardReq()">신청</button>
+        <button class="bco" id="req_unified_save_btn" onclick="saveReqUnified()">저장</button>
       </div>
     </div></div>
 
@@ -3648,8 +3639,7 @@ function startRealtimeSync(){
         claim_status:(typeof rClaimStatus==='function'?rClaimStatus:null),
         exam:(typeof rExam==='function'?rExam:null),
         join_prep:(typeof rJoinPrep==='function'?rJoinPrep:null),
-        req_unified:(typeof rReqUnified==='function'?rReqUnified:null),
-        card_apply:(typeof rCardApply==='function'?rCardApply:null)};
+        req_unified:(typeof rReqUnified==='function'?rReqUnified:null)};
       if(r[window._curPage]) r[window._curPage]();
     }
   },function(err){ console.warn('FS sync err:',err); });
@@ -4619,8 +4609,7 @@ g('n_report') && g('n_report').addEventListener('click',function(){showPage('rep
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
-g('n_req_menu').addEventListener('click',function(){showPage('req_unified'); var el=g('nch_req'); if(el&&!el.classList.contains('open')) tnav('req');}); // 통합 페이지 열기 + 하위(명함신청) 펼침
-g('n_card_apply') && g('n_card_apply').addEventListener('click',function(){showPage('card_apply');});
+g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
 g('n_suggestion').addEventListener('click',function(){showPage('suggestion');});
@@ -4642,7 +4631,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
   wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',
-  req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',card_apply:'명함신청',
+  req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정'};
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
 // 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
@@ -5201,7 +5190,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
   }
-  if(['exam','team_perf','req_unified','card_apply','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+  if(['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -5222,7 +5211,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,card_apply:rCardApply,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
   if(String(name).indexOf('cm_')!==0) window._bdOpenPost=null;   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
@@ -23909,40 +23898,62 @@ function resetClaimCal(){
 // ===== 요청관리 통합 =====
 var reqItems = JSON.parse(localStorage.getItem('tops_req_items')||'[]');
 
+// 행 정렬용 시각 — ts 우선, 없으면 dt('YYYY.MM.DD') 파싱(구 데이터)
+function _reqRowTs(o){
+  if(o&&o.ts) return o.ts;
+  var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String((o&&o.dt)||''));
+  return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():0;
+}
 function rReqUnified(){
   try{ reqItems=JSON.parse(localStorage.getItem('tops_req_items')||'[]'); }catch(e){ reqItems=[]; }
+  if(!Array.isArray(reqItems)) reqItems=[];
+  _cardReqsReload();
   var tb=g('req_unified_tb'); if(!tb) return;
   var isAdmin=_isAdmin();
-  var list=isAdmin ? reqItems : reqItems.filter(function(r){ return cu&&r.agent===cu.name; });
-  // 최신순 정렬
-  var sorted=list.slice().sort(function(a,b){ return (b.dt||'').localeCompare(a.dt||''); });
-  if(!sorted.length){
+  // 명함신청(cardReqs — 별도 동기화 키·고유 id)도 같은 표에 병합 표시(2026-09-08 통합)
+  var rows=[];
+  (isAdmin ? reqItems : reqItems.filter(function(r){ return r&&cu&&r.agent===cu.name; }))
+    .forEach(function(r){ rows.push({t:'r', o:r}); });
+  (isAdmin ? cardReqs.slice() : cardReqs.filter(function(r){ return r&&cu&&r.agent===cu.name; }))
+    .forEach(function(c){ rows.push({t:'c', o:c}); });
+  rows.sort(function(a,b){ return _reqRowTs(b.o)-_reqRowTs(a.o); });
+  if(!rows.length){
     tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">요청 내역이 없습니다.</td></tr>';
     return;
   }
-  var kindColors={'교육신청':'rgba(72,88,204,.15)','물품신청':'rgba(30,160,80,.12)','건의사항':'rgba(200,120,30,.12)'};
-  var kindBorders={'교육신청':'rgba(72,88,204,.35)','물품신청':'rgba(30,160,80,.3)','건의사항':'rgba(200,120,30,.3)'};
-  var kindTextColors={'교육신청':'#4858cc','물품신청':'#1a7040','건의사항':'#8a5010'};
-  tb.innerHTML=sorted.map(function(r){
+  var kindColors={'교육신청':'rgba(72,88,204,.15)','물품신청':'rgba(30,160,80,.12)','건의사항':'rgba(200,120,30,.12)','명함신청':'rgba(160,60,190,.12)'};
+  var kindBorders={'교육신청':'rgba(72,88,204,.35)','물품신청':'rgba(30,160,80,.3)','건의사항':'rgba(200,120,30,.3)','명함신청':'rgba(160,60,190,.3)'};
+  var kindTextColors={'교육신청':'#4858cc','물품신청':'#1a7040','건의사항':'#8a5010','명함신청':'#8a30a8'};
+  var _tag=function(kind){
+    var kg=kindColors[kind]||'rgba(100,100,100,.1)', kb=kindBorders[kind]||'rgba(100,100,100,.25)', kt=kindTextColors[kind]||'#555';
+    return '<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+kb+';background:'+kg+';color:'+kt+';white-space:nowrap">'+_esc(kind)+'</span>';
+  };
+  var stColors={'검토중':['rgba(200,120,30,.12)','rgba(200,120,30,.3)','#8a5010'],'완료':['rgba(30,160,80,.12)','rgba(30,160,80,.3)','#1a7040'],'반려':['rgba(200,40,40,.1)','rgba(200,40,40,.25)','#cc3333']};
+  tb.innerHTML=rows.map(function(row){
+    if(row.t==='c') return _reqCardRowHtml(row.o, isAdmin, _tag, stColors);
+    var r=row.o;
     var realIdx=reqItems.indexOf(r);
-    var kg=kindColors[r.kind]||'rgba(100,100,100,.1)';
-    var kb=kindBorders[r.kind]||'rgba(100,100,100,.25)';
-    var kt=kindTextColors[r.kind]||'#555';
-    var kindTag='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+kb+';background:'+kg+';color:'+kt+';white-space:nowrap">'+_esc(r.kind)+'</span>';
     // 지문(fp): req_items가 클라우드 실시간 수신으로 통째 교체될 수 있게 되면서(2026-09-08),
     // 렌더 시점 인덱스가 낡을 수 있음 — 핸들러가 대상 항목 일치 여부를 대조(함정 A 방어. 항목에 고유 id가 없어 지문 사용)
     var fp=_esc((r.dt||'')+'|'+(r.agent||'')+'|'+(r.kind||'')+'|'+String(r.content||'').slice(0,50));
-    var statusSel='<select data-reqfp="'+fp+'" onchange="setReqStatus('+realIdx+',this.value,this)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
-      +'<option value="검토중"'+(r.status==='검토중'?' selected':'')+'>검토중</option>'
-      +'<option value="완료"'+(r.status==='완료'?' selected':'')+'>완료</option>'
-      +'<option value="반려"'+(r.status==='반려'?' selected':'')+'>반려</option>'
-      +'</select>';
+    // 상태 변경은 관리자만(2026-09-08 리뷰 — 명함신청 행과 동일 기준으로 통일). 팀원은 읽기전용 배지.
+    var statusSel;
+    if(isAdmin){
+      statusSel='<select data-reqfp="'+fp+'" onchange="setReqStatus('+realIdx+',this.value,this)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
+        +'<option value="검토중"'+(r.status==='검토중'?' selected':'')+'>검토중</option>'
+        +'<option value="완료"'+(r.status==='완료'?' selected':'')+'>완료</option>'
+        +'<option value="반려"'+(r.status==='반려'?' selected':'')+'>반려</option>'
+        +'</select>';
+    } else {
+      var _rst=r.status||'검토중', _rsc=stColors[_rst]||stColors['검토중'];
+      statusSel='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+_rsc[1]+';background:'+_rsc[0]+';color:'+_rsc[2]+';white-space:nowrap">'+_esc(_rst)+'</span>';
+    }
     var delBtn=isAdmin?'<button data-reqfp="'+fp+'" onclick="deleteReqItem('+realIdx+',this)" style="font-size:13px;padding:2px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>':'';
     // _esc 필수(2026-09-08): req_items 클라우드 로드가 켜지면서 팀원 입력 content/agent가
     // 관리자 기기 innerHTML에 도달 — 미이스케이프 렌더가 실질 XSS 경로가 됨(3.85.5 rDbInfo 계열)
     return '<tr>'
       +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.dt||'-')+'</td>'
-      +'<td style="text-align:center">'+kindTag+'</td>'
+      +'<td style="text-align:center">'+_tag(r.kind||'-')+'</td>'
       +'<td style="font-size:14px;font-weight:600">'+_esc(r.agent||'-')+'</td>'
       +'<td style="font-size:14px;max-width:260px;word-break:break-all;white-space:pre-wrap">'+_esc(r.content||'-')+'</td>'
       +'<td style="text-align:center">'+statusSel+'</td>'
@@ -23950,18 +23961,109 @@ function rReqUnified(){
       +'</tr>';
   }).join('');
 }
-function openReqModal(){
-  var kind=g('req_unified_kind'); if(kind) kind.value='';
+// 명함신청 행 HTML — 내역 칸에 입력 요약+선택 배지+[수정](본인/관리자, 관리 열은 .ao라 팀원에게 안 보여 여기 배치)
+function _reqCardRowHtml(c, isAdmin, _tag, stColors){
+  var idAttr=_esc(c.id||'');
+  var parts=[];
+  if(c.name) parts.push('이름 '+_esc(c.name));
+  if(c.ename) parts.push('영문 '+_esc(c.ename));
+  if(c.phone) parts.push('연락처 '+_esc(c.phone));
+  if(c.fax) parts.push('팩스 '+_esc(c.fax));
+  if(c.email) parts.push('이메일 '+_esc(c.email));
+  var opts=[];
+  if(c.photo){
+    var pu=(c.photoUrl&&_CARD_URL_RE.test(c.photoUrl))?c.photoUrl:'';
+    opts.push(pu
+      ? '<a href="'+_esc(pu)+'" target="_blank" rel="noopener" style="font-size:11.5px;padding:1px 7px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;text-decoration:none;white-space:nowrap"><i class="ti ti-photo"></i> 프로필사진</a>'
+      : '<span style="font-size:11.5px;padding:1px 7px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;white-space:nowrap">프로필사진</span>');
+  }
+  if(c.mdrt) opts.push('<span style="font-size:11.5px;padding:1px 7px;border-radius:4px;border:1px solid rgba(30,160,80,.3);background:rgba(30,160,80,.12);color:#1a7040;white-space:nowrap">MDRT</span>');
+  if(c.afpk) opts.push('<span style="font-size:11.5px;padding:1px 7px;border-radius:4px;border:1px solid rgba(200,120,30,.3);background:rgba(200,120,30,.12);color:#8a5010;white-space:nowrap">AFPK</span>');
+  var canEdit=isAdmin||(cu&&c.agent===cu.name);
+  var editBtn=canEdit?'<button data-crid="'+idAttr+'" onclick="openReqModal(this.getAttribute(\'data-crid\'))" style="font-size:12px;padding:1px 8px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.25);border-radius:4px;color:#4858cc;cursor:pointer;font-family:inherit">수정</button>':'';
+  var content='<div>'+(parts.join(' · ')||'-')+'</div>'
+    +((opts.length||editBtn)?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;align-items:center">'+opts.join('')+editBtn+'</div>':'');
+  var st=c.status||'검토중';
+  var statusCell;
+  if(isAdmin){
+    statusCell='<select data-crid="'+idAttr+'" onchange="setCardReqStatus(this.getAttribute(\'data-crid\'),this.value)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
+      +['검토중','완료','반려'].map(function(s){ return '<option value="'+s+'"'+(st===s?' selected':'')+'>'+s+'</option>'; }).join('')
+      +'</select>';
+  } else {
+    var sc=stColors[st]||stColors['검토중'];
+    statusCell='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+sc[1]+';background:'+sc[0]+';color:'+sc[2]+';white-space:nowrap">'+_esc(st)+'</span>';
+  }
+  var delBtn=isAdmin?'<button data-crid="'+idAttr+'" onclick="deleteCardReq(this.getAttribute(\'data-crid\'))" style="font-size:13px;padding:2px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>':'';
+  return '<tr>'
+    +'<td style="font-size:14px;white-space:nowrap">'+_esc(c.dt||'-')+'</td>'
+    +'<td style="text-align:center">'+_tag('명함신청')+'</td>'
+    +'<td style="font-size:14px;font-weight:600">'+_esc(c.agent||'-')+'</td>'
+    +'<td style="font-size:13.5px;max-width:260px;word-break:break-all">'+content+'</td>'
+    +'<td style="text-align:center">'+statusCell+'</td>'
+    +'<td class="ao" style="text-align:center">'+delBtn+'</td>'
+    +'</tr>';
+}
+// 종류 선택에 따라 입력 블록 전환 — 명함신청=전용 입력칸(내역 숨김), 물품신청=품목 체크(내역=추가 요청사항)
+function _reqKindChange(){
+  var kind=(g('req_unified_kind')||{value:''}).value;
+  var cardW=g('req_card_wrap'), goodsW=g('req_goods_wrap'), contW=g('req_content_wrap'), lbl=g('req_content_lbl');
+  if(cardW) cardW.style.display=(kind==='명함신청')?'block':'none';
+  if(goodsW) goodsW.style.display=(kind==='물품신청')?'block':'none';
+  if(contW) contW.style.display=(kind==='명함신청')?'none':'block';
+  if(lbl) lbl.textContent=(kind==='물품신청')?'추가 요청사항 (선택)':'내역 *';
+  // 명함신청으로 처음 전환 시 이름 기본값(로그인 사용자) — 이미 입력돼 있으면 보존
+  if(kind==='명함신청'){ var nm=g('cardreq_name'); if(nm&&!nm.value&&cu) nm.value=cu.name||''; }
+}
+function openReqModal(cardId){
+  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  var kindSel=g('req_unified_kind');
   var cont=g('req_unified_content'); if(cont) cont.value='';
+  document.querySelectorAll('#req_goods_wrap .req-goods-item').forEach(function(ch){ ch.checked=false; });
+  // 명함신청 입력칸·사진 버퍼 초기화(수정 모드면 아래에서 채움)
+  var edit=null;
+  if(cardId){
+    _cardReqsReload();
+    edit=cardReqs.find(function(r){ return r&&r.id===cardId; });
+    if(!edit){ toast('신청 내역을 찾을 수 없습니다.'); rReqUnified(); return; }
+    if(!(_isAdmin()||edit.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
+  }
+  if(kindSel){ kindSel.value=edit?'명함신청':''; kindSel.disabled=!!edit; }   // 수정 중엔 종류 변경 불가
+  g('cardreq_edit_id').value=edit?edit.id:'';
+  g('req_unified_mt').textContent=edit?'명함 신청 수정':'요청 신청';
+  g('req_unified_save_btn').textContent=edit?'수정 완료':'저장';
+  g('cardreq_name').value=edit?(edit.name||''):'';
+  g('cardreq_ename').value=edit?(edit.ename||''):'';
+  g('cardreq_phone').value=edit?(edit.phone||''):'';
+  g('cardreq_fax').value=edit?(edit.fax||''):'';
+  g('cardreq_email').value=edit?(edit.email||''):'';
+  g('cardreq_photo').checked=!!(edit&&edit.photo);
+  g('cardreq_mdrt').checked=!!(edit&&edit.mdrt);
+  g('cardreq_afpk').checked=!!(edit&&edit.afpk);
+  window._cardPhotoGen=(window._cardPhotoGen||0)+1;   // 이전 모달의 진행 중 업로드 무효화
+  window._cardPhotoBusy=0;
+  window._cardPhoto=(edit&&edit.photoUrl&&_CARD_URL_RE.test(edit.photoUrl))?{u:edit.photoUrl, n:edit.photoName||'프로필사진.jpg'}:null;
+  var pf=g('cardreq_photo_file'); if(pf) pf.value='';
+  _cardPhotoToggle(); _cardPhotoDraw();
+  _reqKindChange();
   g('m_req_unified').classList.add('open');
 }
 function saveReqUnified(){
+  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
   var kind=(g('req_unified_kind')||{value:''}).value;
-  var content=(g('req_unified_content')||{value:''}).value.trim();
   if(!kind){ toast('종류를 선택하세요.'); return; }
-  if(!content){ toast('내역을 입력하세요.'); return; }
+  if(kind==='명함신청'){ saveCardReq(); return; }   // 명함신청은 cardReqs(고유 id)로 저장 — 함정 A 안전
+  var content=(g('req_unified_content')||{value:''}).value.trim();
+  if(kind==='물품신청'){
+    var items=[];
+    document.querySelectorAll('#req_goods_wrap .req-goods-item').forEach(function(ch){ if(ch.checked) items.push(ch.value); });
+    if(!items.length&&!content){ toast('신청 물품을 선택하거나 추가 요청사항을 입력하세요.'); return; }
+    content=items.join(' / ')+(items.length&&content?'\n':'')+content;
+  } else {
+    if(!content){ toast('내역을 입력하세요.'); return; }
+  }
   try{ reqItems=JSON.parse(localStorage.getItem('tops_req_items')||'[]'); }catch(e){ reqItems=[]; }
-  reqItems.push({ kind:kind, content:content, agent:cu?cu.name:'', dt:tds(), status:'검토중' });
+  if(!Array.isArray(reqItems)) reqItems=[];
+  reqItems.push({ kind:kind, content:content, agent:cu?cu.name:'', dt:tds(), ts:Date.now(), status:'검토중' });
   _lsSet('tops_req_items', JSON.stringify(reqItems));
   try{ sv('tops_req_items', reqItems); }catch(e){}
   g('m_req_unified').classList.remove('open');
@@ -23976,6 +24078,7 @@ function _reqFpMatch(r, el){
   return fp===((r.dt||'')+'|'+(r.agent||'')+'|'+(r.kind||'')+'|'+String(r.content||'').slice(0,50));
 }
 function setReqStatus(idx, val, el){
+  if(!_isAdmin()){ toast('상태 변경은 관리자만 할 수 있습니다.'); rReqUnified(); return; }   // 2026-09-08 리뷰 — 카드 행과 동일 가드
   try{ reqItems=JSON.parse(localStorage.getItem('tops_req_items')||'[]'); }catch(e){ reqItems=[]; }
   if(!reqItems[idx]) { toast('목록이 갱신되었습니다. 다시 시도해주세요.'); rReqUnified(); return; }
   if(!_reqFpMatch(reqItems[idx], el)){ toast('목록이 갱신되었습니다. 다시 시도해주세요.'); rReqUnified(); return; }
@@ -24000,15 +24103,11 @@ function deleteReqItem(idx, el){
     setTimeout(function(){ window._delReqIdx=null; }, 3000);
   }
 }
-// 모달 닫기 이벤트
-(function(){
-  var mc=g('m_req_unified_c'); if(mc) mc.addEventListener('click',function(){ g('m_req_unified').classList.remove('open'); });
-  var mcan=g('m_req_unified_cancel'); if(mcan) mcan.addEventListener('click',function(){ g('m_req_unified').classList.remove('open'); });
-})();
 
-// ===== 명함신청 (card_apply, 2026-09-08) =====
+// ===== 명함신청 (cardreq, 2026-09-08 — 요청관리 통합 표시) =====
 // 데이터: cardReqs=[{id('cr_..'),agent,dt,ts,ut?,name,ename,phone,fax,email,photo,photoUrl,photoName,mdrt,afpk,status}]
 //   — 동기화 키 tops_cardreq(텍스트·URL만, 함정 B). 프로필사진 원본은 Storage claim_packages/card_photos/(기존 규칙 커버).
+// 별도 페이지 없이 요청관리(m_req_unified 모달 종류=명함신청 + req_unified 표 병합 행)로 신청·표시(2026-09-08 통합).
 // 행 조작(수정/상태/삭제)은 전부 고유 id 기준(함정 A). 저장은 로컬 재읽기 후 전체 배열 교체 —
 //   last-write-wins(요청관리 req_items 계열 수용). 수정은 본인 또는 관리자, 상태 변경·삭제는 관리자만.
 var cardReqs=[];
@@ -24023,56 +24122,6 @@ function _cardReqsReload(){
 function _cardReqPersist(){
   _lsSet('tops_cardreq', JSON.stringify(cardReqs));
   try{ sv('tops_cardreq', cardReqs); }catch(e){}
-}
-function rCardApply(){
-  _cardReqsReload();
-  var tb=g('cardreq_tb'); if(!tb) return;
-  var isAdmin=_isAdmin();
-  var list=isAdmin ? cardReqs.slice() : cardReqs.filter(function(r){ return r&&cu&&r.agent===cu.name; });
-  list.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-  if(!list.length){
-    tb.innerHTML='<tr><td colspan="10" class="em" style="padding:30px">명함 신청 내역이 없습니다. 우측 상단 [신청] 버튼으로 신청하세요.</td></tr>';
-    return;
-  }
-  var stColors={'검토중':['rgba(200,120,30,.12)','rgba(200,120,30,.3)','#8a5010'],'완료':['rgba(30,160,80,.12)','rgba(30,160,80,.3)','#1a7040'],'반려':['rgba(200,40,40,.1)','rgba(200,40,40,.25)','#cc3333']};
-  tb.innerHTML=list.map(function(r){
-    var idAttr=_esc(r.id||'');
-    var opts=[];
-    if(r.photo){
-      var pu=(r.photoUrl&&_CARD_URL_RE.test(r.photoUrl))?r.photoUrl:'';
-      opts.push(pu
-        ? '<a href="'+_esc(pu)+'" target="_blank" rel="noopener" style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;text-decoration:none;white-space:nowrap">📷 프로필사진</a>'
-        : '<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;white-space:nowrap">프로필사진</span>');
-    }
-    if(r.mdrt) opts.push('<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(30,160,80,.3);background:rgba(30,160,80,.12);color:#1a7040;white-space:nowrap">MDRT</span>');
-    if(r.afpk) opts.push('<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(200,120,30,.3);background:rgba(200,120,30,.12);color:#8a5010;white-space:nowrap">AFPK</span>');
-    var st=r.status||'검토중';
-    var statusCell;
-    if(isAdmin){
-      statusCell='<select data-crid="'+idAttr+'" onchange="setCardReqStatus(this.getAttribute(\'data-crid\'),this.value)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
-        +['검토중','완료','반려'].map(function(s){ return '<option value="'+s+'"'+(st===s?' selected':'')+'>'+s+'</option>'; }).join('')
-        +'</select>';
-    } else {
-      var sc=stColors[st]||stColors['검토중'];
-      statusCell='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+sc[1]+';background:'+sc[0]+';color:'+sc[2]+';white-space:nowrap">'+_esc(st)+'</span>';
-    }
-    var canEdit=isAdmin||(cu&&r.agent===cu.name);
-    var mng='';
-    if(canEdit) mng+='<button data-crid="'+idAttr+'" onclick="openCardReqModal(this.getAttribute(\'data-crid\'))" style="font-size:13px;padding:2px 8px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit">수정</button>';
-    if(isAdmin) mng+='<button data-crid="'+idAttr+'" onclick="deleteCardReq(this.getAttribute(\'data-crid\'))" style="font-size:13px;padding:2px 7px;margin-left:4px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>';
-    return '<tr>'
-      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.dt||'-')+'</td>'
-      +'<td style="font-size:14px;font-weight:600;white-space:nowrap">'+_esc(r.agent||'-')+'</td>'
-      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.name||'-')+'</td>'
-      +'<td style="font-size:14px">'+_esc(r.ename||'-')+'</td>'
-      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.phone||'-')+'</td>'
-      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.fax||'-')+'</td>'
-      +'<td style="font-size:14px;word-break:break-all">'+_esc(r.email||'-')+'</td>'
-      +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">'+(opts.join('')||'<span style="font-size:12px;color:#9aa3c8">-</span>')+'</div></td>'
-      +'<td style="text-align:center">'+statusCell+'</td>'
-      +'<td style="text-align:center;white-space:nowrap">'+mng+'</td>'
-      +'</tr>';
-  }).join('');
 }
 // 프로필사진 첨부 — 체크 시 파일 칸 표시, 선택 즉시 Storage 업로드(URL만 보관 — 함정 B).
 //   세대 카운터(_cardPhotoGen)로 모달 재열기 중 도착한 업로드의 오귀속 방지(_custAlienGen 패턴).
@@ -24122,33 +24171,7 @@ async function _cardPhotoUpload(file){
   }catch(e){ console.warn('card photo upload err:', e); toast('사진 업로드 실패: '+(e.message||e)); }
   finally{ if(gen===(window._cardPhotoGen||0)){ window._cardPhotoBusy=Math.max(0,(window._cardPhotoBusy||1)-1); _cardPhotoDraw(); } }
 }
-function openCardReqModal(id){
-  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
-  var edit=null;
-  if(id){
-    _cardReqsReload();
-    edit=cardReqs.find(function(r){ return r&&r.id===id; });
-    if(!edit){ toast('신청 내역을 찾을 수 없습니다.'); rCardApply(); return; }
-    if(!(_isAdmin()||edit.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
-  }
-  g('cardreq_edit_id').value=edit?edit.id:'';
-  g('cardreq_mt').textContent=edit?'명함 신청 수정':'명함 신청';
-  g('cardreq_save_btn').textContent=edit?'수정 완료':'신청';
-  g('cardreq_name').value=edit?(edit.name||''):(cu.name||'');
-  g('cardreq_ename').value=edit?(edit.ename||''):'';
-  g('cardreq_phone').value=edit?(edit.phone||''):'';
-  g('cardreq_fax').value=edit?(edit.fax||''):'';
-  g('cardreq_email').value=edit?(edit.email||''):'';
-  g('cardreq_photo').checked=!!(edit&&edit.photo);
-  g('cardreq_mdrt').checked=!!(edit&&edit.mdrt);
-  g('cardreq_afpk').checked=!!(edit&&edit.afpk);
-  window._cardPhotoGen=(window._cardPhotoGen||0)+1;   // 이전 모달의 진행 중 업로드 무효화
-  window._cardPhotoBusy=0;
-  window._cardPhoto=(edit&&edit.photoUrl&&_CARD_URL_RE.test(edit.photoUrl))?{u:edit.photoUrl, n:edit.photoName||'프로필사진.jpg'}:null;
-  var pf=g('cardreq_photo_file'); if(pf) pf.value='';
-  _cardPhotoToggle(); _cardPhotoDraw();
-  g('m_cardreq').classList.add('open');
-}
+// 명함신청 저장 — m_req_unified 모달(종류=명함신청)에서 saveReqUnified가 호출(2026-09-08 통합)
 function saveCardReq(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
   if(window._cardPhotoBusy){ toast('사진 업로드가 끝난 뒤 신청해주세요.'); return; }
@@ -24171,7 +24194,7 @@ function saveCardReq(){
     var i=cardReqs.findIndex(function(r){ return r&&r.id===editId; });
     // 수정 대상이 그 사이 삭제됨(다른 기기/관리자) — 재등록하면 삭제 조치가 무력화되고
     // agent가 저장 누른 사람으로 바뀌는 오염이 생김(2026-09-08 리뷰) → 차단하고 새로 신청 유도
-    if(i<0){ toast('이미 삭제된 신청입니다. 필요하면 새로 신청해주세요.'); g('m_cardreq').classList.remove('open'); rCardApply(); return; }
+    if(i<0){ toast('이미 삭제된 신청입니다. 필요하면 새로 신청해주세요.'); g('m_req_unified').classList.remove('open'); rReqUnified(); return; }
     var prev=cardReqs[i];
     if(!(_isAdmin()||prev.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
     cardReqs[i]={ id:editId, agent:prev.agent, dt:prev.dt||tds(), ts:prev.ts||Date.now(), ut:Date.now(),
@@ -24187,14 +24210,14 @@ function saveCardReq(){
     toast('명함 신청이 접수되었습니다.');
   }
   _cardReqPersist();
-  g('m_cardreq').classList.remove('open');
-  rCardApply();
+  g('m_req_unified').classList.remove('open');
+  rReqUnified();
 }
 function setCardReqStatus(id, val){
-  if(!_isAdmin()){ toast('상태 변경은 관리자만 할 수 있습니다.'); rCardApply(); return; }
+  if(!_isAdmin()){ toast('상태 변경은 관리자만 할 수 있습니다.'); rReqUnified(); return; }
   _cardReqsReload();
   var r=cardReqs.find(function(x){ return x&&x.id===id; });
-  if(!r){ toast('신청 내역을 찾을 수 없습니다.'); rCardApply(); return; }
+  if(!r){ toast('신청 내역을 찾을 수 없습니다.'); rReqUnified(); return; }
   r.status=val;
   _cardReqPersist();
   try{ pushNotify([r.agent], '명함신청 처리', '명함신청 → '+val, '/'); }catch(e){}
@@ -24204,10 +24227,10 @@ function deleteCardReq(id){
   if(window._delCardReqId===id){
     _cardReqsReload();
     var i=cardReqs.findIndex(function(r){ return r&&r.id===id; });
-    if(i<0){ toast('이미 삭제된 신청입니다.'); rCardApply(); window._delCardReqId=null; return; }
+    if(i<0){ toast('이미 삭제된 신청입니다.'); rReqUnified(); window._delCardReqId=null; return; }
     cardReqs.splice(i,1);
     _cardReqPersist();
-    rCardApply();
+    rReqUnified();
     toast('삭제되었습니다.');
     window._delCardReqId=null;
   } else {
