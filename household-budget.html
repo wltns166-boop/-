@@ -112,7 +112,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .empty .big { font-size: 34px; display: block; margin-bottom: 6px; }
 
 /* ── 대시보드 ── */
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
 .stat {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px 18px; box-shadow: var(--shadow);
@@ -131,15 +131,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .dash-grid2 { display: grid; grid-template-columns: .85fr 1.15fr; gap: 14px; }
 
 /* 도넛 차트 */
-.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.donut-wrap { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
 .donut-legend { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 7px; }
-.donut-legend .li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.donut-legend .li { display: flex; align-items: center; gap: 9px; font-size: 13.5px; }
 .donut-legend .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .donut-legend .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .donut-legend .pc { color: var(--muted); font-size: 11.5px; }
 .donut-legend .amt { font-weight: 700; }
-.donut-center { font-size: 13px; font-weight: 800; fill: var(--text); }
-.donut-center-sub { font-size: 9px; fill: #7b8794; }
+.donut-center { font-size: 18px; font-weight: 800; fill: var(--text); }
+.donut-center-sub { font-size: 11px; fill: #7b8794; }
 
 /* 막대 차트 (월 추이) */
 .bars { display: flex; align-items: flex-end; gap: 10px; height: 170px; padding-top: 8px; }
@@ -459,12 +459,18 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <section class="page active" id="page-dashboard">
         <div class="stat-grid">
           <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
+          <div class="stat"><div class="lbl">🎯 목표 지출</div><div class="val c-accent" id="d-goal">-</div><div class="cmp" id="d-goal-cmp"></div></div>
           <div class="stat clickable" onclick="openTxModal(null, null, 'expense')" title="누르면 이번 달 지출을 바로 입력합니다"><div class="lbl">❤️ 이번 달 지출</div><div class="val c-expense" id="d-expense">0원</div><div class="cmp" id="d-expense-cmp"></div></div>
+          <div class="stat"><div class="lbl">📊 예산 사용률</div><div class="val c-accent" id="d-budget">-</div><div class="cmp" id="d-budget-cmp"></div></div>
           <div class="stat"><div class="lbl">💚 수지 (수입−지출)</div><div class="val" id="d-net">0원</div><div class="cmp" id="d-net-cmp"></div></div>
-          <div class="stat"><div class="lbl">🎯 예산 사용률</div><div class="val c-accent" id="d-budget">-</div><div class="cmp" id="d-budget-cmp"></div></div>
         </div>
 
         <div class="card" style="margin-bottom:14px">
+          <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
+          <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
+        </div>
+
+        <div class="card">
           <div class="card-h">📊 최근 12개월 추이<span class="sub">수입 vs 지출</span></div>
           <div class="card-b">
             <div class="bars" id="d-bars"></div>
@@ -472,17 +478,6 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
               <span><span class="dot" style="background:var(--income)"></span>수입</span>
               <span><span class="dot" style="background:var(--expense)"></span>지출</span>
             </div>
-          </div>
-        </div>
-
-        <div class="dash-grid2">
-          <div class="card">
-            <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
-            <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
-          </div>
-          <div class="card">
-            <div class="card-h">🎯 예산 진행 상황<span class="sub">이번 달</span></div>
-            <div class="card-b" id="d-budget-bars"></div>
           </div>
         </div>
 
@@ -996,15 +991,13 @@ let recType = 'expense';
 function applyRecurring() {
   const recs = ls('recurring', []);
   if (!recs.length) return;
-  const now = new Date();
   const ym = curYM();
-  const todayDay = now.getDate();
   const dim = daysInMonth(ym);
   let tx = txAll();
   let added = 0;
   for (const r of recs) {
     const day = Math.min(Number(r.day) || 1, dim);
-    if (day > todayDay) continue;                     // 아직 반영일 전
+    // 반영일이 아직 안 됐어도 이번 달 치를 그 날짜로 미리 추가 → 월 지출·달력에 바로 잡힘
     const exists = tx.some(t => t.recurId === r.id && t.date.startsWith(ym));
     if (exists) continue;
     tx.push({
@@ -1106,9 +1099,11 @@ function renderDashboard() {
   document.getElementById('d-expense-cmp').textContent = cmpText(exp, pExp, '지난달');
   document.getElementById('d-net-cmp').textContent = '지난달 수지 ' + fmtSign(pInc - pExp);
 
-  // 예산 사용률
+  // 목표 지출 / 예산 사용률
   const budgets = ls('budgets', { total: 0, byCat: {} });
   const total = Number(budgets.total) || 0;
+  document.getElementById('d-goal').textContent = total > 0 ? fmt(total) : '미설정';
+  document.getElementById('d-goal-cmp').textContent = total > 0 ? '이번 달 목표 지출액' : '예산 관리에서 설정해 보세요';
   const bEl = document.getElementById('d-budget');
   const bCmp = document.getElementById('d-budget-cmp');
   if (total > 0) {
@@ -1124,7 +1119,6 @@ function renderDashboard() {
 
   renderTrendBars();
   renderDonut(monthTx, exp);
-  renderDashBudgetBars(monthTx, budgets);
   renderRecent(monthTx);
 }
 function cmpText(cur, prev, label) {
@@ -1184,20 +1178,20 @@ function renderDonut(monthTx, expTotal) {
   const restSum = all.slice(6).reduce((s, x) => s + x.v, 0);
   if (restSum > 0) segs.push({ name: '그 외', v: restSum, color: '#cbd5e1', emoji: '📦' });
 
-  const R = 62, C = 2 * Math.PI * R;
+  const R = 95, C = 2 * Math.PI * R;
   let acc = 0;
   const circles = segs.map(s => {
     const len = s.v / expTotal * C;
-    const c = `<circle r="${R}" cx="80" cy="80" fill="none" stroke="${s.color}" stroke-width="26"
-      stroke-dasharray="${len - 1.5} ${C - len + 1.5}" stroke-dashoffset="${-acc}" transform="rotate(-90 80 80)"/>`;
+    const c = `<circle r="${R}" cx="120" cy="120" fill="none" stroke="${s.color}" stroke-width="40"
+      stroke-dasharray="${len - 2} ${C - len + 2}" stroke-dashoffset="${-acc}" transform="rotate(-90 120 120)"/>`;
     acc += len;
     return c;
   }).join('');
   el.innerHTML = `
-    <svg width="160" height="160" viewBox="0 0 160 160">
+    <svg width="240" height="240" viewBox="0 0 240 240">
       ${circles}
-      <text x="80" y="76" text-anchor="middle" class="donut-center">${fmtShort(expTotal)}</text>
-      <text x="80" y="92" text-anchor="middle" class="donut-center-sub">총 지출</text>
+      <text x="120" y="114" text-anchor="middle" class="donut-center">${fmtShort(expTotal)}</text>
+      <text x="120" y="136" text-anchor="middle" class="donut-center-sub">총 지출</text>
     </svg>
     <div class="donut-legend">
       ${segs.map(s => `<div class="li">
@@ -1209,36 +1203,6 @@ function renderDonut(monthTx, expTotal) {
     </div>`;
 }
 
-/* 대시보드 예산 진행바 */
-function renderDashBudgetBars(monthTx, budgets) {
-  const el = document.getElementById('d-budget-bars');
-  const byCat = {};
-  monthTx.filter(t => t.type === 'expense').forEach(t => {
-    byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount || 0);
-  });
-  const rows = Object.entries(budgets.byCat || {})
-    .filter(([, v]) => Number(v) > 0)
-    .map(([name, v]) => ({ name, budget: Number(v), spent: byCat[name] || 0 }))
-    .sort((a, b) => b.spent / b.budget - a.spent / a.budget)
-    .slice(0, 5);
-  if (!rows.length) {
-    el.innerHTML = `<div class="empty"><span class="big">🎯</span>카테고리별 예산이 없습니다<br>예산 관리에서 설정해 보세요</div>`;
-    return;
-  }
-  el.innerHTML = rows.map(r => budRowHTML(r.name, r.spent, r.budget)).join('');
-}
-function budRowHTML(name, spent, budget) {
-  const pct = budget > 0 ? spent / budget * 100 : 0;
-  const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
-  const info = catInfo('expense', name);
-  return `<div class="bud-row">
-    <div class="bud-top">
-      <span class="nm">${info.emoji} ${esc(name)}</span>
-      <span class="nums">${fmt(spent)} / ${fmt(budget)} (${Math.round(pct)}%)</span>
-    </div>
-    <div class="bud-bar"><div class="bud-fill ${cls}" style="width:${Math.min(100, pct)}%"></div></div>
-  </div>`;
-}
 
 /* 최근 거래 5건 */
 function renderRecent(monthTx) {
