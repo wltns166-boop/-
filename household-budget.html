@@ -372,6 +372,14 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .lock-card .btn { width: 100%; margin-top: 10px; padding: 12px 0; font-size: 14px; }
 .lock-err { color: var(--expense); font-size: 12px; margin-top: 10px; display: none; }
 
+/* ── 고정 항목: 보험 세부 항목 ── */
+.rec-sub-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+.rec-sub-row input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; font-size: 12.5px; outline: none; }
+.rec-sub-row input:focus { border-color: var(--accent); }
+.rec-sub-row .s-amt { flex: 0 0 96px; text-align: right; }
+.rec-sub-row .x { flex: 0 0 auto; border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 2px 4px; font-size: 13px; }
+.rec-sub-row .x:hover { color: var(--expense); }
+
 /* ── 카드사별 사용 내역 ── */
 .card-cols-wrap { overflow-x: auto; padding-bottom: 6px; }
 .card-cols { display: grid; gap: 14px; }
@@ -570,35 +578,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <!-- ═══ 설정 ═══ -->
       <section class="page" id="page-data">
         <div class="card" style="margin-bottom:14px">
-          <div class="card-h">🗂️ 백업 · 내보내기</div>
-          <div class="card-b data-actions">
-            <div class="row">
-              <div class="desc"><div class="t1">JSON 전체 백업</div><div class="t2">거래·예산·고정항목·카테고리를 파일 하나로 저장합니다. 다른 기기로 옮길 때 사용하세요.</div></div>
-              <button class="btn ghost sm" onclick="exportJSON()">백업 받기</button>
-            </div>
-            <div class="row">
-              <div class="desc"><div class="t1">JSON 백업 복원</div><div class="t2">백업 파일을 불러와 현재 데이터를 교체합니다.</div></div>
-              <button class="btn ghost sm" onclick="document.getElementById('file-json').click()">복원하기</button>
-              <input type="file" id="file-json" accept=".json,application/json" style="display:none" onchange="importJSON(this)">
-            </div>
-            <div class="row">
-              <div class="desc"><div class="t1">CSV 내보내기 (엑셀용)</div><div class="t2">거래 내역 전체를 엑셀에서 열 수 있는 CSV로 저장합니다.</div></div>
-              <button class="btn ghost sm" onclick="exportCSV()">CSV 저장</button>
-            </div>
-            <div class="row">
-              <div class="desc"><div class="t1">CSV 가져오기</div><div class="t2">날짜,유형,분류,금액,결제수단,메모 형식의 CSV를 거래에 추가합니다. (이 앱에서 내보낸 파일 그대로 사용 가능)</div></div>
-              <button class="btn ghost sm" onclick="document.getElementById('file-csv').click()">CSV 불러오기</button>
-              <input type="file" id="file-csv" accept=".csv,text/csv" style="display:none" onchange="importCSV(this)">
-            </div>
-            <div class="row">
-              <div class="desc"><div class="t1 c-expense">전체 초기화</div><div class="t2">모든 데이터를 삭제하고 처음 상태로 되돌립니다. 되돌릴 수 없습니다.</div></div>
-              <button class="btn danger sm" onclick="resetAll()">초기화</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:14px">
-          <div class="card-h">✏️ 메뉴 이름 바꾸기<span class="sub">비워두면 기본 이름으로 돌아갑니다</span></div>
+          <div class="card-h">✏️ 메뉴 관리<span class="sub">이름 변경 · 순서 이동(▲▼) · 추가/제거</span></div>
           <div class="card-b" id="menu-name-list"></div>
         </div>
 
@@ -681,7 +661,12 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
         <div class="f-row"><label>매월 반영일 (1~31)</label><input type="number" id="rec-m-day" min="1" max="31" placeholder="25"></div>
         <div class="f-row"><label>금액 (원)</label><input type="number" id="rec-m-amount" min="0" step="1000" placeholder="0" inputmode="numeric"></div>
       </div>
-      <div class="f-row"><label>분류</label><select id="rec-m-cat"></select></div>
+      <div class="f-row"><label>분류</label><select id="rec-m-cat" onchange="toggleRecSubs()"></select></div>
+      <div class="f-row" id="rec-sub-wrap" style="display:none">
+        <label>보험 세부 항목 (보험사 · 내역 · 금액)</label>
+        <div id="rec-sub-list"></div>
+        <button class="btn ghost sm" style="margin-top:6px" onclick="addRecSub()">＋ 세부 항목 추가</button>
+      </div>
       <div class="modal-foot">
         <button class="btn ghost" onclick="closeModal('rec-modal')">취소</button>
         <button class="btn" onclick="saveRec()">저장</button>
@@ -1017,17 +1002,23 @@ const DEFAULT_MENU = {
   recurring: '고정 수입·지출', stats: '통계', data: '설정',
 };
 const NAV_ICONS = { dashboard: '🏠', tx: '💳', calendar: '📅', budget: '🎯', recurring: '🔁', stats: '📊', data: '⚙️' };
-/* 설정에서 바꾼 메뉴 이름 조회 (비어 있으면 기본 이름) */
-function menuName(page) {
+/* 메뉴 구성(순서·이름) 조회 — 예전 형식({페이지:이름})도 호환 */
+function getMenuCfg() {
   const m = ls('menu', {});
-  return String(m[page] || '').trim() || DEFAULT_MENU[page];
+  if (m && Array.isArray(m.order)) {
+    return { order: m.order.filter(p => DEFAULT_MENU[p]), names: m.names || {} };
+  }
+  return { order: Object.keys(DEFAULT_MENU), names: (m && typeof m === 'object') ? m : {} };
 }
-/* 사이드바와 상단 제목에 현재 메뉴 이름 반영 */
+function menuName(page) {
+  const cfg = getMenuCfg();
+  return String(cfg.names[page] || '').trim() || DEFAULT_MENU[page];
+}
+/* 사이드바를 현재 구성(순서·이름)대로 다시 그림 */
 function applyMenuNames() {
-  document.querySelectorAll('#nav button[data-page]').forEach(b => {
-    const l = b.querySelector('.lbl');
-    if (l) l.textContent = menuName(b.dataset.page);
-  });
+  const cfg = getMenuCfg();
+  document.getElementById('nav').innerHTML = cfg.order.map(p =>
+    `<button data-page="${p}" class="${p === activePage ? 'active' : ''}"><span class="ico">${NAV_ICONS[p]}</span><span class="lbl">${esc(menuName(p))}</span></button>`).join('');
   const t = document.getElementById('page-title');
   if (t) t.textContent = menuName(activePage);
 }
@@ -1605,7 +1596,7 @@ function renderRecurring() {
       <div class="tx-ico" style="background:${info.color}22">${info.emoji}</div>
       <div class="rec-info">
         <div class="t1">${esc(r.name)}</div>
-        <div class="t2">${esc(r.category)} · ${applied ? '✅ 이번 달 반영됨' : '⏳ 이번 달 반영 전'}</div>
+        <div class="t2">${esc(r.category)}${r.subItems && r.subItems.length ? ' · 세부 ' + r.subItems.length + '건' : ''} · ${applied ? '✅ 이번 달 반영됨' : '⏳ 이번 달 반영 전'}</div>
       </div>
       <div class="tx-amt ${r.type === 'income' ? 'c-income' : 'c-expense'}">${r.type === 'income' ? '+' : '−'}${fmt(r.amount)}</div>
       <div class="rec-act">
@@ -1699,15 +1690,28 @@ function renderStats() {
    데이터 관리 / 카테고리
 ═══════════════════════════════════════ */
 function renderData() {
-  // 메뉴 이름 설정
-  const menuOv = ls('menu', {});
-  document.getElementById('menu-name-list').innerHTML = Object.keys(DEFAULT_MENU).map(pg =>
-    `<div class="bud-set-row">
-      <div class="nm">${NAV_ICONS[pg]} ${DEFAULT_MENU[pg]}</div>
-      <input class="bud-input" type="text" style="text-align:left;width:200px" maxlength="12"
-        placeholder="${esc(DEFAULT_MENU[pg])}" value="${esc(menuOv[pg] || '')}"
+  // 메뉴 관리 (이름 · 순서 · 추가/제거)
+  const cfg = getMenuCfg();
+  const hiddenMenus = Object.keys(DEFAULT_MENU).filter(p => !cfg.order.includes(p));
+  document.getElementById('menu-name-list').innerHTML = cfg.order.map((pg, i) => `
+    <div class="bud-set-row" style="gap:8px">
+      <button class="icon-btn edit" title="위로" ${i === 0 ? 'disabled style="opacity:.3"' : ''} onclick="moveMenu(${i}, -1)">▲</button>
+      <button class="icon-btn edit" title="아래로" ${i === cfg.order.length - 1 ? 'disabled style="opacity:.3"' : ''} onclick="moveMenu(${i}, 1)">▼</button>
+      <span style="width:26px;text-align:center;font-size:16px">${NAV_ICONS[pg]}</span>
+      <input class="bud-input" type="text" style="text-align:left;flex:1;max-width:260px;width:auto" maxlength="12"
+        placeholder="${esc(DEFAULT_MENU[pg])}" value="${esc(cfg.names[pg] || '')}"
         onchange="saveMenuName('${pg}', this.value)">
-    </div>`).join('');
+      <span style="flex:1"></span>
+      ${pg === 'data' ? '<span style="font-size:11.5px;color:var(--muted)">설정은 제거 불가</span>'
+        : `<button class="icon-btn" title="메뉴 제거" onclick="removeMenu('${pg}')">✕</button>`}
+    </div>`).join('') +
+    (hiddenMenus.length ? `
+    <div class="cat-add" style="margin-top:12px">
+      <select id="menu-add-sel" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px">
+        ${hiddenMenus.map(p => `<option value="${p}">${NAV_ICONS[p]} ${DEFAULT_MENU[p]}</option>`).join('')}
+      </select>
+      <button class="btn sm" onclick="addMenu()">＋ 메뉴 추가</button>
+    </div>` : '');
 
   const cats = getCats();
   const usedNames = new Set(txAll().map(t => t.category));
@@ -1717,13 +1721,41 @@ function renderData() {
   document.getElementById('cat-income').innerHTML = cats.income.map(c => chip('income', c)).join('');
 }
 function saveMenuName(page, v) {
-  const m = ls('menu', {});
+  const cfg = getMenuCfg();
   v = String(v || '').trim();
-  if (v && v !== DEFAULT_MENU[page]) m[page] = v; else delete m[page];
-  lsSet('menu', m);
+  if (v && v !== DEFAULT_MENU[page]) cfg.names[page] = v; else delete cfg.names[page];
+  lsSet('menu', cfg);
+  applyMenuNames();
+  toast('메뉴 이름이 저장되었습니다');
+}
+function moveMenu(i, d) {
+  const cfg = getMenuCfg();
+  const j = i + d;
+  if (j < 0 || j >= cfg.order.length) return;
+  [cfg.order[i], cfg.order[j]] = [cfg.order[j], cfg.order[i]];
+  lsSet('menu', cfg);
   applyMenuNames();
   renderData();
-  toast('메뉴 이름이 저장되었습니다');
+}
+function removeMenu(page) {
+  if (page === 'data') { toast('설정 메뉴는 제거할 수 없습니다'); return; }
+  const cfg = getMenuCfg();
+  cfg.order = cfg.order.filter(p => p !== page);
+  lsSet('menu', cfg);
+  if (activePage === page) { showPage(cfg.order[0] || 'data'); return; }
+  applyMenuNames();
+  renderData();
+  toast('메뉴를 제거했습니다. 아래에서 다시 추가할 수 있습니다');
+}
+function addMenu() {
+  const sel = document.getElementById('menu-add-sel');
+  if (!sel) return;
+  const cfg = getMenuCfg();
+  if (!cfg.order.includes(sel.value)) cfg.order.push(sel.value);
+  lsSet('menu', cfg);
+  applyMenuNames();
+  renderData();
+  toast('메뉴가 추가되었습니다');
 }
 function addCategory(type) {
   const emoEl = document.getElementById(type === 'expense' ? 'cat-e-emo' : 'cat-i-emo');
@@ -1944,6 +1976,42 @@ function setRecType(type) {
   document.getElementById('rec-m-exp').className = type === 'expense' ? 'on-expense' : '';
   document.getElementById('rec-m-inc').className = type === 'income' ? 'on-income' : '';
   fillCatSelect('rec-m-cat', type);
+  toggleRecSubs();
+}
+
+/* ── 보험 세부 항목 ── */
+let recSubItems = [];
+function toggleRecSubs() {
+  const show = document.getElementById('rec-m-cat').value === '보험';
+  document.getElementById('rec-sub-wrap').style.display = show ? 'block' : 'none';
+  if (show) renderRecSubs(); else recalcRecSum();
+}
+function renderRecSubs() {
+  const el = document.getElementById('rec-sub-list');
+  el.innerHTML = recSubItems.length ? recSubItems.map((x, i) => `
+    <div class="rec-sub-row">
+      <input placeholder="보험사" maxlength="15" value="${esc(x.company || '')}" oninput="updRecSub(${i},'company',this.value)">
+      <input placeholder="내역" maxlength="20" value="${esc(x.desc || '')}" oninput="updRecSub(${i},'desc',this.value)">
+      <input class="s-amt" type="number" min="0" placeholder="금액" inputmode="numeric" value="${x.amount || ''}" oninput="updRecSub(${i},'amount',this.value)">
+      <button class="x" title="제거" onclick="delRecSub(${i})">✕</button>
+    </div>`).join('')
+    : `<div style="font-size:12px;color:var(--muted);padding:4px 0">아래 버튼으로 세부 항목을 추가하세요</div>`;
+  recalcRecSum();
+}
+function updRecSub(i, field, v) {
+  if (!recSubItems[i]) return;
+  recSubItems[i][field] = field === 'amount' ? (Number(v) || 0) : v;
+  if (field === 'amount') recalcRecSum();
+}
+function addRecSub() { recSubItems.push({ company: '', desc: '', amount: 0 }); renderRecSubs(); }
+function delRecSub(i) { recSubItems.splice(i, 1); renderRecSubs(); }
+/* 세부 항목 합계를 금액칸에 자동 반영 (세부 항목이 있으면 금액칸은 자동 계산) */
+function recalcRecSum() {
+  const amtEl = document.getElementById('rec-m-amount');
+  const useSubs = document.getElementById('rec-m-cat').value === '보험' && recSubItems.length > 0;
+  if (useSubs) amtEl.value = recSubItems.reduce((s, x) => s + Number(x.amount || 0), 0);
+  amtEl.readOnly = useSubs;
+  amtEl.style.background = useSubs ? 'var(--bg)' : '';
 }
 function openRecModal(id) {
   recEditing = id || null;
@@ -1954,23 +2022,41 @@ function openRecModal(id) {
   document.getElementById('rec-m-name').value = r ? r.name : '';
   document.getElementById('rec-m-day').value = r ? r.day : '';
   document.getElementById('rec-m-amount').value = r ? r.amount : '';
+  recSubItems = (r && Array.isArray(r.subItems)) ? r.subItems.map(x => ({ ...x })) : [];
+  renderRecSubs();
+  toggleRecSubs();
   document.getElementById('rec-modal').classList.add('open');
 }
 function saveRec() {
   const name = document.getElementById('rec-m-name').value.trim();
   const day = Number(document.getElementById('rec-m-day').value);
-  const amount = Number(document.getElementById('rec-m-amount').value);
   const category = document.getElementById('rec-m-cat').value;
+  // 분류가 보험이고 세부 항목이 있으면 합계가 금액이 됨
+  let subItems = null;
+  if (category === '보험') {
+    const items = recSubItems
+      .map(x => ({ company: String(x.company || '').trim(), desc: String(x.desc || '').trim(), amount: Number(x.amount) || 0 }))
+      .filter(x => x.company || x.desc || x.amount > 0);
+    if (items.length) subItems = items;
+  }
+  const amount = subItems
+    ? subItems.reduce((s, x) => s + x.amount, 0)
+    : Number(document.getElementById('rec-m-amount').value);
   if (!name) { toast('이름을 입력하세요'); return; }
   if (!day || day < 1 || day > 31) { toast('반영일은 1~31 사이로 입력하세요'); return; }
   if (!amount || amount <= 0) { toast('금액을 입력하세요'); return; }
   const recs = ls('recurring', []);
   if (recEditing) {
     const r = recs.find(x => x.id === recEditing);
-    if (r) Object.assign(r, { name, day, amount, category, type: recType });
+    if (r) {
+      Object.assign(r, { name, day, amount, category, type: recType });
+      if (subItems) r.subItems = subItems; else delete r.subItems;
+    }
     toast('고정 항목이 수정되었습니다');
   } else {
-    recs.push({ id: uid(), name, day, amount, category, type: recType });
+    const r = { id: uid(), name, day, amount, category, type: recType };
+    if (subItems) r.subItems = subItems;
+    recs.push(r);
     toast('고정 항목이 추가되었습니다');
   }
   lsSet('recurring', recs);
