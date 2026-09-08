@@ -117,6 +117,9 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px 18px; box-shadow: var(--shadow);
 }
+.stat.clickable { cursor: pointer; transition: border-color .15s, transform .1s; }
+.stat.clickable:hover { border-color: var(--accent); }
+.stat.clickable:active { transform: scale(.98); }
 .stat .lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .stat .val { font-size: 22px; font-weight: 800; margin-top: 8px; letter-spacing: -.4px; }
 .stat .cmp { font-size: 11.5px; margin-top: 6px; color: var(--muted); }
@@ -434,8 +437,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <!-- ═══ 대시보드 ═══ -->
       <section class="page active" id="page-dashboard">
         <div class="stat-grid">
-          <div class="stat"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
-          <div class="stat"><div class="lbl">❤️ 이번 달 지출</div><div class="val c-expense" id="d-expense">0원</div><div class="cmp" id="d-expense-cmp"></div></div>
+          <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
+          <div class="stat clickable" onclick="openTxModal(null, null, 'expense')" title="누르면 이번 달 지출을 바로 입력합니다"><div class="lbl">❤️ 이번 달 지출</div><div class="val c-expense" id="d-expense">0원</div><div class="cmp" id="d-expense-cmp"></div></div>
           <div class="stat"><div class="lbl">💚 수지 (수입−지출)</div><div class="val" id="d-net">0원</div><div class="cmp" id="d-net-cmp"></div></div>
           <div class="stat"><div class="lbl">🎯 예산 사용률</div><div class="val c-accent" id="d-budget">-</div><div class="cmp" id="d-budget-cmp"></div></div>
         </div>
@@ -501,12 +504,24 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <!-- ═══ 예산 ═══ -->
       <section class="page" id="page-budget">
         <div class="card" style="margin-bottom:14px">
-          <div class="card-h">🎯 이번 달 전체 예산<span class="sub">지출 기준</span></div>
+          <div class="card-h">🎯 이번 달 목표 지출<span class="sub">지출 기준</span></div>
           <div class="card-b">
             <div class="bud-set-row" style="border:0;padding-top:4px">
-              <div class="nm">월 전체 예산</div>
+              <div class="nm">목표 지출액</div>
               <div class="spent" id="b-total-bar"></div>
-              <input class="bud-input" id="b-total-input" type="number" min="0" step="10000" placeholder="예산 입력" onchange="saveTotalBudget(this.value)">
+              <input class="bud-input" id="b-total-input" type="number" min="0" step="10000" placeholder="목표 금액" onchange="saveTotalBudget(this.value)">
+              <span style="color:var(--muted);font-size:13px">원</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">💰 이번 달 수입<span class="sub">대시보드에서 입력한 수입도 합산됩니다</span></div>
+          <div class="card-b">
+            <div class="bud-set-row" style="border:0;padding-top:4px">
+              <div class="nm">이번 달 급여</div>
+              <div class="spent" id="b-salary-info"></div>
+              <input class="bud-input" id="b-salary-input" type="number" min="0" step="10000" placeholder="급여 입력" onchange="saveSalary(this.value)">
               <span style="color:var(--muted);font-size:13px">원</span>
             </div>
           </div>
@@ -1266,8 +1281,15 @@ function renderBudget() {
       <div class="bud-top"><span class="nm">사용 ${fmt(exp)}</span><span class="nums">${Math.round(pct)}% · 남음 ${fmt(Math.max(0, budgets.total - exp))}</span></div>
       <div class="bud-bar"><div class="bud-fill ${cls}" style="width:${Math.min(100, pct)}%"></div></div>`;
   } else {
-    totalBar.innerHTML = `<span style="color:var(--muted);font-size:12.5px">이번 달 지출 ${fmt(exp)} · 오른쪽에 예산을 입력하세요</span>`;
+    totalBar.innerHTML = `<span style="color:var(--muted);font-size:12.5px">이번 달 지출 ${fmt(exp)} · 오른쪽에 목표 금액을 입력하세요</span>`;
   }
+
+  // 이번 달 급여 / 수입 합계
+  const salaryTx = monthTx.find(t => t.type === 'income' && t.salaryInput);
+  document.getElementById('b-salary-input').value = salaryTx ? salaryTx.amount : '';
+  const incTotal = sumBy(monthTx, 'income');
+  document.getElementById('b-salary-info').innerHTML =
+    `<span style="color:var(--muted);font-size:12.5px">이번 달 수입 합계 <b class="c-income">${fmt(incTotal)}</b>${salaryTx ? ' (급여 ' + fmt(salaryTx.amount) + ' 포함)' : ''}</span>`;
 
   const el = document.getElementById('b-cat-list');
   const cats = getCats().expense;
@@ -1296,7 +1318,7 @@ function saveTotalBudget(v) {
   const budgets = ls('budgets', { total: 0, byCat: {} });
   budgets.total = Math.max(0, Number(v) || 0);
   lsSet('budgets', budgets);
-  toast('전체 예산이 저장되었습니다');
+  toast('목표 지출이 저장되었습니다');
   render();
 }
 function saveCatBudget(name, v) {
@@ -1306,6 +1328,26 @@ function saveCatBudget(name, v) {
   if (n > 0) budgets.byCat[name] = n; else delete budgets.byCat[name];
   lsSet('budgets', budgets);
   toast(`'${name}' 예산이 저장되었습니다`);
+  render();
+}
+/* 이번 달 급여 저장 — 급여 거래(수입) 1건을 만들거나 갱신 */
+function saveSalary(v) {
+  const amount = Math.max(0, Number(v) || 0);
+  const tx = txAll();
+  const i = tx.findIndex(t => t.type === 'income' && t.salaryInput && t.date.startsWith(selYM));
+  if (amount > 0) {
+    if (i >= 0) tx[i].amount = amount;
+    else {
+      const date = selYM === curYM() ? todayStr() : selYM + '-01';
+      tx.push({ id: uid(), date, type: 'income', category: '급여', amount, method: '계좌이체', memo: '급여', salaryInput: true });
+    }
+    toast('이번 달 급여가 저장되었습니다');
+  } else if (i >= 0) {
+    tx.splice(i, 1);
+    toast('이번 달 급여가 삭제되었습니다');
+  }
+  tx.sort((a, b) => a.date < b.date ? 1 : -1);
+  txSave(tx);
   render();
 }
 
@@ -1606,12 +1648,12 @@ function setTxType(type) {
   document.getElementById('tx-m-inc').className = type === 'income' ? 'on-income' : '';
   fillCatSelect('tx-m-cat', type);
 }
-function openTxModal(id, presetDate) {
+function openTxModal(id, presetDate, presetType) {
   txEditing = id || null;
   const t = id ? txAll().find(x => x.id === id) : null;
-  document.getElementById('tx-m-title').textContent = t ? '거래 수정' : '거래 추가';
+  document.getElementById('tx-m-title').textContent = t ? '거래 수정' : (presetType === 'income' ? '수입 입력' : '거래 추가');
   document.getElementById('tx-m-del').style.display = t ? 'block' : 'none';
-  setTxType(t ? t.type : 'expense');
+  setTxType(t ? t.type : (presetType || 'expense'));
   if (t) fillCatSelect('tx-m-cat', t.type, t.category);
   document.getElementById('tx-m-date').value = t ? t.date :
     (presetDate || (selYM === curYM() ? todayStr() : selYM + '-01'));
