@@ -372,6 +372,17 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .lock-card .btn { width: 100%; margin-top: 10px; padding: 12px 0; font-size: 14px; }
 .lock-err { color: var(--expense); font-size: 12px; margin-top: 10px; display: none; }
 
+/* ── 대시보드: 카드사별 사용량 ── */
+.dash-grid.dash-half { grid-template-columns: 1fr 1fr; }
+.cardpay-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line2); }
+.cardpay-row:last-child { border-bottom: 0; }
+.pay-chip {
+  flex-shrink: 0; border: 1px solid var(--expense); color: var(--expense); background: var(--expense-soft);
+  border-radius: 99px; padding: 7px 14px; font-size: 12.5px; font-weight: 800; cursor: pointer; transition: all .15s;
+}
+.pay-chip.done { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.pay-chip:hover { filter: brightness(.96); }
+
 /* ── 고정 항목: 보험 세부 항목 ── */
 .rec-sub-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
 .rec-sub-row input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; font-size: 12.5px; outline: none; }
@@ -412,7 +423,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   .side-foot { display: none; }
   .content { padding: 16px 14px 90px; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .dash-grid, .dash-grid2 { grid-template-columns: 1fr; }
+  .dash-grid, .dash-grid2, .dash-grid.dash-half { grid-template-columns: 1fr; }
   .topbar { flex-wrap: wrap; padding: 12px 14px; }
   .cal-cell { min-height: 62px; padding: 4px 5px; }
   .bars { gap: 4px; }
@@ -459,15 +470,25 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <section class="page active" id="page-dashboard">
         <div class="stat-grid">
           <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
-          <div class="stat"><div class="lbl">🎯 목표 지출</div><div class="val c-accent" id="d-goal">-</div><div class="cmp" id="d-goal-cmp"></div></div>
+          <div class="stat clickable" onclick="openGoalModal()" title="누르면 이번 달 목표 지출을 설정합니다"><div class="lbl">🎯 목표 지출</div><div class="val c-accent" id="d-goal">-</div><div class="cmp" id="d-goal-cmp"></div></div>
           <div class="stat clickable" onclick="openTxModal(null, null, 'expense')" title="누르면 이번 달 지출을 바로 입력합니다"><div class="lbl">❤️ 이번 달 지출</div><div class="val c-expense" id="d-expense">0원</div><div class="cmp" id="d-expense-cmp"></div></div>
-          <div class="stat"><div class="lbl">📊 예산 사용률</div><div class="val c-accent" id="d-budget">-</div><div class="cmp" id="d-budget-cmp"></div></div>
+          <div class="stat"><div class="lbl">📊 예산 사용률</div>
+            <div class="val c-accent" id="d-budget">-</div>
+            <div class="val c-accent" id="d-budget-remain" style="margin-top:4px"></div>
+            <div class="bud-bar" style="margin-top:10px"><div class="bud-fill" id="d-budget-gauge" style="width:0%"></div></div>
+          </div>
           <div class="stat"><div class="lbl">💚 수지 (수입−지출)</div><div class="val" id="d-net">0원</div><div class="cmp" id="d-net-cmp"></div></div>
         </div>
 
-        <div class="card" style="margin-bottom:14px">
-          <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
-          <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
+        <div class="dash-grid dash-half">
+          <div class="card">
+            <div class="card-h">🍩 카테고리별 지출<span class="sub" id="d-donut-sub"></span></div>
+            <div class="card-b"><div class="donut-wrap" id="d-donut"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h">💳 카드사별 사용량<span class="sub" id="d-cards-sub"></span></div>
+            <div class="card-b" id="d-cards"></div>
+          </div>
         </div>
 
         <div class="card">
@@ -695,6 +716,21 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <div class="cat-add" style="margin-top:14px">
         <input id="card-m-name" placeholder="카드사 이름 (예: 신한카드)" maxlength="15" style="flex:1;min-width:120px">
         <button class="btn sm" onclick="addCard()">＋ 추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 목표 지출 설정 모달 ═══ -->
+<div class="modal-bg" id="goal-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-h"><span>🎯 이번 달 목표 지출</span><button class="close" onclick="closeModal('goal-modal')">✕</button></div>
+    <div class="modal-b">
+      <div class="f-row"><label>목표 지출 금액 (원)</label>
+        <input type="number" id="goal-m-amount" min="0" step="10000" placeholder="예) 3000000" inputmode="numeric"></div>
+      <div class="modal-foot">
+        <button class="btn ghost" onclick="closeModal('goal-modal')">취소</button>
+        <button class="btn" onclick="saveGoal()">저장</button>
       </div>
     </div>
   </div>
@@ -1103,22 +1139,30 @@ function renderDashboard() {
   const budgets = ls('budgets', { total: 0, byCat: {} });
   const total = Number(budgets.total) || 0;
   document.getElementById('d-goal').textContent = total > 0 ? fmt(total) : '미설정';
-  document.getElementById('d-goal-cmp').textContent = total > 0 ? '이번 달 목표 지출액' : '예산 관리에서 설정해 보세요';
+  document.getElementById('d-goal-cmp').textContent = total > 0 ? '눌러서 변경할 수 있습니다' : '눌러서 설정하세요';
   const bEl = document.getElementById('d-budget');
-  const bCmp = document.getElementById('d-budget-cmp');
+  const rEl = document.getElementById('d-budget-remain');
+  const gEl = document.getElementById('d-budget-gauge');
   if (total > 0) {
     const pct = Math.round(exp / total * 100);
+    const cls = 'val ' + (pct >= 100 ? 'c-expense' : pct >= 80 ? '' : 'c-accent');
     bEl.textContent = pct + '%';
-    bEl.className = 'val ' + (pct >= 100 ? 'c-expense' : pct >= 80 ? '' : 'c-accent');
-    bCmp.textContent = `${fmt(exp)} / ${fmt(total)} · 남은 예산 ${fmt(Math.max(0, total - exp))}`;
+    bEl.className = cls;
+    rEl.className = cls;                    // 남음 표시는 % 와 같은 색·크기
+    const remain = total - exp;
+    rEl.textContent = remain >= 0 ? fmt(remain) + ' 남음' : fmt(-remain) + ' 초과';
+    gEl.style.width = Math.min(100, pct) + '%';
+    gEl.className = 'bud-fill' + (pct >= 100 ? ' over' : pct >= 80 ? ' warn' : '');
   } else {
     bEl.textContent = '미설정';
     bEl.className = 'val c-accent';
-    bCmp.textContent = '예산 관리에서 월 예산을 설정해 보세요';
+    rEl.textContent = '';
+    gEl.style.width = '0%';
   }
 
   renderTrendBars();
   renderDonut(monthTx, exp);
+  renderCardUsage();
   renderRecent(monthTx);
 }
 function cmpText(cur, prev, label) {
@@ -1291,6 +1335,54 @@ async function delCardTx(id) {
   render();
 }
 
+/* ── 대시보드: 카드사별 사용량 (사용금액 / 결제일 / 결제여부) ── */
+function renderCardUsage() {
+  document.getElementById('d-cards-sub').textContent = ymLabel(selYM);
+  const el = document.getElementById('d-cards');
+  const cards = getCards();
+  if (!cards.length) {
+    el.innerHTML = `<div class="empty"><span class="big">💳</span>등록된 카드사가 없습니다<br>카드 내역 페이지에서 카드사를 추가하세요</div>`;
+    return;
+  }
+  const monthCt = cardTxOfMonth(selYM);
+  el.innerHTML = cards.map(c => {
+    const sum = monthCt.filter(t => t.cardId === c.id).reduce((s, t) => s + Number(t.amount || 0), 0);
+    const paid = !!(c.paid && c.paid[selYM]);
+    return `<div class="cardpay-row">
+      <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
+      <div class="tx-info">
+        <div class="t1">${esc(c.name)}</div>
+        <div class="t2">결제일 ${c.payDay ? '매월 ' + c.payDay + '일' : '미설정 (카드사 관리에서 입력)'}</div>
+      </div>
+      <div class="tx-amt c-expense">${fmt(sum)}</div>
+      <button class="pay-chip${paid ? ' done' : ''}" title="누르면 결제 여부가 바뀝니다" onclick="togglePaid('${c.id}')">${paid ? '완료' : '미완료'}</button>
+    </div>`;
+  }).join('');
+}
+/* 결제여부 토글 (보고 있는 달 기준으로 저장) */
+function togglePaid(cardId) {
+  const cards = getCards();
+  const c = cards.find(x => x.id === cardId);
+  if (!c) return;
+  c.paid = c.paid || {};
+  if (c.paid[selYM]) delete c.paid[selYM]; else c.paid[selYM] = true;
+  lsSet('cards', cards);
+  toast(c.paid[selYM] ? `'${c.name}' 결제 완료로 표시했습니다` : `'${c.name}' 미완료로 표시했습니다`);
+  render();
+}
+/* 카드사 결제일 저장 (카드사 관리 모달) */
+function setCardPayDay(cardId, v) {
+  const cards = getCards();
+  const c = cards.find(x => x.id === cardId);
+  if (!c) return;
+  const d = Number(v);
+  if (d >= 1 && d <= 31) c.payDay = d; else delete c.payDay;
+  lsSet('cards', cards);
+  toast('결제일이 저장되었습니다');
+  renderCardModal();
+  render();
+}
+
 /* ── 카드사 관리 모달 ── */
 function openCardModal() { renderCardModal(); document.getElementById('card-modal').classList.add('open'); }
 function renderCardModal() {
@@ -1301,6 +1393,9 @@ function renderCardModal() {
       <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
       <div class="rec-info"><div class="t1">${esc(c.name)}</div>
         <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
+      <input class="bud-input" type="number" min="1" max="31" placeholder="결제일" title="매월 결제일 (1~31)"
+        style="width:64px;text-align:center" value="${c.payDay || ''}" onchange="setCardPayDay('${c.id}', this.value)">
+      <span style="color:var(--muted);font-size:12px">일</span>
       <button class="icon-btn" title="삭제" onclick="removeCard('${c.id}')">🗑️</button>
     </div>`).join('')
     : `<div class="empty" style="padding:18px">아직 카드사가 없습니다<br>아래에 이름을 입력하고 추가하세요</div>`;
@@ -1538,6 +1633,20 @@ function saveTotalBudget(v) {
   toast('목표 지출이 저장되었습니다');
   render();
 }
+/* 대시보드 목표 지출 박스 클릭 → 설정 모달 */
+function openGoalModal() {
+  const budgets = ls('budgets', { total: 0, byCat: {} });
+  document.getElementById('goal-m-amount').value = budgets.total || '';
+  document.getElementById('goal-modal').classList.add('open');
+  setTimeout(() => document.getElementById('goal-m-amount').focus(), 50);
+}
+function saveGoal() {
+  saveTotalBudget(document.getElementById('goal-m-amount').value);
+  closeModal('goal-modal');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'goal-m-amount') saveGoal();
+});
 function saveCatBudget(name, v) {
   const budgets = ls('budgets', { total: 0, byCat: {} });
   budgets.byCat = budgets.byCat || {};
