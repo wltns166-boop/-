@@ -728,6 +728,39 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
    서버가 없거나 끊기면 이 기기(localStorage)만으로 동작합니다.
 ═══════════════════════════════════════ */
 const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
+
+/* 아직 서버에 저장되지 못한 변경(오프라인 입력, 일시 오류) — 연결되면 자동 재전송 */
+let pendingKeys = new Set(ls('pendingKeys', []));
+function savePending() { lsSetLocal('pendingKeys', [...pendingKeys]); }
+function flushPending() {
+  if (!SYNC.online) return;
+  for (const k of [...pendingKeys]) {
+    const v = ls(k, null);
+    if (v === null) { pendingKeys.delete(k); continue; }
+    SYNC.push(k, v);
+  }
+  savePending();
+}
+
+/* 서버의 거래 목록을 로컬과 병합 —
+   서버에서 확인된 적 없는 로컬 거래(오프라인 입력)는 지우지 않고 서버로 올린다.
+   서버에서 확인된 적 있는(syncedTxIds) 거래가 서버에서 사라졌다면 다른 기기에서 삭제한 것이므로 지운다. */
+function applyRemoteTx(remote) {
+  remote = Array.isArray(remote) ? remote : [];
+  const local = ls('tx', []);
+  const knownIds = new Set(ls('syncedTxIds', []));
+  const remoteIds = new Set(remote.map(t => t && t.id));
+  const extras = local.filter(t => t && t.id && !remoteIds.has(t.id) && !knownIds.has(t.id));
+  const merged = extras.length ? remote.concat(extras) : remote;
+  if (extras.length) merged.sort((a, b) => a.date < b.date ? 1 : -1);
+  if (JSON.stringify(merged) !== JSON.stringify(local)) lsSetLocal('tx', merged);
+  lsSetLocal('syncedTxIds', remote.map(t => t && t.id));
+  if (extras.length) {
+    // 병합본이 서버에 실제로 저장된 뒤에야 '서버에서 확인됨'으로 기록
+    SYNC.push('tx', merged).then(ok => { if (ok) lsSetLocal('syncedTxIds', merged.map(t => t && t.id)); });
+  } else if (pendingKeys.delete('tx')) savePending();
+}
+
 const SYNC = {
   serverMode: false,   // 서버가 응답하는 환경인지 (/api/health OK)
   online: false,       // 인증까지 끝나 실제 동기화 중인지
@@ -779,12 +812,20 @@ const SYNC = {
     const data = await this.req('/api/state');
     this.version = data.version;
     const state = data.data || {};
-    for (const key of SYNC_KEYS) {
-      if (state[key] !== null && state[key] !== undefined) lsSetLocal(key, state[key]);
-    }
     this.online = true;
-    // 서버가 비어 있는데 이 기기에 거래가 있으면 로컬 데이터를 올림 (최초 연결)
-    if (!('tx' in state) && ls('tx', []).length) await this.pushAll();
+    for (const key of SYNC_KEYS) {
+      if (state[key] === null || state[key] === undefined) continue;
+      if (key === 'tx') { applyRemoteTx(state[key]); continue; }
+      if (pendingKeys.has(key)) continue;      // 이 기기의 미전송 변경이 우선
+      lsSetLocal(key, state[key]);
+    }
+    // 서버에 아직 없는 항목 중 이 기기에 남아 있는 것은 올려서 보존 (최초 연결/복구)
+    for (const k of SYNC_KEYS) {
+      if (k in state) continue;
+      const v = ls(k, null);
+      if (v !== null && (k !== 'tx' || v.length)) this.push(k, v);
+    }
+    flushPending();
   },
 
   /* 로컬 캐시 전체를 서버로 업로드 */
@@ -800,15 +841,20 @@ const SYNC = {
     } catch { /* 오프라인이면 다음 기회에 */ }
   },
 
-  /* 한 키를 서버로 동기화 (fire-and-forget) */
+  /* 한 키를 서버로 동기화 (fire-and-forget). 실패하면 대기열에 남겨 재전송 */
   async push(key, val) {
-    if (!this.online || !this.token) return;
+    if (!SYNC_KEYS.includes(key)) return false;
+    if (!this.online || !this.token) { pendingKeys.add(key); savePending(); return false; }
     try {
       const r = await this.req('/api/state/' + key, { method: 'PUT', body: JSON.stringify({ value: val }) });
       this.version = r.version;   // 내 변경분이므로 폴링 시 재렌더 방지
+      if (pendingKeys.delete(key)) savePending();
+      return true;
     } catch (e) {
+      pendingKeys.add(key); savePending();
       if (e.offline) { this.online = false; updateSyncBadge(); }
       else if (e.unauthorized) { this.online = false; updateSyncBadge(); showLock(); }
+      return false;
     }
   },
 
@@ -822,6 +868,8 @@ const SYNC = {
         if (version !== this.version) {
           await this.pullAll();
           render();   // 다른 컴퓨터의 변경 반영
+        } else if (pendingKeys.size) {
+          flushPending();   // 일시 오류로 못 보낸 변경 재시도
         }
       } catch (e) {
         if (e.unauthorized) { this.stopPolling(); this.online = false; updateSyncBadge(); showLock(); return; }
