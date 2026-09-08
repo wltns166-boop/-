@@ -27,7 +27,7 @@ const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('he
 const TOKEN_TTL = '30d';   // 개인용이므로 넉넉하게 (기기마다 30일에 한 번 입력)
 
 /* ── 프론트엔드가 동기화하는 데이터 키 화이트리스트 ── */
-const STATE_KEYS = ['tx', 'budgets', 'recurring', 'cats'];
+const STATE_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
 
 /* ═══════════════════════════════════════
    DB 로드 / 저장 (JSON 파일, 원자적 쓰기)

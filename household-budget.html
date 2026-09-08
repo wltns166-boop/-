@@ -405,13 +405,13 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   <aside class="sidebar">
     <div class="logo"><span class="mark">💰</span>우리집 가계부</div>
     <nav class="nav" id="nav">
-      <button data-page="dashboard" class="active"><span class="ico">🏠</span>대시보드</button>
-      <button data-page="tx"><span class="ico">🧾</span>거래 내역</button>
-      <button data-page="calendar"><span class="ico">📅</span>달력</button>
-      <button data-page="budget"><span class="ico">🎯</span>예산 관리</button>
-      <button data-page="recurring"><span class="ico">🔁</span>고정 수입·지출</button>
-      <button data-page="stats"><span class="ico">📊</span>통계</button>
-      <button data-page="data"><span class="ico">🗂️</span>데이터 관리</button>
+      <button data-page="dashboard" class="active"><span class="ico">🏠</span><span class="lbl">대시보드</span></button>
+      <button data-page="tx"><span class="ico">🧾</span><span class="lbl">거래 내역</span></button>
+      <button data-page="calendar"><span class="ico">📅</span><span class="lbl">달력</span></button>
+      <button data-page="budget"><span class="ico">🎯</span><span class="lbl">예산 관리</span></button>
+      <button data-page="recurring"><span class="ico">🔁</span><span class="lbl">고정 수입·지출</span></button>
+      <button data-page="stats"><span class="ico">📊</span><span class="lbl">통계</span></button>
+      <button data-page="data"><span class="ico">⚙️</span><span class="lbl">설정</span></button>
     </nav>
     <div class="side-foot">개인용 가계부<br>동기화 서버를 켜면 여러 컴퓨터에서<br>같은 데이터를 실시간으로 공유합니다.</div>
   </aside>
@@ -548,7 +548,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
         </div>
       </section>
 
-      <!-- ═══ 데이터 관리 ═══ -->
+      <!-- ═══ 설정 ═══ -->
       <section class="page" id="page-data">
         <div class="card" style="margin-bottom:14px">
           <div class="card-h">🗂️ 백업 · 내보내기</div>
@@ -576,6 +576,11 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
               <button class="btn danger sm" onclick="resetAll()">초기화</button>
             </div>
           </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">✏️ 메뉴 이름 바꾸기<span class="sub">비워두면 기본 이름으로 돌아갑니다</span></div>
+          <div class="card-b" id="menu-name-list"></div>
         </div>
 
         <div class="card">
@@ -707,7 +712,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
    budget-server가 있으면 데이터를 자동 동기화하고,
    서버가 없거나 끊기면 이 기기(localStorage)만으로 동작합니다.
 ═══════════════════════════════════════ */
-const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats'];
+const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
 const SYNC = {
   serverMode: false,   // 서버가 응답하는 환경인지 (/api/health OK)
   online: false,       // 인증까지 끝나 실제 동기화 중인지
@@ -916,10 +921,25 @@ function applyRecurring() {
 /* ═══════════════════════════════════════
    내비게이션 / 월 이동
 ═══════════════════════════════════════ */
-const PAGE_TITLES = {
+const DEFAULT_MENU = {
   dashboard: '대시보드', tx: '거래 내역', calendar: '달력', budget: '예산 관리',
-  recurring: '고정 수입·지출', stats: '통계', data: '데이터 관리',
+  recurring: '고정 수입·지출', stats: '통계', data: '설정',
 };
+const NAV_ICONS = { dashboard: '🏠', tx: '🧾', calendar: '📅', budget: '🎯', recurring: '🔁', stats: '📊', data: '⚙️' };
+/* 설정에서 바꾼 메뉴 이름 조회 (비어 있으면 기본 이름) */
+function menuName(page) {
+  const m = ls('menu', {});
+  return String(m[page] || '').trim() || DEFAULT_MENU[page];
+}
+/* 사이드바와 상단 제목에 현재 메뉴 이름 반영 */
+function applyMenuNames() {
+  document.querySelectorAll('#nav button[data-page]').forEach(b => {
+    const l = b.querySelector('.lbl');
+    if (l) l.textContent = menuName(b.dataset.page);
+  });
+  const t = document.getElementById('page-title');
+  if (t) t.textContent = menuName(activePage);
+}
 const MONTHLESS_PAGES = ['recurring', 'data'];   // 월 선택이 의미 없는 페이지
 
 document.getElementById('nav').addEventListener('click', e => {
@@ -931,7 +951,7 @@ function showPage(page) {
   activePage = page;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
-  document.getElementById('page-title').textContent = PAGE_TITLES[page] || '';
+  document.getElementById('page-title').textContent = menuName(page);
   document.getElementById('month-nav').style.visibility = MONTHLESS_PAGES.includes(page) ? 'hidden' : 'visible';
   render();
 }
@@ -943,6 +963,7 @@ function goToday() { selYM = curYM(); selDay = todayStr(); render(); }
 ═══════════════════════════════════════ */
 function render() {
   document.getElementById('month-label').textContent = ymLabel(selYM);
+  applyMenuNames();
   switch (activePage) {
     case 'dashboard': renderDashboard(); break;
     case 'tx':        renderTxFilters(); renderTx(); break;
@@ -1397,12 +1418,31 @@ function renderStats() {
    데이터 관리 / 카테고리
 ═══════════════════════════════════════ */
 function renderData() {
+  // 메뉴 이름 설정
+  const menuOv = ls('menu', {});
+  document.getElementById('menu-name-list').innerHTML = Object.keys(DEFAULT_MENU).map(pg =>
+    `<div class="bud-set-row">
+      <div class="nm">${NAV_ICONS[pg]} ${DEFAULT_MENU[pg]}</div>
+      <input class="bud-input" type="text" style="text-align:left;width:200px" maxlength="12"
+        placeholder="${esc(DEFAULT_MENU[pg])}" value="${esc(menuOv[pg] || '')}"
+        onchange="saveMenuName('${pg}', this.value)">
+    </div>`).join('');
+
   const cats = getCats();
   const usedNames = new Set(txAll().map(t => t.category));
   const chip = (type, c) => `<span class="cat-chip">${c.emoji} ${esc(c.name)}
     <button class="x" title="삭제" onclick="removeCategory('${type}','${esc(c.name)}')">✕</button></span>`;
   document.getElementById('cat-expense').innerHTML = cats.expense.map(c => chip('expense', c)).join('');
   document.getElementById('cat-income').innerHTML = cats.income.map(c => chip('income', c)).join('');
+}
+function saveMenuName(page, v) {
+  const m = ls('menu', {});
+  v = String(v || '').trim();
+  if (v && v !== DEFAULT_MENU[page]) m[page] = v; else delete m[page];
+  lsSet('menu', m);
+  applyMenuNames();
+  renderData();
+  toast('메뉴 이름이 저장되었습니다');
 }
 function addCategory(type) {
   const emoEl = document.getElementById(type === 'expense' ? 'cat-e-emo' : 'cat-i-emo');
@@ -1431,7 +1471,7 @@ function removeCategory(type, name) {
 }
 
 /* ── JSON 백업/복원 ── */
-const BACKUP_KEYS = ['tx', 'budgets', 'recurring', 'cats'];
+const BACKUP_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
 function download(filename, text, mime) {
   const blob = new Blob([text], { type: mime || 'application/octet-stream' });
   const a = document.createElement('a');
@@ -1545,6 +1585,7 @@ function resetAll() {
   lsSet('budgets', { total: 0, byCat: {} });
   lsSet('recurring', []);
   lsSet('cats', JSON.parse(JSON.stringify(DEFAULT_CATS)));
+  lsSet('menu', {});
   toast('모든 데이터가 초기화되었습니다');
   selYM = curYM(); selDay = null;
   render();
