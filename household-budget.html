@@ -401,7 +401,18 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .ct-add { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
 .ct-add input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; font-size: 12.5px; outline: none; min-width: 0; }
 .ct-add input:focus { border-color: var(--accent); }
-.ct-add .d { width: 128px; } .ct-add .t { flex: 1; min-width: 90px; } .ct-add .a { width: 104px; text-align: right; }
+.ct-add .t { flex: 1; min-width: 90px; } .ct-add .f { width: 84px; } .ct-add .a { width: 104px; text-align: right; }
+.ct-field { width: 74px; border: 1px solid var(--line); border-radius: 7px; padding: 5px 6px; font-size: 12px; outline: none; }
+.ct-field:focus { border-color: var(--accent); }
+.ct-layout { display: flex; gap: 14px; align-items: flex-start; }
+.ct-side { width: 230px; flex-shrink: 0; }
+.card-cols-wrap { flex: 1; min-width: 0; }
+.side-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.side-row:hover { background: var(--hover); }
+.side-row.on { background: var(--sel); }
+.side-row .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-row .amt { font-weight: 800; white-space: nowrap; }
+.side-row.total { border-top: 1px solid var(--line); margin-top: 6px; cursor: default; border-radius: 0; }
 .upload-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .card-sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .dropzone {
@@ -436,6 +447,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   .dash-grid, .dash-grid2, .dash-grid.dash-half { grid-template-columns: 1fr; }
   .topbar { flex-wrap: wrap; padding: 12px 14px; }
   .cal-cell { min-height: 62px; padding: 4px 5px; }
+  .ct-layout { flex-direction: column; }
+  .ct-side { width: 100%; }
   .bars { gap: 4px; }
   .bar-pair { gap: 2px; }
   .bud-set-row .nm { flex-basis: 100px; }
@@ -526,7 +539,13 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
           <span style="flex:1"></span>
           <button class="btn" onclick="openCardModal()">💳 카드사 관리</button>
         </div>
-        <div class="card-cols-wrap"><div class="card-cols" id="card-cols"></div></div>
+        <div class="ct-layout">
+          <div class="card ct-side">
+            <div class="card-h" style="font-size:14px">💳 카드사별 사용량</div>
+            <div class="card-b" id="ct-side"></div>
+          </div>
+          <div class="card-cols-wrap"><div class="card-cols" id="card-cols"></div></div>
+        </div>
       </section>
 
       <!-- ═══ 달력 ═══ -->
@@ -1289,8 +1308,18 @@ function txRowHTML(t) {
 function renderCards() {
   const cards = getCards();
   const monthCt = cardTxOfMonth(selYM);
-  document.getElementById('ct-sum').textContent = fmt(monthCt.reduce((s, t) => s + Number(t.amount || 0), 0));
+  const monthTotal = monthCt.reduce((s, t) => s + Number(t.amount || 0), 0);
+  document.getElementById('ct-sum').textContent = fmt(monthTotal);
   document.getElementById('ct-count').textContent = monthCt.length + '건';
+  // 왼쪽 카드사별 사용량 리스트 (클릭하면 해당 박스 선택·이동)
+  const side = document.getElementById('ct-side');
+  side.innerHTML = cards.length ? cards.map(c => {
+    const s = monthCt.filter(t => t.cardId === c.id).reduce((a, t) => a + Number(t.amount || 0), 0);
+    return `<div class="side-row${selectedCardId === c.id ? ' on' : ''}" onclick="focusCard('${c.id}')">
+      <span class="nm">💳 ${esc(c.name)}</span><span class="amt c-expense">${fmt(s)}</span>
+    </div>`;
+  }).join('') + `<div class="side-row total"><span class="nm">합계</span><span class="amt c-expense">${fmt(monthTotal)}</span></div>`
+  : `<div class="empty" style="padding:14px 4px;font-size:12px">카드사가 없습니다</div>`;
   const wrap = document.getElementById('card-cols');
   if (!cards.length) {
     wrap.style.gridTemplateColumns = '1fr';
@@ -1301,7 +1330,8 @@ function renderCards() {
   wrap.innerHTML = cards.map(c => {
     const list = monthCt.filter(t => t.cardId === c.id).sort((a, b) => a.date < b.date ? 1 : -1);
     const sum = list.reduce((s, t) => s + Number(t.amount || 0), 0);
-    return `<div class="card${selectedCardId === c.id ? ' card-sel' : ''}" onclick="selectCard('${c.id}')">
+    return `<div class="card${selectedCardId === c.id ? ' card-sel' : ''}" id="ccard-${c.id}"
+      onclick="if (!['INPUT', 'BUTTON', 'SELECT', 'LABEL'].includes(event.target.tagName)) selectCard('${c.id}')">
       <div class="card-h">💳 ${esc(c.name)}<span class="sub c-expense" style="font-weight:800">${fmt(sum)}</span></div>
       <div class="card-b">
         <div class="dropzone" ondragover="dzOver(event, this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event, '${c.id}', this)"
@@ -1311,17 +1341,19 @@ function renderCards() {
           <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기<br>박스를 선택한 뒤 스크린샷 붙여넣기(Ctrl+V)도 됩니다</div>
         </div>
         ${list.length ? `<div style="overflow-x:auto"><table class="tbl ct-tbl">
-          <tr><th style="text-align:left">날짜</th><th style="text-align:left">내역</th><th>금액</th><th></th></tr>
+          <tr><th style="text-align:left">날짜</th><th style="text-align:left">내역</th><th style="text-align:left">분야</th><th>금액</th><th></th></tr>
           ${list.map(t => `<tr>
             <td style="text-align:left">${t.date.slice(5).replace('-', '/')}</td>
             <td style="text-align:left;white-space:normal">${esc(t.desc || '-')}</td>
+            <td><input class="ct-field" value="${esc(t.field || '')}" placeholder="분야" maxlength="10"
+              onchange="setCardTxField('${t.id}', this.value)"></td>
             <td class="c-expense" style="font-weight:700">${fmt(t.amount)}</td>
             <td><button class="del" title="삭제" onclick="delCardTx('${t.id}')">✕</button></td>
           </tr>`).join('')}
-        </table></div>` : `<div class="empty" style="padding:22px 8px">${ymLabel(selYM)} 내역이 없습니다<br>아래에 직접 입력하거나 카드사 엑셀 파일을 올려보세요</div>`}
+        </table></div>` : `<div class="empty" style="padding:22px 8px">${ymLabel(selYM)} 내역이 없습니다<br>아래에 직접 입력하거나 파일을 올려보세요</div>`}
         <div class="ct-add">
-          <input class="d" type="date" id="ct-date-${c.id}" value="${selYM === curYM() ? todayStr() : selYM + '-01'}">
-          <input class="t" id="ct-desc-${c.id}" placeholder="내역" maxlength="40">
+          <input class="t" id="ct-desc-${c.id}" placeholder="내역 (가맹점명)" maxlength="40">
+          <input class="f" id="ct-field-${c.id}" placeholder="분야" maxlength="10">
           <input class="a" type="number" id="ct-amt-${c.id}" placeholder="금액" min="0" inputmode="numeric">
           <button class="btn sm" onclick="addCardTx('${c.id}')">＋</button>
         </div>
@@ -1331,17 +1363,26 @@ function renderCards() {
 }
 
 function addCardTx(cardId) {
-  const date = document.getElementById('ct-date-' + cardId).value;
+  const date = selYM === curYM() ? todayStr() : selYM + '-01';   // 보고 있는 달로 자동 기록
   const desc = document.getElementById('ct-desc-' + cardId).value.trim();
+  const field = document.getElementById('ct-field-' + cardId).value.trim();
   const amount = Number(document.getElementById('ct-amt-' + cardId).value);
-  if (!date) { toast('날짜를 입력하세요'); return; }
   if (!amount || amount <= 0) { toast('금액을 입력하세요'); return; }
   const list = cardTxAll();
-  list.push({ id: uid(), cardId, date, desc, amount });
+  list.push({ id: uid(), cardId, date, desc, field, amount });
   list.sort((a, b) => a.date < b.date ? 1 : -1);
   lsSet('cardTx', list);
   toast('내역이 추가되었습니다');
   render();
+}
+/* 내역의 분야 저장 */
+function setCardTxField(id, v) {
+  const list = cardTxAll();
+  const t = list.find(x => x.id === id);
+  if (!t) return;
+  t.field = String(v || '').trim();
+  lsSet('cardTx', list);
+  toast('분야가 저장되었습니다');
 }
 async function delCardTx(id) {
   if (!(await appConfirm('이 내역을 삭제할까요?'))) return;
@@ -1462,21 +1503,70 @@ function parseDateLoose(s) {
   }
   return null;
 }
-/* 행마다 날짜·금액·내역을 추정: 첫 날짜 셀 = 날짜, 가장 큰 숫자 셀 = 금액, 가장 긴 문자 셀 = 내역 */
+/* 헤더 행을 찾아 어느 열이 날짜/가맹점/금액인지 매핑
+   (카드명·누적금액·포인트 열을 잘못 집는 것을 방지) */
+function detectColumns(rows) {
+  const DATE_H = /이용일|승인일|거래일|매출일|일자|날짜|date/i;
+  const DESC_H = /가맹점|이용하신\s*곳|사용처|이용처|상호|merchant|store/i;
+  const DESC_H2 = /이용내역|사용내역|내역|적요/i;               // 차선책
+  const AMT_H = /이용금액|사용금액|승인금액|거래금액|결제금액|매출금액|출금액|금액|amount/i;
+  const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구/i;
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const cells = (rows[i] || []).map(c => String(c ?? '').trim());
+    let di = -1, mi = -1, mi2 = -1, ai = -1;
+    cells.forEach((s, j) => {
+      if (!s) return;
+      if (di < 0 && DATE_H.test(s)) di = j;
+      if (mi < 0 && DESC_H.test(s) && !AMT_BAD.test(s)) mi = j;
+      if (mi2 < 0 && DESC_H2.test(s)) mi2 = j;
+      if (AMT_H.test(s) && !AMT_BAD.test(s) && ai < 0) ai = j;
+    });
+    if (di >= 0 && ai >= 0) return { headerRow: i, date: di, desc: mi >= 0 ? mi : mi2, amount: ai };
+  }
+  return null;
+}
+/* 카드 상품명처럼 보이는 문자열(내역 후보에서 뒤로 밀기) */
+function looksLikeCardName(s) {
+  return /카드|card|check|체크|edition|플래티|platinum|gold|silver|the\s|아멕스|amex|비자|visa|마스터|master/i.test(s);
+}
 function rowsToCardTx(rows, cardId) {
+  rows = (rows || []).filter(r => Array.isArray(r));
   const out = [];
+  const cols = detectColumns(rows);
+  if (cols) {
+    // 헤더 기반: 각 행 = 거래 1건, 지정된 열에서만 값을 읽음
+    for (let i = cols.headerRow + 1; i < rows.length; i++) {
+      const cells = rows[i];
+      const date = parseDateLoose(String(cells[cols.date] ?? ''));
+      const amount = parseAmountLoose(String(cells[cols.amount] ?? ''));
+      if (!date || !amount) continue;
+      let desc = cols.desc >= 0 ? String(cells[cols.desc] ?? '').trim() : '';
+      if (!desc) {
+        // 가맹점 열이 없으면: 날짜/숫자/카드명이 아닌 가장 긴 문자열
+        for (const cell of cells) {
+          const s = String(cell ?? '').trim();
+          if (!s || parseDateLoose(s) || parseAmountLoose(s) !== null) continue;
+          if (looksLikeCardName(s)) continue;
+          if (s.length > desc.length) desc = s;
+        }
+      }
+      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount });
+    }
+    if (out.length) return out;
+  }
+  // 헤더를 못 찾은 파일: 행별 추정 (카드명은 내역 후보에서 제외)
   for (const cells of rows) {
-    if (!Array.isArray(cells)) continue;
-    let date = null, amount = null, desc = '';
+    let date = null, amount = null, desc = '', descAny = '';
     for (const cell of cells) {
       const s = String(cell ?? '').trim();
       if (!s) continue;
       if (!date) { const d = parseDateLoose(s); if (d) { date = d; continue; } }
       const a = parseAmountLoose(s);
       if (a !== null) { if (amount === null || a > amount) amount = a; continue; }
-      if (s.length > desc.length) desc = s;
+      if (s.length > descAny.length) descAny = s;
+      if (!looksLikeCardName(s) && s.length > desc.length) desc = s;
     }
-    if (date && amount) out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount });
+    if (date && amount) out.push({ id: uid(), cardId, date, desc: (desc || descAny).slice(0, 40), amount });
   }
   return out;
 }
@@ -1485,6 +1575,12 @@ function selectCard(id) {
   if (selectedCardId === id) return;
   selectedCardId = id;
   renderCards();
+}
+/* 왼쪽 리스트 클릭 → 카드 선택 + 해당 박스로 이동 */
+function focusCard(id) {
+  selectCard(id);
+  const el = document.getElementById('ccard-' + id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
 }
 function dzOver(e, el) { e.preventDefault(); el.classList.add('dragover'); }
 function dzLeave(el) { el.classList.remove('dragover'); }
