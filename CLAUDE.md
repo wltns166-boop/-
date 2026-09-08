@@ -588,6 +588,28 @@
 - ⚠️ 수용 한계(기존 계열): 좌표·양식은 관리자 전용 UI지만 서버 검증 없음(navcfg 계열), 좌표 편집기의 [저장](saveClaimCal)은
   3종 슬롯이면 재생성 대상 청구건이 없어 좌표 저장만 하고 끝남.
 
+## 4.97 명함신청 (cardreq, 2026-09-08)
+
+- 요청관리 하위 메뉴 [명함신청](`n_card_apply` → `pg_card_apply`). 요청관리 그룹이 TL 이상 전용(leaderNavIds)이라
+  명함신청도 같은 가시성 — showPage 가드에도 `card_apply` 포함(예비팀장 이상). 전 팀원 개방하려면 두 곳에서 빼면 됨.
+  요청관리(`n_req_menu`) 클릭 시 통합 페이지 열기 + `nch_req` 자동 펼침(하위 명함신청 노출 — 접기만 안 함).
+- 페이지: 신청자 리스트 표(`cardreq_tb` — 관리자=전체, 그 외=본인 신청만) + 우측 [신청] 버튼 → 흰 배경 모달
+  `m_cardreq`(m_trip 패턴 — 함정 D 역방향, `#m_cardreq .fi/.fl` CSS 오버라이드).
+- 입력: 이름(필수)/영문이름/연락처/팩스번호/이메일 + 선택 체크박스 3종(프로필사진·MDRT·AFPK). 빈 항목은 confirm 후 신청 허용.
+  프로필사진 체크 시 파일 칸 표시 — 선택 즉시 Storage `claim_packages/card_photos/`(기존 규칙 커버)에
+  1600px JPEG 축소 업로드(`_custAlienShrink` 재사용), 데이터엔 **URL만**(함정 B). 세대 카운터 `_cardPhotoGen`(오귀속 방지)·
+  업로드 중 저장 차단(`_cardPhotoBusy`). 표시 전 `_CARD_URL_RE` 버킷 화이트리스트(_BD_URL_RE 계열).
+- 데이터: `cardReqs=[{id('cr_..'),agent,dt,ts,ut?,name,ename,phone,fax,email,photo,photoUrl,photoName,mdrt,afpk,status}]`
+  — 동기화 키 `tops_cardreq`. 행 조작(수정/상태/삭제)은 전부 **id 기준**(함정 A — data-crid 속성).
+- 수정: 행별 [수정](본인 또는 관리자) → 같은 모달 재사용(`cardreq_edit_id`) — 클라우드/로컬 재읽기 후 같은 id만 교체,
+  다른 기기에서 삭제된 건은 재등록(리쿠르팅과 동일 의도). 상태(검토중/완료/반려) 변경·삭제(2번 클릭)는 관리자만.
+  신규 신청 시 pushNotify('ADMIN'), 상태 변경 시 신청자에게 pushNotify(saveReqUnified 계열).
+- ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(req_items 계열), `_isAdmin()` 클라이언트 가드뿐(서버 미검증).
+  체크 해제 후 저장하면 photoUrl은 데이터에서 비워지지만 Storage 원본은 안 지움(오삭제 회피 — 고아 파일 수용, 가족 등록증 계열).
+- **같은 커밋의 기존 결함 수정**: `tops_req_items`(요청관리 통합)가 sv 저장만 되고 **loadFromFirestore/onSnapshot 로드가 빠져
+  있어 기기 간 신청 내역이 안 보이던 문제** — 두 로드 경로에 req_items·cardreq 반영(빈 배열도 반영 — 삭제 전파, cal 패턴)
+  + 스냅샷 페이지 자동 갱신 맵에 req_unified/card_apply 추가.
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.

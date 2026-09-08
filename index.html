@@ -330,6 +330,10 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_trip .fi::placeholder{color:#9aa3c8}
 #m_trip .fl{color:#3a4468}
 #m_trip .fs{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+/* 명함신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴) */
+#m_cardreq .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8}
+#m_cardreq .fi::placeholder{color:#9aa3c8}
+#m_cardreq .fl{color:#3a4468}
 /* 일정 등록 모달 — 흰 배경 전환(함정 D 역방향, 같은 패턴. 2026-09-04) */
 #m_cal_add .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8;color-scheme:light}
 #m_cal_add .fi::placeholder{color:#9aa3c8}
@@ -414,7 +418,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.04-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-1</div>
   </div>
 </div>
 
@@ -528,6 +532,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="ns"><div class="ni" id="n_edu_apply">교육신청</div></div>
       <div class="ns"><div class="ni" id="n_goods_apply">물품신청</div></div>
       <div class="ns"><div class="ni" id="n_suggestion">건의사항</div></div>
+      <div class="ns"><div class="ni" id="n_card_apply">명함신청</div></div>
     </div>
 
     <div class="ni" id="n_new_menu"><i class="ti ti-user-check"></i>신입관리<i class="ti ti-chevron-down nc" id="nc_new"></i></div>
@@ -1858,6 +1863,51 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="fr" style="justify-content:flex-end;gap:8px;margin-top:10px">
         <button class="bca" onclick="g('m_req_unified').classList.remove('open')">취소</button>
         <button class="bco" onclick="saveReqUnified()">저장</button>
+      </div>
+    </div></div>
+
+    <!-- 명함신청 (요청관리 하위) -->
+    <div class="pg" id="pg_card_apply">
+      <div class="sh">
+        <div class="st"><i class="ti ti-id"></i>명함신청</div>
+        <button class="bp" onclick="openCardReqModal()"><i class="ti ti-plus"></i> 신청</button>
+      </div>
+      <div class="card">
+        <div style="overflow-x:auto">
+          <table class="dt">
+            <thead><tr><th>신청일</th><th>신청자</th><th>이름</th><th>영문이름</th><th>연락처</th><th>팩스번호</th><th>이메일주소</th><th>선택항목</th><th>상태</th><th>관리</th></tr></thead>
+            <tbody id="cardreq_tb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- 명함신청 모달 — 흰 배경(함정 D 역방향, m_trip 패턴). 행 수정도 이 모달 재사용(cardreq_edit_id) -->
+    <div class="mb" id="m_cardreq"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18)">
+      <div class="mth" style="color:#1a1a2e"><span id="cardreq_mt">명함 신청</span><span class="mc" onclick="g('m_cardreq').classList.remove('open')" style="color:#555">×</span></div>
+      <div class="fr">
+        <div class="fg" style="flex:1"><div class="fl">이름 *</div><input class="fi" id="cardreq_name" placeholder="예: 홍길동"></div>
+        <div class="fg" style="flex:1"><div class="fl">영문이름</div><input class="fi" id="cardreq_ename" placeholder="예: HONG GIL DONG"></div>
+      </div>
+      <div class="fr">
+        <div class="fg" style="flex:1"><div class="fl">연락처</div><input class="fi" id="cardreq_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
+        <div class="fg" style="flex:1"><div class="fl">팩스번호</div><input class="fi" id="cardreq_fax" inputmode="tel" placeholder="예: 02-000-0000"></div>
+      </div>
+      <div class="fg"><div class="fl">이메일주소</div><input class="fi" id="cardreq_email" inputmode="email" placeholder="example@naver.com"></div>
+      <div class="fg"><div class="fl">선택사항 — 해당하는 항목에 체크하세요</div>
+        <div style="display:flex;flex-direction:column;gap:7px;padding:10px 12px;border:1px solid #c5cbe8;border-radius:8px;background:#fafbfd">
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_photo" onchange="_cardPhotoToggle()" style="width:16px;height:16px;accent-color:#4858cc"> 프로필사진 — 사진파일 첨부</label>
+          <div id="cardreq_photo_wrap" style="display:none;padding:8px 10px;border:1px dashed #c5cbe8;border-radius:8px;background:#fff">
+            <input type="file" id="cardreq_photo_file" accept="image/*" onchange="cardPhotoPick()" style="font-size:13px;color:#16203c;max-width:100%">
+            <div id="cardreq_photo_prev" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_mdrt" style="width:16px;height:16px;accent-color:#4858cc"> MDRT 첨부</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#16203c;cursor:pointer"><input type="checkbox" id="cardreq_afpk" style="width:16px;height:16px;accent-color:#4858cc"> AFPK 첨부</label>
+        </div>
+      </div>
+      <input type="hidden" id="cardreq_edit_id">
+      <div class="mf">
+        <button class="bca" onclick="g('m_cardreq').classList.remove('open')">취소</button>
+        <button class="bco" id="cardreq_save_btn" onclick="saveCardReq()">신청</button>
       </div>
     </div></div>
 
@@ -3492,6 +3542,10 @@ async function loadFromFirestore(){
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ _lsSet('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    // 요청관리(req_items)·명함신청(cardreq): 빈 배열도 반영(삭제 전파 — cal 패턴).
+    //   req_items는 그동안 저장(sv)만 되고 로드가 빠져 기기 간 신청 내역이 안 보이던 기존 결함 수정(2026-09-08).
+    if(Array.isArray(d.req_items)){ reqItems=d.req_items; _lsSet('tops_req_items', JSON.stringify(reqItems)); }
+    if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); }
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -3575,6 +3629,9 @@ function startRealtimeSync(){
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.mtcfg && typeof d.mtcfg==='object' && !Array.isArray(d.mtcfg) && Array.isArray(d.mtcfg.targets)){ _mtCfg=d.mtcfg; try{ _lsSet('tops_mtcfg', JSON.stringify(d.mtcfg)); }catch(e){} try{ if(typeof _mtMemFill==='function') _mtMemFill(); }catch(e){} try{ if(typeof rMeetingList==='function') rMeetingList(); }catch(e){} }
+    // 요청관리(req_items)·명함신청(cardreq) 실시간 수신 — 빈 배열도 반영(삭제 전파). req_items 로드 누락 결함 수정(2026-09-08).
+    if(Array.isArray(d.req_items)){ reqItems=d.req_items; _lsSet('tops_req_items', JSON.stringify(reqItems)); changed=true; }
+    if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); changed=true; }
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -3590,7 +3647,9 @@ function startRealtimeSync(){
         claim_apply:(typeof rClaimApply==='function'?rClaimApply:null),
         claim_status:(typeof rClaimStatus==='function'?rClaimStatus:null),
         exam:(typeof rExam==='function'?rExam:null),
-        join_prep:(typeof rJoinPrep==='function'?rJoinPrep:null)};
+        join_prep:(typeof rJoinPrep==='function'?rJoinPrep:null),
+        req_unified:(typeof rReqUnified==='function'?rReqUnified:null),
+        card_apply:(typeof rCardApply==='function'?rCardApply:null)};
       if(r[window._curPage]) r[window._curPage]();
     }
   },function(err){ console.warn('FS sync err:',err); });
@@ -4556,7 +4615,8 @@ g('n_report') && g('n_report').addEventListener('click',function(){showPage('rep
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
-g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
+g('n_req_menu').addEventListener('click',function(){showPage('req_unified'); var el=g('nch_req'); if(el&&!el.classList.contains('open')) tnav('req');}); // 통합 페이지 열기 + 하위(명함신청) 펼침
+g('n_card_apply') && g('n_card_apply').addEventListener('click',function(){showPage('card_apply');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
 g('n_suggestion').addEventListener('click',function(){showPage('suggestion');});
@@ -4578,7 +4638,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
   wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',
-  req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
+  req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',card_apply:'명함신청',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정'};
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
 // 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
@@ -5137,7 +5197,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
   }
-  if(['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+  if(['exam','team_perf','req_unified','card_apply','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -5158,7 +5218,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,card_apply:rCardApply,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
   if(String(name).indexOf('cm_')!==0) window._bdOpenPost=null;   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
@@ -23792,6 +23852,212 @@ function deleteReqItem(idx){
   var mc=g('m_req_unified_c'); if(mc) mc.addEventListener('click',function(){ g('m_req_unified').classList.remove('open'); });
   var mcan=g('m_req_unified_cancel'); if(mcan) mcan.addEventListener('click',function(){ g('m_req_unified').classList.remove('open'); });
 })();
+
+// ===== 명함신청 (card_apply, 2026-09-08) =====
+// 데이터: cardReqs=[{id('cr_..'),agent,dt,ts,ut?,name,ename,phone,fax,email,photo,photoUrl,photoName,mdrt,afpk,status}]
+//   — 동기화 키 tops_cardreq(텍스트·URL만, 함정 B). 프로필사진 원본은 Storage claim_packages/card_photos/(기존 규칙 커버).
+// 행 조작(수정/상태/삭제)은 전부 고유 id 기준(함정 A). 저장은 로컬 재읽기 후 전체 배열 교체 —
+//   last-write-wins(요청관리 req_items 계열 수용). 수정은 본인 또는 관리자, 상태 변경·삭제는 관리자만.
+var cardReqs=[];
+try{ cardReqs=JSON.parse(localStorage.getItem('tops_cardreq')||'[]'); }catch(e){ cardReqs=[]; }
+if(!Array.isArray(cardReqs)) cardReqs=[];
+// 표시 전 사진 URL 화이트리스트(_BD_URL_RE 패턴) — 콘솔 조작 데이터의 javascript: 링크 등 차단
+var _CARD_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Fcard_photos%2F/;
+function _cardReqsReload(){
+  try{ cardReqs=JSON.parse(localStorage.getItem('tops_cardreq')||'[]'); }catch(e){ cardReqs=[]; }
+  if(!Array.isArray(cardReqs)) cardReqs=[];
+}
+function _cardReqPersist(){
+  _lsSet('tops_cardreq', JSON.stringify(cardReqs));
+  try{ sv('tops_cardreq', cardReqs); }catch(e){}
+}
+function rCardApply(){
+  _cardReqsReload();
+  var tb=g('cardreq_tb'); if(!tb) return;
+  var isAdmin=_isAdmin();
+  var list=isAdmin ? cardReqs.slice() : cardReqs.filter(function(r){ return r&&cu&&r.agent===cu.name; });
+  list.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="10" class="em" style="padding:30px">명함 신청 내역이 없습니다. 우측 상단 [신청] 버튼으로 신청하세요.</td></tr>';
+    return;
+  }
+  var stColors={'검토중':['rgba(200,120,30,.12)','rgba(200,120,30,.3)','#8a5010'],'완료':['rgba(30,160,80,.12)','rgba(30,160,80,.3)','#1a7040'],'반려':['rgba(200,40,40,.1)','rgba(200,40,40,.25)','#cc3333']};
+  tb.innerHTML=list.map(function(r){
+    var idAttr=_esc(r.id||'');
+    var opts=[];
+    if(r.photo){
+      var pu=(r.photoUrl&&_CARD_URL_RE.test(r.photoUrl))?r.photoUrl:'';
+      opts.push(pu
+        ? '<a href="'+_esc(pu)+'" target="_blank" rel="noopener" style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;text-decoration:none;white-space:nowrap">📷 프로필사진</a>'
+        : '<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(72,88,204,.35);background:rgba(72,88,204,.12);color:#4858cc;white-space:nowrap">프로필사진</span>');
+    }
+    if(r.mdrt) opts.push('<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(30,160,80,.3);background:rgba(30,160,80,.12);color:#1a7040;white-space:nowrap">MDRT</span>');
+    if(r.afpk) opts.push('<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid rgba(200,120,30,.3);background:rgba(200,120,30,.12);color:#8a5010;white-space:nowrap">AFPK</span>');
+    var st=r.status||'검토중';
+    var statusCell;
+    if(isAdmin){
+      statusCell='<select data-crid="'+idAttr+'" onchange="setCardReqStatus(this.getAttribute(\'data-crid\'),this.value)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
+        +['검토중','완료','반려'].map(function(s){ return '<option value="'+s+'"'+(st===s?' selected':'')+'>'+s+'</option>'; }).join('')
+        +'</select>';
+    } else {
+      var sc=stColors[st]||stColors['검토중'];
+      statusCell='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+sc[1]+';background:'+sc[0]+';color:'+sc[2]+';white-space:nowrap">'+_esc(st)+'</span>';
+    }
+    var canEdit=isAdmin||(cu&&r.agent===cu.name);
+    var mng='';
+    if(canEdit) mng+='<button data-crid="'+idAttr+'" onclick="openCardReqModal(this.getAttribute(\'data-crid\'))" style="font-size:13px;padding:2px 8px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit">수정</button>';
+    if(isAdmin) mng+='<button data-crid="'+idAttr+'" onclick="deleteCardReq(this.getAttribute(\'data-crid\'))" style="font-size:13px;padding:2px 7px;margin-left:4px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>';
+    return '<tr>'
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.dt||'-')+'</td>'
+      +'<td style="font-size:14px;font-weight:600;white-space:nowrap">'+_esc(r.agent||'-')+'</td>'
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.name||'-')+'</td>'
+      +'<td style="font-size:14px">'+_esc(r.ename||'-')+'</td>'
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.phone||'-')+'</td>'
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.fax||'-')+'</td>'
+      +'<td style="font-size:14px;word-break:break-all">'+_esc(r.email||'-')+'</td>'
+      +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">'+(opts.join('')||'<span style="font-size:12px;color:#9aa3c8">-</span>')+'</div></td>'
+      +'<td style="text-align:center">'+statusCell+'</td>'
+      +'<td style="text-align:center;white-space:nowrap">'+mng+'</td>'
+      +'</tr>';
+  }).join('');
+}
+// 프로필사진 첨부 — 체크 시 파일 칸 표시, 선택 즉시 Storage 업로드(URL만 보관 — 함정 B).
+//   세대 카운터(_cardPhotoGen)로 모달 재열기 중 도착한 업로드의 오귀속 방지(_custAlienGen 패턴).
+function _cardPhotoToggle(){
+  var on=!!(g('cardreq_photo')&&g('cardreq_photo').checked);
+  var w=g('cardreq_photo_wrap'); if(w) w.style.display=on?'block':'none';
+}
+function _cardPhotoDraw(){
+  var box=g('cardreq_photo_prev'); if(!box) return;
+  var p=window._cardPhoto;
+  if(window._cardPhotoBusy){ box.innerHTML='<span style="font-size:12px;color:#9aa3c8">사진 올리는 중...</span>'; return; }
+  if(!p||!p.u){ box.innerHTML='<span style="font-size:12px;color:#9aa3c8">첨부된 사진 없음</span>'; return; }
+  box.innerHTML='<img src="'+_esc(p.u)+'" alt="프로필사진" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #c5cbe8">'
+    +'<span style="font-size:13px;color:#16203c;word-break:break-all">'+_esc(p.n||'프로필사진.jpg')+'</span>'
+    +'<button type="button" onclick="_cardPhotoRemove()" style="font-size:12px;padding:2px 7px;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit">✕ 빼기</button>';
+}
+function _cardPhotoRemove(){ window._cardPhoto=null; _cardPhotoDraw(); }
+function cardPhotoPick(){
+  var inp=g('cardreq_photo_file'); if(!inp||!inp.files||!inp.files[0]) return;
+  var f=inp.files[0]; inp.value='';
+  _cardPhotoUpload(f);
+}
+async function _cardPhotoUpload(file){
+  if(!file) return;
+  var isImg=/^image\//.test(file.type)||(!file.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name||''));
+  if(!isImg){ toast('사진(이미지) 파일만 첨부할 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 첨부할 수 있습니다.'); return; }
+  var gen=window._cardPhotoGen||0;
+  window._cardPhotoBusy=(window._cardPhotoBusy||0)+1;
+  _cardPhotoDraw();
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var dataUrl=await _custAlienShrink(file);   // 1600px JPEG 축소(등록증 업로더 재사용)
+    var bin=atob(dataUrl.split(',')[1]); var u8=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    var ref=firebase.storage().ref('claim_packages/card_photos/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
+    await ref.put(u8,{contentType:'image/jpeg'});
+    var url=await ref.getDownloadURL();
+    if(gen!==(window._cardPhotoGen||0)){
+      // 업로드 도중 모달이 다른 신청 건으로 바뀜 — 이 파일은 버리고 Storage에서도 정리(오귀속 방지)
+      try{ ref.delete().catch(function(){}); }catch(e){}
+      return;
+    }
+    window._cardPhoto={u:url, n:file.name||'프로필사진.jpg'};
+    toast('프로필사진이 첨부되었습니다. [신청]을 눌러야 저장됩니다.');
+  }catch(e){ console.warn('card photo upload err:', e); toast('사진 업로드 실패: '+(e.message||e)); }
+  finally{ if(gen===(window._cardPhotoGen||0)){ window._cardPhotoBusy=Math.max(0,(window._cardPhotoBusy||1)-1); _cardPhotoDraw(); } }
+}
+function openCardReqModal(id){
+  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  var edit=null;
+  if(id){
+    _cardReqsReload();
+    edit=cardReqs.find(function(r){ return r&&r.id===id; });
+    if(!edit){ toast('신청 내역을 찾을 수 없습니다.'); rCardApply(); return; }
+    if(!(_isAdmin()||edit.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
+  }
+  g('cardreq_edit_id').value=edit?edit.id:'';
+  g('cardreq_mt').textContent=edit?'명함 신청 수정':'명함 신청';
+  g('cardreq_save_btn').textContent=edit?'수정 완료':'신청';
+  g('cardreq_name').value=edit?(edit.name||''):(cu.name||'');
+  g('cardreq_ename').value=edit?(edit.ename||''):'';
+  g('cardreq_phone').value=edit?(edit.phone||''):'';
+  g('cardreq_fax').value=edit?(edit.fax||''):'';
+  g('cardreq_email').value=edit?(edit.email||''):'';
+  g('cardreq_photo').checked=!!(edit&&edit.photo);
+  g('cardreq_mdrt').checked=!!(edit&&edit.mdrt);
+  g('cardreq_afpk').checked=!!(edit&&edit.afpk);
+  window._cardPhotoGen=(window._cardPhotoGen||0)+1;   // 이전 모달의 진행 중 업로드 무효화
+  window._cardPhotoBusy=0;
+  window._cardPhoto=(edit&&edit.photoUrl&&_CARD_URL_RE.test(edit.photoUrl))?{u:edit.photoUrl, n:edit.photoName||'프로필사진.jpg'}:null;
+  var pf=g('cardreq_photo_file'); if(pf) pf.value='';
+  _cardPhotoToggle(); _cardPhotoDraw();
+  g('m_cardreq').classList.add('open');
+}
+function saveCardReq(){
+  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  if(window._cardPhotoBusy){ toast('사진 업로드가 끝난 뒤 신청해주세요.'); return; }
+  var name=(g('cardreq_name')||{value:''}).value.trim();
+  var ename=(g('cardreq_ename')||{value:''}).value.trim();
+  var phone=(g('cardreq_phone')||{value:''}).value.trim();
+  var fax=(g('cardreq_fax')||{value:''}).value.trim();
+  var email=(g('cardreq_email')||{value:''}).value.trim();
+  if(!name){ toast('이름을 입력하세요.'); return; }
+  if((!ename||!phone||!fax||!email)&&!confirm('비어 있는 항목(영문이름·연락처·팩스번호·이메일 중)이 있습니다.\n그대로 신청할까요?')) return;
+  var photo=g('cardreq_photo').checked?1:0;
+  var mdrt=g('cardreq_mdrt').checked?1:0;
+  var afpk=g('cardreq_afpk').checked?1:0;
+  var pu=(photo&&window._cardPhoto&&window._cardPhoto.u)?window._cardPhoto.u:'';
+  var pn=pu?(window._cardPhoto.n||''):'';
+  _cardReqsReload();
+  var editId=(g('cardreq_edit_id')||{value:''}).value;
+  if(editId){
+    var i=cardReqs.findIndex(function(r){ return r&&r.id===editId; });
+    var prev=i>=0?cardReqs[i]:null;
+    if(prev&&!(_isAdmin()||prev.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
+    var obj={ id:editId, agent:prev?prev.agent:cu.name, dt:prev?prev.dt:tds(), ts:prev?(prev.ts||Date.now()):Date.now(), ut:Date.now(),
+      name:name, ename:ename, phone:phone, fax:fax, email:email,
+      photo:photo, photoUrl:pu, photoName:pn, mdrt:mdrt, afpk:afpk,
+      status:prev?(prev.status||'검토중'):'검토중' };
+    if(i>=0) cardReqs[i]=obj; else cardReqs.push(obj);   // 다른 기기에서 삭제된 건은 재등록(리쿠르팅과 동일 의도)
+    toast('명함 신청이 수정되었습니다.');
+  } else {
+    cardReqs.push({ id:'cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), agent:cu.name, dt:tds(), ts:Date.now(),
+      name:name, ename:ename, phone:phone, fax:fax, email:email,
+      photo:photo, photoUrl:pu, photoName:pn, mdrt:mdrt, afpk:afpk, status:'검토중' });
+    try{ pushNotify('ADMIN', '명함신청', cu.name+'님이 명함을 신청했습니다.', '/'); }catch(e){}
+    toast('명함 신청이 접수되었습니다.');
+  }
+  _cardReqPersist();
+  g('m_cardreq').classList.remove('open');
+  rCardApply();
+}
+function setCardReqStatus(id, val){
+  if(!_isAdmin()){ toast('상태 변경은 관리자만 할 수 있습니다.'); rCardApply(); return; }
+  _cardReqsReload();
+  var r=cardReqs.find(function(x){ return x&&x.id===id; });
+  if(!r){ toast('신청 내역을 찾을 수 없습니다.'); rCardApply(); return; }
+  r.status=val;
+  _cardReqPersist();
+  try{ pushNotify([r.agent], '명함신청 처리', '명함신청 → '+val, '/'); }catch(e){}
+}
+function deleteCardReq(id){
+  if(!_isAdmin()){ toast('삭제는 관리자만 할 수 있습니다.'); return; }
+  if(window._delCardReqId===id){
+    _cardReqsReload();
+    var i=cardReqs.findIndex(function(r){ return r&&r.id===id; });
+    if(i>=0) cardReqs.splice(i,1);
+    _cardReqPersist();
+    rCardApply();
+    toast('삭제되었습니다.');
+    window._delCardReqId=null;
+  } else {
+    window._delCardReqId=id;
+    toast('한 번 더 누르면 삭제됩니다.');
+    setTimeout(function(){ window._delCardReqId=null; }, 3000);
+  }
+}
 
 </script>
 
