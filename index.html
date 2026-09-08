@@ -418,7 +418,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-2</div>
   </div>
 </div>
 
@@ -4068,6 +4068,10 @@ function logout(){
   cu=null;
   sessionStorage.removeItem('tops_session');
   try{ localStorage.removeItem('tops_session_keep'); }catch(e){}   // '로그인 유지' 해제
+  // 홈 팝업 1회 표시 플래그 리셋(2026-09-08 리뷰) — 새로고침 없는 SPA 로그아웃 뒤
+  // 다른 관리자가 로그인해도 요청 현황·총무휴가 팝업이 다시 뜨게 함
+  window._reqStatShown=false; window._cwVacShown=false;
+  try{ var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }catch(e){}
   g('ls').style.display='flex';
   g('app').style.display='none';
   g('lid').value='';g('lpw').value='';g('lerr').style.display='none';
@@ -5377,6 +5381,9 @@ function rHome(){
   // 총무휴가 안내 팝업(2026-09-04) — 휴가 전날~종료일 접속 시 1회, 클릭으로 닫음.
   // 새 기기(로컬 캐시 없음)는 클라우드 cal 수신 후 홈 재렌더 때 이 경로로 다시 시도된다.
   try{ _cwVacPopup(); }catch(e){}
+  // 관리자 업무 요청 현황 팝업(2026-09-08) — 지점장/총무 역할별 처리 대기 건수, 접속당 1회.
+  // 클라우드 수신 후 홈 재렌더 때는 열려 있는 팝업의 건수만 갱신된다(_reqStatPopup 내부 처리).
+  try{ _reqStatPopup(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -11637,6 +11644,141 @@ function _cwVacPopup(){
     ov.addEventListener('click',function(){ ov.remove(); });
     document.body.appendChild(ov);
   }catch(e){ console.warn('cwvac popup err:', e); }
+}
+
+// ===== 관리자 업무 요청 현황 팝업 (reqstat, 2026-09-08) =====
+// 관리자가 홈에 진입하면 역할별(지점장 BM / 총무) 처리 대기 건수를 팝업으로 표시(접속당 1회 — cwvac 패턴).
+// 항목 클릭 시 해당 페이지로 이동, 바깥 클릭·[닫기]로 닫음. 저장·동기화 없음(함정 B 무관), id는 reqstat_ 접두(함정 E).
+// 집계는 표시 시점의 로컬 캐시 기준 — 클라우드 수신 후 홈 재렌더 때 팝업이 열려 있으면 건수를 갱신한다.
+function _reqStatRows(){
+  var chong=_isChongmu();
+  // 각 집계는 독립 try — 하나가 실패해도 나머지 항목은 표시. 역할에 쓰이는 항목만 계산(불필요한 _reloadClaims 부작용 회피)
+  var cnt=function(fn){ try{ return fn(); }catch(e){ return 0; } };
+  // 공통 항목: 입사준비·시험신청
+  var jpAll=[], jpPend=0, eduPend=0;
+  cnt(function(){
+    jpLoad(); jpAll=JP||[];
+    jpPend=jpAll.filter(function(r){
+      if(!r) return false;
+      var prepOk=JP_PREP.every(function(p){ return r.prep&&r.prep[p[0]]; });
+      return !(r.commitDoc&&prepOk&&r.insInst&&r.salesCampus);
+    }).length;
+    if(!chong) eduPend=jpAll.filter(function(r){
+      if(!r) return false;
+      return EDU_TOPICS.some(function(t){ var ed=(r.edu&&r.edu[t[0]])||{}; return !ed.edu||!ed.test; });
+    }).length;
+    return 0;
+  });
+  var examPend=cnt(function(){
+    var ex=JSON.parse(localStorage.getItem('tops_exams')||'[]');
+    return (Array.isArray(ex)?ex:[]).filter(function(e){ return e&&!e.done; }).length;
+  });
+  var jpRow={pg:'join_prep', icon:'🧑‍💼', label:'입사준비', n:jpPend, sub:'준비 미완료 신입 (등록 '+jpAll.length+'명)'};
+  var examRow={pg:'exam', icon:'📝', label:'시험신청', n:examPend, sub:'접수 미완료'};
+  if(chong){
+    var custPend=cnt(function(){
+      var cr=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
+      return (Array.isArray(cr)?cr:[]).filter(function(r){ return r&&!r.done; }).length;
+    });
+    var claimPend=cnt(function(){
+      if(typeof _reloadClaims==='function') _reloadClaims();   // 함정 C — 전용 재로드만 사용
+      return (claims||[]).filter(function(c){ return c&&!c.done; }).length;
+    });
+    return [
+      {pg:'cust_status', icon:'👤', label:'고객등록', n:custPend,  sub:'처리 대기 요청'},
+      {pg:'claim_status',icon:'📄', label:'청구신청', n:claimPend, sub:'미완료 청구'},
+      examRow, jpRow
+    ];
+  }
+  // 지점장(BM) 항목: 출장보고·요청관리·교육준비
+  // 출장 확인 대기 — 최근 30일 신청만(확인 기능 도입 전의 옛 미확인 건이 몽땅 잡혀 소음이 되는 것 방지)
+  var tripPend=cnt(function(){
+    var lim=Date.now()-30*24*3600*1000;
+    return (trips||[]).filter(function(t){
+      if(!t||t.okBy) return false;
+      var ts=t.ts||0;
+      if(!ts&&t.dt){ var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String(t.dt)); if(m) ts=new Date(+m[1],+m[2]-1,+m[3]).getTime(); }
+      return ts>=lim;
+    }).length;
+  });
+  var reqPend=cnt(function(){
+    var ri=JSON.parse(localStorage.getItem('tops_req_items')||'[]');
+    return (Array.isArray(ri)?ri:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
+  });
+  var cardPend=cnt(function(){
+    var cr=JSON.parse(localStorage.getItem('tops_cardreq')||'[]');
+    return (Array.isArray(cr)?cr:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
+  });
+  return [
+    {pg:'trip',        icon:'🚗', label:'출장보고', n:tripPend, sub:'확인 대기 신청'},
+    {pg:'req_unified', icon:'📋', label:'요청관리', n:reqPend+cardPend, sub:'검토중'+(cardPend?' (명함신청 '+cardPend+'건 포함)':'')},
+    jpRow,
+    {pg:'edu_prep',    icon:'📚', label:'교육준비', n:eduPend, sub:'교육·테스트 미완료 신입'},
+    examRow
+  ];
+}
+function _reqStatRowsHtml(rows){
+  return rows.map(function(r){
+    var badge=r.n>0
+      ? '<span style="flex:none;font-size:15px;font-weight:800;color:#fff;background:#d03040;border-radius:999px;padding:3px 12px;min-width:30px;text-align:center">'+r.n+'건</span>'
+      : '<span style="flex:none;font-size:14px;font-weight:700;color:#8a94b8;background:#eef0f7;border-radius:999px;padding:3px 12px;min-width:30px;text-align:center">0건</span>';
+    return '<div data-rspg="'+r.pg+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid '+(r.n>0?'rgba(208,48,64,.3)':'#dde1ee')+';border-radius:10px;background:'+(r.n>0?'rgba(208,48,64,.05)':'#fafbfd')+';cursor:pointer;text-align:left">'
+      +'<span style="flex:none;font-size:20px;line-height:1">'+r.icon+'</span>'
+      +'<span style="flex:1;min-width:0">'
+        +'<span style="display:block;font-size:15px;font-weight:700;color:#1a1a2e">'+r.label+'</span>'
+        +'<span style="display:block;font-size:12px;color:#8a94b8;margin-top:1px">'+r.sub+'</span>'
+      +'</span>'+badge
+      +'<i class="ti ti-chevron-right" style="flex:none;color:#b0b8d8"></i>'
+      +'</div>';
+  }).join('');
+}
+function _reqStatBind(ov){
+  ov.querySelectorAll('[data-rspg]').forEach(function(el){
+    el.onclick=function(ev){ ev.stopPropagation(); var pg=el.getAttribute('data-rspg'); ov.remove(); try{ showPage(pg); }catch(e){} };
+  });
+}
+function _reqStatPopup(){
+  try{
+    if(!cu||!_isAdmin()) return;                          // 관리자(BM·총무)만
+    if(/[?&]rr=1/.test(location.search)) return;          // 서버 캡처 화면 제외
+    var existing=g('reqstat_pop');
+    if(window._reqStatShown&&!existing) return;           // 이미 닫았으면 이 접속에선 재표시 안 함
+    var rows=_reqStatRows();
+    if(existing){                                          // 클라우드 수신 후 홈 재렌더 — 열려 있는 팝업 건수 갱신
+      var bx=existing.querySelector('#reqstat_rows');
+      if(bx){ bx.innerHTML=_reqStatRowsHtml(rows); _reqStatBind(existing); }
+      return;
+    }
+    // 새 기기(로컬 캐시 없음) 오탐 방지 — 클라우드 미수신 상태에서 전부 0건이면 표시를 보류하고
+    // 플래그를 안 세워, 클라우드 수신 후 홈 재렌더 때 실제 건수로 다시 시도한다(cwvac 패턴).
+    var total=rows.reduce(function(s,r){ return s+(r.n||0); },0);
+    if(!window._fsLoaded && total===0) return;
+    window._reqStatShown=true;
+    var chong=_isChongmu();
+    var ov=document.createElement('div');
+    ov.id='reqstat_pop';
+    // z-index는 총무휴가 팝업(99999)보다 낮게 — 두 팝업이 겹치면 휴가 안내를 먼저 보여줌
+    ov.style.cssText='position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(3,8,30,.55);padding:16px';
+    ov.innerHTML='<div id="reqstat_card" style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:22px 20px;box-shadow:0 12px 44px rgba(0,0,0,.4);cursor:default;max-height:86vh;overflow-y:auto">'
+      +'<div style="text-align:center">'
+        +'<div style="font-size:30px;line-height:1">🔔</div>'
+        +'<div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-top:6px">업무 요청 현황'
+        +' <span style="font-size:12.5px;font-weight:700;color:#4858cc;background:rgba(72,88,204,.1);border-radius:6px;padding:2px 8px;vertical-align:2px">'+(chong?'총무':'지점장')+'</span></div>'
+      +'</div>'
+      +'<div id="reqstat_rows" style="display:flex;flex-direction:column;gap:8px;margin-top:14px">'+_reqStatRowsHtml(rows)+'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">'
+        +'<span style="font-size:12px;color:#98a0c0">항목을 누르면 해당 화면으로 이동합니다</span>'
+        +'<button id="reqstat_close" style="font-size:13.5px;font-weight:700;padding:7px 16px;border-radius:8px;border:1px solid #c5cbe8;background:#eef1fd;color:#4858cc;cursor:pointer;font-family:inherit">닫기</button>'
+      +'</div>'
+      +'</div>';
+    ov.addEventListener('click',function(){ ov.remove(); });                 // 바깥(어두운 영역) 클릭 시 닫힘
+    var card=ov.querySelector('#reqstat_card');
+    if(card) card.addEventListener('click',function(ev){ ev.stopPropagation(); });   // 카드 내부 클릭은 유지
+    var cb=ov.querySelector('#reqstat_close');
+    if(cb) cb.addEventListener('click',function(){ ov.remove(); });
+    _reqStatBind(ov);
+    document.body.appendChild(ov);
+  }catch(e){ console.warn('reqstat popup err:', e); }
 }
 
 // ===== 보장분석 — 공용 엑셀 미리보기 및 양식 관리 =====
