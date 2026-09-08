@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-10</div>
   </div>
 </div>
 
@@ -19257,18 +19257,22 @@ function _bdFilesHtml(p){
   var imgs=_bdViewImgs(p), pdfs=_bdPdfs(p);
   var noCtx=' oncontextmenu="return false"';   // 이미지 복사 차단(2026-09-08) — 전 사용자(우클릭 메뉴. 관리자 [원본] 링크·다운로드 버튼은 관리 기능이라 유지)
   var wm=_bdWmDiv(); // 열람자 워터마크(팀원만) — 이미지·동영상 래퍼마다 덧씌움
-  function tag(u,style){
+  function tag(u,style,cls){
     // 원본 새 탭 링크 제거(2026-09-08) — 관리자도 이미지 클릭 시 Storage 원본이 새 탭으로 열려
     // 거기서 우클릭 저장이 가능했음(앱 차단이 안 미치는 영역). 이미지는 인라인 열람만.
-    return '<img src="'+_esc(u)+'" loading="lazy" alt="" draggable="false" style="'+style+';'+BD_IMG_NOCOPY+'">';
+    return '<img'+(cls?' class="'+cls+'"':'')+' src="'+_esc(u)+'" loading="lazy" alt="" draggable="false" style="'+style+';'+BD_IMG_NOCOPY+'">';
   }
   var fh='';
   if(imgs.length){
     if(p.vm==='swipe'&&imgs.length>1){
       fh+=_bdSwipeHtml(p);
     } else {
-      fh+='<div'+noCtx+'>'+imgs.map(function(f){
-        return '<div style="margin-top:12px;text-align:center;position:relative">'+tag(f.u,'max-width:100%;border-radius:8px')+wm+'</div>';
+      // 확대/축소(2026-09-08) — 줌 바 + 휠 줌 영역(data-bdzoomarea). z>1이면 가로 스크롤로 이동
+      var z=_bdZoomOf(p.id);
+      fh+=_bdZoomBar(p.id)
+        +'<div'+noCtx+' data-bdzoomarea="'+_esc(p.id)+'" style="overflow-x:auto">'+imgs.map(function(f){
+        return '<div style="margin-top:12px;text-align:center;position:relative">'
+          +tag(f.u,(z===1?'max-width:100%':'width:'+Math.round(z*100)+'%;max-width:none')+';border-radius:8px','bdzi')+wm+'</div>';
       }).join('')+'</div>';
     }
   }
@@ -19384,9 +19388,13 @@ function _bdSwipeHtml(p){
     return '<div data-bdgo="'+_esc(p.id)+'|'+i+'" title="'+(i+1)+'페이지 보기" style="flex:0 0 22%;min-width:0;cursor:pointer;opacity:.5;align-self:center">'
       +'<img src="'+_esc(imgs[i].u)+'" alt=""'+drg+' style="width:100%;border-radius:8px;display:block;'+BD_IMG_NOCOPY+'"></div>';
   }
-  var cim='<img src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block;'+BD_IMG_NOCOPY+'">';
+  // 확대/축소(2026-09-08) — 가운데 이미지만 줌(bdzc), z>1이면 가운데 칸 안에서 스크롤로 이동
+  var z=_bdZoomOf(p.id);
+  var cim='<img class="bdzi bdzc" src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="'
+    +(z===1?'width:100%;max-height:72vh;object-fit:contain':'width:'+Math.round(z*100)+'%;max-width:none;max-height:none')
+    +';border-radius:8px;display:block;'+BD_IMG_NOCOPY+'">';
   // 원본 새 탭 링크 제거(2026-09-08) — 관리자도 클릭 시 원본이 새 탭으로 열려 우클릭 저장이 가능했음
-  var center='<div data-bdcenter style="flex:0 0 52%;min-width:0">'+cim+'</div>';
+  var center='<div data-bdcenter data-bdzoomarea="'+_esc(p.id)+'" style="flex:0 0 52%;min-width:0;overflow:auto;max-height:74vh">'+cim+'</div>';
   // 전체 페이지 썸네일 줄 — 원하는 장을 눌러 바로 이동(현재 장은 파란 테두리)
   var thumbs='<div data-bdthumbs style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px">'
     +imgs.map(function(f,i){
@@ -19402,8 +19410,61 @@ function _bdSwipeHtml(p){
     +'<span data-bdcnt style="font-size:13.5px;color:#555;font-weight:700;min-width:52px;text-align:center">'+(idx+1)+' / '+n+'</span>'
     +'<button data-bdnav="'+_esc(p.id)+'|1" style="'+sb+'"'+(idx>=n-1?' disabled':'')+'><i class="ti ti-chevron-right"></i></button>'
     +'<span style="font-size:11.5px;color:#aab">← → 키로도 넘길 수 있어요</span>'
-    +'</div>'+thumbs+'</div>';
+    +'</div>'+thumbs+_bdZoomBar(p.id)+'</div>';
 }
+// ===== 자료실 이미지 확대/축소 (2026-09-08) =====
+// 줌 바(－/배율/＋/원래대로) + 이미지 영역(data-bdzoomarea) 위 마우스 휠 줌. 배율은 게시물별(window._bdZoom[pid]) 40~300%.
+// 세로 나열=전체 이미지 폭 조절(z>1이면 가로 스크롤), 스와이프=가운데 이미지만(bdzc — 가운데 칸 안 스크롤).
+// 저장·동기화 없음(함정 B 무관), 조작은 게시물 id 기준(함정 A). 스와이프 재렌더(_bdSwipeRefresh)는 렌더 시 z를 다시 읽어 유지.
+function _bdZoomOf(pid){ var z=(window._bdZoom&&window._bdZoom[pid]); return (typeof z==='number'&&z>0)?z:1; }
+function _bdZoomBar(pid){
+  var z=_bdZoomOf(pid);
+  var bs='padding:4px 13px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;line-height:1.3;';
+  return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 2px;flex-wrap:wrap">'
+    +'<button type="button" data-bdzbtn="'+_esc(pid)+'|-" title="축소" style="'+bs+'">－</button>'
+    +'<span data-bdzlbl="'+_esc(pid)+'" style="font-size:13px;color:#555;font-weight:700;min-width:44px;text-align:center">'+Math.round(z*100)+'%</span>'
+    +'<button type="button" data-bdzbtn="'+_esc(pid)+'|+" title="확대" style="'+bs+'">＋</button>'
+    +'<button type="button" data-bdzbtn="'+_esc(pid)+'|0" style="'+bs+'font-weight:600;font-size:12.5px">원래대로</button>'
+    +'<span style="font-size:11.5px;color:#aab">이미지 위에서 마우스 휠로도 확대/축소</span>'
+    +'</div>';
+}
+function _bdZoomSet(pid, z){
+  z=Math.min(3, Math.max(0.4, z));
+  if(Math.abs(z-1)<0.05) z=1;   // 100% 근처는 원래대로 스냅
+  window._bdZoom=window._bdZoom||{};
+  window._bdZoom[pid]=z;
+  document.querySelectorAll('[data-bdzoomarea="'+pid+'"]').forEach(function(area){
+    area.querySelectorAll('img.bdzi').forEach(function(im){
+      var isCenter=im.classList.contains('bdzc');   // 스와이프 가운데 이미지 — 기본 스타일이 달라 복원값 구분
+      if(z===1){
+        im.style.width=isCenter?'100%':'';
+        im.style.maxWidth=isCenter?'':'100%';
+        if(isCenter){ im.style.maxHeight='72vh'; im.style.objectFit='contain'; }
+      } else {
+        im.style.width=Math.round(z*100)+'%';
+        im.style.maxWidth='none';
+        if(isCenter){ im.style.maxHeight='none'; }
+      }
+    });
+  });
+  document.querySelectorAll('[data-bdzlbl="'+pid+'"]').forEach(function(l){ l.textContent=Math.round(z*100)+'%'; });
+}
+// 줌 버튼·휠 — 문서 위임 1회 등록(재렌더에도 유효)
+try{
+  document.addEventListener('click', function(ev){
+    var b=ev.target&&ev.target.closest?ev.target.closest('[data-bdzbtn]'):null; if(!b) return;
+    var pr=b.getAttribute('data-bdzbtn').split('|'); if(pr.length<2) return;
+    var z=_bdZoomOf(pr[0]);
+    if(pr[1]==='+') z+=0.2; else if(pr[1]==='-') z-=0.2; else z=1;
+    _bdZoomSet(pr[0], z);
+  });
+  document.addEventListener('wheel', function(ev){
+    var area=ev.target&&ev.target.closest?ev.target.closest('[data-bdzoomarea]'):null; if(!area) return;
+    ev.preventDefault();   // 이미지 영역 위 휠은 페이지 스크롤 대신 줌(요청 사양) — 영역 밖에선 평소대로 스크롤
+    var pid=area.getAttribute('data-bdzoomarea');
+    _bdZoomSet(pid, _bdZoomOf(pid)*(ev.deltaY<0?1.1:1/1.1));
+  }, {passive:false});
+}catch(e){}
 // 썸네일 줄에서 현재 장이 보이도록 스크롤
 function _bdThumbScroll(pid){
   try{
