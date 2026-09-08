@@ -342,6 +342,33 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .modal-foot .btn { flex: 1; padding: 12px 0; font-size: 14px; }
 .modal-foot .btn.danger { flex: 0 0 auto; padding: 12px 16px; }
 
+/* ── 동기화 배지 / 잠금 화면 ── */
+.sync-badge {
+  font-size: 11.5px; font-weight: 700; padding: 5px 10px; border-radius: 99px;
+  background: var(--bg); color: var(--muted); white-space: nowrap; cursor: default;
+}
+.sync-badge.on { background: var(--accent-soft); color: var(--accent); }
+.sync-badge.err { background: var(--expense-soft); color: var(--expense); }
+#lock {
+  position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0f2e24, #134e3a); padding: 16px;
+}
+#lock.show { display: flex; }
+.lock-card {
+  background: var(--card); border-radius: 18px; padding: 34px 30px; width: 100%; max-width: 340px;
+  text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.35); animation: pop .18s ease;
+}
+.lock-card .emo { font-size: 44px; }
+.lock-card h2 { font-size: 19px; margin: 10px 0 4px; }
+.lock-card p { font-size: 12.5px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+.lock-card input {
+  width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+  font-size: 15px; text-align: center; outline: none;
+}
+.lock-card input:focus { border-color: var(--accent); }
+.lock-card .btn { width: 100%; margin-top: 10px; padding: 12px 0; font-size: 14px; }
+.lock-err { color: var(--expense); font-size: 12px; margin-top: 10px; display: none; }
+
 /* 토스트 */
 #toast {
   position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(80px);
@@ -384,13 +411,14 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <button data-page="stats"><span class="ico">📊</span>통계</button>
       <button data-page="data"><span class="ico">🗂️</span>데이터 관리</button>
     </nav>
-    <div class="side-foot">개인용 가계부<br>데이터는 이 기기(브라우저)에만 저장됩니다.</div>
+    <div class="side-foot">개인용 가계부<br>동기화 서버를 켜면 여러 컴퓨터에서<br>같은 데이터를 실시간으로 공유합니다.</div>
   </aside>
 
   <!-- ── 메인 ── -->
   <div class="main">
     <header class="topbar">
       <h1 id="page-title">대시보드</h1>
+      <span class="sync-badge" id="sync-badge">⚪ 이 기기 전용</span>
       <div class="month-nav" id="month-nav">
         <button onclick="shiftMonth(-1)" title="이전 달">◀</button>
         <span class="cur" id="month-label"></span>
@@ -639,6 +667,18 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
 <div id="toast"></div>
 
+<!-- ═══ 잠금 화면 (동기화 서버 연결 시에만 표시) ═══ -->
+<div id="lock">
+  <div class="lock-card">
+    <div class="emo">💰</div>
+    <h2>우리집 가계부</h2>
+    <p>동기화 서버에 연결되었습니다.<br>접속 비밀번호를 입력하세요.</p>
+    <input type="password" id="lock-pw" placeholder="비밀번호" autocomplete="current-password">
+    <button class="btn" onclick="doUnlock()">들어가기</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
 <script>
 'use strict';
 /* ═══════════════════════════════════════
@@ -650,10 +690,126 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 function ls(key, def) {
   try { const v = localStorage.getItem('hb_' + key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
-function lsSet(key, val) {
+/* 순수 로컬 저장 — 서버 푸시 없음 (서버에서 받은 데이터를 캐시에 넣을 때 사용) */
+function lsSetLocal(key, val) {
   try { localStorage.setItem('hb_' + key, JSON.stringify(val)); } catch {}
 }
+/* 앱에서 데이터를 저장할 때 호출 — 로컬에 쓰고 서버에도 동기화 */
+function lsSet(key, val) {
+  lsSetLocal(key, val);
+  if (SYNC_KEYS.includes(key)) SYNC.push(key, val);
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ═══════════════════════════════════════
+   SYNC — 컴퓨터 간 실시간 동기화 계층
+   budget-server가 있으면 데이터를 자동 동기화하고,
+   서버가 없거나 끊기면 이 기기(localStorage)만으로 동작합니다.
+═══════════════════════════════════════ */
+const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats'];
+const SYNC = {
+  serverMode: false,   // 서버가 응답하는 환경인지 (/api/health OK)
+  online: false,       // 인증까지 끝나 실제 동기화 중인지
+  token: (() => { try { return localStorage.getItem('hb_token'); } catch { return null; } })(),
+  version: -1,
+  pollTimer: null,
+
+  base() {
+    try { const s = localStorage.getItem('hb_apiBase'); if (s) return s.replace(/\/$/, ''); } catch {}
+    if (location.protocol.startsWith('http')) return location.origin;
+    return 'http://localhost:4001';   // file://로 직접 열었을 때 기본값
+  },
+
+  async req(path, opts = {}) {
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
+    let res;
+    try {
+      res = await fetch(this.base() + path, Object.assign({}, opts, { headers }));
+    } catch (e) {
+      const err = new Error('서버에 연결할 수 없습니다'); err.offline = true; throw err;
+    }
+    if (res.status === 401) {
+      this.token = null; try { localStorage.removeItem('hb_token'); } catch {}
+      const err = new Error('인증 필요'); err.unauthorized = true; throw err;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const err = new Error(data.error || ('오류 ' + res.status)); err.status = res.status; throw err; }
+    return data;
+  },
+
+  /* 서버 존재 확인 (이 앱의 서버인지도 확인 — 인증 불필요) */
+  async health() {
+    try {
+      const res = await fetch(this.base() + '/api/health');
+      const d = await res.json().catch(() => ({}));
+      return res.ok && d.app === 'household-budget';
+    } catch { return false; }
+  },
+
+  async login(pw) {
+    const data = await this.req('/api/login', { method: 'POST', body: JSON.stringify({ pw }) });
+    this.token = data.token;
+    try { localStorage.setItem('hb_token', data.token); } catch {}
+  },
+
+  /* 서버 데이터를 로컬 캐시로 내려받음 */
+  async pullAll() {
+    const data = await this.req('/api/state');
+    this.version = data.version;
+    const state = data.data || {};
+    for (const key of SYNC_KEYS) {
+      if (state[key] !== null && state[key] !== undefined) lsSetLocal(key, state[key]);
+    }
+    this.online = true;
+    // 서버가 비어 있는데 이 기기에 거래가 있으면 로컬 데이터를 올림 (최초 연결)
+    if (!('tx' in state) && ls('tx', []).length) await this.pushAll();
+  },
+
+  /* 로컬 캐시 전체를 서버로 업로드 */
+  async pushAll() {
+    const payload = {};
+    for (const key of SYNC_KEYS) {
+      const v = ls(key, null);
+      if (v !== null) payload[key] = v;
+    }
+    try {
+      const r = await this.req('/api/state', { method: 'PUT', body: JSON.stringify({ data: payload }) });
+      this.version = r.version;
+    } catch { /* 오프라인이면 다음 기회에 */ }
+  },
+
+  /* 한 키를 서버로 동기화 (fire-and-forget) */
+  async push(key, val) {
+    if (!this.online || !this.token) return;
+    try {
+      const r = await this.req('/api/state/' + key, { method: 'PUT', body: JSON.stringify({ value: val }) });
+      this.version = r.version;   // 내 변경분이므로 폴링 시 재렌더 방지
+    } catch (e) {
+      if (e.offline) { this.online = false; updateSyncBadge(); }
+      else if (e.unauthorized) { this.online = false; updateSyncBadge(); showLock(); }
+    }
+  },
+
+  /* 3초마다 다른 컴퓨터의 변경 감지 + 끊긴 연결 자동 복구 */
+  startPolling() {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = setInterval(async () => {
+      try {
+        const { version } = await this.req('/api/state/version');
+        if (!this.online) { await this.pullAll(); updateSyncBadge(); render(); return; }  // 재접속 성공
+        if (version !== this.version) {
+          await this.pullAll();
+          render();   // 다른 컴퓨터의 변경 반영
+        }
+      } catch (e) {
+        if (e.unauthorized) { this.stopPolling(); this.online = false; updateSyncBadge(); showLock(); return; }
+        if (this.online) { this.online = false; updateSyncBadge(); }
+      }
+    }, 3000);
+  },
+  stopPolling() { if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; } },
+};
 
 /* ── 기본 카테고리 ── */
 const PALETTE = ['#ef4444','#f97316','#f59e0b','#84cc16','#10b981','#0d9488','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#d946ef','#ec4899','#78716c','#0ea5e9'];
@@ -1380,9 +1536,14 @@ function importCSV(input) {
   reader.readAsText(file);
 }
 function resetAll() {
-  if (!confirm('정말 모든 데이터를 삭제할까요?\n거래·예산·고정항목·카테고리가 모두 사라집니다.')) return;
+  const extra = SYNC.online ? '\n동기화 중이므로 다른 컴퓨터의 데이터도 함께 초기화됩니다.' : '';
+  if (!confirm('정말 모든 데이터를 삭제할까요?\n거래·예산·고정항목·카테고리가 모두 사라집니다.' + extra)) return;
   if (!confirm('마지막 확인입니다. 삭제 후에는 되돌릴 수 없습니다.\n계속할까요?')) return;
-  for (const k of BACKUP_KEYS) { try { localStorage.removeItem('hb_' + k); } catch {} }
+  // 빈 값을 저장하는 방식이라 동기화 중이면 서버·다른 기기에도 반영됩니다
+  lsSet('tx', []);
+  lsSet('budgets', { total: 0, byCat: {} });
+  lsSet('recurring', []);
+  lsSet('cats', JSON.parse(JSON.stringify(DEFAULT_CATS)));
   toast('모든 데이터가 초기화되었습니다');
   selYM = curYM(); selDay = null;
   render();
@@ -1513,10 +1674,68 @@ function toast(msg) {
 }
 
 /* ═══════════════════════════════════════
+   동기화 상태 배지 / 잠금 화면
+═══════════════════════════════════════ */
+function updateSyncBadge() {
+  const el = document.getElementById('sync-badge');
+  if (!SYNC.serverMode) {
+    el.textContent = '⚪ 이 기기 전용'; el.className = 'sync-badge';
+    el.title = '동기화 서버 없이 이 기기에만 저장 중입니다';
+  } else if (SYNC.online) {
+    el.textContent = '🟢 동기화 중'; el.className = 'sync-badge on';
+    el.title = '서버와 실시간 동기화 중입니다. 다른 컴퓨터에 3초 안에 반영됩니다.';
+  } else {
+    el.textContent = '🔴 연결 끊김'; el.className = 'sync-badge err';
+    el.title = '서버 연결이 끊겼습니다. 자동으로 재접속을 시도하며, 그동안의 변경은 이 기기에 보관됩니다.';
+  }
+}
+function showLock() {
+  document.getElementById('lock').classList.add('show');
+  setTimeout(() => document.getElementById('lock-pw').focus(), 50);
+}
+function hideLock() { document.getElementById('lock').classList.remove('show'); }
+async function doUnlock() {
+  const errEl = document.getElementById('lock-err');
+  try {
+    await SYNC.login(document.getElementById('lock-pw').value);
+    await SYNC.pullAll();
+    document.getElementById('lock-pw').value = '';
+    errEl.style.display = 'none';
+    hideLock();
+    startApp();
+  } catch (e) {
+    errEl.textContent = e.offline ? '서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.'
+      : e.unauthorized ? '비밀번호가 올바르지 않습니다.'
+      : (e.message || '접속에 실패했습니다.');
+    errEl.style.display = 'block';
+  }
+}
+document.getElementById('lock-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+
+/* ═══════════════════════════════════════
    시작
 ═══════════════════════════════════════ */
-applyRecurring();
-render();
+function startApp() {
+  updateSyncBadge();
+  applyRecurring();
+  render();
+  if (SYNC.serverMode) SYNC.startPolling();
+}
+async function boot() {
+  render();   // 서버 확인 동안에도 로컬 데이터를 먼저 표시
+  if (await SYNC.health()) {
+    SYNC.serverMode = true;
+    if (SYNC.token) {
+      try { await SYNC.pullAll(); startApp(); return; }
+      catch { /* 토큰 만료 등 → 잠금 화면으로 */ }
+    }
+    updateSyncBadge();
+    showLock();
+    return;
+  }
+  startApp();   // 서버 없음 → 이 기기 전용 모드
+}
+boot();
 </script>
 </body>
 </html>
