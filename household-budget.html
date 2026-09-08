@@ -403,6 +403,16 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .ct-add input:focus { border-color: var(--accent); }
 .ct-add .d { width: 128px; } .ct-add .t { flex: 1; min-width: 90px; } .ct-add .a { width: 104px; text-align: right; }
 .upload-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.card-sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.dropzone {
+  border: 1.5px dashed var(--line); border-radius: 10px; padding: 12px 10px; text-align: center;
+  cursor: pointer; transition: border-color .15s, background .15s; background: var(--bg);
+}
+.dropzone:hover { border-color: var(--accent); }
+.dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+.card-sel .dropzone { border-color: var(--accent); background: var(--sel); }
+.dz-t1 { font-weight: 700; font-size: 12.5px; }
+.dz-t2 { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
 
 /* 토스트 */
 #toast {
@@ -764,6 +774,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════
@@ -1290,12 +1301,15 @@ function renderCards() {
   wrap.innerHTML = cards.map(c => {
     const list = monthCt.filter(t => t.cardId === c.id).sort((a, b) => a.date < b.date ? 1 : -1);
     const sum = list.reduce((s, t) => s + Number(t.amount || 0), 0);
-    return `<div class="card">
+    return `<div class="card${selectedCardId === c.id ? ' card-sel' : ''}" onclick="selectCard('${c.id}')">
       <div class="card-h">💳 ${esc(c.name)}<span class="sub c-expense" style="font-weight:800">${fmt(sum)}</span></div>
       <div class="card-b">
-        <label class="btn ghost sm upload-label">📄 엑셀/CSV 업로드
-          <input type="file" hidden accept=".xlsx,.xls,.csv" onchange="importCardFile('${c.id}', this)">
-        </label>
+        <div class="dropzone" ondragover="dzOver(event, this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event, '${c.id}', this)"
+          onclick="if (event.target.tagName !== 'INPUT') { selectCard('${c.id}'); this.querySelector('input').click(); }">
+          <input type="file" hidden multiple accept=".xlsx,.xls,.csv,.pdf,image/*" onchange="handleCardFiles('${c.id}', this.files); this.value = ''">
+          <div class="dz-t1">📄 엑셀 · CSV · PDF · 이미지 업로드</div>
+          <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기<br>박스를 선택한 뒤 스크린샷 붙여넣기(Ctrl+V)도 됩니다</div>
+        </div>
         ${list.length ? `<div style="overflow-x:auto"><table class="tbl ct-tbl">
           <tr><th style="text-align:left">날짜</th><th style="text-align:left">내역</th><th>금액</th><th></th></tr>
           ${list.map(t => `<tr>
@@ -1466,42 +1480,184 @@ function rowsToCardTx(rows, cardId) {
   }
   return out;
 }
-function importCardFile(cardId, input) {
-  const file = input.files[0];
-  input.value = '';
-  if (!file) return;
-  const finish = rows => {
-    const items = rowsToCardTx(rows, cardId);
-    if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.\n각 행에 날짜와 금액이 함께 있어야 합니다.'); return; }
-    // 이미 등록된 것과 같은 내역(날짜·내역·금액)은 중복으로 건너뜀 → 같은 파일을 다시 올려도 안전
-    const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
-    const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
-    if (!fresh.length) { appAlert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
-    const list = cardTxAll().concat(fresh);
-    list.sort((a, b) => a.date < b.date ? 1 : -1);
-    lsSet('cardTx', list);
-    const dup = items.length - fresh.length;
-    toast(`${fresh.length}건을 불러왔습니다${dup ? ` (중복 ${dup}건 건너뜀)` : ''}`);
-    render();
-  };
-  const reader = new FileReader();
-  if (/\.csv$/i.test(file.name)) {
-    reader.onload = async () => {
-      const text = String(reader.result).replace(/^\uFEFF/, '');
-      finish(text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine));
-    };
-    reader.readAsText(file);
-  } else {
-    if (!window.XLSX) { appAlert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
-    reader.onload = async () => {
-      try {
-        const wb = XLSX.read(reader.result, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        finish(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }));
-      } catch (e) { appAlert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
-    };
-    reader.readAsArrayBuffer(file);
+let selectedCardId = null;   // 붙여넣기 대상 카드 (박스 클릭으로 선택)
+function selectCard(id) {
+  if (selectedCardId === id) return;
+  selectedCardId = id;
+  renderCards();
+}
+function dzOver(e, el) { e.preventDefault(); el.classList.add('dragover'); }
+function dzLeave(el) { el.classList.remove('dragover'); }
+function dzDrop(e, cardId, el) {
+  e.preventDefault();
+  el.classList.remove('dragover');
+  selectCard(cardId);
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+    handleCardFiles(cardId, e.dataTransfer.files);
   }
+}
+// 드롭존 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+// 스크린샷/이미지 붙여넣기 → 선택된 카드로
+document.addEventListener('paste', e => {
+  if (activePage !== 'tx') return;
+  const files = [];
+  for (const it of (e.clipboardData && e.clipboardData.items) || []) {
+    if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
+  }
+  if (!files.length) return;
+  e.preventDefault();
+  if (!selectedCardId || !getCards().some(c => c.id === selectedCardId)) {
+    toast('먼저 붙여넣을 카드사 박스를 클릭해서 선택하세요');
+    return;
+  }
+  handleCardFiles(selectedCardId, files);
+});
+
+/* 파일 종류별 분기: 엑셀/CSV(즉시 파싱), PDF(텍스트 추출→이미지 인식), 이미지(Claude 인식) */
+function handleCardFiles(cardId, files) {
+  for (const file of Array.from(files || [])) {
+    const name = (file.name || '').toLowerCase();
+    if ((file.type || '').startsWith('image/')) parseImageFile(cardId, file);
+    else if (name.endsWith('.pdf') || file.type === 'application/pdf') parsePdfFile(cardId, file);
+    else if (name.endsWith('.csv') || file.type === 'text/csv') parseCsvFile(cardId, file);
+    else if (name.endsWith('.xlsx') || name.endsWith('.xls')) parseSheetFile(cardId, file);
+    else appAlert('지원하지 않는 파일입니다: ' + (file.name || file.type) + '\n엑셀/CSV/PDF/이미지를 올려주세요.');
+  }
+}
+
+/* 추출된 내역을 중복 제거 후 저장 (같은 파일 재업로드에도 안전) */
+function addImportedRows(cardId, items) {
+  if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
+  const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
+  const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
+  if (!fresh.length) { appAlert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
+  const list = cardTxAll().concat(fresh);
+  list.sort((a, b) => a.date < b.date ? 1 : -1);
+  lsSet('cardTx', list);
+  const dup = items.length - fresh.length;
+  toast(`${fresh.length}건을 불러왔습니다${dup ? ` (중복 ${dup}건 건너뜀)` : ''}`);
+  render();
+}
+
+function parseCsvFile(cardId, file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result).replace(/^﻿/, '');
+    addImportedRows(cardId, rowsToCardTx(text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine), cardId));
+  };
+  reader.readAsText(file);
+}
+function parseSheetFile(cardId, file) {
+  if (!window.XLSX) { appAlert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const wb = XLSX.read(reader.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      addImportedRows(cardId, rowsToCardTx(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }), cardId));
+    } catch (e) { appAlert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── 이미지/PDF 인식 (Claude sample 기능, 클라우드 가계부에서만) ── */
+let sampleApi;
+async function getSample() {
+  if (sampleApi === undefined) {
+    sampleApi = null;
+    try { if (window.claude && window.claude.use) sampleApi = await window.claude.use('sample'); } catch {}
+  }
+  return sampleApi;
+}
+function busyToast(msg) {   // 시간이 걸리는 작업용: 자동으로 사라지지 않는 토스트
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+}
+function hideBusy() { document.getElementById('toast').classList.remove('show'); }
+function parsePrompt() {
+  return '카드사 이용내역 이미지입니다. 표의 거래 행을 모두 추출해 JSON으로만 답하세요.\n'
+    + '형식: {"rows":[{"date":"YYYY-MM-DD","desc":"가맹점 또는 내역","amount":12345}]}\n'
+    + '- amount는 원 단위 양수 숫자\n- 연도가 보이지 않으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더 행은 제외';
+}
+function finishParsedRows(cardId, data) {
+  const rows = data && Array.isArray(data.rows) ? data.rows : (Array.isArray(data) ? data : []);
+  const items = [];
+  for (const r of rows) {
+    const date = parseDateLoose(String((r && r.date) || ''));
+    const amount = Math.round(Math.abs(Number(r && r.amount)) || 0);
+    if (!date || !amount) continue;
+    items.push({ id: uid(), cardId, date, desc: String((r && r.desc) || '').slice(0, 40), amount });
+  }
+  hideBusy();
+  addImportedRows(cardId, items);
+}
+function sampleErrorAlert(e) {
+  hideBusy();
+  if (e && e.code === 'not_granted') appAlert('Claude 사용이 허용되지 않아 인식할 수 없습니다.\n허용 창이 뜨면 허용을 눌러주세요.');
+  else if (e && e.code === 'image_rejected') appAlert('이미지를 읽을 수 없습니다. PNG/JPG로 다시 시도해 보세요.');
+  else if (e && e.code === 'rate_limited') appAlert('요청이 많아 잠시 후 다시 시도해 주세요.');
+  else appAlert('내역을 읽지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : ''));
+}
+async function parseImageFile(cardId, file) {
+  const sample = await getSample();
+  let caps = null;
+  if (sample) { try { caps = await sample.limits(); } catch {} }
+  if (!sample || !caps || !caps.images) {
+    appAlert('이미지 인식은 클라우드 가계부(claude.ai 페이지)에서 열었을 때만 사용할 수 있습니다.');
+    return;
+  }
+  busyToast('🔍 이미지에서 내역을 읽는 중... (최대 1분)');
+  try {
+    const data = await sample.json(parsePrompt(), { images: [file], cache: false });
+    finishParsedRows(cardId, data);
+  } catch (e) { sampleErrorAlert(e); }
+}
+async function parsePdfFile(cardId, file) {
+  if (!window.pdfjsLib) { appAlert('PDF 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
+  busyToast('📄 PDF에서 내역을 읽는 중...');
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    // 1) 텍스트 추출: 같은 높이의 글자들을 한 줄로 묶어 표 형태로 복원
+    const rows = [];
+    for (let p = 1; p <= Math.min(pdf.numPages, 10); p++) {
+      const tc = await (await pdf.getPage(p)).getTextContent();
+      const lines = {};
+      for (const it of tc.items) {
+        if (!it.str || !it.str.trim()) continue;
+        const y = Math.round(it.transform[5] / 4);
+        (lines[y] = lines[y] || []).push({ x: it.transform[4], s: it.str.trim() });
+      }
+      for (const k of Object.keys(lines)) rows.push(lines[k].sort((a, b) => a.x - b.x).map(i => i.s));
+    }
+    const items = rowsToCardTx(rows, cardId);
+    if (items.length) { hideBusy(); addImportedRows(cardId, items); return; }
+    // 2) 글자가 없는 스캔 PDF → 페이지를 이미지로 그려 Claude로 인식
+    const sample = await getSample();
+    let caps = null;
+    if (sample) { try { caps = await sample.limits(); } catch {} }
+    if (!caps || !caps.images) {
+      hideBusy();
+      appAlert('PDF에서 내역을 찾지 못했습니다.\n엑셀/CSV로 받거나, 화면을 캡처해 이미지로 붙여넣어 보세요.');
+      return;
+    }
+    busyToast('🔍 PDF를 이미지로 인식하는 중... (최대 1분)');
+    const blobs = [];
+    for (let p = 1; p <= Math.min(pdf.numPages, 3, caps.images.maxCount); p++) {
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({ scale: 2 });
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height;
+      await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      blobs.push(await new Promise(res => cv.toBlob(res, 'image/png')));
+    }
+    const data = await sample.json(parsePrompt(), { images: blobs, cache: false });
+    finishParsedRows(cardId, data);
+  } catch (e) { sampleErrorAlert(e); }
 }
 
 /* ═══════════════════════════════════════
