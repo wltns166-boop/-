@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-5</div>
   </div>
 </div>
 
@@ -11589,8 +11589,12 @@ function saveCalEvent(){
 // 홈 화면에 들어오면 중앙 팝업으로 안내한다. 팝업은 화면 아무 데나 한 번 누르면 닫힘.
 // 접속(페이지 로드)당 1회만 표시(window._cwVacShown) — 저장·동기화 없음(함정 B 무관), id는 cwvac_ 접두(함정 E).
 function _cwDayShift(ds,n){ var d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// 총무휴가 판정 — cw 체크 또는 제목에 "총무휴가"(공백 허용) 포함(2026-09-08).
+// 배경: 체크박스 도입(09-04) 전에 등록된 "총무휴가" 제목 일정(9/9~9/11)에 cw가 없어 팝업이 안 뜨던 실사고 —
+// 제목 인식으로 옛 일정·체크 깜빡함 모두 커버(체크박스는 제목이 다른 휴가 일정용으로 유지).
+function _cwIsVacEvent(e){ return !!(e&&(e.cw||/총무\s*휴가/.test(String(e.title||'')))); }
 function _cwVacRanges(){
-  var days=(window._calEvents||[]).filter(function(e){ return e&&e.cw&&/^\d{4}-\d{2}-\d{2}$/.test(String(e.date||'')); }).map(function(e){ return e.date; });
+  var days=(window._calEvents||[]).filter(function(e){ return _cwIsVacEvent(e)&&/^\d{4}-\d{2}-\d{2}$/.test(String(e.date||'')); }).map(function(e){ return e.date; });
   days=Array.from(new Set(days)).sort();
   var ranges=[];
   days.forEach(function(d){
