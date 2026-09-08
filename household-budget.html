@@ -372,6 +372,19 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .lock-card .btn { width: 100%; margin-top: 10px; padding: 12px 0; font-size: 14px; }
 .lock-err { color: var(--expense); font-size: 12px; margin-top: 10px; display: none; }
 
+/* ── 카드사별 사용 내역 ── */
+.card-cols-wrap { overflow-x: auto; padding-bottom: 6px; }
+.card-cols { display: grid; gap: 14px; }
+.ct-tbl { margin-top: 10px; width: 100%; }
+.ct-tbl th, .ct-tbl td { padding: 8px 8px; }
+.ct-tbl .del { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.ct-tbl .del:hover { color: var(--expense); }
+.ct-add { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.ct-add input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; font-size: 12.5px; outline: none; min-width: 0; }
+.ct-add input:focus { border-color: var(--accent); }
+.ct-add .d { width: 128px; } .ct-add .t { flex: 1; min-width: 90px; } .ct-add .a { width: 104px; text-align: right; }
+.upload-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
 /* 토스트 */
 #toast {
   position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(80px);
@@ -409,7 +422,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
     <div class="logo"><span class="mark">💰</span>우리집 가계부</div>
     <nav class="nav" id="nav">
       <button data-page="dashboard" class="active"><span class="ico">🏠</span><span class="lbl">대시보드</span></button>
-      <button data-page="tx"><span class="ico">🧾</span><span class="lbl">거래 내역</span></button>
+      <button data-page="tx"><span class="ico">💳</span><span class="lbl">카드 내역</span></button>
       <button data-page="calendar"><span class="ico">📅</span><span class="lbl">달력</span></button>
       <button data-page="budget"><span class="ico">🎯</span><span class="lbl">예산 관리</span></button>
       <button data-page="recurring"><span class="ico">🔁</span><span class="lbl">고정 수입·지출</span></button>
@@ -471,24 +484,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
         </div>
       </section>
 
-      <!-- ═══ 거래 내역 ═══ -->
+      <!-- ═══ 카드 사용 내역 ═══ -->
       <section class="page" id="page-tx">
-        <div class="sum-strip">
-          <div class="sum-chip">수입 <b class="c-income" id="t-sum-i">0원</b></div>
-          <div class="sum-chip">지출 <b class="c-expense" id="t-sum-e">0원</b></div>
-          <div class="sum-chip">합계 <b id="t-sum-n">0원</b></div>
-          <div class="sum-chip">건수 <b id="t-sum-c">0건</b></div>
+        <div class="filter-bar" style="align-items:center">
+          <div class="sum-chip">이번 달 카드 사용 <b class="c-expense" id="ct-sum">0원</b></div>
+          <div class="sum-chip">건수 <b id="ct-count">0건</b></div>
+          <span style="flex:1"></span>
+          <button class="btn" onclick="openCardModal()">💳 카드사 관리</button>
         </div>
-        <div class="filter-bar">
-          <select id="t-f-type" onchange="renderTx()">
-            <option value="">전체 유형</option>
-            <option value="expense">지출만</option>
-            <option value="income">수입만</option>
-          </select>
-          <select id="t-f-cat" onchange="renderTx()"><option value="">전체 분류</option></select>
-          <input class="search" id="t-f-q" placeholder="🔍 메모·분류 검색" oninput="renderTx()">
-        </div>
-        <div class="card"><div class="card-b" id="t-list"></div></div>
+        <div class="card-cols-wrap"><div class="card-cols" id="card-cols"></div></div>
       </section>
 
       <!-- ═══ 달력 ═══ -->
@@ -686,6 +690,20 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   </div>
 </div>
 
+<!-- ═══ 카드사 관리 모달 ═══ -->
+<div class="modal-bg" id="card-modal">
+  <div class="modal">
+    <div class="modal-h"><span>💳 카드사 관리</span><button class="close" onclick="closeModal('card-modal')">✕</button></div>
+    <div class="modal-b">
+      <div id="card-m-list"></div>
+      <div class="cat-add" style="margin-top:14px">
+        <input id="card-m-name" placeholder="카드사 이름 (예: 신한카드)" maxlength="15" style="flex:1;min-width:120px">
+        <button class="btn sm" onclick="addCard()">＋ 추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ═══ 잠금 화면 (동기화 서버 연결 시에만 표시) ═══ -->
@@ -700,6 +718,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════
@@ -727,7 +746,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
    budget-server가 있으면 데이터를 자동 동기화하고,
    서버가 없거나 끊기면 이 기기(localStorage)만으로 동작합니다.
 ═══════════════════════════════════════ */
-const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
+const SYNC_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu', 'cards', 'cardTx'];
 
 /* 아직 서버에 저장되지 못한 변경(오프라인 입력, 일시 오류) — 연결되면 자동 재전송 */
 let pendingKeys = new Set(ls('pendingKeys', []));
@@ -745,20 +764,21 @@ function flushPending() {
 /* 서버의 거래 목록을 로컬과 병합 —
    서버에서 확인된 적 없는 로컬 거래(오프라인 입력)는 지우지 않고 서버로 올린다.
    서버에서 확인된 적 있는(syncedTxIds) 거래가 서버에서 사라졌다면 다른 기기에서 삭제한 것이므로 지운다. */
-function applyRemoteTx(remote) {
+function applyRemoteList(key, remote) {
   remote = Array.isArray(remote) ? remote : [];
-  const local = ls('tx', []);
-  const knownIds = new Set(ls('syncedTxIds', []));
+  const knownKey = 'synced_' + key + '_ids';
+  const local = ls(key, []);
+  const knownIds = new Set(ls(knownKey, []));
   const remoteIds = new Set(remote.map(t => t && t.id));
   const extras = local.filter(t => t && t.id && !remoteIds.has(t.id) && !knownIds.has(t.id));
   const merged = extras.length ? remote.concat(extras) : remote;
   if (extras.length) merged.sort((a, b) => a.date < b.date ? 1 : -1);
-  if (JSON.stringify(merged) !== JSON.stringify(local)) lsSetLocal('tx', merged);
-  lsSetLocal('syncedTxIds', remote.map(t => t && t.id));
+  if (JSON.stringify(merged) !== JSON.stringify(local)) lsSetLocal(key, merged);
+  lsSetLocal(knownKey, remote.map(t => t && t.id));
   if (extras.length) {
     // 병합본이 서버에 실제로 저장된 뒤에야 '서버에서 확인됨'으로 기록
-    SYNC.push('tx', merged).then(ok => { if (ok) lsSetLocal('syncedTxIds', merged.map(t => t && t.id)); });
-  } else if (pendingKeys.delete('tx')) savePending();
+    SYNC.push(key, merged).then(ok => { if (ok) lsSetLocal(knownKey, merged.map(t => t && t.id)); });
+  } else if (pendingKeys.delete(key)) savePending();
 }
 
 const SYNC = {
@@ -815,7 +835,7 @@ const SYNC = {
     this.online = true;
     for (const key of SYNC_KEYS) {
       if (state[key] === null || state[key] === undefined) continue;
-      if (key === 'tx') { applyRemoteTx(state[key]); continue; }
+      if (key === 'tx' || key === 'cardTx') { applyRemoteList(key, state[key]); continue; }
       if (pendingKeys.has(key)) continue;      // 이 기기의 미전송 변경이 우선
       lsSetLocal(key, state[key]);
     }
@@ -823,7 +843,7 @@ const SYNC = {
     for (const k of SYNC_KEYS) {
       if (k in state) continue;
       const v = ls(k, null);
-      if (v !== null && (k !== 'tx' || v.length)) this.push(k, v);
+      if (v !== null && (!Array.isArray(v) || v.length)) this.push(k, v);
     }
     flushPending();
   },
@@ -938,6 +958,14 @@ function txSave(list) { lsSet('tx', list); }
 function txOfMonth(ym) { return txAll().filter(t => t.date.startsWith(ym)); }
 function sumBy(list, type) { return list.filter(t => t.type === type).reduce((s, t) => s + Number(t.amount || 0), 0); }
 
+/* ── 카드 사용 내역 ── */
+function getCards() { return ls('cards', []); }
+function cardTxAll() { return ls('cardTx', []); }
+function cardTxOfMonth(ym) { return cardTxAll().filter(t => t.date.startsWith(ym)); }
+function cardSumOfMonth(ym) { return cardTxOfMonth(ym).reduce((s, t) => s + Number(t.amount || 0), 0); }
+/* 카드 사용을 포함한 그 달의 총지출 */
+function expenseOfMonth(ym) { return sumBy(txOfMonth(ym), 'expense') + cardSumOfMonth(ym); }
+
 /* ── 상태 ── */
 let selYM = curYM();          // 상단 월 선택
 let selDay = null;            // 달력에서 선택한 날짜 (YYYY-MM-DD)
@@ -985,10 +1013,10 @@ function applyRecurring() {
    내비게이션 / 월 이동
 ═══════════════════════════════════════ */
 const DEFAULT_MENU = {
-  dashboard: '대시보드', tx: '거래 내역', calendar: '달력', budget: '예산 관리',
+  dashboard: '대시보드', tx: '카드 내역', calendar: '달력', budget: '예산 관리',
   recurring: '고정 수입·지출', stats: '통계', data: '설정',
 };
-const NAV_ICONS = { dashboard: '🏠', tx: '🧾', calendar: '📅', budget: '🎯', recurring: '🔁', stats: '📊', data: '⚙️' };
+const NAV_ICONS = { dashboard: '🏠', tx: '💳', calendar: '📅', budget: '🎯', recurring: '🔁', stats: '📊', data: '⚙️' };
 /* 설정에서 바꾼 메뉴 이름 조회 (비어 있으면 기본 이름) */
 function menuName(page) {
   const m = ls('menu', {});
@@ -1029,7 +1057,7 @@ function render() {
   applyMenuNames();
   switch (activePage) {
     case 'dashboard': renderDashboard(); break;
-    case 'tx':        renderTxFilters(); renderTx(); break;
+    case 'tx':        renderCards(); break;
     case 'calendar':  renderCalendar(); break;
     case 'budget':    renderBudget(); break;
     case 'recurring': renderRecurring(); break;
@@ -1045,9 +1073,9 @@ function renderDashboard() {
   const monthTx = txOfMonth(selYM);
   const prevTx = txOfMonth(ymAdd(selYM, -1));
   const inc = sumBy(monthTx, 'income');
-  const exp = sumBy(monthTx, 'expense');
+  const exp = expenseOfMonth(selYM);              // 카드 사용 포함
   const pInc = sumBy(prevTx, 'income');
-  const pExp = sumBy(prevTx, 'expense');
+  const pExp = expenseOfMonth(ymAdd(selYM, -1));
 
   document.getElementById('d-income').textContent = fmt(inc);
   document.getElementById('d-expense').textContent = fmt(exp);
@@ -1093,7 +1121,7 @@ function renderTrendBars() {
   for (let i = 11; i >= 0; i--) months.push(ymAdd(selYM, -i));
   const data = months.map(ym => {
     const list = txOfMonth(ym);
-    return { ym, inc: sumBy(list, 'income'), exp: sumBy(list, 'expense') };
+    return { ym, inc: sumBy(list, 'income'), exp: expenseOfMonth(ym) };
   });
   const max = Math.max(1, ...data.map(d => Math.max(d.inc, d.exp)));
   el.innerHTML = data.map(d => {
@@ -1117,14 +1145,23 @@ function renderDonut(monthTx, expTotal) {
   monthTx.filter(t => t.type === 'expense').forEach(t => {
     byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount || 0);
   });
-  const items = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
-  if (!items.length) {
+  const all = Object.entries(byCat).map(([name, v]) => {
+    const info = catInfo('expense', name);
+    return { name, v, color: info.color, emoji: info.emoji };
+  });
+  // 카드사별 사용액도 지출 항목으로 포함
+  const cardMonth = cardTxOfMonth(selYM);
+  getCards().forEach((c, i) => {
+    const v = cardMonth.filter(t => t.cardId === c.id).reduce((s, t) => s + Number(t.amount || 0), 0);
+    if (v > 0) all.push({ name: c.name, v, color: PALETTE[(i + 6) % PALETTE.length], emoji: '💳' });
+  });
+  all.sort((a, b) => b.v - a.v);
+  if (!all.length) {
     el.innerHTML = `<div class="empty" style="width:100%"><span class="big">🍃</span>이번 달 지출이 없습니다</div>`;
     return;
   }
-  const top = items.slice(0, 6);
-  const restSum = items.slice(6).reduce((s, [, v]) => s + v, 0);
-  const segs = top.map(([name, v]) => ({ name, v, color: catInfo('expense', name).color, emoji: catInfo('expense', name).emoji }));
+  const segs = all.slice(0, 6);
+  const restSum = all.slice(6).reduce((s, x) => s + x.v, 0);
   if (restSum > 0) segs.push({ name: '그 외', v: restSum, color: '#cbd5e1', emoji: '📦' });
 
   const R = 62, C = 2 * Math.PI * R;
@@ -1208,55 +1245,184 @@ function txRowHTML(t) {
 }
 
 /* ═══════════════════════════════════════
-   거래 내역 페이지
+   카드 사용 내역 페이지 (카드사별 박스)
 ═══════════════════════════════════════ */
-function renderTxFilters() {
-  const sel = document.getElementById('t-f-cat');
-  const cur = sel.value;
-  const cats = getCats();
-  const names = [...cats.expense, ...cats.income].map(c => c.name);
-  sel.innerHTML = '<option value="">전체 분류</option>' +
-    names.map(n => `<option${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('');
-}
-function renderTx() {
-  const type = document.getElementById('t-f-type').value;
-  const cat = document.getElementById('t-f-cat').value;
-  const q = document.getElementById('t-f-q').value.trim().toLowerCase();
-  let list = txOfMonth(selYM);
-  if (type) list = list.filter(t => t.type === type);
-  if (cat) list = list.filter(t => t.category === cat);
-  if (q) list = list.filter(t =>
-    (t.memo || '').toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q));
-
-  const inc = sumBy(list, 'income'), exp = sumBy(list, 'expense');
-  document.getElementById('t-sum-i').textContent = fmt(inc);
-  document.getElementById('t-sum-e').textContent = fmt(exp);
-  const nEl = document.getElementById('t-sum-n');
-  nEl.textContent = fmtSign(inc - exp);
-  nEl.className = inc - exp >= 0 ? 'c-income' : 'c-expense';
-  document.getElementById('t-sum-c').textContent = list.length + '건';
-
-  const el = document.getElementById('t-list');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><span class="big">🔍</span>${ymLabel(selYM)}에 해당하는 거래가 없습니다</div>`;
+function renderCards() {
+  const cards = getCards();
+  const monthCt = cardTxOfMonth(selYM);
+  document.getElementById('ct-sum').textContent = fmt(monthCt.reduce((s, t) => s + Number(t.amount || 0), 0));
+  document.getElementById('ct-count').textContent = monthCt.length + '건';
+  const wrap = document.getElementById('card-cols');
+  if (!cards.length) {
+    wrap.style.gridTemplateColumns = '1fr';
+    wrap.innerHTML = `<div class="card"><div class="card-b"><div class="empty"><span class="big">💳</span>등록된 카드사가 없습니다<br>위의 '카드사 관리' 버튼으로 카드사를 추가하세요</div></div></div>`;
     return;
   }
-  // 날짜별 그룹 (최신순)
-  const byDay = {};
-  list.forEach(t => { (byDay[t.date] = byDay[t.date] || []).push(t); });
-  const days = Object.keys(byDay).sort().reverse();
-  el.innerHTML = days.map(d => {
-    const dl = byDay[d];
-    const di = sumBy(dl, 'income'), de = sumBy(dl, 'expense');
-    const dow = DOW[new Date(d + 'T00:00:00').getDay()];
-    return `<div class="day-group">
-      <div class="day-head">
-        <span>${Number(d.slice(8))}일 (${dow})</span>
-        <span class="dsum">${di ? '<span class="c-income">+' + fmt(di) + '</span> ' : ''}${de ? '<span class="c-expense">−' + fmt(de) + '</span>' : ''}</span>
+  wrap.style.gridTemplateColumns = `repeat(${cards.length}, minmax(300px, 1fr))`;
+  wrap.innerHTML = cards.map(c => {
+    const list = monthCt.filter(t => t.cardId === c.id).sort((a, b) => a.date < b.date ? 1 : -1);
+    const sum = list.reduce((s, t) => s + Number(t.amount || 0), 0);
+    return `<div class="card">
+      <div class="card-h">💳 ${esc(c.name)}<span class="sub c-expense" style="font-weight:800">${fmt(sum)}</span></div>
+      <div class="card-b">
+        <label class="btn ghost sm upload-label">📄 엑셀/CSV 업로드
+          <input type="file" hidden accept=".xlsx,.xls,.csv" onchange="importCardFile('${c.id}', this)">
+        </label>
+        ${list.length ? `<div style="overflow-x:auto"><table class="tbl ct-tbl">
+          <tr><th style="text-align:left">날짜</th><th style="text-align:left">내역</th><th>금액</th><th></th></tr>
+          ${list.map(t => `<tr>
+            <td style="text-align:left">${t.date.slice(5).replace('-', '/')}</td>
+            <td style="text-align:left;white-space:normal">${esc(t.desc || '-')}</td>
+            <td class="c-expense" style="font-weight:700">${fmt(t.amount)}</td>
+            <td><button class="del" title="삭제" onclick="delCardTx('${t.id}')">✕</button></td>
+          </tr>`).join('')}
+        </table></div>` : `<div class="empty" style="padding:22px 8px">${ymLabel(selYM)} 내역이 없습니다<br>아래에 직접 입력하거나 카드사 엑셀 파일을 올려보세요</div>`}
+        <div class="ct-add">
+          <input class="d" type="date" id="ct-date-${c.id}" value="${selYM === curYM() ? todayStr() : selYM + '-01'}">
+          <input class="t" id="ct-desc-${c.id}" placeholder="내역" maxlength="40">
+          <input class="a" type="number" id="ct-amt-${c.id}" placeholder="금액" min="0" inputmode="numeric">
+          <button class="btn sm" onclick="addCardTx('${c.id}')">＋</button>
+        </div>
       </div>
-      ${dl.map(txRowHTML).join('')}
     </div>`;
   }).join('');
+}
+
+function addCardTx(cardId) {
+  const date = document.getElementById('ct-date-' + cardId).value;
+  const desc = document.getElementById('ct-desc-' + cardId).value.trim();
+  const amount = Number(document.getElementById('ct-amt-' + cardId).value);
+  if (!date) { toast('날짜를 입력하세요'); return; }
+  if (!amount || amount <= 0) { toast('금액을 입력하세요'); return; }
+  const list = cardTxAll();
+  list.push({ id: uid(), cardId, date, desc, amount });
+  list.sort((a, b) => a.date < b.date ? 1 : -1);
+  lsSet('cardTx', list);
+  toast('내역이 추가되었습니다');
+  render();
+}
+function delCardTx(id) {
+  if (!confirm('이 내역을 삭제할까요?')) return;
+  lsSet('cardTx', cardTxAll().filter(t => t.id !== id));
+  render();
+}
+
+/* ── 카드사 관리 모달 ── */
+function openCardModal() { renderCardModal(); document.getElementById('card-modal').classList.add('open'); }
+function renderCardModal() {
+  const cards = getCards();
+  const ct = cardTxAll();
+  document.getElementById('card-m-list').innerHTML = cards.length ? cards.map(c => `
+    <div class="rec-row">
+      <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
+      <div class="rec-info"><div class="t1">${esc(c.name)}</div>
+        <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
+      <button class="icon-btn" title="삭제" onclick="removeCard('${c.id}')">🗑️</button>
+    </div>`).join('')
+    : `<div class="empty" style="padding:18px">아직 카드사가 없습니다<br>아래에 이름을 입력하고 추가하세요</div>`;
+}
+function addCard() {
+  const el = document.getElementById('card-m-name');
+  const name = el.value.trim();
+  if (!name) { toast('카드사 이름을 입력하세요'); return; }
+  const cards = getCards();
+  if (cards.some(c => c.name === name)) { toast('이미 있는 카드사입니다'); return; }
+  cards.push({ id: uid(), name });
+  lsSet('cards', cards);
+  el.value = '';
+  toast(`'${name}' 카드사가 추가되었습니다`);
+  renderCardModal();
+  render();
+}
+function removeCard(id) {
+  const c = getCards().find(x => x.id === id);
+  if (!c) return;
+  const n = cardTxAll().filter(t => t.cardId === id).length;
+  if (!confirm(`'${c.name}' 카드사를 삭제할까요?${n ? `\n등록된 내역 ${n}건도 함께 삭제됩니다.` : ''}`)) return;
+  lsSet('cards', getCards().filter(x => x.id !== id));
+  if (n) lsSet('cardTx', cardTxAll().filter(t => t.cardId !== id));
+  renderCardModal();
+  render();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'card-m-name') addCard();
+});
+
+/* ── 카드사 파일(엑셀/CSV) 업로드 → 날짜/내역/금액 자동 추출 ── */
+function parseAmountLoose(s) {
+  s = String(s ?? '').trim().replace(/[,원\s]/g, '');
+  if (!/^-?\d{1,9}(\.\d+)?$/.test(s)) return null;
+  const n = Math.abs(Number(s));
+  return n >= 10 ? n : null;      // 10원 미만(카드번호 조각 등)은 금액으로 보지 않음
+}
+function parseDateLoose(s) {
+  s = String(s ?? '').trim();
+  let m = s.match(/^(\d{4})[.\-\/년\s]+(\d{1,2})[.\-\/월\s]+(\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})$/);          // 월/일만 있으면 보고 있는 달의 연도 사용
+  if (m) return `${selYM.slice(0, 4)}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
+  if (/^\d{5}$/.test(s)) {                              // 엑셀 날짜 일련번호
+    const n = Number(s);
+    if (n > 30000 && n < 70000) return new Date(Math.round((n - 25569) * 86400000)).toISOString().slice(0, 10);
+  }
+  return null;
+}
+/* 행마다 날짜·금액·내역을 추정: 첫 날짜 셀 = 날짜, 가장 큰 숫자 셀 = 금액, 가장 긴 문자 셀 = 내역 */
+function rowsToCardTx(rows, cardId) {
+  const out = [];
+  for (const cells of rows) {
+    if (!Array.isArray(cells)) continue;
+    let date = null, amount = null, desc = '';
+    for (const cell of cells) {
+      const s = String(cell ?? '').trim();
+      if (!s) continue;
+      if (!date) { const d = parseDateLoose(s); if (d) { date = d; continue; } }
+      const a = parseAmountLoose(s);
+      if (a !== null) { if (amount === null || a > amount) amount = a; continue; }
+      if (s.length > desc.length) desc = s;
+    }
+    if (date && amount) out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount });
+  }
+  return out;
+}
+function importCardFile(cardId, input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const finish = rows => {
+    const items = rowsToCardTx(rows, cardId);
+    if (!items.length) { alert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.\n각 행에 날짜와 금액이 함께 있어야 합니다.'); return; }
+    // 이미 등록된 것과 같은 내역(날짜·내역·금액)은 중복으로 건너뜀 → 같은 파일을 다시 올려도 안전
+    const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
+    const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
+    if (!fresh.length) { alert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
+    const list = cardTxAll().concat(fresh);
+    list.sort((a, b) => a.date < b.date ? 1 : -1);
+    lsSet('cardTx', list);
+    const dup = items.length - fresh.length;
+    toast(`${fresh.length}건을 불러왔습니다${dup ? ` (중복 ${dup}건 건너뜀)` : ''}`);
+    render();
+  };
+  const reader = new FileReader();
+  if (/\.csv$/i.test(file.name)) {
+    reader.onload = () => {
+      const text = String(reader.result).replace(/^\uFEFF/, '');
+      finish(text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine));
+    };
+    reader.readAsText(file);
+  } else {
+    if (!window.XLSX) { alert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
+    reader.onload = () => {
+      try {
+        const wb = XLSX.read(reader.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        finish(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }));
+      } catch (e) { alert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -1273,6 +1439,11 @@ function renderCalendar() {
     const d = Number(t.date.slice(8));
     byDay[d] = byDay[d] || { inc: 0, exp: 0 };
     byDay[d][t.type === 'income' ? 'inc' : 'exp'] += Number(t.amount || 0);
+  });
+  cardTxOfMonth(selYM).forEach(t => {
+    const d = Number(t.date.slice(8));
+    byDay[d] = byDay[d] || { inc: 0, exp: 0 };
+    byDay[d].exp += Number(t.amount || 0);
   });
   const tStr = todayStr();
   let html = DOW.map((d, i) => `<div class="cal-dow${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${d}</div>`).join('');
@@ -1295,15 +1466,29 @@ function renderCalDetail() {
   const el = document.getElementById('cal-detail');
   if (!selDay || !selDay.startsWith(selYM)) { el.innerHTML = ''; return; }
   const list = txAll().filter(t => t.date === selDay);
+  const cardList = cardTxAll().filter(t => t.date === selDay);
   const dow = DOW[new Date(selDay + 'T00:00:00').getDay()];
   const label = `${Number(selDay.slice(5, 7))}월 ${Number(selDay.slice(8))}일 (${dow})`;
   el.innerHTML = `<div class="card">
     <div class="card-h">📌 ${label}
       <span class="sub"><button class="btn sm" onclick="openTxModal(null,'${selDay}')">＋ 이날 거래 추가</button></span>
     </div>
-    <div class="card-b">${list.length
-      ? `<div class="tx-list">${list.map(txRowHTML).join('')}</div>`
+    <div class="card-b">${(list.length || cardList.length)
+      ? `<div class="tx-list">${list.map(txRowHTML).join('')}${cardList.map(cardRowHTML).join('')}</div>`
       : `<div class="empty">이 날짜의 거래가 없습니다</div>`}</div>
+  </div>`;
+}
+
+/* 달력 상세용 카드 내역 행 */
+function cardRowHTML(t) {
+  const card = getCards().find(c => c.id === t.cardId);
+  return `<div class="tx-row" style="cursor:default">
+    <div class="tx-ico" style="background:var(--expense-soft)">💳</div>
+    <div class="tx-info">
+      <div class="t1">${esc(t.desc || '카드 사용')}</div>
+      <div class="t2">${t.date.slice(5).replace('-', '/')} · ${esc(card ? card.name : '카드')}</div>
+    </div>
+    <div class="tx-amt c-expense">−${fmt(t.amount)}</div>
   </div>`;
 }
 
@@ -1313,7 +1498,7 @@ function renderCalDetail() {
 function renderBudget() {
   const budgets = ls('budgets', { total: 0, byCat: {} });
   const monthTx = txOfMonth(selYM);
-  const exp = sumBy(monthTx, 'expense');
+  const exp = expenseOfMonth(selYM);   // 카드 사용 포함
   const byCat = {};
   monthTx.filter(t => t.type === 'expense').forEach(t => {
     byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount || 0);
@@ -1447,7 +1632,7 @@ function renderStats() {
   for (let i = 11; i >= 0; i--) {
     const ym = ymAdd(selYM, -i);
     const list = txOfMonth(ym);
-    rows.push({ ym, inc: sumBy(list, 'income'), exp: sumBy(list, 'expense') });
+    rows.push({ ym, inc: sumBy(list, 'income'), exp: expenseOfMonth(ym) });
   }
   tbl.innerHTML = `<tr><th>월</th><th>수입</th><th>지출</th><th>수지</th></tr>` +
     rows.map(r => `<tr class="${r.ym === selYM ? 'cur' : ''}">
@@ -1465,23 +1650,29 @@ function renderStats() {
   monthTx.filter(t => t.type === 'expense').forEach(t => {
     byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount || 0);
   });
-  const ranked = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
-  if (!ranked.length) {
+  const rankItems = Object.entries(byCat).map(([name, v]) => {
+    const info = catInfo('expense', name);
+    return { name, v, emoji: info.emoji, color: info.color };
+  });
+  const cardMonth = cardTxOfMonth(selYM);
+  getCards().forEach((c, i) => {
+    const v = cardMonth.filter(t => t.cardId === c.id).reduce((s, t) => s + Number(t.amount || 0), 0);
+    if (v > 0) rankItems.push({ name: c.name, v, emoji: '💳', color: PALETTE[(i + 6) % PALETTE.length] });
+  });
+  rankItems.sort((a, b) => b.v - a.v);
+  if (!rankItems.length) {
     rankEl.innerHTML = `<div class="empty"><span class="big">🍃</span>이 달의 지출이 없습니다</div>`;
   } else {
-    const max = ranked[0][1];
-    rankEl.innerHTML = ranked.slice(0, 8).map(([name, v]) => {
-      const info = catInfo('expense', name);
-      return `<div class="rank-row">
-        <span class="rank-nm">${info.emoji} ${esc(name)}</span>
-        <div class="rank-bar-w"><div class="rank-bar" style="width:${Math.round(v / max * 100)}%;background:${info.color}"></div></div>
-        <span class="rank-amt">${fmt(v)}</span>
-      </div>`;
-    }).join('');
+    const max = rankItems[0].v;
+    rankEl.innerHTML = rankItems.slice(0, 8).map(it => `<div class="rank-row">
+        <span class="rank-nm">${it.emoji} ${esc(it.name)}</span>
+        <div class="rank-bar-w"><div class="rank-bar" style="width:${Math.round(it.v / max * 100)}%;background:${it.color}"></div></div>
+        <span class="rank-amt">${fmt(it.v)}</span>
+      </div>`).join('');
   }
 
   // 요약 인사이트
-  const inc = sumBy(monthTx, 'income'), exp = sumBy(monthTx, 'expense');
+  const inc = sumBy(monthTx, 'income'), exp = expenseOfMonth(selYM);
   const prev = txOfMonth(ymAdd(selYM, -1));
   const pExp = sumBy(prev, 'expense');
   const dim = daysInMonth(selYM);
@@ -1497,8 +1688,8 @@ function renderStats() {
       ? `👍 지난달보다 <b class="c-accent">${fmt(Math.abs(diff))}</b> 덜 썼습니다.`
       : `⚠️ 지난달보다 <b class="c-expense">${fmt(diff)}</b> 더 썼습니다.`);
   }
-  if (ranked.length) {
-    const [topName, topV] = ranked[0];
+  if (rankItems.length) {
+    const topName = rankItems[0].name, topV = rankItems[0].v;
     lines.push(`🥇 가장 많이 쓴 분류는 <b>${esc(topName)}</b> (${fmt(topV)}, 전체 지출의 ${Math.round(topV / Math.max(1, exp) * 100)}%)입니다.`);
   }
   document.getElementById('s-insight').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
@@ -1561,7 +1752,7 @@ function removeCategory(type, name) {
 }
 
 /* ── JSON 백업/복원 ── */
-const BACKUP_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu'];
+const BACKUP_KEYS = ['tx', 'budgets', 'recurring', 'cats', 'menu', 'cards', 'cardTx'];
 function download(filename, text, mime) {
   const blob = new Blob([text], { type: mime || 'application/octet-stream' });
   const a = document.createElement('a');
@@ -1676,6 +1867,8 @@ function resetAll() {
   lsSet('recurring', []);
   lsSet('cats', JSON.parse(JSON.stringify(DEFAULT_CATS)));
   lsSet('menu', {});
+  lsSet('cards', []);
+  lsSet('cardTx', []);
   toast('모든 데이터가 초기화되었습니다');
   selYM = curYM(); selDay = null;
   render();
