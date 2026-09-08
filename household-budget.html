@@ -705,6 +705,19 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   </div>
 </div>
 
+<!-- ═══ 확인/알림 대화상자 (브라우저 confirm 대체) ═══ -->
+<div class="modal-bg" id="confirm-modal" style="z-index:60">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-b" style="padding:24px 22px 18px">
+      <div id="confirm-msg" style="font-size:14px;line-height:1.75;white-space:pre-line"></div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="confirm-cancel">취소</button>
+        <button class="btn" id="confirm-ok">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ═══ 잠금 화면 (동기화 서버 연결 시에만 표시) ═══ -->
@@ -1308,8 +1321,8 @@ function addCardTx(cardId) {
   toast('내역이 추가되었습니다');
   render();
 }
-function delCardTx(id) {
-  if (!confirm('이 내역을 삭제할까요?')) return;
+async function delCardTx(id) {
+  if (!(await appConfirm('이 내역을 삭제할까요?'))) return;
   lsSet('cardTx', cardTxAll().filter(t => t.id !== id));
   render();
 }
@@ -1341,11 +1354,11 @@ function addCard() {
   renderCardModal();
   render();
 }
-function removeCard(id) {
+async function removeCard(id) {
   const c = getCards().find(x => x.id === id);
   if (!c) return;
   const n = cardTxAll().filter(t => t.cardId === id).length;
-  if (!confirm(`'${c.name}' 카드사를 삭제할까요?${n ? `\n등록된 내역 ${n}건도 함께 삭제됩니다.` : ''}`)) return;
+  if (!(await appConfirm(`'${c.name}' 카드사를 삭제할까요?${n ? `\n등록된 내역 ${n}건도 함께 삭제됩니다.` : ''}`))) return;
   lsSet('cards', getCards().filter(x => x.id !== id));
   if (n) lsSet('cardTx', cardTxAll().filter(t => t.cardId !== id));
   renderCardModal();
@@ -1400,11 +1413,11 @@ function importCardFile(cardId, input) {
   if (!file) return;
   const finish = rows => {
     const items = rowsToCardTx(rows, cardId);
-    if (!items.length) { alert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.\n각 행에 날짜와 금액이 함께 있어야 합니다.'); return; }
+    if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.\n각 행에 날짜와 금액이 함께 있어야 합니다.'); return; }
     // 이미 등록된 것과 같은 내역(날짜·내역·금액)은 중복으로 건너뜀 → 같은 파일을 다시 올려도 안전
     const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
     const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
-    if (!fresh.length) { alert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
+    if (!fresh.length) { appAlert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
     const list = cardTxAll().concat(fresh);
     list.sort((a, b) => a.date < b.date ? 1 : -1);
     lsSet('cardTx', list);
@@ -1414,19 +1427,19 @@ function importCardFile(cardId, input) {
   };
   const reader = new FileReader();
   if (/\.csv$/i.test(file.name)) {
-    reader.onload = () => {
+    reader.onload = async () => {
       const text = String(reader.result).replace(/^\uFEFF/, '');
       finish(text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine));
     };
     reader.readAsText(file);
   } else {
-    if (!window.XLSX) { alert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
-    reader.onload = () => {
+    if (!window.XLSX) { appAlert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
+    reader.onload = async () => {
       try {
         const wb = XLSX.read(reader.result, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         finish(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }));
-      } catch (e) { alert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
+      } catch (e) { appAlert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
     };
     reader.readAsArrayBuffer(file);
   }
@@ -1622,8 +1635,8 @@ function renderRecurring() {
     </div>`;
   }).join('');
 }
-function deleteRec(id) {
-  if (!confirm('이 고정 항목을 삭제할까요?\n(이미 추가된 거래는 남습니다)')) return;
+async function deleteRec(id) {
+  if (!(await appConfirm('이 고정 항목을 삭제할까요?\n(이미 추가된 거래는 남습니다)'))) return;
   lsSet('recurring', ls('recurring', []).filter(r => r.id !== id));
   toast('고정 항목이 삭제되었습니다');
   render();
@@ -1846,12 +1859,12 @@ function renameCategoryEverywhere(oldName, newName) {
     lsSet('budgets', budgets);
   }
 }
-function removeCatAt(i) {
+async function removeCatAt(i) {
   const list = getCats().expense;
   const c = list[i];
   if (!c) return;
   const used = txAll().some(t => t.category === c.name);
-  if (!confirm(`'${c.name}' 카테고리를 삭제할까요?${used ? '\n기존 거래의 분류명은 그대로 유지됩니다.' : ''}`)) return;
+  if (!(await appConfirm(`'${c.name}' 카테고리를 삭제할까요?${used ? '\n기존 거래의 분류명은 그대로 유지됩니다.' : ''}`))) return;
   list.splice(i, 1);
   saveCatsExpense(list);
   const budgets = ls('budgets', { total: 0, byCat: {} });
@@ -1888,12 +1901,12 @@ function addCategory(type) {
   toast(`'${name}' 카테고리가 추가되었습니다`);
   render();
 }
-function removeCategory(type, name) {
+async function removeCategory(type, name) {
   const used = txAll().some(t => t.category === name);
   const msg = used
     ? `'${name}' 카테고리를 삭제할까요?\n기존 거래의 분류명은 그대로 유지됩니다.`
     : `'${name}' 카테고리를 삭제할까요?`;
-  if (!confirm(msg)) return;
+  if (!(await appConfirm(msg))) return;
   const cats = getCats();
   cats[type] = cats[type].filter(c => c.name !== name);
   lsSet('cats', cats);
@@ -1922,13 +1935,13 @@ function importJSON(input) {
   input.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result);
       if (data.app !== 'household-budget') {
-        if (!confirm('이 앱의 백업 파일이 아닌 것 같습니다. 계속할까요?')) return;
+        if (!(await appConfirm('이 앱의 백업 파일이 아닌 것 같습니다. 계속할까요?'))) return;
       }
-      if (!confirm('현재 데이터를 백업 파일 내용으로 교체합니다. 계속할까요?')) return;
+      if (!(await appConfirm('현재 데이터를 백업 파일 내용으로 교체합니다. 계속할까요?'))) return;
       for (const k of BACKUP_KEYS) {
         if (data[k] !== null && data[k] !== undefined) lsSet(k, data[k]);
       }
@@ -1936,7 +1949,7 @@ function importJSON(input) {
       selYM = curYM();
       render();
     } catch (e) {
-      alert('파일을 읽을 수 없습니다: ' + e.message);
+      appAlert('파일을 읽을 수 없습니다: ' + e.message);
     }
   };
   reader.readAsText(file);
@@ -1981,11 +1994,11 @@ function importCSV(input) {
   input.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const text = String(reader.result).replace(/^﻿/, '');
       const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (!lines.length) { alert('빈 파일입니다.'); return; }
+      if (!lines.length) { appAlert('빈 파일입니다.'); return; }
       let start = 0;
       if (/날짜|date/i.test(lines[0])) start = 1;   // 헤더 행 건너뛰기
       const tx = txAll();
@@ -1999,18 +2012,18 @@ function importCSV(input) {
         added++;
       }
       if (added) txSave(tx);
-      alert(`가져오기 완료: ${added}건 추가${skipped ? `, ${skipped}건 건너뜀 (형식 오류)` : ''}`);
+      appAlert(`가져오기 완료: ${added}건 추가${skipped ? `, ${skipped}건 건너뜀 (형식 오류)` : ''}`);
       render();
     } catch (e) {
-      alert('파일을 읽을 수 없습니다: ' + e.message);
+      appAlert('파일을 읽을 수 없습니다: ' + e.message);
     }
   };
   reader.readAsText(file);
 }
-function resetAll() {
+async function resetAll() {
   const extra = SYNC.online ? '\n동기화 중이므로 다른 컴퓨터의 데이터도 함께 초기화됩니다.' : '';
-  if (!confirm('정말 모든 데이터를 삭제할까요?\n거래·예산·고정항목·카테고리가 모두 사라집니다.' + extra)) return;
-  if (!confirm('마지막 확인입니다. 삭제 후에는 되돌릴 수 없습니다.\n계속할까요?')) return;
+  if (!(await appConfirm('정말 모든 데이터를 삭제할까요?\n거래·예산·고정항목·카테고리가 모두 사라집니다.' + extra))) return;
+  if (!(await appConfirm('마지막 확인입니다. 삭제 후에는 되돌릴 수 없습니다.\n계속할까요?'))) return;
   // 빈 값을 저장하는 방식이라 동기화 중이면 서버·다른 기기에도 반영됩니다
   lsSet('tx', []);
   lsSet('budgets', { total: 0, byCat: {} });
@@ -2077,9 +2090,9 @@ function saveTx() {
   closeModal('tx-modal');
   render();
 }
-function deleteTx() {
+async function deleteTx() {
   if (!txEditing) return;
-  if (!confirm('이 거래를 삭제할까요?')) return;
+  if (!(await appConfirm('이 거래를 삭제할까요?'))) return;
   txSave(txAll().filter(t => t.id !== txEditing));
   toast('거래가 삭제되었습니다');
   closeModal('tx-modal');
@@ -2187,8 +2200,31 @@ function saveRec() {
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 /* 모달 바깥을 클릭해도 닫히지 않음 — ✕/취소 버튼이나 ESC 키로만 닫힘 */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+  if (e.key !== 'Escape') return;
+  const cm = document.getElementById('confirm-modal');
+  if (cm.classList.contains('open')) { document.getElementById('confirm-cancel').click(); return; }
+  document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
 });
+
+/* ── 자체 확인/알림 대화상자 ──
+   아티팩트 등 샌드박스 환경에서는 브라우저 기본 확인창이 조용히 막히므로
+   앱 안의 모달로 대체한다. */
+function appDialog(msg, isConfirm) {
+  return new Promise(resolve => {
+    const bg = document.getElementById('confirm-modal');
+    document.getElementById('confirm-msg').textContent = msg;
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    cancelBtn.style.display = isConfirm ? '' : 'none';
+    const done = v => { bg.classList.remove('open'); okBtn.onclick = cancelBtn.onclick = null; resolve(v); };
+    okBtn.onclick = () => done(true);
+    cancelBtn.onclick = () => done(false);
+    bg.classList.add('open');
+    setTimeout(() => okBtn.focus(), 50);
+  });
+}
+function appConfirm(msg) { return appDialog(msg, true); }
+function appAlert(msg) { return appDialog(msg, false); }
 
 /* ── 토스트 ── */
 let toastTimer = null;
