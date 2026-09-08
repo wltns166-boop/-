@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-7</div>
   </div>
 </div>
 
@@ -582,7 +582,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <!-- 공지사항 + 일정표 -->
       <div class="hg">
         <div class="hc">
-          <div class="hct"><span style="display:inline-flex;align-items:center;gap:8px"><i class="ti ti-bell"></i> 공지사항<button class="bp bsm ao" id="btn_notice_pin" onclick="notPinToggle()" style="background:#fff;color:#c03040;border:1px solid rgba(192,48,64,.45)"><i class="ti ti-pin"></i> 상단고정</button></span><button class="bp bsm ao" id="btn_notice_add" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 공지등록</button></div>
+          <div class="hct"><span><i class="ti ti-bell"></i> 공지사항</span><span style="display:inline-flex;align-items:center;gap:8px"><button class="bp bsm ao" id="btn_notice_pin" onclick="notPinToggle()" style="background:#fff;color:#c03040;border:1px solid rgba(192,48,64,.45)"><i class="ti ti-pin"></i> 상단고정</button><button class="bp bsm ao" id="btn_notice_add" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 공지등록</button></span></div>
           <div id="notice_list"></div>
         </div>
         <div class="hc">
@@ -2506,6 +2506,12 @@ function rSchedulePage(){
   <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#31419e;font-weight:600;padding:2px 0">
     <input type="checkbox" id="mn_track" style="width:17px;height:17px;accent-color:#4858cc;cursor:pointer">열람내역 확인 <span style="font-weight:400;color:#5a68a8;font-size:13px">(누가 언제 읽었는지 기록)</span>
   </label></div>
+  <!-- 첨부 이미지 보기 방식 (2026-09-08) — 좌우=자료실(게시판) 스와이프 스타일, 위아래=세로 나열 -->
+  <div class="fg"><div style="display:flex;align-items:center;gap:14px;font-size:14px;color:#31419e;flex-wrap:wrap">
+    <span style="font-weight:600">첨부 이미지 보기 방식</span>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_vm" value="swipe" checked style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">좌우로 넘겨보기</label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_vm" value="scroll" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">위아래로 내려보기</label>
+  </div></div>
   <div class="fg"><div class="fl">제목</div><input class="fi" id="mn_title" placeholder="공지 제목을 입력하세요"></div>
   <div class="fg"><div class="fl">내용</div><textarea class="fi" id="mn_cont" rows="5" placeholder="공지 내용을 입력하세요" style="resize:vertical"></textarea></div>
   <div class="fg"><div class="fl">이미지 / 파일 첨부</div>
@@ -11272,6 +11278,7 @@ function openNoticeAddPage(){
   g('mn_cont').value='';
   g('mn_edit_idx').value='';
   var tk=g('mn_track'); if(tk) tk.checked=false;
+  try{ var _vr=document.querySelector('input[name="mn_vm"][value="swipe"]'); if(_vr) _vr.checked=true; }catch(e){}   // 보기 방식 기본=좌우
   g('mn_del_btn').style.display='none';
   g('m_not_title').textContent='공지사항 등록';
   g('m_notice').classList.add('open');
@@ -11281,7 +11288,9 @@ var notreads; try{ notreads=JSON.parse(localStorage.getItem('tops_notreads')||'[
 if(!Array.isArray(notreads)) notreads=[];
 
 // PDF 파일(File)을 페이지별 JPEG Blob 배열로 변환 (PDF.js, 최대 20쪽)
-async function _pdfToImages(file){
+// ⚠️ 리네임(2026-09-08 실사고): 원래 이름 _pdfToImages가 청구서 쪽 동명 함수(뒤에 선언 — dataURL 시그니처)에
+// 전역에서 덮여, 공지 PDF pages 사전 생성이 항상 조용히 실패했음(호출은 되지만 빈 결과 반환 — 토스트도 안 뜸).
+async function _noticePdfToImages(file){
   if(typeof pdfjsLib==='undefined') return [];
   var buf=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:buf}).promise;
@@ -11310,7 +11319,7 @@ async function _uploadNoticeFile(file){
     var isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name||'');
     if(isPdf && typeof pdfjsLib!=='undefined'){
       try{
-        var imgs=await _pdfToImages(file);
+        var imgs=await _noticePdfToImages(file);
         var pageUrls=[];
         for(var k=0;k<imgs.length;k++){
           var pref=firebase.storage().ref(base+'p'+(k+1)+'.jpg');
@@ -11490,6 +11499,8 @@ async function saveNotice(){
   };
   // 상단고정(pin) 승계(2026-09-08 리뷰) — obj 통째 교체라 빠뜨리면 [수정]만 해도 고정이 조용히 풀림
   if(idx!==''&&not[+idx]&&not[+idx].pin) obj.pin=1;
+  // 첨부 이미지 보기 방식(2026-09-08) — 'swipe'(좌우, 자료실 스타일)|'scroll'(위아래)
+  try{ var _vmR=document.querySelector('input[name="mn_vm"]:checked'); obj.vm=(_vmR&&_vmR.value==='scroll')?'scroll':'swipe'; }catch(e){ obj.vm='swipe'; }
   if(idx!=='') not[+idx]=obj; else { not.push(obj); try{ pushNotify('ALL', '새 공지사항', t, '/'); }catch(e){} }
   sv('tops_not',not);
   closeNoticeModal();
@@ -11519,6 +11530,7 @@ function openNoticeEdit(i){
   g('mn_date').value=n.datetime||n.date||'';
   g('mn_cont').value=n.content||'';
   var tk=g('mn_track'); if(tk) tk.checked=!!n.trackRead;
+  try{ var _vr=document.querySelector('input[name="mn_vm"][value="'+((n.vm==='scroll')?'scroll':'swipe')+'"]'); if(_vr) _vr.checked=true; }catch(e){}   // 보기 방식 로드(기본 좌우)
   g('mn_edit_idx').value=i;
   g('mn_del_btn').style.display=cu&&cu.admin?'inline-flex':'none';
   g('m_not_title').textContent='공지사항 수정';
@@ -13555,9 +13567,11 @@ function _noticeFilesHtml(files){
   html+='</div>';
   return html;
 }
-// (새 창 전용) 첨부 → 한 장씩 보는 캐러셀(좌/우 화살표·키보드·페이지표시) HTML
-function _noticeFilesPopupHtml(files){
+// (새 창 전용) 첨부 뷰어 HTML — vm='swipe'(좌우 넘김, 자료실 게시판 스타일: 가운데 크게+양옆 미리보기+썸네일 줄+방향키)
+//   | 'scroll'(위아래 세로 나열). 공지별 보기 방식 n.vm(모달 라디오)으로 선택(2026-09-08), 기본 swipe.
+function _noticeFilesPopupHtml(files, vm){
   if(!files||!files.length) return '';
+  vm=(vm==='scroll')?'scroll':'swipe';
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   // data 속성(2중따옴표)용: & ' " 이스케이프
   var attrJson=function(arr){ return JSON.stringify(arr).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); };
@@ -13577,15 +13591,14 @@ function _noticeFilesPopupHtml(files){
     var imgs=(pages&&pages.length)?pages.map(safeUrl).filter(Boolean):(isImg&&src?[src]:null);
     if(imgs&&!imgs.length) imgs=null;
     if(imgs){
-      html+='<div class="nv-carousel" data-imgs="'+attrJson(imgs)+'" data-pdf="'+esc(isPdf?src:'')+'">'
-        +'<div class="nv-stage"><img class="nv-img" alt=""></div>'
-        +(imgs.length>1?'<button class="nv-arrow nv-prev" type="button" aria-label="이전 페이지">‹</button><button class="nv-arrow nv-next" type="button" aria-label="다음 페이지">›</button>':'')
-        +(imgs.length>1?'<div class="nv-ind"></div>':'')
-        +(imgs.length>1?'<div class="nv-thumbs"></div>':'')
-        +'</div>';
+      if(vm==='scroll'){
+        html+='<div class="nv-stack">'+imgs.map(function(u){ return '<img class="nv-simg" src="'+esc(u)+'" alt="">'; }).join('')+'</div>';
+      } else {
+        html+='<div class="nv-view" data-imgs="'+attrJson(imgs)+'" data-pdf="'+esc(isPdf?src:'')+'"></div>';
+      }
     } else if(isPdf){
       // pages 없는 PDF → 열람 시점 자동 변환(_noticePdfInject) — 실패 시에만 iframe 폴백(2026-09-08)
-      html+='<div class="nv-pdfpend" data-pdfsrc="'+esc(src)+'" style="padding:28px;text-align:center;color:#667;font-size:14px;border:1px solid #e2e4ee;border-radius:8px;background:#f4f5fa">PDF 미리보기 변환 중...</div>';
+      html+='<div class="nv-pdfpend" data-pdfsrc="'+esc(src)+'" data-vm="'+vm+'" style="padding:28px;text-align:center;color:#667;font-size:14px;border:1px solid #e2e4ee;border-radius:8px;background:#f4f5fa">PDF 미리보기 변환 중...</div>';
     }
     html+='</div>';
   });
@@ -13609,23 +13622,36 @@ async function _noticePdfInject(w){
       }
       try{
         if(typeof pdfjsLib==='undefined') throw new Error('PDF 변환 라이브러리 미로드');
+        var vmS=(el.getAttribute('data-vm')==='scroll')?'scroll':'swipe';
         var res=await fetch(src); if(!res.ok) throw new Error('HTTP '+res.status);
         var buf=await res.arrayBuffer();
         if(w.closed) return;
         var pdf=await pdfjsLib.getDocument({data:buf}).promise;
         var n=Math.min(pdf.numPages,30);
-        el.textContent=''; el.style.cssText='';
+        var pageImgs=[];
         for(var p=1;p<=n;p++){
+          try{ el.textContent='PDF 미리보기 변환 중... ('+p+'/'+n+'쪽)'; }catch(e0){}
           var page=await pdf.getPage(p);
           var vp=page.getViewport({scale:1.6});
           var cv=document.createElement('canvas');
           cv.width=vp.width; cv.height=vp.height;
           await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
           if(w.closed) return;
-          var img=w.document.createElement('img');
-          img.src=cv.toDataURL('image/jpeg',0.85);
-          img.style.cssText='max-width:100%;display:block;margin:0 auto 8px;border:1px solid #e2e4ee;border-radius:6px';
-          el.appendChild(img);
+          pageImgs.push(cv.toDataURL('image/jpeg',0.85));
+        }
+        if(w.closed) return;
+        // 공지의 보기 방식대로 표시 — 좌우(swipe)=자료실 스타일 뷰어(nvMount), 위아래(scroll)=세로 나열.
+        // nvMount가 없는 창(사업계획서 첨부 미리보기 등)은 세로 나열로 직접 렌더.
+        if(vmS==='swipe'&&typeof w.nvMount==='function'){ w.nvMount(el, pageImgs, src); }
+        else if(typeof w.nvMountScroll==='function'){ w.nvMountScroll(el, pageImgs); }
+        else {
+          el.textContent=''; el.style.cssText='';
+          pageImgs.forEach(function(u){
+            var img=w.document.createElement('img');
+            img.src=u;
+            img.style.cssText='max-width:100%;display:block;margin:0 auto 8px;border:1px solid #e2e4ee;border-radius:6px';
+            el.appendChild(img);
+          });
         }
         if(pdf.numPages>n){
           var more=w.document.createElement('div');
@@ -13667,25 +13693,62 @@ function openNoticeDetail(i){
     +'.nv-file{margin-bottom:22px}'
     +'.nv-dl{display:inline-block;color:#2840cc;font-weight:600;text-decoration:none;margin-bottom:10px}'
     +'.nv-dlt{font-size:13px;color:#1a8050}'
-    +'.nv-carousel{position:relative;background:#f4f5fa;border:1px solid #e2e4ee;border-radius:10px;padding:10px;text-align:center}'
-    +'.nv-stage{display:flex;align-items:center;justify-content:center;min-height:200px}'
-    +'.nv-img{max-width:100%;max-height:78vh;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.12)}'
-    +'.nv-arrow{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:66px;border:none;border-radius:8px;background:rgba(20,30,80,.55);color:#fff;font-size:32px;line-height:1;cursor:pointer}'
-    +'.nv-arrow:hover{background:rgba(20,30,80,.82)}'
-    +'.nv-prev{left:10px}.nv-next{right:10px}'
-    +'.nv-ind{margin-top:8px;font-size:14px;color:#555;font-weight:600}'
-    +'.nv-thumbs{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px}'
-    +'.nv-thumb{width:64px;height:86px;object-fit:cover;object-position:top;border:2px solid #d8dcee;border-radius:6px;cursor:pointer;flex:0 0 auto;background:#fff}'
-    +'.nv-thumb:hover{border-color:#8a9ae0}'
-    +'.nv-thumb.on{border-color:#3a50e0;box-shadow:0 0 0 2px rgba(60,80,220,.28)}'
+    +'.nv-view{background:#f6f6fa;border-radius:10px;padding:10px 8px}'
+    +'.nv-side{flex:0 0 22%;min-width:0;width:22%;max-height:60vh;object-fit:contain;opacity:.5;cursor:pointer;border-radius:8px;align-self:center}'
+    +'.nv-main{width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block}'
+    +'.nv-nb{padding:6px 16px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-family:inherit;font-size:16px;line-height:1}'
+    +'.nv-nb:disabled{opacity:.4;cursor:default}'
+    +'.nv-thumb{height:62px;border-radius:5px;cursor:pointer;flex:0 0 auto;opacity:.55}'
+    +'.nv-thumb.on{outline:2px solid #4858cc;opacity:1}'
+    +'.nv-stack{background:#f6f6fa;border-radius:10px;padding:10px 8px}'
+    +'.nv-simg{max-width:100%;display:block;margin:0 auto 10px;border:1px solid #e2e4ee;border-radius:6px}'
     +'.nv-pdf{width:100%;height:78vh;min-height:480px;border:1px solid #e2e4ee;border-radius:8px}'
     +'.nv-old{color:#999;margin-bottom:8px}';
-  var script='<scr'+'ipt>(function(){var cs=[].slice.call(document.querySelectorAll(".nv-carousel"));var active=null;cs.forEach(function(c){var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}if(!imgs.length)return;if(!active)active=c;var idx=0,img=c.querySelector(".nv-img"),ind=c.querySelector(".nv-ind"),thumbs=c.querySelector(".nv-thumbs");var pdf=c.getAttribute("data-pdf")||"";var failed=false;if(thumbs){imgs.forEach(function(u,i){var t=document.createElement("img");t.className="nv-thumb";t.loading="lazy";t.src=u;t.alt=(i+1)+"페이지";t.title=(i+1)+"페이지";t.onclick=function(){active=c;idx=i;show();};thumbs.appendChild(t);});}img.onerror=function(){if(failed)return;failed=true;c.innerHTML="";if(pdf){var ifr=document.createElement("iframe");ifr.className="nv-pdf";ifr.src=pdf;c.appendChild(ifr);}else{var d=document.createElement("div");d.style.cssText="padding:30px;color:#a33;font-size:14px;text-align:center";d.textContent="미리보기 이미지를 불러오지 못했습니다. 위의 다운로드를 이용해 주세요.";c.appendChild(d);}};function show(){img.src=imgs[idx];if(ind)ind.textContent=(idx+1)+" / "+imgs.length;if(thumbs){[].slice.call(thumbs.children).forEach(function(t,i){t.classList.toggle("on",i===idx);});var el=thumbs.children[idx];if(el&&el.scrollIntoView)try{el.scrollIntoView({block:"nearest",inline:"nearest"});}catch(e){}}}var p=c.querySelector(".nv-prev"),nx=c.querySelector(".nv-next");if(p)p.onclick=function(){active=c;idx=(idx-1+imgs.length)%imgs.length;show();};if(nx)nx.onclick=function(){active=c;idx=(idx+1)%imgs.length;show();};c._prev=function(){idx=(idx-1+imgs.length)%imgs.length;show();};c._next=function(){idx=(idx+1)%imgs.length;show();};show();});document.addEventListener("keydown",function(e){if(!active)return;if(e.key==="ArrowLeft"&&active._prev)active._prev();else if(e.key==="ArrowRight"&&active._next)active._next();});})();</scr'+'ipt>';
+  // 팝업 뷰어 스크립트 — nvMount(자료실 게시판 좌우 스와이프 스타일: 가운데 크게+양옆 미리보기+썸네일 줄+←/→)
+  //   /nvMountScroll(세로 나열). _noticePdfInject(변환된 PDF 페이지)도 같은 함수를 호출해 방식 통일(2026-09-08).
+  var script='<scr'+'ipt>(function(){var active=null;'
+    +'function mk(t,cs){var e=document.createElement(t);if(cs)e.style.cssText=cs;return e;}'
+    +'window.nvMountScroll=function(c,imgs){c.innerHTML="";c.className="nv-stack";c.style.cssText="";imgs.forEach(function(u){var im=document.createElement("img");im.className="nv-simg";im.src=u;c.appendChild(im);});};'
+    +'window.nvMount=function(c,imgs,pdf){'
+      +'c.innerHTML="";c.className="nv-view";c.style.cssText="";'
+      +'var n=imgs.length,idx=0,failed=false;'
+      +'var row=mk("div","display:flex;align-items:center;justify-content:center;gap:10px");'
+      +'var sL=document.createElement("img");sL.className="nv-side";var sR=document.createElement("img");sR.className="nv-side";'
+      +'var cw=mk("div","flex:0 0 52%;min-width:0");var main=document.createElement("img");main.className="nv-main";cw.appendChild(main);'
+      +'if(n>1){row.appendChild(sL);}row.appendChild(cw);if(n>1){row.appendChild(sR);}c.appendChild(row);'
+      +'if(n===1){cw.style.flex="0 0 96%";}'
+      +'var cnt=null,bP=null,bN=null,th=null;'
+      +'if(n>1){var nav=mk("div","display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px");'
+        +'bP=document.createElement("button");bP.className="nv-nb";bP.textContent="\\u2039";'
+        +'cnt=mk("span","font-size:13.5px;color:#555;font-weight:700;min-width:52px;text-align:center");'
+        +'bN=document.createElement("button");bN.className="nv-nb";bN.textContent="\\u203A";'
+        +'var hint=mk("span","font-size:11.5px;color:#aab");hint.textContent="\\u2190 \\u2192 키로도 넘길 수 있어요";'
+        +'nav.appendChild(bP);nav.appendChild(cnt);nav.appendChild(bN);nav.appendChild(hint);c.appendChild(nav);'
+        +'th=mk("div","display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px");'
+        +'imgs.forEach(function(u,i){var t=document.createElement("img");t.className="nv-thumb";t.loading="lazy";t.src=u;t.title=(i+1)+"페이지";t.onclick=function(){active=c;idx=i;show();};th.appendChild(t);});'
+        +'c.appendChild(th);}'
+      +'main.onerror=function(){if(failed)return;failed=true;c.innerHTML="";if(pdf){var f=document.createElement("iframe");f.className="nv-pdf";f.src=pdf;c.appendChild(f);}else{var d=mk("div","padding:30px;color:#a33;font-size:14px;text-align:center");d.textContent="미리보기 이미지를 불러오지 못했습니다. 위의 다운로드를 이용해 주세요.";c.appendChild(d);}};'
+      +'function go(d){active=c;var t=idx+d;if(t<0||t>=n)return;idx=t;show();}'
+      +'sL.onclick=function(){go(-1);};sR.onclick=function(){go(1);};'
+      +'if(bP)bP.onclick=function(){go(-1);};if(bN)bN.onclick=function(){go(1);};'
+      +'function show(){main.src=imgs[idx];'
+        +'if(n>1){if(idx>0){sL.src=imgs[idx-1];sL.style.visibility="visible";}else sL.style.visibility="hidden";'
+        +'if(idx<n-1){sR.src=imgs[idx+1];sR.style.visibility="visible";}else sR.style.visibility="hidden";'
+        +'if(cnt)cnt.textContent=(idx+1)+" / "+n;if(bP)bP.disabled=idx<=0;if(bN)bN.disabled=idx>=n-1;'
+        +'if(th){[].slice.call(th.children).forEach(function(t,i){t.classList.toggle("on",i===idx);});var cur=th.children[idx];if(cur&&cur.scrollIntoView)try{cur.scrollIntoView({block:"nearest",inline:"center"});}catch(e){}}}}'
+      +'c._prev=function(){go(-1);};c._next=function(){go(1);};'
+      +'if(!active)active=c;show();};'
+    +'[].slice.call(document.querySelectorAll(".nv-view[data-imgs]")).forEach(function(c){'
+      +'var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}'
+      +'imgs=imgs.filter(function(u){return /^(https?:|data:|blob:)/i.test(String(u||""));});'
+      +'if(imgs.length)nvMount(c,imgs,c.getAttribute("data-pdf")||"");});'
+    +'document.addEventListener("keydown",function(e){if(!active)return;if(e.key==="ArrowLeft"&&active._prev)active._prev();else if(e.key==="ArrowRight"&&active._next)active._next();});'
+    +'})();</scr'+'ipt>';
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(n.title)+'</title><style>'+css+'</style></head><body>'
     +'<h2>'+esc(n.title)+'</h2>'
     +'<div class="meta">작성자: '+esc(n.author||'-')+' &nbsp;|&nbsp; 등록일: '+esc(n.datetime||n.date||'-')+'</div>'
     +'<div class="cont">'+esc(n.content||'')+'</div>'
-    +_noticeFilesPopupHtml(n.files)
+    +_noticeFilesPopupHtml(n.files, n.vm)
     +script
     +'</body></html>';
   w.document.write(body);

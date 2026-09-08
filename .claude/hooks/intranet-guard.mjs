@@ -40,6 +40,23 @@ const warns  = [];   // 경고 → 알림만
   }
 }
 
+// ── 함정 E(JS판): 전역 function 선언 이름 중복 ─────────
+// 모든 인라인 script는 같은 전역 스코프 — 뒤에 선언된 동명 함수가 앞의 것을 조용히 덮어쓴다.
+// (실사고 2026-09-08: 공지용 _pdfToImages가 청구용 동명 함수에 덮여 pages 생성이 항상 무음 실패)
+// 들여쓰기 없는(0열) 선언만 검사 — 중첩 함수(draw/esc 등 지역 헬퍼)는 스코프가 달라 무해하므로 제외.
+{
+  const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+  const names = {};
+  let m;
+  while ((m = re.exec(html))) {
+    const fre = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm;
+    let f;
+    while ((f = fre.exec(m[1]))) names[f[1]] = (names[f[1]] || 0) + 1;
+  }
+  const dup = Object.keys(names).filter(k => names[k] > 1);
+  if (dup.length) errors.push('전역 JS 함수명 중복: ' + dup.join(', ') + ' (뒤 선언이 앞 선언을 덮어써 조용한 오동작 — 하나를 리네임할 것)');
+}
+
 // ── 함정 B: try/catch 없는 raw localStorage.setItem ────
 {
   const lines = html.split('\n');

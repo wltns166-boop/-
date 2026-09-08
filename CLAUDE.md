@@ -332,6 +332,17 @@
   _noticeFilesHtml에 safeUrl 프로토콜 화이트리스트(팝업판과 통일).
 - ⚠️ 수용: nid 없는 옛 공지는 지문이 제목|등록일이라 둘 다 완전히 같은 두 공지는 고정이 함께 토글됨(분 단위 동시 일치 —
   확률 극히 낮음, [수정] 시 nid 자동 부여로 자연 치유). last-write-wins·클라이언트 가드(navcfg 계열)도 기존 수용.
+- **첨부 보기 방식 선택 (2026-09-08 v-7)**: 공지 모달 열람내역 확인 아래 라디오(`mn_vm` — 좌우로 넘겨보기/위아래로 내려보기)
+  → `not[].vm`('swipe'|'scroll', 기본 swipe. saveNotice 저장·openNoticeEdit 로드). [상단고정] 버튼은 [공지등록] 왼쪽으로 이동.
+  열람 팝업 뷰어 개편: 기존 nv-carousel 폐기 → **`nvMount`(자료실 게시판 _bdSwipeHtml 스타일** — 가운데 크게+양옆 22% 미리보기
+  +‹› 버튼·카운터+썸네일 줄+←/→ 키, 끝에서 멈춤)/`nvMountScroll`(세로 나열)을 팝업 안에 정의, `_noticeFilesPopupHtml(files, vm)`이
+  방식별 마크업 생성. `_noticePdfInject`(pages 없는 PDF 변환)도 변환 후 같은 nvMount/nvMountScroll로 합류(진행률 "n/30쪽" 표시,
+  nvMount 없는 창=사업계획서 첨부 미리보기는 세로 나열 폴백). ⚠️ 팝업 스크립트는 문자열 조립이라 일반 문법 검사가 못 봄 —
+  수정 시 내부 스크립트를 추출해 별도 `new Function` 검증할 것(7장 절차에 추가된 방식).
+- **pages 미생성 근본 원인 발견(2026-09-08 v-7, 함정 E의 JS판)**: 공지용 `_pdfToImages(file)`가 청구용 동명 함수
+  `_pdfToImages(dataUrl,label)`(뒤에 선언)에 전역에서 덮여 **공지 PDF pages 사전 생성이 항상 무음 실패**하고 있었음
+  (빈 결과 반환이라 catch·토스트도 미발동 — 9/7 공지 PDF가 iframe 폴백으로 빠진 실제 이유). 공지용을
+  `_noticePdfToImages`로 리네임. **가드 훅에 전역 function 선언 중복 검사 추가**(0열 선언만 — 중첩 지역 헬퍼 제외, 치명 exit 2).
 
 ## 4.5 매니저 연락처 (mgrs, 2026-08-06)
 
