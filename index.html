@@ -23788,18 +23788,23 @@ function rReqUnified(){
     var kg=kindColors[r.kind]||'rgba(100,100,100,.1)';
     var kb=kindBorders[r.kind]||'rgba(100,100,100,.25)';
     var kt=kindTextColors[r.kind]||'#555';
-    var kindTag='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+kb+';background:'+kg+';color:'+kt+';white-space:nowrap">'+r.kind+'</span>';
-    var statusSel='<select onchange="setReqStatus('+realIdx+',this.value)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
+    var kindTag='<span style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid '+kb+';background:'+kg+';color:'+kt+';white-space:nowrap">'+_esc(r.kind)+'</span>';
+    // 지문(fp): req_items가 클라우드 실시간 수신으로 통째 교체될 수 있게 되면서(2026-09-08),
+    // 렌더 시점 인덱스가 낡을 수 있음 — 핸들러가 대상 항목 일치 여부를 대조(함정 A 방어. 항목에 고유 id가 없어 지문 사용)
+    var fp=_esc((r.dt||'')+'|'+(r.agent||'')+'|'+(r.kind||'')+'|'+String(r.content||'').slice(0,50));
+    var statusSel='<select data-reqfp="'+fp+'" onchange="setReqStatus('+realIdx+',this.value,this)" style="font-size:13px;padding:3px 4px;border:1px solid #ccc;border-radius:5px;background:#fff;font-family:inherit;cursor:pointer">'
       +'<option value="검토중"'+(r.status==='검토중'?' selected':'')+'>검토중</option>'
       +'<option value="완료"'+(r.status==='완료'?' selected':'')+'>완료</option>'
       +'<option value="반려"'+(r.status==='반려'?' selected':'')+'>반려</option>'
       +'</select>';
-    var delBtn=isAdmin?'<button onclick="deleteReqItem('+realIdx+')" style="font-size:13px;padding:2px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>':'';
+    var delBtn=isAdmin?'<button data-reqfp="'+fp+'" onclick="deleteReqItem('+realIdx+',this)" style="font-size:13px;padding:2px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>':'';
+    // _esc 필수(2026-09-08): req_items 클라우드 로드가 켜지면서 팀원 입력 content/agent가
+    // 관리자 기기 innerHTML에 도달 — 미이스케이프 렌더가 실질 XSS 경로가 됨(3.85.5 rDbInfo 계열)
     return '<tr>'
-      +'<td style="font-size:14px;white-space:nowrap">'+(r.dt||'-')+'</td>'
+      +'<td style="font-size:14px;white-space:nowrap">'+_esc(r.dt||'-')+'</td>'
       +'<td style="text-align:center">'+kindTag+'</td>'
-      +'<td style="font-size:14px;font-weight:600">'+(r.agent||'-')+'</td>'
-      +'<td style="font-size:14px;max-width:260px;word-break:break-all;white-space:pre-wrap">'+(r.content||'-')+'</td>'
+      +'<td style="font-size:14px;font-weight:600">'+_esc(r.agent||'-')+'</td>'
+      +'<td style="font-size:14px;max-width:260px;word-break:break-all;white-space:pre-wrap">'+_esc(r.content||'-')+'</td>'
       +'<td style="text-align:center">'+statusSel+'</td>'
       +'<td class="ao" style="text-align:center">'+delBtn+'</td>'
       +'</tr>';
@@ -23824,17 +23829,25 @@ function saveReqUnified(){
   try{ pushNotify('ADMIN', '새 요청 신청', (cu?cu.name+'님의 ':'')+kind, '/'); }catch(e){}
   toast('요청이 저장되었습니다.');
 }
-function setReqStatus(idx, val){
+// 지문 대조 — 렌더 시점 인덱스가 클라우드 수신으로 낡았으면 엉뚱한 항목 처리 방지(함정 A, 2026-09-08)
+function _reqFpMatch(r, el){
+  if(!el||!el.getAttribute) return true;   // 지문 없는 옛 호출은 기존 동작 유지
+  var fp=el.getAttribute('data-reqfp'); if(fp==null) return true;
+  return fp===((r.dt||'')+'|'+(r.agent||'')+'|'+(r.kind||'')+'|'+String(r.content||'').slice(0,50));
+}
+function setReqStatus(idx, val, el){
   try{ reqItems=JSON.parse(localStorage.getItem('tops_req_items')||'[]'); }catch(e){ reqItems=[]; }
-  if(!reqItems[idx]) return;
+  if(!reqItems[idx]) { toast('목록이 갱신되었습니다. 다시 시도해주세요.'); rReqUnified(); return; }
+  if(!_reqFpMatch(reqItems[idx], el)){ toast('목록이 갱신되었습니다. 다시 시도해주세요.'); rReqUnified(); return; }
   reqItems[idx].status=val;
   _lsSet('tops_req_items', JSON.stringify(reqItems));
   try{ sv('tops_req_items', reqItems); }catch(e){}
   try{ pushNotify([reqItems[idx].agent], '요청 처리', (reqItems[idx].kind||'요청')+' → '+val, '/'); }catch(e){}
 }
-function deleteReqItem(idx){
+function deleteReqItem(idx, el){
   if(window._delReqIdx===idx){
     try{ reqItems=JSON.parse(localStorage.getItem('tops_req_items')||'[]'); }catch(e){ reqItems=[]; }
+    if(!reqItems[idx]||!_reqFpMatch(reqItems[idx], el)){ toast('목록이 갱신되었습니다. 다시 시도해주세요.'); rReqUnified(); window._delReqIdx=null; return; }
     reqItems.splice(idx,1);
     _lsSet('tops_req_items', JSON.stringify(reqItems));
     try{ sv('tops_req_items', reqItems); }catch(e){}
@@ -23948,6 +23961,7 @@ async function _cardPhotoUpload(file){
   if(!isImg){ toast('사진(이미지) 파일만 첨부할 수 있습니다.'); return; }
   if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 첨부할 수 있습니다.'); return; }
   var gen=window._cardPhotoGen||0;
+  var seq=window._cardPhotoSeq=(window._cardPhotoSeq||0)+1;   // 같은 모달에서 연속 선택 시 마지막 선택이 이기게(응답 순서 역전 방지)
   window._cardPhotoBusy=(window._cardPhotoBusy||0)+1;
   _cardPhotoDraw();
   try{
@@ -23958,8 +23972,8 @@ async function _cardPhotoUpload(file){
     var ref=firebase.storage().ref('claim_packages/card_photos/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
     await ref.put(u8,{contentType:'image/jpeg'});
     var url=await ref.getDownloadURL();
-    if(gen!==(window._cardPhotoGen||0)){
-      // 업로드 도중 모달이 다른 신청 건으로 바뀜 — 이 파일은 버리고 Storage에서도 정리(오귀속 방지)
+    if(gen!==(window._cardPhotoGen||0)||seq!==(window._cardPhotoSeq||0)){
+      // 업로드 도중 모달이 다른 신청 건으로 바뀜, 또는 더 나중에 고른 파일이 있음 — 이 파일은 버리고 Storage 정리(오귀속 방지)
       try{ ref.delete().catch(function(){}); }catch(e){}
       return;
     }
@@ -24008,19 +24022,22 @@ function saveCardReq(){
   var photo=g('cardreq_photo').checked?1:0;
   var mdrt=g('cardreq_mdrt').checked?1:0;
   var afpk=g('cardreq_afpk').checked?1:0;
+  if(photo&&!(window._cardPhoto&&window._cardPhoto.u)&&!confirm('프로필사진 파일을 첨부하지 않았습니다.\n사진 없이 신청할까요? (사진은 나중에 [수정]으로 첨부할 수 있습니다)')) return;
   var pu=(photo&&window._cardPhoto&&window._cardPhoto.u)?window._cardPhoto.u:'';
   var pn=pu?(window._cardPhoto.n||''):'';
   _cardReqsReload();
   var editId=(g('cardreq_edit_id')||{value:''}).value;
   if(editId){
     var i=cardReqs.findIndex(function(r){ return r&&r.id===editId; });
-    var prev=i>=0?cardReqs[i]:null;
-    if(prev&&!(_isAdmin()||prev.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
-    var obj={ id:editId, agent:prev?prev.agent:cu.name, dt:prev?prev.dt:tds(), ts:prev?(prev.ts||Date.now()):Date.now(), ut:Date.now(),
+    // 수정 대상이 그 사이 삭제됨(다른 기기/관리자) — 재등록하면 삭제 조치가 무력화되고
+    // agent가 저장 누른 사람으로 바뀌는 오염이 생김(2026-09-08 리뷰) → 차단하고 새로 신청 유도
+    if(i<0){ toast('이미 삭제된 신청입니다. 필요하면 새로 신청해주세요.'); g('m_cardreq').classList.remove('open'); rCardApply(); return; }
+    var prev=cardReqs[i];
+    if(!(_isAdmin()||prev.agent===cu.name)){ toast('본인 신청만 수정할 수 있습니다.'); return; }
+    cardReqs[i]={ id:editId, agent:prev.agent, dt:prev.dt||tds(), ts:prev.ts||Date.now(), ut:Date.now(),
       name:name, ename:ename, phone:phone, fax:fax, email:email,
       photo:photo, photoUrl:pu, photoName:pn, mdrt:mdrt, afpk:afpk,
-      status:prev?(prev.status||'검토중'):'검토중' };
-    if(i>=0) cardReqs[i]=obj; else cardReqs.push(obj);   // 다른 기기에서 삭제된 건은 재등록(리쿠르팅과 동일 의도)
+      status:prev.status||'검토중' };
     toast('명함 신청이 수정되었습니다.');
   } else {
     cardReqs.push({ id:'cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), agent:cu.name, dt:tds(), ts:Date.now(),
@@ -24047,7 +24064,8 @@ function deleteCardReq(id){
   if(window._delCardReqId===id){
     _cardReqsReload();
     var i=cardReqs.findIndex(function(r){ return r&&r.id===id; });
-    if(i>=0) cardReqs.splice(i,1);
+    if(i<0){ toast('이미 삭제된 신청입니다.'); rCardApply(); window._delCardReqId=null; return; }
+    cardReqs.splice(i,1);
     _cardReqPersist();
     rCardApply();
     toast('삭제되었습니다.');

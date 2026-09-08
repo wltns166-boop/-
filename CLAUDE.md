@@ -604,11 +604,21 @@
 - 수정: 행별 [수정](본인 또는 관리자) → 같은 모달 재사용(`cardreq_edit_id`) — 클라우드/로컬 재읽기 후 같은 id만 교체,
   다른 기기에서 삭제된 건은 재등록(리쿠르팅과 동일 의도). 상태(검토중/완료/반려) 변경·삭제(2번 클릭)는 관리자만.
   신규 신청 시 pushNotify('ADMIN'), 상태 변경 시 신청자에게 pushNotify(saveReqUnified 계열).
-- ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(req_items 계열), `_isAdmin()` 클라이언트 가드뿐(서버 미검증).
-  체크 해제 후 저장하면 photoUrl은 데이터에서 비워지지만 Storage 원본은 안 지움(오삭제 회피 — 고아 파일 수용, 가족 등록증 계열).
+- **리뷰 반영(2026-09-08)**: ① 수정 대상이 그 사이 삭제됐으면 저장 차단(재등록하면 관리자 삭제가 무력화되고
+  agent가 저장 누른 사람으로 오염 — 부활 금지). ② 같은 모달에서 사진 연속 선택 시 순번(`_cardPhotoSeq`)으로
+  마지막 선택이 이김(응답 순서 역전 방지). ③ 사진 체크만 하고 파일 미첨부면 confirm 안내.
+  ④ 이미 삭제된 건 재삭제 시 "삭제되었습니다" 오도 문구 제거.
+- ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(req_items 계열 — 두 관리자가 같은 건을 동시 처리하면 늦은 저장이 이김),
+  `_isAdmin()` 클라이언트 가드뿐(서버 미검증), sv() 클라우드 쓰기 실패 시 다음 스냅샷이 로컬 변경을 되돌릴 수 있음(토스트로만 인지).
+  체크 해제·[✕ 빼기] 후에도 Storage 원본은 안 지움(오삭제 회피 — 고아 파일 수용, 가족 등록증 계열).
+  agent는 이름 문자열 — '(코드)' 이름 사후보정(_wcloseFixNames 계열) 미적용, 민원 시 같은 패턴 적용.
 - **같은 커밋의 기존 결함 수정**: `tops_req_items`(요청관리 통합)가 sv 저장만 되고 **loadFromFirestore/onSnapshot 로드가 빠져
   있어 기기 간 신청 내역이 안 보이던 문제** — 두 로드 경로에 req_items·cardreq 반영(빈 배열도 반영 — 삭제 전파, cal 패턴)
-  + 스냅샷 페이지 자동 갱신 맵에 req_unified/card_apply 추가.
+  + 스냅샷 페이지 자동 갱신 맵에 req_unified/card_apply 추가. 이로써 reqItems가 실시간 통째 교체될 수 있게 되어
+  기존 인덱스 기반 setReqStatus/deleteReqItem에 **지문 대조(`data-reqfp`=dt|agent|kind|content50, `_reqFpMatch`)** 추가 —
+  낡은 인덱스가 엉뚱한 항목을 처리하지 않게 차단(함정 A. 항목에 고유 id가 없어 지문 방식, 불일치 시 토스트+재렌더).
+  같은 이유로 rReqUnified 표의 content/agent/dt/kind에 `_esc` 추가 — 팀원 입력이 관리자 기기 innerHTML에
+  도달하게 되면서 기존 미이스케이프 렌더가 실질 XSS 경로가 됨(3.85.5 rDbInfo 계열).
 
 ## 5. 사업계획서 (bizplan)
 
