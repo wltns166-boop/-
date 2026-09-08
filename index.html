@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-9</div>
   </div>
 </div>
 
@@ -19258,8 +19258,9 @@ function _bdFilesHtml(p){
   var noCtx=' oncontextmenu="return false"';   // 이미지 복사 차단(2026-09-08) — 전 사용자(우클릭 메뉴. 관리자 [원본] 링크·다운로드 버튼은 관리 기능이라 유지)
   var wm=_bdWmDiv(); // 열람자 워터마크(팀원만) — 이미지·동영상 래퍼마다 덧씌움
   function tag(u,style){
-    var im='<img src="'+_esc(u)+'" loading="lazy" alt="" draggable="false" style="'+style+';'+BD_IMG_NOCOPY+'">';
-    return adm?'<a href="'+_esc(u)+'" target="_blank" rel="noopener" draggable="false">'+im+'</a>':im;
+    // 원본 새 탭 링크 제거(2026-09-08) — 관리자도 이미지 클릭 시 Storage 원본이 새 탭으로 열려
+    // 거기서 우클릭 저장이 가능했음(앱 차단이 안 미치는 영역). 이미지는 인라인 열람만.
+    return '<img src="'+_esc(u)+'" loading="lazy" alt="" draggable="false" style="'+style+';'+BD_IMG_NOCOPY+'">';
   }
   var fh='';
   if(imgs.length){
@@ -19384,7 +19385,8 @@ function _bdSwipeHtml(p){
       +'<img src="'+_esc(imgs[i].u)+'" alt=""'+drg+' style="width:100%;border-radius:8px;display:block;'+BD_IMG_NOCOPY+'"></div>';
   }
   var cim='<img src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block;'+BD_IMG_NOCOPY+'">';
-  var center='<div data-bdcenter style="flex:0 0 52%;min-width:0">'+(adm?'<a href="'+_esc(imgs[idx].u)+'" target="_blank" rel="noopener" draggable="false">'+cim+'</a>':cim)+'</div>';
+  // 원본 새 탭 링크 제거(2026-09-08) — 관리자도 클릭 시 원본이 새 탭으로 열려 우클릭 저장이 가능했음
+  var center='<div data-bdcenter style="flex:0 0 52%;min-width:0">'+cim+'</div>';
   // 전체 페이지 썸네일 줄 — 원하는 장을 눌러 바로 이동(현재 장은 파란 테두리)
   var thumbs='<div data-bdthumbs style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px">'
     +imgs.map(function(f,i){
