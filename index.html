@@ -418,7 +418,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.08-3</div>
   </div>
 </div>
 
@@ -11673,8 +11673,8 @@ function _reqStatRows(){
     var ex=JSON.parse(localStorage.getItem('tops_exams')||'[]');
     return (Array.isArray(ex)?ex:[]).filter(function(e){ return e&&!e.done; }).length;
   });
-  var jpRow={pg:'join_prep', icon:'🧑‍💼', label:'입사준비', n:jpPend, sub:'준비 미완료 신입 (등록 '+jpAll.length+'명)'};
-  var examRow={pg:'exam', icon:'📝', label:'시험신청', n:examPend, sub:'접수 미완료'};
+  var jpRow={pg:'join_prep', icon:'ti-user-plus', label:'입사준비', n:jpPend, sub:'준비 미완료 신입 (등록 '+jpAll.length+'명)'};
+  var examRow={pg:'exam', icon:'ti-pencil', label:'시험신청', n:examPend, sub:'접수 미완료'};
   if(chong){
     var custPend=cnt(function(){
       var cr=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
@@ -11685,8 +11685,8 @@ function _reqStatRows(){
       return (claims||[]).filter(function(c){ return c&&!c.done; }).length;
     });
     return [
-      {pg:'cust_status', icon:'👤', label:'고객등록', n:custPend,  sub:'처리 대기 요청'},
-      {pg:'claim_status',icon:'📄', label:'청구신청', n:claimPend, sub:'미완료 청구'},
+      {pg:'cust_status', icon:'ti-user', label:'고객등록', n:custPend,  sub:'처리 대기 요청'},
+      {pg:'claim_status',icon:'ti-file-invoice', label:'청구신청', n:claimPend, sub:'미완료 청구'},
       examRow, jpRow
     ];
   }
@@ -11710,25 +11710,26 @@ function _reqStatRows(){
     return (Array.isArray(cr)?cr:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
   });
   return [
-    {pg:'trip',        icon:'🚗', label:'출장보고', n:tripPend, sub:'확인 대기 신청'},
-    {pg:'req_unified', icon:'📋', label:'요청관리', n:reqPend+cardPend, sub:'검토중'+(cardPend?' (명함신청 '+cardPend+'건 포함)':'')},
+    {pg:'trip',        icon:'ti-car', label:'출장보고', n:tripPend, sub:'확인 대기 신청'},
+    {pg:'req_unified', icon:'ti-clipboard-list', label:'요청관리', n:reqPend+cardPend, sub:'검토중'+(cardPend?' (명함신청 '+cardPend+'건 포함)':'')},
     jpRow,
-    {pg:'edu_prep',    icon:'📚', label:'교육준비', n:eduPend, sub:'교육·테스트 미완료 신입'},
+    {pg:'edu_prep',    icon:'ti-school', label:'교육준비', n:eduPend, sub:'교육·테스트 미완료 신입'},
     examRow
   ];
 }
 function _reqStatRowsHtml(rows){
   return rows.map(function(r){
-    var badge=r.n>0
-      ? '<span style="flex:none;font-size:15px;font-weight:800;color:#fff;background:#d03040;border-radius:999px;padding:3px 12px;min-width:30px;text-align:center">'+r.n+'건</span>'
-      : '<span style="flex:none;font-size:14px;font-weight:700;color:#8a94b8;background:#eef0f7;border-radius:999px;padding:3px 12px;min-width:30px;text-align:center">0건</span>';
-    return '<div data-rspg="'+r.pg+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid '+(r.n>0?'rgba(208,48,64,.3)':'#dde1ee')+';border-radius:10px;background:'+(r.n>0?'rgba(208,48,64,.05)':'#fafbfd')+';cursor:pointer;text-align:left">'
-      +'<span style="flex:none;font-size:20px;line-height:1">'+r.icon+'</span>'
+    var hot=r.n>0;
+    var badge=hot
+      ? '<span style="flex:none;font-size:14px;font-weight:800;color:#fff;background:#d5273b;border-radius:5px;padding:3px 9px;min-width:26px;text-align:center;letter-spacing:-.2px">'+r.n+'</span>'
+      : '<span style="flex:none;font-size:13px;font-weight:700;color:#9aa2bd;background:#f0f2f8;border-radius:5px;padding:3px 9px;min-width:26px;text-align:center">0</span>';
+    return '<div data-rspg="'+r.pg+'" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid '+(hot?'#f0c2c9':'#e4e7f0')+';border-left:3px solid '+(hot?'#d5273b':'#c8cede')+';border-radius:6px;background:#fff;cursor:pointer;text-align:left">'
+      +'<span style="flex:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:'+(hot?'rgba(213,39,59,.08)':'#f0f2f8')+'"><i class="ti '+r.icon+'" style="font-size:18px;color:'+(hot?'#d5273b':'#5a6488')+'"></i></span>'
       +'<span style="flex:1;min-width:0">'
-        +'<span style="display:block;font-size:15px;font-weight:700;color:#1a1a2e">'+r.label+'</span>'
-        +'<span style="display:block;font-size:12px;color:#8a94b8;margin-top:1px">'+r.sub+'</span>'
+        +'<span style="display:block;font-size:14.5px;font-weight:700;color:#181c2e;letter-spacing:-.2px">'+r.label+'</span>'
+        +'<span style="display:block;font-size:11.5px;color:#8a92ac;margin-top:1px">'+r.sub+'</span>'
       +'</span>'+badge
-      +'<i class="ti ti-chevron-right" style="flex:none;color:#b0b8d8"></i>'
+      +'<i class="ti ti-chevron-right" style="flex:none;font-size:14px;color:#c0c6d8"></i>'
       +'</div>';
   }).join('');
 }
@@ -11759,17 +11760,14 @@ function _reqStatPopup(){
     ov.id='reqstat_pop';
     // z-index는 총무휴가 팝업(99999)보다 낮게 — 두 팝업이 겹치면 휴가 안내를 먼저 보여줌
     ov.style.cssText='position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(3,8,30,.55);padding:16px';
-    ov.innerHTML='<div id="reqstat_card" style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:22px 20px;box-shadow:0 12px 44px rgba(0,0,0,.4);cursor:default;max-height:86vh;overflow-y:auto">'
-      +'<div style="text-align:center">'
-        +'<div style="font-size:30px;line-height:1">🔔</div>'
-        +'<div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-top:6px">업무 요청 현황'
-        +' <span style="font-size:12.5px;font-weight:700;color:#4858cc;background:rgba(72,88,204,.1);border-radius:6px;padding:2px 8px;vertical-align:2px">'+(chong?'총무':'지점장')+'</span></div>'
+    ov.innerHTML='<div id="reqstat_card" style="background:#fff;border-radius:8px;border-top:3px solid #2b3a8c;max-width:410px;width:100%;padding:0;box-shadow:0 16px 48px rgba(4,10,40,.45);cursor:default;max-height:86vh;overflow-y:auto">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 18px 13px;border-bottom:1px solid #e8eaf2">'
+        +'<div style="font-size:16.5px;font-weight:800;color:#181c2e;letter-spacing:-.3px">업무 요청 현황'
+        +' <span style="font-size:11.5px;font-weight:700;color:#2b3a8c;background:#eef0fa;border:1px solid #d4d9ee;border-radius:4px;padding:2px 7px;vertical-align:2px;margin-left:4px">'+(chong?'총무':'지점장')+'</span></div>'
+        +'<span id="reqstat_close" style="font-size:20px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 4px">&times;</span>'
       +'</div>'
-      +'<div id="reqstat_rows" style="display:flex;flex-direction:column;gap:8px;margin-top:14px">'+_reqStatRowsHtml(rows)+'</div>'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">'
-        +'<span style="font-size:12px;color:#98a0c0">항목을 누르면 해당 화면으로 이동합니다</span>'
-        +'<button id="reqstat_close" style="font-size:13.5px;font-weight:700;padding:7px 16px;border-radius:8px;border:1px solid #c5cbe8;background:#eef1fd;color:#4858cc;cursor:pointer;font-family:inherit">닫기</button>'
-      +'</div>'
+      +'<div id="reqstat_rows" style="display:flex;flex-direction:column;gap:7px;padding:14px 18px">'+_reqStatRowsHtml(rows)+'</div>'
+      +'<div style="padding:0 18px 14px;font-size:11.5px;color:#9aa2bd">항목을 누르면 해당 화면으로 이동합니다 · 바깥을 누르면 닫힙니다</div>'
       +'</div>';
     ov.addEventListener('click',function(){ ov.remove(); });                 // 바깥(어두운 영역) 클릭 시 닫힘
     var card=ov.querySelector('#reqstat_card');
