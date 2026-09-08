@@ -1,0 +1,32 @@
+# 우리집 가계부 서버 — 어디서나 동작하는 컨테이너 이미지
+# (Railway, Fly.io, Google Cloud Run, 집 서버/NAS 등)
+#
+# 빌드/실행 예:
+#   docker build -f Dockerfile.budget -t budget .
+#   docker run -d -p 4001:4001 \
+#     -e PASSWORD=원하는비밀번호 \
+#     -e JWT_SECRET=아무긴문자열 \
+#     -v budget-data:/data \
+#     budget
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 의존성 먼저 설치 (캐시 활용)
+COPY budget-server/package*.json ./budget-server/
+RUN cd budget-server && npm install --omit=dev
+
+# 서버 + 프론트엔드(HTML)만 복사
+COPY budget-server/server.js ./budget-server/
+COPY household-budget.html ./
+
+# 데이터 저장 위치 (볼륨을 여기에 마운트하면 영속화)
+ENV DATA_DIR=/data
+VOLUME ["/data"]
+
+# 플랫폼이 PORT를 주입하면 그것을 사용, 없으면 4001
+ENV PORT=4001
+EXPOSE 4001
+
+# PASSWORD / JWT_SECRET 은 실행 환경변수로 주입하세요
+CMD ["node", "budget-server/server.js"]

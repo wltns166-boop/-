@@ -1,9 +1,15 @@
 # Render.com 배포 설정 (Blueprint)
 # https://render.com → New → Blueprint → 이 저장소 선택하면 자동 구성됩니다.
+# 아래 두 서비스가 함께 만들어집니다 (필요 없는 쪽은 Render 화면에서 빼면 됩니다):
+#   - insurenet     : 보험 인트라넷 (server/)
+#   - budget        : 우리집 가계부 (budget-server/)
 #
 # ⚠ 현재는 무료 플랜 설정입니다. 무료 플랜은 영속 디스크를 지원하지 않아,
-#   서버가 재시작/재배포되면 입력한 데이터(고객·청구 등)가 초기화됩니다.
-#   데이터를 영구 보관하려면 아래 plan을 starter로 바꾸고 disk 블록을 추가하세요.
+#   서버가 재시작/재배포되면 서버 쪽 데이터가 초기화됩니다.
+#   - 가계부는 접속했던 기기의 브라우저에 로컬 캐시가 남아 있어, 서버가 비면
+#     다음 접속 때 그 기기의 기록이 자동으로 다시 올라갑니다(완전한 보호는 아님).
+#   - 데이터를 영구 보관하려면 plan을 starter로 바꾸고 disk 블록을 추가한 뒤
+#     DATA_DIR을 디스크 마운트 경로로 지정하세요. (예시는 각 서비스 아래 주석 참고)
 services:
   - type: web
     name: insurenet
@@ -16,3 +22,26 @@ services:
     envVars:
       - key: JWT_SECRET
         generateValue: true    # 안전한 비밀 키 자동 생성 (재시작해도 유지)
+
+  - type: web
+    name: budget
+    runtime: node
+    plan: free                 # 무료 플랜 (체험용, 데이터 비영속)
+    rootDir: budget-server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true    # 로그인 토큰 서명 키 자동 생성 (재시작해도 로그인 유지)
+      - key: PASSWORD
+        sync: false            # 배포할 때 Render 화면에서 접속 비밀번호를 직접 입력
+    # ── 유료(starter) 플랜에서 데이터 영구 보관하려면 위 plan을 starter로 바꾸고
+    #    아래 주석을 해제하세요 ──
+    # disk:
+    #   name: budget-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # envVars 에 추가:
+    #   - key: DATA_DIR
+    #     value: /var/data

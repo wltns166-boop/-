@@ -101,9 +101,53 @@ set PASSWORD=원하는비밀번호 && set JWT_SECRET=아무긴문자열 && npm s
 
 `/api/state` 계열은 모두 `Authorization: Bearer <token>` 헤더가 필요합니다.
 
-## 집 밖에서도 쓰고 싶다면 (선택)
+## 집 밖에서도 쓰고 싶다면 — 클라우드 배포
 
-보험 인트라넷과 같은 방식으로 클라우드(Render, Railway 등)에 올리면
-HTTPS 주소 하나로 어디서든 접속할 수 있습니다. 배포 서비스에서
-시작 명령을 `cd budget-server && npm install && npm start`로 지정하고
-`PASSWORD`, `JWT_SECRET`, `DATA_DIR`(영속 디스크 경로) 환경변수를 설정하세요.
+두 컴퓨터가 서로 다른 네트워크(집·사무실 등)에 있다면 서버를 클라우드에 올리세요.
+HTTPS 주소 하나로 어디서든 접속할 수 있습니다.
+
+### 방법 A — Render (가장 쉬움, 무료 플랜)
+
+저장소의 `render.yaml`에 가계부 서비스(`budget`)가 이미 정의되어 있습니다.
+
+1. <https://render.com> 가입 후 **New ▸ Blueprint** → 이 GitHub 저장소 선택
+2. Render가 `render.yaml`을 읽어 자동 구성합니다.
+   - `budget` 서비스의 **PASSWORD** 값만 화면에서 직접 입력하세요 (접속 비밀번호)
+   - `JWT_SECRET`은 자동 생성됩니다
+   - 보험 인트라넷(`insurenet`)이 필요 없으면 그 서비스는 화면에서 빼면 됩니다
+3. 배포가 끝나면 `https://budget-xxxx.onrender.com` 같은 주소가 생깁니다.
+   두 컴퓨터 모두 이 주소로 접속해 같은 비밀번호를 입력하면 끝입니다.
+
+> **무료 플랜 주의사항**
+> - 일정 시간 미사용 시 잠들었다가 첫 접속에 깨어나느라 수십 초 걸릴 수 있습니다.
+> - 영속 디스크가 없어 재시작/재배포 시 **서버 쪽 데이터가 초기화**됩니다.
+>   다만 접속했던 기기의 브라우저에 로컬 캐시가 남아 있어, 서버가 비면 다음 접속 때
+>   그 기기의 기록이 자동으로 다시 올라갑니다. 그래도 안전하게 쓰려면
+>   "데이터 관리 → JSON 백업"을 가끔 받아두거나, 유료(starter) 플랜 + 디스크를 쓰세요.
+>   (`render.yaml`의 `budget` 서비스 아래 주석에 디스크 설정 예시가 있습니다.)
+
+### 방법 B — Docker (Railway, Fly.io, Cloud Run, 집 서버/NAS 등)
+
+루트의 `Dockerfile.budget`을 사용합니다.
+
+```bash
+docker build -f Dockerfile.budget -t budget .
+docker run -d -p 4001:4001 \
+  -e PASSWORD=원하는비밀번호 \
+  -e JWT_SECRET=아무긴문자열 \
+  -v budget-data:/data \
+  budget
+```
+
+- `-v budget-data:/data` : 데이터를 볼륨에 영속 저장 (컨테이너를 지워도 유지)
+- Railway/Fly.io 등에서는 Dockerfile 경로를 `Dockerfile.budget`으로 지정하고,
+  볼륨을 `/data`에 마운트한 뒤 `PASSWORD`, `JWT_SECRET` 환경변수를 설정하세요.
+
+### 배포 시 환경변수 체크리스트
+
+| 변수 | 필수 | 설명 |
+|------|------|------|
+| `PASSWORD` | ✅ | 접속 비밀번호. 기본값(budget1234) 그대로 공개 서버에 올리지 마세요 |
+| `JWT_SECRET` | ✅ | 미지정 시 재시작마다 모든 기기에서 비밀번호를 다시 입력해야 함 |
+| `DATA_DIR` | 권장 | 영속 디스크/볼륨 경로 (예: `/var/data`, `/data`) |
+| `PORT` | - | 대개 플랫폼이 자동 주입 |
