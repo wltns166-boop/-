@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-3</div>
   </div>
 </div>
 
@@ -1652,12 +1652,21 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
               <div id="claim_ins_search_list" style="max-height:200px;overflow-y:auto;border:1px solid rgba(30,150,80,.25);border-radius:8px;background:#fff"></div>
             </div>
             <div class="fr">
-              <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동"></div>
-              <div class="fg"><div class="fl">주민번호</div><input class="fi" id="claim_ins_rrn" placeholder="000000-0000000" maxlength="14" oninput="formatRrn(this)"></div>
+              <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동" onblur="_silsonDraw()"></div>
+              <div class="fg"><div class="fl">주민번호</div><input class="fi" id="claim_ins_rrn" placeholder="000000-0000000" maxlength="14" oninput="formatRrn(this)" onblur="_silsonDraw()"></div>
               <div class="fg" style="max-width:170px"><div class="fl">계약자와의 관계</div>
                 <select class="fs" id="claim_ins_rel"><option value="">선택</option><option>본인</option><option>배우자</option><option>자녀</option><option>보호자</option><option>법정대리인</option></select>
               </div>
             </div>
+          </div>
+
+          <!-- 실손보험청구 — 피보험자별 지정 보험사 자동 선택 (2026-09-10) -->
+          <div id="claim_silson_bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f5fff8;border:1px solid rgba(30,150,80,.22);border-radius:10px;padding:10px 14px;margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:7px;font-size:15px;font-weight:700;color:#1a7040;cursor:pointer;margin:0"><input type="checkbox" id="claim_silson_chk" onchange="claimSilsonToggle()" style="accent-color:#1e9650;width:15px;height:15px"> 실손보험청구</label>
+            <span style="color:#c2d4c8">|</span>
+            <span id="claim_silson_ins" style="font-size:14px;color:#999">미지정</span>
+            <span style="color:#c2d4c8">|</span>
+            <button type="button" onclick="openSilsonModal()" style="font-size:13px;padding:4px 12px;background:rgba(30,150,80,.12);border:1px solid rgba(30,150,80,.3);border-radius:6px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-pin"></i> 지정</button>
           </div>
 
           <!-- 청구보험사 -->
@@ -2139,6 +2148,24 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   <div class="mf">
     <button class="bca" onclick="g('m_trip').classList.remove('open')">취소</button>
     <button class="bco" onclick="submitTrip()">신청</button>
+  </div>
+</div></div>
+
+<!-- 실손보험 보험사 지정 모달 (2026-09-10) — 흰 배경(함정 D 역방향), 청구보험사와 동일 리스트 -->
+<div class="mb" id="m_silson"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18);max-width:720px;width:94vw">
+  <div class="mth" style="color:#1a1a2e"><span>실손보험 보험사 지정</span><span class="mc" onclick="g('m_silson').classList.remove('open')" style="color:#555;cursor:pointer">×</span></div>
+  <div id="silson_target" style="font-size:14.5px;font-weight:700;color:#1a7040;margin-bottom:6px"></div>
+  <div style="font-size:12.5px;color:#889;margin-bottom:10px">한 번 지정하면 저장되어, 다음부터는 [실손보험청구] 체크만 해도 이 보험사가 청구보험사에 자동 선택됩니다. (피보험자 기준)</div>
+  <div style="background:#f8f9ff;border:1px solid rgba(80,80,200,.15);border-radius:10px;padding:14px">
+    <div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(80,80,200,.12)">🏢 손해보험사</div>
+    <div id="silson_son" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px"></div>
+    <div style="font-size:14px;font-weight:700;color:#208050;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(40,160,80,.12)">🏦 생명보험사</div>
+    <div id="silson_life" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div>
+  </div>
+  <div class="mf">
+    <button class="bca" onclick="silsonClear()" style="margin-right:auto;color:#c04040">지정 해제</button>
+    <button class="bca" onclick="g('m_silson').classList.remove('open')">취소</button>
+    <button class="bco" onclick="silsonSave()">저장</button>
   </div>
 </div></div>
 
@@ -2976,6 +3003,8 @@ let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // �
 // 출장 불가일(관리자 지정, 2026-09-04) — days는 [{d:'YYYY-MM-DD',by,ts}] 배열(Firestore merge가 맵을 깊게 병합해
 // 해제(키 삭제)가 클라우드에 반영되지 않는 함정 회피 — 배열은 통째로 교체됨). 텍스트만(함정 B).
 let tripblock=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_tripblock')||'{"days":[]}'); if(v&&Array.isArray(v.days)) return v; }catch(e){} return {days:[]}; })();
+// 실손보험 지정 보험사 — {items:[{k:'이름|생년6',name,ins,by,ts}]} (배열 통째 교체 — merge 깊은 병합 함정 회피, tripblock 계열)
+let silson=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_silson')||'{"items":[]}'); if(v&&Array.isArray(v.items)) return v; }catch(e){} return {items:[]}; })();
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
@@ -3513,6 +3542,7 @@ async function loadFromFirestore(){
     if(d.expects&&d.expects.length){ expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} }
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} }
+    if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -3602,6 +3632,7 @@ function startRealtimeSync(){
     if(d.expects) { expects=d.expects; try{ localStorage.setItem('tops_expects',JSON.stringify(expects)); }catch(e){} changed=true; }
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} changed=true; }
+    if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -20554,6 +20585,8 @@ function toggleClaimForm(){
     var isel=g('claim_ins_selected');if(isel)isel.innerHTML='';
     window._claimFaxPre={}; var fxw=g('claim_fax_wrap'); if(fxw)fxw.innerHTML='';
     var fbx=g('claim_ins_fam_btns');if(fbx)fbx.innerHTML=''; // 이전 계약자의 가족 버튼 잔존 방지
+    var sck=g('claim_silson_chk');if(sck)sck.checked=false; // 실손 체크·표시 초기화
+    try{ _silsonDraw(); }catch(e){}
     var idp=g('claim_id_preview');if(idp)idp.innerHTML='';
     var bkp=g('claim_bank_preview');if(bkp)bkp.innerHTML='';
     ['claim_cust_search_wrap','claim_ins_search_wrap'].forEach(function(id){var el=g(id);if(el)el.style.display='none';});
@@ -21100,6 +21133,8 @@ function editClaim(i){
   if(g('claim_bank'))g('claim_bank').value=c.bank||'';
   if(g('claim_ins_rel'))g('claim_ins_rel').value=c.insRel||'';
   try{ _claimInsFamDraw(); }catch(e){} // 수정 폼에서도 계약자 기준 가족 버튼 표시
+  var _sck=g('claim_silson_chk'); if(_sck)_sck.checked=false; // 수정 폼은 저장된 보험사 체크가 정답 — 실손 체크는 초기화
+  try{ _silsonDraw(); }catch(e){}
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
   var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
   _claimDocsFormReset(wrap); // 직전에 다른 고객으로 진행 중이던 서류 자동등록 응답이 이 수정 폼에 들어오지 않도록
@@ -21205,6 +21240,107 @@ function _claimFaxDraw(sel){
         +'<input class="fi" data-fax="'+_esc(s)+'" value="'+_esc(v)+'" placeholder="팩스번호 (예: 02-0000-0000)" style="flex:1;max-width:280px;background:#fff;color:#111">'
         +'</div>';
     }).join('');
+}
+
+// ── 실손보험청구 — 피보험자별 지정 보험사 (2026-09-10) ──
+// 데이터: silson={items:[{k:'이름|생년6',name,ins,by,ts}]} — 동기화 키 tops_silson(텍스트만, 함정 B 무관).
+// items는 배열(통째 교체) — Firestore merge 깊은 병합으로 해제가 전파 안 되는 함정 회피(tripblock 계열).
+// 조회·삭제는 k(이름|생년6) 기준 — 함정 A 안전. 지정 저장은 생년6 필수(동명이인 키 공유 방지 — claim_docs 계열).
+function _silsonLookup(name,rrn){
+  var n=String(name||'').trim(); if(!n) return null;
+  var b=String(rrn||'').replace(/[^0-9]/g,'').slice(0,6);
+  var items=(silson&&Array.isArray(silson.items))?silson.items:[];
+  if(b&&b.length===6){
+    for(var i=0;i<items.length;i++){ if(items[i]&&items[i].k===n+'|'+b) return items[i]; }
+    return null;
+  }
+  // 생년 미입력 조회 — 같은 이름 지정이 정확히 1건일 때만 채택(동명이인 오적용 방지)
+  var hits=items.filter(function(x){ return x&&String(x.k||'').split('|')[0]===n; });
+  return hits.length===1?hits[0]:null;
+}
+function _silsonCur(){
+  return _silsonLookup((g('claim_ins_name')||{value:''}).value,(g('claim_ins_rrn')||{value:''}).value);
+}
+function _silsonDraw(){
+  var el=g('claim_silson_ins'); if(!el) return;
+  var it=_silsonCur();
+  el.textContent=it?('보험사: '+it.ins):'미지정';
+  el.style.color=it?'#1a7040':'#999';
+  el.style.fontWeight=it?'700':'400';
+  var chk=g('claim_silson_chk');
+  if(chk&&chk.checked&&!it) chk.checked=false; // 피보험자가 바뀌어 지정이 없으면 체크 해제(오적용 방지)
+}
+function claimSilsonToggle(){
+  var chk=g('claim_silson_chk'); if(!chk) return;
+  var name=String((g('claim_ins_name')||{value:''}).value||'').trim();
+  if(!name){ chk.checked=false; toast('피보험자 고객명을 먼저 입력하세요.'); return; }
+  var it=_silsonCur();
+  if(chk.checked){
+    if(!it){ chk.checked=false; toast('지정된 실손 보험사가 없습니다 — 보험사를 지정해 주세요.'); openSilsonModal(); return; }
+    _silsonApplyCheck(it.ins,true);
+  } else if(it){
+    _silsonApplyCheck(it.ins,false); // 체크 해제 시 자동 선택했던 보험사도 해제
+  }
+}
+function _silsonApplyCheck(ins,on){
+  var found=null;
+  document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){ if(cb.value===ins) found=cb; });
+  if(!found&&on){
+    // 지정 보험사가 현재 목록에 없음(관리자 명단 개편 등) — 편집 폼의 extras 경로로 되살려 체크
+    var sel=[]; document.querySelectorAll('input[name="claim_ins"]:checked').forEach(function(cb){ sel.push(cb.value); });
+    if(sel.indexOf(ins)<0) sel.push(ins);
+    _claimInsRender(sel);
+    document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){ cb.checked=sel.indexOf(cb.value)>=0; });
+    updateClaimInsDisplay();
+    toast(ins+' — 청구보험사에 선택되었습니다.');
+    return;
+  }
+  if(!found) return;
+  if(found.checked!==on){ found.checked=on; updateClaimInsDisplay(); }
+  if(on) toast(ins+' — 청구보험사에 선택되었습니다.');
+}
+function openSilsonModal(){
+  var name=String((g('claim_ins_name')||{value:''}).value||'').trim();
+  if(!name){ toast('피보험자 고객명을 먼저 입력하세요.'); return; }
+  var it=_silsonCur();
+  var b=String((g('claim_ins_rrn')||{value:''}).value||'').replace(/[^0-9]/g,'').slice(0,6);
+  var t=g('silson_target'); if(t) t.textContent='피보험자: '+name+(b.length===6?' ('+b+')':'');
+  var L=_reqInsLists();
+  var mk=function(n){
+    return '<label class="cust_ins_label" style="color:#1a1a2e"><input type="radio" name="silson_ins" value="'+_esc(n)+'"'+(it&&it.ins===n?' checked':'')+' style="accent-color:#1e9650;width:13px;height:13px"> '+_esc(n)+'</label>';
+  };
+  var son=g('silson_son'); if(son) son.innerHTML=L.son.map(mk).join('');
+  var life=g('silson_life'); if(life) life.innerHTML=L.life.map(mk).join('');
+  g('m_silson').classList.add('open');
+}
+function silsonSave(){
+  var name=String((g('claim_ins_name')||{value:''}).value||'').trim();
+  if(!name){ toast('피보험자 고객명을 먼저 입력하세요.'); return; }
+  var b=String((g('claim_ins_rrn')||{value:''}).value||'').replace(/[^0-9]/g,'').slice(0,6);
+  if(b.length!==6){ toast('피보험자 주민번호(앞 6자리)를 입력해야 지정을 저장할 수 있습니다 — 동명이인 구분용.'); return; }
+  var pick=document.querySelector('input[name="silson_ins"]:checked');
+  if(!pick){ toast('보험사를 선택하세요.'); return; }
+  var key=name+'|'+b;
+  var items=((silson&&Array.isArray(silson.items))?silson.items:[]).filter(function(x){ return x&&x.k!==key; });
+  items.push({k:key, name:name, ins:pick.value, by:(typeof cu==='object'&&cu&&cu.name)||'', ts:Date.now()});
+  silson={items:items};
+  sv('tops_silson', silson);
+  g('m_silson').classList.remove('open');
+  _silsonDraw();
+  var chk=g('claim_silson_chk');
+  if(chk&&chk.checked) _silsonApplyCheck(pick.value,true);
+  toast(name+' 님 실손 보험사가 ['+pick.value+']로 지정되었습니다.');
+}
+function silsonClear(){
+  var it=_silsonCur();
+  if(!it){ toast('지정된 실손 보험사가 없습니다.'); return; }
+  if(!confirm(String(it.name||'')+' 님의 실손 보험사 지정('+it.ins+')을 해제할까요?')) return;
+  silson={items:((silson&&Array.isArray(silson.items))?silson.items:[]).filter(function(x){ return x&&x.k!==it.k; })};
+  sv('tops_silson', silson);
+  g('m_silson').classList.remove('open');
+  var chk=g('claim_silson_chk'); if(chk) chk.checked=false;
+  _silsonDraw();
+  toast('지정이 해제되었습니다.');
 }
 
 function previewClaimId(){
@@ -21372,6 +21508,7 @@ function selectClaimInsCust(name,rrn){
   var n=g('claim_ins_name'); if(n) n.value=name||'';
   var r=g('claim_ins_rrn'); if(r) r.value=rrn||'';
   var wrap=g('claim_ins_search_wrap'); if(wrap) wrap.style.display='none';
+  try{ _silsonDraw(); }catch(e){}
   toast('피보험자 정보가 입력되었습니다.');
 }
 
@@ -21450,6 +21587,7 @@ function claimInsFamPick(name,rrn,rel){
   var r=g('claim_ins_rrn'); if(r) r.value=rrn||'';
   var relEl=g('claim_ins_rel'); if(relEl) relEl.value=rel||'';
   var wrap=g('claim_ins_search_wrap'); if(wrap) wrap.style.display='none';
+  try{ _silsonDraw(); }catch(e){}
   toast((name||'')+' 님이 피보험자로 입력되었습니다.');
 }
 
@@ -21493,6 +21631,7 @@ function fillInsuredSameAsContractor(){
   if(insName&&name) insName.value=name.value;
   if(insRrn&&rrn) insRrn.value=rrn.value;
   var rel=g('claim_ins_rel'); if(rel) rel.value='본인'; // 계약자=피보험자 → 관계는 본인
+  try{ _silsonDraw(); }catch(e){}
   toast('계약자 정보가 피보험자에 입력되었습니다.');
 }
 
