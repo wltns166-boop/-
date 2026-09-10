@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-12</div>
   </div>
 </div>
 
@@ -4145,6 +4145,8 @@ function logout(){
   // 다른 관리자가 로그인해도 요청 현황·총무휴가 팝업이 다시 뜨게 함
   window._reqStatShown=false; window._cwVacShown=false;
   try{ var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }catch(e){}
+  // 업무 현황 팝업 설정 편집 초안 리셋 — 같은 탭에서 다른 관리자 로그인 시 미저장 편집이 넘어가는 것 방지(2026-09-10 리뷰)
+  window._rsWork=null; window._rsOrder=null; window._rsAddOpen=null;
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
   // 재렌더 생략 가드가 고착돼 공지 목록 실시간 갱신이 막힘
   try{ if(window._notPinMode) _notPinExit(); }catch(e){}
@@ -11827,7 +11829,12 @@ function _reqStatRole(){
 function _rsPageAllowed(role,pg){
   if(pg==='navset'||pg==='home') return false;                        // 설정 자체·홈(팝업이 홈에서 뜸)은 제외
   if(role!=='bm' && pg==='hierarchy') return false;                   // 계보도는 지점장(트리 관리자) 전용
+  // ⚠️ 위 계보도 조건은 "ADMINS의 bm 2명(백동현·박지순)이 곧 _isTreeAdmin"이라는 현재 구성 전제 —
+  //    관리자 구성이 바뀌면(bm 추가 등) _isTreeAdmin 기준으로 재검토할 것(어긋나면 죽은 바로가기 — 2026-09-10 리뷰)
   if((role==='mem'||role==='lead') && (pg==='dreport'||pg==='usage')) return false; // 관리자 전용
+  // DB 관리 4종 — showPage가 아닌 사이드바 클릭 핸들러에서만 관리자 가드(고객 PII 페이지).
+  // 팝업 바로가기는 showPage를 직접 호출해 그 가드를 우회하므로 여기서 반드시 차단(2026-09-10 intranet-guard 치명 지적)
+  if((role==='mem'||role==='lead') && ['db_apply','db_assign','db_info','db_exchange'].indexOf(pg)>=0) return false;
   if(role==='mem' && ['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(pg)>=0) return false; // 팀장 이상
   return true;
 }
@@ -11838,6 +11845,9 @@ function _reqStatItem(k){
   var m=/^pg:([A-Za-z0-9_]+)$/.exec(String(k||''));
   if(!m) return null;
   var pg=m[1], label=pg;
+  // 삭제된 커스텀 페이지(cm_*)는 죽은 바로가기 — 항목에서 제외(팝업·설정에서 안 보이고, 다음 [저장] 때 구성에서도 자연 정리.
+  // 조회 실패(예외)는 제외하지 않음 — 일시 오류로 정상 항목이 빠지는 것 방지, 2026-09-10 리뷰)
+  if(pg.indexOf('cm_')===0){ try{ if(!_navCustomById(pg)) return null; }catch(e){} }
   try{ label=_ptitle(pg)||pg; }catch(e){}
   return {pg:pg, icon:'ti-arrow-right', label:label, sub:'바로가기', link:1, dyn:1};
 }
