@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-27</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-28</div>
   </div>
 </div>
 
@@ -20328,11 +20328,14 @@ function bdrUpBoxSel(){
 }
 function bdrUpDragOver(e){
   e.preventDefault(); e.stopPropagation();
+  if(window._bdrUpBusy) return;   // 변환 중엔 드롭 가능처럼 보이는 초록 강조도 생략(드롭 자체는 bdrUpDrop이 거부)
   try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
   _bdrUpBoxPaint(true);
 }
 function bdrUpDragLeave(e){
   e.stopPropagation();
+  // 박스 안 자식 요소(아이콘·굵은 글씨)로 옮겨간 것뿐이면 강조 유지 — 깜빡임 방지(rsDragLeave 계열, 2026-09-10 리뷰)
+  try{ var _bx=g('bdrup_drop'); if(e.relatedTarget&&_bx&&_bx.contains(e.relatedTarget)) return; }catch(_e){}
   _bdrUpBoxPaint(!!window._bdrUpSel);   // 선택 표시는 유지(강조만 해제 — _custTgtPaint 계열)
 }
 function bdrUpDrop(e){
@@ -20348,6 +20351,10 @@ document.addEventListener('paste', function(ev){
     if(!g('bdrup_overlay')||!window._bdrUp) return;
     var fs=(ev.clipboardData&&ev.clipboardData.files)?Array.prototype.slice.call(ev.clipboardData.files):[];
     if(!fs.length) return;
+    // 텍스트+파일 혼합 클립보드로 배경 입력칸에 텍스트를 붙여넣는 중이면 가로채지 않음(기존 paste 핸들러 4곳과 동일 예외)
+    var _hasText=false; try{ _hasText=!!(ev.clipboardData.getData&&ev.clipboardData.getData('text')); }catch(_e){}
+    var _ae=document.activeElement, _tag=_ae?String(_ae.tagName||'').toLowerCase():'';
+    if(_hasText&&(_tag==='input'||_tag==='textarea')) return;
     ev.preventDefault(); ev.stopPropagation();
     if(window._bdrUpBusy){ toast('변환·등록 중에는 서류를 추가할 수 없습니다.'); return; }
     _bdrUpAddFiles(fs);
