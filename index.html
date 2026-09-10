@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-10</div>
   </div>
 </div>
 
@@ -18612,7 +18612,7 @@ function _rsTabInit(){
   if(!window._rsWork||!window._rsOrder){
     window._rsWork={}; window._rsOrder={};
     RS_ROLES.forEach(function(role){
-      var sel=_reqStatKeys(role);                      // 저장본 또는 기본값(저장 순서 유지)
+      var sel; try{ sel=_reqStatKeys(role); }catch(e){ sel=(REQSTAT_DEF[role]||[]).slice(); } // 역할별 독립 — 하나 실패해도 나머지 초기화, 빈 배열 오저장 방지(2026-09-10 리뷰)
       window._rsWork[role]=sel.slice();
       var order=sel.slice();                           // 체크된 항목을 저장 순서대로 앞에, 나머지는 카탈로그 순으로 뒤에
       Object.keys(REQSTAT_ITEMS).forEach(function(k){ if(order.indexOf(k)<0) order.push(k); });
