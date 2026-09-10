@@ -822,9 +822,12 @@
     편집기는 `_ccMode='daeri'`(openClaimCal — 진입 슬롯 1개만 목록, 도구박스 `CC_DAERI_GROUPS`/`CC_DAERI_KEYS`).
   · **폴백 오기입 차단**: `_bdrBuild`가 custName/rrn 미전달 + 위임받는자 빈 값 항목 좌표를 on:false로 꺼서
     ctx 폴백(ct←ins)으로 반대쪽 사람 정보가 빈 칸에 찍히는 것 방지. ⚠️ 이 wbOf 맵은 CC_DAERI_KEYS의 ct* 항목과 1:1 유지할 것.
-  · **양식 업로드 3종 (v-23)**: PDF(원본 그대로)·사진 여러 장(`_bdrImgsToPdfB64` — _claimImgShrink JPEG 정규화 후
-    A4 페이지 병합)·한글 hwp(`_bdrHwpToPdfB64` — hwp.js(jsdelivr) 지연 로드+html2canvas 캡처 → JPEG PDF, **최선 노력** —
-    실패 시 "한글에서 PDF로 저장" 안내 폴백. hwpx는 미지원 안내). 한 번에 한 종류만(사진만 다중), 25MB 상한, `_bdrUpBusy` 가드.
+  · **양식 업로드 모달 (v-23~25)**: [양식 업로드] → 모달(`bdrup_overlay`, bdrUpOpen) — 서류(PDF·사진·한글 hwp)를
+    행으로 추가/▲▼ 순서/✕ 제거 후 [등록]하면 **추가한 순서대로 한 PDF로 병합**해 슬롯 저장(기존 양식 대체, 반쪽 등록 금지 —
+    행 실패 시 몇 번 서류인지 안내 후 전체 중단). 종류 혼합 허용(행 순서가 페이지 순서), 행 30개·파일당 25MB 상한,
+    행 조작 행 id 기준(함정 A), `_bdrUpBusy` 가드(변환 중 바깥 클릭 닫기 방지). 변환: 사진=`_claimImgShrink`+`_bdrAddJpgPage`(A4),
+    한글 hwp=`_bdrHwpToPdfB64`(hwp.js(jsdelivr) 지연 로드+html2canvas 캡처, 긴 렌더는 `_bdrSliceCanvas`로 A4 분할,
+    30쪽 초과 안내 — **최선 노력**, 실패 시 "한글에서 PDF로 저장" 안내 폴백. hwpx는 미지원 안내).
   · 입력값 저장·동기화 없음(함정 B) — 메모리 버퍼 `window._bdrVals`(재렌더 회수 `_bdrSyncFromDom`, **logout에서 리셋** —
     공용 PC PII 잔존 차단, v-21 리뷰). id는 bdr_ 접두(함정 E). ⚠️ 슬롯이 분류 "이름" 기반 — 이름 변경 시 양식·좌표 재등록 필요.
 - **사이드바 메뉴 검색 (2026-09-10 v-17)**: [메뉴] 라벨 아래 `#nav_srch` — 메뉴 라벨 실시간 필터(공백·대소문자 무시),
