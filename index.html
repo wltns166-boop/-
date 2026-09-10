@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-26</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-27</div>
   </div>
 </div>
 
@@ -20219,6 +20219,7 @@ function bdrUpOpen(name,catId){
   var cat=_bdrCatById(name,catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return; }
   var old=g('bdrup_overlay'); if(old) old.remove();
   window._bdrUp={ name:name, catId:catId, rows:[] };
+  window._bdrUpSel=false;   // 드롭 박스 선택(초록 강조) 상태 — 모달 열 때마다 초기화
   var ov=document.createElement('div');
   ov.id='bdrup_overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -20227,6 +20228,12 @@ function bdrUpOpen(name,catId){
     +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-upload"></i> '+_esc(cat.nm)+' — 양식 업로드</div>'
     +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">서류(PDF·사진·한글파일 hwp)를 추가하면 <b>추가한 순서대로 합쳐 하나의 양식</b>으로 등록됩니다.'
       +'<br>등록하면 기존 양식은 새 양식으로 대체됩니다. (파일당 25MB 이하)</div>'
+    +'<div id="bdrup_drop" onclick="bdrUpBoxSel()" ondragover="bdrUpDragOver(event)" ondragleave="bdrUpDragLeave(event)" ondrop="bdrUpDrop(event)"'
+      +' style="border:2px dashed #c8cce8;border-radius:10px;padding:20px 14px;text-align:center;color:#8890b0;font-size:13px;cursor:pointer;margin-bottom:10px;background:#fbfbfe;transition:border-color .15s,background .15s">'
+      +'<i class="ti ti-file-upload" style="font-size:22px"></i><br>'
+      +'파일을 여기로 <b>끌어다 놓거나</b>, 박스를 클릭해 <b style="color:#2ea043">선택</b>한 뒤 <b>붙여넣기(Ctrl+V)</b> 하세요.<br>'
+      +'<span style="font-size:11.5px;color:#a8b0c8">PDF · 사진 · 한글파일(hwp)</span>'
+    +'</div>'
     +'<div id="bdrup_rows"></div>'
     +'<button onclick="bdrUpPick()" style="padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px"><i class="ti ti-plus"></i> 서류 추가</button>'
     +'<input type="file" id="bdrup_file" accept=".pdf,.hwp,image/*" multiple style="display:none" onchange="bdrUpFileChange()">'
@@ -20235,6 +20242,9 @@ function bdrUpOpen(name,catId){
     +'<button id="bdrup_save_btn" onclick="bdrUpSave()" style="'+bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 등록</button>'
     +'</div></div>';
   ov.addEventListener('click',function(ev){ if(ev.target===ov) bdrUpClose(); }); // 바깥 클릭 닫기(변환 중엔 bdrUpClose가 차단)
+  // 박스 밖 빗나간 드롭이 브라우저 파일 열기로 새지 않게(모달 전체 방어 — m_samdocs 캐치올 계열)
+  ov.addEventListener('dragover',function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+  ov.addEventListener('drop',function(ev){ ev.preventDefault(); ev.stopPropagation(); });
   document.body.appendChild(ov);
   _bdrUpRowsDraw();
 }
@@ -20284,10 +20294,9 @@ function bdrUpPick(){
   if(window._bdrUpBusy){ toast('변환·등록 중에는 서류를 추가할 수 없습니다.'); return; }
   var inp=g('bdrup_file'); if(inp) inp.click();
 }
-function bdrUpFileChange(){
-  if(window._bdrUpBusy) return;   // 변환 중 도착분 무시(선택창을 미리 열어둔 경우)
-  var e=window._bdrUp, inp=g('bdrup_file'); if(!e||!inp||!inp.files||!inp.files.length) return;
-  var files=Array.prototype.slice.call(inp.files); inp.value='';
+// 파일 추가 공용 코어 — 파일선택·드래그앤드롭·붙여넣기 세 경로가 모두 이 검증·등록을 공유
+function _bdrUpAddFiles(files){
+  var e=window._bdrUp; if(!e||!files||!files.length) return;
   var skipped=[];
   files.forEach(function(f){
     var k=_bdrFileKind(f);
@@ -20300,6 +20309,51 @@ function bdrUpFileChange(){
   _bdrUpRowsDraw();
   if(skipped.length) toast('제외된 파일: '+skipped.join(' / '));
 }
+function bdrUpFileChange(){
+  if(window._bdrUpBusy) return;   // 변환 중 도착분 무시(선택창을 미리 열어둔 경우)
+  var inp=g('bdrup_file'); if(!inp||!inp.files||!inp.files.length) return;
+  var files=Array.prototype.slice.call(inp.files); inp.value='';
+  _bdrUpAddFiles(files);
+}
+// ── 드롭 박스: 클릭=선택(초록 강조 — 4.75 붙여넣기 대상 계열), 드래그앤드롭·붙여넣기(Ctrl+V) 지원 ──
+// 전용 핸들러는 stopPropagation으로 문서 공용(uni) 이중 처리 제외(4.8 규칙).
+function _bdrUpBoxPaint(on){
+  var b=g('bdrup_drop'); if(!b) return;
+  b.style.border=on?'2px solid #2ea043':'2px dashed #c8cce8';
+  b.style.background=on?'#eef9ee':'#fbfbfe';
+}
+function bdrUpBoxSel(){
+  window._bdrUpSel=!window._bdrUpSel;
+  _bdrUpBoxPaint(!!window._bdrUpSel);
+}
+function bdrUpDragOver(e){
+  e.preventDefault(); e.stopPropagation();
+  try{ e.dataTransfer.dropEffect='copy'; }catch(_e){}
+  _bdrUpBoxPaint(true);
+}
+function bdrUpDragLeave(e){
+  e.stopPropagation();
+  _bdrUpBoxPaint(!!window._bdrUpSel);   // 선택 표시는 유지(강조만 해제 — _custTgtPaint 계열)
+}
+function bdrUpDrop(e){
+  e.preventDefault(); e.stopPropagation();
+  _bdrUpBoxPaint(!!window._bdrUpSel);
+  if(window._bdrUpBusy){ toast('변환·등록 중에는 서류를 추가할 수 없습니다.'); return; }
+  var fs=(e.dataTransfer&&e.dataTransfer.files)?Array.prototype.slice.call(e.dataTransfer.files):[];
+  if(fs.length) _bdrUpAddFiles(fs);
+}
+// 붙여넣기 — 모달이 열려 있을 때만(캡처 단계 등록 — 공용 uni 붙여넣기보다 먼저 잡아 이중 처리 방지)
+document.addEventListener('paste', function(ev){
+  try{
+    if(!g('bdrup_overlay')||!window._bdrUp) return;
+    var fs=(ev.clipboardData&&ev.clipboardData.files)?Array.prototype.slice.call(ev.clipboardData.files):[];
+    if(!fs.length) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if(window._bdrUpBusy){ toast('변환·등록 중에는 서류를 추가할 수 없습니다.'); return; }
+    _bdrUpAddFiles(fs);
+    if(!window._bdrUpSel){ _bdrUpBoxPaint(true); setTimeout(function(){ _bdrUpBoxPaint(!!window._bdrUpSel); },600); }   // 받은 위치 시각 피드백
+  }catch(e){}
+}, true);
 async function bdrUpSave(){
   if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
   var e=window._bdrUp; if(!e) return;
