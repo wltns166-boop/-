@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-25</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-26</div>
   </div>
 </div>
 
@@ -4160,6 +4160,7 @@ function logout(){
   // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
   // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
   window._bdrVals=null;
+  window._bdrUp=null; try{ var _buo=g('bdrup_overlay'); if(_buo) _buo.remove(); }catch(e){}   // 업로드 모달도 정리(로그인 화면 위 잔존 방지)
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
   // 재렌더 생략 가드가 고착돼 공지 목록 실시간 갱신이 막힘
   try{ if(window._notPinMode) _notPinExit(); }catch(e){}
@@ -20230,10 +20231,10 @@ function bdrUpOpen(name,catId){
     +'<button onclick="bdrUpPick()" style="padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px"><i class="ti ti-plus"></i> 서류 추가</button>'
     +'<input type="file" id="bdrup_file" accept=".pdf,.hwp,image/*" multiple style="display:none" onchange="bdrUpFileChange()">'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
-    +'<button onclick="document.getElementById(\'bdrup_overlay\').remove()" style="'+bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
+    +'<button onclick="bdrUpClose()" style="'+bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">닫기</button>'
     +'<button id="bdrup_save_btn" onclick="bdrUpSave()" style="'+bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-device-floppy"></i> 등록</button>'
     +'</div></div>';
-  ov.addEventListener('click',function(ev){ if(ev.target===ov&&!window._bdrUpBusy) ov.remove(); }); // 변환 중엔 바깥 클릭 닫기 방지
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) bdrUpClose(); }); // 바깥 클릭 닫기(변환 중엔 bdrUpClose가 차단)
   document.body.appendChild(ov);
   _bdrUpRowsDraw();
 }
@@ -20256,6 +20257,7 @@ function _bdrUpRowsDraw(){
   }).join('')||'<div style="color:#a0a0b0;font-size:13px;padding:10px 0">추가된 서류가 없습니다. [서류 추가]로 파일을 골라주세요.</div>';
   box.querySelectorAll('[data-bdruprm]').forEach(function(b){
     b.addEventListener('click',function(){
+      if(window._bdrUpBusy){ toast('변환·등록 중에는 목록을 바꿀 수 없습니다.'); return; } // 병합 중 배열 조작 차단(2026-09-10 리뷰)
       var id=b.getAttribute('data-bdruprm');
       window._bdrUp.rows=window._bdrUp.rows.filter(function(r){ return r.id!==id; });
       _bdrUpRowsDraw();
@@ -20263,6 +20265,7 @@ function _bdrUpRowsDraw(){
   });
   box.querySelectorAll('[data-bdrupmv]').forEach(function(b){
     b.addEventListener('click',function(){
+      if(window._bdrUpBusy){ toast('변환·등록 중에는 목록을 바꿀 수 없습니다.'); return; }
       var pr=b.getAttribute('data-bdrupmv').split('|'), id=pr[0], dir=+pr[1];
       var rows=window._bdrUp.rows, i=-1;
       rows.forEach(function(r,k){ if(r.id===id) i=k; });
@@ -20272,8 +20275,17 @@ function _bdrUpRowsDraw(){
     });
   });
 }
-function bdrUpPick(){ var inp=g('bdrup_file'); if(inp) inp.click(); }
+function bdrUpClose(){ // 변환·등록 중엔 닫기 차단 — 진행 중 저장의 onOk가 재오픈한 모달 상태를 지우는 경합 방지(2026-09-10 리뷰)
+  if(window._bdrUpBusy){ toast('변환·등록이 끝날 때까지 기다려주세요.'); return; }
+  var ov=g('bdrup_overlay'); if(ov) ov.remove();
+  window._bdrUp=null;
+}
+function bdrUpPick(){
+  if(window._bdrUpBusy){ toast('변환·등록 중에는 서류를 추가할 수 없습니다.'); return; }
+  var inp=g('bdrup_file'); if(inp) inp.click();
+}
 function bdrUpFileChange(){
+  if(window._bdrUpBusy) return;   // 변환 중 도착분 무시(선택창을 미리 열어둔 경우)
   var e=window._bdrUp, inp=g('bdrup_file'); if(!e||!inp||!inp.files||!inp.files.length) return;
   var files=Array.prototype.slice.call(inp.files); inp.value='';
   var skipped=[];
@@ -20302,13 +20314,32 @@ async function bdrUpSave(){
   try{
     var PDFDocument=PDFLib.PDFDocument;
     var merged=await PDFDocument.create();
-    for(var i=0;i<e.rows.length;i++){
-      var r=e.rows[i];
-      toast('서류 변환 중… ('+(i+1)+'/'+e.rows.length+') '+(r.file.name||''));
+    var rows=e.rows.slice();   // 스냅샷 순회 — 변환 중 목록이 바뀌어도 병합 결과가 틀어지지 않게(2026-09-10 리뷰, 버튼 차단과 이중 방어)
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      toast('서류 변환 중… ('+(i+1)+'/'+rows.length+') '+(r.file.name||''));
       try{
         if(r.kind==='pdf'){
-          var src=await PDFDocument.load(await r.file.arrayBuffer(),{ignoreEncryption:true});   // 관리자 등록 양식 — 3종서류와 동일 패턴
-          (await merged.copyPages(src, src.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+          // ⚠️ ignoreEncryption 금지(6장 규칙 — 암호화 PDF가 빈 페이지로 "성공" 병합되는 사고) —
+          // 직접 병합 실패 시 래스터 폴백(_pdfToImages — 페이지별 JPEG, 청구 첨부와 동일 방침)
+          var direct=false;
+          try{
+            var src=await PDFDocument.load(await r.file.arrayBuffer());
+            (await merged.copyPages(src, src.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+            direct=true;
+          }catch(ePdf){ console.warn('bdrup pdf direct', r.file.name, ePdf); }
+          if(!direct){
+            var du=await new Promise(function(res,rej){
+              var rd=new FileReader();
+              rd.onload=function(){ res(String(rd.result)); };
+              rd.onerror=function(){ rej(new Error('파일 읽기 실패')); };
+              rd.readAsDataURL(r.file);
+            });
+            var ras=await _pdfToImages(du, r.file.name||'PDF');
+            if(!ras||!ras.imgs||!ras.imgs.length) throw new Error('PDF를 열 수 없습니다(암호 설정 여부를 확인해주세요).');
+            for(var ri2=0;ri2<ras.imgs.length;ri2++) await _bdrAddJpgPage(merged, ras.imgs[ri2]);
+            if(ras.total>ras.imgs.length) toast('⚠ '+(r.file.name||'PDF')+' — 앞 '+ras.imgs.length+'쪽만 변환됐습니다.');
+          }
         } else if(r.kind==='img'){
           await _bdrAddJpgPage(merged, await _claimImgShrink(r.file));
         } else {   // hwp — 변환 결과 PDF를 병합에 합류
@@ -20326,6 +20357,8 @@ async function bdrUpSave(){
     if(!merged.getPageCount()){ throw new Error('만들어진 페이지가 없습니다. 파일을 확인해주세요.'); }
     var b64=_bdrBytesB64(await merged.save());
     _bdrTplSaveB64(e.name, e.catId, cat, b64, done, function(){
+      // 이 저장을 시작한 모달 세션일 때만 정리 — 그 사이 재오픈한 새 모달 상태를 지우지 않게(2026-09-10 리뷰)
+      if(window._bdrUp!==e) return;
       var ov=g('bdrup_overlay'); if(ov) ov.remove();
       window._bdrUp=null;
     });
