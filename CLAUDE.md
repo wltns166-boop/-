@@ -38,7 +38,10 @@
 (실제로 알림발송·전체완료·특이사항·삭제·청구파일에서 연쇄로 터졌음)
 
 - **규칙**: 핸들러에는 **고유 식별자(고객명/이름/ID)** 를 넘긴다.
-  - 문자열은 `('fn('+JSON.stringify(name)+')').replace(/"/g,'&quot;')` 로 onclick에 안전하게 심는다.
+  - 문자열은 `('fn('+JSON.stringify(name)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;')` 로 onclick에 안전하게 심는다.
+    ⚠️ **`&`를 먼저** 이스케이프할 것(2026-09-10 발견) — `&` 치환이 없으면 자유 입력값에 `&quot;` 같은
+    엔티티 문자열을 넣었을 때 브라우저 속성 디코딩으로 실제 따옴표가 되살아나 onclick을 탈출(저장형 XSS).
+    옛 코드에 `"`만 치환하는 사례가 다수 남아 있음 — 자유 입력값을 새로 심을 땐 반드시 이 형태로.
   - data 속성은 `data-name="'+_alertEsc(name)+'"` 로 넣고 `getAttribute('data-name')` 로 읽는다.
 - **예외(안전)**: 원본 배열을 **정렬·필터 없이 그대로** 그리거나(`_exRows`, biz `prospects/recruits`, `exams`),
   렌더 시 `{c:c, i:원본인덱스}` 처럼 **원본 인덱스를 명시적으로 보존**해 넘기면(공지 `not`, 청구 `claims`, dbEx `_dbExDisplayList`) 안전하다.

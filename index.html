@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-8</div>
   </div>
 </div>
 
@@ -21757,7 +21757,8 @@ function _claimInsFamDraw(){
   if(!people.length) return;
   box.innerHTML=people.map(function(p){
     // 함정 A: 인덱스 대신 이름·주민번호 값을 직접 전달 (selectClaimInsCust 패턴)
-    var oc=('claimInsFamPick('+JSON.stringify(p.name)+','+JSON.stringify(p.rrn)+','+JSON.stringify(p.rel)+')').replace(/"/g,'&quot;');
+    // & 먼저 이스케이프 — 자유 입력값의 엔티티 문자열이 속성 디코딩으로 탈출하는 XSS 방지(2026-09-10 리뷰)
+    var oc=('claimInsFamPick('+JSON.stringify(p.name)+','+JSON.stringify(p.rrn)+','+JSON.stringify(p.rel)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     return '<button type="button" onclick="'+oc+'" title="피보험자로 입력" '
       +'style="font-size:13px;padding:3px 10px;background:rgba(30,150,80,.08);border:1px solid rgba(30,150,80,.28);border-radius:12px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600;display:inline-flex;align-items:center;gap:4px">'
       +_esc(p.name)
@@ -22223,6 +22224,7 @@ function openClaimFaxMgr(){
 }
 function claimFaxMgrSave(){
   if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  if(!g('cfx_rows')||!g('cfx_rows').querySelector('input[data-cfx]')){ toast('편집 화면이 준비되지 않았습니다 — [청구팩스번호] 버튼으로 다시 열어주세요.'); return; } // 미렌더 시 전체 삭제 오저장 방어(rsSave 계열)
   var items=[];
   document.querySelectorAll('#cfx_rows input[data-cfx]').forEach(function(inp){
     var fax=String(inp.value||'').trim();
@@ -22236,6 +22238,7 @@ function claimFaxMgrSave(){
 function claimFaxView(i){
   _reloadClaims();   // 함정 C — 전용 재로드만 사용
   var c=claims[i]; if(!c){ toast('청구 내역을 찾을 수 없습니다.'); return; }
+  if(!(_isAdmin()||(cu&&c.agent&&c.agent===cu.name))){ toast('본인 담당 청구 건만 조회할 수 있습니다.'); return; } // 화면 필터와 동일 가드(콘솔 직접 호출 방어 — 2026-09-10 리뷰)
   var insList=(c.insurerList&&c.insurerList.length)?c.insurerList.slice()
     :(c.insurer?String(c.insurer).split(/,\s*/).filter(function(s){return s;}):[]);
   var t=g('cfxv_title'); if(t) t.textContent=(c.custName||'')+' 님 청구 보험사 팩스번호';
@@ -22245,12 +22248,16 @@ function claimFaxView(i){
     body.innerHTML='<div style="font-size:14px;color:#888;padding:10px 0">청구 보험사가 지정되지 않은 건입니다.</div>';
   } else {
     body.innerHTML=insList.map(function(ins){
+      var fromClaim=!!(c.faxNums&&String(c.faxNums[ins]||'').trim());
       var num=String((c.faxNums&&c.faxNums[ins])||map[ins]||'').trim();
-      var oc=('_cfxCopy('+JSON.stringify(num)+')').replace(/"/g,'&quot;');
+      // & 먼저 이스케이프 — 팀원 자유 입력값에 '&quot;' 같은 엔티티 문자열이 들어가면
+      // 속성 디코딩으로 따옴표가 되살아나 onclick을 탈출하는 저장형 XSS 경로 차단(2026-09-10 리뷰)
+      var oc=('_cfxCopy('+JSON.stringify(num)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
       return '<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #eef0f6;flex-wrap:wrap">'
         +'<span style="font-size:14px;font-weight:700;color:#1a1a3a;min-width:110px">'+_esc(ins)+'</span>'
         +(num
           ?'<span style="font-size:15px;font-weight:700;color:#0a7a3a;letter-spacing:.3px">📠 '+_esc(num)+'</span>'
+            +'<span style="font-size:11px;color:#8a92ac">'+(fromClaim?'(이 청구건 입력)':'(공통)')+'</span>'
             +'<button onclick="'+oc+'" style="font-size:12px;padding:2px 9px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit">복사</button>'
           :'<span style="font-size:13.5px;color:#b04040">미등록'+(_isAdmin()?' — 상단 [청구팩스번호] 버튼에서 등록하세요':' (관리자에게 등록을 요청하세요)')+'</span>')
         +'</div>';
