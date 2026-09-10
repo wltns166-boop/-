@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-18</div>
   </div>
 </div>
 
@@ -3054,6 +3054,7 @@ let claimfax=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_claim
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
+let boardcats=JSON.parse(localStorage.getItem('tops_boardcats')||'{}');      // 게시판 분류(탭) {cm_id:[{id('bc_..'),nm}]} — 텍스트만(함정 B)
 let mgrs=JSON.parse(localStorage.getItem('tops_mgrs')||'{"son":[],"saeng":[]}'); // 매니저 연락처 {son:[손보사],saeng:[생보사]}
 let wacfg=JSON.parse(localStorage.getItem('tops_wacfg')||'{"tpls":[],"curId":""}'); // 보장분석 구글시트 양식 목록 {tpls:[{id,nm,url,sid,by,dt}],curId} — 텍스트만(함정 B)
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
@@ -3594,6 +3595,7 @@ async function loadFromFirestore(){
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.boardcats&&typeof d.boardcats==='object'&&!Array.isArray(d.boardcats)){ boardcats=d.boardcats; try{ localStorage.setItem('tops_boardcats',JSON.stringify(boardcats)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
@@ -3686,6 +3688,7 @@ function startRealtimeSync(){
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.boardcats&&typeof d.boardcats==='object'&&!Array.isArray(d.boardcats)){ boardcats=d.boardcats; try{ localStorage.setItem('tops_boardcats',JSON.stringify(boardcats)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
@@ -19596,13 +19599,35 @@ function rCustomPage(name){
     if(op){ body.innerHTML=_bdDetailHtml(name,op); _bdBind(body,name); try{ _bdPreload(op); _bdThumbScroll(op.id); }catch(e){} return; }
     window._bdOpenPost=null;
   }
+  // 분류(탭) 필터 (2026-09-10) — boardcats[name] 기준. 선택 상태는 window._bdCatSel(표시 전용, 저장 없음).
+  // 게시물의 cat 이 삭제된 분류를 가리키면 미분류로 취급(데이터 보존 — 분류를 지워도 게시물은 남음).
+  var cats=_bdCats(name);
+  window._bdCatSel=window._bdCatSel||{};
+  var csel=window._bdCatSel[name]||'';
+  if(csel&&csel!=='_none'&&!cats.some(function(c){ return c.id===csel; })){ csel=''; window._bdCatSel[name]=''; } // 삭제된 분류 → 전체
+  var _catIds={}; cats.forEach(function(c){ _catIds[c.id]=1; });
+  var _isNone=function(p){ return !p.cat||!_catIds[p.cat]; };
+  var fposts=(!cats.length||!csel)?posts:posts.filter(csel==='_none'?_isNone:function(p){ return p.cat===csel; });
+  var catbar='';
+  if(cats.length){
+    var hasNone=posts.some(_isNone);
+    var tabBtn=function(id,label,cnt){
+      var on=(csel===id);
+      return '<button data-bdcat="'+_esc(id)+'" style="padding:6px 13px;border-radius:16px;border:1px solid '+(on?'#4858cc':'#d0d4e8')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#44485a')+';font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">'+label+' <span style="opacity:.72;font-size:12px">'+cnt+'</span></button>';
+    };
+    catbar='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px">'
+      +tabBtn('','전체',posts.length)
+      +cats.map(function(c){ return tabBtn(c.id,_esc(c.nm),posts.filter(function(p){ return p.cat===c.id; }).length); }).join('')
+      +(hasNone?tabBtn('_none','미분류',posts.filter(_isNone).length):'')
+      +'</div>';
+  }
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
-  var totalPg=Math.max(1,Math.ceil(posts.length/PER));
+  var totalPg=Math.max(1,Math.ceil(fposts.length/PER));
   var pg=Math.min(Math.max(0,window._bdPage[name]||0),totalPg-1);
   window._bdPage[name]=pg;
-  var slice=posts.slice(pg*PER,pg*PER+PER);
+  var slice=fposts.slice(pg*PER,pg*PER+PER);
   var grid=slice.length
     ? '<div class="bdgrid">'+slice.map(function(p){ return _bdCardHtml(p); }).join('')+'</div>'
     : '<div style="color:#a0a0b0;font-size:14px;padding:26px 0;text-align:center">등록된 게시물이 없습니다.'+(_isAdmin()?' [게시물 작성]으로 자료를 올려보세요.':'')+'</div>';
@@ -19616,12 +19641,16 @@ function rCustomPage(name){
   body.innerHTML='<div class="card">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
     +'<div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-notes"></i> '+_esc(c.label)+' <span style="color:#8888aa;font-size:13px;font-weight:400">'+posts.length+'건</span></div>'
-    +(_isAdmin()?'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>':'')
-    +'</div>'+grid+pager+'</div>';
+    +(_isAdmin()?'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
+      +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
+      +'</div>':'')
+    +'</div>'+catbar+grid+pager+'</div>';
   _bdBind(body,name);
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
-// 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),by,dt,ts}]}
+// 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
+//   cat = 분류 id(boardcats 참조, 2026-09-10 — 없거나 삭제된 분류를 가리키면 미분류로 표시)
 //   — 동기화 키 tops_boards(텍스트·URL만, 함정 B 안전). 파일 원본은 Firebase Storage board_files/ 경로.
 // - 작성/수정/삭제는 관리자만(내용 페이지 편집과 동일), 열람은 전원.
 // - vm: 게시물별 사진 보기 방식 — 'swipe'(좌우 ◀▶ 넘김) / 'scroll'(세로 나열). 대표이미지(rep)는 맨 앞에 표시.
@@ -19633,6 +19662,11 @@ function _bdPosts(name){
   return boards[name];
 }
 function _bdPostById(name,id){ var out=null; _bdPosts(name).forEach(function(p){ if(p&&p.id===id) out=p; }); return out; }
+// 게시판 분류 목록 — boardcats={cm_id:[{id('bc_..'),nm}]}, 동기화 키 tops_boardcats(텍스트만)
+function _bdCats(name){
+  if(!boardcats||typeof boardcats!=='object'||Array.isArray(boardcats)) boardcats={};
+  return Array.isArray(boardcats[name])?boardcats[name]:[];
+}
 // 게시물의 이미지 목록 — 대표이미지(rep)가 맨 앞
 function _bdImgs(p){
   var imgs=(Array.isArray(p.files)?p.files:[]).filter(function(f){ return f&&f.t==='img'&&f.u&&_BD_URL_RE.test(String(f.u)); });
@@ -19788,6 +19822,14 @@ function _bdBind(body,name){
       window._bdPage[name]=(window._bdPage[name]||0)+(+b.getAttribute('data-bdpg'));
       rCustomPage(name);
       try{ window.scrollTo(0,0); }catch(e){}
+    });
+  });
+  body.querySelectorAll('[data-bdcat]').forEach(function(b){ // 분류 탭 전환 — 페이지 1부터(2026-09-10)
+    b.addEventListener('click',function(){
+      window._bdCatSel=window._bdCatSel||{};
+      window._bdCatSel[name]=b.getAttribute('data-bdcat')||'';
+      window._bdPage=window._bdPage||{}; window._bdPage[name]=0;
+      rCustomPage(name);
     });
   });
   body.querySelectorAll('[data-bdnav]').forEach(function(b){
@@ -19985,6 +20027,91 @@ async function _bdFresh(mut){
   boards=base;
   sv('tops_boards',boards);
 }
+// ----- 게시판 분류 설정 (2026-09-10, 관리자 전용) -----
+// 데이터: boardcats={cm_id:[{id('bc_..'),nm}]} — 동기화 키 tops_boardcats(텍스트만, 함정 B).
+// 행 조작은 분류 id 기준(함정 A — data-bcid), 흰 모달(함정 D 역방향). 분류를 지워도 게시물은 삭제되지
+// 않고 미분류로 표시(cat 값은 데이터에 남음 — 같은 분류를 다시 만들어도 id가 달라 자동 복귀는 안 됨).
+// 배열 통째 교체 저장(맵 깊은 병합 함정 회피 — tripblock 계열). last-write-wins·클라이언트 가드(navcfg 계열 수용).
+function bdCatMgrOpen(name){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var old=g('bdcat_overlay'); if(old) old.remove();
+  window._bdCatEdit={ name:name, rows:_bdCats(name).map(function(c){ return {id:c.id, nm:c.nm}; }) };
+  var ov=document.createElement('div');
+  ov.id='bdcat_overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-category"></i> 분류 설정</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">게시물을 나눠 담을 분류(탭)를 만듭니다. 분류를 지워도 게시물은 삭제되지 않고 미분류로 표시됩니다.</div>'
+    +'<div id="bdcat_rows"></div>'
+    +'<button onclick="bdCatAdd()" style="padding:6px 12px;border:1px solid #b8d8b8;border-radius:7px;background:#eef7ee;color:#207830;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px"><i class="ti ti-plus"></i> 분류 추가</button>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'
+    +'<button onclick="document.getElementById(\'bdcat_overlay\').remove()" style="padding:7px 16px;border-radius:7px;background:#eceef6;border:1px solid #d0d4e8;color:#44485a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button>'
+    +'<button onclick="bdCatSave()" style="padding:7px 16px;border-radius:7px;background:#4858cc;border:none;color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><i class="ti ti-device-floppy"></i> 저장</button>'
+    +'</div></div>';
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) ov.remove(); }); // 바깥 클릭 닫기(카드 내부는 유지)
+  document.body.appendChild(ov);
+  _bdCatRowsDraw();
+}
+function _bdCatCollect(){ // 화면 입력값을 id 기준 회수(재렌더·행 조작 전 — _sanCollect 계열)
+  var e=window._bdCatEdit, box=g('bdcat_rows'); if(!e||!box) return;
+  box.querySelectorAll('[data-bcid]').forEach(function(inp){
+    var id=inp.getAttribute('data-bcid');
+    e.rows.forEach(function(r){ if(r.id===id) r.nm=inp.value; });
+  });
+}
+function _bdCatRowsDraw(){
+  var e=window._bdCatEdit, box=g('bdcat_rows'); if(!e||!box) return;
+  var bt='padding:5px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;';
+  box.innerHTML=e.rows.map(function(r,i){
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<input data-bcid="'+_esc(r.id)+'" value="'+_esc(r.nm||'')+'" placeholder="분류 이름" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff">'
+      +'<button data-bcmv="'+_esc(r.id)+'|-1" title="위로"'+(i===0?' disabled':'')+' style="'+bt+'border:1px solid #c8cce8;background:#eef1ff;color:#3a40aa">▲</button>'
+      +'<button data-bcmv="'+_esc(r.id)+'|1" title="아래로"'+(i===e.rows.length-1?' disabled':'')+' style="'+bt+'border:1px solid #c8cce8;background:#eef1ff;color:#3a40aa">▼</button>'
+      +'<button data-bcrm="'+_esc(r.id)+'" title="삭제" style="'+bt+'border:1px solid #e0b0b0;background:#fdf3f3;color:#c03030">✕</button>'
+      +'</div>';
+  }).join('')||'<div style="color:#a0a0b0;font-size:13px;padding:6px 0">분류가 없습니다. [분류 추가]로 만들어 보세요.</div>';
+  box.querySelectorAll('[data-bcrm]').forEach(function(b){
+    b.addEventListener('click',function(){
+      _bdCatCollect();
+      var id=b.getAttribute('data-bcrm');
+      window._bdCatEdit.rows=window._bdCatEdit.rows.filter(function(r){ return r.id!==id; });
+      _bdCatRowsDraw();
+    });
+  });
+  box.querySelectorAll('[data-bcmv]').forEach(function(b){
+    b.addEventListener('click',function(){
+      _bdCatCollect();
+      var pr=b.getAttribute('data-bcmv').split('|'), id=pr[0], dir=+pr[1];
+      var rows=window._bdCatEdit.rows, i=-1;
+      rows.forEach(function(r,k){ if(r.id===id) i=k; });
+      var j=i+dir; if(i<0||j<0||j>=rows.length) return;
+      var t=rows[i]; rows[i]=rows[j]; rows[j]=t;
+      _bdCatRowsDraw();
+    });
+  });
+}
+function bdCatAdd(){
+  var e=window._bdCatEdit; if(!e) return;
+  _bdCatCollect();
+  e.rows.push({ id:'bc_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), nm:'' });
+  _bdCatRowsDraw();
+  var box=g('bdcat_rows'); var inps=box?box.querySelectorAll('[data-bcid]'):[];
+  if(inps.length) inps[inps.length-1].focus();
+}
+function bdCatSave(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var e=window._bdCatEdit; if(!e) return;
+  _bdCatCollect();
+  var nm=e.name;
+  var rows=e.rows.map(function(r){ return {id:r.id, nm:String(r.nm||'').trim()}; }).filter(function(r){ return r.nm; });
+  if(!boardcats||typeof boardcats!=='object'||Array.isArray(boardcats)) boardcats={};
+  boardcats[nm]=rows;   // 배열 통째 교체 — Firestore merge 깊은 병합 함정 회피(tripblock 계열)
+  sv('tops_boardcats',boardcats);
+  var ov=g('bdcat_overlay'); if(ov) ov.remove();
+  window._bdCatEdit=null;
+  toast('분류가 저장되었습니다.');
+  try{ if(String(window._curPage||'')===nm) rCustomPage(nm); }catch(err){}
+}
 // ----- 게시물 작성/수정 (관리자 전용) -----
 function bdWrite(name,pid){
   if(!_isAdmin()){ toast('관리자만 게시물을 작성할 수 있습니다.'); return; }
@@ -20005,6 +20132,14 @@ function bdWrite(name,pid){
     +'<input id="bd_title" value="'+_esc(p&&p.title||'')+'" placeholder="게시물 제목" style="'+_in+';margin-bottom:10px">'
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">내용</div>'
     +'<textarea id="bd_body" placeholder="내용을 입력하세요 (http 주소는 자동으로 링크가 됩니다)" style="'+_in+';min-height:120px;line-height:1.6;resize:vertical;margin-bottom:10px">'+_esc(p&&p.body||'')+'</textarea>'
+    +(function(){ // 분류 선택 (2026-09-10) — 분류가 등록된 게시판만 표시. 새 글은 보고 있던 탭의 분류를 기본값으로.
+        var cats=_bdCats(name); if(!cats.length) return '';
+        var cur=p?(p.cat||''):((window._bdCatSel&&window._bdCatSel[name]&&window._bdCatSel[name]!=='_none')?window._bdCatSel[name]:'');
+        return '<div style="font-size:13px;color:#555;margin-bottom:4px">분류</div>'
+          +'<select id="bd_cat" style="'+_in+';margin-bottom:10px"><option value="">미분류</option>'
+          +cats.map(function(c){ return '<option value="'+_esc(c.id)+'"'+(cur===c.id?' selected':'')+'>'+_esc(c.nm)+'</option>'; }).join('')
+          +'</select>';
+      })()
     +'<div style="font-size:13px;color:#555;margin-bottom:4px">사진 보기 방식</div>'
     +'<select id="bd_vm" style="'+_in+';margin-bottom:10px">'
     +'<option value="scroll"'+(!p||p.vm!=='swipe'?' selected':'')+'>위아래로 내리면서 보기 (사진 세로 나열)</option>'
@@ -20230,6 +20365,9 @@ async function bdSave(){
     if(!seenRep){ for(var k=0;k<files.length;k++){ if(files[k].t==='img'){ files[k].rep=1; break; } } }
     var post=e.orig?Object.assign({},e.orig):{ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now() };
     post.title=title; post.body=bodyTxt; post.vm=vm; post.files=files;
+    // 분류 — 셀렉트가 렌더된 경우만 반영(분류 없는 게시판에서 수정해도 기존 cat 값 보존)
+    var _catSel=g('bd_cat');
+    if(_catSel){ if(_catSel.value) post.cat=_catSel.value; else delete post.cat; }
     if(e.cover&&e.cover.u) post.cover={u:e.cover.u}; else delete post.cover;
     if(e.orig) post.ut=tds();
     // 수정에서 뺀 기존 파일·교체된 대표이미지는 저장 성공 후 Storage에서도 정리(최선 노력)
