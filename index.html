@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-6</div>
   </div>
 </div>
 
@@ -751,11 +751,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <!-- 환경설정 — 메뉴 구성 / 전산 사이트 관리 (관리자 전용) -->
     <div class="pg" id="pg_navset">
       <div class="sh"><div class="st"><i class="ti ti-settings"></i>환경설정</div></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <button id="ns_tabbtn_menu" onclick="nsTab('menu')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #4858cc;background:#4858cc;color:#fff"><i class="ti ti-menu-2"></i> 메뉴 구성</button>
         <button id="ns_tabbtn_san" onclick="nsTab('san')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-building-bank"></i> 전산 사이트 관리</button>
         <button id="ns_tabbtn_hero" onclick="nsTab('hero')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-brush"></i> 홈 화면 꾸미기</button>
         <button id="ns_tabbtn_brand" onclick="nsTab('brand')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-badge"></i> 명칭 변경</button>
+        <button id="ns_tabbtn_rs" onclick="nsTab('rs')" style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #ccd;background:#f6f6fa;color:#555"><i class="ti ti-bell"></i> 업무 현황 팝업</button>
       </div>
       <div class="card" id="ns_tab_menu">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-menu-2"></i> 메뉴 구성</div>
@@ -888,6 +889,20 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <span style="flex:1"></span>
           <button onclick="brandReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
           <button onclick="brandSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
+        </div>
+      </div>
+      <div class="card" id="ns_tab_rs" style="display:none">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-bell"></i> 업무 현황 팝업</div>
+        <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
+          홈에 접속하면 뜨는 <b>업무 요청 현황</b> 팝업의 항목을 <b>역할별</b>로 설정합니다. 체크한 항목만 그 역할의 팝업에 표시됩니다.<br>
+          팀원·팀장은 <b>본인 건만</b> 집계되고, 지점장·총무는 전체 건수가 집계됩니다. 3종서류·병력정리·현재실적은 건수 없는 <b>바로가기</b>로 표시됩니다.<br>
+          한 역할의 항목을 <b>모두 끄면 그 역할에는 팝업이 뜨지 않습니다.</b> 아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
+        </div>
+        <div id="rs_grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+          <span style="flex:1"></span>
+          <button onclick="rsReset()" style="padding:8px 14px;background:#fdf3f3;border:1px solid #e0b0b0;border-radius:8px;color:#c03030;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-restore"></i> 기본값 복원</button>
+          <button onclick="rsSave()" style="padding:8px 18px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
         </div>
       </div>
     </div>
@@ -3006,6 +3021,9 @@ let trips=JSON.parse(localStorage.getItem('tops_trips')||'[]');             // �
 let tripblock=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_tripblock')||'{"days":[]}'); if(v&&Array.isArray(v.days)) return v; }catch(e){} return {days:[]}; })();
 // 실손보험 지정 보험사 — {items:[{k:'이름|생년6',name,ins,by,ts}]} (배열 통째 교체 — merge 깊은 병합 함정 회피, tripblock 계열)
 let silson=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_silson')||'{"items":[]}'); if(v&&Array.isArray(v.items)) return v; }catch(e){} return {items:[]}; })();
+// 업무 요청 현황 팝업 역할별 구성 — {mem:[키...],lead:[...],bm:[...],chong:[...]} (역할 키가 배열이면 그대로, 없으면 기본값.
+// 값은 각 역할 키의 배열 통째 교체라 merge 함정 무관 — 저장 시 4개 역할 키를 항상 함께 기록)
+let reqstatcfg=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_reqstatcfg')||'{}'); if(v&&typeof v==='object'&&!Array.isArray(v)) return v; }catch(e){} return {}; })();
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
@@ -3544,6 +3562,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} }
     if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
+    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -3634,6 +3653,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} changed=true; }
     if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
+    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -11749,83 +11769,124 @@ function _cwVacPopup(){
   }catch(e){ console.warn('cwvac popup err:', e); }
 }
 
-// ===== 관리자 업무 요청 현황 팝업 (reqstat, 2026-09-08) =====
-// 관리자가 홈에 진입하면 역할별(지점장 BM / 총무) 처리 대기 건수를 팝업으로 표시(접속당 1회 — cwvac 패턴).
-// 항목 클릭 시 해당 페이지로 이동, 바깥 클릭·[닫기]로 닫음. 저장·동기화 없음(함정 B 무관), id는 reqstat_ 접두(함정 E).
+// ===== 업무 요청 현황 팝업 (reqstat, 2026-09-08 — 2026-09-10 전 역할 확대·구성 편집) =====
+// 홈에 진입하면 역할별(팀원/팀장/지점장/총무) 처리 대기 건수·바로가기를 팝업으로 표시(접속당 1회 — cwvac 패턴).
+// 구성은 환경설정 [업무 현황 팝업] 탭에서 역할별 편집(reqstatcfg — 동기화 키 tops_reqstatcfg, 텍스트만 함정 B 무관.
+// 역할 키가 배열이면 그대로 사용(빈 배열=그 역할 팝업 끔), 없으면 REQSTAT_DEF 기본값).
+// 항목 클릭 시 해당 페이지로 이동, 바깥 클릭·[닫기]로 닫음. id는 reqstat_/rs_ 접두(함정 E).
 // 집계는 표시 시점의 로컬 캐시 기준 — 클라우드 수신 후 홈 재렌더 때 팝업이 열려 있으면 건수를 갱신한다.
-function _reqStatRows(){
-  var chong=_isChongmu();
-  // 각 집계는 독립 try — 하나가 실패해도 나머지 항목은 표시. 역할에 쓰이는 항목만 계산(불필요한 _reloadClaims 부작용 회피)
-  var cnt=function(fn){ try{ return fn(); }catch(e){ return 0; } };
-  // 공통 항목: 입사준비·시험신청
-  var jpAll=[], jpPend=0, eduPend=0;
-  cnt(function(){
-    jpLoad(); jpAll=JP||[];
-    jpPend=jpAll.filter(function(r){
-      if(!r) return false;
-      var prepOk=JP_PREP.every(function(p){ return r.prep&&r.prep[p[0]]; });
-      return !(r.commitDoc&&prepOk&&r.insInst&&r.salesCampus);
-    }).length;
-    if(!chong) eduPend=jpAll.filter(function(r){
-      if(!r) return false;
-      return EDU_TOPICS.some(function(t){ var ed=(r.edu&&r.edu[t[0]])||{}; return !ed.edu||!ed.test; });
-    }).length;
-    return 0;
-  });
-  var examPend=cnt(function(){
-    var ex=JSON.parse(localStorage.getItem('tops_exams')||'[]');
-    return (Array.isArray(ex)?ex:[]).filter(function(e){ return e&&!e.done; }).length;
-  });
-  var jpRow={pg:'join_prep', icon:'ti-user-plus', label:'입사준비', n:jpPend, sub:'준비 미완료 신입 (등록 '+jpAll.length+'명)'};
-  var examRow={pg:'exam', icon:'ti-pencil', label:'시험신청', n:examPend, sub:'접수 미완료'};
-  if(chong){
-    var custPend=cnt(function(){
-      var cr=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
-      return (Array.isArray(cr)?cr:[]).filter(function(r){ return r&&!r.done; }).length;
-    });
-    var claimPend=cnt(function(){
+// 팀원·팀장은 본인 건만 집계(own), 지점장·총무는 전체. link:1 항목은 건수 없는 바로가기.
+var REQSTAT_ITEMS={
+  trip:   {pg:'trip',        icon:'ti-car',            label:'출장보고', sub:'확인 대기 신청'},
+  req:    {pg:'req_unified', icon:'ti-clipboard-list', label:'요청관리', sub:'검토중'},
+  cust:   {pg:'cust_status', icon:'ti-user',           label:'고객등록', sub:'처리 대기 요청'},
+  claim:  {pg:'claim_status',icon:'ti-file-invoice',   label:'청구신청', sub:'미완료 청구'},
+  jp:     {pg:'join_prep',   icon:'ti-user-plus',      label:'입사준비', sub:'준비 미완료 신입'},
+  edu:    {pg:'edu_prep',    icon:'ti-school',         label:'교육준비', sub:'교육·테스트 미완료 신입'},
+  exam:   {pg:'exam',        icon:'ti-pencil',         label:'시험신청', sub:'접수 미완료'},
+  samdocs:{pg:'samdocs',     icon:'ti-files',          label:'3종서류', sub:'바로가기', link:1},
+  med:    {pg:'wm',          icon:'ti-stethoscope',    label:'병력정리', sub:'바로가기', link:1},
+  perf:   {pg:'pc',          icon:'ti-chart-bar',      label:'현재실적', sub:'바로가기', link:1}
+};
+var REQSTAT_DEF={
+  mem:  ['cust','claim','samdocs','med','perf'],
+  lead: ['cust','claim','samdocs','med','perf'],
+  bm:   ['trip','req','jp','edu','exam'],
+  chong:['cust','claim','exam','jp']
+};
+var REQSTAT_ROLE_LABEL={mem:'팀원', lead:'팀장', bm:'지점장', chong:'총무'};
+function _reqStatRole(){
+  if(_isChongmu()) return 'chong';
+  if(_isAdmin()) return 'bm';
+  if(typeof _isLeader==='function'&&_isLeader()) return 'lead';
+  return 'mem';
+}
+function _reqStatKeys(role){
+  var c=(reqstatcfg&&typeof reqstatcfg==='object'&&!Array.isArray(reqstatcfg))?reqstatcfg[role]:null;
+  if(Array.isArray(c)) return c.filter(function(k){ return REQSTAT_ITEMS[k]; }); // 저장된 구성(빈 배열=팝업 끔)
+  return (REQSTAT_DEF[role]||[]).slice();
+}
+// 항목별 대기 건수 — own=true면 본인(cu.name) 건만. 각 집계는 호출부 try로 보호(하나 실패해도 나머지 표시)
+function _reqStatCount(key, own){
+  var me=(cu&&cu.name)||'';
+  switch(key){
+    case 'trip': { // 최근 30일 신청만(확인 기능 도입 전의 옛 미확인 건이 몽땅 잡혀 소음이 되는 것 방지)
+      var lim=Date.now()-30*24*3600*1000;
+      return (trips||[]).filter(function(t){
+        if(!t||t.okBy) return false;
+        if(own&&t.m!==me) return false;
+        var ts=t.ts||0;
+        if(!ts&&t.dt){ var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String(t.dt)); if(m) ts=new Date(+m[1],+m[2]-1,+m[3]).getTime(); }
+        return ts>=lim;
+      }).length;
+    }
+    case 'req': {
+      var ri=JSON.parse(localStorage.getItem('tops_req_items')||'[]');
+      var cr2=JSON.parse(localStorage.getItem('tops_cardreq')||'[]');
+      var f=function(r){ return r&&(r.status||'검토중')==='검토중'&&(!own||r.agent===me); };
+      return (Array.isArray(ri)?ri:[]).filter(f).length+(Array.isArray(cr2)?cr2:[]).filter(f).length;
+    }
+    case 'cust': {
+      var q=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
+      return (Array.isArray(q)?q:[]).filter(function(r){
+        if(!r||r.done) return false;
+        if(own){ var ag=r.agent||''; try{ ag=_agentReal(ag); }catch(e){} if(ag!==me) return false; }
+        return true;
+      }).length;
+    }
+    case 'claim': {
       if(typeof _reloadClaims==='function') _reloadClaims();   // 함정 C — 전용 재로드만 사용
-      return (claims||[]).filter(function(c){ return c&&!c.done; }).length;
-    });
-    return [
-      {pg:'cust_status', icon:'ti-user', label:'고객등록', n:custPend,  sub:'처리 대기 요청'},
-      {pg:'claim_status',icon:'ti-file-invoice', label:'청구신청', n:claimPend, sub:'미완료 청구'},
-      examRow, jpRow
-    ];
+      return (claims||[]).filter(function(c){ return c&&!c.done&&(!own||c.agent===me); }).length;
+    }
+    case 'exam': {
+      var ex=JSON.parse(localStorage.getItem('tops_exams')||'[]');
+      return (Array.isArray(ex)?ex:[]).filter(function(e){ return e&&!e.done&&(!own||e.submitter===me); }).length;
+    }
+    case 'jp': {
+      jpLoad();
+      return (JP||[]).filter(function(r){
+        if(!r) return false;
+        var prepOk=JP_PREP.every(function(p){ return r.prep&&r.prep[p[0]]; });
+        return !(r.commitDoc&&prepOk&&r.insInst&&r.salesCampus);
+      }).length;
+    }
+    case 'edu': {
+      jpLoad();
+      return (JP||[]).filter(function(r){
+        if(!r) return false;
+        return EDU_TOPICS.some(function(t){ var ed=(r.edu&&r.edu[t[0]])||{}; return !ed.edu||!ed.test; });
+      }).length;
+    }
   }
-  // 지점장(BM) 항목: 출장보고·요청관리·교육준비
-  // 출장 확인 대기 — 최근 30일 신청만(확인 기능 도입 전의 옛 미확인 건이 몽땅 잡혀 소음이 되는 것 방지)
-  var tripPend=cnt(function(){
-    var lim=Date.now()-30*24*3600*1000;
-    return (trips||[]).filter(function(t){
-      if(!t||t.okBy) return false;
-      var ts=t.ts||0;
-      if(!ts&&t.dt){ var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String(t.dt)); if(m) ts=new Date(+m[1],+m[2]-1,+m[3]).getTime(); }
-      return ts>=lim;
-    }).length;
+  return 0;
+}
+function _reqStatRows(){
+  var role=_reqStatRole();
+  var own=(role==='mem'||role==='lead'); // 팀원·팀장은 본인 건만 집계
+  return _reqStatKeys(role).map(function(k){
+    var it=REQSTAT_ITEMS[k];
+    var row={pg:it.pg, icon:it.icon, label:it.label, sub:it.sub, link:it.link?1:0, n:0};
+    if(!it.link){
+      try{ row.n=_reqStatCount(k, own); }catch(e){}
+      if(own) row.sub='내 '+row.sub;
+    }
+    if(k==='jp'){ try{ jpLoad(); row.sub='준비 미완료 신입 (등록 '+((JP||[]).length)+'명)'; }catch(e){} }
+    if(k==='req'&&!own){ try{
+      var cr=JSON.parse(localStorage.getItem('tops_cardreq')||'[]');
+      var cp=(Array.isArray(cr)?cr:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
+      if(cp) row.sub='검토중 (명함신청 '+cp+'건 포함)';
+    }catch(e){} }
+    return row;
   });
-  var reqPend=cnt(function(){
-    var ri=JSON.parse(localStorage.getItem('tops_req_items')||'[]');
-    return (Array.isArray(ri)?ri:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
-  });
-  var cardPend=cnt(function(){
-    var cr=JSON.parse(localStorage.getItem('tops_cardreq')||'[]');
-    return (Array.isArray(cr)?cr:[]).filter(function(r){ return r&&(r.status||'검토중')==='검토중'; }).length;
-  });
-  return [
-    {pg:'trip',        icon:'ti-car', label:'출장보고', n:tripPend, sub:'확인 대기 신청'},
-    {pg:'req_unified', icon:'ti-clipboard-list', label:'요청관리', n:reqPend+cardPend, sub:'검토중'+(cardPend?' (명함신청 '+cardPend+'건 포함)':'')},
-    jpRow,
-    {pg:'edu_prep',    icon:'ti-school', label:'교육준비', n:eduPend, sub:'교육·테스트 미완료 신입'},
-    examRow
-  ];
 }
 function _reqStatRowsHtml(rows){
   return rows.map(function(r){
-    var hot=r.n>0;
-    var badge=hot
+    var hot=!r.link&&r.n>0;
+    var badge=r.link
+      ? '' // 바로가기 항목 — 건수 배지 없음
+      : (hot
       ? '<span style="flex:none;font-size:14px;font-weight:800;color:#fff;background:#d5273b;border-radius:5px;padding:3px 9px;min-width:26px;text-align:center;letter-spacing:-.2px">'+r.n+'</span>'
-      : '<span style="flex:none;font-size:13px;font-weight:700;color:#9aa2bd;background:#f0f2f8;border-radius:5px;padding:3px 9px;min-width:26px;text-align:center">0</span>';
+      : '<span style="flex:none;font-size:13px;font-weight:700;color:#9aa2bd;background:#f0f2f8;border-radius:5px;padding:3px 9px;min-width:26px;text-align:center">0</span>');
     return '<div data-rspg="'+r.pg+'" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid '+(hot?'#f0c2c9':'#e4e7f0')+';border-left:3px solid '+(hot?'#d5273b':'#c8cede')+';border-radius:6px;background:#fff;cursor:pointer;text-align:left">'
       +'<span style="flex:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:'+(hot?'rgba(213,39,59,.08)':'#f0f2f8')+'"><i class="ti '+r.icon+'" style="font-size:18px;color:'+(hot?'#d5273b':'#5a6488')+'"></i></span>'
       +'<span style="flex:1;min-width:0">'
@@ -11843,22 +11904,23 @@ function _reqStatBind(ov){
 }
 function _reqStatPopup(){
   try{
-    if(!cu||!_isAdmin()) return;                          // 관리자(BM·총무)만
+    if(!cu) return;                                       // 로그인한 전 사용자(역할별 구성 — reqstatcfg)
     if(/[?&]rr=1/.test(location.search)) return;          // 서버 캡처 화면 제외
     var existing=g('reqstat_pop');
     if(window._reqStatShown&&!existing) return;           // 이미 닫았으면 이 접속에선 재표시 안 함
     var rows=_reqStatRows();
+    if(!rows.length){ if(existing) existing.remove(); return; } // 이 역할은 팝업 끔(구성 비움)
     if(existing){                                          // 클라우드 수신 후 홈 재렌더 — 열려 있는 팝업 건수 갱신
       var bx=existing.querySelector('#reqstat_rows');
       if(bx){ bx.innerHTML=_reqStatRowsHtml(rows); _reqStatBind(existing); }
       return;
     }
-    // 새 기기(로컬 캐시 없음) 오탐 방지 — 클라우드 미수신 상태에서 전부 0건이면 표시를 보류하고
+    // 새 기기(로컬 캐시 없음) 오탐 방지 — 클라우드 미수신 상태에서 집계 항목이 전부 0건이면 표시를 보류하고
     // 플래그를 안 세워, 클라우드 수신 후 홈 재렌더 때 실제 건수로 다시 시도한다(cwvac 패턴).
-    var total=rows.reduce(function(s,r){ return s+(r.n||0); },0);
+    var total=rows.reduce(function(s,r){ return s+(r.link?0:(r.n||0)); },0);
     if(!window._fsLoaded && total===0) return;
     window._reqStatShown=true;
-    var chong=_isChongmu();
+    var roleLabel=REQSTAT_ROLE_LABEL[_reqStatRole()]||'';
     var ov=document.createElement('div');
     ov.id='reqstat_pop';
     // z-index는 총무휴가 팝업(99999)보다 낮게 — 두 팝업이 겹치면 휴가 안내를 먼저 보여줌
@@ -11866,7 +11928,7 @@ function _reqStatPopup(){
     ov.innerHTML='<div id="reqstat_card" style="background:#fff;border-radius:8px;border-top:3px solid #2b3a8c;max-width:410px;width:100%;padding:0;box-shadow:0 16px 48px rgba(4,10,40,.45);cursor:default;max-height:86vh;overflow-y:auto">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 18px 13px;border-bottom:1px solid #e8eaf2">'
         +'<div style="font-size:16.5px;font-weight:800;color:#181c2e;letter-spacing:-.3px">업무 요청 현황'
-        +' <span style="font-size:11.5px;font-weight:700;color:#2b3a8c;background:#eef0fa;border:1px solid #d4d9ee;border-radius:4px;padding:2px 7px;vertical-align:2px;margin-left:4px">'+(chong?'총무':'지점장')+'</span></div>'
+        +' <span style="font-size:11.5px;font-weight:700;color:#2b3a8c;background:#eef0fa;border:1px solid #d4d9ee;border-radius:4px;padding:2px 7px;vertical-align:2px;margin-left:4px">'+roleLabel+'</span></div>'
         +'<span id="reqstat_close" style="font-size:20px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 4px">&times;</span>'
       +'</div>'
       +'<div id="reqstat_rows" style="display:flex;flex-direction:column;gap:7px;padding:14px 18px">'+_reqStatRowsHtml(rows)+'</div>'
@@ -18500,7 +18562,7 @@ function nsTab(t){
   if(window._nsTabCur==='san'&&t!=='san'){ try{ _sanCollect(); }catch(e){} }
   window._nsTabCur=t;
   var base='padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;';
-  [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san'],['hero','ns_tabbtn_hero','ns_tab_hero'],['brand','ns_tabbtn_brand','ns_tab_brand']].forEach(function(p){
+  [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san'],['hero','ns_tabbtn_hero','ns_tab_hero'],['brand','ns_tabbtn_brand','ns_tab_brand'],['rs','ns_tabbtn_rs','ns_tab_rs']].forEach(function(p){
     var on=(p[0]===t);
     var b=g(p[1]); if(b) b.style.cssText=base+(on?'border:1px solid #4858cc;background:#4858cc;color:#fff':'border:1px solid #ccd;background:#f6f6fa;color:#555');
     var c=g(p[2]); if(c) c.style.display=on?'block':'none';
@@ -18511,6 +18573,55 @@ function nsTab(t){
   }
   if(t==='hero'){ try{ _heroTabInit(); }catch(e){} }
   if(t==='brand'){ try{ _brandTabInit(); }catch(e){} }
+  if(t==='rs'){ try{ _rsTabInit(); }catch(e){} }
+}
+
+// ── 환경설정 [업무 현황 팝업] 탭 — 역할별 항목 구성 편집 (2026-09-10) ──
+// 편집본 window._rsWork={mem:[키...],lead,bm,chong} — [저장](rsSave)해야 reqstatcfg에 반영·동기화.
+// 체크박스는 data-rsrole/data-rskey 속성 기준 수집(함정 A 안전), 저장 순서는 카탈로그(REQSTAT_ITEMS) 순.
+var RS_ROLES=['mem','lead','bm','chong'];
+function _rsTabInit(){
+  window._rsWork={};
+  RS_ROLES.forEach(function(role){ window._rsWork[role]=_reqStatKeys(role); }); // 저장본 또는 기본값
+  _rsDraw();
+}
+function _rsDraw(){
+  var grid=g('rs_grid'); if(!grid) return;
+  grid.innerHTML=RS_ROLES.map(function(role){
+    var sel={}; (window._rsWork[role]||[]).forEach(function(k){ sel[k]=1; });
+    var rows=Object.keys(REQSTAT_ITEMS).map(function(k){
+      var it=REQSTAT_ITEMS[k];
+      return '<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;padding:5px 2px;cursor:pointer">'
+        +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]?' checked':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
+        +'<i class="ti '+it.icon+'" style="font-size:15px;color:#5a6488;width:18px;text-align:center"></i>'+it.label
+        +(it.link?'<span style="font-size:11px;color:#9aa2bd">(바로가기)</span>':'')
+        +'</label>';
+    }).join('');
+    return '<div style="border:1px solid #e2e4f0;border-radius:10px;padding:12px;background:#fbfcff">'
+      +'<div style="font-size:14px;font-weight:800;color:#2b3a8c;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e8eaf2">'+REQSTAT_ROLE_LABEL[role]+'</div>'
+      +rows+'</div>';
+  }).join('');
+}
+function rsSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var cfg={};
+  RS_ROLES.forEach(function(role){
+    var keys=[];
+    document.querySelectorAll('input[data-rsrole="'+role+'"]').forEach(function(cb){
+      if(cb.checked) keys.push(cb.getAttribute('data-rskey'));
+    });
+    cfg[role]=keys.filter(function(k){ return REQSTAT_ITEMS[k]; }); // 4개 역할 키 항상 함께 기록(빈 배열=팝업 끔)
+  });
+  reqstatcfg=cfg;
+  sv('tops_reqstatcfg', reqstatcfg);
+  window._rsWork=JSON.parse(JSON.stringify(cfg));
+  toast('업무 현황 팝업 구성이 저장되었습니다.');
+}
+function rsReset(){
+  if(!confirm('업무 현황 팝업 구성을 기본값으로 되돌릴까요? (화면만 되돌아가며, [저장]을 눌러야 반영됩니다)')) return;
+  window._rsWork={};
+  RS_ROLES.forEach(function(role){ window._rsWork[role]=(REQSTAT_DEF[role]||[]).slice(); });
+  _rsDraw();
 }
 // 화면 입력값을 편집본(_sanWork)에 회수 — 행 조작·저장 전에 항상 호출(id 기반, 함정 A 안전)
 function _sanCollect(){
