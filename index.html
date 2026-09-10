@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-24</div>
   </div>
 </div>
 
@@ -20259,41 +20259,74 @@ async function _bdrImgsToPdfB64(files){
 // 한글(HWP) → PDF 최선 노력 변환: hwp.js(브라우저 HWP5 렌더러)를 지연 로드해 숨김 컨테이너에 렌더 →
 // html2canvas로 페이지 캡처 → JPEG 페이지 PDF. 어느 단계든 실패하면 명확한 안내(한글에서 PDF로 저장) 후 중단 —
 // 라이브러리 한계(HWP 5.0 바이너리만, 일부 서식 미지원)가 있어 "조용한 깨짐" 대신 안내 폴백이 원칙.
+// 캔버스 1장을 PDF 페이지로 추가 — anchorTop=true면 위쪽 정렬(긴 문서 조각용), 아니면 가운데(사진용)
+async function _bdrAddCanvasPage(doc,cv,anchorTop){
+  var jb=Uint8Array.from(atob(cv.toDataURL('image/jpeg',0.9).split(',')[1]||''),function(ch){ return ch.charCodeAt(0); });
+  var img=await doc.embedJpg(jb);
+  var A4W=595.28, A4H=841.89;
+  var land=img.width>img.height;
+  var W=land?A4H:A4W, H=land?A4W:A4H;
+  var s=Math.min(W/img.width, H/img.height);
+  var w=img.width*s, hh=img.height*s;
+  var pg=doc.addPage([W,H]);
+  pg.drawImage(img,{x:(W-w)/2, y:anchorTop?(H-hh):((H-hh)/2), width:w, height:hh});
+}
+// 세로로 긴 캡처(여러 쪽이 한 덩어리로 렌더된 경우)를 A4 비율 높이로 잘라 여러 페이지로 —
+// 한 페이지에 통째로 축소돼 글씨를 못 읽게 되는 실패 모드 방어(2026-09-10 리뷰)
+function _bdrSliceCanvas(cv,maxPages){
+  var pageH=Math.round(cv.width*(841.89/595.28));
+  if(cv.height<=pageH*1.15) return [cv];   // 한 쪽 분량이면 그대로
+  var out=[];
+  for(var y=0;y<cv.height&&out.length<maxPages;y+=pageH){
+    var h=Math.min(pageH,cv.height-y);
+    if(h<20) break;   // 바닥 자투리 줄은 버림
+    var c2=document.createElement('canvas'); c2.width=cv.width; c2.height=h;
+    c2.getContext('2d').drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
+    out.push(c2);
+  }
+  return out;
+}
 async function _bdrHwpToPdfB64(file){
   if(typeof PDFLib==='undefined') throw new Error('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.');
   var guide='한글(HWP) 파일을 브라우저에서 변환하지 못했습니다. 한글 프로그램에서 [파일 > PDF로 저장] 후 그 PDF를 올려주세요.';
   toast('한글 파일 변환 준비 중…');
-  try{ if(!window.HWP) await _drLoadScript('https://cdn.jsdelivr.net/npm/hwp.js@0.0.3/dist/hwp.js'); }catch(e){}
-  if(!(window.HWP&&window.HWP.Viewer)) throw new Error(guide);
+  try{ if(!(window.HWP||window.hwp)) await _drLoadScript('https://cdn.jsdelivr.net/npm/hwp.js@0.0.3/dist/hwp.js'); }catch(e){}
+  var HW=window.HWP||window.hwp||window.hwpjs;   // 전역 이름 이형 대비(어느 것도 아니면 안내 폴백)
+  if(!(HW&&HW.Viewer)) throw new Error(guide);
   var buf=await file.arrayBuffer();
   var box=document.createElement('div');
   box.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1'; // A4 폭(96dpi) 오프스크린
   document.body.appendChild(box);
   try{
-    try{ new window.HWP.Viewer(box, new Uint8Array(buf), {type:'binary'}); }
+    try{ new HW.Viewer(box, new Uint8Array(buf), {type:'binary'}); }
     catch(e){ console.warn('hwp render', e); throw new Error(guide); }
-    await new Promise(function(r){ setTimeout(r,600); });   // 렌더 안착 대기
-    await _drEnsureLibs();                                  // html2canvas 지연 로드(일일보고 캡처와 공용)
-    // 페이지 요소 탐색 — hwp.js 페이지(section) 우선, 없으면 컨테이너 통째 1페이지 캡처
-    var pages=Array.prototype.slice.call(box.querySelectorAll('section'));
-    if(!pages.length) pages=[box];
-    if(box.offsetHeight<40) throw new Error(guide);          // 렌더 결과가 사실상 비어 있음
-    pages=pages.slice(0,20);                                 // 안전 상한
-    var doc=await PDFLib.PDFDocument.create();
-    for(var i=0;i<pages.length;i++){
-      toast('한글 파일 변환 중… ('+(i+1)+'/'+pages.length+'쪽)');
-      var cv=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',useCORS:true});
-      if(!cv||cv.width<10||cv.height<10) throw new Error(guide);
-      var jb=Uint8Array.from(atob(cv.toDataURL('image/jpeg',0.9).split(',')[1]||''),function(ch){ return ch.charCodeAt(0); });
-      var img=await doc.embedJpg(jb);
-      var A4W=595.28, A4H=841.89;
-      var land=img.width>img.height;
-      var W=land?A4H:A4W, H=land?A4W:A4H;
-      var s=Math.min(W/img.width, H/img.height);
-      var w=img.width*s, hh=img.height*s;
-      var pg=doc.addPage([W,H]);
-      pg.drawImage(img,{x:(W-w)/2, y:(H-hh)/2, width:w, height:hh});
+    // 렌더 안착 대기 — 고정 시간 대신 높이 안정화 폴링(복잡한 문서의 불완전 캡처 방지, 최대 4초)
+    var lastH=-1, stable=0;
+    for(var t=0;t<20;t++){
+      await new Promise(function(r){ setTimeout(r,200); });
+      var hNow=box.offsetHeight;
+      if(hNow===lastH&&hNow>0){ stable++; if(stable>=2) break; } else stable=0;
+      lastH=hNow;
     }
+    await _drEnsureLibs();                                  // html2canvas 지연 로드(일일보고 캡처와 공용)
+    // 페이지 요소 탐색 — hwp.js 페이지(section) 우선, 없으면 컨테이너 통째 캡처 후 A4 비율로 분할
+    var secs=Array.prototype.slice.call(box.querySelectorAll('section'));
+    if(!secs.length) secs=[box];
+    if(box.offsetHeight<40) throw new Error(guide);          // 렌더 결과가 사실상 비어 있음
+    var MAXP=30, truncated=(secs.length>MAXP);
+    secs=secs.slice(0,MAXP);
+    var doc=await PDFLib.PDFDocument.create();
+    var pageN=0;
+    for(var i=0;i<secs.length&&pageN<MAXP;i++){
+      toast('한글 파일 변환 중… ('+(i+1)+'/'+secs.length+')');
+      var cv=await html2canvas(secs[i],{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      if(!cv||cv.width<10||cv.height<10) throw new Error(guide);
+      var slices=_bdrSliceCanvas(cv, MAXP-pageN);
+      if(cv.height>Math.round(cv.width*(841.89/595.28))*1.15 && slices.length>=MAXP-pageN) truncated=true;
+      for(var si=0;si<slices.length&&pageN<MAXP;si++){ await _bdrAddCanvasPage(doc,slices[si],slices.length>1); pageN++; }
+    }
+    if(!pageN) throw new Error(guide);
+    if(truncated) toast('⚠ 문서가 길어 앞 '+MAXP+'쪽까지만 변환됐습니다. 전체가 필요하면 한글에서 PDF로 저장해 올려주세요.');
     return _bdrBytesB64(await doc.save());
   } finally { try{ box.remove(); }catch(e){} }
 }
@@ -20325,6 +20358,7 @@ async function bdrTplUploadFiles(name,catId,files){
   var typesUsed=(pdfs.length?1:0)+(imgs.length?1:0)+(hwps.length?1:0);
   if(typesUsed>1){ toast('한 번에 한 종류만 올려주세요. (사진은 여러 장 가능 — 페이지로 합쳐집니다)'); return; }
   if(pdfs.length>1||hwps.length>1){ toast('PDF·한글파일은 한 번에 1개만 올릴 수 있습니다.'); return; }
+  if(imgs.length>20){ toast('사진은 한 번에 20장까지만 올릴 수 있습니다. ('+imgs.length+'장 선택됨)'); return; }
   window._bdrUpBusy=true; var done=function(){ window._bdrUpBusy=false; };
   try{
     if(pdfs.length){   // PDF 원본 그대로(기존 경로)
