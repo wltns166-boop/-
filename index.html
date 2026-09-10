@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-22</div>
   </div>
 </div>
 
@@ -24339,7 +24339,7 @@ function openClaimCal(){
   window._ccMode=(window._ccPresetInsurer&&typeof SAMDOC_LIST!=='undefined'&&SAMDOC_LIST.some(function(d){return d.tpl===window._ccPresetInsurer;}))?'samdocs'
     :(_isDaeriSlot(window._ccPresetInsurer)?'daeri':'claim');
   var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
-  if(_daeri) window._ccDaeriSlot=window._ccPresetInsurer;   // ccPopulateInsurers가 목록으로 사용(진입 슬롯 1개)
+  window._ccDaeriSlot=_daeri?window._ccPresetInsurer:null;   // ccPopulateInsurers가 목록으로 사용(진입 슬롯 1개, 타 모드 진입 시 리셋 — 잔존 방지)
   var _t=g('cc_title');    if(_t)  _t.textContent=_sam?'3종서류 좌표 설정':(_daeri?'대리발급 서류 좌표 설정':'청구서 좌표 직접설정');
   var _il=g('cc_ins_lbl'); if(_il) _il.textContent=(_sam||_daeri)?'문서':'보험사';
   var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri)?'none':'';   // 파일명→보험사 일괄 업로드는 청구서 전용
