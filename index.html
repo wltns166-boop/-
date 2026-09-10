@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-7</div>
   </div>
 </div>
 
@@ -1820,6 +1820,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh">
         <div class="st"><i class="ti ti-receipt-2"></i>청구현황</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="bp bco ao" onclick="openClaimFaxMgr()" style="font-size:13px;padding:6px 12px"><i class="ti ti-phone"></i> 청구팩스번호</button>
           <button class="bp bco ao" onclick="openClaimCal()" style="font-size:13px;padding:6px 12px"><i class="ti ti-drag-drop"></i> 좌표 직접설정</button>
           <span class="ao" style="font-size:12px;color:#9090b0">관리자 전용 · 보험사를 선택하고 양식을 보면서 각 항목을 드래그해 위치를 맞추세요</span>
         </div>
@@ -2183,6 +2184,22 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <button class="bca" onclick="g('m_silson').classList.remove('open')">취소</button>
     <button class="bco" onclick="silsonSave()">저장</button>
   </div>
+</div></div>
+
+<!-- 청구 팩스번호 — 관리(관리자 편집) / 열람 모달 (2026-09-10) — 흰 배경(함정 D 역방향) -->
+<div class="mb" id="m_claimfax"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18);max-width:560px;width:94vw">
+  <div class="mth" style="color:#1a1a2e"><span>청구 팩스번호 관리 <span style="font-size:12px;color:#8a90b8">(관리자 전용)</span></span><span class="mc" onclick="g('m_claimfax').classList.remove('open')" style="color:#555;cursor:pointer">×</span></div>
+  <div style="font-size:12.5px;color:#889;margin-bottom:10px;line-height:1.5">보험사별 청구서 발송 팩스번호를 입력하세요. 저장하면 전 팀원이 청구현황 각 행의 [청구팩스번호] 버튼으로 조회할 수 있습니다. 비워두면 목록에서 빠집니다.</div>
+  <div id="cfx_rows" style="max-height:56vh;overflow-y:auto"></div>
+  <div class="mf">
+    <button class="bca" onclick="g('m_claimfax').classList.remove('open')">취소</button>
+    <button class="bco" onclick="claimFaxMgrSave()">저장</button>
+  </div>
+</div></div>
+<div class="mb" id="m_cfxview"><div class="mo" style="background:#fff;border:1px solid rgba(45,65,170,.18);max-width:480px;width:94vw">
+  <div class="mth" style="color:#1a1a2e"><span id="cfxv_title">청구 보험사 팩스번호</span><span class="mc" onclick="g('m_cfxview').classList.remove('open')" style="color:#555;cursor:pointer">×</span></div>
+  <div id="cfxv_body"></div>
+  <div class="mf"><button class="bca" onclick="g('m_cfxview').classList.remove('open')">닫기</button></div>
 </div></div>
 
 <!-- 신입추가 모달 -->
@@ -3024,6 +3041,8 @@ let silson=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_silson'
 // 업무 요청 현황 팝업 역할별 구성 — {mem:[키...],lead:[...],bm:[...],chong:[...]} (역할 키가 배열이면 그대로, 없으면 기본값.
 // 값은 각 역할 키의 배열 통째 교체라 merge 함정 무관 — 저장 시 4개 역할 키를 항상 함께 기록)
 let reqstatcfg=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_reqstatcfg')||'{}'); if(v&&typeof v==='object'&&!Array.isArray(v)) return v; }catch(e){} return {}; })();
+// 보험사별 청구 팩스번호 — {items:[{ins,fax}]} (배열 통째 교체 — merge 함정 회피, tripblock 계열. 관리자 편집·전원 열람)
+let claimfax=(function(){ try{ var v=JSON.parse(localStorage.getItem('tops_claimfax')||'{"items":[]}'); if(v&&Array.isArray(v.items)) return v; }catch(e){} return {items:[]}; })();
 let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); // 리쿠르팅 리스트 {flds,cards}
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
@@ -3562,7 +3581,8 @@ async function loadFromFirestore(){
     if(Array.isArray(d.trips)&&d.trips.length){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} }
     if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
-    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} }
+    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} try{ if(g('reqstat_pop')&&typeof _reqStatPopup==='function') _reqStatPopup(); }catch(e){} }
+    if(d.claimfax&&typeof d.claimfax==='object'&&!Array.isArray(d.claimfax)&&Array.isArray(d.claimfax.items)){ claimfax=d.claimfax; try{ localStorage.setItem('tops_claimfax',JSON.stringify(claimfax)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -3653,7 +3673,8 @@ function startRealtimeSync(){
     if(Array.isArray(d.trips)){ trips=d.trips; try{ localStorage.setItem('tops_trips',JSON.stringify(trips)); }catch(e){} changed=true; }
     if(d.tripblock&&typeof d.tripblock==='object'&&!Array.isArray(d.tripblock)&&Array.isArray(d.tripblock.days)){ tripblock=d.tripblock; try{ localStorage.setItem('tops_tripblock',JSON.stringify(tripblock)); }catch(e){} changed=true; }
     if(d.silson&&typeof d.silson==='object'&&!Array.isArray(d.silson)&&Array.isArray(d.silson.items)){ silson=d.silson; try{ localStorage.setItem('tops_silson',JSON.stringify(silson)); }catch(e){} try{ if(typeof _silsonDraw==='function')_silsonDraw(); }catch(e){} }
-    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} }
+    if(d.reqstatcfg&&typeof d.reqstatcfg==='object'&&!Array.isArray(d.reqstatcfg)){ reqstatcfg=d.reqstatcfg; try{ localStorage.setItem('tops_reqstatcfg',JSON.stringify(reqstatcfg)); }catch(e){} try{ if(g('reqstat_pop')&&typeof _reqStatPopup==='function') _reqStatPopup(); }catch(e){} }
+    if(d.claimfax&&typeof d.claimfax==='object'&&!Array.isArray(d.claimfax)&&Array.isArray(d.claimfax.items)){ claimfax=d.claimfax; try{ localStorage.setItem('tops_claimfax',JSON.stringify(claimfax)); }catch(e){} }
     if(d.recruit&&typeof d.recruit==='object'&&!Array.isArray(d.recruit)){ recruit=d.recruit; try{ localStorage.setItem('tops_recruit',JSON.stringify(recruit)); }catch(e){} changed=true; }
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
@@ -5436,7 +5457,7 @@ function rHome(){
   // 총무휴가 안내 팝업(2026-09-04) — 휴가 전날~종료일 접속 시 1회, 클릭으로 닫음.
   // 새 기기(로컬 캐시 없음)는 클라우드 cal 수신 후 홈 재렌더 때 이 경로로 다시 시도된다.
   try{ _cwVacPopup(); }catch(e){}
-  // 관리자 업무 요청 현황 팝업(2026-09-08) — 지점장/총무 역할별 처리 대기 건수, 접속당 1회.
+  // 업무 요청 현황 팝업(2026-09-08, 2026-09-10 전 역할 확대) — 팀원/팀장/지점장/총무 역할별 구성(reqstatcfg), 접속당 1회.
   // 클라우드 수신 후 홈 재렌더 때는 열려 있는 팝업의 건수만 갱신된다(_reqStatPopup 내부 처리).
   try{ _reqStatPopup(); }catch(e){}
 }
@@ -11781,8 +11802,8 @@ var REQSTAT_ITEMS={
   req:    {pg:'req_unified', icon:'ti-clipboard-list', label:'요청관리', sub:'검토중'},
   cust:   {pg:'cust_status', icon:'ti-user',           label:'고객등록', sub:'처리 대기 요청'},
   claim:  {pg:'claim_status',icon:'ti-file-invoice',   label:'청구신청', sub:'미완료 청구'},
-  jp:     {pg:'join_prep',   icon:'ti-user-plus',      label:'입사준비', sub:'준비 미완료 신입'},
-  edu:    {pg:'edu_prep',    icon:'ti-school',         label:'교육준비', sub:'교육·테스트 미완료 신입'},
+  jp:     {pg:'join_prep',   icon:'ti-user-plus',      label:'입사준비', sub:'준비 미완료 신입', all:1},
+  edu:    {pg:'edu_prep',    icon:'ti-school',         label:'교육준비', sub:'교육·테스트 미완료 신입', all:1},
   exam:   {pg:'exam',        icon:'ti-pencil',         label:'시험신청', sub:'접수 미완료'},
   samdocs:{pg:'samdocs',     icon:'ti-files',          label:'3종서류', sub:'바로가기', link:1},
   med:    {pg:'wm',          icon:'ti-stethoscope',    label:'병력정리', sub:'바로가기', link:1},
@@ -11803,8 +11824,10 @@ function _reqStatRole(){
 }
 function _reqStatKeys(role){
   var c=(reqstatcfg&&typeof reqstatcfg==='object'&&!Array.isArray(reqstatcfg))?reqstatcfg[role]:null;
-  if(Array.isArray(c)) return c.filter(function(k){ return REQSTAT_ITEMS[k]; }); // 저장된 구성(빈 배열=팝업 끔)
-  return (REQSTAT_DEF[role]||[]).slice();
+  var keys=Array.isArray(c)?c.filter(function(k){ return REQSTAT_ITEMS[k]; }):(REQSTAT_DEF[role]||[]).slice(); // 저장된 구성(빈 배열=팝업 끔) 또는 기본값
+  // 팀원은 팀장 전용 페이지 항목 제거(rsSave에서도 걸러지지만, 콘솔 조작·구버전 저장분 방어 — showPage 가드에 막혀 죽은 클릭 방지)
+  if(role==='mem') keys=keys.filter(function(k){ return !RS_LEADER_KEYS[k]; });
+  return keys;
 }
 // 항목별 대기 건수 — own=true면 본인(cu.name) 건만. 각 집계는 호출부 try로 보호(하나 실패해도 나머지 표시)
 function _reqStatCount(key, own){
@@ -11867,8 +11890,8 @@ function _reqStatRows(){
     var it=REQSTAT_ITEMS[k];
     var row={pg:it.pg, icon:it.icon, label:it.label, sub:it.sub, link:it.link?1:0, n:0};
     if(!it.link){
-      try{ row.n=_reqStatCount(k, own); }catch(e){}
-      if(own) row.sub='내 '+row.sub;
+      try{ row.n=_reqStatCount(k, own&&!it.all); }catch(e){}
+      if(own&&!it.all) row.sub='내 '+row.sub; // all:1 항목(입사·교육준비)은 전사 집계 — '내' 표기 금지(라벨-값 불일치 방지)
     }
     if(k==='jp'){ try{ jpLoad(); row.sub='준비 미완료 신입 (등록 '+((JP||[]).length)+'명)'; }catch(e){} }
     if(k==='req'&&!own){ try{
@@ -18558,8 +18581,9 @@ function rSanRail(){
 }
 // ── 환경설정 탭 전환 (메뉴 구성 / 전산 사이트 관리) ──
 function nsTab(t){
-  // 전산 탭을 떠나기 전에 화면 입력값을 편집본에 회수 — 탭을 오가도 미저장 입력이 유지되도록
+  // 전산·업무팝업 탭을 떠나기 전에 화면 입력값을 편집본에 회수 — 탭을 오가도 미저장 입력이 유지되도록
   if(window._nsTabCur==='san'&&t!=='san'){ try{ _sanCollect(); }catch(e){} }
+  if(window._nsTabCur==='rs'&&t!=='rs'){ try{ _rsCollect(); }catch(e){} }
   window._nsTabCur=t;
   var base='padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;';
   [['menu','ns_tabbtn_menu','ns_tab_menu'],['san','ns_tabbtn_san','ns_tab_san'],['hero','ns_tabbtn_hero','ns_tab_hero'],['brand','ns_tabbtn_brand','ns_tab_brand'],['rs','ns_tabbtn_rs','ns_tab_rs']].forEach(function(p){
@@ -18581,18 +18605,35 @@ function nsTab(t){
 // 체크박스는 data-rsrole/data-rskey 속성 기준 수집(함정 A 안전), 저장 순서는 카탈로그(REQSTAT_ITEMS) 순.
 var RS_ROLES=['mem','lead','bm','chong'];
 function _rsTabInit(){
-  window._rsWork={};
-  RS_ROLES.forEach(function(role){ window._rsWork[role]=_reqStatKeys(role); }); // 저장본 또는 기본값
+  // 편집본이 있으면 유지 — 탭을 오가도 미저장 체크가 사라지지 않게(_hhInit·_sanWork 계열, 2026-09-10 리뷰)
+  if(!window._rsWork){
+    window._rsWork={};
+    RS_ROLES.forEach(function(role){ window._rsWork[role]=_reqStatKeys(role); }); // 저장본 또는 기본값
+  }
   _rsDraw();
 }
+// 화면 체크 상태를 편집본(_rsWork)에 회수 — 탭 이탈 시 호출(data 속성 기준, 함정 A 안전)
+function _rsCollect(){
+  if(!window._rsWork||!g('rs_grid')||!g('rs_grid').querySelector('input[data-rsrole]')) return;
+  RS_ROLES.forEach(function(role){
+    var keys=[];
+    document.querySelectorAll('#rs_grid input[data-rsrole="'+role+'"]').forEach(function(cb){
+      if(cb.checked) keys.push(cb.getAttribute('data-rskey'));
+    });
+    window._rsWork[role]=keys;
+  });
+}
+// 팀장 이상만 접근 가능한 페이지의 항목 — 팀원(mem) 역할엔 배정 불가(showPage 가드에 막혀 죽은 클릭이 됨)
+var RS_LEADER_KEYS={req:1, jp:1, edu:1, exam:1};
 function _rsDraw(){
   var grid=g('rs_grid'); if(!grid) return;
   grid.innerHTML=RS_ROLES.map(function(role){
     var sel={}; (window._rsWork[role]||[]).forEach(function(k){ sel[k]=1; });
     var rows=Object.keys(REQSTAT_ITEMS).map(function(k){
       var it=REQSTAT_ITEMS[k];
-      return '<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;padding:5px 2px;cursor:pointer">'
-        +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]?' checked':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
+      var dis=(role==='mem'&&RS_LEADER_KEYS[k]);
+      return '<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;padding:5px 2px;cursor:'+(dis?'not-allowed':'pointer')+(dis?';opacity:.45':'')+'"'+(dis?' title="팀장 이상만 접근할 수 있는 페이지라 팀원에게는 배정할 수 없습니다"':'')+'>'
+        +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]&&!dis?' checked':'')+(dis?' disabled':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
         +'<i class="ti '+it.icon+'" style="font-size:15px;color:#5a6488;width:18px;text-align:center"></i>'+it.label
         +(it.link?'<span style="font-size:11px;color:#9aa2bd">(바로가기)</span>':'')
         +'</label>';
@@ -18604,13 +18645,16 @@ function _rsDraw(){
 }
 function rsSave(){
   if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  // 그리드 미렌더 상태 방어 — 체크박스가 하나도 없으면 "전부 해제"가 아니라 렌더 실패이므로 저장 중단
+  // (조용히 저장하면 4개 역할 전부 빈 배열로 기록돼 전 팀원의 팝업이 한꺼번에 꺼지는 사고 — 2026-09-10 리뷰)
+  if(!g('rs_grid')||!g('rs_grid').querySelector('input[data-rsrole]')){ toast('설정 화면이 준비되지 않았습니다 — [업무 현황 팝업] 탭을 다시 열어주세요.'); return; }
   var cfg={};
   RS_ROLES.forEach(function(role){
     var keys=[];
-    document.querySelectorAll('input[data-rsrole="'+role+'"]').forEach(function(cb){
+    document.querySelectorAll('#rs_grid input[data-rsrole="'+role+'"]').forEach(function(cb){
       if(cb.checked) keys.push(cb.getAttribute('data-rskey'));
     });
-    cfg[role]=keys.filter(function(k){ return REQSTAT_ITEMS[k]; }); // 4개 역할 키 항상 함께 기록(빈 배열=팝업 끔)
+    cfg[role]=keys.filter(function(k){ if(!REQSTAT_ITEMS[k]) return false; if(role==='mem'&&RS_LEADER_KEYS[k]) return false; return true; }); // 4개 역할 키 항상 함께 기록(빈 배열=팝업 끔), 팀원은 팀장 전용 항목 제외
   });
   reqstatcfg=cfg;
   sv('tops_reqstatcfg', reqstatcfg);
@@ -22041,6 +22085,14 @@ function rClaimStatus(){
     if(_csHideDone&&c.done) return;
     visibleStatus.push({c:c,i:i});   // 원본 인덱스 보존(함정 A)
   });
+  // 최근 신청이 위로, 과거 내역은 아래로 — 청구신청 목록(rClaimApply, v2026.09.01-6)과 동일 규칙:
+  // 신청일(regDate, 'YYYY.MM.DD' 0패딩이라 문자열 비교 안전) 내림차순, 같은 날은 나중 등록(원본 인덱스 큰 쪽) 먼저.
+  // 핸들러는 {c,i}의 원본 인덱스를 그대로 받으므로 정렬해도 안전(함정 A 예외 패턴 유지).
+  visibleStatus.sort(function(a,b){
+    var ka=String(a.c.regDate||''), kb=String(b.c.regDate||'');
+    if(ka!==kb) return ka>kb?-1:1;
+    return b.i-a.i;
+  });
   if(!visibleStatus.length){
     tb.innerHTML='<tr><td colspan="7" class="em" style="padding:30px">'
       +(_csHideDone?'처리할 청구 내역이 없습니다. (완료된 건은 총무 화면에서 자동으로 숨겨집니다)':'청구 내역이 없습니다.')
@@ -22093,9 +22145,14 @@ function rClaimStatus(){
       +'<td>'+fileCell+'</td>'
       +'<td style="text-align:center">'+doneBtn+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'
+      +'<div style="display:flex;flex-direction:column;gap:4px;align-items:center">'
+      +'<div>'
       +(_isAdmin()?('<button onclick="claimKakaoSend('+i+')" title="청구파일 PDF 링크를 내 카톡(나와의 채팅)으로 발송" style="font-size:13px;padding:2px 8px;margin-right:3px;background:#fee500;border:1px solid #e0ca00;border-radius:5px;color:#3c1e1e;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-send"></i> 카톡</button>'):'')
       +'<button class="be" onclick="editClaim('+i+');showPage(\'claim_apply\');" style="font-size:13px;padding:2px 7px;margin-right:3px"><i class="ti ti-edit"></i></button>'
       +'<button onclick="deleteClaimByIdx('+i+')" class="bd" style="font-size:13px;padding:2px 7px"><i class="ti ti-trash"></i></button>'
+      +'</div>'
+      +'<button onclick="claimFaxView('+i+')" title="이 청구 보험사들의 팩스번호 조회" style="font-size:12.5px;padding:2px 10px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.3);border-radius:5px;color:#1a7040;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap">📠 청구팩스번호</button>'
+      +'</div>'
       +'</td>'
       +'</tr>';
   }).join('');
@@ -22135,6 +22192,77 @@ async function claimKakaoSend(i){
       toast('카톡 발송 실패: '+(em||'DB 정보 [카톡 알림 연동]에서 본인 계정 연동·승인·팀원 지정이 됐는지 확인하세요.'));
     }
   }).catch(function(e){ toast('카톡 발송 오류: '+e); });
+}
+
+// ── 청구 팩스번호 (2026-09-10) ──
+// 공유 목록 claimfax={items:[{ins,fax}]} — 동기화 키 tops_claimfax(텍스트만, 함정 B 무관.
+// items는 배열 통째 교체 — merge 깊은 병합 함정 회피, tripblock 계열).
+// 편집: 청구현황 헤더 [청구팩스번호](관리자 .ao, 좌표 직접설정 왼쪽) → m_claimfax 모달.
+// 열람: 각 행 관리 열 [청구팩스번호] → m_cfxview 모달(전원) — 그 청구 보험사들의 번호 표시.
+//   번호는 청구건에 입력한 생보 팩스(c.faxNums) 우선, 없으면 공유 목록. 행 조작은 보험사명 문자열 기준(함정 A).
+function _claimFaxShared(){
+  var m={};
+  ((claimfax&&Array.isArray(claimfax.items))?claimfax.items:[]).forEach(function(it){
+    if(it&&it.ins) m[it.ins]=String(it.fax||'');
+  });
+  return m;
+}
+function openClaimFaxMgr(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var L=_reqInsLists(); var map=_claimFaxShared();
+  var names=L.son.concat(L.life);
+  Object.keys(map).forEach(function(n){ if(names.indexOf(n)<0) names.push(n); }); // 목록에서 빠진 기존 등록 보험사도 표시(조용한 유실 방지)
+  var box=g('cfx_rows'); if(!box) return;
+  box.innerHTML=names.map(function(n){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +'<span style="font-size:13.5px;font-weight:700;color:#1a1a3a;min-width:110px">'+_esc(n)+'</span>'
+      +'<input data-cfx="'+_esc(n)+'" value="'+_esc(map[n]||'')+'" placeholder="팩스번호 (예: 02-0000-0000)" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #d0d4e8;border-radius:7px;font-size:14px;font-family:inherit;color:#1a1a2e;background:#fff">'
+      +'</div>';
+  }).join('');
+  g('m_claimfax').classList.add('open');
+}
+function claimFaxMgrSave(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var items=[];
+  document.querySelectorAll('#cfx_rows input[data-cfx]').forEach(function(inp){
+    var fax=String(inp.value||'').trim();
+    if(fax) items.push({ins:inp.getAttribute('data-cfx'), fax:fax});
+  });
+  claimfax={items:items};
+  sv('tops_claimfax', claimfax);
+  g('m_claimfax').classList.remove('open');
+  toast('청구 팩스번호가 저장되었습니다.');
+}
+function claimFaxView(i){
+  _reloadClaims();   // 함정 C — 전용 재로드만 사용
+  var c=claims[i]; if(!c){ toast('청구 내역을 찾을 수 없습니다.'); return; }
+  var insList=(c.insurerList&&c.insurerList.length)?c.insurerList.slice()
+    :(c.insurer?String(c.insurer).split(/,\s*/).filter(function(s){return s;}):[]);
+  var t=g('cfxv_title'); if(t) t.textContent=(c.custName||'')+' 님 청구 보험사 팩스번호';
+  var map=_claimFaxShared();
+  var body=g('cfxv_body'); if(!body) return;
+  if(!insList.length){
+    body.innerHTML='<div style="font-size:14px;color:#888;padding:10px 0">청구 보험사가 지정되지 않은 건입니다.</div>';
+  } else {
+    body.innerHTML=insList.map(function(ins){
+      var num=String((c.faxNums&&c.faxNums[ins])||map[ins]||'').trim();
+      var oc=('_cfxCopy('+JSON.stringify(num)+')').replace(/"/g,'&quot;');
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #eef0f6;flex-wrap:wrap">'
+        +'<span style="font-size:14px;font-weight:700;color:#1a1a3a;min-width:110px">'+_esc(ins)+'</span>'
+        +(num
+          ?'<span style="font-size:15px;font-weight:700;color:#0a7a3a;letter-spacing:.3px">📠 '+_esc(num)+'</span>'
+            +'<button onclick="'+oc+'" style="font-size:12px;padding:2px 9px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#4858cc;cursor:pointer;font-family:inherit">복사</button>'
+          :'<span style="font-size:13.5px;color:#b04040">미등록'+(_isAdmin()?' — 상단 [청구팩스번호] 버튼에서 등록하세요':' (관리자에게 등록을 요청하세요)')+'</span>')
+        +'</div>';
+    }).join('');
+  }
+  g('m_cfxview').classList.add('open');
+}
+function _cfxCopy(num){
+  if(!num) return;
+  try{
+    navigator.clipboard.writeText(num).then(function(){ toast('팩스번호가 복사되었습니다: '+num); },function(){ prompt('복사할 팩스번호:', num); });
+  }catch(e){ prompt('복사할 팩스번호:', num); }
 }
 
 function toggleClaimDoneFromStatus(i){
