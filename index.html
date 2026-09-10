@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-9</div>
   </div>
 </div>
 
@@ -894,7 +894,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="card" id="ns_tab_rs" style="display:none">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-bell"></i> 업무 현황 팝업</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
-          홈에 접속하면 뜨는 <b>업무 요청 현황</b> 팝업의 항목을 <b>역할별</b>로 설정합니다. 체크한 항목만 그 역할의 팝업에 표시됩니다.<br>
+          홈에 접속하면 뜨는 <b>업무 요청 현황</b> 팝업의 항목을 <b>역할별</b>로 설정합니다. 체크한 항목만 그 역할의 팝업에 표시되고, <b>▲▼로 순서를 바꾸면 팝업에도 그 순서대로</b> 표시됩니다.<br>
           팀원·팀장은 <b>본인 건만</b> 집계되고, 지점장·총무는 전체 건수가 집계됩니다. 3종서류·병력정리·현재실적은 건수 없는 <b>바로가기</b>로 표시됩니다.<br>
           한 역할의 항목을 <b>모두 끄면 그 역할에는 팝업이 뜨지 않습니다.</b> 아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
         </div>
@@ -18600,19 +18600,28 @@ function nsTab(t){
   if(t==='rs'){ try{ _rsTabInit(); }catch(e){} }
 }
 
-// ── 환경설정 [업무 현황 팝업] 탭 — 역할별 항목 구성 편집 (2026-09-10) ──
-// 편집본 window._rsWork={mem:[키...],lead,bm,chong} — [저장](rsSave)해야 reqstatcfg에 반영·동기화.
-// 체크박스는 data-rsrole/data-rskey 속성 기준 수집(함정 A 안전), 저장 순서는 카탈로그(REQSTAT_ITEMS) 순.
+// ── 환경설정 [업무 현황 팝업] 탭 — 역할별 항목 구성·순서 편집 (2026-09-10, 순서는 v-9) ──
+// 편집본: window._rsWork={역할:[체크된 키...]}(선택), window._rsOrder={역할:[전체 키 표시 순서]}(순서).
+// [저장](rsSave)해야 reqstatcfg에 반영·동기화 — 저장 배열의 순서가 곧 팝업 표시 순서(_reqStatKeys가 그대로 사용).
+// 체크·순서 조작은 data-rsrole/data-rskey 속성·카탈로그 상수 키 기준(함정 A 안전).
 var RS_ROLES=['mem','lead','bm','chong'];
+// 팀장 이상만 접근 가능한 페이지의 항목 — 팀원(mem) 역할엔 배정 불가(showPage 가드에 막혀 죽은 클릭이 됨)
+var RS_LEADER_KEYS={req:1, jp:1, edu:1, exam:1};
 function _rsTabInit(){
-  // 편집본이 있으면 유지 — 탭을 오가도 미저장 체크가 사라지지 않게(_hhInit·_sanWork 계열, 2026-09-10 리뷰)
-  if(!window._rsWork){
-    window._rsWork={};
-    RS_ROLES.forEach(function(role){ window._rsWork[role]=_reqStatKeys(role); }); // 저장본 또는 기본값
+  // 편집본이 있으면 유지 — 탭을 오가도 미저장 체크·순서가 사라지지 않게(_hhInit·_sanWork 계열, 2026-09-10 리뷰)
+  if(!window._rsWork||!window._rsOrder){
+    window._rsWork={}; window._rsOrder={};
+    RS_ROLES.forEach(function(role){
+      var sel=_reqStatKeys(role);                      // 저장본 또는 기본값(저장 순서 유지)
+      window._rsWork[role]=sel.slice();
+      var order=sel.slice();                           // 체크된 항목을 저장 순서대로 앞에, 나머지는 카탈로그 순으로 뒤에
+      Object.keys(REQSTAT_ITEMS).forEach(function(k){ if(order.indexOf(k)<0) order.push(k); });
+      window._rsOrder[role]=order;
+    });
   }
   _rsDraw();
 }
-// 화면 체크 상태를 편집본(_rsWork)에 회수 — 탭 이탈 시 호출(data 속성 기준, 함정 A 안전)
+// 화면 체크 상태를 편집본(_rsWork)에 회수 — 탭 이탈·순서 이동 전에 호출(표시 순서 그대로, 함정 A 안전)
 function _rsCollect(){
   if(!window._rsWork||!g('rs_grid')||!g('rs_grid').querySelector('input[data-rsrole]')) return;
   RS_ROLES.forEach(function(role){
@@ -18623,25 +18632,42 @@ function _rsCollect(){
     window._rsWork[role]=keys;
   });
 }
-// 팀장 이상만 접근 가능한 페이지의 항목 — 팀원(mem) 역할엔 배정 불가(showPage 가드에 막혀 죽은 클릭이 됨)
-var RS_LEADER_KEYS={req:1, jp:1, edu:1, exam:1};
 function _rsDraw(){
-  var grid=g('rs_grid'); if(!grid) return;
+  var grid=g('rs_grid'); if(!grid||!window._rsOrder) return;
   grid.innerHTML=RS_ROLES.map(function(role){
     var sel={}; (window._rsWork[role]||[]).forEach(function(k){ sel[k]=1; });
-    var rows=Object.keys(REQSTAT_ITEMS).map(function(k){
-      var it=REQSTAT_ITEMS[k];
+    var order=window._rsOrder[role]||Object.keys(REQSTAT_ITEMS);
+    var last=order.length-1;
+    var rows=order.map(function(k,idx){
+      var it=REQSTAT_ITEMS[k]; if(!it) return '';
       var dis=(role==='mem'&&RS_LEADER_KEYS[k]);
-      return '<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;padding:5px 2px;cursor:'+(dis?'not-allowed':'pointer')+(dis?';opacity:.45':'')+'"'+(dis?' title="팀장 이상만 접근할 수 있는 페이지라 팀원에게는 배정할 수 없습니다"':'')+'>'
-        +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]&&!dis?' checked':'')+(dis?' disabled':'')+' style="accent-color:#4858cc;width:14px;height:14px">'
-        +'<i class="ti '+it.icon+'" style="font-size:15px;color:#5a6488;width:18px;text-align:center"></i>'+it.label
-        +(it.link?'<span style="font-size:11px;color:#9aa2bd">(바로가기)</span>':'')
-        +'</label>';
+      var mvBtn=function(dir,sym,off){
+        // role·k는 카탈로그 상수 문자열 — onclick 직접 심기 안전(함정 A·XSS 무관)
+        if(off) return '<button type="button" disabled style="width:22px;height:22px;padding:0;border:1px solid #e4e7f0;border-radius:5px;background:#f6f7fb;color:#c8cede;font-size:11px;cursor:default">'+sym+'</button>';
+        return '<button type="button" onclick="rsMove(\''+role+'\',\''+k+'\','+dir+')" title="순서 이동" style="width:22px;height:22px;padding:0;border:1px solid #c9cfe6;border-radius:5px;background:#fff;color:#4858cc;font-size:11px;cursor:pointer;font-family:inherit">'+sym+'</button>';
+      };
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 2px">'
+        +'<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;flex:1;min-width:0;cursor:'+(dis?'not-allowed':'pointer')+(dis?';opacity:.45':'')+'"'+(dis?' title="팀장 이상만 접근할 수 있는 페이지라 팀원에게는 배정할 수 없습니다"':'')+'>'
+          +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]&&!dis?' checked':'')+(dis?' disabled':'')+' style="accent-color:#4858cc;width:14px;height:14px;flex:none">'
+          +'<i class="ti '+it.icon+'" style="font-size:15px;color:#5a6488;width:18px;text-align:center;flex:none"></i>'+it.label
+          +(it.link?'<span style="font-size:11px;color:#9aa2bd">(바로가기)</span>':'')
+        +'</label>'
+        +mvBtn(-1,'▲',idx===0)+mvBtn(1,'▼',idx===last)
+        +'</div>';
     }).join('');
     return '<div style="border:1px solid #e2e4f0;border-radius:10px;padding:12px;background:#fbfcff">'
       +'<div style="font-size:14px;font-weight:800;color:#2b3a8c;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e8eaf2">'+REQSTAT_ROLE_LABEL[role]+'</div>'
       +rows+'</div>';
   }).join('');
+}
+// ▲▼ 순서 이동 — 이동 전 체크 상태 회수(재렌더로 날아가지 않게), 위/아래 항목과 자리 교환
+function rsMove(role,key,dir){
+  try{ _rsCollect(); }catch(e){}
+  var ord=(window._rsOrder&&window._rsOrder[role])||null; if(!ord) return;
+  var i=ord.indexOf(key), j=i+dir;
+  if(i<0||j<0||j>=ord.length) return;
+  ord[i]=ord[j]; ord[j]=key;
+  _rsDraw();
 }
 function rsSave(){
   if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
@@ -18651,6 +18677,7 @@ function rsSave(){
   var cfg={};
   RS_ROLES.forEach(function(role){
     var keys=[];
+    // querySelectorAll은 문서 순서 = 화면 표시 순서 — 체크된 항목이 표시 순서 그대로 저장돼 팝업 순서가 됨
     document.querySelectorAll('#rs_grid input[data-rsrole="'+role+'"]').forEach(function(cb){
       if(cb.checked) keys.push(cb.getAttribute('data-rskey'));
     });
@@ -18658,13 +18685,19 @@ function rsSave(){
   });
   reqstatcfg=cfg;
   sv('tops_reqstatcfg', reqstatcfg);
-  window._rsWork=JSON.parse(JSON.stringify(cfg));
-  toast('업무 현황 팝업 구성이 저장되었습니다.');
+  try{ _rsCollect(); }catch(e){} // 편집본을 화면 상태로 갱신(순서 편집본은 유지)
+  toast('업무 현황 팝업 구성이 저장되었습니다. (표시 순서 포함)');
 }
 function rsReset(){
-  if(!confirm('업무 현황 팝업 구성을 기본값으로 되돌릴까요? (화면만 되돌아가며, [저장]을 눌러야 반영됩니다)')) return;
-  window._rsWork={};
-  RS_ROLES.forEach(function(role){ window._rsWork[role]=(REQSTAT_DEF[role]||[]).slice(); });
+  if(!confirm('업무 현황 팝업 구성·순서를 기본값으로 되돌릴까요? (화면만 되돌아가며, [저장]을 눌러야 반영됩니다)')) return;
+  window._rsWork={}; window._rsOrder={};
+  RS_ROLES.forEach(function(role){
+    var def=(REQSTAT_DEF[role]||[]).slice();
+    window._rsWork[role]=def.slice();
+    var order=def.slice();
+    Object.keys(REQSTAT_ITEMS).forEach(function(k){ if(order.indexOf(k)<0) order.push(k); });
+    window._rsOrder[role]=order;
+  });
   _rsDraw();
 }
 // 화면 입력값을 편집본(_sanWork)에 회수 — 행 조작·저장 전에 항상 호출(id 기반, 함정 A 안전)
