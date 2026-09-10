@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-20</div>
   </div>
 </div>
 
@@ -19592,6 +19592,8 @@ function nsReset(){
 // ----- 추가 메뉴 내용 페이지 (공용 pg_custom) -----
 function rCustomPage(name){
   var body=g('cm_body'); if(!body) return;
+  // 대리발급 패널이 떠 있으면 재렌더 전에 입력값을 버퍼로 회수(실시간 수신 재렌더에 입력이 날아가지 않게)
+  try{ var _bp=g('bdr_panel'); if(_bp) _bdrSyncFromDom(_bp.getAttribute('data-bdrcat')); }catch(e){}
   var c=_navCustomById(name);
   if(!c){ body.innerHTML='<div class="card" style="color:#888;font-size:14px">메뉴를 찾을 수 없습니다. (삭제되었을 수 있습니다)</div>'; return; }
   var q=JSON.stringify(name).replace(/"/g,'&quot;');
@@ -19625,6 +19627,13 @@ function rCustomPage(name){
       +(hasNone?tabBtn('_none','미분류',posts.filter(_isNone).length):'')
       +'</div>';
   }
+  // '대리발급' 분류 탭 선택 시 서류 작성 패널(위임자/위임받는자 입력 + 양식 미리보기 + 좌표설정) 표시 (2026-09-10)
+  var daeriCat=null;
+  if(csel&&csel!=='_none'){
+    var _dc=cats.filter(function(cc){ return cc.id===csel; })[0];
+    if(_dc&&_bdIsDaeri(_dc)) daeriCat=_dc;
+  }
+  var daeriPanel=daeriCat?_bdDaeriHtml(name,daeriCat):'';
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
@@ -19649,8 +19658,9 @@ function rCustomPage(name){
       +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
       +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
       +'</div>':'')
-    +'</div>'+catbar+grid+pager+'</div>';
+    +'</div>'+catbar+daeriPanel+grid+pager+'</div>';
   _bdBind(body,name);
+  if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
 // 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
@@ -20115,6 +20125,230 @@ function bdCatSave(){
   window._bdCatEdit=null;
   toast('분류가 저장되었습니다.');
   try{ if(String(window._curPage||'')===nm) rCustomPage(nm); }catch(err){}
+}
+// ===== 게시판 대리발급 서류 작성 (2026-09-10) =====
+// 분류 이름에 '대리발급'이 들어간 분류의 탭을 선택하면 서류 작성 패널이 표시된다:
+// 좌=위임자(고객)/위임받는자(로그인 계정 자동 입력·수정 가능) 정보 입력, 우=올린 양식 미리보기,
+// 관리자는 [양식 업로드]·[좌표 직접설정](m_claimcal 'daeri' 모드), 전원 [미리보기]/[출력].
+// 양식·좌표는 청구서 파이프라인 재사용(4.96 3종서류 계열) — 슬롯 '대리발급_<분류이름>'
+// (idb tpl_ + Storage claim_templates/ 공유, 좌표 tops_claim_coords_v2 동기화).
+// ⚠️ 슬롯이 분류 "이름" 기반 — 분류 이름을 바꾸면 양식·좌표를 다시 등록해야 함(분류 재생성엔 생존하는 트레이드오프).
+// 입력값은 저장·동기화 없음(함정 B 무관) — 재렌더 보존용 메모리 버퍼 window._bdrVals[분류id]만 사용. id는 bdr_ 접두(함정 E).
+function _bdIsDaeri(cat){ return !!(cat&&/대리발급/.test(String(cat.nm||''))); }
+function _bdDaeriSlot(cat){ return '대리발급_'+String(cat.nm||'').trim(); }
+function _bdrCatById(name,catId){ var out=null; _bdCats(name).forEach(function(c){ if(c&&c.id===catId) out=c; }); return out; }
+function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 구성원 정보(이름·전화·주소. 주민번호는 데이터에 없어 직접 입력)
+  var out={name:(typeof cu!=='undefined'&&cu&&cu.name)||'', phone:'', addr:''};
+  try{
+    var m=(mem||[]).filter(function(x){ return x&&((cu.code&&x.code===cu.code)||x.name===cu.name); })[0];
+    if(m){ out.phone=m.phone||''; out.addr=m.address||''; }
+  }catch(e){}
+  return out;
+}
+function _bdrGetVals(catId){
+  window._bdrVals=window._bdrVals||{};
+  if(!window._bdrVals[catId]){
+    var my=_bdrMyInfo();
+    window._bdrVals[catId]={wj_name:'',wj_rrn:'',wj_phone:'',wj_addr:'',wj_rel:'',wb_name:my.name,wb_rrn:'',wb_phone:my.phone,wb_addr:my.addr};
+  }
+  return window._bdrVals[catId];
+}
+function _bdrSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌더·생성 직전 — _sanCollect 계열)
+  var p=g('bdr_panel'); if(!p||p.getAttribute('data-bdrcat')!==catId) return;
+  var o=_bdrGetVals(catId);
+  p.querySelectorAll('[data-bdrk]').forEach(function(inp){ o[inp.getAttribute('data-bdrk')]=inp.value; });
+}
+function _bdDaeriHtml(name,cat){
+  var o=_bdrGetVals(cat.id);
+  var qn=JSON.stringify(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var qc=JSON.stringify(cat.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var _in='width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
+  var fld=function(k,label,ph){
+    return '<div style="margin-bottom:8px"><div style="font-size:12.5px;color:#555;margin-bottom:3px">'+label+'</div>'
+      +'<input data-bdrk="'+k+'" value="'+_esc(o[k]||'')+'" placeholder="'+_esc(ph||'')+'" style="'+_in+'"></div>';
+  };
+  var bt='padding:7px 13px;border-radius:7px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;';
+  return '<div id="bdr_panel" data-bdrcat="'+_esc(cat.id)+'" style="margin-top:12px;border:1px solid #dfe3f0;border-radius:10px;padding:14px 16px;background:#fafbff">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+      +'<div style="font-weight:700;font-size:15px;color:#2a2a4a"><i class="ti ti-file-pencil"></i> '+_esc(cat.nm)+' 작성 <span id="bdr_tpl_st" style="font-size:12px;font-weight:400;color:#999"></span></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        +(_isAdmin()
+          ?'<button onclick="bdrTplPick()" style="'+bt+'background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-upload"></i> 양식 업로드</button>'
+           +'<input type="file" id="bdr_tpl_file" accept="application/pdf" style="display:none" onchange="bdrTplFileChange('+qn+','+qc+')">'
+           +'<button onclick="bdrOpenCoords('+qn+','+qc+')" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-crosshair"></i> 좌표 직접설정</button>'
+          :'')
+        +'<button onclick="bdrPreview('+qn+','+qc+')" style="'+bt+'background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-eye"></i> 미리보기</button>'
+        +'<button onclick="bdrPrint('+qn+','+qc+')" style="'+bt+'background:#4858cc;border:none;color:#fff"><i class="ti ti-printer"></i> 출력</button>'
+      +'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">'
+      +'<div style="flex:0 1 330px;min-width:260px">'
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">위임자 (고객)</div>'
+        +fld('wj_name','고객이름','홍길동')
+        +fld('wj_rrn','주민번호','000000-0000000')
+        +fld('wj_phone','핸드폰번호','010-0000-0000')
+        +fld('wj_addr','집주소','')
+        +fld('wj_rel','위임받는자와의 관계','지인')
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 6px">위임받는자 <span style="font-weight:400;font-size:11.5px;color:#999">— 내 계정 정보 자동 입력(수정 가능)</span></div>'
+        +fld('wb_name','이름','')
+        +fld('wb_rrn','주민번호','000000-0000000')
+        +fld('wb_phone','전화번호','')
+        +fld('wb_addr','집주소','')
+        +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.</div>'
+      +'</div>'
+      +'<div style="flex:1 1 320px;min-width:280px">'
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">양식 미리보기</div>'
+        +'<div id="bdr_prev" data-bdrcat="'+_esc(cat.id)+'" style="max-height:660px;overflow-y:auto;border:1px solid #e4e8f4;border-radius:8px;padding:10px;background:#fff">'
+          +'<div style="color:#a0a0b0;font-size:13px;padding:26px 0;text-align:center">양식 불러오는 중…</div></div>'
+      +'</div>'
+    +'</div></div>';
+}
+function _bdrStatus(ok){
+  var st=g('bdr_tpl_st'); if(!st) return;
+  st.textContent=ok?'✅ 양식 등록됨':'❌ 양식 없음';
+  st.style.color=ok?'#1a7f37':'#c04040';
+}
+function bdrTplPick(){
+  if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
+  var inp=g('bdr_tpl_file'); if(inp) inp.click();
+}
+function bdrTplFileChange(name,catId){
+  var inp=g('bdr_tpl_file'); if(!inp||!inp.files||!inp.files[0]) return;
+  var f=inp.files[0]; inp.value='';
+  bdrTplUpload(name,catId,f);
+}
+function bdrTplUpload(name,catId,file){
+  if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
+  var cat=_bdrCatById(name,catId); if(!cat||!file){ if(!cat) toast('분류를 찾을 수 없습니다.'); return; }
+  if(!(file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){ toast('PDF 파일만 올릴 수 있습니다.'); return; }
+  if(file.size>25*1024*1024){ toast('PDF는 25MB 이하만 올릴 수 있습니다.'); return; }
+  if(window._bdrUpBusy){ toast('다른 양식을 올리는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  window._bdrUpBusy=true; var done=function(){ window._bdrUpBusy=false; };
+  var slot=_bdDaeriSlot(cat);
+  var rd=new FileReader();
+  rd.onload=function(){
+    var b64=String(rd.result).split(',')[1]||'';
+    if(!b64){ done(); toast('파일을 읽지 못했습니다.'); return; }
+    idbSetTpl('tpl_'+slot,b64).then(function(){
+      done();
+      toast(cat.nm+' 양식 저장 완료. 전체 팀 공유 중...');
+      try{ uploadTemplateToStorage(slot,b64); }catch(e){}   // 팀 공유(실패해도 이 기기에선 사용 가능)
+      try{ _bdrPrevDraw(name,catId); }catch(e){}
+    }).catch(function(e){ done(); toast('양식 저장 실패: '+(e.message||e)); });
+  };
+  rd.onerror=function(){ done(); toast('파일을 읽는 중 오류가 발생했습니다.'); };
+  rd.readAsDataURL(file);
+}
+async function bdrOpenCoords(name,catId){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var cat=_bdrCatById(name,catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return; }
+  var slot=_bdDaeriSlot(cat);
+  var has=false; try{ has=!!(await claimTemplateFor(slot)); }catch(e){}
+  if(!has){ toast('먼저 [양식 업로드]로 양식 PDF를 올려주세요.'); return; }
+  _bdrSyncFromDom(catId);                    // 편집기 다녀와도 입력값 유지
+  window._ccPresetInsurer=slot;              // openClaimCal이 'daeri' 모드로 진입
+  openClaimCal();
+}
+// 올린 양식 미리보기 — pdf.js로 앞쪽 페이지를 이미지로 렌더(저장 안 함 — 함정 B, 매 표시마다 렌더)
+async function _bdrPrevDraw(name,catId){
+  var box=g('bdr_prev'); if(!box||box.getAttribute('data-bdrcat')!==catId) return;
+  var cat=_bdrCatById(name,catId); if(!cat) return;
+  var gen=window._bdrPrevGen=(window._bdrPrevGen||0)+1;   // 탭 전환·재렌더 중 도착분 오귀속 방지
+  var b64=''; try{ b64=await claimTemplateFor(_bdDaeriSlot(cat)); }catch(e){}
+  if(gen!==window._bdrPrevGen) return;
+  box=g('bdr_prev'); if(!box||box.getAttribute('data-bdrcat')!==catId) return;
+  if(!b64){
+    _bdrStatus(false);
+    box.innerHTML='<div style="color:#a0a0b0;font-size:13px;padding:30px 0;text-align:center">등록된 양식이 없습니다.'
+      +(_isAdmin()?'<br>[양식 업로드]로 PDF를 올려주세요.':'<br>관리자가 양식을 올리면 여기에 표시됩니다.')+'</div>';
+    return;
+  }
+  _bdrStatus(true);
+  try{
+    if(typeof pdfjsLib==='undefined') throw new Error('PDF 뷰어 미로드');
+    var bytes=Uint8Array.from(atob(b64),function(ch){ return ch.charCodeAt(0); });
+    var pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+    var n=Math.min(pdf.numPages,5), imgs=[];
+    for(var i=1;i<=n;i++){
+      var pg=await pdf.getPage(i);
+      var vp=pg.getViewport({scale:1});
+      vp=pg.getViewport({scale:560/vp.width});
+      var cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+      await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+      imgs.push(cv.toDataURL('image/jpeg',0.85));
+    }
+    if(gen!==window._bdrPrevGen) return;
+    box=g('bdr_prev'); if(!box||box.getAttribute('data-bdrcat')!==catId) return;
+    box.innerHTML=imgs.map(function(u){ return '<img src="'+u+'" alt="" style="width:100%;max-width:560px;display:block;border:1px solid #dde;border-radius:6px;margin:0 auto 10px">'; }).join('')
+      +(pdf.numPages>n?'<div style="font-size:12px;color:#999;text-align:center">… 외 '+(pdf.numPages-n)+'쪽 (미리보기는 앞 '+n+'쪽만 표시)</div>':'');
+  }catch(e){
+    console.warn('bdr preview', e);
+    try{ box.innerHTML='<div style="color:#c04040;font-size:13px;padding:20px 0;text-align:center">양식 미리보기를 만들지 못했습니다 — [미리보기] 버튼으로 확인해주세요.</div>'; }catch(_e){}
+  }
+}
+// 입력값을 양식에 기입해 PDF 생성 — 청구서 엔진(drawClaimFields) 재사용.
+// 매핑: 위임자=피보험자 키(insName/insRrn/phone/addr/insRel), 위임받는자=계약자 키(ctName/ctRrn/ctPhone/ctAddr).
+// ⚠️ custName/rrn은 일부러 안 넣는다 — ctx 폴백(ins←custName, ct←rrn)으로 빈 칸에 반대쪽 값이 찍히는 것 방지.
+//    위임받는자 값이 빈 항목은 좌표를 꺼서(on:false) ctx의 ct←ins 폴백이 위임자 값을 그 칸에 찍지 않게 한다.
+async function _bdrBuild(name,catId){
+  if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.'); return null; }
+  var cat=_bdrCatById(name,catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return null; }
+  var slot=_bdDaeriSlot(cat);
+  var b64=''; try{ b64=await claimTemplateFor(slot); }catch(e){}
+  if(!b64){ toast('등록된 양식이 없습니다 — 관리자가 [양식 업로드]로 PDF를 올려야 합니다.'); return null; }
+  _bdrSyncFromDom(catId);
+  var o=_bdrGetVals(catId);
+  var val=function(k){ return String(o[k]||'').trim(); };
+  if(!val('wj_name')&&!val('wb_name')){
+    if(!confirm('위임자·위임받는자 이름이 모두 비어 있습니다. 빈 양식으로 만들까요?')) return null;
+  }
+  var c={
+    insName:val('wj_name'), insRrn:val('wj_rrn').replace(/-/g,''), phone:val('wj_phone'), addr:val('wj_addr'), insRel:val('wj_rel'),
+    ctName:val('wb_name'), ctRrn:val('wb_rrn').replace(/-/g,''), ctPhone:val('wb_phone'), ctAddr:val('wb_addr'),
+    agentName:(typeof cu!=='undefined'&&cu&&cu.name)||'', accident:[], desc:''
+  };
+  var coords=claimCoordsFor(slot);
+  var wbOf={ctName:'ctName',ctRrn:'ctRrn',ctRrnFront:'ctRrn',ctRrnBack:'ctRrn',
+    ctPhone:'ctPhone',ctPhoneFront:'ctPhone',ctPhoneMid:'ctPhone',ctPhoneBack:'ctPhone',ctAddr:'ctAddr'};
+  Object.keys(coords).forEach(function(k){
+    var bk=String(k).replace(/_\d+$/,''); var src=wbOf[bk];
+    if(src&&!c[src]) coords[k]=Object.assign({},coords[k],{on:false});
+  });
+  var PDFDocument=PDFLib.PDFDocument;
+  var sb=atob(b64); var bytes=new Uint8Array(sb.length);
+  for(var i=0;i<sb.length;i++) bytes[i]=sb.charCodeAt(i);
+  var srcDoc=await PDFDocument.load(bytes,{ignoreEncryption:true});
+  await drawClaimFields(srcDoc, coords, c, _sdDtx);
+  var merged=await PDFDocument.create();   // A4 정규화(스캔 양식 잘림 방지 — _sdFitA4 재사용, 3종서류 계열)
+  (await merged.copyPages(srcDoc, srcDoc.getPageIndices())).forEach(function(p){ _sdFitA4(p); merged.addPage(p); });
+  return await merged.save();
+}
+async function bdrPreview(name,catId){   // sdPreview 패턴 — 새 탭 동기 오픈(팝업 차단 즉시 안내)
+  var w=null;
+  try{ w=window.open('about:blank'); }catch(e){}
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.'); return; }
+  try{
+    var bytes=await _bdrBuild(name,catId);
+    if(!bytes){ w.close(); return; }
+    w.location=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  }catch(e){ try{w.close();}catch(_e){} toast('미리보기 실패: '+(e.message||e)); }
+}
+async function bdrPrint(name,catId){     // sdPrint 패턴 — 자동 인쇄 실패해도 탭에 PDF 표시(무통보 실패 없음)
+  if(window._bdrPrintBusy){ toast('출력 준비 중입니다. 잠시만 기다려주세요.'); return; }
+  var w=null;
+  try{ w=window.open('about:blank'); }catch(e){}
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.'); return; }
+  window._bdrPrintBusy=true;
+  try{
+    var bytes=await _bdrBuild(name,catId);
+    if(!bytes){ w.close(); return; }
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    w.location=url;
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },800);
+    toast('출력 창을 열었습니다. 인쇄 대화상자가 뜨지 않으면 그 화면의 인쇄(🖨) 버튼을 눌러주세요.');
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },120000);
+  }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
+  finally{ window._bdrPrintBusy=false; }
 }
 // ----- 게시물 작성/수정 (관리자 전용) -----
 function bdWrite(name,pid){
@@ -24011,6 +24245,18 @@ function bakedTplFor(insurer){
   try{ if(v && typeof window[v]==='string' && window[v]) return window[v]; }catch(e){}
   return '';
 }
+// ── 대리발급 가상 슬롯 (2026-09-10, 게시판 분류 '…대리발급' 서류 작성 — 4.96 3종서류 계열) ──
+// 슬롯 이름 '대리발급_<분류이름>' — 양식(idb/Storage claim_templates)·좌표(tops_claim_coords_v2) 파이프라인 공유.
+// 기존 좌표 키 재사용: 피보험자(ins*/phone/addr/insRel)=위임자, 계약자(ct*)=위임받는자 — 신규 키 없음.
+function _isDaeriSlot(n){ return /^대리발급_/.test(String(n||'')); }
+var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨(청구서 라벨과 혼동 방지 — 표시 전용)
+  insName:'위임자 성명',insRrn:'위임자 주민번호',insRrnFront:'위임자 주민번호(앞6)',insRrnBack:'위임자 주민번호(뒤7)',
+  phone:'위임자 핸드폰',phoneFront:'위임자 핸드폰(앞3)',phoneMid:'위임자 핸드폰(중4)',phoneBack:'위임자 핸드폰(뒤4)',
+  addr:'위임자 집주소',insRel:'위임받는자와의 관계',
+  ctName:'위임받는자 성명',ctRrn:'위임받는자 주민번호',ctRrnFront:'위임받는자 주민번호(앞6)',ctRrnBack:'위임받는자 주민번호(뒤7)',
+  ctPhone:'위임받는자 전화',ctPhoneFront:'위임받는자 전화(앞3)',ctPhoneMid:'위임받는자 전화(중4)',ctPhoneBack:'위임받는자 전화(뒤4)',
+  ctAddr:'위임받는자 집주소', signName:'위임자 성명(서명 옆)'
+};
 // 보험사별 좌표(기본값 + override 병합). 구버전 flat 좌표는 DB손해보험으로 이관
 function claimCoordsFor(insurer){
   var all={}; try{all=JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}');}catch(e){}
@@ -24023,6 +24269,8 @@ function claimCoordsFor(insurer){
   // 3종서류 가상 슬롯은 전 항목 기본 꺼짐 — 좌표 설정 전에 청구서 기본 좌표(피보험자·작성일·서명·동의V 등)가
   // 새 양식에 무단으로 찍히는 사고 방지(2026-08-21 리뷰). 관리자가 도구박스에서 체크한 항목만 배치된다.
   var isSam=(typeof SAMDOC_LIST!=='undefined')&&SAMDOC_LIST.some(function(d){return d.tpl===insurer;});
+  var isDaeri=_isDaeriSlot(insurer);   // 대리발급 슬롯도 3종과 동일하게 전 항목 기본 꺼짐(무단 기입 방지)
+  if(isDaeri) isSam=true;              // defOn 강제 꺼짐 규칙 공유
   var map={};
   var defMap={}; CLAIM_FIELDS_DEFAULT.forEach(function(f){ defMap[f.key]=f; });
   CLAIM_FIELDS_DEFAULT.forEach(function(f){
@@ -24038,7 +24286,7 @@ function claimCoordsFor(insurer){
       y:(typeof o.y==='number')?o.y:by,
       page:(typeof o.page==='number')?o.page:bp,
       on:(o.on===false)?false:((o.on===true)?true:bon),
-      label:f.label,
+      label:(isDaeri&&_DAERI_LABELS[f.key])||f.label,
       fmt:(o.fmt!=null?o.fmt:b.fmt),
       size:(typeof o.size==='number')?o.size:(typeof b.size==='number'?b.size:null),
       pitch:(typeof o.pitch==='number')?o.pitch:(typeof b.pitch==='number'?b.pitch:null)
@@ -24055,7 +24303,7 @@ function claimCoordsFor(insurer){
       y:(typeof o.y==='number')?o.y:def.y,
       page:(typeof o.page==='number')?o.page:def.page,
       on:(o.on===false)?false:true,
-      label:def.label+' #'+(k.split('_').pop()),
+      label:((isDaeri&&_DAERI_LABELS[bk])||def.label)+' #'+(k.split('_').pop()),
       fmt:o.fmt!=null?o.fmt:null,
       size:(typeof o.size==='number')?o.size:null,
       pitch:(typeof o.pitch==='number')?o.pitch:null
@@ -24083,18 +24331,21 @@ function openClaimCal(){
   if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ window._ccPresetInsurer=null; toast('관리자만 사용할 수 있습니다.'); return; }
   if(typeof pdfjsLib==='undefined'){ window._ccPresetInsurer=null; toast('PDF 뷰어 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; } // 프리셋 정리 — 다음 일반 진입에 3종 슬롯이 남지 않게
   // 진입 모드: 3종서류 [좌표 설정](_ccPresetInsurer가 3종 슬롯)이면 'samdocs' — 문서 3종만 목록에 표시.
+  // 대리발급 슬롯('대리발급_…', 2026-09-10)이면 'daeri' — 진입한 그 문서 하나만 표시.
   // 그 외(청구서 쪽 진입)는 'claim' — 보험사만 표시. 같은 편집기·저장 경로를 쓰되 화면만 분리(개별 편집기처럼 동작).
-  window._ccMode=(window._ccPresetInsurer&&typeof SAMDOC_LIST!=='undefined'&&SAMDOC_LIST.some(function(d){return d.tpl===window._ccPresetInsurer;}))?'samdocs':'claim';
-  var _sam=(window._ccMode==='samdocs');
-  var _t=g('cc_title');    if(_t)  _t.textContent=_sam?'3종서류 좌표 설정':'청구서 좌표 직접설정';
-  var _il=g('cc_ins_lbl'); if(_il) _il.textContent=_sam?'문서':'보험사';
-  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=_sam?'none':'';       // 파일명→보험사 일괄 업로드는 청구서 전용
-  var _dl=g('cc_data_lbl'); if(_dl) _dl.style.display=_sam?'none':'';        // 청구건 미리보기 데이터는 청구서 전용(3종은 샘플만)
-  var _ds=g('cc_data_sel'); if(_ds){ _ds.style.display=_sam?'none':''; if(_sam){ _ds.value=''; window._ccDataClaim=null; } }
+  window._ccMode=(window._ccPresetInsurer&&typeof SAMDOC_LIST!=='undefined'&&SAMDOC_LIST.some(function(d){return d.tpl===window._ccPresetInsurer;}))?'samdocs'
+    :(_isDaeriSlot(window._ccPresetInsurer)?'daeri':'claim');
+  var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
+  if(_daeri) window._ccDaeriSlot=window._ccPresetInsurer;   // ccPopulateInsurers가 목록으로 사용(진입 슬롯 1개)
+  var _t=g('cc_title');    if(_t)  _t.textContent=_sam?'3종서류 좌표 설정':(_daeri?'대리발급 서류 좌표 설정':'청구서 좌표 직접설정');
+  var _il=g('cc_ins_lbl'); if(_il) _il.textContent=(_sam||_daeri)?'문서':'보험사';
+  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri)?'none':'';   // 파일명→보험사 일괄 업로드는 청구서 전용
+  var _dl=g('cc_data_lbl'); if(_dl) _dl.style.display=(_sam||_daeri)?'none':'';    // 청구건 미리보기 데이터는 청구서 전용
+  var _ds=g('cc_data_sel'); if(_ds){ _ds.style.display=(_sam||_daeri)?'none':''; if(_sam||_daeri){ _ds.value=''; window._ccDataClaim=null; } }
   g('m_claimcal').classList.add('open');
   if(typeof window._ccShowPreview==='undefined') window._ccShowPreview=true;
   ccNudgeSetup();
-  if(!_sam) ccPopulateDataSel();   // 작성된 청구건 목록 → 미리보기 데이터 선택
+  if(!_sam&&!_daeri) ccPopulateDataSel();   // 작성된 청구건 목록 → 미리보기 데이터 선택(청구서 전용)
   ccPopulateInsurers().then(function(){
     var sel=g('cc_insurer');
     if(window._ccPresetInsurer){ if(sel) sel.value=window._ccPresetInsurer; window._ccInsurer=window._ccPresetInsurer; window._ccPresetInsurer=null; } // 3종서류 [좌표 설정] 진입
@@ -24124,17 +24375,20 @@ async function ccPopulateInsurers(){
       (res.items||[]).forEach(function(it){
         var base=String(it.name||'').replace(/\.pdf$/i,'');
         var cands=[base]; try{ cands.push(decodeURIComponent(base)); }catch(e){}
-        var known=CLAIM_INSURERS.concat((typeof SAMDOC_LIST!=='undefined'?SAMDOC_LIST:[]).map(function(d){return d.tpl;}));
+        var known=CLAIM_INSURERS.concat((typeof SAMDOC_LIST!=='undefined'?SAMDOC_LIST:[]).map(function(d){return d.tpl;}))
+          .concat(window._ccDaeriSlot?[window._ccDaeriSlot]:[]);   // 대리발급 슬롯도 ✅ 표시 대상
         cands.forEach(function(c){ if(known.indexOf(c)>=0) haveSet[c]=true; });
       });
     }
   }catch(e){ console.warn('Storage 양식 목록 조회 실패:', e); }
   var cur=sel.value;
-  // 모드별 목록 — 청구서 모드는 보험사만, 3종서류 모드는 문서 3종만(개별 편집기처럼 분리. 저장·양식 파이프라인은 공유)
-  var _sam=(window._ccMode==='samdocs');
-  var names=_sam?(typeof SAMDOC_LIST!=='undefined'?SAMDOC_LIST:[]).map(function(d){return d.tpl;}):CLAIM_INSURERS;
+  // 모드별 목록 — 청구서=보험사만, 3종서류=문서 3종만, 대리발급=진입한 문서 1개(개별 편집기처럼 분리. 저장·양식 파이프라인은 공유)
+  var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
+  var names=_sam?(typeof SAMDOC_LIST!=='undefined'?SAMDOC_LIST:[]).map(function(d){return d.tpl;})
+    :(_daeri?[window._ccDaeriSlot].filter(Boolean):CLAIM_INSURERS);
   var labelOf=function(n){
     if(_sam&&typeof SAMDOC_LIST!=='undefined'){ for(var i=0;i<SAMDOC_LIST.length;i++) if(SAMDOC_LIST[i].tpl===n) return SAMDOC_LIST[i].nm; }
+    if(_daeri) return String(n).replace(/^대리발급_/,'');
     return n;
   };
   sel.innerHTML=names.map(function(n){ return '<option value="'+n+'">'+labelOf(n)+(haveSet[n]?' ✅':' (양식없음)')+'</option>'; }).join('');
@@ -24244,13 +24498,15 @@ function ccBuildTabs(){
 function ccBuildAddField(){
   var sel=g('cc_addfield'); if(!sel) return;
   var cur=window._ccPage-1;
-  // 3종서류 모드에선 도구박스와 동일하게 CC_SAM_KEYS 항목만 후보로 — 청구서 전용·입력칸 없는 필드가 섞이지 않게
-  var allow=(window._ccMode==='samdocs')?CC_SAM_KEYS:null;
+  // 3종서류·대리발급 모드에선 도구박스와 동일하게 화이트리스트 항목만 후보로 — 청구서 전용·입력칸 없는 필드가 섞이지 않게
+  var _daeriAF=(window._ccMode==='daeri');
+  var allow=(window._ccMode==='samdocs')?CC_SAM_KEYS:(_daeriAF?CC_DAERI_KEYS:null);
   var opts='<option value="">+ 이 페이지에 항목 추가</option>';
   CLAIM_FIELDS_DEFAULT.forEach(function(f){
     if(allow&&!allow[f.key]) return;
+    var lb=(_daeriAF&&_DAERI_LABELS[f.key])||f.label;   // 대리발급 모드는 위임자/위임받는자 라벨로 표시
     var co=window._ccWork[f.key]; var fp=(co&&typeof co.page==='number')?co.page:f.page;
-    if(fp!==cur){ opts+='<option value="'+f.key+'">'+f.label+'</option>'; }
+    if(fp!==cur){ opts+='<option value="'+f.key+'">'+lb+'</option>'; }
   });
   sel.innerHTML=opts;
 }
@@ -24495,6 +24751,44 @@ function ccToggleField(key){
 // (주민번호·휴대폰·주소·설계번호·관계·서명 캔버스는 폼에서 제거됨 → 배치해도 값이 안 찍혀 혼란만 주므로 숨김.
 //  서명은 출력 후 자필 — signName(서명 옆 성명 인쇄)은 유지)
 var CC_SAM_KEYS={ctName:1,insName:1,coName:1,prodName:1,polNum:1,agentName:1,vchk:1,wY:1,wY2:1,wM:1,wD:1,signName:1};
+// 대리발급 좌표 편집 모드 항목(2026-09-10) — 게시판 대리발급 폼에 입력칸이 있는 값만
+// (위임자=피보험자 키(ins*/phone/addr/insRel), 위임받는자=계약자 키(ct*) 재사용 — 신규 키 없음. 서명은 자필)
+var CC_DAERI_KEYS={insName:1,insRrn:1,insRrnFront:1,insRrnBack:1,phone:1,phoneFront:1,phoneMid:1,phoneBack:1,addr:1,insRel:1,
+  ctName:1,ctRrn:1,ctRrnFront:1,ctRrnBack:1,ctPhone:1,ctPhoneFront:1,ctPhoneMid:1,ctPhoneBack:1,ctAddr:1,
+  wY:1,wY2:1,wM:1,wD:1,vchk:1,signName:1};
+var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 위임자/위임받는자 이름으로 묶어 표시
+  { title:'위임자 (고객)', items:[
+    {key:'insName',    label:'고객이름'},
+    {key:'insRrn',     label:'주민번호 (전체)'},
+    {key:'insRrnFront',label:'주민번호 앞 6자리'},
+    {key:'insRrnBack', label:'주민번호 뒤 7자리'},
+    {key:'phone',      label:'핸드폰번호 (전체)'},
+    {key:'phoneFront', label:'핸드폰 앞 3자리'},
+    {key:'phoneMid',   label:'핸드폰 가운데 4자리'},
+    {key:'phoneBack',  label:'핸드폰 뒤 4자리'},
+    {key:'addr',       label:'집주소'},
+    {key:'insRel',     label:'위임받는자와의 관계'}
+  ]},
+  { title:'위임받는자 (설계사)', items:[
+    {key:'ctName',       label:'이름'},
+    {key:'ctRrn',        label:'주민번호 (전체)'},
+    {key:'ctRrnFront',   label:'주민번호 앞 6자리'},
+    {key:'ctRrnBack',    label:'주민번호 뒤 7자리'},
+    {key:'ctPhone',      label:'전화번호 (전체)'},
+    {key:'ctPhoneFront', label:'전화번호 앞 3자리'},
+    {key:'ctPhoneMid',   label:'전화번호 가운데 4자리'},
+    {key:'ctPhoneBack',  label:'전화번호 뒤 4자리'},
+    {key:'ctAddr',       label:'집주소'}
+  ]},
+  { title:'작성일·기타', items:[
+    {key:'wY',       label:'작성일: 년 (4자리)'},
+    {key:'wY2',      label:'작성일: 년 (2자리)'},
+    {key:'wM',       label:'작성일: 월 (01~12)'},
+    {key:'wD',       label:'작성일: 일 (01~31)'},
+    {key:'signName', label:'위임자 성명(서명 옆)'},
+    {key:'vchk',     label:'체크(V) — ＋로 여러 개 배치'}
+  ]}
+];
 var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 표시되는 그룹
   { title:'계약자', sam:1, items:[
     {key:'ctName',       label:'성명'},
@@ -24588,10 +24882,10 @@ function ccRefreshToolbox(){
   // 3종서류 모드에선 청구서 전용 그룹(사고·계좌·동의V — sam 플래그 없는 그룹)과
   // 폼에 입력칸이 없는 항목(CC_SAM_KEYS 밖)은 숨김 — 문서에 맞는 항목만 노출.
   // (이미 배치돼 켜진 항목은 칩으로 계속 표시·삭제 가능하니 데이터가 갇히진 않음)
-  var _sam=(window._ccMode==='samdocs');
-  var groups=_sam?CC_TOOLBOX_GROUPS.filter(function(grp){return grp.sam;}):CC_TOOLBOX_GROUPS;
+  var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
+  var groups=_daeri?CC_DAERI_GROUPS:(_sam?CC_TOOLBOX_GROUPS.filter(function(grp){return grp.sam;}):CC_TOOLBOX_GROUPS);
   groups.forEach(function(grp){
-    var items=_sam?grp.items.filter(function(it){return CC_SAM_KEYS[it.key]||counts[it.key];}):grp.items; // 이미 배치돼 켜진 항목은 계속 표시(고아 좌표 방지)
+    var items=_sam?grp.items.filter(function(it){return CC_SAM_KEYS[it.key]||counts[it.key];}):grp.items; // 이미 배치돼 켜진 항목은 계속 표시(고아 좌표 방지. daeri는 전용 그룹이라 필터 불요)
     if(!items.length) return;
     html+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:#3040aa;padding:5px 8px;background:rgba(72,88,204,.08);border-radius:5px;margin-bottom:4px">'+grp.title+'</div>';
     items.forEach(function(it){
@@ -24999,8 +25293,9 @@ async function saveClaimCal(){
   });
 
   if(!targets.length){
-    var insLabel=ins; // 3종서류 슬롯이면 내부 이름(3종_...) 대신 문서 이름으로 안내
+    var insLabel=ins; // 3종서류·대리발급 슬롯이면 내부 이름 대신 문서 이름으로 안내
     try{ if(typeof SAMDOC_LIST!=='undefined') SAMDOC_LIST.forEach(function(d){ if(d.tpl===ins) insLabel=d.nm; }); }catch(e){}
+    try{ if(_isDaeriSlot(ins)) insLabel=ins.replace(/^대리발급_/,''); }catch(e){}
     toast(insLabel+' 좌표가 저장되었습니다.');
     return;
   }
