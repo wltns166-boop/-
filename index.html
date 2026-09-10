@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-13</div>
   </div>
 </div>
 
@@ -894,7 +894,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="card" id="ns_tab_rs" style="display:none">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-bell"></i> 업무 현황 팝업</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
-          홈에 접속하면 뜨는 <b>업무 요청 현황</b> 팝업의 항목을 <b>역할별</b>로 설정합니다. 체크한 항목만 그 역할의 팝업에 표시되고, <b>▲▼로 순서를 바꾸면 팝업에도 그 순서대로</b> 표시됩니다.<br>
+          홈에 접속하면 뜨는 <b>업무 요청 현황</b> 팝업의 항목을 <b>역할별</b>로 설정합니다. 체크한 항목만 그 역할의 팝업에 표시되고, <b>항목을 마우스로 끌어서(또는 ▲▼로) 순서를 바꾸면 팝업에도 그 순서대로</b> 표시됩니다.<br>
           역할 이름 옆 <b>[＋ 추가]</b>를 누르면 <b>왼쪽 사이드바 메뉴</b>를 골라 목록에 더 넣을 수 있습니다(건수 없는 바로가기 — 역할이 접근할 수 없는 메뉴는 목록에 안 나옴, ✕로 제거).<br>
           팀원·팀장은 <b>본인 건만</b> 집계되고, 지점장·총무는 전체 건수가 집계됩니다. 3종서류·병력정리·현재실적은 건수 없는 <b>바로가기</b>로 표시됩니다.<br>
           한 역할의 항목을 <b>모두 끄면 그 역할에는 팝업이 뜨지 않습니다.</b> 아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
@@ -18681,7 +18681,9 @@ function _rsDraw(){
         if(off) return '<button type="button" disabled style="width:22px;height:22px;padding:0;border:1px solid #e4e7f0;border-radius:5px;background:#f6f7fb;color:#c8cede;font-size:11px;cursor:default">'+sym+'</button>';
         return '<button type="button" onclick="rsMove(\''+role+'\',\''+k+'\','+dir+')" title="순서 이동" style="width:22px;height:22px;padding:0;border:1px solid #c9cfe6;border-radius:5px;background:#fff;color:#4858cc;font-size:11px;cursor:pointer;font-family:inherit">'+sym+'</button>';
       };
-      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 2px">'
+      // 행 전체를 draggable — 마우스로 잡아 끌어 순서 이동(HTML5 DnD는 데스크톱 전용이라 ▲▼는 모바일용으로 유지)
+      return '<div draggable="true" ondragstart="rsDragStart(event,\''+role+'\',\''+k+'\')" ondragover="rsDragOver(event,\''+role+'\',\''+k+'\')" ondragleave="rsDragLeave(event)" ondrop="rsDrop(event,\''+role+'\',\''+k+'\')" ondragend="rsDragEnd(event)" style="display:flex;align-items:center;gap:6px;padding:3px 2px;border-radius:6px">'
+        +'<span title="끌어서 순서 이동" style="flex:none;color:#b8bfd6;font-size:13px;cursor:grab;line-height:1;user-select:none">⠿</span>'
         +'<label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#1a1a2e;flex:1;min-width:0;cursor:'+(dis?'not-allowed':'pointer')+(dis?';opacity:.45':'')+'"'+(dis?' title="팀장 이상만 접근할 수 있는 페이지라 팀원에게는 배정할 수 없습니다"':'')+'>'
           +'<input type="checkbox" data-rsrole="'+role+'" data-rskey="'+k+'"'+(sel[k]&&!dis?' checked':'')+(dis?' disabled':'')+' style="accent-color:#4858cc;width:14px;height:14px;flex:none">'
           +'<i class="ti '+it.icon+'" style="font-size:15px;color:#5a6488;width:18px;text-align:center;flex:none"></i>'+_esc(it.label)
@@ -18749,6 +18751,44 @@ function rsRemoveItem(role,key){
   var wk=(window._rsWork&&window._rsWork[role])||null;
   if(wk){ var j=wk.indexOf(key); if(j>=0) wk.splice(j,1); }
   _rsDraw();
+}
+// ── 드래그 앤 드롭 순서 이동 (2026-09-10) — 행을 잡아 끌어 같은 역할 카드 안에서 이동 ──
+// role·key는 검증된 상수 키(rsMove와 동일 — 함정 A 안전). 놓는 위치는 대상 행의 위/아래 절반으로 판정.
+function rsDragStart(ev,role,key){
+  try{ _rsCollect(); }catch(e){}   // 드롭 후 재렌더에 체크 상태가 날아가지 않게 먼저 회수
+  window._rsDrag={role:role,key:key};
+  try{ ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',key); }catch(e){}
+}
+function _rsDropBefore(ev,row){
+  try{ var rect=row.getBoundingClientRect(); return (ev.clientY-rect.top)<rect.height/2; }catch(e){ return true; }
+}
+function rsDragOver(ev,role,key){
+  var d=window._rsDrag; if(!d||d.role!==role||d.key===key) return; // 같은 역할 카드 안에서만
+  ev.preventDefault();
+  try{ ev.dataTransfer.dropEffect='move'; }catch(e){}
+  var row=ev.currentTarget, before=_rsDropBefore(ev,row);
+  row.style.borderTop=before?'2px solid #4858cc':'';
+  row.style.borderBottom=before?'':'2px solid #4858cc';
+}
+function rsDragLeave(ev){
+  var r=ev.currentTarget; if(r){ r.style.borderTop=''; r.style.borderBottom=''; }
+}
+function rsDrop(ev,role,key){
+  ev.preventDefault();
+  var r=ev.currentTarget; if(r){ r.style.borderTop=''; r.style.borderBottom=''; }
+  var d=window._rsDrag; window._rsDrag=null;
+  if(!d||d.role!==role||d.key===key) return;
+  var ord=(window._rsOrder&&window._rsOrder[role])||null; if(!ord) return;
+  var from=ord.indexOf(d.key); if(from<0) return;
+  ord.splice(from,1);                                   // 끌던 항목을 빼고
+  var to=ord.indexOf(key);
+  if(to<0){ ord.splice(from,0,d.key); return; }         // 대상이 사라졌으면 원위치 복구
+  ord.splice(_rsDropBefore(ev,r)?to:to+1, 0, d.key);    // 대상 행의 위/아래에 삽입
+  _rsDraw();
+}
+function rsDragEnd(ev){
+  window._rsDrag=null;
+  try{ var r=ev.currentTarget; r.style.borderTop=''; r.style.borderBottom=''; }catch(e){}
 }
 // ▲▼ 순서 이동 — 이동 전 체크 상태 회수(재렌더로 날아가지 않게), 위/아래 항목과 자리 교환
 function rsMove(role,key,dir){
