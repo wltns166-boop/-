@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-2</div>
   </div>
 </div>
 
@@ -21400,13 +21400,15 @@ function _claimInsFamDraw(){
     });
   });
   if(!matches.length) return;
-  var hit=matches[0];
-  if(matches.length>1 && ctRrn){ // 동명이인이면 주민번호 일치 건 우선
+  var hit=null;
+  if(matches.length===1){ hit=matches[0]; }
+  else if(ctRrn){ // 동명이인이면 주민번호 일치 건만 채택
     for(var mi=0; mi<matches.length; mi++){
       var mr=String((matches[mi].kind==='f'?(matches[mi].f.rrn||''):(matches[mi].c.rrn||''))||'').trim();
       if(mr && mr===ctRrn){ hit=matches[mi]; break; }
     }
   }
+  if(!hit) return; // 동명이인인데 주민번호로 특정 불가 — 엉뚱한 세대(타인 주민번호) 노출 방지 (2026-09-10 리뷰)
   var c=hit.c;
   // claim_ins_rel 옵션(본인/배우자/자녀/보호자/법정대리인)과 직접 대응되는 관계만 자동 선택, 그 외엔 빈값(직접 선택)
   var relMap={'배우자':'배우자','자녀':'자녀'};
@@ -21427,7 +21429,11 @@ function _claimInsFamDraw(){
       people.push({name:String(f.name).trim(), rrn:String(f.rrn||'').trim(), rel:'', tag:String(f.rel||'').trim()||'가족'});
     });
   }
-  people=people.filter(function(p){ return p.name && p.name!==ctName; }); // 계약자 본인은 [계약자 동일] 버튼이 담당
+  people=people.filter(function(p){ // 계약자 본인은 [계약자 동일] 버튼이 담당 — 단 이름만 같고 주민번호가 다르면 별개 인물이라 표시 유지 (2026-09-10 리뷰)
+    if(!p.name) return false;
+    if(p.name!==ctName) return true;
+    return !!(p.rrn && ctRrn && p.rrn!==ctRrn);
+  });
   if(!people.length) return;
   box.innerHTML=people.map(function(p){
     // 함정 A: 인덱스 대신 이름·주민번호 값을 직접 전달 (selectClaimInsCust 패턴)
