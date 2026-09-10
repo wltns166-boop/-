@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-5</div>
   </div>
 </div>
 
@@ -2161,6 +2161,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <div id="silson_son" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px"></div>
     <div style="font-size:14px;font-weight:700;color:#208050;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(40,160,80,.12)">🏦 생명보험사</div>
     <div id="silson_life" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div>
+    <div id="silson_extra" style="display:none;margin-top:10px"></div>
   </div>
   <div class="mf">
     <button class="bca" onclick="silsonClear()" style="margin-right:auto;color:#c04040">지정 해제</button>
@@ -21308,11 +21309,12 @@ function _silsonApplyCheck(ins,on){
     return;
   }
   if(!found){ if(!on&&window._silsonApplied===ins) window._silsonApplied=''; return; }
-  if(found.checked!==on){ found.checked=on; updateClaimInsDisplay(); }
+  var changed=found.checked!==on;
+  if(changed){ found.checked=on; updateClaimInsDisplay(); }
   // 자동 선택한 보험사 추적 — 피보험자 교체 시 이전 체크 해제·재적용의 기준(_silsonDraw)
   if(on) window._silsonApplied=ins;
   else if(window._silsonApplied===ins) window._silsonApplied='';
-  if(on) toast(ins+' — 청구보험사에 선택되었습니다.');
+  if(on&&changed) toast(ins+' — 청구보험사에 선택되었습니다.'); // 이미 체크돼 있으면 토스트 생략(중복 알림 방지)
 }
 function openSilsonModal(){
   var name=String((g('claim_ins_name')||{value:''}).value||'').trim();
@@ -21326,6 +21328,15 @@ function openSilsonModal(){
   };
   var son=g('silson_son'); if(son) son.innerHTML=L.son.map(mk).join('');
   var life=g('silson_life'); if(life) life.innerHTML=L.life.map(mk).join('');
+  // 지정된 보험사가 현재 목록에서 빠진 경우(관리자 명단 개편 등)에도 모달에서 보이도록 별도 표시
+  var ex=g('silson_extra');
+  if(ex){
+    if(it&&L.son.indexOf(it.ins)<0&&L.life.indexOf(it.ins)<0){
+      ex.style.display='block';
+      ex.innerHTML='<div style="font-size:12px;color:#888;margin-bottom:4px">📌 현재 지정 보험사 (목록에는 없음)</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">'+mk(it.ins)+'</div>';
+    } else { ex.style.display='none'; ex.innerHTML=''; }
+  }
   g('m_silson').classList.add('open');
 }
 function silsonSave(){
