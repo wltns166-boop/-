@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-4</div>
   </div>
 </div>
 
@@ -20586,6 +20586,7 @@ function toggleClaimForm(){
     window._claimFaxPre={}; var fxw=g('claim_fax_wrap'); if(fxw)fxw.innerHTML='';
     var fbx=g('claim_ins_fam_btns');if(fbx)fbx.innerHTML=''; // 이전 계약자의 가족 버튼 잔존 방지
     var sck=g('claim_silson_chk');if(sck)sck.checked=false; // 실손 체크·표시 초기화
+    window._silsonApplied='';
     try{ _silsonDraw(); }catch(e){}
     var idp=g('claim_id_preview');if(idp)idp.innerHTML='';
     var bkp=g('claim_bank_preview');if(bkp)bkp.innerHTML='';
@@ -21134,6 +21135,7 @@ function editClaim(i){
   if(g('claim_ins_rel'))g('claim_ins_rel').value=c.insRel||'';
   try{ _claimInsFamDraw(); }catch(e){} // 수정 폼에서도 계약자 기준 가족 버튼 표시
   var _sck=g('claim_silson_chk'); if(_sck)_sck.checked=false; // 수정 폼은 저장된 보험사 체크가 정답 — 실손 체크는 초기화
+  window._silsonApplied='';
   try{ _silsonDraw(); }catch(e){}
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
   var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
@@ -21267,8 +21269,17 @@ function _silsonDraw(){
   el.textContent=it?('보험사: '+it.ins):'미지정';
   el.style.color=it?'#1a7040':'#999';
   el.style.fontWeight=it?'700':'400';
-  var chk=g('claim_silson_chk');
-  if(chk&&chk.checked&&!it) chk.checked=false; // 피보험자가 바뀌어 지정이 없으면 체크 해제(오적용 방지)
+  var chk=g('claim_silson_chk'); if(!chk) return;
+  if(chk.checked&&!it){
+    // 피보험자가 바뀌어 지정이 없으면 체크 해제 + 이전에 자동 선택했던 보험사도 해제(오적용 방지)
+    chk.checked=false;
+    if(window._silsonApplied) _silsonApplyCheck(window._silsonApplied,false);
+  } else if(chk.checked&&it&&window._silsonApplied&&window._silsonApplied!==it.ins){
+    // 체크된 채 피보험자가 다른 지정 보험사를 가진 사람으로 바뀜 — 이전 자동 선택 해제 후 새 지정 적용
+    // (표시만 바뀌고 실제 체크는 이전 사람 것으로 남던 어긋남 방지 — 2026-09-10 리뷰)
+    _silsonApplyCheck(window._silsonApplied,false);
+    _silsonApplyCheck(it.ins,true);
+  }
 }
 function claimSilsonToggle(){
   var chk=g('claim_silson_chk'); if(!chk) return;
@@ -21292,11 +21303,15 @@ function _silsonApplyCheck(ins,on){
     _claimInsRender(sel);
     document.querySelectorAll('input[name="claim_ins"]').forEach(function(cb){ cb.checked=sel.indexOf(cb.value)>=0; });
     updateClaimInsDisplay();
+    window._silsonApplied=ins;
     toast(ins+' — 청구보험사에 선택되었습니다.');
     return;
   }
-  if(!found) return;
+  if(!found){ if(!on&&window._silsonApplied===ins) window._silsonApplied=''; return; }
   if(found.checked!==on){ found.checked=on; updateClaimInsDisplay(); }
+  // 자동 선택한 보험사 추적 — 피보험자 교체 시 이전 체크 해제·재적용의 기준(_silsonDraw)
+  if(on) window._silsonApplied=ins;
+  else if(window._silsonApplied===ins) window._silsonApplied='';
   if(on) toast(ins+' — 청구보험사에 선택되었습니다.');
 }
 function openSilsonModal(){
@@ -21338,7 +21353,9 @@ function silsonClear(){
   silson={items:((silson&&Array.isArray(silson.items))?silson.items:[]).filter(function(x){ return x&&x.k!==it.k; })};
   sv('tops_silson', silson);
   g('m_silson').classList.remove('open');
-  var chk=g('claim_silson_chk'); if(chk) chk.checked=false;
+  var chk=g('claim_silson_chk');
+  if(chk&&chk.checked&&window._silsonApplied) _silsonApplyCheck(window._silsonApplied,false); // 자동 선택했던 보험사도 해제
+  if(chk) chk.checked=false;
   _silsonDraw();
   toast('지정이 해제되었습니다.');
 }
