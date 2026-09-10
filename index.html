@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-14</div>
   </div>
 </div>
 
@@ -18755,6 +18755,8 @@ function rsRemoveItem(role,key){
 // ── 드래그 앤 드롭 순서 이동 (2026-09-10) — 행을 잡아 끌어 같은 역할 카드 안에서 이동 ──
 // role·key는 검증된 상수 키(rsMove와 동일 — 함정 A 안전). 놓는 위치는 대상 행의 위/아래 절반으로 판정.
 function rsDragStart(ev,role,key){
+  // 체크박스·버튼(✕·▲▼) 위에서 시작한 제스처는 드래그로 흡수하지 않음 — 클릭이 정상 진행되게(⠿ 핸들 기대와 일치)
+  try{ if(ev.target&&ev.target.closest&&ev.target.closest('input,button')){ ev.preventDefault(); return; } }catch(e){}
   try{ _rsCollect(); }catch(e){}   // 드롭 후 재렌더에 체크 상태가 날아가지 않게 먼저 회수
   window._rsDrag={role:role,key:key};
   try{ ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',key); }catch(e){}
@@ -18771,7 +18773,10 @@ function rsDragOver(ev,role,key){
   row.style.borderBottom=before?'':'2px solid #4858cc';
 }
 function rsDragLeave(ev){
-  var r=ev.currentTarget; if(r){ r.style.borderTop=''; r.style.borderBottom=''; }
+  var r=ev.currentTarget; if(!r) return;
+  // 같은 행의 자식 요소(⠿·label·아이콘·▲▼·✕)로 옮겨간 것뿐이면 삽입선 유지(깜빡임 방지 — 2026-09-10 리뷰)
+  try{ if(ev.relatedTarget&&r.contains(ev.relatedTarget)) return; }catch(e){}
+  r.style.borderTop=''; r.style.borderBottom='';
 }
 function rsDrop(ev,role,key){
   ev.preventDefault();
@@ -18788,7 +18793,12 @@ function rsDrop(ev,role,key){
 }
 function rsDragEnd(ev){
   window._rsDrag=null;
-  try{ var r=ev.currentTarget; r.style.borderTop=''; r.style.borderBottom=''; }catch(e){}
+  // ESC·무효 지점 드롭으로 취소되면 마지막 hover 행의 삽입선이 남을 수 있음(dragend는 소스 행에서만 발생)
+  // → 그리드 전체 행의 border 일괄 초기화(2026-09-10 리뷰)
+  try{
+    var rows=document.querySelectorAll('#rs_grid [draggable]');
+    for(var i=0;i<rows.length;i++){ rows[i].style.borderTop=''; rows[i].style.borderBottom=''; }
+  }catch(e){}
 }
 // ▲▼ 순서 이동 — 이동 전 체크 상태 회수(재렌더로 날아가지 않게), 위/아래 항목과 자리 교환
 function rsMove(role,key,dir){
