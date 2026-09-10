@@ -419,7 +419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-16</div>
   </div>
 </div>
 
@@ -5276,6 +5276,12 @@ function showPage(name){
   try{ if(window._mgrRowEdit && name!=='home') mgrRowCancel(window._mgrRowEdit.side); }catch(e){}
   // 공지 상단고정 선택 모드도 홈을 떠나면 자동 해제(2026-09-08 — 켜진 채 남으면 재렌더 생략이 고착됨)
   try{ if(window._notPinMode && name!=='home') _notPinCancel(); }catch(e){}
+  // 업무 요청 현황 팝업은 홈에 갈 때마다 표시(2026-09-10) — 홈 진입 시 표시 플래그를 리셋해 rHome이 다시 띄운다
+  // ([홈] 재클릭 포함. 클라우드 재렌더는 showPage를 거치지 않아 홈 체류 중 닫은 팝업이 되살아나지 않음 — 플래그 유지).
+  try{
+    if(name==='home'){ window._reqStatShown=false; }
+    else { var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }   // 홈 밖으로 이동 시 열린 팝업 정리
+  }catch(e){}
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
@@ -5460,7 +5466,7 @@ function rHome(){
   // 총무휴가 안내 팝업(2026-09-04) — 휴가 전날~종료일 접속 시 1회, 클릭으로 닫음.
   // 새 기기(로컬 캐시 없음)는 클라우드 cal 수신 후 홈 재렌더 때 이 경로로 다시 시도된다.
   try{ _cwVacPopup(); }catch(e){}
-  // 업무 요청 현황 팝업(2026-09-08, 2026-09-10 전 역할 확대) — 팀원/팀장/지점장/총무 역할별 구성(reqstatcfg), 접속당 1회.
+  // 업무 요청 현황 팝업(2026-09-08, 2026-09-10 전 역할 확대) — 팀원/팀장/지점장/총무 역할별 구성(reqstatcfg), 홈 진입 시마다 표시.
   // 클라우드 수신 후 홈 재렌더 때는 열려 있는 팝업의 건수만 갱신된다(_reqStatPopup 내부 처리).
   try{ _reqStatPopup(); }catch(e){}
 }
@@ -11794,7 +11800,8 @@ function _cwVacPopup(){
 }
 
 // ===== 업무 요청 현황 팝업 (reqstat, 2026-09-08 — 2026-09-10 전 역할 확대·구성 편집) =====
-// 홈에 진입하면 역할별(팀원/팀장/지점장/총무) 처리 대기 건수·바로가기를 팝업으로 표시(접속당 1회 — cwvac 패턴).
+// 홈에 진입하면 역할별(팀원/팀장/지점장/총무) 처리 대기 건수·바로가기를 팝업으로 표시(홈 진입 시마다 — 2026-09-10.
+// showPage('home')이 _reqStatShown을 리셋; 클라우드 재렌더는 showPage를 안 거쳐 닫은 팝업이 재표시되지 않음).
 // 구성은 환경설정 [업무 현황 팝업] 탭에서 역할별 편집(reqstatcfg — 동기화 키 tops_reqstatcfg, 텍스트만 함정 B 무관.
 // 역할 키가 배열이면 그대로 사용(빈 배열=그 역할 팝업 끔), 없으면 REQSTAT_DEF 기본값).
 // 항목 클릭 시 해당 페이지로 이동, 바깥 클릭·[닫기]로 닫음. id는 reqstat_/rs_ 접두(함정 E).
@@ -11965,7 +11972,7 @@ function _reqStatPopup(){
     if(!cu) return;                                       // 로그인한 전 사용자(역할별 구성 — reqstatcfg)
     if(/[?&]rr=1/.test(location.search)) return;          // 서버 캡처 화면 제외
     var existing=g('reqstat_pop');
-    if(window._reqStatShown&&!existing) return;           // 이미 닫았으면 이 접속에선 재표시 안 함
+    if(window._reqStatShown&&!existing) return;           // 이번 홈 체류 중 이미 닫았으면 재표시 안 함(홈 이탈 시 showPage가 리셋)
     var rows=_reqStatRows();
     if(!rows.length){ if(existing) existing.remove(); return; } // 이 역할은 팝업 끔(구성 비움)
     if(existing){                                          // 클라우드 수신 후 홈 재렌더 — 열려 있는 팝업 건수 갱신
