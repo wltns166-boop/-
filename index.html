@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-21</div>
   </div>
 </div>
 
@@ -4157,6 +4157,9 @@ function logout(){
   try{ var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }catch(e){}
   // 업무 현황 팝업 설정 편집 초안 리셋 — 같은 탭에서 다른 관리자 로그인 시 미저장 편집이 넘어가는 것 방지(2026-09-10 리뷰)
   window._rsWork=null; window._rsOrder=null; window._rsAddOpen=null;
+  // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
+  // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
+  window._bdrVals=null;
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
   // 재렌더 생략 가드가 고착돼 공지 목록 실시간 갱신이 막힘
   try{ if(window._notPinMode) _notPinExit(); }catch(e){}
@@ -24391,7 +24394,8 @@ async function ccPopulateInsurers(){
     if(_daeri) return String(n).replace(/^대리발급_/,'');
     return n;
   };
-  sel.innerHTML=names.map(function(n){ return '<option value="'+n+'">'+labelOf(n)+(haveSet[n]?' ✅':' (양식없음)')+'</option>'; }).join('');
+  // 대리발급 슬롯 이름은 분류명(자유 텍스트) 유래 — _esc로 속성·옵션 텍스트 이스케이프(2026-09-10 리뷰. 보험사·3종 이름도 무해)
+  sel.innerHTML=names.map(function(n){ return '<option value="'+_esc(n)+'">'+_esc(labelOf(n))+(haveSet[n]?' ✅':' (양식없음)')+'</option>'; }).join('');
   if(cur&&names.indexOf(cur)>=0) sel.value=cur;
 }
 function ccSelectInsurer(){
