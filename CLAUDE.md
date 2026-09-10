@@ -812,6 +812,21 @@
   게시물 작성/수정 모달에 분류 셀렉트(`bd_cat` — 분류 있는 게시판만, 새 글은 보고 있던 탭 기본값; 셀렉트가 렌더된
   경우만 post.cat 반영 — 분류 없는 게시판 수정이 기존 cat을 지우지 않게). 분류 삭제 시 게시물은 보존(미분류 표시).
   행 조작 분류 id 기준(함정 A), last-write-wins·클라이언트 가드(navcfg 계열 수용).
+- **게시판 대리발급 서류 작성 (2026-09-10 v-20~23)**: 분류 이름에 '대리발급'이 든 분류 탭 선택 시 서류 작성 패널
+  (`_bdDaeriHtml` — 좌: 위임자(고객이름/주민번호/핸드폰/집주소/관계)+위임받는자(이름/주민번호/전화/집주소 —
+  `_bdrMyInfo`로 로그인 계정 이름·전화·주소 자동, 수정 가능) 입력, 우: 올린 양식 미리보기(pdf.js 앞 5쪽, 세대 카운터
+  `_bdrPrevGen` 오귀속 방지)). 관리자 [양식 업로드]/[좌표 직접설정], 전원 [미리보기]/[출력](sdPreview/sdPrint 패턴).
+  · **청구서 파이프라인 재사용(4.96 계열)**: 슬롯 `대리발급_<분류이름>`(idb tpl_+Storage claim_templates, 좌표
+    tops_claim_coords_v2). 좌표 키 재사용 — 피보험자(ins*/phone/addr/insRel)=위임자, 계약자(ct*)=위임받는자(신규 키 없음).
+    `claimCoordsFor`가 대리발급 슬롯이면 전 항목 기본 꺼짐(3종 규칙 공유)+라벨을 `_DAERI_LABELS`로 치환.
+    편집기는 `_ccMode='daeri'`(openClaimCal — 진입 슬롯 1개만 목록, 도구박스 `CC_DAERI_GROUPS`/`CC_DAERI_KEYS`).
+  · **폴백 오기입 차단**: `_bdrBuild`가 custName/rrn 미전달 + 위임받는자 빈 값 항목 좌표를 on:false로 꺼서
+    ctx 폴백(ct←ins)으로 반대쪽 사람 정보가 빈 칸에 찍히는 것 방지. ⚠️ 이 wbOf 맵은 CC_DAERI_KEYS의 ct* 항목과 1:1 유지할 것.
+  · **양식 업로드 3종 (v-23)**: PDF(원본 그대로)·사진 여러 장(`_bdrImgsToPdfB64` — _claimImgShrink JPEG 정규화 후
+    A4 페이지 병합)·한글 hwp(`_bdrHwpToPdfB64` — hwp.js(jsdelivr) 지연 로드+html2canvas 캡처 → JPEG PDF, **최선 노력** —
+    실패 시 "한글에서 PDF로 저장" 안내 폴백. hwpx는 미지원 안내). 한 번에 한 종류만(사진만 다중), 25MB 상한, `_bdrUpBusy` 가드.
+  · 입력값 저장·동기화 없음(함정 B) — 메모리 버퍼 `window._bdrVals`(재렌더 회수 `_bdrSyncFromDom`, **logout에서 리셋** —
+    공용 PC PII 잔존 차단, v-21 리뷰). id는 bdr_ 접두(함정 E). ⚠️ 슬롯이 분류 "이름" 기반 — 이름 변경 시 양식·좌표 재등록 필요.
 - **사이드바 메뉴 검색 (2026-09-10 v-17)**: [메뉴] 라벨 아래 `#nav_srch` — 메뉴 라벨 실시간 필터(공백·대소문자 무시),
   일치 그룹 임시 펼침, 해제 시 접힘 상태 스냅샷 복원(`window._navSrchSnap`), 페이지 선택(showPage) 시 자동 해제.
   권한(setAdmin 인라인)·`.cfg-hide` 숨김 항목은 검색 제외, 숨김은 `.nav-sh` 클래스로만(인라인 표시값 보존).

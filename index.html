@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-23</div>
   </div>
 </div>
 
@@ -20177,7 +20177,7 @@ function _bdDaeriHtml(name,cat){
       +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
         +(_isAdmin()
           ?'<button onclick="bdrTplPick()" style="'+bt+'background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-upload"></i> 양식 업로드</button>'
-           +'<input type="file" id="bdr_tpl_file" accept="application/pdf" style="display:none" onchange="bdrTplFileChange('+qn+','+qc+')">'
+           +'<input type="file" id="bdr_tpl_file" accept=".pdf,.hwp,image/*" multiple style="display:none" onchange="bdrTplFileChange('+qn+','+qc+')">'
            +'<button onclick="bdrOpenCoords('+qn+','+qc+')" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-crosshair"></i> 좌표 직접설정</button>'
           :'')
         +'<button onclick="bdrPreview('+qn+','+qc+')" style="'+bt+'background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-eye"></i> 미리보기</button>'
@@ -20216,31 +20216,131 @@ function bdrTplPick(){
   var inp=g('bdr_tpl_file'); if(inp) inp.click();
 }
 function bdrTplFileChange(name,catId){
-  var inp=g('bdr_tpl_file'); if(!inp||!inp.files||!inp.files[0]) return;
-  var f=inp.files[0]; inp.value='';
-  bdrTplUpload(name,catId,f);
+  var inp=g('bdr_tpl_file'); if(!inp||!inp.files||!inp.files.length) return;
+  var files=Array.prototype.slice.call(inp.files); inp.value='';
+  bdrTplUploadFiles(name,catId,files);
 }
-function bdrTplUpload(name,catId,file){
-  if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
-  var cat=_bdrCatById(name,catId); if(!cat||!file){ if(!cat) toast('분류를 찾을 수 없습니다.'); return; }
-  if(!(file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){ toast('PDF 파일만 올릴 수 있습니다.'); return; }
-  if(file.size>25*1024*1024){ toast('PDF는 25MB 이하만 올릴 수 있습니다.'); return; }
-  if(window._bdrUpBusy){ toast('다른 양식을 올리는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
-  window._bdrUpBusy=true; var done=function(){ window._bdrUpBusy=false; };
+// 업로드 파일 종류 판별 — pdf / img(사진) / hwp / hwpx(미지원 안내) / null(그 외)
+function _bdrFileKind(f){
+  var n=String(f&&f.name||'').toLowerCase(), t=String(f&&f.type||'');
+  if(t==='application/pdf'||/\.pdf$/.test(n)) return 'pdf';
+  if(/^image\//.test(t)||/\.(jpe?g|png|gif|webp|bmp)$/.test(n)) return 'img';
+  if(/\.hwpx$/.test(n)) return 'hwpx';
+  if(/\.hwp$/.test(n)) return 'hwp';
+  return null;
+}
+function _bdrBytesB64(arr){ // Uint8Array → base64 (claimTemplateFor의 청크 방식)
+  var chunks=[], cs=8192;
+  for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
+  return btoa(chunks.join(''));
+}
+// 사진(여러 장 가능) → 페이지별 PDF. 이미지는 JPEG 정규화(_claimImgShrink — HEIC 등 못 읽는 형식은 명확한 오류),
+// 각 장을 A4(가로 사진은 가로 방향) 페이지에 비율 유지로 채운다. 양식·좌표 파이프라인은 PDF 전제라 변환이 정공법.
+async function _bdrImgsToPdfB64(files){
+  if(typeof PDFLib==='undefined') throw new Error('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.');
+  var doc=await PDFLib.PDFDocument.create();
+  for(var i=0;i<files.length;i++){
+    toast('사진 변환 중… ('+(i+1)+'/'+files.length+')');
+    var dataUrl;
+    try{ dataUrl=await _claimImgShrink(files[i]); }
+    catch(e){ throw new Error('사진('+(files[i].name||'')+')을 읽을 수 없습니다. 캡처하거나 JPG로 저장해 다시 올려주세요.'); }
+    var jb=Uint8Array.from(atob(String(dataUrl).split(',')[1]||''),function(ch){ return ch.charCodeAt(0); });
+    var img=await doc.embedJpg(jb);
+    var A4W=595.28, A4H=841.89;
+    var land=img.width>img.height;
+    var W=land?A4H:A4W, H=land?A4W:A4H;
+    var s=Math.min(W/img.width, H/img.height);
+    var w=img.width*s, hh=img.height*s;
+    var pg=doc.addPage([W,H]);
+    pg.drawImage(img,{x:(W-w)/2, y:(H-hh)/2, width:w, height:hh});
+  }
+  return _bdrBytesB64(await doc.save());
+}
+// 한글(HWP) → PDF 최선 노력 변환: hwp.js(브라우저 HWP5 렌더러)를 지연 로드해 숨김 컨테이너에 렌더 →
+// html2canvas로 페이지 캡처 → JPEG 페이지 PDF. 어느 단계든 실패하면 명확한 안내(한글에서 PDF로 저장) 후 중단 —
+// 라이브러리 한계(HWP 5.0 바이너리만, 일부 서식 미지원)가 있어 "조용한 깨짐" 대신 안내 폴백이 원칙.
+async function _bdrHwpToPdfB64(file){
+  if(typeof PDFLib==='undefined') throw new Error('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.');
+  var guide='한글(HWP) 파일을 브라우저에서 변환하지 못했습니다. 한글 프로그램에서 [파일 > PDF로 저장] 후 그 PDF를 올려주세요.';
+  toast('한글 파일 변환 준비 중…');
+  try{ if(!window.HWP) await _drLoadScript('https://cdn.jsdelivr.net/npm/hwp.js@0.0.3/dist/hwp.js'); }catch(e){}
+  if(!(window.HWP&&window.HWP.Viewer)) throw new Error(guide);
+  var buf=await file.arrayBuffer();
+  var box=document.createElement('div');
+  box.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1'; // A4 폭(96dpi) 오프스크린
+  document.body.appendChild(box);
+  try{
+    try{ new window.HWP.Viewer(box, new Uint8Array(buf), {type:'binary'}); }
+    catch(e){ console.warn('hwp render', e); throw new Error(guide); }
+    await new Promise(function(r){ setTimeout(r,600); });   // 렌더 안착 대기
+    await _drEnsureLibs();                                  // html2canvas 지연 로드(일일보고 캡처와 공용)
+    // 페이지 요소 탐색 — hwp.js 페이지(section) 우선, 없으면 컨테이너 통째 1페이지 캡처
+    var pages=Array.prototype.slice.call(box.querySelectorAll('section'));
+    if(!pages.length) pages=[box];
+    if(box.offsetHeight<40) throw new Error(guide);          // 렌더 결과가 사실상 비어 있음
+    pages=pages.slice(0,20);                                 // 안전 상한
+    var doc=await PDFLib.PDFDocument.create();
+    for(var i=0;i<pages.length;i++){
+      toast('한글 파일 변환 중… ('+(i+1)+'/'+pages.length+'쪽)');
+      var cv=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      if(!cv||cv.width<10||cv.height<10) throw new Error(guide);
+      var jb=Uint8Array.from(atob(cv.toDataURL('image/jpeg',0.9).split(',')[1]||''),function(ch){ return ch.charCodeAt(0); });
+      var img=await doc.embedJpg(jb);
+      var A4W=595.28, A4H=841.89;
+      var land=img.width>img.height;
+      var W=land?A4H:A4W, H=land?A4W:A4H;
+      var s=Math.min(W/img.width, H/img.height);
+      var w=img.width*s, hh=img.height*s;
+      var pg=doc.addPage([W,H]);
+      pg.drawImage(img,{x:(W-w)/2, y:(H-hh)/2, width:w, height:hh});
+    }
+    return _bdrBytesB64(await doc.save());
+  } finally { try{ box.remove(); }catch(e){} }
+}
+// 변환된 양식(b64 PDF)을 슬롯에 저장 — idb 캐시 + Storage 팀 공유 + 미리보기 갱신(기존 단일 PDF 경로 공용)
+function _bdrTplSaveB64(name,catId,cat,b64,done){
   var slot=_bdDaeriSlot(cat);
-  var rd=new FileReader();
-  rd.onload=function(){
-    var b64=String(rd.result).split(',')[1]||'';
-    if(!b64){ done(); toast('파일을 읽지 못했습니다.'); return; }
-    idbSetTpl('tpl_'+slot,b64).then(function(){
-      done();
-      toast(cat.nm+' 양식 저장 완료. 전체 팀 공유 중...');
-      try{ uploadTemplateToStorage(slot,b64); }catch(e){}   // 팀 공유(실패해도 이 기기에선 사용 가능)
-      try{ _bdrPrevDraw(name,catId); }catch(e){}
-    }).catch(function(e){ done(); toast('양식 저장 실패: '+(e.message||e)); });
-  };
-  rd.onerror=function(){ done(); toast('파일을 읽는 중 오류가 발생했습니다.'); };
-  rd.readAsDataURL(file);
+  idbSetTpl('tpl_'+slot,b64).then(function(){
+    done();
+    toast(cat.nm+' 양식 저장 완료. 전체 팀 공유 중...');
+    try{ uploadTemplateToStorage(slot,b64); }catch(e){}   // 팀 공유(실패해도 이 기기에선 사용 가능)
+    try{ _bdrPrevDraw(name,catId); }catch(e){}
+  }).catch(function(e){ done(); toast('양식 저장 실패: '+(e.message||e)); });
+}
+// 양식 업로드 — PDF는 그대로, 사진(여러 장=여러 페이지)·한글파일(HWP)은 PDF로 변환해 저장 (2026-09-10)
+async function bdrTplUploadFiles(name,catId,files){
+  if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
+  var cat=_bdrCatById(name,catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return; }
+  if(window._bdrUpBusy){ toast('다른 양식을 올리는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  files=(files||[]).filter(Boolean);
+  var kinds=files.map(_bdrFileKind);
+  if(kinds.indexOf('hwpx')>=0){ toast('한글 hwpx 형식은 지원하지 않습니다. 한글에서 [파일 > PDF로 저장] 후 올리거나, hwp(구버전 형식)로 저장해주세요.'); return; }
+  if(kinds.some(function(k){ return !k; })){ toast('PDF·사진(JPG/PNG)·한글파일(hwp)만 올릴 수 있습니다.'); return; }
+  var over=files.filter(function(f){ return f.size>25*1024*1024; });
+  if(over.length){ toast('파일은 25MB 이하만 올릴 수 있습니다: '+(over[0].name||'')); return; }
+  var pdfs=files.filter(function(f,i){ return kinds[i]==='pdf'; });
+  var imgs=files.filter(function(f,i){ return kinds[i]==='img'; });
+  var hwps=files.filter(function(f,i){ return kinds[i]==='hwp'; });
+  // 한 번에 한 종류만(사진은 여러 장 허용 — 페이지로 병합). 혼합은 결과 순서·의도가 모호해 안내 후 중단.
+  var typesUsed=(pdfs.length?1:0)+(imgs.length?1:0)+(hwps.length?1:0);
+  if(typesUsed>1){ toast('한 번에 한 종류만 올려주세요. (사진은 여러 장 가능 — 페이지로 합쳐집니다)'); return; }
+  if(pdfs.length>1||hwps.length>1){ toast('PDF·한글파일은 한 번에 1개만 올릴 수 있습니다.'); return; }
+  window._bdrUpBusy=true; var done=function(){ window._bdrUpBusy=false; };
+  try{
+    if(pdfs.length){   // PDF 원본 그대로(기존 경로)
+      var rd=new FileReader();
+      rd.onload=function(){
+        var b64=String(rd.result).split(',')[1]||'';
+        if(!b64){ done(); toast('파일을 읽지 못했습니다.'); return; }
+        _bdrTplSaveB64(name,catId,cat,b64,done);
+      };
+      rd.onerror=function(){ done(); toast('파일을 읽는 중 오류가 발생했습니다.'); };
+      rd.readAsDataURL(pdfs[0]);
+      return;   // done은 FileReader 콜백 경로에서 호출
+    }
+    var b64c=imgs.length?await _bdrImgsToPdfB64(imgs):await _bdrHwpToPdfB64(hwps[0]);
+    _bdrTplSaveB64(name,catId,cat,b64c,done);
+  }catch(e){ done(); toast(String((e&&e.message)||e)); }
 }
 async function bdrOpenCoords(name,catId){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
@@ -20263,7 +20363,7 @@ async function _bdrPrevDraw(name,catId){
   if(!b64){
     _bdrStatus(false);
     box.innerHTML='<div style="color:#a0a0b0;font-size:13px;padding:30px 0;text-align:center">등록된 양식이 없습니다.'
-      +(_isAdmin()?'<br>[양식 업로드]로 PDF를 올려주세요.':'<br>관리자가 양식을 올리면 여기에 표시됩니다.')+'</div>';
+      +(_isAdmin()?'<br>[양식 업로드]로 PDF·사진·한글파일(hwp)을 올려주세요.':'<br>관리자가 양식을 올리면 여기에 표시됩니다.')+'</div>';
     return;
   }
   _bdrStatus(true);
