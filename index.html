@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-19</div>
   </div>
 </div>
 
@@ -4701,8 +4701,12 @@ function navSearch(q){
     kids.forEach(function(el,i){
       if(!el.classList||!el.classList.contains('ni')) return;
       var ch=(kids[i+1]&&kids[i+1].classList&&kids[i+1].classList.contains('nch'))?kids[i+1]:null;
-      var selfMatch=_navSrchEligible(el)&&_navSrchLabel(el).indexOf(q)>=0;
+      var headOk=_navSrchEligible(el);
+      var selfMatch=headOk&&_navSrchLabel(el).indexOf(q)>=0;
       if(!ch){ el.classList.toggle('nav-sh',!selfMatch); return; } // 단독 메뉴
+      // 그룹 머리가 권한·설정으로 숨김이면 그룹 전체를 검색에서 제외 — 머리에만 인라인 숨김을 거는
+      // 패턴(신입관리 leaderNavIds 등)에서 하위 항목이 검색 펼침으로 노출되던 결함(2026-09-10 리뷰)
+      if(!headOk){ el.classList.add('nav-sh'); ch.classList.add('nav-sh'); ch.classList.remove('open'); return; }
       // 그룹: 머리 일치=전체 표시 / 하위 일치=그 항목만 / 둘 다 없음=그룹 숨김
       var any=false;
       ch.querySelectorAll('.ns').forEach(function(ns){
