@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-10</div>
   </div>
 </div>
 
@@ -20559,6 +20559,10 @@ async function bdrUpSave(){
       np.ts=Date.now(); np.by=(cu&&cu.name)||'';
       delete np._b64;
     }
+    // 커밋 직전 세션 검사(2026-09-11 v-9 리뷰) — 변환·업로드가 긴 비동기라, 그 사이 로그아웃·모달 재오픈으로
+    // 세션이 바뀌었으면 합본 저장·메타 교체·Storage 삭제 전체를 중단(늦게 끝난 낡은 저장이 새 저장을 덮는 경합 차단.
+    // 위의 부분 업로드는 이미 올라갔을 수 있으나 메타 미기록이라 무해 — 고아 파일 수용)
+    if(window._bdrUp!==e) throw new Error('업로드 화면이 닫혀 등록을 중단했습니다. 모달을 다시 열어 목록 확인 후 등록해주세요.');
     var oldParts=(bdrtpls&&typeof bdrtpls==='object'&&bdrtpls[slot]&&Array.isArray(bdrtpls[slot].parts))?bdrtpls[slot].parts:[];
     var b64=_bdrBytesB64(await merged.save());
     _bdrTplSaveB64(e.name, e.catId, cat, b64, done, function(){
