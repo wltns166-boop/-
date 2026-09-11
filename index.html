@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-9</div>
   </div>
 </div>
 
@@ -3056,6 +3056,7 @@ let recruit=JSON.parse(localStorage.getItem('tops_recruit')||'{"cards":[]}'); //
 let navcfg=JSON.parse(localStorage.getItem('tops_navcfg')||'{}');            // 메뉴 환경설정 {ren,hide,ord,customs}
 let boards=JSON.parse(localStorage.getItem('tops_boards')||'{}');            // 내용 페이지 게시판 {cm_id:[게시물...]}
 let boardcats=JSON.parse(localStorage.getItem('tops_boardcats')||'{}');      // 게시판 분류(탭) {cm_id:[{id('bc_..'),nm}]} — 텍스트만(함정 B)
+let bdrtpls=JSON.parse(localStorage.getItem('tops_bdrtpls')||'{}');          // 대리발급 양식 구성 서류 {슬롯:{parts:[{id('bp_..'),nm,kind,u,ts,by}]}} — 텍스트·URL만(함정 B, 원본 PDF는 Storage claim_templates/parts/)
 let mgrs=JSON.parse(localStorage.getItem('tops_mgrs')||'{"son":[],"saeng":[]}'); // 매니저 연락처 {son:[손보사],saeng:[생보사]}
 let wacfg=JSON.parse(localStorage.getItem('tops_wacfg')||'{"tpls":[],"curId":""}'); // 보장분석 구글시트 양식 목록 {tpls:[{id,nm,url,sid,by,dt}],curId} — 텍스트만(함정 B)
 let nalerts=JSON.parse(localStorage.getItem('tops_nalerts')||'[]');
@@ -3597,6 +3598,7 @@ async function loadFromFirestore(){
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boardcats&&typeof d.boardcats==='object'&&!Array.isArray(d.boardcats)){ boardcats=d.boardcats; try{ localStorage.setItem('tops_boardcats',JSON.stringify(boardcats)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.bdrtpls&&typeof d.bdrtpls==='object'&&!Array.isArray(d.bdrtpls)){ bdrtpls=d.bdrtpls; try{ localStorage.setItem('tops_bdrtpls',JSON.stringify(bdrtpls)); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)&&d.promcrit.length){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} }
@@ -3690,6 +3692,7 @@ function startRealtimeSync(){
     if(d.navcfg&&typeof d.navcfg==='object'&&!Array.isArray(d.navcfg)){ navcfg=d.navcfg; try{ localStorage.setItem('tops_navcfg',JSON.stringify(navcfg)); }catch(e){} try{ if(typeof _navApply==='function')_navApply(); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boards&&typeof d.boards==='object'&&!Array.isArray(d.boards)){ boards=d.boards; try{ localStorage.setItem('tops_boards',JSON.stringify(boards)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
     if(d.boardcats&&typeof d.boardcats==='object'&&!Array.isArray(d.boardcats)){ boardcats=d.boardcats; try{ localStorage.setItem('tops_boardcats',JSON.stringify(boardcats)); }catch(e){} try{ if(String(window._curPage||'').indexOf('cm_')===0&&typeof rCustomPage==='function') rCustomPage(window._curPage); }catch(e){} }
+    if(d.bdrtpls&&typeof d.bdrtpls==='object'&&!Array.isArray(d.bdrtpls)){ bdrtpls=d.bdrtpls; try{ localStorage.setItem('tops_bdrtpls',JSON.stringify(bdrtpls)); }catch(e){} }
     if(d.mgrs&&typeof d.mgrs==='object'&&!Array.isArray(d.mgrs)){ mgrs=d.mgrs; try{ localStorage.setItem('tops_mgrs',JSON.stringify(mgrs)); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.wacfg&&typeof d.wacfg==='object'&&!Array.isArray(d.wacfg)){ wacfg=d.wacfg; try{ localStorage.setItem('tops_wacfg',JSON.stringify(wacfg)); }catch(e){} try{ if(typeof _waTplStatus==='function') _waTplStatus(); }catch(e){} try{ if(typeof _waTplListDraw==='function') _waTplListDraw(); }catch(e){} }
     if(Array.isArray(d.promcrit)){ promCrit=d.promcrit; try{ localStorage.setItem('tops_promcrit',JSON.stringify(promCrit)); }catch(e){} changed=true; }
@@ -20310,7 +20313,7 @@ function bdrUpOpen(name,catId){
   if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
   var cat=_bdrCatById(name,catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return; }
   var old=g('bdrup_overlay'); if(old) old.remove();
-  window._bdrUp={ name:name, catId:catId, rows:[] };
+  window._bdrUp={ name:name, catId:catId, rows:[], loading:true };   // loading=기존 등록 서류 목록 확인 중(끝나야 [등록] 가능)
   window._bdrUpSel=false;   // 드롭 박스 선택(초록 강조) 상태 — 모달 열 때마다 초기화
   var ov=document.createElement('div');
   ov.id='bdrup_overlay';
@@ -20318,8 +20321,8 @@ function bdrUpOpen(name,catId){
   var bt='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
   ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="font-weight:700;font-size:17px;color:#1a1a2e;margin-bottom:4px"><i class="ti ti-upload"></i> '+_esc(cat.nm)+' — 양식 업로드</div>'
-    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px">서류(PDF·사진·한글파일 hwp)를 추가하면 <b>추가한 순서대로 합쳐 하나의 양식</b>으로 등록됩니다.'
-      +'<br>등록하면 기존 양식은 새 양식으로 대체됩니다. (파일당 25MB 이하)</div>'
+    +'<div style="font-size:12.5px;color:#888;margin-bottom:12px"><b>기존에 등록한 서류가 아래 목록에 그대로 표시됩니다.</b> ✕로 빼거나 새 서류(PDF·사진·한글파일 hwp)를 추가한 뒤'
+      +'<br>[등록]하면 <b>현재 목록 순서대로 합쳐 하나의 양식</b>으로 다시 등록됩니다. (파일당 25MB 이하)</div>'
     +'<div id="bdrup_drop" onclick="bdrUpBoxSel()" ondragover="bdrUpDragOver(event)" ondragleave="bdrUpDragLeave(event)" ondrop="bdrUpDrop(event)"'
       +' style="border:2px dashed #c8cce8;border-radius:10px;padding:20px 14px;text-align:center;color:#8890b0;font-size:13px;cursor:pointer;margin-bottom:10px;background:#fbfbfe;transition:border-color .15s,background .15s">'
       +'<i class="ti ti-file-upload" style="font-size:22px"></i><br>'
@@ -20339,6 +20342,30 @@ function bdrUpOpen(name,catId){
   ov.addEventListener('drop',function(ev){ ev.preventDefault(); ev.stopPropagation(); });
   document.body.appendChild(ov);
   _bdrUpRowsDraw();
+  _bdrUpLoadSaved(window._bdrUp, _bdDaeriSlot(cat));   // 기존 등록 서류(parts)를 목록 앞에 채움(비동기)
+}
+// 저장된 구성 서류(bdrtpls[슬롯].parts) URL 화이트리스트 — 이 프로젝트 버킷의 parts 경로만(_CARD_URL_RE 계열)
+var _BDRT_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_templates%2Fparts%2F/;
+// 기존 등록 서류 목록 로드(2026-09-11) — parts 메타가 있으면 그 목록을, 없는데 양식은 있으면(구버전 등록)
+// "기존 등록 양식(전체)" 1행으로 표시해 유지/제거를 선택할 수 있게 한다.
+async function _bdrUpLoadSaved(e,slot){
+  var saved=[];
+  try{
+    var ps=(bdrtpls&&typeof bdrtpls==='object'&&bdrtpls[slot]&&Array.isArray(bdrtpls[slot].parts))?bdrtpls[slot].parts:[];
+    ps.forEach(function(p){
+      if(!p||!p.u||!_BDRT_URL_RE.test(String(p.u))) return;
+      saved.push({ id:String(p.id||('bp_'+Math.random().toString(36).slice(2,8))),
+        kind:(p.kind==='img'||p.kind==='hwp')?p.kind:'pdf', nm:String(p.nm||'서류'), u:String(p.u), ts:p.ts, by:p.by, saved:1 });
+    });
+    if(!saved.length){
+      var b64=''; try{ b64=await claimTemplateFor(slot); }catch(_e){}
+      if(b64) saved.push({ id:'bp_legacy', kind:'pdf', nm:'기존 등록 양식 (전체)', legacy:1, saved:1 });
+    }
+  }catch(err){ console.warn('bdrup saved load', err); }
+  if(window._bdrUp!==e) return;   // 그 사이 닫힘·재오픈 — 낡은 세션에 주입 금지(onOk 세션 검사 계열)
+  e.loading=false;
+  if(saved.length) e.rows=saved.concat(e.rows);   // 기존 서류가 앞, 로드 중 추가한 새 파일은 뒤
+  _bdrUpRowsDraw();
 }
 function _bdrUpRowsDraw(){
   var e=window._bdrUp, box=g('bdrup_rows'); if(!e||!box) return;
@@ -20346,17 +20373,19 @@ function _bdrUpRowsDraw(){
   var KIND_CL={pdf:'#c05050',img:'#207830',hwp:'#2060c0'};
   var bt='padding:5px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;';
   box.innerHTML=e.rows.map(function(r,i){
-    var mb=(r.file.size/1024/1024);
-    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:7px 9px;background:#f8f8fb;border:1px solid #e4e4ec;border-radius:7px">'
+    var mb=r.file?(r.file.size/1024/1024):0;
+    var nm=r.nm||(r.file&&r.file.name)||'파일';
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:7px 9px;background:'+(r.saved?'#f4faf4':'#f8f8fb')+';border:1px solid '+(r.saved?'#cfe5cf':'#e4e4ec')+';border-radius:7px">'
       +'<span style="flex:0 0 auto;font-size:12px;color:#888;width:18px;text-align:right">'+(i+1)+'.</span>'
+      +(r.saved?'<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:#1a7f37;background:#e3f3e3;border:1px solid #b8d8b8;border-radius:4px;padding:1px 6px">등록됨</span>':'')
       +'<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:#fff;background:'+KIND_CL[r.kind]+';border-radius:4px;padding:2px 6px">'+KIND_LB[r.kind]+'</span>'
-      +'<span style="flex:1;min-width:0;font-size:13px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(r.file.name||'파일')+'</span>'
+      +'<span style="flex:1;min-width:0;font-size:13px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(nm)+'</span>'
       +'<span style="flex:0 0 auto;font-size:11.5px;color:#999">'+(mb>=0.1?mb.toFixed(1)+'MB':'')+'</span>'
       +'<button data-bdrupmv="'+_esc(r.id)+'|-1" title="위로"'+(i===0?' disabled':'')+' style="'+bt+'border:1px solid #c8cce8;background:#eef1ff;color:#3a40aa">▲</button>'
       +'<button data-bdrupmv="'+_esc(r.id)+'|1" title="아래로"'+(i===e.rows.length-1?' disabled':'')+' style="'+bt+'border:1px solid #c8cce8;background:#eef1ff;color:#3a40aa">▼</button>'
       +'<button data-bdruprm="'+_esc(r.id)+'" title="제거" style="'+bt+'border:1px solid #e0b0b0;background:#fdf3f3;color:#c03030">✕</button>'
       +'</div>';
-  }).join('')||'<div style="color:#a0a0b0;font-size:13px;padding:10px 0">추가된 서류가 없습니다. [서류 추가]로 파일을 골라주세요.</div>';
+  }).join('')||('<div style="color:#a0a0b0;font-size:13px;padding:10px 0">'+(e.loading?'기존 등록 서류 확인 중…':'추가된 서류가 없습니다. [서류 추가]로 파일을 골라주세요.')+'</div>');
   box.querySelectorAll('[data-bdruprm]').forEach(function(b){
     b.addEventListener('click',function(){
       if(window._bdrUpBusy){ toast('변환·등록 중에는 목록을 바꿀 수 없습니다.'); return; } // 병합 중 배열 조작 차단(2026-09-10 리뷰)
@@ -20457,9 +20486,11 @@ async function bdrUpSave(){
   if(!_isAdmin()){ toast('관리자만 양식을 올릴 수 있습니다.'); return; }
   var e=window._bdrUp; if(!e) return;
   if(window._bdrUpBusy){ toast('변환·등록 중입니다. 잠시만 기다려주세요.'); return; }
+  if(e.loading){ toast('기존 등록 서류 목록을 불러오는 중입니다 — 잠시 후 다시 시도해주세요.'); return; }   // 목록 미완성 상태로 등록하면 기존 서류가 빠진 채 대체됨
   if(!e.rows.length){ toast('서류를 먼저 추가해주세요.'); return; }
   var cat=_bdrCatById(e.name,e.catId); if(!cat){ toast('분류를 찾을 수 없습니다.'); return; }
   if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리 미로드 — 새로고침 후 다시 시도해주세요.'); return; }
+  var slot=_bdDaeriSlot(cat);
   window._bdrUpBusy=true;
   var btn=g('bdrup_save_btn'); var btnHtml=btn?btn.innerHTML:'';
   if(btn){ btn.disabled=true; btn.textContent='변환 중…'; }
@@ -20468,54 +20499,111 @@ async function bdrUpSave(){
     var PDFDocument=PDFLib.PDFDocument;
     var merged=await PDFDocument.create();
     var rows=e.rows.slice();   // 스냅샷 순회 — 변환 중 목록이 바뀌어도 병합 결과가 틀어지지 않게(2026-09-10 리뷰, 버튼 차단과 이중 방어)
+    var newParts=[];   // 저장 후 관리용 구성 서류 메타(목록 순서 그대로) — 새 서류는 _b64를 들고 있다 업로드 후 URL로 교체
     for(var i=0;i<rows.length;i++){
       var r=rows[i];
-      toast('서류 변환 중… ('+(i+1)+'/'+rows.length+') '+(r.file.name||''));
+      var rnm=r.nm||(r.file&&r.file.name)||'서류';
+      toast('서류 변환 중… ('+(i+1)+'/'+rows.length+') '+rnm);
       try{
-        if(r.kind==='pdf'){
-          // ⚠️ ignoreEncryption 금지(6장 규칙 — 암호화 PDF가 빈 페이지로 "성공" 병합되는 사고) —
-          // 직접 병합 실패 시 래스터 폴백(_pdfToImages — 페이지별 JPEG, 청구 첨부와 동일 방침)
-          var direct=false;
-          try{
-            var src=await PDFDocument.load(await r.file.arrayBuffer());
-            (await merged.copyPages(src, src.getPageIndices())).forEach(function(p){ merged.addPage(p); });
-            direct=true;
-          }catch(ePdf){ console.warn('bdrup pdf direct', r.file.name, ePdf); }
-          if(!direct){
-            var du=await new Promise(function(res,rej){
-              var rd=new FileReader();
-              rd.onload=function(){ res(String(rd.result)); };
-              rd.onerror=function(){ rej(new Error('파일 읽기 실패')); };
-              rd.readAsDataURL(r.file);
-            });
-            var ras=await _pdfToImages(du, r.file.name||'PDF');
-            if(!ras||!ras.imgs||!ras.imgs.length) throw new Error('PDF를 열 수 없습니다(암호 설정 여부를 확인해주세요).');
-            for(var ri2=0;ri2<ras.imgs.length;ri2++) await _bdrAddJpgPage(merged, ras.imgs[ri2]);
-            if(ras.total>ras.imgs.length) toast('⚠ '+(r.file.name||'PDF')+' — 앞 '+ras.imgs.length+'쪽만 변환됐습니다.');
-          }
+        if(r.saved&&r.u){
+          // 기존 등록 서류 — Storage 보관본(부분 PDF)을 내려받아 병합, 메타는 그대로 승계(재업로드 없음)
+          var resp=await fetch(r.u);
+          if(!resp.ok) throw new Error('저장된 서류를 내려받지 못했습니다(HTTP '+resp.status+')');
+          await _bdrMergePdfBytes(merged, new Uint8Array(await resp.arrayBuffer()), rnm);
+          newParts.push({ id:r.id, nm:rnm, kind:r.kind, u:r.u, ts:r.ts||Date.now(), by:r.by||((cu&&cu.name)||'') });
+        } else if(r.legacy){
+          // 구버전 등록(부분 서류 메타 없음) — 현재 합본 양식을 하나의 서류로 승계(이번 저장부터 관리 가능해짐)
+          var lb64=''; try{ lb64=await claimTemplateFor(slot); }catch(_e){}
+          if(!lb64) throw new Error('기존 양식을 불러오지 못했습니다.');
+          var lbin=atob(lb64), lbytes=new Uint8Array(lbin.length);
+          for(var li=0;li<lbin.length;li++) lbytes[li]=lbin.charCodeAt(li);
+          await _bdrMergePdfBytes(merged, lbytes, rnm);
+          newParts.push({ nm:rnm, kind:'pdf', _b64:lb64 });
+        } else if(r.kind==='pdf'){
+          await _bdrMergePdfBytes(merged, new Uint8Array(await r.file.arrayBuffer()), rnm);
+          var pb64=await new Promise(function(res,rej){
+            var rd=new FileReader();
+            rd.onload=function(){ res(String(rd.result).split(',')[1]||''); };
+            rd.onerror=function(){ rej(new Error('파일 읽기 실패')); };
+            rd.readAsDataURL(r.file);
+          });
+          newParts.push({ nm:rnm, kind:'pdf', _b64:pb64 });
         } else if(r.kind==='img'){
-          await _bdrAddJpgPage(merged, await _claimImgShrink(r.file));
-        } else {   // hwp — 변환 결과 PDF를 병합에 합류
+          // 사진은 단독 A4 페이지 PDF로 만들어 부분 서류로 보관 + 그 문서를 병합에 합류(이중 변환 없음)
+          var pdoc=await PDFDocument.create();
+          await _bdrAddJpgPage(pdoc, await _claimImgShrink(r.file));
+          (await merged.copyPages(pdoc, pdoc.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+          newParts.push({ nm:rnm, kind:'img', _b64:_bdrBytesB64(await pdoc.save()) });
+        } else {   // hwp — 변환 결과 PDF를 부분 서류로 보관 + 병합에 합류
           var hb=await _bdrHwpToPdfB64(r.file);
           var hs=atob(hb); var hbytes=new Uint8Array(hs.length);
           for(var hi=0;hi<hs.length;hi++) hbytes[hi]=hs.charCodeAt(hi);
           var hdoc=await PDFDocument.load(hbytes);
           (await merged.copyPages(hdoc, hdoc.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+          newParts.push({ nm:rnm, kind:'hwp', _b64:hb });
         }
       }catch(errRow){
         // 어느 서류에서 실패했는지 명확히 안내하고 전체 등록 중단(반쪽 양식 등록 금지)
-        throw new Error((i+1)+'번 서류('+(r.file.name||'')+') 처리 실패: '+((errRow&&errRow.message)||errRow));
+        throw new Error((i+1)+'번 서류('+rnm+') 처리 실패: '+((errRow&&errRow.message)||errRow));
       }
     }
     if(!merged.getPageCount()){ throw new Error('만들어진 페이지가 없습니다. 파일을 확인해주세요.'); }
+    // 새 서류(부분 PDF) Storage 업로드 — 실패 시 전체 중단(메타에 URL 없는 서류가 남으면 다음 관리가 깨짐).
+    // 업로드만 되고 아래 양식 저장이 실패하면 고아 파일이 남을 수 있음(수용 — 가족 등록증 계열, 메타 미기록이라 무해)
+    for(var ui=0;ui<newParts.length;ui++){
+      var np=newParts[ui];
+      if(!np._b64) continue;
+      toast('서류 보관 중… ('+(ui+1)+'/'+newParts.length+')');
+      np.id='bp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      np.u=await _bdrPartUpload(slot, np.id, np._b64);
+      np.ts=Date.now(); np.by=(cu&&cu.name)||'';
+      delete np._b64;
+    }
+    var oldParts=(bdrtpls&&typeof bdrtpls==='object'&&bdrtpls[slot]&&Array.isArray(bdrtpls[slot].parts))?bdrtpls[slot].parts:[];
     var b64=_bdrBytesB64(await merged.save());
     _bdrTplSaveB64(e.name, e.catId, cat, b64, done, function(){
+      // 합본 저장 성공 시에만 구성 서류 메타 확정(슬롯 키 단위 통째 교체 — parts 배열이라 merge 함정 무관)
+      try{
+        if(!bdrtpls||typeof bdrtpls!=='object'||Array.isArray(bdrtpls)) bdrtpls={};
+        bdrtpls[slot]={parts:newParts};
+        sv('tops_bdrtpls',bdrtpls);
+        // 목록에서 뺀 기존 서류의 Storage 보관본 정리(최선 노력 — 실패해도 메타에 없어 무해)
+        oldParts.forEach(function(p){
+          if(!p||!p.u) return;
+          if(newParts.some(function(q){ return q.u===p.u; })) return;
+          try{ firebase.storage().refFromURL(p.u).delete().catch(function(){}); }catch(_e){}
+        });
+      }catch(eMeta){ console.warn('bdrtpls meta', eMeta); }
       // 이 저장을 시작한 모달 세션일 때만 정리 — 그 사이 재오픈한 새 모달 상태를 지우지 않게(2026-09-10 리뷰)
       if(window._bdrUp!==e) return;
       var ov=g('bdrup_overlay'); if(ov) ov.remove();
       window._bdrUp=null;
     });
   }catch(err){ done(); toast(String((err&&err.message)||err)); }
+}
+// PDF 바이트를 병합 문서에 합류 — 직접 병합 실패 시 래스터 폴백(⚠️ ignoreEncryption 금지 — 6장 규칙)
+async function _bdrMergePdfBytes(merged, bytes, label){
+  var direct=false;
+  try{
+    var src=await PDFLib.PDFDocument.load(bytes);
+    (await merged.copyPages(src, src.getPageIndices())).forEach(function(p){ merged.addPage(p); });
+    direct=true;
+  }catch(ePdf){ console.warn('bdrup pdf direct', label, ePdf); }
+  if(direct) return;
+  var du='data:application/pdf;base64,'+_bdrBytesB64(bytes);
+  var ras=await _pdfToImages(du, label||'PDF');
+  if(!ras||!ras.imgs||!ras.imgs.length) throw new Error('PDF를 열 수 없습니다(암호 설정 여부를 확인해주세요).');
+  for(var ri2=0;ri2<ras.imgs.length;ri2++) await _bdrAddJpgPage(merged, ras.imgs[ri2]);
+  if(ras.total>ras.imgs.length) toast('⚠ '+(label||'PDF')+' — 앞 '+ras.imgs.length+'쪽만 변환됐습니다.');
+}
+// 부분 서류 PDF를 Storage claim_templates/parts/<슬롯>/<id>.pdf 에 업로드 후 다운로드 URL 반환(uploadTemplateToStorage 계열)
+async function _bdrPartUpload(slot,id,b64){
+  if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결 — 네트워크 연결 후 다시 시도해주세요.');
+  var bin=atob(b64); var u8=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+  var ref=firebase.storage().ref('claim_templates/parts/'+encodeURIComponent(slot)+'/'+encodeURIComponent(id)+'.pdf');
+  await ref.put(u8,{contentType:'application/pdf'});
+  return String(await ref.getDownloadURL());
 }
 // 업로드 파일 종류 판별 — pdf / img(사진) / hwp / hwpx(미지원 안내) / null(그 외)
 function _bdrFileKind(f){

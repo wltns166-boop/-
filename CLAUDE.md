@@ -830,6 +830,15 @@
     30쪽 초과 안내 — **최선 노력**, 실패 시 "한글에서 PDF로 저장" 안내 폴백. hwpx는 미지원 안내).
   · 입력값 저장·동기화 없음(함정 B) — 메모리 버퍼 `window._bdrVals`(재렌더 회수 `_bdrSyncFromDom`, **logout에서 리셋** —
     공용 PC PII 잔존 차단, v-21 리뷰). id는 bdr_ 접두(함정 E). ⚠️ 슬롯이 분류 "이름" 기반 — 이름 변경 시 양식·좌표 재등록 필요.
+  · **양식 구성 서류 관리 (2026-09-11 v-9)**: 업로드 모달이 기존 등록 서류를 목록에 유지 — 데이터
+    `bdrtpls={슬롯:{parts:[{id('bp_..'),nm,kind,u,ts,by}]}}`(동기화 키 `tops_bdrtpls`, 텍스트·URL만 — 함정 B.
+    원본은 Storage `claim_templates/parts/<슬롯>/<id>.pdf`, 표시 전 `_BDRT_URL_RE` 버킷 화이트리스트),
+    로드 2곳(boardcats 패턴). 모달 열면 `_bdrUpLoadSaved`가 parts를 [등록됨] 행으로 앞에 채움(로딩 중 [등록] 차단 —
+    목록 미완성 대체 방지, 세션 가드 `window._bdrUp===e`). parts 없는 구버전 등록은 "기존 등록 양식(전체)" 1행으로
+    승계(이번 저장부터 부분 관리 가능). [등록] 시 기존 서류=Storage 보관본 fetch 병합(재업로드 없음·메타 승계),
+    새 서류=부분 PDF(사진=A4 1쪽 PDF·hwp=변환 PDF·PDF=원본)로 업로드 후 메타 기록 — 업로드 실패는 전체 중단
+    (반쪽 메타 금지), 합본 저장 성공(onOk) 시에만 `bdrtpls[슬롯]` 통째 교체 + 뺀 서류 Storage 정리(최선 노력).
+    병합 코어는 `_bdrMergePdfBytes`(직접 병합→래스터 폴백, ignoreEncryption 금지 유지). last-write-wins(관리자 전용) 수용.
   · **용도/기간/이해하였음 + 실시간 미리보기 (2026-09-11 v-3)**: 위임자 칸 아래 용도 셀렉트(본인확인용/법원제출용,
     `wj_purpose`)·기간 칸(`wj_period` — 숫자만 쳐도 `_bdrFmtPeriodStr`이 0000년00월00일 ~ 0000년00월00일 자동 정형.
     주민번호/전화도 v-1부터 자동 하이픈 `_bdrFmtRrnStr`/`_bdrFmtPhoneStr`). 좌표 신규 키 purpose/period/periodFrom/
