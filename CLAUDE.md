@@ -839,6 +839,10 @@
     새 서류=부분 PDF(사진=A4 1쪽 PDF·hwp=변환 PDF·PDF=원본)로 업로드 후 메타 기록 — 업로드 실패는 전체 중단
     (반쪽 메타 금지), 합본 저장 성공(onOk) 시에만 `bdrtpls[슬롯]` 통째 교체 + 뺀 서류 Storage 정리(최선 노력).
     병합 코어는 `_bdrMergePdfBytes`(직접 병합→래스터 폴백, ignoreEncryption 금지 유지). last-write-wins(관리자 전용) 수용.
+    **리뷰 반영(v-10/-11)**: 커밋 직전 세션 검사(window._bdrUp===e — 낡은 저장의 덮어쓰기 차단) + Storage 삭제 기준은
+    최신 bdrtpls가 아닌 **세션이 모달에서 실제 본 목록(e.baseUrls)만**(저장 중 타 관리자가 올린 서류를 지우는 물리 삭제 방지 —
+    alienIds "고아가 남는 쪽이 안전" 원칙, 삭제 전 _BDRT_URL_RE 재검증). 수용: 로딩 중 추가분과 합쳐 30개 상한을
+    다소 넘을 수 있음(표시 안내 수준), 타 관리자 동시 저장 시 메타는 last-write-wins(파일은 고아로 보존).
   · **용도/기간/이해하였음 + 실시간 미리보기 (2026-09-11 v-3)**: 위임자 칸 아래 용도 셀렉트(본인확인용/법원제출용,
     `wj_purpose`)·기간 칸(`wj_period` — 숫자만 쳐도 `_bdrFmtPeriodStr`이 0000년00월00일 ~ 0000년00월00일 자동 정형.
     주민번호/전화도 v-1부터 자동 하이픈 `_bdrFmtRrnStr`/`_bdrFmtPhoneStr`). 좌표 신규 키 purpose/period/periodFrom/

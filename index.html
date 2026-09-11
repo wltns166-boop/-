@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-11</div>
   </div>
 </div>
 
@@ -20364,6 +20364,9 @@ async function _bdrUpLoadSaved(e,slot){
   }catch(err){ console.warn('bdrup saved load', err); }
   if(window._bdrUp!==e) return;   // 그 사이 닫힘·재오픈 — 낡은 세션에 주입 금지(onOk 세션 검사 계열)
   e.loading=false;
+  // 이 세션이 실제 본 기존 서류 URL — [등록] 시 Storage 삭제 판단의 유일한 기준(2026-09-11 리뷰):
+  // 저장 중 다른 관리자가 같은 슬롯에 추가한 서류는 이 목록에 없어 삭제되지 않는다(고아가 남는 쪽이 안전 — alienIds 원칙)
+  e.baseUrls=saved.filter(function(r){ return !!r.u; }).map(function(r){ return r.u; });
   if(saved.length) e.rows=saved.concat(e.rows);   // 기존 서류가 앞, 로드 중 추가한 새 파일은 뒤
   _bdrUpRowsDraw();
 }
@@ -20563,7 +20566,6 @@ async function bdrUpSave(){
     // 세션이 바뀌었으면 합본 저장·메타 교체·Storage 삭제 전체를 중단(늦게 끝난 낡은 저장이 새 저장을 덮는 경합 차단.
     // 위의 부분 업로드는 이미 올라갔을 수 있으나 메타 미기록이라 무해 — 고아 파일 수용)
     if(window._bdrUp!==e) throw new Error('업로드 화면이 닫혀 등록을 중단했습니다. 모달을 다시 열어 목록 확인 후 등록해주세요.');
-    var oldParts=(bdrtpls&&typeof bdrtpls==='object'&&bdrtpls[slot]&&Array.isArray(bdrtpls[slot].parts))?bdrtpls[slot].parts:[];
     var b64=_bdrBytesB64(await merged.save());
     _bdrTplSaveB64(e.name, e.catId, cat, b64, done, function(){
       // 합본 저장 성공 시에만 구성 서류 메타 확정(슬롯 키 단위 통째 교체 — parts 배열이라 merge 함정 무관)
@@ -20571,11 +20573,13 @@ async function bdrUpSave(){
         if(!bdrtpls||typeof bdrtpls!=='object'||Array.isArray(bdrtpls)) bdrtpls={};
         bdrtpls[slot]={parts:newParts};
         sv('tops_bdrtpls',bdrtpls);
-        // 목록에서 뺀 기존 서류의 Storage 보관본 정리(최선 노력 — 실패해도 메타에 없어 무해)
-        oldParts.forEach(function(p){
-          if(!p||!p.u) return;
-          if(newParts.some(function(q){ return q.u===p.u; })) return;
-          try{ firebase.storage().refFromURL(p.u).delete().catch(function(){}); }catch(_e){}
+        // 목록에서 뺀 기존 서류의 Storage 보관본 정리(최선 노력 — 실패해도 메타에 없어 무해).
+        // ⚠️ 기준은 커밋 시점의 최신 bdrtpls가 아니라 "이 세션이 모달에서 실제 본 목록"(e.baseUrls)만(2026-09-11 리뷰) —
+        // 최신본 기준이면 저장 중 다른 관리자가 방금 올린 서류까지 지운다(복구 불가 물리 삭제). 삭제 전 화이트리스트 재검증.
+        (e.baseUrls||[]).forEach(function(u){
+          if(!u||!_BDRT_URL_RE.test(String(u))) return;
+          if(newParts.some(function(q){ return q.u===u; })) return;
+          try{ firebase.storage().refFromURL(u).delete().catch(function(){}); }catch(_e){}
         });
       }catch(eMeta){ console.warn('bdrtpls meta', eMeta); }
       // 이 저장을 시작한 모달 세션일 때만 정리 — 그 사이 재오픈한 새 모달 상태를 지우지 않게(2026-09-10 리뷰)
