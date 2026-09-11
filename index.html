@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-6</div>
   </div>
 </div>
 
@@ -9448,7 +9448,7 @@ function rTrip(){
   var pbox=g('trip_pending_box');
   if(pbox){
     pbox.style.cssText='display:none'; pbox.innerHTML='';
-    var canOkAny=(cu&&cu.admin)||myTeam!==null;   // 확인 권한 계열(관리자·팀장급) — 팀원에겐 안내 불필요
+    var canOkAny=(cu&&cu.admin)||(Array.isArray(myTeam)&&myTeam.length>1);   // 관리자 또는 하위 인원 있는 팀장급만 — 팀원(본인뿐)은 확인 대상이 없어 계산 생략(2026-09-11 리뷰)
     if(canOkAny){
       var lim=Date.now()-30*24*3600*1000;
       var pend=visible.filter(function(t){
