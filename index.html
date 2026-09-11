@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-4</div>
   </div>
 </div>
 
@@ -1581,6 +1581,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <div id="trip_cal"></div>
         </div>
         <div class="card" style="flex:1;min-width:340px;overflow-x:auto">
+          <div id="trip_pending_box" style="display:none"></div>
           <div id="trip_month_lbl" style="font-weight:700;font-size:15px;color:#2a2a5a;margin-bottom:8px"></div>
           <table class="dt"><thead><tr><th>신청일</th><th>신청인</th><th>기간</th><th>출장 사유</th><th>장소</th><th>관리</th></tr></thead><tbody id="trip_tb"></tbody></table>
         </div>
@@ -9441,6 +9442,51 @@ function rTrip(){
   var lbl=g('trip_month_lbl');
   if(lbl) lbl.textContent=window._tripCalY+'년 '+(window._tripCalM+1)+'월 출장 신청 내역';
   var monthly=visible.filter(function(t){ return String(t.when||'').slice(0,7)===viewYm; });
+  // 확인 대기 안내(2026-09-11) — 업무 현황 팝업(_reqStatCount 'trip')은 "신청 시각 기준 최근 30일·미확인"을 세는데
+  // 이 목록은 달력 표시 달(출장 일시 when 기준)만 보여줘, 다른 달 일시·일시 파싱 불가 건은 확인 버튼이 안 보여
+  // "다 확인했는데 팝업 건수가 안 줄어드는" 실사용 문제 — 표시 달 밖의 대기 건을 위에 모아 바로 확인/이동하게 한다.
+  var pbox=g('trip_pending_box');
+  if(pbox){
+    pbox.style.cssText='display:none'; pbox.innerHTML='';
+    var canOkAny=(cu&&cu.admin)||myTeam!==null;   // 확인 권한 계열(관리자·팀장급) — 팀원에겐 안내 불필요
+    if(canOkAny){
+      var lim=Date.now()-30*24*3600*1000;
+      var pend=visible.filter(function(t){
+        if(!t||t.okBy) return false;
+        if(monthly.indexOf(t)>=0) return false;   // 표시 중인 달의 건은 아래 목록에서 확인 가능
+        if(!((cu&&cu.admin)||(t.m!==(cu&&cu.name)))) return false;   // 본인 신청은 본인이 확인 불가(canOk 규칙과 동일)
+        var ts=t.ts||0;
+        if(!ts&&t.dt){ var m2=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String(t.dt)); if(m2) ts=new Date(+m2[1],+m2[2]-1,+m2[3]).getTime(); }
+        return ts>=lim;
+      });
+      if(pend.length){
+        pbox.style.cssText='display:block;margin-bottom:12px;border:1px solid #f0c8c8;background:#fff6f6;border-radius:9px;padding:10px 12px';
+        pbox.innerHTML='<div style="font-weight:700;font-size:13.5px;color:#c03040;margin-bottom:6px"><i class="ti ti-alert-circle"></i> 다른 달에 확인 대기 신청 '+pend.length+'건 — 여기서 바로 확인하거나 해당 월로 이동하세요.</div>'
+          +pend.map(function(t){
+            var i=trips.indexOf(t);   // 원본 인덱스 — 객체 참조 재탐색(함정 A 안전, 아래 표와 동일 방식)
+            var w=String(t.when||'');
+            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0;font-size:13px;color:#333">'
+              +'<b>'+_esc(t.m||'-')+'</b><span style="color:#2040cc">'+(w?_tripFmtBr(w):'(일시 미상)')+'</span><span style="color:#888">신청 '+_esc(_tripDtFmt(t.dt))+'</span>'
+              +(/^\d{4}-\d{2}/.test(w)?'<button data-tripgo="'+w.slice(0,7)+'" style="padding:3px 9px;font-size:12px;border:1px solid #c8cce8;border-radius:6px;background:#fff;color:#3a40aa;cursor:pointer;font-family:inherit">해당 월 보기</button>':'')
+              +'<button data-tripok="'+i+'" style="padding:3px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> 확인</button>'
+            +'</div>';
+          }).join('');
+        pbox.querySelectorAll('[data-tripgo]').forEach(function(b){
+          b.addEventListener('click',function(){
+            var p=b.getAttribute('data-tripgo').split('-');
+            window._tripCalY=+p[0]; window._tripCalM=+p[1]-1; rTrip();
+          });
+        });
+        pbox.querySelectorAll('[data-tripok]').forEach(function(b){
+          b.addEventListener('click',function(){
+            var i2=+b.getAttribute('data-tripok'); var t2=trips[i2]; if(!t2||t2.okBy) return;
+            t2.okBy=(cu&&cu.name)||''; t2.okDt=td();
+            sv('tops_trips',trips); rTrip();
+          });
+        });
+      }
+    }
+  }
   if(!monthly.length){ tb.innerHTML='<tr><td colspan="6" class="em">해당 월 출장 신청이 없습니다.</td></tr>'; return; }
   tb.innerHTML=monthly.slice().reverse().map(function(t){
     var i=trips.indexOf(t); // 원본 인덱스 — 객체 참조로 재탐색 (함정 A 안전)
