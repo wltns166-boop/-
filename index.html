@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-8</div>
   </div>
 </div>
 
@@ -25162,6 +25162,11 @@ function ccPlacePreviews(){
     var meta=META[bk]||{};
     var size=(typeof co.size==='number'&&co.size>0)?co.size:(meta.s||9);
     var pitch=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:(meta.pitch||0);
+    // 대리발급 모드의 전화(전체)는 실제 출력(_bdrCoordsFor: 하이픈+붙여쓰기)과 동일 표기로 — 편집기 배치 폭이 실물과 어긋나지 않게(2026-09-11 v-7 리뷰)
+    if(window._ccMode==='daeri'&&(bk==='phone'||bk==='ctPhone')){
+      text=_bdrFmtPhoneStr(text)||text;
+      if(!(typeof co.pitch==='number'&&co.pitch>0)) pitch=0;
+    }
     var pxFs=size*sc;
     var span=document.createElement('div');
     span.className='cc_preview'; span.dataset.key=key;
