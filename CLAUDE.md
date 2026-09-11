@@ -830,6 +830,14 @@
     30쪽 초과 안내 — **최선 노력**, 실패 시 "한글에서 PDF로 저장" 안내 폴백. hwpx는 미지원 안내).
   · 입력값 저장·동기화 없음(함정 B) — 메모리 버퍼 `window._bdrVals`(재렌더 회수 `_bdrSyncFromDom`, **logout에서 리셋** —
     공용 PC PII 잔존 차단, v-21 리뷰). id는 bdr_ 접두(함정 E). ⚠️ 슬롯이 분류 "이름" 기반 — 이름 변경 시 양식·좌표 재등록 필요.
+  · **용도/기간/이해하였음 + 실시간 미리보기 (2026-09-11 v-3)**: 위임자 칸 아래 용도 셀렉트(본인확인용/법원제출용,
+    `wj_purpose`)·기간 칸(`wj_period` — 숫자만 쳐도 `_bdrFmtPeriodStr`이 0000년00월00일 ~ 0000년00월00일 자동 정형.
+    주민번호/전화도 v-1부터 자동 하이픈 `_bdrFmtRrnStr`/`_bdrFmtPhoneStr`). 좌표 신규 키 purpose/period/periodFrom/
+    periodTo/understood(고정 안내 글자 "이해하였음" — 고객 따라쓰기용) — CLAIM_FIELDS_DEFAULT에 `daeri:1` 플래그로 추가돼
+    **대리발급 모드에서만 노출**(ccBuildAddField 필터), 값은 claimMeta v(c.purpose 등)라 drawClaimFields/ccBuildCtx 복붙
+    ctx 무변경. **실시간 미리보기**: `#bdr_panel` oninput/onchange(버블) → `_bdrLive` → `_bdrPrevOverlay`가 배치된 좌표에
+    입력값을 파란 글자로 겹쳐 표시(ccPlacePreviews 계열 — 페이지 원본 pt 크기 `window._bdrPrevInfo.sizes`로 환산,
+    이미지 재렌더 없음). 생성·오버레이 값 구성은 공용 `_bdrFormC`/`_bdrCoordsFor`(wbOf 끄기 포함 — _bdrBuild와 동일 규칙).
 - **사이드바 메뉴 검색 (2026-09-10 v-17)**: [메뉴] 라벨 아래 `#nav_srch` — 메뉴 라벨 실시간 필터(공백·대소문자 무시),
   일치 그룹 임시 펼침, 해제 시 접힘 상태 스냅샷 복원(`window._navSrchSnap`), 페이지 선택(showPage) 시 자동 해제.
   권한(setAdmin 인라인)·`.cfg-hide` 숨김 항목은 검색 제외, 숨김은 `.nav-sh` 클래스로만(인라인 표시값 보존).
