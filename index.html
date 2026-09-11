@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-7</div>
   </div>
 </div>
 
@@ -20708,7 +20708,7 @@ function _bdrPrevOverlay(){ // ccPlacePreviews 계열 — 좌표(pt)를 표시 �
       var m=META[bk]||{};
       var sc=(wrap.clientWidth||560)/szv.w;
       var size=(typeof co.size==='number'&&co.size>0)?co.size:(m.s||9);
-      var pit=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:(m.pitch||0);
+      var pit=(typeof co.pitch==='number'&&co.pitch>=0)?co.pitch:(m.pitch||0);   // 0 명시=붙여쓰기(drawClaimFields와 동일 규칙)
       var fs=size*sc;
       var d=document.createElement('div');
       d.className='bdrpv-txt'; d.textContent=text;   // textContent — XSS 안전
@@ -20732,6 +20732,7 @@ function _bdrFormC(catId){
     ctName:val('wb_name'), ctRrn:val('wb_rrn').replace(/-/g,''), ctPhone:val('wb_phone'), ctAddr:val('wb_addr'),
     purpose:val('wj_purpose'), period:val('wj_period'),
     periodFrom:(pd[0]||'').trim(), periodTo:(pd.length>1?pd[1]:'').trim(),
+    _hyPhone:1,   // 대리발급: 전화(전체)를 010-6413-1743 하이픈 표기로(claimMeta phone/ctPhone 분기 — 2026-09-11)
     agentName:(typeof cu!=='undefined'&&cu&&cu.name)||'', accident:[], desc:''
   };
 }
@@ -20743,6 +20744,9 @@ function _bdrCoordsFor(slot,c){
   Object.keys(coords).forEach(function(k){
     var bk=String(k).replace(/_\d+$/,''); var src=wbOf[bk];
     if(src&&!c[src]) coords[k]=Object.assign({},coords[k],{on:false});
+    // 전화(전체)는 하이픈 포함이라 글자 간격(기본 25pt) 없이 붙여쓰기 — 관리자가 편집기에서 간격을 직접 지정했으면 존중(2026-09-11)
+    if((bk==='phone'||bk==='ctPhone')&&!(typeof coords[k].pitch==='number'&&coords[k].pitch>0))
+      coords[k]=Object.assign({},coords[k],{pitch:0});
   });
   return coords;
 }
@@ -24522,7 +24526,7 @@ function claimMeta(){
     ctRrnFront:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctRrn||'').slice(0,6);}},
     ctRrnBack:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctRrn||'').slice(6,13);}},
     ctAddr:{t:'ko',s:9,w:420,v:function(c,x){return (x.ctAddr||'').slice(0,45);}},
-    ctPhone:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctPhone||'').slice(0,15);}},
+    ctPhone:{t:'asc',s:9,pitch:25,v:function(c,x){ if(c&&c._hyPhone&&x.ctPhone) return _bdrFmtPhoneStr(x.ctPhone); return (x.ctPhone||'').slice(0,15); }},   // _hyPhone=대리발급: 010-6413-1743 표기(2026-09-11)
     ctPhoneFront:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctPhone||'').slice(0,3);}},
     ctPhoneMid:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctPhone||'').slice(3,7);}},
     ctPhoneBack:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.ctPhone||'').slice(7,11);}},
@@ -24545,7 +24549,7 @@ function claimMeta(){
     insRrnBack:{t:'asc',s:9,pitch:25,v:function(c,x){return (x.insRrn||'').slice(6,13);}},
     insRel:{t:'ko',s:9,w:60,v:function(c){return c.insRel||'';}},
     addr:{t:'ko',s:9,w:420,v:function(c){return (c.addr||'').slice(0,45);}},
-    phone:{t:'asc',s:9,pitch:25,v:function(c){return c.phone?String(c.phone).replace(/-/g,'').slice(0,15):'';}},
+    phone:{t:'asc',s:9,pitch:25,v:function(c){ if(!c.phone) return ''; if(c._hyPhone) return _bdrFmtPhoneStr(c.phone); return String(c.phone).replace(/-/g,'').slice(0,15); }},   // _hyPhone=대리발급: 하이픈 포함 표기(2026-09-11)
     phoneFront:{t:'asc',s:9,pitch:25,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(0,3);}},
     phoneMid:{t:'asc',s:9,pitch:25,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(3,7);}},
     phoneBack:{t:'asc',s:9,pitch:25,v:function(c){var p=String(c.phone||'').replace(/[^0-9]/g,'');return p.slice(7,11);}},
@@ -24644,7 +24648,8 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
     if(m.cond && !m.cond(c)) continue;
     try{
       var fsz = (typeof co.size==='number'&&co.size>0)?co.size:m.s;
-      var pit = (typeof co.pitch==='number'&&co.pitch>0)?co.pitch:m.pitch;
+      // pitch 0 명시 = 간격 없이 붙여쓰기(대리발급 전화 하이픈 표기용 — 편집기 저장은 0을 안 쓰므로 기존 좌표 무영향, 2026-09-11)
+      var pit = (typeof co.pitch==='number'&&co.pitch>=0)?co.pitch:m.pitch;
       var drawSpaced=function(s){
         var str=String(s);
         if(pit){ for(var ci=0;ci<str.length;ci++) pg.drawText(str[ci],{x:co.x+ci*pit,y:co.y,size:fsz,font:hv,color:blk}); }
