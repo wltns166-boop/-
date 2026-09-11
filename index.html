@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-12</div>
   </div>
 </div>
 
@@ -24518,6 +24518,13 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'period',     label:'기간(전체)',        page:0, x:150,   y:500, defOn:false, daeri:1},
   {key:'periodFrom', label:'기간 시작일',       page:0, x:150,   y:500, defOn:false, daeri:1},
   {key:'periodTo',   label:'기간 종료일',       page:0, x:300,   y:500, defOn:false, daeri:1},
+  // 기간 년/월/일 분리 배치(2026-09-11) — 양식에 "____년 __월 __일"이 미리 인쇄된 경우 숫자만 각 칸에 기입
+  {key:'periodFromY',label:'기간 시작 년',      page:0, x:120,   y:500, defOn:false, daeri:1},
+  {key:'periodFromM',label:'기간 시작 월',      page:0, x:165,   y:500, defOn:false, daeri:1},
+  {key:'periodFromD',label:'기간 시작 일',      page:0, x:200,   y:500, defOn:false, daeri:1},
+  {key:'periodToY',  label:'기간 종료 년',      page:0, x:280,   y:500, defOn:false, daeri:1},
+  {key:'periodToM',  label:'기간 종료 월',      page:0, x:325,   y:500, defOn:false, daeri:1},
+  {key:'periodToD',  label:'기간 종료 일',      page:0, x:360,   y:500, defOn:false, daeri:1},
   {key:'understood', label:'이해하였음(안내 글자)', page:0, x:150, y:480, defOn:false, daeri:1},
   {key:'insName',    label:'피보험자 성명',     page:0, x:153.9, y:701.3},
   {key:'insRrn',     label:'피보험자 주민번호',  page:0, x:301.5, y:692.9},
@@ -24638,6 +24645,13 @@ function claimMeta(){
     period:{t:'ko',s:9,w:300,v:function(c){return c.period||'';}},
     periodFrom:{t:'ko',s:9,w:150,v:function(c){return c.periodFrom||'';}},
     periodTo:{t:'ko',s:9,w:150,v:function(c){return c.periodTo||'';}},
+    // 기간 년/월/일 분리(2026-09-11) — "2026년09월11일" 문자열에서 숫자만 추출해 부분 반환(입력 진행 중이면 앞부분만)
+    periodFromY:{t:'asc',s:9,v:function(c){return String(c.periodFrom||'').replace(/\D/g,'').slice(0,4);}},
+    periodFromM:{t:'asc',s:9,v:function(c){return String(c.periodFrom||'').replace(/\D/g,'').slice(4,6);}},
+    periodFromD:{t:'asc',s:9,v:function(c){return String(c.periodFrom||'').replace(/\D/g,'').slice(6,8);}},
+    periodToY:{t:'asc',s:9,v:function(c){return String(c.periodTo||'').replace(/\D/g,'').slice(0,4);}},
+    periodToM:{t:'asc',s:9,v:function(c){return String(c.periodTo||'').replace(/\D/g,'').slice(4,6);}},
+    periodToD:{t:'asc',s:9,v:function(c){return String(c.periodTo||'').replace(/\D/g,'').slice(6,8);}},
     understood:{t:'ko',s:9,w:120,v:function(){return '이해하였음';}},
     insName:{t:'ko',s:9,w:108,v:function(c,x){return x.insName;}},
     insRrn:{t:'rrn',s:9,pitch:25},
@@ -24817,7 +24831,9 @@ var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨 — �
   ctName:'위임받는자 이름',ctRrn:'위임받는자 주민번호',ctRrnFront:'위임받는자 주민번호 앞6',ctRrnBack:'위임받는자 주민번호 뒤7',
   ctPhone:'위임받는자 전화번호',ctPhoneFront:'위임받는자 전화 앞3',ctPhoneMid:'위임받는자 전화 중4',ctPhoneBack:'위임받는자 전화 뒤4',
   ctAddr:'위임받는자 집주소', signName:'위임자 성명(서명 옆)',
-  purpose:'용도',period:'기간(전체)',periodFrom:'기간 시작일',periodTo:'기간 종료일',understood:'이해하였음(안내 글자)'
+  purpose:'용도',period:'기간(전체)',periodFrom:'기간 시작일',periodTo:'기간 종료일',understood:'이해하였음(안내 글자)',
+  periodFromY:'기간 시작 년',periodFromM:'기간 시작 월',periodFromD:'기간 시작 일',
+  periodToY:'기간 종료 년',periodToM:'기간 종료 월',periodToD:'기간 종료 일'
 };
 // 보험사별 좌표(기본값 + override 병합). 구버전 flat 좌표는 DB손해보험으로 이관
 function claimCoordsFor(insurer){
@@ -25164,6 +25180,7 @@ var CC_PREVIEW_SAMPLES = {
   ctAddr:'서울 강남구 테헤란로 123',
   coName:'삼성화재', prodName:'무배당 ○○건강보험', polNum:'12345-67890', designNum:'D-123456', agentName:'김설계', vchk:'V',
   purpose:'본인확인용', period:'2026년01월01일 ~ 2026년12월31일', periodFrom:'2026년01월01일', periodTo:'2026년12월31일', understood:'이해하였음',
+  periodFromY:'2026', periodFromM:'01', periodFromD:'01', periodToY:'2026', periodToM:'12', periodToD:'31',
   insName:'홍길동', sign:'서명',
   insRrn:'900101-1234567', insRrnFront:'900101', insRrnBack:'1234567',
   insRel:'본인',
@@ -25327,6 +25344,7 @@ var CC_SAM_KEYS={ctName:1,insName:1,coName:1,prodName:1,polNum:1,agentName:1,vch
 var CC_DAERI_KEYS={insName:1,insRrn:1,insRrnFront:1,insRrnBack:1,phone:1,phoneFront:1,phoneMid:1,phoneBack:1,addr:1,insRel:1,
   ctName:1,ctRrn:1,ctRrnFront:1,ctRrnBack:1,ctPhone:1,ctPhoneFront:1,ctPhoneMid:1,ctPhoneBack:1,ctAddr:1,
   purpose:1,period:1,periodFrom:1,periodTo:1,understood:1,
+  periodFromY:1,periodFromM:1,periodFromD:1,periodToY:1,periodToM:1,periodToD:1,
   wY:1,wY2:1,wM:1,wD:1,vchk:1,signName:1};
 var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 위임자/위임받는자 이름으로 묶어 표시
   { title:'위임자 (고객)', items:[
@@ -25357,6 +25375,12 @@ var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 �
     {key:'period',     label:'기간 (전체 — 시작 ~ 종료)'},
     {key:'periodFrom', label:'기간 시작일'},
     {key:'periodTo',   label:'기간 종료일'},
+    {key:'periodFromY',label:'기간 시작: 년 (4자리)'},
+    {key:'periodFromM',label:'기간 시작: 월 (01~12)'},
+    {key:'periodFromD',label:'기간 시작: 일 (01~31)'},
+    {key:'periodToY',  label:'기간 종료: 년 (4자리)'},
+    {key:'periodToM',  label:'기간 종료: 월 (01~12)'},
+    {key:'periodToD',  label:'기간 종료: 일 (01~31)'},
     {key:'understood', label:'"이해하였음" 안내 글자 (고객 따라쓰기)'}
   ]},
   { title:'작성일·기타', items:[
