@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.10-28</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-1</div>
   </div>
 </div>
 
@@ -15576,7 +15576,16 @@ function _renderCustInfoModal(c, fm){
   var esc=_alertEsc;
   var bg=_custBirthGender(who.rrn);
   var rowsArr=[];
-  var row=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rowsArr.push('<tr><th style="text-align:left;width:96px;background:#f3f5fc;color:#5060aa;font-weight:600;padding:8px 10px;border:1px solid #e3e6f3;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #e3e6f3;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
+  // 클릭 복사 대상 항목(2026-09-11) — 값 칸 클릭 시 클립보드 복사(_csrCopyVal 재사용, 값·라벨은 data 속성 — 함정 A)
+  var COPY_LB={'이름':1,'주민번호':1,'연락처':1,'주소':1};
+  var _cpAttr=function(label,val){ return ' onclick="_csrCopyVal(this)" data-copy="'+esc(val)+'" data-cplb="'+label+'" title="클릭하면 복사됩니다"'; };
+  var row=function(label,val){
+    if(val==null||(''+val).trim()===''||val==='-') return;
+    var cp=COPY_LB[label];
+    rowsArr.push('<tr><th style="text-align:left;width:96px;background:#f3f5fc;color:#5060aa;font-weight:600;padding:8px 10px;border:1px solid #e3e6f3;font-size:13px">'+label+'</th>'
+      +'<td'+(cp?_cpAttr(label,val):'')+' style="padding:8px 10px;border:1px solid #e3e6f3;font-size:14px;color:#1a1a2e'+(cp?';cursor:pointer':'')+'">'+esc(val)
+      +(cp?' <i class="ti ti-copy" style="font-size:12px;color:#a8b0cc"></i>':'')+'</td></tr>');
+  };
   // 미성년 고객의 법정대리인 이름 — 고객 레코드의 영구 필드(parent) 우선,
   //   없으면 구버전 데이터 폴백으로 등록요청 큐(custReqs)의 최근 건 조회
   var _grd='';
@@ -15640,7 +15649,7 @@ function _renderCustInfoModal(c, fm){
   var grdHtml='';
   if(_grdP){
     var rows2=[];
-    var row2=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; rows2.push('<tr><th style="text-align:left;width:96px;background:#fdf6ec;color:#a05a10;font-weight:600;padding:8px 10px;border:1px solid #f0e3cc;font-size:13px">'+label+'</th><td style="padding:8px 10px;border:1px solid #f0e3cc;font-size:14px;color:#1a1a2e">'+esc(val)+'</td></tr>'); };
+    var row2=function(label,val){ if(val==null||(''+val).trim()===''||val==='-') return; var cp=COPY_LB[label]; rows2.push('<tr><th style="text-align:left;width:96px;background:#fdf6ec;color:#a05a10;font-weight:600;padding:8px 10px;border:1px solid #f0e3cc;font-size:13px">'+label+'</th><td'+(cp?_cpAttr(label,val):'')+' style="padding:8px 10px;border:1px solid #f0e3cc;font-size:14px;color:#1a1a2e'+(cp?';cursor:pointer':'')+'">'+esc(val)+(cp?' <i class="ti ti-copy" style="font-size:12px;color:#c8b090"></i>':'')+'</td></tr>'); };
     var bg2=_custBirthGender(_grdP.rrn);
     row2('이름', _grdP.name);
     row2('관계', _grdRel);
@@ -20157,6 +20166,19 @@ function _bdrGetVals(catId){
   }
   return window._bdrVals[catId];
 }
+// 주민번호·전화번호 자동 하이픈(2026-09-11) — 입력 즉시 920728... → 920728-1234567 / 01064131743 → 010-6413-1743
+function _bdrFmtRrnStr(v){ var d=String(v||'').replace(/\D/g,'').slice(0,13); return d.length>6?d.slice(0,6)+'-'+d.slice(6):d; }
+function _bdrFmtPhoneStr(v){
+  var d=String(v||'').replace(/\D/g,'').slice(0,11), out=d;
+  if(d.slice(0,2)==='02'){ // 서울 국번(dqPhone 규칙 재사용)
+    if(d.length>2) out=d.slice(0,2)+'-'+d.slice(2);
+    if(d.length>6) out=d.slice(0,2)+'-'+d.slice(2,d.length-4)+'-'+d.slice(-4);
+  } else {
+    if(d.length>3) out=d.slice(0,3)+'-'+d.slice(3);
+    if(d.length>7) out=d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);
+  }
+  return out;
+}
 function _bdrSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌더·생성 직전 — _sanCollect 계열)
   var p=g('bdr_panel'); if(!p||p.getAttribute('data-bdrcat')!==catId) return;
   var o=_bdrGetVals(catId);
@@ -20168,8 +20190,12 @@ function _bdDaeriHtml(name,cat){
   var qc=JSON.stringify(cat.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   var _in='width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
   var fld=function(k,label,ph){
+    // 주민번호·전화번호 칸은 입력 즉시 자동 하이픈(2026-09-11) — 초기 표시값도 같은 규칙으로 정형
+    var fm='', v=o[k]||'';
+    if(k==='wj_rrn'||k==='wb_rrn'){ fm=' oninput="this.value=_bdrFmtRrnStr(this.value)"'; v=_bdrFmtRrnStr(v); }
+    else if(k==='wj_phone'||k==='wb_phone'){ fm=' oninput="this.value=_bdrFmtPhoneStr(this.value)"'; v=_bdrFmtPhoneStr(v); }
     return '<div style="margin-bottom:8px"><div style="font-size:12.5px;color:#555;margin-bottom:3px">'+label+'</div>'
-      +'<input data-bdrk="'+k+'" value="'+_esc(o[k]||'')+'" placeholder="'+_esc(ph||'')+'" style="'+_in+'"></div>';
+      +'<input data-bdrk="'+k+'"'+fm+' value="'+_esc(v)+'" placeholder="'+_esc(ph||'')+'" style="'+_in+'"></div>';
   };
   var bt='padding:7px 13px;border-radius:7px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;';
   return '<div id="bdr_panel" data-bdrcat="'+_esc(cat.id)+'" style="margin-top:12px;border:1px solid #dfe3f0;border-radius:10px;padding:14px 16px;background:#fafbff">'
@@ -24548,12 +24574,12 @@ function bakedTplFor(insurer){
 // 슬롯 이름 '대리발급_<분류이름>' — 양식(idb/Storage claim_templates)·좌표(tops_claim_coords_v2) 파이프라인 공유.
 // 기존 좌표 키 재사용: 피보험자(ins*/phone/addr/insRel)=위임자, 계약자(ct*)=위임받는자 — 신규 키 없음.
 function _isDaeriSlot(n){ return /^대리발급_/.test(String(n||'')); }
-var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨(청구서 라벨과 혼동 방지 — 표시 전용)
-  insName:'위임자 성명',insRrn:'위임자 주민번호',insRrnFront:'위임자 주민번호(앞6)',insRrnBack:'위임자 주민번호(뒤7)',
-  phone:'위임자 핸드폰',phoneFront:'위임자 핸드폰(앞3)',phoneMid:'위임자 핸드폰(중4)',phoneBack:'위임자 핸드폰(뒤4)',
+var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨 — 입력 폼 칸 이름 기준(2026-09-11, 청구서 라벨과 혼동 방지 — 표시 전용)
+  insName:'위임자 고객이름',insRrn:'위임자 주민번호',insRrnFront:'위임자 주민번호 앞6',insRrnBack:'위임자 주민번호 뒤7',
+  phone:'위임자 핸드폰번호',phoneFront:'위임자 핸드폰 앞3',phoneMid:'위임자 핸드폰 중4',phoneBack:'위임자 핸드폰 뒤4',
   addr:'위임자 집주소',insRel:'위임받는자와의 관계',
-  ctName:'위임받는자 성명',ctRrn:'위임받는자 주민번호',ctRrnFront:'위임받는자 주민번호(앞6)',ctRrnBack:'위임받는자 주민번호(뒤7)',
-  ctPhone:'위임받는자 전화',ctPhoneFront:'위임받는자 전화(앞3)',ctPhoneMid:'위임받는자 전화(중4)',ctPhoneBack:'위임받는자 전화(뒤4)',
+  ctName:'위임받는자 이름',ctRrn:'위임받는자 주민번호',ctRrnFront:'위임받는자 주민번호 앞6',ctRrnBack:'위임받는자 주민번호 뒤7',
+  ctPhone:'위임받는자 전화번호',ctPhoneFront:'위임받는자 전화 앞3',ctPhoneMid:'위임받는자 전화 중4',ctPhoneBack:'위임받는자 전화 뒤4',
   ctAddr:'위임받는자 집주소', signName:'위임자 성명(서명 옆)'
 };
 // 보험사별 좌표(기본값 + override 병합). 구버전 flat 좌표는 DB손해보험으로 이관
@@ -24849,7 +24875,8 @@ function ccBaseKey(k){ return String(k).replace(/_\d+$/,''); }
 function ccLabelFor(key){
   var bk=ccBaseKey(key);
   var def=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===bk;});
-  var lbl=(def&&def.label)||key;
+  // 대리발급 모드는 칩도 위임자/위임받는자(입력 폼 칸 이름) 라벨로 — 청구서 라벨("피보험자 성명")이 그대로 보이던 혼동 수정(2026-09-11)
+  var lbl=((window._ccMode==='daeri')&&_DAERI_LABELS[bk])||(def&&def.label)||key;
   if(key!==bk){ var n=key.split('_').pop(); lbl+=' #'+n; }
   return lbl;
 }
@@ -25524,7 +25551,7 @@ function ccUpdatePropsPanel(){
   var defField=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===key;})||{};
   if(keys.length>1){
     // 다중 선택 — 전 항목 값이 같으면 그 값 표시, 다르면 빈 칸(빈 칸=각자 유지)
-    g('cc_props_name').textContent=(defField.label||key)+' 외 '+(keys.length-1)+'개 — 입력한 값만 전체 적용(빈 칸은 각자 유지)';
+    g('cc_props_name').textContent=ccLabelFor(key)+' 외 '+(keys.length-1)+'개 — 입력한 값만 전체 적용(빈 칸은 각자 유지)';
     var szs=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.size==='number'&&w.size>0)?w.size:null; });
     var pts=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.pitch==='number'&&w.pitch>0)?w.pitch:null; });
     var sameSz=szs.every(function(v){return v===szs[0];});
@@ -25535,7 +25562,7 @@ function ccUpdatePropsPanel(){
     pitchInput.placeholder=samePt?((meta.pitch!=null)?String(meta.pitch):'(없음)'):'(여러 값)';
     return;
   }
-  g('cc_props_name').textContent=defField.label||key;
+  g('cc_props_name').textContent=ccLabelFor(key);
   sizeInput.placeholder=(meta.s!=null)?String(meta.s):'9';
   pitchInput.placeholder=(meta.pitch!=null)?String(meta.pitch):'(없음)';
   sizeInput.value=(typeof co.size==='number'&&co.size>0)?co.size:'';
