@@ -422,7 +422,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.11-5</div>
   </div>
 </div>
 
@@ -20236,7 +20236,8 @@ function _bdrFmtPeriodStr(v){ // 기간: 숫자만 쳐도 0000년00월00일 ~ 00
     return o+s.slice(6,8)+'일';
   };
   if(!d) return '';
-  return one(d.slice(0,8))+(d.length>=8?' ~ '+one(d.slice(8)):'');
+  // ' ~ '는 9자리째부터 — 시작일만 입력하고 멈춘 경우 꼬리 물결표가 화면·출력물에 남지 않게(2026-09-11 리뷰)
+  return one(d.slice(0,8))+(d.length>8?' ~ '+one(d.slice(8)):'');
 }
 function _bdrSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌더·생성 직전 — _sanCollect 계열)
   var p=g('bdr_panel'); if(!p||p.getAttribute('data-bdrcat')!==catId) return;
