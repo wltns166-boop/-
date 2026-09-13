@@ -1342,8 +1342,11 @@ function renderCards() {
     wrap.innerHTML = `<div class="card"><div class="card-b"><div class="empty"><span class="big">💳</span>등록된 카드사가 없습니다<br>위의 '카드사 관리' 버튼으로 카드사를 추가하세요</div></div></div>`;
     return;
   }
-  wrap.style.gridTemplateColumns = `repeat(${cards.length}, minmax(300px, 1fr))`;
-  wrap.innerHTML = cards.map(c => {
+  // 왼쪽 리스트에서 고른 카드사의 내역만 표시 (기본: 첫 번째 카드사)
+  if (!selectedCardId || !cards.some(c => c.id === selectedCardId)) selectedCardId = cards[0].id;
+  const shown = cards.filter(c => c.id === selectedCardId);
+  wrap.style.gridTemplateColumns = '1fr';
+  wrap.innerHTML = shown.map(c => {
     const list = monthCt.filter(t => t.cardId === c.id).sort((a, b) => a.date < b.date ? 1 : -1);
     const sum = list.reduce((s, t) => s + Number(t.amount || 0), 0);
     return `<div class="card${selectedCardId === c.id ? ' card-sel' : ''}" id="ccard-${c.id}"
