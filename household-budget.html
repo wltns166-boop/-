@@ -407,7 +407,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .ct-layout { display: flex; gap: 14px; align-items: flex-start; }
 .ct-side { width: 460px; flex-shrink: 0; }
 .card-cols-wrap { flex: 1; min-width: 0; }
-.side-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px 48px; gap: 8px; align-items: center; padding: 10px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.side-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(96px, auto) 48px; gap: 8px; align-items: center; padding: 10px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .side-row.head { cursor: default; font-size: 11px; color: var(--muted); font-weight: 700; padding: 4px 8px 7px; border-bottom: 1px solid var(--line); border-radius: 0; }
 .side-row.head:hover { background: transparent; }
 .side-row.head span { text-align: right; }
@@ -744,7 +744,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
 <!-- ═══ 카드사 관리 모달 ═══ -->
 <div class="modal-bg" id="card-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:540px">
     <div class="modal-h"><span>💳 카드사 관리</span><button class="close" onclick="closeModal('card-modal')">✕</button></div>
     <div class="modal-b">
       <div id="card-m-list"></div>
@@ -1323,10 +1323,14 @@ function renderCards() {
   cards.map(c => {
     const list = monthCt.filter(t => t.cardId === c.id);
     const s = list.reduce((a, t) => a + Number(t.amount || 0), 0);
-    let period = '-';
-    if (list.length) {
-      const ds = list.map(t => t.date).sort();
-      period = ds[0].slice(5).replace('-', '/') + '~' + ds[ds.length - 1].slice(5).replace('-', '/');
+    // 카드사 관리에서 직접 입력한 사용기간이 우선, 없으면 내역 날짜 범위 자동 표시
+    let period = esc(String(c.period || '').trim());
+    if (!period) {
+      period = '-';
+      if (list.length) {
+        const ds = list.map(t => t.date).sort();
+        period = ds[0].slice(5).replace('-', '/') + '~' + ds[ds.length - 1].slice(5).replace('-', '/');
+      }
     }
     return `<div class="side-row${selectedCardId === c.id ? ' on' : ''}" onclick="focusCard('${c.id}')">
       <span class="nm">💳 ${esc(c.name)}</span>
@@ -1444,6 +1448,18 @@ function togglePaid(cardId) {
   toast(c.paid[selYM] ? `'${c.name}' 결제 완료로 표시했습니다` : `'${c.name}' 미완료로 표시했습니다`);
   render();
 }
+/* 카드사 사용기간(표시용 문구) 저장 (카드사 관리 모달) */
+function setCardPeriod(cardId, v) {
+  const cards = getCards();
+  const c = cards.find(x => x.id === cardId);
+  if (!c) return;
+  v = String(v || '').trim();
+  if (v) c.period = v; else delete c.period;
+  lsSet('cards', cards);
+  toast('사용기간이 저장되었습니다');
+  renderCardModal();
+  render();
+}
 /* 카드사 결제일 저장 (카드사 관리 모달) */
 function setCardPayDay(cardId, v) {
   const cards = getCards();
@@ -1467,6 +1483,8 @@ function renderCardModal() {
       <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
       <div class="rec-info"><div class="t1">${esc(c.name)}</div>
         <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
+      <input class="bud-input" type="text" placeholder="사용기간" title="예: 전월 14일~당월 13일" maxlength="20"
+        style="width:118px;text-align:center;font-size:12px" value="${esc(c.period || '')}" onchange="setCardPeriod('${c.id}', this.value)">
       <input class="bud-input" type="number" min="1" max="31" placeholder="결제일" title="매월 결제일 (1~31)"
         style="width:64px;text-align:center" value="${c.payDay || ''}" onchange="setCardPayDay('${c.id}', this.value)">
       <span style="color:var(--muted);font-size:12px">일</span>
