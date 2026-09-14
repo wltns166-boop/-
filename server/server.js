@@ -40,6 +40,7 @@ const YOUTUBE_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
 const SHORTS_DIR = process.env.SHORTS_DIR || path.join(DATA_DIR, 'shorts');
 const SHORTS_DONE_DIR = process.env.SHORTS_DIR ? path.join(process.env.SHORTS_DIR, '..', 'shorts-done') : path.join(DATA_DIR, 'shorts-done');
 const SHORTS_QUEUE = {}; // 업로드 대기 중인 파일 추적
+const YOUTUBE_PRIVACY = process.env.YOUTUBE_PRIVACY || 'unlisted'; // public | unlisted | private
 
 let youtubeOAuth2Client = null;
 let youtubeTokens = null;
@@ -118,7 +119,7 @@ async function uploadVideoToYoutube(filePath, fileName) {
             categoryId: '22',
           },
           status: {
-            privacyStatus: 'unlisted',
+            privacyStatus: YOUTUBE_PRIVACY,
             madeForKids: false,
           },
         },
@@ -166,6 +167,29 @@ async function uploadVideoToYoutube(filePath, fileName) {
   }
 }
 
+let shortsProcessing = false;
+async function processShortsQueue() {
+  if (shortsProcessing) return;
+  shortsProcessing = true;
+  try {
+    for (const filePath of Object.keys(SHORTS_QUEUE)) {
+      const item = SHORTS_QUEUE[filePath];
+      if (item.status !== 'pending') continue;
+      if (!youtubeOAuth2Client || !youtubeTokens) {
+        const pendingCount = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending').length;
+        console.log(`[YouTube] 인증 대기 중 (대기 영상 ${pendingCount}개) → 브라우저에서 http://localhost:${PORT}/api/youtube/auth-url 열어서 로그인하세요`);
+        break;
+      }
+      item.status = 'uploading';
+      const success = await uploadVideoToYoutube(filePath, item.fileName);
+      if (success) delete SHORTS_QUEUE[filePath];
+      else item.status = 'failed';
+    }
+  } finally {
+    shortsProcessing = false;
+  }
+}
+
 function initShortsWatcher() {
   if (!fs.existsSync(SHORTS_DIR)) {
     fs.mkdirSync(SHORTS_DIR, { recursive: true });
@@ -193,17 +217,7 @@ function initShortsWatcher() {
     SHORTS_QUEUE[filePath] = { fileName, status: 'pending', addedAt: Date.now() };
 
     // 1초 후에 업로드 시작 (다른 파일 추가 대기)
-    setTimeout(async () => {
-      if (SHORTS_QUEUE[filePath] && SHORTS_QUEUE[filePath].status === 'pending') {
-        SHORTS_QUEUE[filePath].status = 'uploading';
-        const success = await uploadVideoToYoutube(filePath, fileName);
-        if (success) {
-          delete SHORTS_QUEUE[filePath];
-        } else {
-          SHORTS_QUEUE[filePath].status = 'failed';
-        }
-      }
-    }, 1000);
+    setTimeout(processShortsQueue, 1000);
   });
 
   watcher.on('error', (error) => {
@@ -387,29 +401,36 @@ app.get('/api/youtube/auth-url', (req, res) => {
   }
   const authUrl = youtubeOAuth2Client.generateAuthUrl({
     access_type: 'offline',
+    prompt: 'consent',
     scope: ['https://www.googleapis.com/auth/youtube.upload'],
   });
-  res.json({ authUrl });
+  if (req.query.json !== undefined) return res.json({ authUrl });
+  res.redirect(authUrl);
 });
 
 /* YouTube OAuth 콜백 */
 app.get('/api/youtube/auth/callback', async (req, res) => {
   const { code, error } = req.query;
+  const page = (title, body) =>
+    `<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>${title}</h2><p>${body}</p></body>`;
   if (error) {
-    return res.status(400).json({ error: `인증 실패: ${error}` });
+    return res.status(400).send(page('YouTube 인증 실패', String(error)));
   }
   if (!code) {
-    return res.status(400).json({ error: '인증 코드가 없습니다.' });
+    return res.status(400).send(page('YouTube 인증 실패', '인증 코드가 없습니다.'));
   }
   try {
     const { tokens } = await youtubeOAuth2Client.getToken(code);
     youtubeOAuth2Client.setCredentials(tokens);
     youtubeTokens = tokens;
     saveYoutubeTokens();
-    res.json({ ok: true, message: 'YouTube 인증 완료' });
+    console.log('[YouTube] 인증 완료. 대기 중인 영상 업로드를 시작합니다.');
+    const pendingCount = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending').length;
+    processShortsQueue();
+    res.send(page('YouTube 인증 완료 ✅', `이 창은 닫아도 됩니다. 대기 중인 영상 ${pendingCount}개 업로드를 시작했습니다. 진행 상황은 서버 창(cmd)에서 확인하세요.`));
   } catch (e) {
     console.error('[YouTube] 토큰 획득 실패:', e.message);
-    res.status(500).json({ error: `토큰 획득 실패: ${e.message}` });
+    res.status(500).send(page('YouTube 인증 실패', `토큰 획득 실패: ${e.message}`));
   }
 });
 
