@@ -192,6 +192,8 @@ async function fetchRemoteQueue() {
 
     for (const item of items) {
       if (!item || typeof item.id !== 'string' || done.has(item.id)) continue;
+      // notBefore(ISO 날짜)가 지정된 항목은 그 시각이 지나야 받아옴 (예약 업로드)
+      if (item.notBefore && Date.now() < Date.parse(item.notBefore)) continue;
       const channel = typeof item.channel === 'string' && item.channel ? item.channel : DEFAULT_CHANNEL;
       if (!CHANNEL_NAME_RE.test(channel) || !SAFE_FILENAME_RE.test(item.fileName || '') || !/^https?:\/\//.test(item.url || '')) {
         console.error('[Queue] 잘못된 항목 건너뜀:', item.id);
