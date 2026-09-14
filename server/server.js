@@ -251,9 +251,12 @@ function initShortsWatcher() {
     fs.mkdirSync(SHORTS_DIR, { recursive: true });
   }
 
+  // OneDrive/네트워크 폴더는 OS 변경 알림이 누락되는 경우가 있어 폴링으로 감시
   const watcher = chokidar.watch(SHORTS_DIR, {
     ignored: /(^|[\/\\])\.|\.tmp$/,
     persistent: true,
+    usePolling: true,
+    interval: 3000,
     awaitWriteFinish: {
       stabilityThreshold: 2000,
       pollInterval: 100,
