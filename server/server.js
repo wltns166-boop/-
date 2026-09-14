@@ -13,6 +13,9 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
+const multer = require('multer');
 
 const ROOT = path.join(__dirname, '..');          // 프로젝트 루트 (HTML 위치)
 // 배포 시 영속 디스크 경로를 DATA_DIR 환경변수로 지정할 수 있음 (재배포해도 데이터 유지)
@@ -23,6 +26,60 @@ const PORT = process.env.PORT || 4000;
 // 운영 시에는 반드시 환경변수 JWT_SECRET 을 지정하세요. 미지정 시 임시 키 생성.
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const TOKEN_TTL = '12h';
+
+/* ── YouTube API 설정 ── */
+const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || '';
+const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || '';
+const YOUTUBE_REDIRECT_URI = process.env.YOUTUBE_REDIRECT_URI || 'http://localhost:4000/api/youtube/auth/callback';
+const YOUTUBE_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
+
+let youtubeOAuth2Client = null;
+let youtubeTokens = null;
+
+function initYoutubeClient() {
+  if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET) {
+    console.warn('[YouTube] 클라이언트 ID/Secret이 없습니다. 유튜브 연동이 작동하지 않습니다.');
+    return;
+  }
+  youtubeOAuth2Client = new OAuth2Client(YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI);
+  loadYoutubeTokens();
+}
+
+function loadYoutubeTokens() {
+  if (fs.existsSync(YOUTUBE_TOKENS_FILE)) {
+    try {
+      youtubeTokens = JSON.parse(fs.readFileSync(YOUTUBE_TOKENS_FILE, 'utf8'));
+      youtubeOAuth2Client.setCredentials(youtubeTokens);
+    } catch (e) {
+      console.error('[YouTube] 토큰 로드 실패:', e.message);
+    }
+  }
+}
+
+function saveYoutubeTokens() {
+  if (youtubeTokens && youtubeOAuth2Client) {
+    const creds = youtubeOAuth2Client.credentials;
+    youtubeTokens = { ...youtubeTokens, ...creds };
+    try {
+      fs.writeFileSync(YOUTUBE_TOKENS_FILE, JSON.stringify(youtubeTokens, null, 2));
+    } catch (e) {
+      console.error('[YouTube] 토큰 저장 실패:', e.message);
+    }
+  }
+}
+
+const uploadDisk = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(DATA_DIR, 'uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${crypto.randomBytes(8).toString('hex')}${ext}`);
+  }
+});
+const upload = multer({ storage: uploadDisk, limits: { fileSize: 5 * 1024 * 1024 * 1024 } });
 
 /* ── 초기 사용자 (최초 1회만 시드, 비밀번호는 해시 저장) ── */
 const SEED_USERS = {
@@ -188,6 +245,117 @@ app.put('/api/state', auth, (req, res) => {
 app.get('/api/health', (req, res) => res.json({ ok: true, version: db.version }));
 
 /* ═══════════════════════════════════════
+   YouTube API 엔드포인트
+═══════════════════════════════════════ */
+
+/* YouTube 인증 URL 생성 */
+app.get('/api/youtube/auth-url', (req, res) => {
+  if (!youtubeOAuth2Client) {
+    return res.status(500).json({ error: 'YouTube 클라이언트가 초기화되지 않았습니다.' });
+  }
+  const authUrl = youtubeOAuth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/youtube.upload'],
+  });
+  res.json({ authUrl });
+});
+
+/* YouTube OAuth 콜백 */
+app.get('/api/youtube/auth/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error) {
+    return res.status(400).json({ error: `인증 실패: ${error}` });
+  }
+  if (!code) {
+    return res.status(400).json({ error: '인증 코드가 없습니다.' });
+  }
+  try {
+    const { tokens } = await youtubeOAuth2Client.getToken(code);
+    youtubeOAuth2Client.setCredentials(tokens);
+    youtubeTokens = tokens;
+    saveYoutubeTokens();
+    res.json({ ok: true, message: 'YouTube 인증 완료' });
+  } catch (e) {
+    console.error('[YouTube] 토큰 획득 실패:', e.message);
+    res.status(500).json({ error: `토큰 획득 실패: ${e.message}` });
+  }
+});
+
+/* YouTube 업로드 상태 확인 */
+app.get('/api/youtube/status', (req, res) => {
+  const authenticated = !!youtubeTokens && !!youtubeTokens.access_token;
+  res.json({ authenticated, hasTokens: !!youtubeTokens });
+});
+
+/* YouTube 영상 업로드 */
+app.post('/api/youtube/upload', auth, upload.single('video'), async (req, res) => {
+  if (!youtubeOAuth2Client || !youtubeTokens) {
+    return res.status(400).json({ error: 'YouTube 인증이 필요합니다. /api/youtube/auth-url에서 인증하세요.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: '영상 파일이 필요합니다.' });
+  }
+
+  const { title, description, tags } = req.body || {};
+  if (!title) {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: '제목(title)이 필요합니다.' });
+  }
+
+  try {
+    youtubeOAuth2Client.setCredentials(youtubeTokens);
+    const youtube = google.youtube({ version: 'v3', auth: youtubeOAuth2Client });
+
+    const fileStream = fs.createReadStream(req.file.path);
+    const response = await youtube.videos.insert(
+      {
+        part: ['snippet', 'status'],
+        requestBody: {
+          snippet: {
+            title,
+            description: description || '',
+            tags: tags ? tags.split(',').map(t => t.trim()) : [],
+            categoryId: '22', // 기본: 단편 영화
+          },
+          status: {
+            privacyStatus: 'private', // private, unlisted, public 중 선택
+            madeForKids: false,
+          },
+        },
+        media: {
+          mimeType: req.file.mimetype || 'video/mp4',
+          body: fileStream,
+        },
+      },
+      {
+        onUploadProgress: (evt) => {
+          const progress = Math.round((evt.bytesRead / req.file.size) * 100);
+          console.log(`[YouTube] 업로드 진행률: ${progress}%`);
+        },
+      }
+    );
+
+    // 토큰 업데이트 저장
+    youtubeTokens = youtubeOAuth2Client.credentials;
+    saveYoutubeTokens();
+
+    // 임시 파일 삭제
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      ok: true,
+      videoId: response.data.id,
+      title: response.data.snippet.title,
+      url: `https://www.youtube.com/watch?v=${response.data.id}`,
+    });
+  } catch (e) {
+    console.error('[YouTube] 업로드 실패:', e.message);
+    try { fs.unlinkSync(req.file.path); } catch {}
+    res.status(500).json({ error: `업로드 실패: ${e.message}` });
+  }
+});
+
+/* ═══════════════════════════════════════
    프론트엔드 / PWA 정적 서빙
 ═══════════════════════════════════════ */
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'insurance-intranet-v2.html')));
@@ -200,6 +368,7 @@ for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 
    시작
 ═══════════════════════════════════════ */
 loadDB();
+initYoutubeClient();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  InsureNet 서버 실행 중`);
   console.log(`  ─ 로컬:   http://localhost:${PORT}`);
