@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-10</div>
   </div>
 </div>
 
@@ -2076,7 +2076,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="font-size:13px;color:#8888aa;margin-bottom:10px">모바일로 체결한 계약을 전산에 반영해 달라고 요청하는 곳입니다. 오른쪽 위 [신청]에서 계약 내용을 입력하면 총무님에게 알림과 함께 전달되고, 총무님이 보험사 박스를 눌러 완료/미완료를 체크합니다. 목록에는 본인 신청만 보입니다(총무는 전체).</div>
         <div style="overflow-x:auto">
         <table class="dt">
-          <thead><tr><th style="width:100px">담당자</th><th style="width:270px">계약자 · 계약정보</th><th>반영 진행여부</th><th style="width:50px">삭제</th></tr></thead>
+          <thead><tr><th style="width:100px">담당자</th><th style="width:230px">계약자 · 고객정보</th><th>반영 진행여부 · 계약정보</th><th style="width:50px">삭제</th></tr></thead>
           <tbody id="mcr_tb"></tbody>
         </table>
         </div>
@@ -26431,34 +26431,36 @@ function rMcReq(){
         if(_items.length) infoHtml='<div style="margin-top:6px;padding:6px 9px;background:#f7f8fd;border:1px solid #e3e6f3;border-radius:7px;max-width:250px;text-align:left">'+_items.join('')+'</div>';
       }
     }catch(e){}
-    var det=(r.items||[]).map(function(it,i){
+    // 반영 진행여부 열에 계약건별 카드(상태 박스 + 그 계약의 상세) — 계약자 열은 고객 정보만(2026-09-14 요청)
+    var boxes=(r.items||[]).map(function(it,i){
       if(!it) return '';
+      var attrs=' data-mcrid="'+_alertEsc(r.id||'')+'" data-mcrit="'+_alertEsc(it.id||'')+'" onclick="mcrBoxClick(this)"'
+        +(chong?' title="클릭하면 완료/미완료가 전환됩니다"':'');
+      var st=BOX+'width:100%;min-width:0;max-width:none;margin:0 0 4px 0;';
+      var stBox=it.done
+        ?('<div'+attrs+' style="'+st+'background:#1a9050;color:#fff;border-color:#1a9050;cursor:'+(chong?'pointer':'default')+'">'
+          +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">완료</span></div>')
+        :('<div'+attrs+' style="'+st+'background:#fff8f8;color:#aa3333;border-color:#f0b0b0;cursor:'+(chong?'pointer':'default')+'">'
+          +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">미완료</span></div>');
+      var L=function(lb,v){ return '<div><span style="color:#8890b8">'+lb+'</span> '+v+'</div>'; };
       var parts=[];
-      if(it.prod) parts.push(_esc(it.prod));
-      if(it.prem) parts.push('보험료 '+_esc(it.prem));
-      if(it.term) parts.push('납기/만기 '+_esc(it.term));
-      if(it.pol) parts.push('증권번호 '+_esc(it.pol));
-      if(it.cdt) parts.push('계약일 '+_esc(it.cdt));
-      if(it.ctype==='mobile') parts.push('📱 모바일 확인서');
+      if(it.prod) parts.push(L('상품명',_esc(it.prod)));
+      if(it.prem) parts.push(L('보험료',_esc(it.prem)));
+      if(it.term) parts.push(L('납기/만기',_esc(it.term)));
+      if(it.pol) parts.push(L('증권번호',_esc(it.pol)));
+      if(it.cdt) parts.push(L('계약일',_esc(it.cdt)));
+      if(it.ctype==='mobile') parts.push('<div>📱 모바일 확인서</div>');
       else if(it.ctype==='paper'){
         var dp='📄 서면 확인서';
         if(it.docUrl&&_MCR_URL_RE.test(it.docUrl)){   // 표시 전 자체 버킷 경로 화이트리스트(_CARD_URL_RE 계열)
           dp+=' <a href="'+_esc(it.docUrl)+'" target="_blank" rel="noopener" style="color:#1a60cc;text-decoration:underline">📎 '+_esc(it.docName||'파일 보기')+'</a>';
-        } else { dp+='(파일 없음)'; }
-        parts.push(dp);
+        } else { dp+=' (파일 없음)'; }
+        parts.push('<div>'+dp+'</div>');
       }
-      return '<div style="font-size:12.5px;line-height:1.55;color:#444;margin-top:3px">'+(i+1)+'. <b style="color:#2a3a80">'+_esc(it.ins||'-')+'</b>'+(parts.length?' · '+parts.join(' · '):'')+'</div>';
-    }).join('');
-    var boxes=(r.items||[]).map(function(it){
-      if(!it) return '';
-      var attrs=' data-mcrid="'+_alertEsc(r.id||'')+'" data-mcrit="'+_alertEsc(it.id||'')+'" onclick="mcrBoxClick(this)"'
-        +(chong?' title="클릭하면 완료/미완료가 전환됩니다"':'');
-      if(it.done){
-        return '<div'+attrs+' style="'+BOX+'background:#1a9050;color:#fff;border-color:#1a9050;cursor:'+(chong?'pointer':'default')+'">'
-          +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">완료</span></div>';
-      }
-      return '<div'+attrs+' style="'+BOX+'background:#fff8f8;color:#aa3333;border-color:#f0b0b0;cursor:'+(chong?'pointer':'default')+'">'
-        +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">미완료</span></div>';
+      var detHtml=parts.length?'<div style="font-size:12px;line-height:1.55;color:#333;text-align:left;padding:1px 3px;word-break:break-all">'+parts.join('')+'</div>':'';
+      return '<div style="display:inline-flex;flex-direction:column;width:210px;max-width:100%;margin:3px;vertical-align:top;border:1px solid #e3e6f3;border-radius:9px;background:#fbfcff;padding:6px;box-sizing:border-box">'
+        +'<div style="font-size:11.5px;font-weight:700;color:#8890b8;margin-bottom:3px">'+(i+1)+'번 계약</div>'
+        +stBox+detHtml+'</div>';
     }).join('');
     var canDel=chong||(cu&&(String(r.agent||'')===cu.name||_agentReal(r.agent||'')===_agentReal(cu.name)));
     var delBtn=canDel?'<div data-mcrid="'+_alertEsc(r.id||'')+'" onclick="mcrDelete(this)" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
@@ -26471,9 +26473,9 @@ function rMcReq(){
       +'<td style="vertical-align:middle">'
         +'<div onclick="'+oc+'" title="고객정보 보기" style="cursor:pointer;display:inline-block"><span style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(nm)+'</span></div>'
         +((r.insName&&r.insName!==nm)?'<div style="font-size:12.5px;color:'+(r.fetus?'#a05a10':'#555')+';margin-top:2px">'+(r.fetus?'👶 ':'')+'피보험자 '+_esc(r.insName)+'</div>':'')
-        +det+infoHtml
+        +infoHtml
       +'</td>'
-      +'<td style="vertical-align:middle"><div style="display:flex;flex-wrap:wrap;align-items:center">'+boxes+'</div></td>'
+      +'<td style="vertical-align:top;padding-top:10px"><div style="display:flex;flex-wrap:wrap;align-items:flex-start">'+boxes+'</div></td>'
       +'<td style="vertical-align:middle;text-align:center">'+delBtn+'</td>'
       +'</tr>';
   });
