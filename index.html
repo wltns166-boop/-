@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-11</div>
   </div>
 </div>
 
@@ -2093,6 +2093,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
               <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#16203c;cursor:pointer;font-weight:600"><input type="checkbox" id="mcr_fetus" onchange="mcrFetusToggle()" style="width:15px;height:15px;accent-color:#1a9050"> 태아보험</label></div>
               <input class="fi" id="mcr_cust" placeholder="계약자 이름 입력 → 아래 목록에서 선택" autocomplete="off" oninput="mcrCustSearch('ct')" onfocus="mcrCustSearch('ct')" onblur="setTimeout(function(){var b=g('mcr_cust_list');if(b)b.style.display='none';},250)">
               <div id="mcr_cust_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid #c5cbe8;border-radius:8px;box-shadow:0 8px 22px rgba(30,40,90,.18);max-height:240px;overflow:auto"></div>
+              <div id="mcr_due_wrap" style="display:none;margin-top:8px"><div class="fl">👶 출생예정일</div>
+                <input class="fi" id="mcr_due" inputmode="numeric" placeholder="숫자만 입력 — 20261225 → 2026년 12월 25일" oninput="_mcrFmtYmd(this)"></div>
             </div>
             <div class="fg" style="position:relative;flex:1;min-width:210px"><div class="fl">피보험자 <span style="font-weight:400;color:#9aa3c8">— 비우면 계약자와 동일</span></div>
               <input class="fi" id="mcr_insured" placeholder="피보험자 이름(검색 가능)" autocomplete="off" oninput="mcrCustSearch('ins')" onfocus="mcrCustSearch('ins')" onblur="setTimeout(function(){var b=g('mcr_insured_list');if(b)b.style.display='none';},250)">
@@ -26362,7 +26364,7 @@ function deleteCardReq(id){
 }
 
 // ===== 모바일 계약 반영 요청 (mcreq, 2026-09-14) =====
-// 데이터: mcReqs=[{id('mq_..'),agent,dt,ts,custName(계약자),insName(피보험자·''=계약자 동일·태아보험이면 '태아'),fetus(0|1),
+// 데이터: mcReqs=[{id('mq_..'),agent,dt,ts,custName(계약자),insName(피보험자·''=계약자 동일·태아보험이면 '태아'),fetus(0|1),dueDate(출생예정일 — 태아보험일 때만),
 //   items:[{id('mqi_..'),ins,prod,prem,term,pol,cdt,ctype(''|'mobile'|'paper'),docUrl(서면 확인서 Storage URL — paper일 때만),docName,done,doneTs?,doneBy?}]}]
 //   — 동기화 키 tops_mcreq(텍스트만, 함정 B). 행·박스 조작은 전부 고유 id 기준(함정 A — data 속성 + _alertEsc).
 // 열람: 관리자(BM·총무)=전체, 팀원=본인 신청만(고객등록 현황 계열). 완료/미완료 체크는 총무(_isChongmu)만.
@@ -26473,6 +26475,7 @@ function rMcReq(){
       +'<td style="vertical-align:middle">'
         +'<div onclick="'+oc+'" title="고객정보 보기" style="cursor:pointer;display:inline-block"><span style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(nm)+'</span></div>'
         +((r.insName&&r.insName!==nm)?'<div style="font-size:12.5px;color:'+(r.fetus?'#a05a10':'#555')+';margin-top:2px">'+(r.fetus?'👶 ':'')+'피보험자 '+_esc(r.insName)+'</div>':'')
+        +((r.fetus&&r.dueDate)?'<div style="font-size:12.5px;color:#a05a10;margin-top:2px">출생예정일 '+_esc(r.dueDate)+'</div>':'')
         +infoHtml
       +'</td>'
       +'<td style="vertical-align:top;padding-top:10px"><div style="display:flex;flex-wrap:wrap;align-items:flex-start">'+boxes+'</div></td>'
@@ -26523,6 +26526,8 @@ function mcrOpen(){
   var ci=g('mcr_cust'); if(ci) ci.value='';
   var cl=g('mcr_cust_list'); if(cl){ cl.style.display='none'; cl.innerHTML=''; }
   var fc=g('mcr_fetus'); if(fc) fc.checked=false;
+  var dw=g('mcr_due_wrap'); if(dw) dw.style.display='none';
+  var du=g('mcr_due'); if(du){ du.value=''; delete du.dataset.ymd; delete du.dataset.ymdlen; }
   var ii=g('mcr_insured'); if(ii){ ii.value=''; ii.readOnly=false; delete ii.dataset.prev; ii.style.background=''; ii.style.borderColor=''; ii.style.color=''; ii.style.fontWeight=''; }
   var il=g('mcr_insured_list'); if(il){ il.style.display='none'; il.innerHTML=''; }
   var kb=g('mcr_kk_boxes'); if(kb) kb.innerHTML='';
@@ -26541,10 +26546,10 @@ function _mcrRowHtml(rid){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">보험사 *</div><input class="fi" data-mf="ins" placeholder="예: 메리츠"></div>'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">상품명</div><input class="fi" data-mf="prod" placeholder="예: 운전자보험"></div>'
-    +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">보험료</div><input class="fi" data-mf="prem" placeholder="예: 35,000원"></div>'
+    +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">보험료</div><input class="fi" data-mf="prem" placeholder="숫자만 입력 — 9000 → 9,000원" oninput="_mcrFmtPrem(this)" onchange="_mcrPremDone(this)"></div>'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">납기 / 만기</div><input class="fi" data-mf="term" placeholder="예: 20년/100세"></div>'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">증권번호</div><input class="fi" data-mf="pol" placeholder="증권(청약)번호"></div>'
-    +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">계약일</div><input class="fi" data-mf="cdt" placeholder="예: 2026-09-14"></div>'
+    +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">계약일</div><input class="fi" data-mf="cdt" inputmode="numeric" placeholder="숫자만 입력 — 20260914 → 2026년 09월 14일" oninput="_mcrFmtYmd(this)"></div>'
     +'</div>'
     // 확인서 종류 — 버튼 2개(선택 시 초록), 서면 확인서면 파일 업로드 박스 표시(2026-09-14)
     +'<div class="fl" style="font-size:12px;margin:8px 0 4px">확인서 종류</div>'
@@ -26559,9 +26564,49 @@ function _mcrRowHtml(rid){
     +'</div>'
     +'</div>';
 }
-// 태아보험 체크 — 피보험자 칸에 "태아" 표시(체크 해제 시 이전 입력 복원)
+// 숫자만 쳐도 년월일로 정형 — 출생예정일·계약일 공용(대리발급 _bdrFmtPeriodStr 계열).
+//   서식 글자('일' 등)만 백스페이스로 지워지면 숫자를 하나 줄여 삭제가 실제로 되게(data-ymd 이전값 비교)
+function _mcrFmtYmdStr(d){
+  d=String(d||'').replace(/[^0-9]/g,'').slice(0,8);
+  if(!d) return '';
+  if(d.length<4) return d;
+  var out=d.slice(0,4)+'년';
+  if(d.length>4){
+    out+=' '+d.slice(4,6);
+    if(d.length>=6){
+      out+='월';
+      if(d.length>6) out+=' '+d.slice(6,8)+(d.length>=8?'일':'');
+    }
+  }
+  return out;
+}
+function _mcrFmtYmd(inp){
+  var digits=String(inp.value||'').replace(/[^0-9]/g,'').slice(0,8);
+  if(digits===(inp.dataset.ymd||'')&&inp.value.length<(+inp.dataset.ymdlen||0)) digits=digits.slice(0,-1);
+  var out=_mcrFmtYmdStr(digits);
+  inp.value=out;
+  inp.dataset.ymd=digits;
+  inp.dataset.ymdlen=out.length;
+}
+// 보험료 자동 정형 — 입력 중엔 쉼표만(9000 → 9,000 — '원'을 즉시 붙이면 백스페이스 삭제가 막힘),
+//   칸을 나가면(onchange) '원'까지. "10만원대" 같은 글자 섞인 값은 원문 유지(카톡 자동입력 3.85.5 방침)
+function _mcrFmtPrem(inp){
+  var v=inp.value;
+  if(!/^[\d,\s원]*$/.test(v)) return;
+  var d=v.replace(/[^0-9]/g,'');
+  var hadWon=/원\s*$/.test(v);
+  inp.value=d?(Number(d).toLocaleString()+(hadWon?'원':'')):'';
+}
+function _mcrPremDone(inp){
+  var v=inp.value;
+  if(!/^[\d,\s]+$/.test(v)) return;
+  var d=v.replace(/[^0-9]/g,'');
+  if(d) inp.value=Number(d).toLocaleString()+'원';
+}
+// 태아보험 체크 — 피보험자 칸에 "태아" 표시(체크 해제 시 이전 입력 복원) + 출생예정일 칸 표시
 function mcrFetusToggle(){
   var chk=g('mcr_fetus'), inp=g('mcr_insured'); if(!chk||!inp) return;
+  var dw=g('mcr_due_wrap'); if(dw) dw.style.display=chk.checked?'block':'none';
   if(chk.checked){
     if(inp.value.trim()!=='태아') inp.dataset.prev=inp.value;
     inp.value='태아'; inp.readOnly=true;
@@ -26829,6 +26874,7 @@ function mcrSave(){
   if(!nm){ toast('계약자를 입력(검색)하세요.'); return; }
   var fetus=!!(g('mcr_fetus')&&g('mcr_fetus').checked);
   var insd=fetus?'태아':(g('mcr_insured')||{value:''}).value.trim();
+  var due=fetus?(g('mcr_due')||{value:''}).value.trim():'';
   var box=g('mcr_rows'); if(!box) return;
   var rows=box.querySelectorAll('.mcrrow');
   var uploading=Array.prototype.some.call(rows,function(r){ return r._mcrDocBusy; });
@@ -26857,7 +26903,7 @@ function mcrSave(){
   _mcrReload();
   mcReqs.push({
     id:'mq_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    agent:cu.name, dt:tds(), ts:Date.now(), custName:nm, insName:insd, fetus:fetus?1:0,
+    agent:cu.name, dt:tds(), ts:Date.now(), custName:nm, insName:insd, fetus:fetus?1:0, dueDate:due,
     items:items.map(function(v){
       return { id:'mqi_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
         ins:v.ins, prod:v.prod, prem:v.prem, term:v.term, pol:v.pol, cdt:v.cdt,
@@ -26879,10 +26925,11 @@ function mcrSave(){
 function _mcrFmtDate(s){
   s=String(s||'').trim(); if(!s) return '';
   var d=s.replace(/[^0-9]/g,'');
-  // 8자리는 YYYYMMDD로 보되 년·월·일 범위를 확인 — 미국식(MMDDYYYY 등) 오변환 방지(2026-09-14 리뷰): 범위 밖이면 원문 유지
+  // 8자리는 YYYYMMDD로 보되 년·월·일 범위를 확인 — 미국식(MMDDYYYY 등) 오변환 방지(2026-09-14 리뷰): 범위 밖이면 원문 유지.
+  //   출력은 입력칸 자동 정형과 같은 "YYYY년 MM월 DD일" 표기(v-11 통일)
   if(d.length===8){
     var y=+d.slice(0,4), mo=+d.slice(4,6), dy=+d.slice(6);
-    if(y>=1900&&y<=2100&&mo>=1&&mo<=12&&dy>=1&&dy<=31) return d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6);
+    if(y>=1900&&y<=2100&&mo>=1&&mo<=12&&dy>=1&&dy<=31) return d.slice(0,4)+'년 '+d.slice(4,6)+'월 '+d.slice(6)+'일';
   }
   return s;
 }
