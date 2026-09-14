@@ -34,48 +34,100 @@ const TOKEN_TTL = '12h';
 const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || '';
 const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || '';
 const YOUTUBE_REDIRECT_URI = process.env.YOUTUBE_REDIRECT_URI || 'http://localhost:4000/api/youtube/auth/callback';
-const YOUTUBE_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
+const YOUTUBE_TOKENS_DIR = path.join(DATA_DIR, 'youtube-tokens');
+const LEGACY_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
 
-/* ── 쇼츠 폴더 설정 ── */
+/* ── 쇼츠 폴더 설정 ──
+   SHORTS_DIR 바로 아래 파일  → 'default' 채널
+   SHORTS_DIR/<채널폴더>/파일 → 그 폴더 이름의 채널 (폴더마다 별도 로그인) */
 const SHORTS_DIR = process.env.SHORTS_DIR || path.join(DATA_DIR, 'shorts');
 const SHORTS_DONE_DIR = process.env.SHORTS_DIR ? path.join(process.env.SHORTS_DIR, '..', 'shorts-done') : path.join(DATA_DIR, 'shorts-done');
 const SHORTS_QUEUE = {}; // 업로드 대기 중인 파일 추적
 const YOUTUBE_PRIVACY = process.env.YOUTUBE_PRIVACY || 'unlisted'; // public | unlisted | private
+const DEFAULT_CHANNEL = 'default';
+const CHANNEL_NAME_RE = /^[\w가-힣][\w가-힣 .\-]{0,60}$/;
 
-let youtubeOAuth2Client = null;
-let youtubeTokens = null;
+const channelTokens = {};  // 채널명 → 토큰
+const channelClients = {}; // 채널명 → OAuth2Client
+let youtubeEnabled = false;
 
 function initYoutubeClient() {
   if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET) {
     console.warn('[YouTube] 클라이언트 ID/Secret이 없습니다. 유튜브 연동이 작동하지 않습니다.');
     return;
   }
-  youtubeOAuth2Client = new OAuth2Client(YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI);
-  loadYoutubeTokens();
+  youtubeEnabled = true;
+  loadAllChannelTokens();
 }
 
-function loadYoutubeTokens() {
-  if (fs.existsSync(YOUTUBE_TOKENS_FILE)) {
+function tokenFileFor(channel) {
+  return path.join(YOUTUBE_TOKENS_DIR, `${channel}.json`);
+}
+
+function loadAllChannelTokens() {
+  if (!fs.existsSync(YOUTUBE_TOKENS_DIR)) fs.mkdirSync(YOUTUBE_TOKENS_DIR, { recursive: true });
+  // 예전 단일 토큰 파일은 default 채널로 이전
+  if (fs.existsSync(LEGACY_TOKENS_FILE) && !fs.existsSync(tokenFileFor(DEFAULT_CHANNEL))) {
+    fs.renameSync(LEGACY_TOKENS_FILE, tokenFileFor(DEFAULT_CHANNEL));
+  }
+  for (const f of fs.readdirSync(YOUTUBE_TOKENS_DIR)) {
+    if (!f.endsWith('.json')) continue;
+    const channel = f.slice(0, -5);
     try {
-      youtubeTokens = JSON.parse(fs.readFileSync(YOUTUBE_TOKENS_FILE, 'utf8'));
-      youtubeOAuth2Client.setCredentials(youtubeTokens);
+      channelTokens[channel] = JSON.parse(fs.readFileSync(path.join(YOUTUBE_TOKENS_DIR, f), 'utf8'));
     } catch (e) {
-      console.error('[YouTube] 토큰 로드 실패:', e.message);
+      console.error(`[YouTube] 토큰 로드 실패 (${channel}):`, e.message);
     }
   }
 }
 
-function saveYoutubeTokens() {
-  if (youtubeTokens && youtubeOAuth2Client) {
-    const creds = youtubeOAuth2Client.credentials;
-    youtubeTokens = { ...youtubeTokens, ...creds };
-    try {
-      fs.writeFileSync(YOUTUBE_TOKENS_FILE, JSON.stringify(youtubeTokens, null, 2));
-    } catch (e) {
-      console.error('[YouTube] 토큰 저장 실패:', e.message);
-    }
+function saveChannelTokens(channel, tokens) {
+  channelTokens[channel] = { ...(channelTokens[channel] || {}), ...tokens };
+  try {
+    fs.writeFileSync(tokenFileFor(channel), JSON.stringify(channelTokens[channel], null, 2));
+  } catch (e) {
+    console.error(`[YouTube] 토큰 저장 실패 (${channel}):`, e.message);
   }
 }
+
+function newOAuthClient() {
+  return new OAuth2Client(YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI);
+}
+
+function isChannelAuthed(channel) {
+  return youtubeEnabled && !!channelTokens[channel];
+}
+
+function clientFor(channel) {
+  if (!isChannelAuthed(channel)) return null;
+  if (!channelClients[channel]) {
+    const client = newOAuthClient();
+    client.setCredentials(channelTokens[channel]);
+    client.on('tokens', (t) => saveChannelTokens(channel, t));
+    channelClients[channel] = client;
+  }
+  return channelClients[channel];
+}
+
+function channelForFile(filePath) {
+  const rel = path.relative(SHORTS_DIR, filePath);
+  const parts = rel.split(/[\\/]/);
+  return parts.length > 1 ? parts[0] : DEFAULT_CHANNEL;
+}
+
+function listChannelFolders() {
+  if (!fs.existsSync(SHORTS_DIR)) return [];
+  return fs.readdirSync(SHORTS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+    .map((d) => d.name);
+}
+
+function authUrlFor(channel) {
+  if (channel === DEFAULT_CHANNEL) return `http://localhost:${PORT}/api/youtube/auth-url`;
+  const q = /^[\w가-힣.\-]+$/.test(channel) ? channel : encodeURIComponent(channel);
+  return `http://localhost:${PORT}/api/youtube/auth-url?channel=${q}`;
+}
+
 
 const uploadDisk = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -91,21 +143,21 @@ const uploadDisk = multer.diskStorage({
 const upload = multer({ storage: uploadDisk, limits: { fileSize: 5 * 1024 * 1024 * 1024 } });
 
 /* 쇼츠 자동 업로드 */
-async function uploadVideoToYoutube(filePath, fileName) {
-  if (!youtubeOAuth2Client || !youtubeTokens) {
-    console.error('[YouTube] 인증되지 않아 업로드를 건너뜁니다:', fileName);
+async function uploadVideoToYoutube(filePath, fileName, channel) {
+  const client = clientFor(channel);
+  if (!client) {
+    console.error(`[YouTube] 채널 '${channel}' 인증이 없어 건너뜁니다:`, fileName);
     return false;
   }
 
   try {
-    youtubeOAuth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: youtubeOAuth2Client });
+    const youtube = google.youtube({ version: 'v3', auth: client });
 
     // 파일명에서 제목 추출 (확장자 제거)
     const title = path.parse(fileName).name;
     const fileSize = fs.statSync(filePath).size;
 
-    console.log(`[YouTube] 업로드 시작: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`[YouTube:${channel}] 업로드 시작: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
 
     const fileStream = fs.createReadStream(filePath);
     const response = await youtube.videos.insert(
@@ -131,29 +183,28 @@ async function uploadVideoToYoutube(filePath, fileName) {
       {
         onUploadProgress: (evt) => {
           const progress = Math.round((evt.bytesRead / fileSize) * 100);
-          console.log(`[YouTube] ${fileName} 업로드 진행: ${progress}%`);
+          console.log(`[YouTube:${channel}] ${fileName} 업로드 진행: ${progress}%`);
         },
       }
     );
 
-    youtubeTokens = youtubeOAuth2Client.credentials;
-    saveYoutubeTokens();
-
     const videoId = response.data.id;
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    console.log(`[YouTube] 업로드 완료: ${fileName} → ${videoUrl}`);
+    console.log(`[YouTube:${channel}] 업로드 완료: ${fileName} → ${videoUrl}`);
 
-    // 완료 폴더로 이동
-    if (!fs.existsSync(SHORTS_DONE_DIR)) {
-      fs.mkdirSync(SHORTS_DONE_DIR, { recursive: true });
+    // 완료 폴더로 이동 (채널 폴더 구조 유지)
+    const doneDir = channel === DEFAULT_CHANNEL ? SHORTS_DONE_DIR : path.join(SHORTS_DONE_DIR, channel);
+    if (!fs.existsSync(doneDir)) {
+      fs.mkdirSync(doneDir, { recursive: true });
     }
-    const doneFilePath = path.join(SHORTS_DONE_DIR, `${path.parse(fileName).name}_${videoId}${path.extname(fileName)}`);
+    const doneFilePath = path.join(doneDir, `${path.parse(fileName).name}_${videoId}${path.extname(fileName)}`);
     fs.renameSync(filePath, doneFilePath);
 
     // DB에 기록
     db.state.youtubeUploads = db.state.youtubeUploads || [];
     db.state.youtubeUploads.push({
       fileName,
+      channel,
       videoId,
       videoUrl,
       uploadedAt: new Date().toISOString(),
@@ -162,28 +213,33 @@ async function uploadVideoToYoutube(filePath, fileName) {
 
     return true;
   } catch (e) {
-    console.error(`[YouTube] 업로드 실패 (${fileName}):`, e.message);
+    console.error(`[YouTube:${channel}] 업로드 실패 (${fileName}):`, e.message);
     return false;
   }
 }
 
 let shortsProcessing = false;
+let queueTimer = null;
 async function processShortsQueue() {
   if (shortsProcessing) return;
   shortsProcessing = true;
   try {
+    const waitingChannels = new Set();
     for (const filePath of Object.keys(SHORTS_QUEUE)) {
       const item = SHORTS_QUEUE[filePath];
       if (item.status !== 'pending') continue;
-      if (!youtubeOAuth2Client || !youtubeTokens) {
-        const pendingCount = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending').length;
-        console.log(`[YouTube] 인증 대기 중 (대기 영상 ${pendingCount}개) → 브라우저에서 http://localhost:${PORT}/api/youtube/auth-url 열어서 로그인하세요`);
-        break;
+      if (!isChannelAuthed(item.channel)) {
+        waitingChannels.add(item.channel);
+        continue;
       }
       item.status = 'uploading';
-      const success = await uploadVideoToYoutube(filePath, item.fileName);
+      const success = await uploadVideoToYoutube(filePath, item.fileName, item.channel);
       if (success) delete SHORTS_QUEUE[filePath];
       else item.status = 'failed';
+    }
+    for (const channel of waitingChannels) {
+      const count = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending' && q.channel === channel).length;
+      console.log(`[YouTube] 채널 '${channel}' 인증 대기 중 (대기 영상 ${count}개) → 브라우저에서 ${authUrlFor(channel)} 열어서 로그인하세요`);
     }
   } finally {
     shortsProcessing = false;
@@ -213,11 +269,18 @@ function initShortsWatcher() {
       return;
     }
 
-    console.log('[Shorts] 새 영상 감지:', fileName);
-    SHORTS_QUEUE[filePath] = { fileName, status: 'pending', addedAt: Date.now() };
+    const channel = channelForFile(filePath);
+    if (!CHANNEL_NAME_RE.test(channel)) {
+      console.log(`[Shorts] 채널 폴더 이름이 올바르지 않습니다 (한글/영문/숫자/공백만 가능): ${channel}`);
+      return;
+    }
+
+    console.log(`[Shorts:${channel}] 새 영상 감지:`, fileName);
+    SHORTS_QUEUE[filePath] = { fileName, channel, status: 'pending', addedAt: Date.now() };
 
     // 1초 후에 업로드 시작 (다른 파일 추가 대기)
-    setTimeout(processShortsQueue, 1000);
+    clearTimeout(queueTimer);
+    queueTimer = setTimeout(processShortsQueue, 1000);
   });
 
   watcher.on('error', (error) => {
@@ -225,7 +288,15 @@ function initShortsWatcher() {
   });
 
   console.log(`[Shorts] 폴더 감시 시작: ${SHORTS_DIR}`);
+  const folders = listChannelFolders();
+  if (folders.length) {
+    console.log('[Shorts] 채널 폴더:');
+    for (const ch of folders) {
+      console.log(`  - ${ch}: ${isChannelAuthed(ch) ? '로그인됨 ✅' : `로그인 필요 → ${authUrlFor(ch)}`}`);
+    }
+  }
 }
+
 
 /* ── 초기 사용자 (최초 1회만 시드, 비밀번호는 해시 저장) ── */
 const SEED_USERS = {
@@ -394,23 +465,29 @@ app.get('/api/health', (req, res) => res.json({ ok: true, version: db.version })
    YouTube API 엔드포인트
 ═══════════════════════════════════════ */
 
-/* YouTube 인증 URL 생성 */
+/* YouTube 인증 URL 생성 (?channel=폴더명 으로 채널 지정, 없으면 default) */
 app.get('/api/youtube/auth-url', (req, res) => {
-  if (!youtubeOAuth2Client) {
+  if (!youtubeEnabled) {
     return res.status(500).json({ error: 'YouTube 클라이언트가 초기화되지 않았습니다.' });
   }
-  const authUrl = youtubeOAuth2Client.generateAuthUrl({
+  const channel = (req.query.channel || DEFAULT_CHANNEL).toString();
+  if (!CHANNEL_NAME_RE.test(channel)) {
+    return res.status(400).json({ error: '채널 이름은 한글/영문/숫자/공백만 가능합니다.' });
+  }
+  const authUrl = newOAuthClient().generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     scope: ['https://www.googleapis.com/auth/youtube.upload'],
+    state: channel,
   });
-  if (req.query.json !== undefined) return res.json({ authUrl });
+  if (req.query.json !== undefined) return res.json({ authUrl, channel });
   res.redirect(authUrl);
 });
 
 /* YouTube OAuth 콜백 */
 app.get('/api/youtube/auth/callback', async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
+  const channel = state && CHANNEL_NAME_RE.test(String(state)) ? String(state) : DEFAULT_CHANNEL;
   const page = (title, body) =>
     `<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>${title}</h2><p>${body}</p></body>`;
   if (error) {
@@ -420,24 +497,26 @@ app.get('/api/youtube/auth/callback', async (req, res) => {
     return res.status(400).send(page('YouTube 인증 실패', '인증 코드가 없습니다.'));
   }
   try {
-    const { tokens } = await youtubeOAuth2Client.getToken(code);
-    youtubeOAuth2Client.setCredentials(tokens);
-    youtubeTokens = tokens;
-    saveYoutubeTokens();
-    console.log('[YouTube] 인증 완료. 대기 중인 영상 업로드를 시작합니다.');
-    const pendingCount = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending').length;
+    const { tokens } = await newOAuthClient().getToken(code);
+    delete channelClients[channel];
+    saveChannelTokens(channel, tokens);
+    const pendingCount = Object.values(SHORTS_QUEUE).filter((q) => q.status === 'pending' && q.channel === channel).length;
+    console.log(`[YouTube] 채널 '${channel}' 인증 완료. 대기 중인 영상 ${pendingCount}개 업로드를 시작합니다.`);
     processShortsQueue();
-    res.send(page('YouTube 인증 완료 ✅', `이 창은 닫아도 됩니다. 대기 중인 영상 ${pendingCount}개 업로드를 시작했습니다. 진행 상황은 서버 창(cmd)에서 확인하세요.`));
+    res.send(page(`YouTube 인증 완료 ✅ (채널 폴더: ${channel})`, `이 창은 닫아도 됩니다. 대기 중인 영상 ${pendingCount}개 업로드를 시작했습니다. 진행 상황은 서버 창(cmd)에서 확인하세요.`));
   } catch (e) {
     console.error('[YouTube] 토큰 획득 실패:', e.message);
     res.status(500).send(page('YouTube 인증 실패', `토큰 획득 실패: ${e.message}`));
   }
 });
 
-/* YouTube 업로드 상태 확인 */
+/* YouTube 인증 상태 확인 (채널별) */
 app.get('/api/youtube/status', (req, res) => {
-  const authenticated = !!youtubeTokens && !!youtubeTokens.access_token;
-  res.json({ authenticated, hasTokens: !!youtubeTokens });
+  const channels = {};
+  for (const ch of new Set([DEFAULT_CHANNEL, ...listChannelFolders(), ...Object.keys(channelTokens)])) {
+    channels[ch] = { authenticated: isChannelAuthed(ch), authUrl: authUrlFor(ch) };
+  }
+  res.json({ enabled: youtubeEnabled, channels });
 });
 
 /* 쇼츠 폴더 상태 확인 */
@@ -446,30 +525,32 @@ app.get('/api/shorts/status', (req, res) => {
   res.json({
     shortsDir: SHORTS_DIR,
     shortsExists: fs.existsSync(SHORTS_DIR),
+    channelFolders: listChannelFolders(),
     queue: SHORTS_QUEUE,
     uploadedCount,
     recentUploads: db.state.youtubeUploads ? db.state.youtubeUploads.slice(-5).reverse() : [],
   });
 });
 
-/* YouTube 영상 업로드 */
+/* YouTube 영상 업로드 (body.channel 로 채널 지정, 없으면 default) */
 app.post('/api/youtube/upload', auth, upload.single('video'), async (req, res) => {
-  if (!youtubeOAuth2Client || !youtubeTokens) {
-    return res.status(400).json({ error: 'YouTube 인증이 필요합니다. /api/youtube/auth-url에서 인증하세요.' });
+  const { title, description, tags } = req.body || {};
+  const channel = (req.body && req.body.channel) || DEFAULT_CHANNEL;
+  const client = CHANNEL_NAME_RE.test(channel) ? clientFor(channel) : null;
+  if (!client) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: `채널 '${channel}' YouTube 인증이 필요합니다. ${authUrlFor(channel)} 에서 인증하세요.` });
   }
   if (!req.file) {
     return res.status(400).json({ error: '영상 파일이 필요합니다.' });
   }
-
-  const { title, description, tags } = req.body || {};
   if (!title) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: '제목(title)이 필요합니다.' });
   }
 
   try {
-    youtubeOAuth2Client.setCredentials(youtubeTokens);
-    const youtube = google.youtube({ version: 'v3', auth: youtubeOAuth2Client });
+    const youtube = google.youtube({ version: 'v3', auth: client });
 
     const fileStream = fs.createReadStream(req.file.path);
     const response = await youtube.videos.insert(
@@ -480,10 +561,10 @@ app.post('/api/youtube/upload', auth, upload.single('video'), async (req, res) =
             title,
             description: description || '',
             tags: tags ? tags.split(',').map(t => t.trim()) : [],
-            categoryId: '22', // 기본: 단편 영화
+            categoryId: '22',
           },
           status: {
-            privacyStatus: 'private', // private, unlisted, public 중 선택
+            privacyStatus: YOUTUBE_PRIVACY,
             madeForKids: false,
           },
         },
@@ -495,30 +576,28 @@ app.post('/api/youtube/upload', auth, upload.single('video'), async (req, res) =
       {
         onUploadProgress: (evt) => {
           const progress = Math.round((evt.bytesRead / req.file.size) * 100);
-          console.log(`[YouTube] 업로드 진행률: ${progress}%`);
+          console.log(`[YouTube:${channel}] 업로드 진행률: ${progress}%`);
         },
       }
     );
-
-    // 토큰 업데이트 저장
-    youtubeTokens = youtubeOAuth2Client.credentials;
-    saveYoutubeTokens();
 
     // 임시 파일 삭제
     fs.unlinkSync(req.file.path);
 
     res.json({
       ok: true,
+      channel,
       videoId: response.data.id,
       title: response.data.snippet.title,
       url: `https://www.youtube.com/watch?v=${response.data.id}`,
     });
   } catch (e) {
-    console.error('[YouTube] 업로드 실패:', e.message);
+    console.error(`[YouTube:${channel}] 업로드 실패:`, e.message);
     try { fs.unlinkSync(req.file.path); } catch {}
     res.status(500).json({ error: `업로드 실패: ${e.message}` });
   }
 });
+
 
 /* ═══════════════════════════════════════
    프론트엔드 / PWA 정적 서빙
