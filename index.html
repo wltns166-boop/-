@@ -428,7 +428,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-2</div>
   </div>
 </div>
 
@@ -22254,8 +22254,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
@@ -26519,7 +26519,9 @@ function _mcrRenum(){
 // 계약건수 ↔ 줄 동기화 — 끝에서만 추가/제거(줄 자체는 DOM 요소 기준 조작이라 함정 A 무관)
 function _mcrSyncRows(n){
   var box=g('mcr_rows'); if(!box) return;
-  n=Math.max(1,Math.min(20,parseInt(n,10)||1));
+  var want=parseInt(n,10)||1;
+  if(want>20) toast('계약 줄은 최대 20건까지만 입력할 수 있습니다. 나머지는 별도로 신청해주세요.');   // 조용한 잘림 방지(2026-09-14 리뷰)
+  n=Math.max(1,Math.min(20,want));
   var rows=box.querySelectorAll('.mcrrow');
   if(n<rows.length){
     var hasVal=false;
@@ -26634,7 +26636,11 @@ function mcrSave(){
 function _mcrFmtDate(s){
   s=String(s||'').trim(); if(!s) return '';
   var d=s.replace(/[^0-9]/g,'');
-  if(d.length===8) return d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6);
+  // 8자리는 YYYYMMDD로 보되 년·월·일 범위를 확인 — 미국식(MMDDYYYY 등) 오변환 방지(2026-09-14 리뷰): 범위 밖이면 원문 유지
+  if(d.length===8){
+    var y=+d.slice(0,4), mo=+d.slice(4,6), dy=+d.slice(6);
+    if(y>=1900&&y<=2100&&mo>=1&&mo<=12&&dy>=1&&dy<=31) return d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6);
+  }
   return s;
 }
 function _mcrParse(text){
@@ -26707,7 +26713,11 @@ function _mcrApply(rows, custNm){
     if(!ci.value.trim()){ ci.value=custNm; }
     else if(ci.value.trim()!==custNm){ custMsg=' (인식된 고객명 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
   }
-  if(stat) stat.textContent='✅ 계약 '+rows.length+'건 인식 완료 — 내용을 확인·수정한 뒤 [신청]을 눌러주세요.'+custMsg;
+  // 완료 메시지는 실제 반영 건수 기준 — 20건 초과 인식분은 잘렸음을 명시(2026-09-14 리뷰: "25건 인식 완료" 오표시로 누락 미인지 방지)
+  var applied=Math.min(rows.length,20);
+  if(stat) stat.textContent='✅ 계약 '+applied+'건 인식 완료'
+    +(rows.length>applied?' (인식 '+rows.length+'건 중 최대 20건까지만 반영 — 나머지는 별도 신청 필요)':'')
+    +' — 내용을 확인·수정한 뒤 [신청]을 눌러주세요.'+custMsg;
 }
 // ── 사진(캡처) 인식 — dbKkImgRecognize(3.85.5) 계열: /api/analyze Gemini, 축소는 공용 _dbKkImgShrink 재사용.
 //   ⚠️ 계약 정보(고객명 포함)가 Gemini API로 전송됨 — DB 표 사진 인식과 동일 계열의 기존 수용 사항.
