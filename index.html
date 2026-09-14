@@ -428,7 +428,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-3</div>
   </div>
 </div>
 
@@ -26645,7 +26645,7 @@ function _mcrFmtDate(s){
 }
 function _mcrParse(text){
   var LB=[
-    {k:'cust',  re:/^(고객명|고객|계약자|피보험자)$/},
+    {k:'cust',  re:/^(고객명|고객|계약자|계약자명|피보험자|피보험자명|고객성함|성함)$/},
     {k:'ins',   re:/^(보험사|보험회사|회사명|회사)$/},
     {k:'prod',  re:/^(상품명|상품|보험명|계약상품)$/},
     {k:'prem',  re:/^(보험료|월보험료|월납보험료|월납|납입보험료|초회보험료)$/},
@@ -26655,27 +26655,39 @@ function _mcrParse(text){
     {k:'pol',   re:/^(증권번호|증권|청약번호|계약번호)$/},
     {k:'cdt',   re:/^(계약일|계약일자|청약일|개시일|계약체결일|계약날짜)$/}
   ];
-  var cust=''; var rows=[]; var cur=null;
+  var cust=''; var rows=[]; var cur=null; var pendingIns='';
+  // 머리말 보험사(cur._hins)는 라벨 보험사(cur.ins)와 분리 보관 — "같은 라벨 반복=새 블록" 판정을 어지럽히지 않게.
   var flush=function(){ if(cur&&(cur.ins||cur.prod||cur.pol||cur.prem)) rows.push(cur); cur=null; };
+  var newCur=function(){ cur={}; if(pendingIns) cur._hins=pendingIns; };
   String(text||'').split(/\r?\n/).forEach(function(line){
+    // 줄 앞 장식 문자(▶ • - ★ 등) 제거 — 보험사 계약체결 안내 카톡이 "▶  상품명: ..." 형식(2026-09-14 실제 제보)
+    var s=line.replace(/^[\s▶▷►☞•·▪◆◇■□○●★☆>\-*]+/,'');
+    // 머리말 보험사: "[현대해상] 장기보험 계약체결 안내" / "★현대해상★" — 새 계약 블록 시작 + 보험사 자동 기입.
+    //   [Web발신]·[광고] 같은 발신 표식은 무시(보험사 아님)
+    var hm=/^[\[【]([^\]】]{2,20})[\]】]/.exec(s)||/^[★☆*■]+\s*([^★☆*■]{2,20}?)\s*[★☆*■]+/.exec(s);
+    if(hm){
+      var hv=hm[1].trim();
+      if(/발신|광고/.test(hv)) return;
+      flush(); pendingIns=hv; return;
+    }
     // 구분자는 콜론만(하이픈·물결은 값에 흔해 오탐) — 라벨은 14자 이내(자연문 오탐 방지)
-    var m=/^\s*([^:：]{1,14}?)\s*[:：]\s*(.+)$/.exec(line);
+    var m=/^([^:：]{1,14}?)\s*[:：]\s*(.+)$/.exec(s);
     if(!m) return;
     var raw=m[1].replace(/\s+/g,''), val=m[2].trim();
     var lb=null;
     for(var i=0;i<LB.length;i++){ if(LB[i].re.test(raw)){ lb=LB[i]; break; } }
     if(!lb||!val) return;
     if(lb.k==='cust'){ if(!cust) cust=val; return; }
-    if(!cur) cur={};
+    if(!cur) newCur();
     var dupTerm=(lb.k==='term'&&(cur.term||cur.termN||cur.termM))
       ||(lb.k==='termN'&&(cur.termN||cur.term))
       ||(lb.k==='termM'&&(cur.termM||cur.term));
-    if(cur[lb.k]!=null||dupTerm){ flush(); cur={}; }
+    if(cur[lb.k]!=null||dupTerm){ flush(); newCur(); }
     cur[lb.k]=val;
   });
   flush();
   return { cust:cust, rows:rows.map(function(r){
-    return { ins:r.ins||'', prod:r.prod||'', prem:r.prem||'',
+    return { ins:r.ins||r._hins||'', prod:r.prod||'', prem:r.prem||'',
       term:r.term||[r.termN,r.termM].filter(Boolean).join(' / '),
       pol:r.pol||'', cdt:_mcrFmtDate(r.cdt||'') };
   })};
@@ -26710,7 +26722,8 @@ function _mcrApply(rows, custNm){
   var custMsg='';
   var ci=g('mcr_cust');
   if(custNm&&ci){
-    if(!ci.value.trim()){ ci.value=custNm; }
+    if(/[*＊]/.test(custNm)){ custMsg=' · 계약자명 "'+custNm+'"이 가려져 있어 고객명은 직접 검색해주세요'; }   // 카톡 안내문 마스킹(이*아) — 오기입 방지(2026-09-14 제보)
+    else if(!ci.value.trim()){ ci.value=custNm; }
     else if(ci.value.trim()!==custNm){ custMsg=' (인식된 고객명 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
   }
   // 완료 메시지는 실제 반영 건수 기준 — 20건 초과 인식분은 잘렸음을 명시(2026-09-14 리뷰: "25건 인식 완료" 오표시로 누락 미인지 방지)
