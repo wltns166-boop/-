@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-8</div>
   </div>
 </div>
 
@@ -2107,7 +2107,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
         <div style="flex:1;min-width:270px;padding:10px;border:1px dashed rgba(72,88,204,.3);border-radius:10px;background:#fafbff" id="mcr_kk_wrap">
           <div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:5px">📋 캡처사진 · 글자 자동 인식</div>
-          <div style="font-size:12px;color:#8890b8;margin-bottom:7px">계약 건수만큼 인식 칸이 생깁니다. 칸을 클릭해 <b style="color:#217a33">초록색으로 선택</b>한 뒤 카톡 내용을 붙여넣고 [글자 자동 인식]을 누르거나, 캡처사진을 붙여넣기(Ctrl+V)·드래그하면 <b>같은 번호의 계약 칸</b>이 채워집니다. 한 칸에 여러 건을 붙여넣으면 그 번호부터 차례로 채웁니다.</div>
+          <div style="font-size:12px;color:#8890b8;margin-bottom:7px">계약 건수만큼 인식 칸이 생깁니다. 칸마다 카톡 내용을 붙여넣고 [글자 자동 인식]을 누르면 <b>내용이 있는 모든 칸이 한 번에</b> 같은 번호의 계약 칸으로 들어갑니다. 캡처사진은 칸을 클릭해 <b style="color:#217a33">초록색으로 선택</b>한 뒤 붙여넣기(Ctrl+V)·드래그하세요. 여러 건을 이어 채우려면 한 칸에만 몰아 붙여넣으면 됩니다.</div>
           <div id="mcr_kk_boxes"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="bp" onclick="mcrParseText()" style="font-size:13px;padding:6px 12px"><i class="ti ti-wand"></i> 글자 자동 인식</button>
@@ -26930,19 +26930,81 @@ function _mcrParse(text){
       pol:r.pol||'', cdt:_mcrFmtDate(r.cdt||'') };
   })};
 }
+// 인식된 계약자/피보험자 이름 채움(글자·사진·다중 칸 공용) — 마스킹(이*아)은 미기입+안내, 태아 잠금 칸은 안 건드림
+function _mcrFillNames(custNm, insdNm){
+  var msg='';
+  var ci=g('mcr_cust');
+  if(custNm&&ci){
+    if(/[*＊]/.test(custNm)){ msg=' · 계약자명 "'+custNm+'"이 가려져 있어 계약자는 직접 검색해주세요'; }   // 카톡 안내문 마스킹 — 오기입 방지(2026-09-14 제보)
+    else if(!ci.value.trim()){ ci.value=custNm; }
+    else if(ci.value.trim()!==custNm){ msg=' (인식된 계약자 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
+  }
+  var ii=g('mcr_insured');
+  if(insdNm&&ii&&!ii.readOnly){
+    if(/[*＊]/.test(insdNm)){ msg+=' · 피보험자명 "'+insdNm+'"이 가려져 있어 직접 입력해주세요'; }
+    else if(!ii.value.trim()){ ii.value=insdNm; }
+  }
+  return msg;
+}
+// [글자 자동 인식] — 내용이 있는 모든 인식 칸을 한 번에 처리(2026-09-14 요청).
+//   칸 1개만 사용 시: 그 칸 번호부터 여러 건 이어 채움(기존 동작 유지).
+//   칸 여러 개 사용 시: 칸마다 각자 인식해 같은 번호 계약에 일괄 반영(칸당 1건 — 서로 침범 방지).
 function mcrParseText(){
   var stat=g('mcr_kk_stat');
-  var b=_mcrKkSelBox();
-  if(!b){ if(stat) stat.textContent='인식 칸이 없습니다.'; return; }
-  var ta=b.querySelector('textarea');
-  var t=ta?ta.value:'';
-  if(!t.trim()){ if(stat) stat.textContent='선택(초록)된 칸에 붙여넣은 글자가 없습니다. 계약 내용을 먼저 붙여넣어주세요.'; return; }
-  var res=_mcrParse(t);
-  if(!res.rows.length){
-    if(stat) stat.textContent='계약 내용을 인식하지 못했습니다. "보험사: OO" 같은 [항목: 값] 형식인지 확인해주세요.';
+  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  if(!bs.length){ if(stat) stat.textContent='인식 칸이 없습니다.'; return; }
+  var jobs=[];
+  Array.prototype.forEach.call(bs,function(b){
+    var ta=b.querySelector('textarea');
+    if(ta&&ta.value.trim()) jobs.push({b:b, t:ta.value});
+  });
+  if(!jobs.length){ if(stat) stat.textContent='붙여넣은 글자가 없습니다. 인식 칸에 계약 내용을 먼저 붙여넣어주세요.'; return; }
+  if(jobs.length===1){
+    var res1=_mcrParse(jobs[0].t);
+    if(!res1.rows.length){
+      if(stat) stat.textContent='계약 내용을 인식하지 못했습니다. "보험사: OO" 같은 [항목: 값] 형식인지 확인해주세요.';
+      return;
+    }
+    _mcrApply(res1.rows, res1.cust, jobs[0].b.getAttribute('data-mrid'), res1.insd);
     return;
   }
-  _mcrApply(res.rows, res.cust, b.getAttribute('data-mrid'), res.insd);
+  var box=g('mcr_rows'); if(!box) return;
+  var all=box.querySelectorAll('.mcrrow');
+  var idxOf=function(rid){ for(var i=0;i<all.length;i++){ if(all[i].getAttribute('data-mrid')===rid) return i; } return -1; };
+  var plan=[], fails=[], extras=0, cust='', insd='';
+  jobs.forEach(function(j){
+    var no=idxOf(j.b.getAttribute('data-mrid'))+1;
+    if(no<1) return;
+    var res=_mcrParse(j.t);
+    if(!res.rows.length){ fails.push(no+'번'); return; }
+    if(res.rows.length>1) extras+=res.rows.length-1;
+    if(!cust&&res.cust) cust=res.cust;
+    if(!insd&&res.insd) insd=res.insd;
+    plan.push({idx:no-1, row:res.rows[0], no:no});
+  });
+  if(!plan.length){
+    if(stat) stat.textContent='계약 내용을 인식하지 못했습니다'+(fails.length?'('+fails.join('·')+' 칸)':'')+'. "보험사: OO" 같은 [항목: 값] 형식인지 확인해주세요.';
+    return;
+  }
+  var overwrite=plan.some(function(p){
+    var el=all[p.idx]; if(!el) return false;
+    return Array.prototype.some.call(el.querySelectorAll('input[data-mf]'),function(inp){ return inp.value.trim(); });
+  });
+  if(overwrite&&!confirm('이미 입력된 계약 칸이 있습니다. 인식 결과로 덮어쓸까요?')) return;
+  var applied=[];
+  plan.forEach(function(p){
+    var el=all[p.idx]; if(!el) return;
+    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){
+      var inp=el.querySelector('input[data-mf="'+k+'"]');
+      if(inp) inp.value=p.row[k]||'';
+    });
+    applied.push(p.no+'번');
+  });
+  var custMsg=_mcrFillNames(cust, insd);
+  if(stat) stat.textContent='✅ '+applied.join('·')+' 계약 '+applied.length+'건 인식 완료'
+    +(fails.length?' · '+fails.join('·')+' 칸은 인식 실패(형식 확인 필요)':'')
+    +(extras?' · 일부 칸의 추가 계약 '+extras+'건은 반영 안 됨(여러 건 이어 채우기는 한 칸에만 붙여넣을 때 동작)':'')
+    +' — 내용을 확인·수정한 뒤 [신청]을 눌러주세요.'+custMsg;
 }
 // 인식 결과 → 폼 반영(글자·사진 공용) — 선택한 인식 칸의 번호(startRid의 줄)부터 차례로 채움.
 //   대상 구간 밖의 다른 계약 줄은 건드리지 않음(계약 건수별 칸 개편, 2026-09-14). 줄 대응은 data-mrid 위치 기준(정렬·필터 없음 — 함정 A 무관)
@@ -26969,18 +27031,7 @@ function _mcrApply(rows, custNm, startRid, insdNm){
     });
     applied++;
   });
-  var custMsg='';
-  var ci=g('mcr_cust');
-  if(custNm&&ci){
-    if(/[*＊]/.test(custNm)){ custMsg=' · 계약자명 "'+custNm+'"이 가려져 있어 계약자는 직접 검색해주세요'; }   // 카톡 안내문 마스킹(이*아) — 오기입 방지(2026-09-14 제보)
-    else if(!ci.value.trim()){ ci.value=custNm; }
-    else if(ci.value.trim()!==custNm){ custMsg=' (인식된 계약자 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
-  }
-  var ii=g('mcr_insured');
-  if(insdNm&&ii&&!ii.readOnly){   // 태아보험 체크로 잠긴 칸은 건드리지 않음
-    if(/[*＊]/.test(insdNm)){ custMsg+=' · 피보험자명 "'+insdNm+'"이 가려져 있어 직접 입력해주세요'; }
-    else if(!ii.value.trim()){ ii.value=insdNm; }
-  }
+  var custMsg=_mcrFillNames(custNm, insdNm);
   // 완료 메시지는 실제 반영 건수 기준 — 20건 초과 인식분은 잘렸음을 명시(2026-09-14 리뷰: "25건 인식 완료" 오표시로 누락 미인지 방지)
   if(stat) stat.textContent='✅ '+(start+1)+'번 계약부터 '+applied+'건 인식 완료'
     +(rows.length>applied?' (인식 '+rows.length+'건 중 '+(rows.length-applied)+'건은 최대 20건 제한으로 미반영 — 별도 신청 필요)':'')
