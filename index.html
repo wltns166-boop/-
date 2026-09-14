@@ -349,6 +349,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_mcreq .mcrkb.sel{border-color:#2f9e44;background:#f1fbf3;box-shadow:0 0 0 2px rgba(47,158,68,.18)}
 #m_mcreq .mcrkb .mcrkbno{font-size:12px;font-weight:700;color:#3040aa}
 #m_mcreq .mcrkb.sel .mcrkbno{color:#217a33}
+/* 확인서 종류 버튼·서면 확인서 업로드 박스 — 선택 시 초록 표시(2026-09-14) */
+#m_mcreq .mcrct{font-size:13px;padding:6px 13px;border:1px solid #c5cbe8;border-radius:7px;background:#fff;color:#3a4468;cursor:pointer;font-family:inherit}
+#m_mcreq .mcrct.sel{border-color:#1a9050;background:#1a9050;color:#fff;font-weight:700}
+#m_mcreq .mcrdocbox{border:1.5px dashed #c5cbe8;border-radius:8px;background:#fff;padding:12px;text-align:center;font-size:13px;color:#8890b8;cursor:pointer}
+#m_mcreq .mcrdocbox.drag{border-color:#2f9e44;background:#f1fbf3}
+#m_mcreq .mcrdocbox.has{border-style:solid;border-color:#2f9e44;background:#f1fbf3;color:#217a33;font-weight:600}
 /* 일정 등록 모달 — 흰 배경 전환(함정 D 역방향, 같은 패턴. 2026-09-04) */
 #m_cal_add .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8;color-scheme:light}
 #m_cal_add .fi::placeholder{color:#9aa3c8}
@@ -433,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-5</div>
   </div>
 </div>
 
@@ -2070,7 +2076,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="font-size:13px;color:#8888aa;margin-bottom:10px">모바일로 체결한 계약을 전산에 반영해 달라고 요청하는 곳입니다. 오른쪽 위 [신청]에서 고객·계약 내용을 입력하면 아래 목록에 표시되고, 총무님이 보험사 박스를 눌러 완료/미완료를 체크합니다.</div>
         <div style="overflow-x:auto">
         <table class="dt">
-          <thead><tr><th style="width:100px">담당자</th><th style="width:270px">고객명 · 계약정보</th><th>반영 진행여부</th><th style="width:50px">삭제</th></tr></thead>
+          <thead><tr><th style="width:100px">담당자</th><th style="width:270px">계약자 · 계약정보</th><th>반영 진행여부</th><th style="width:50px">삭제</th></tr></thead>
           <tbody id="mcr_tb"></tbody>
         </table>
         </div>
@@ -2082,9 +2088,16 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="mth" style="color:#1a1a2e"><span>모바일 계약 반영 요청</span><span class="mc" onclick="g('m_mcreq').classList.remove('open')" style="color:#555">×</span></div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:1.4;min-width:300px">
-          <div class="fg" style="position:relative"><div class="fl">고객명 * <span style="font-weight:400;color:#9aa3c8">— 고객리스트에서 검색해 선택</span></div>
-            <input class="fi" id="mcr_cust" placeholder="고객 이름 입력 → 아래 목록에서 선택" autocomplete="off" oninput="mcrCustSearch()" onfocus="mcrCustSearch()" onblur="setTimeout(function(){var b=g('mcr_cust_list');if(b)b.style.display='none';},250)">
-            <div id="mcr_cust_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid #c5cbe8;border-radius:8px;box-shadow:0 8px 22px rgba(30,40,90,.18);max-height:240px;overflow:auto"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="fg" style="position:relative;flex:1;min-width:210px"><div class="fl" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>계약자 * <span style="font-weight:400;color:#9aa3c8">— 고객리스트에서 검색해 선택</span></span>
+              <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#16203c;cursor:pointer;font-weight:600"><input type="checkbox" id="mcr_fetus" onchange="mcrFetusToggle()" style="width:15px;height:15px;accent-color:#1a9050"> 태아보험</label></div>
+              <input class="fi" id="mcr_cust" placeholder="계약자 이름 입력 → 아래 목록에서 선택" autocomplete="off" oninput="mcrCustSearch('ct')" onfocus="mcrCustSearch('ct')" onblur="setTimeout(function(){var b=g('mcr_cust_list');if(b)b.style.display='none';},250)">
+              <div id="mcr_cust_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid #c5cbe8;border-radius:8px;box-shadow:0 8px 22px rgba(30,40,90,.18);max-height:240px;overflow:auto"></div>
+            </div>
+            <div class="fg" style="position:relative;flex:1;min-width:210px"><div class="fl">피보험자 <span style="font-weight:400;color:#9aa3c8">— 비우면 계약자와 동일</span></div>
+              <input class="fi" id="mcr_insured" placeholder="피보험자 이름(검색 가능)" autocomplete="off" oninput="mcrCustSearch('ins')" onfocus="mcrCustSearch('ins')" onblur="setTimeout(function(){var b=g('mcr_insured_list');if(b)b.style.display='none';},250)">
+              <div id="mcr_insured_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid #c5cbe8;border-radius:8px;box-shadow:0 8px 22px rgba(30,40,90,.18);max-height:240px;overflow:auto"></div>
+            </div>
           </div>
           <div class="fg" style="max-width:150px"><div class="fl">계약건수</div><input class="fi" id="mcr_cnt" type="number" min="1" max="20" value="1" onchange="_mcrSyncRows(this.value)"></div>
           <div id="mcr_rows"></div>
@@ -26425,6 +26438,14 @@ function rMcReq(){
       if(it.term) parts.push('납기/만기 '+_esc(it.term));
       if(it.pol) parts.push('증권번호 '+_esc(it.pol));
       if(it.cdt) parts.push('계약일 '+_esc(it.cdt));
+      if(it.ctype==='mobile') parts.push('📱 모바일 확인서');
+      else if(it.ctype==='paper'){
+        var dp='📄 서면 확인서';
+        if(it.docUrl&&_MCR_URL_RE.test(it.docUrl)){   // 표시 전 자체 버킷 경로 화이트리스트(_CARD_URL_RE 계열)
+          dp+=' <a href="'+_esc(it.docUrl)+'" target="_blank" rel="noopener" style="color:#1a60cc;text-decoration:underline">📎 '+_esc(it.docName||'파일 보기')+'</a>';
+        } else { dp+='(파일 없음)'; }
+        parts.push(dp);
+      }
       return '<div style="font-size:12.5px;line-height:1.55;color:#444;margin-top:3px">'+(i+1)+'. <b style="color:#2a3a80">'+_esc(it.ins||'-')+'</b>'+(parts.length?' · '+parts.join(' · '):'')+'</div>';
     }).join('');
     var boxes=(r.items||[]).map(function(it){
@@ -26448,6 +26469,7 @@ function rMcReq(){
       +'</td>'
       +'<td style="vertical-align:middle">'
         +'<div onclick="'+oc+'" title="고객정보 보기" style="cursor:pointer;display:inline-block"><span style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(nm)+'</span></div>'
+        +((r.insName&&r.insName!==nm)?'<div style="font-size:12.5px;color:'+(r.fetus?'#a05a10':'#555')+';margin-top:2px">'+(r.fetus?'👶 ':'')+'피보험자 '+_esc(r.insName)+'</div>':'')
         +det+infoHtml
       +'</td>'
       +'<td style="vertical-align:middle"><div style="display:flex;flex-wrap:wrap;align-items:center">'+boxes+'</div></td>'
@@ -26494,8 +26516,12 @@ function mcrDelete(el){
 // ── 신청 모달
 function mcrOpen(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  window._mcrGen=(window._mcrGen||0)+1;   // 모달 재오픈 세대 — 이전 세션의 파일 업로드 오귀속 방지
   var ci=g('mcr_cust'); if(ci) ci.value='';
   var cl=g('mcr_cust_list'); if(cl){ cl.style.display='none'; cl.innerHTML=''; }
+  var fc=g('mcr_fetus'); if(fc) fc.checked=false;
+  var ii=g('mcr_insured'); if(ii){ ii.value=''; ii.readOnly=false; delete ii.dataset.prev; ii.style.background=''; ii.style.borderColor=''; ii.style.color=''; ii.style.fontWeight=''; }
+  var il=g('mcr_insured_list'); if(il){ il.style.display='none'; il.innerHTML=''; }
   var kb=g('mcr_kk_boxes'); if(kb) kb.innerHTML='';
   window._mcrKkSelId=null;
   var st=g('mcr_kk_stat'); if(st) st.textContent='';
@@ -26516,7 +26542,130 @@ function _mcrRowHtml(rid){
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">납기 / 만기</div><input class="fi" data-mf="term" placeholder="예: 20년/100세"></div>'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">증권번호</div><input class="fi" data-mf="pol" placeholder="증권(청약)번호"></div>'
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">계약일</div><input class="fi" data-mf="cdt" placeholder="예: 2026-09-14"></div>'
-    +'</div></div>';
+    +'</div>'
+    // 확인서 종류 — 버튼 2개(선택 시 초록), 서면 확인서면 파일 업로드 박스 표시(2026-09-14)
+    +'<div class="fl" style="font-size:12px;margin:8px 0 4px">확인서 종류</div>'
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    +'<button type="button" class="mcrct" data-ct="mobile" onclick="mcrCtSel(this)">📱 모바일 확인서</button>'
+    +'<button type="button" class="mcrct" data-ct="paper" onclick="mcrCtSel(this)">📄 서면 확인서</button>'
+    +'</div>'
+    +'<div class="mcrdoc" style="display:none;margin-top:7px">'
+    +'<div class="mcrdocbox" onclick="var i=this.parentElement.querySelector(\'input[type=file]\');if(i)i.click();" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag\')" ondragleave="this.classList.remove(\'drag\')" ondrop="mcrDocDrop(event,this)">서면 확인서 파일을 클릭해 선택하거나 여기로 드래그하세요 (사진·PDF)</div>'
+    +'<input type="file" accept="image/*,.pdf" style="display:none" onchange="mcrDocPick(this)">'
+    +'<div class="mcrdocprev" style="margin-top:5px;font-size:13px;color:#333;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>'
+    +'</div>'
+    +'</div>';
+}
+// 태아보험 체크 — 피보험자 칸에 "태아" 표시(체크 해제 시 이전 입력 복원)
+function mcrFetusToggle(){
+  var chk=g('mcr_fetus'), inp=g('mcr_insured'); if(!chk||!inp) return;
+  if(chk.checked){
+    if(inp.value.trim()!=='태아') inp.dataset.prev=inp.value;
+    inp.value='태아'; inp.readOnly=true;
+    inp.style.background='#f1fbf3'; inp.style.borderColor='#2f9e44'; inp.style.color='#217a33'; inp.style.fontWeight='700';
+  } else {
+    inp.readOnly=false;
+    inp.value=(inp.dataset.prev!=null)?inp.dataset.prev:'';
+    delete inp.dataset.prev;
+    inp.style.background=''; inp.style.borderColor=''; inp.style.color=''; inp.style.fontWeight='';
+  }
+}
+// 확인서 종류 선택 — 같은 줄 안에서 상호 배타, 같은 버튼 재클릭=해제. 줄 조작은 closest 기반(함정 A 무관)
+function mcrCtSel(btn){
+  var row=btn.closest('.mcrrow'); if(!row) return;
+  var was=btn.classList.contains('sel');
+  Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.remove('sel'); });
+  if(!was) btn.classList.add('sel');
+  _mcrDocToggle(row);
+}
+function _mcrRowCt(row){
+  var b=row.querySelector('.mcrct.sel');
+  return b?(b.getAttribute('data-ct')||''):'';
+}
+function _mcrDocToggle(row){
+  var w=row.querySelector('.mcrdoc');
+  if(w) w.style.display=(_mcrRowCt(row)==='paper')?'block':'none';
+}
+// 서면 확인서 파일 — 선택 즉시 Storage 업로드(URL만 보관 — 함정 B), 세대·순번 가드(cardreq 사진 패턴)
+var _MCR_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Fmcreq_docs%2F/;
+function mcrDocPick(inp){
+  var row=inp.closest('.mcrrow'); if(!row||!inp.files||!inp.files[0]) return;
+  var f=inp.files[0]; inp.value='';
+  _mcrDocUpload(row,f);
+}
+function mcrDocDrop(ev,box){
+  ev.preventDefault(); ev.stopPropagation();
+  box.classList.remove('drag');
+  var row=box.closest('.mcrrow'); if(!row) return;
+  var fs=(ev.dataTransfer&&ev.dataTransfer.files)||[];
+  if(fs[0]) _mcrDocUpload(row,fs[0]);
+}
+async function _mcrDocUpload(row,file){
+  if(!file) return;
+  var isImg=/^image\//.test(file.type)||(!file.type&&/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name||''));
+  var isPdf=/pdf$/i.test(file.type)||/\.pdf$/i.test(file.name||'');
+  if(!isImg&&!isPdf){ toast('사진 또는 PDF 파일만 첨부할 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 첨부할 수 있습니다.'); return; }
+  if(isPdf&&file.size>25*1024*1024){ toast('PDF는 25MB 이하만 첨부할 수 있습니다.'); return; }
+  // 파일을 올리면 서면 확인서로 자동 선택(파일이 있는데 종류 미선택인 모순 방지)
+  var pb=row.querySelector('.mcrct[data-ct="paper"]');
+  if(pb&&!pb.classList.contains('sel')){
+    Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.remove('sel'); });
+    pb.classList.add('sel'); _mcrDocToggle(row);
+  }
+  var gen=window._mcrGen||0;
+  var seq=row._mcrDocSeq=(row._mcrDocSeq||0)+1;   // 같은 줄 연속 선택 시 마지막이 이김(응답 역전 방지)
+  row._mcrDocBusy=(row._mcrDocBusy||0)+1;
+  _mcrDocDraw(row);
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var u8, ctype, ext;
+    if(isImg){
+      var dataUrl=await _custAlienShrink(file);   // 1600px JPEG 축소(등록증 업로더 재사용)
+      var bin=atob(dataUrl.split(',')[1]); u8=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+      ctype='image/jpeg'; ext='.jpg';
+    } else {
+      u8=new Uint8Array(await file.arrayBuffer());
+      ctype='application/pdf'; ext='.pdf';
+    }
+    var ref=firebase.storage().ref('claim_packages/mcreq_docs/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+ext);
+    await ref.put(u8,{contentType:ctype});
+    var url=await ref.getDownloadURL();
+    if(gen!==(window._mcrGen||0)||seq!==row._mcrDocSeq||!row.isConnected){
+      try{ ref.delete().catch(function(){}); }catch(e){}   // 모달 재오픈·줄 삭제·나중 선택 존재 — 이 파일은 버림(오귀속 방지)
+      return;
+    }
+    row._mcrDoc={u:url, n:file.name||('확인서'+ext)};
+    toast('서면 확인서가 첨부되었습니다. [신청]을 눌러야 저장됩니다.');
+  }catch(e){ console.warn('mcr doc upload err:', e); toast('파일 업로드 실패: '+(e.message||e)); }
+  finally{ if(gen===(window._mcrGen||0)&&row.isConnected){ row._mcrDocBusy=Math.max(0,(row._mcrDocBusy||1)-1); _mcrDocDraw(row); } }
+}
+function _mcrDocDraw(row){
+  var pv=row.querySelector('.mcrdocprev'), box=row.querySelector('.mcrdocbox');
+  if(!pv||!box) return;
+  if(row._mcrDocBusy){
+    box.classList.remove('has');
+    pv.innerHTML='<span style="font-size:12px;color:#9aa3c8">파일 올리는 중...</span>';
+    return;
+  }
+  var d=row._mcrDoc;
+  if(!d||!d.u){
+    box.classList.remove('has');
+    box.textContent='서면 확인서 파일을 클릭해 선택하거나 여기로 드래그하세요 (사진·PDF)';
+    pv.innerHTML='';
+    return;
+  }
+  box.classList.add('has');
+  box.textContent='✅ 파일 첨부됨 — 다시 클릭하면 다른 파일로 교체됩니다';
+  pv.innerHTML='<span style="word-break:break-all">📎 '+_esc(d.n)+'</span>'
+    +'<button type="button" onclick="mcrDocRemove(this)" style="font-size:12px;padding:2px 7px;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit">✕ 빼기</button>';
+}
+function mcrDocRemove(btn){
+  var row=btn.closest('.mcrrow'); if(!row) return;
+  row._mcrDoc=null;
+  row._mcrDocSeq=(row._mcrDocSeq||0)+1;   // 진행 중 업로드 무효화
+  _mcrDocDraw(row);
 }
 // 계약 건수별 인식 칸 — 클릭하면 초록 선택(캡처·글자 인식 결과가 이 번호 계약부터 채워짐)
 function _mcrKkBoxHtml(rid){
@@ -26570,6 +26719,7 @@ function _mcrSyncRows(n){
     var hasVal=false;
     for(var j=n;j<rows.length;j++){
       if(Array.prototype.some.call(rows[j].querySelectorAll('input'),function(inp){ return inp.value.trim(); })) hasVal=true;
+      if(rows[j]._mcrDoc||rows[j].querySelector('.mcrct.sel')) hasVal=true;   // 확인서 선택·첨부 파일도 입력으로 취급
       var rid0=rows[j].getAttribute('data-mrid')||'';
       var pta=kb?kb.querySelector('.mcrkb[data-mrid="'+rid0+'"] textarea'):null;
       if(pta&&pta.value.trim()) hasVal=true;
@@ -26609,11 +26759,14 @@ function mcrRowDel(btn){
   var pair=kb?kb.querySelector('.mcrkb[data-mrid="'+rid+'"]'):null;
   var pta=pair?pair.querySelector('textarea'):null;
   var hasVal=Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); })
-    ||(pta&&pta.value.trim());
+    ||(pta&&pta.value.trim())||row._mcrDoc||row.querySelector('.mcrct.sel');
   if(box.querySelectorAll('.mcrrow').length<=1){
     if(hasVal&&!confirm('입력된 값을 지울까요?')) return;
     Array.prototype.forEach.call(row.querySelectorAll('input'),function(inp){ inp.value=''; });
     if(pta) pta.value='';
+    Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.remove('sel'); });
+    row._mcrDoc=null; row._mcrDocSeq=(row._mcrDocSeq||0)+1;
+    _mcrDocToggle(row); _mcrDocDraw(row);
     return;
   }
   if(hasVal&&!confirm('이 계약 줄에 입력된 값이 있습니다. 삭제할까요? (짝 인식 칸도 함께 사라집니다)')) return;
@@ -26625,8 +26778,11 @@ function mcrRowDel(btn){
 }
 // ── 고객 검색 — 가시성은 고객 목록(rCustList)과 동일: 총무=전체, 그 외=본인 고객만. 가족은 "이름(소유주님 가족)" 형식
 //   (openCustInfo/_findCustByReqName이 그대로 파싱하는 기존 표기 재사용)
-function mcrCustSearch(){
-  var inp=g('mcr_cust'), box=g('mcr_cust_list'); if(!inp||!box) return;
+function mcrCustSearch(which){
+  which=(which==='ins')?'ins':'ct';   // ct=계약자(mcr_cust), ins=피보험자(mcr_insured) — 검색 로직 공용
+  var inp=g(which==='ins'?'mcr_insured':'mcr_cust'), box=g(which==='ins'?'mcr_insured_list':'mcr_cust_list');
+  if(!inp||!box) return;
+  if(inp.readOnly){ box.style.display='none'; return; }   // 태아보험 체크로 잠긴 피보험자 칸
   var q=inp.value.trim().toLowerCase();
   if(!q){ box.style.display='none'; box.innerHTML=''; return; }
   if(Array.isArray(window._custs)){ custs=window._custs; }
@@ -26652,23 +26808,28 @@ function mcrCustSearch(){
     return;
   }
   box.innerHTML=out.map(function(o){
-    return '<div class="mcrcs" data-v="'+_alertEsc(o.v)+'" onclick="mcrCustPick(this)">'+_esc(o.v)
+    return '<div class="mcrcs" data-v="'+_alertEsc(o.v)+'" data-w="'+which+'" onclick="mcrCustPick(this)">'+_esc(o.v)
       +(o.sub?' <span style="font-size:12px;color:#8890b8">'+_esc(o.sub)+'</span>':'')+'</div>';
   }).join('');
   box.style.display='block';
 }
 function mcrCustPick(el){
   var v=el.getAttribute('data-v')||'';
-  var inp=g('mcr_cust'); if(inp) inp.value=v;
-  var box=g('mcr_cust_list'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  var w=(el.getAttribute('data-w')==='ins')?'ins':'ct';
+  var inp=g(w==='ins'?'mcr_insured':'mcr_cust'); if(inp&&!inp.readOnly) inp.value=v;
+  var box=g(w==='ins'?'mcr_insured_list':'mcr_cust_list'); if(box){ box.style.display='none'; box.innerHTML=''; }
 }
 // ── 신청 저장
 function mcrSave(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
   var nm=(g('mcr_cust')||{value:''}).value.trim();
-  if(!nm){ toast('고객명을 입력(검색)하세요.'); return; }
+  if(!nm){ toast('계약자를 입력(검색)하세요.'); return; }
+  var fetus=!!(g('mcr_fetus')&&g('mcr_fetus').checked);
+  var insd=fetus?'태아':(g('mcr_insured')||{value:''}).value.trim();
   var box=g('mcr_rows'); if(!box) return;
   var rows=box.querySelectorAll('.mcrrow');
+  var uploading=Array.prototype.some.call(rows,function(r){ return r._mcrDocBusy; });
+  if(uploading){ toast('확인서 파일 업로드가 끝난 뒤 신청해주세요.'); return; }
   var items=[]; var badRow=0;
   Array.prototype.forEach.call(rows,function(row,i){
     var v={};
@@ -26676,20 +26837,26 @@ function mcrSave(){
       var el=row.querySelector('input[data-mf="'+k+'"]');
       v[k]=el?el.value.trim():'';
     });
-    var any=v.ins||v.prod||v.prem||v.term||v.pol||v.cdt;
+    v.ct=_mcrRowCt(row);
+    v.docUrl=(row._mcrDoc&&row._mcrDoc.u)||'';
+    v.docName=(row._mcrDoc&&row._mcrDoc.n)||'';
+    var any=v.ins||v.prod||v.prem||v.term||v.pol||v.cdt||v.ct||v.docUrl;
     if(!any) return;                       // 전부 빈 줄은 건너뜀
     if(!v.ins&&!badRow) badRow=i+1;        // 값은 있는데 보험사가 빈 첫 줄 기억
     items.push(v);
   });
   if(!items.length){ toast('계약 내용을 한 건 이상 입력하세요.'); return; }
   if(badRow){ toast(badRow+'번 계약 줄의 보험사를 입력하세요. (진행여부가 보험사 이름으로 표시됩니다)'); return; }
+  var paperNoFile=items.some(function(v){ return v.ct==='paper'&&!v.docUrl; });
+  if(paperNoFile&&!confirm('서면 확인서를 선택했지만 파일을 첨부하지 않은 계약이 있습니다.\n파일 없이 신청할까요?')) return;
   _mcrReload();
   mcReqs.push({
     id:'mq_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    agent:cu.name, dt:tds(), ts:Date.now(), custName:nm,
+    agent:cu.name, dt:tds(), ts:Date.now(), custName:nm, insName:insd, fetus:fetus?1:0,
     items:items.map(function(v){
       return { id:'mqi_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        ins:v.ins, prod:v.prod, prem:v.prem, term:v.term, pol:v.pol, cdt:v.cdt, done:0 };
+        ins:v.ins, prod:v.prod, prem:v.prem, term:v.term, pol:v.pol, cdt:v.cdt,
+        ctype:v.ct, docUrl:v.docUrl, docName:v.docName, done:0 };
     })
   });
   _mcrPersist();
@@ -26711,7 +26878,8 @@ function _mcrFmtDate(s){
 }
 function _mcrParse(text){
   var LB=[
-    {k:'cust',  re:/^(고객명|고객|계약자|계약자명|피보험자|피보험자명|고객성함|성함)$/},
+    {k:'cust',  re:/^(고객명|고객|계약자|계약자명|고객성함|성함)$/},
+    {k:'insd',  re:/^(피보험자|피보험자명)$/},
     {k:'ins',   re:/^(보험사|보험회사|회사명|회사)$/},
     {k:'prod',  re:/^(상품명|상품|보험명|계약상품)$/},
     {k:'prem',  re:/^(보험료|월보험료|월납보험료|월납|납입보험료|초회보험료)$/},
@@ -26721,7 +26889,7 @@ function _mcrParse(text){
     {k:'pol',   re:/^(증권번호|증권|청약번호|계약번호)$/},
     {k:'cdt',   re:/^(계약일|계약일자|청약일|개시일|계약체결일|계약날짜)$/}
   ];
-  var cust=''; var rows=[]; var cur=null; var pendingIns='';
+  var cust=''; var insd=''; var rows=[]; var cur=null; var pendingIns='';
   // 머리말 보험사(cur._hins)는 라벨 보험사(cur.ins)와 분리 보관 — "같은 라벨 반복=새 블록" 판정을 어지럽히지 않게.
   var flush=function(){ if(cur&&(cur.ins||cur.prod||cur.pol||cur.prem)) rows.push(cur); cur=null; };
   var newCur=function(){ cur={}; if(pendingIns) cur._hins=pendingIns; };
@@ -26744,6 +26912,7 @@ function _mcrParse(text){
     for(var i=0;i<LB.length;i++){ if(LB[i].re.test(raw)){ lb=LB[i]; break; } }
     if(!lb||!val) return;
     if(lb.k==='cust'){ if(!cust) cust=val; return; }
+    if(lb.k==='insd'){ if(!insd) insd=val; return; }
     if(!cur) newCur();
     var dupTerm=(lb.k==='term'&&(cur.term||cur.termN||cur.termM))
       ||(lb.k==='termN'&&(cur.termN||cur.term))
@@ -26752,7 +26921,7 @@ function _mcrParse(text){
     cur[lb.k]=val;
   });
   flush();
-  return { cust:cust, rows:rows.map(function(r){
+  return { cust:cust, insd:insd, rows:rows.map(function(r){
     return { ins:r.ins||r._hins||'', prod:r.prod||'', prem:r.prem||'',
       term:r.term||[r.termN,r.termM].filter(Boolean).join(' / '),
       pol:r.pol||'', cdt:_mcrFmtDate(r.cdt||'') };
@@ -26770,11 +26939,11 @@ function mcrParseText(){
     if(stat) stat.textContent='계약 내용을 인식하지 못했습니다. "보험사: OO" 같은 [항목: 값] 형식인지 확인해주세요.';
     return;
   }
-  _mcrApply(res.rows, res.cust, b.getAttribute('data-mrid'));
+  _mcrApply(res.rows, res.cust, b.getAttribute('data-mrid'), res.insd);
 }
 // 인식 결과 → 폼 반영(글자·사진 공용) — 선택한 인식 칸의 번호(startRid의 줄)부터 차례로 채움.
 //   대상 구간 밖의 다른 계약 줄은 건드리지 않음(계약 건수별 칸 개편, 2026-09-14). 줄 대응은 data-mrid 위치 기준(정렬·필터 없음 — 함정 A 무관)
-function _mcrApply(rows, custNm, startRid){
+function _mcrApply(rows, custNm, startRid, insdNm){
   var stat=g('mcr_kk_stat');
   var box=g('mcr_rows'); if(!box) return;
   var all=box.querySelectorAll('.mcrrow');
@@ -26800,9 +26969,14 @@ function _mcrApply(rows, custNm, startRid){
   var custMsg='';
   var ci=g('mcr_cust');
   if(custNm&&ci){
-    if(/[*＊]/.test(custNm)){ custMsg=' · 계약자명 "'+custNm+'"이 가려져 있어 고객명은 직접 검색해주세요'; }   // 카톡 안내문 마스킹(이*아) — 오기입 방지(2026-09-14 제보)
+    if(/[*＊]/.test(custNm)){ custMsg=' · 계약자명 "'+custNm+'"이 가려져 있어 계약자는 직접 검색해주세요'; }   // 카톡 안내문 마스킹(이*아) — 오기입 방지(2026-09-14 제보)
     else if(!ci.value.trim()){ ci.value=custNm; }
-    else if(ci.value.trim()!==custNm){ custMsg=' (인식된 고객명 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
+    else if(ci.value.trim()!==custNm){ custMsg=' (인식된 계약자 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
+  }
+  var ii=g('mcr_insured');
+  if(insdNm&&ii&&!ii.readOnly){   // 태아보험 체크로 잠긴 칸은 건드리지 않음
+    if(/[*＊]/.test(insdNm)){ custMsg+=' · 피보험자명 "'+insdNm+'"이 가려져 있어 직접 입력해주세요'; }
+    else if(!ii.value.trim()){ ii.value=insdNm; }
   }
   // 완료 메시지는 실제 반영 건수 기준 — 20건 초과 인식분은 잘렸음을 명시(2026-09-14 리뷰: "25건 인식 완료" 오표시로 누락 미인지 방지)
   if(stat) stat.textContent='✅ '+(start+1)+'번 계약부터 '+applied+'건 인식 완료'
@@ -26823,7 +26997,7 @@ async function mcrImgRecognize(fileList, startRid){
     var imgs=[];
     for(var i=0;i<files.length;i++) imgs.push(await _dbKkImgShrink(files[i]));
     var prompt='아래 사진(보험 계약 내용·계약 목록·가입증명 캡처)에서 모든 계약을 추출해 JSON 배열만 출력해. 설명·코드펜스 없이 JSON 배열만.\n'
-      +'각 항목 형식: {"customer":"고객명(계약자 성명, 없으면 빈문자)","insurer":"보험사 이름","product":"상품명","premium":"보험료 원문 그대로(없으면 빈문자)","term":"납기/만기 (예: 20년/100세 — 없으면 빈문자)","polNum":"증권(청약)번호(없으면 빈문자)","contractDate":"계약일 YYYY-MM-DD(없으면 빈문자)"}\n'
+      +'각 항목 형식: {"customer":"계약자 성명(고객명, 없으면 빈문자)","insured":"피보험자 성명(없으면 빈문자)","insurer":"보험사 이름","product":"상품명","premium":"보험료 원문 그대로(없으면 빈문자)","term":"납기/만기 (예: 20년/100세 — 없으면 빈문자)","polNum":"증권(청약)번호(없으면 빈문자)","contractDate":"계약일 YYYY-MM-DD(없으면 빈문자)"}\n'
       +'항목 이름이 달라도 의미로 매핑(회사=보험사, 월납·월보험료=보험료, 청약일·개시일=계약일, 청약번호=증권번호). 계약이 여러 건이면 전부 포함해.';
     var mdl=(function(){ try{ return localStorage.getItem('tops_ai_mcr_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
     var res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -26835,9 +27009,10 @@ async function mcrImgRecognize(fileList, startRid){
     if(!m) throw new Error('AI 응답에서 계약 내용을 찾지 못했습니다.');
     var arr=JSON.parse(m[0]);
     if(!Array.isArray(arr)) throw new Error('AI 응답 형식 오류');
-    var custNm='';
+    var custNm=''; var insdNm='';
     var rows=arr.map(function(o){ o=o||{};
       if(!custNm&&o.customer) custNm=String(o.customer).trim();
+      if(!insdNm&&o.insured) insdNm=String(o.insured).trim();
       return { ins:String(o.insurer||'').trim(), prod:String(o.product||'').trim(), prem:String(o.premium||'').trim(),
         term:String(o.term||'').trim(), pol:String(o.polNum||'').trim(), cdt:_mcrFmtDate(String(o.contractDate||'')) };
     }).filter(function(r){ return r.ins||r.prod||r.pol; });
@@ -26846,7 +27021,7 @@ async function mcrImgRecognize(fileList, startRid){
       toast('사진에서 계약 정보를 찾지 못했습니다.');
       return;
     }
-    _mcrApply(rows, custNm, startRid);
+    _mcrApply(rows, custNm, startRid, insdNm);
   }catch(e){
     var em=(e&&e.message)||String(e);
     if(stat) stat.textContent='사진 인식 실패: '+em;
