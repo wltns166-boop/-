@@ -344,6 +344,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #m_mcreq .fl{color:#3a4468}
 #m_mcreq .mcrcs{padding:8px 11px;font-size:14px;color:#16203c;cursor:pointer;border-bottom:1px solid #eef0f8}
 #m_mcreq .mcrcs:hover{background:#f0f3ff}
+/* 계약 건수별 인식 칸 — 클릭 선택 시 초록 표시(고객등록 붙여넣기 대상 _custTgtPaint 계열, 2026-09-14) */
+#m_mcreq .mcrkb{border:1px solid #c5cbe8;border-radius:8px;background:#fff;padding:7px 8px;margin-bottom:8px;cursor:pointer}
+#m_mcreq .mcrkb.sel{border-color:#2f9e44;background:#f1fbf3;box-shadow:0 0 0 2px rgba(47,158,68,.18)}
+#m_mcreq .mcrkb .mcrkbno{font-size:12px;font-weight:700;color:#3040aa}
+#m_mcreq .mcrkb.sel .mcrkbno{color:#217a33}
 /* 일정 등록 모달 — 흰 배경 전환(함정 D 역방향, 같은 패턴. 2026-09-04) */
 #m_cal_add .fi{background:#fff;color:#16203c;border:1px solid #c5cbe8;color-scheme:light}
 #m_cal_add .fi::placeholder{color:#9aa3c8}
@@ -428,7 +433,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-4</div>
   </div>
 </div>
 
@@ -2089,8 +2094,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         </div>
         <div style="flex:1;min-width:270px;padding:10px;border:1px dashed rgba(72,88,204,.3);border-radius:10px;background:#fafbff" id="mcr_kk_wrap">
           <div style="font-size:14px;font-weight:700;color:#3040aa;margin-bottom:5px">📋 캡처사진 · 글자 자동 인식</div>
-          <div style="font-size:12px;color:#8890b8;margin-bottom:7px">계약 내용을 복사해 붙여넣고 [글자 자동 인식]을 누르거나, 캡처사진을 이 영역에 붙여넣기(Ctrl+V)·드래그하면 왼쪽 입력칸이 자동으로 채워집니다.</div>
-          <textarea class="fi" id="mcr_kk_txt" rows="10" style="resize:vertical" placeholder="예)&#10;고객명: 홍길동&#10;보험사: 메리츠&#10;상품명: 운전자보험&#10;보험료: 35,000원&#10;납기/만기: 20년/100세&#10;증권번호: 123456789&#10;계약일: 2026-09-14&#10;(계약이 여러 건이면 이어서 붙여넣으면 됩니다)"></textarea>
+          <div style="font-size:12px;color:#8890b8;margin-bottom:7px">계약 건수만큼 인식 칸이 생깁니다. 칸을 클릭해 <b style="color:#217a33">초록색으로 선택</b>한 뒤 카톡 내용을 붙여넣고 [글자 자동 인식]을 누르거나, 캡처사진을 붙여넣기(Ctrl+V)·드래그하면 <b>같은 번호의 계약 칸</b>이 채워집니다. 한 칸에 여러 건을 붙여넣으면 그 번호부터 차례로 채웁니다.</div>
+          <div id="mcr_kk_boxes"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="bp" onclick="mcrParseText()" style="font-size:13px;padding:6px 12px"><i class="ti ti-wand"></i> 글자 자동 인식</button>
             <button class="bp" onclick="g('mcr_kk_img').click()" style="font-size:13px;padding:6px 12px"><i class="ti ti-camera"></i> 사진으로 인식</button>
@@ -26491,15 +26496,17 @@ function mcrOpen(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
   var ci=g('mcr_cust'); if(ci) ci.value='';
   var cl=g('mcr_cust_list'); if(cl){ cl.style.display='none'; cl.innerHTML=''; }
-  var ta=g('mcr_kk_txt'); if(ta) ta.value='';
+  var kb=g('mcr_kk_boxes'); if(kb) kb.innerHTML='';
+  window._mcrKkSelId=null;
   var st=g('mcr_kk_stat'); if(st) st.textContent='';
   var box=g('mcr_rows'); if(box) box.innerHTML='';
   var cnt=g('mcr_cnt'); if(cnt) cnt.value=1;
   _mcrSyncRows(1);
   g('m_mcreq').classList.add('open');
 }
-function _mcrRowHtml(){
-  return '<div class="mcrrow" style="border:1px solid rgba(72,88,204,.15);border-radius:8px;background:#fbfcff;padding:8px 10px;margin-bottom:8px">'
+// 계약 줄과 인식 칸은 고유 id(data-mrid)로 1:1 짝 — 중간 삭제에도 번호가 어긋나지 않음(함정 A 계열 예방)
+function _mcrRowHtml(rid){
+  return '<div class="mcrrow" data-mrid="'+rid+'" style="border:1px solid rgba(72,88,204,.15);border-radius:8px;background:#fbfcff;padding:8px 10px;margin-bottom:8px">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span class="mcrno" style="font-size:13px;font-weight:700;color:#3040aa"></span>'
     +'<button type="button" onclick="mcrRowDel(this)" title="이 계약 줄 삭제" style="margin-left:auto;width:24px;height:24px;line-height:20px;padding:0;border:1px solid rgba(200,80,80,.4);border-radius:50%;background:#fff;color:#c04040;font-size:13px;cursor:pointer;font-family:inherit">✕</button></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">'
@@ -26511,14 +26518,50 @@ function _mcrRowHtml(){
     +'<div><div class="fl" style="font-size:12px;margin-bottom:3px">계약일</div><input class="fi" data-mf="cdt" placeholder="예: 2026-09-14"></div>'
     +'</div></div>';
 }
-function _mcrRenum(){
-  var box=g('mcr_rows'); if(!box) return;
-  var nos=box.querySelectorAll('.mcrrow .mcrno');
-  Array.prototype.forEach.call(nos,function(n,i){ n.textContent=(i+1)+'번 계약'; });
+// 계약 건수별 인식 칸 — 클릭하면 초록 선택(캡처·글자 인식 결과가 이 번호 계약부터 채워짐)
+function _mcrKkBoxHtml(rid){
+  return '<div class="mcrkb" data-mrid="'+rid+'" onclick="_mcrKkSel(this)">'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap"><span class="mcrkbno"></span><span style="font-size:11px;color:#9aa3c8">클릭=선택 · 이 칸 내용이 같은 번호 계약에 들어갑니다</span></div>'
+    +'<textarea class="fi mcrkbta" rows="4" style="resize:vertical" placeholder="이 계약의 카톡 내용 붙여넣기 또는 캡처사진 붙여넣기(Ctrl+V)&#10;예) [현대해상] 계약체결 안내 / ▶ 상품명: … / ▶ 보험료: …"></textarea>'
+    +'</div>';
 }
-// 계약건수 ↔ 줄 동기화 — 끝에서만 추가/제거(줄 자체는 DOM 요소 기준 조작이라 함정 A 무관)
+function _mcrKkSel(el){
+  var rid=el&&el.getAttribute&&el.getAttribute('data-mrid'); if(!rid) return;
+  window._mcrKkSelId=rid;
+  _mcrKkPaint();
+}
+function _mcrKkPaint(){
+  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  var found=false;
+  Array.prototype.forEach.call(bs,function(b){
+    var on=(b.getAttribute('data-mrid')===window._mcrKkSelId);
+    if(on) found=true;
+    b.classList.toggle('sel',on);
+  });
+  if(!found&&bs.length){ window._mcrKkSelId=bs[0].getAttribute('data-mrid'); bs[0].classList.add('sel'); }   // 선택 칸이 사라졌으면 1번으로
+}
+function _mcrKkSelBox(){
+  _mcrKkPaint();
+  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  for(var i=0;i<bs.length;i++){ if(bs[i].classList.contains('sel')) return bs[i]; }
+  return bs[0]||null;
+}
+function _mcrRenum(){
+  var box=g('mcr_rows');
+  if(box){
+    var nos=box.querySelectorAll('.mcrrow .mcrno');
+    Array.prototype.forEach.call(nos,function(n,i){ n.textContent=(i+1)+'번 계약'; });
+  }
+  var kb=g('mcr_kk_boxes');
+  if(kb){
+    var kn=kb.querySelectorAll('.mcrkb .mcrkbno');
+    Array.prototype.forEach.call(kn,function(n,i){ n.textContent=(i+1)+'번 계약 인식'; });
+  }
+}
+// 계약건수 ↔ 줄·인식 칸 동기화 — 끝에서만 추가/제거, 쌍은 data-mrid로 유지(DOM 요소 기준 조작이라 함정 A 무관)
 function _mcrSyncRows(n){
   var box=g('mcr_rows'); if(!box) return;
+  var kb=g('mcr_kk_boxes');
   var want=parseInt(n,10)||1;
   if(want>20) toast('계약 줄은 최대 20건까지만 입력할 수 있습니다. 나머지는 별도로 신청해주세요.');   // 조용한 잘림 방지(2026-09-14 리뷰)
   n=Math.max(1,Math.min(20,want));
@@ -26527,35 +26570,58 @@ function _mcrSyncRows(n){
     var hasVal=false;
     for(var j=n;j<rows.length;j++){
       if(Array.prototype.some.call(rows[j].querySelectorAll('input'),function(inp){ return inp.value.trim(); })) hasVal=true;
+      var rid0=rows[j].getAttribute('data-mrid')||'';
+      var pta=kb?kb.querySelector('.mcrkb[data-mrid="'+rid0+'"] textarea'):null;
+      if(pta&&pta.value.trim()) hasVal=true;
     }
-    if(hasVal&&!confirm('줄어드는 계약 줄에 입력된 값이 있습니다. 지우고 줄일까요?')){
+    if(hasVal&&!confirm('줄어드는 계약 줄(또는 그 인식 칸)에 입력된 내용이 있습니다. 지우고 줄일까요?')){
       var cnt0=g('mcr_cnt'); if(cnt0) cnt0.value=rows.length;
       return;
     }
-    for(var k=rows.length-1;k>=n;k--) rows[k].remove();
+    for(var k=rows.length-1;k>=n;k--){
+      var ridK=rows[k].getAttribute('data-mrid')||'';
+      var pb=kb?kb.querySelector('.mcrkb[data-mrid="'+ridK+'"]'):null;
+      if(pb) pb.remove();
+      rows[k].remove();
+    }
   }
   rows=box.querySelectorAll('.mcrrow');
   for(var i=rows.length;i<n;i++){
+    var rid='mr_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
     var d=document.createElement('div');
-    d.innerHTML=_mcrRowHtml();
+    d.innerHTML=_mcrRowHtml(rid);
     box.appendChild(d.firstChild);
+    if(kb){
+      var d2=document.createElement('div');
+      d2.innerHTML=_mcrKkBoxHtml(rid);
+      kb.appendChild(d2.firstChild);
+    }
   }
   var cnt=g('mcr_cnt'); if(cnt) cnt.value=n;
   _mcrRenum();
+  _mcrKkPaint();
 }
 function mcrRowDel(btn){
   var row=btn.closest('.mcrrow'); if(!row) return;
   var box=g('mcr_rows'); if(!box) return;
-  var hasVal=Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); });
+  var kb=g('mcr_kk_boxes');
+  var rid=row.getAttribute('data-mrid')||'';
+  var pair=kb?kb.querySelector('.mcrkb[data-mrid="'+rid+'"]'):null;
+  var pta=pair?pair.querySelector('textarea'):null;
+  var hasVal=Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); })
+    ||(pta&&pta.value.trim());
   if(box.querySelectorAll('.mcrrow').length<=1){
     if(hasVal&&!confirm('입력된 값을 지울까요?')) return;
     Array.prototype.forEach.call(row.querySelectorAll('input'),function(inp){ inp.value=''; });
+    if(pta) pta.value='';
     return;
   }
-  if(hasVal&&!confirm('이 계약 줄에 입력된 값이 있습니다. 삭제할까요?')) return;
+  if(hasVal&&!confirm('이 계약 줄에 입력된 값이 있습니다. 삭제할까요? (짝 인식 칸도 함께 사라집니다)')) return;
   row.remove();
+  if(pair) pair.remove();
   var cnt=g('mcr_cnt'); if(cnt) cnt.value=box.querySelectorAll('.mcrrow').length;
   _mcrRenum();
+  _mcrKkPaint();
 }
 // ── 고객 검색 — 가시성은 고객 목록(rCustList)과 동일: 총무=전체, 그 외=본인 고객만. 가족은 "이름(소유주님 가족)" 형식
 //   (openCustInfo/_findCustByReqName이 그대로 파싱하는 기존 표기 재사용)
@@ -26693,31 +26759,43 @@ function _mcrParse(text){
   })};
 }
 function mcrParseText(){
-  var t=(g('mcr_kk_txt')||{value:''}).value;
   var stat=g('mcr_kk_stat');
-  if(!t.trim()){ if(stat) stat.textContent='붙여넣은 글자가 없습니다. 계약 내용을 먼저 붙여넣어주세요.'; return; }
+  var b=_mcrKkSelBox();
+  if(!b){ if(stat) stat.textContent='인식 칸이 없습니다.'; return; }
+  var ta=b.querySelector('textarea');
+  var t=ta?ta.value:'';
+  if(!t.trim()){ if(stat) stat.textContent='선택(초록)된 칸에 붙여넣은 글자가 없습니다. 계약 내용을 먼저 붙여넣어주세요.'; return; }
   var res=_mcrParse(t);
   if(!res.rows.length){
     if(stat) stat.textContent='계약 내용을 인식하지 못했습니다. "보험사: OO" 같은 [항목: 값] 형식인지 확인해주세요.';
     return;
   }
-  _mcrApply(res.rows, res.cust);
+  _mcrApply(res.rows, res.cust, b.getAttribute('data-mrid'));
 }
-// 인식 결과 → 폼 반영(글자·사진 공용). 새로 만든 줄에 순서대로 채움(정렬·필터 없음 — 함정 A 무관)
-function _mcrApply(rows, custNm){
+// 인식 결과 → 폼 반영(글자·사진 공용) — 선택한 인식 칸의 번호(startRid의 줄)부터 차례로 채움.
+//   대상 구간 밖의 다른 계약 줄은 건드리지 않음(계약 건수별 칸 개편, 2026-09-14). 줄 대응은 data-mrid 위치 기준(정렬·필터 없음 — 함정 A 무관)
+function _mcrApply(rows, custNm, startRid){
   var stat=g('mcr_kk_stat');
   var box=g('mcr_rows'); if(!box) return;
-  var hasVal=Array.prototype.some.call(box.querySelectorAll('input'),function(inp){ return inp.value.trim(); });
-  if(hasVal&&!confirm('이미 입력된 계약 내용이 있습니다. 인식 결과로 덮어쓸까요?')) return;
-  box.innerHTML='';
-  _mcrSyncRows(rows.length);
-  var els=box.querySelectorAll('.mcrrow');
+  var all=box.querySelectorAll('.mcrrow');
+  var start=0;
+  if(startRid){ for(var i=0;i<all.length;i++){ if(all[i].getAttribute('data-mrid')===startRid){ start=i; break; } } }
+  var need=start+rows.length;
+  if(need>all.length){
+    _mcrSyncRows(need);   // 20건 초과는 내부에서 클램프+토스트
+    all=box.querySelectorAll('.mcrrow');
+  }
+  var tgt=Array.prototype.slice.call(all,start,start+rows.length);
+  var hasVal=tgt.some(function(row){ return Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); }); });
+  if(hasVal&&!confirm((start+1)+'번부터 채울 계약 칸에 이미 입력된 내용이 있습니다. 인식 결과로 덮어쓸까요?')) return;
+  var applied=0;
   rows.forEach(function(r,i){
-    var el=els[i]; if(!el) return;
+    var el=all[start+i]; if(!el) return;
     ['ins','prod','prem','term','pol','cdt'].forEach(function(k){
       var inp=el.querySelector('input[data-mf="'+k+'"]');
       if(inp) inp.value=r[k]||'';
     });
+    applied++;
   });
   var custMsg='';
   var ci=g('mcr_cust');
@@ -26727,17 +26805,17 @@ function _mcrApply(rows, custNm){
     else if(ci.value.trim()!==custNm){ custMsg=' (인식된 고객명 "'+custNm+'"은 기존 입력을 유지해 반영하지 않았습니다)'; }
   }
   // 완료 메시지는 실제 반영 건수 기준 — 20건 초과 인식분은 잘렸음을 명시(2026-09-14 리뷰: "25건 인식 완료" 오표시로 누락 미인지 방지)
-  var applied=Math.min(rows.length,20);
-  if(stat) stat.textContent='✅ 계약 '+applied+'건 인식 완료'
-    +(rows.length>applied?' (인식 '+rows.length+'건 중 최대 20건까지만 반영 — 나머지는 별도 신청 필요)':'')
+  if(stat) stat.textContent='✅ '+(start+1)+'번 계약부터 '+applied+'건 인식 완료'
+    +(rows.length>applied?' (인식 '+rows.length+'건 중 '+(rows.length-applied)+'건은 최대 20건 제한으로 미반영 — 별도 신청 필요)':'')
     +' — 내용을 확인·수정한 뒤 [신청]을 눌러주세요.'+custMsg;
 }
 // ── 사진(캡처) 인식 — dbKkImgRecognize(3.85.5) 계열: /api/analyze Gemini, 축소는 공용 _dbKkImgShrink 재사용.
 //   ⚠️ 계약 정보(고객명 포함)가 Gemini API로 전송됨 — DB 표 사진 인식과 동일 계열의 기존 수용 사항.
-async function mcrImgRecognize(fileList){
+async function mcrImgRecognize(fileList, startRid){
   var files=Array.prototype.slice.call(fileList||[]).filter(function(f){ return /^image\//.test(f.type); }).slice(0,4);
   if(!files.length){ toast('이미지 파일이 아닙니다. 계약 내용이 찍힌 캡처사진을 넣어주세요.'); return; }
   if(window._mcrOcrBusy){ toast('이미 사진을 인식하는 중입니다. 잠시만 기다려주세요.'); return; }
+  if(!startRid){ var sb=_mcrKkSelBox(); startRid=sb?sb.getAttribute('data-mrid'):null; }   // 지정 없으면 선택(초록) 칸 기준
   window._mcrOcrBusy=true;
   var stat=g('mcr_kk_stat');
   if(stat) stat.textContent='📷 사진 인식 중… (AI 분석, 수 초~수십 초 걸립니다)';
@@ -26768,30 +26846,38 @@ async function mcrImgRecognize(fileList){
       toast('사진에서 계약 정보를 찾지 못했습니다.');
       return;
     }
-    _mcrApply(rows, custNm);
+    _mcrApply(rows, custNm, startRid);
   }catch(e){
     var em=(e&&e.message)||String(e);
     if(stat) stat.textContent='사진 인식 실패: '+em;
     toast('사진 인식 실패: '+em);
   }finally{ window._mcrOcrBusy=false; }
 }
-// 사진 입력 경로 — 붙여넣기(Ctrl+V)·드래그앤드롭 전용 핸들러(4.8 규칙: stopPropagation으로 공용 uni와 이중 처리 방지)
+// 사진 입력 경로 — 붙여넣기(Ctrl+V)·드래그앤드롭 전용 핸들러(4.8 규칙: stopPropagation으로 공용 uni와 이중 처리 방지).
+//   인식 칸이 동적 생성되므로 패널(mcr_kk_wrap)에 위임 — 이벤트가 일어난 칸(.mcrkb)을 선택하고 그 번호부터 채움
 (function(){
-  var ta=g('mcr_kk_txt'), kw=g('mcr_kk_wrap');
-  if(ta) ta.addEventListener('paste',function(ev){
+  var kw=g('mcr_kk_wrap');
+  if(!kw) return;
+  var boxOf=function(ev){ var t=ev.target; return (t&&t.closest)?t.closest('.mcrkb'):null; };
+  kw.addEventListener('paste',function(ev){
     var items=(ev.clipboardData&&ev.clipboardData.items)||[]; var fs=[];
     for(var i=0;i<items.length;i++){ var it=items[i]; if(it.kind==='file'&&/^image\//.test(it.type)){ var f=it.getAsFile(); if(f) fs.push(f); } }
-    if(fs.length){ ev.preventDefault(); ev.stopPropagation(); mcrImgRecognize(fs); }
+    if(fs.length){
+      ev.preventDefault(); ev.stopPropagation();
+      var b=boxOf(ev); if(b) _mcrKkSel(b);
+      mcrImgRecognize(fs, b?b.getAttribute('data-mrid'):null);
+    }
   });
-  if(kw){
-    kw.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); });
-    kw.addEventListener('drop',function(e){
-      e.preventDefault(); e.stopPropagation();
-      var fs=(e.dataTransfer&&e.dataTransfer.files)||[];
-      var imgs=Array.prototype.filter.call(fs,function(f){ return /^image\//.test(f.type); });
-      if(imgs.length) mcrImgRecognize(imgs);
-    });
-  }
+  kw.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); });
+  kw.addEventListener('drop',function(e){
+    e.preventDefault(); e.stopPropagation();
+    var fs=(e.dataTransfer&&e.dataTransfer.files)||[];
+    var imgs=Array.prototype.filter.call(fs,function(f){ return /^image\//.test(f.type); });
+    if(imgs.length){
+      var b=boxOf(e); if(b) _mcrKkSel(b);
+      mcrImgRecognize(imgs, b?b.getAttribute('data-mrid'):null);
+    }
+  });
 })();
 
 </script>
