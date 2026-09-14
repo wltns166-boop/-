@@ -37,8 +37,8 @@ const YOUTUBE_REDIRECT_URI = process.env.YOUTUBE_REDIRECT_URI || 'http://localho
 const YOUTUBE_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
 
 /* ── 쇼츠 폴더 설정 ── */
-const SHORTS_DIR = path.join(DATA_DIR, 'shorts');
-const SHORTS_DONE_DIR = path.join(DATA_DIR, 'shorts-done');
+const SHORTS_DIR = process.env.SHORTS_DIR || path.join(DATA_DIR, 'shorts');
+const SHORTS_DONE_DIR = process.env.SHORTS_DIR ? path.join(process.env.SHORTS_DIR, '..', 'shorts-done') : path.join(DATA_DIR, 'shorts-done');
 const SHORTS_QUEUE = {}; // 업로드 대기 중인 파일 추적
 
 let youtubeOAuth2Client = null;
