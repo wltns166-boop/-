@@ -18,6 +18,7 @@ const jwt = require('jsonwebtoken');
 const { google } = require('googleapis');
 const { OAuth2Client } = require('google-auth-library');
 const multer = require('multer');
+const chokidar = require('chokidar');
 
 const ROOT = path.join(__dirname, '..');          // 프로젝트 루트 (HTML 위치)
 // 배포 시 영속 디스크 경로를 DATA_DIR 환경변수로 지정할 수 있음 (재배포해도 데이터 유지)
@@ -34,6 +35,11 @@ const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || '';
 const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || '';
 const YOUTUBE_REDIRECT_URI = process.env.YOUTUBE_REDIRECT_URI || 'http://localhost:4000/api/youtube/auth/callback';
 const YOUTUBE_TOKENS_FILE = path.join(DATA_DIR, 'youtube-tokens.json');
+
+/* ── 쇼츠 폴더 설정 ── */
+const SHORTS_DIR = path.join(DATA_DIR, 'shorts');
+const SHORTS_DONE_DIR = path.join(DATA_DIR, 'shorts-done');
+const SHORTS_QUEUE = {}; // 업로드 대기 중인 파일 추적
 
 let youtubeOAuth2Client = null;
 let youtubeTokens = null;
@@ -82,6 +88,130 @@ const uploadDisk = multer.diskStorage({
   }
 });
 const upload = multer({ storage: uploadDisk, limits: { fileSize: 5 * 1024 * 1024 * 1024 } });
+
+/* 쇼츠 자동 업로드 */
+async function uploadVideoToYoutube(filePath, fileName) {
+  if (!youtubeOAuth2Client || !youtubeTokens) {
+    console.error('[YouTube] 인증되지 않아 업로드를 건너뜁니다:', fileName);
+    return false;
+  }
+
+  try {
+    youtubeOAuth2Client.setCredentials(youtubeTokens);
+    const youtube = google.youtube({ version: 'v3', auth: youtubeOAuth2Client });
+
+    // 파일명에서 제목 추출 (확장자 제거)
+    const title = path.parse(fileName).name;
+    const fileSize = fs.statSync(filePath).size;
+
+    console.log(`[YouTube] 업로드 시작: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
+
+    const fileStream = fs.createReadStream(filePath);
+    const response = await youtube.videos.insert(
+      {
+        part: ['snippet', 'status'],
+        requestBody: {
+          snippet: {
+            title: title,
+            description: `자동 생성된 쇼츠 - ${new Date().toLocaleString('ko-KR')}`,
+            tags: ['shorts', 'auto-generated'],
+            categoryId: '22',
+          },
+          status: {
+            privacyStatus: 'unlisted',
+            madeForKids: false,
+          },
+        },
+        media: {
+          mimeType: 'video/mp4',
+          body: fileStream,
+        },
+      },
+      {
+        onUploadProgress: (evt) => {
+          const progress = Math.round((evt.bytesRead / fileSize) * 100);
+          console.log(`[YouTube] ${fileName} 업로드 진행: ${progress}%`);
+        },
+      }
+    );
+
+    youtubeTokens = youtubeOAuth2Client.credentials;
+    saveYoutubeTokens();
+
+    const videoId = response.data.id;
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log(`[YouTube] 업로드 완료: ${fileName} → ${videoUrl}`);
+
+    // 완료 폴더로 이동
+    if (!fs.existsSync(SHORTS_DONE_DIR)) {
+      fs.mkdirSync(SHORTS_DONE_DIR, { recursive: true });
+    }
+    const doneFilePath = path.join(SHORTS_DONE_DIR, `${path.parse(fileName).name}_${videoId}${path.extname(fileName)}`);
+    fs.renameSync(filePath, doneFilePath);
+
+    // DB에 기록
+    db.state.youtubeUploads = db.state.youtubeUploads || [];
+    db.state.youtubeUploads.push({
+      fileName,
+      videoId,
+      videoUrl,
+      uploadedAt: new Date().toISOString(),
+    });
+    saveDB();
+
+    return true;
+  } catch (e) {
+    console.error(`[YouTube] 업로드 실패 (${fileName}):`, e.message);
+    return false;
+  }
+}
+
+function initShortsWatcher() {
+  if (!fs.existsSync(SHORTS_DIR)) {
+    fs.mkdirSync(SHORTS_DIR, { recursive: true });
+  }
+
+  const watcher = chokidar.watch(SHORTS_DIR, {
+    ignored: /(^|[\/\\])\.|\.tmp$/,
+    persistent: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 2000,
+      pollInterval: 100,
+    },
+  });
+
+  watcher.on('add', (filePath) => {
+    const fileName = path.basename(filePath);
+    const ext = path.extname(fileName).toLowerCase();
+
+    if (!['.mp4', '.avi', '.mov', '.mkv', '.webm'].includes(ext)) {
+      console.log('[Shorts] 영상 파일이 아닙니다:', fileName);
+      return;
+    }
+
+    console.log('[Shorts] 새 영상 감지:', fileName);
+    SHORTS_QUEUE[filePath] = { fileName, status: 'pending', addedAt: Date.now() };
+
+    // 1초 후에 업로드 시작 (다른 파일 추가 대기)
+    setTimeout(async () => {
+      if (SHORTS_QUEUE[filePath] && SHORTS_QUEUE[filePath].status === 'pending') {
+        SHORTS_QUEUE[filePath].status = 'uploading';
+        const success = await uploadVideoToYoutube(filePath, fileName);
+        if (success) {
+          delete SHORTS_QUEUE[filePath];
+        } else {
+          SHORTS_QUEUE[filePath].status = 'failed';
+        }
+      }
+    }, 1000);
+  });
+
+  watcher.on('error', (error) => {
+    console.error('[Shorts] 감시 에러:', error);
+  });
+
+  console.log(`[Shorts] 폴더 감시 시작: ${SHORTS_DIR}`);
+}
 
 /* ── 초기 사용자 (최초 1회만 시드, 비밀번호는 해시 저장) ── */
 const SEED_USERS = {
@@ -289,6 +419,18 @@ app.get('/api/youtube/status', (req, res) => {
   res.json({ authenticated, hasTokens: !!youtubeTokens });
 });
 
+/* 쇼츠 폴더 상태 확인 */
+app.get('/api/shorts/status', (req, res) => {
+  const uploadedCount = db.state.youtubeUploads ? db.state.youtubeUploads.length : 0;
+  res.json({
+    shortsDir: SHORTS_DIR,
+    shortsExists: fs.existsSync(SHORTS_DIR),
+    queue: SHORTS_QUEUE,
+    uploadedCount,
+    recentUploads: db.state.youtubeUploads ? db.state.youtubeUploads.slice(-5).reverse() : [],
+  });
+});
+
 /* YouTube 영상 업로드 */
 app.post('/api/youtube/upload', auth, upload.single('video'), async (req, res) => {
   if (!youtubeOAuth2Client || !youtubeTokens) {
@@ -371,6 +513,7 @@ for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 
 ═══════════════════════════════════════ */
 loadDB();
 initYoutubeClient();
+initShortsWatcher();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  InsureNet 서버 실행 중`);
   console.log(`  ─ 로컬:   http://localhost:${PORT}`);
