@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-12</div>
   </div>
 </div>
 
@@ -26444,13 +26444,17 @@ function rMcReq(){
           +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">완료</span></div>')
         :('<div'+attrs+' style="'+st+'background:#fff8f8;color:#aa3333;border-color:#f0b0b0;cursor:'+(chong?'pointer':'default')+'">'
           +'<span style="font-weight:700;font-size:13px">'+_esc(it.ins||'-')+'</span><span style="font-size:12px">미완료</span></div>');
-      var L=function(lb,v){ return '<div><span style="color:#8890b8">'+lb+'</span> '+v+'</div>'; };
+      // 각 항목 클릭=값 복사(고객정보 칸과 동일 _csrCopyVal 재사용, 2026-09-14 요청) — 속성은 _alertEsc, 표시는 _esc
+      var L=function(lb,raw){
+        var s=(''+raw).trim();
+        return '<div class="csrcp" data-copy="'+_alertEsc(s)+'" data-cplb="'+_alertEsc(lb)+'" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다" style="cursor:pointer"><span style="color:#8890b8">'+lb+'</span> '+_esc(s)+'</div>';
+      };
       var parts=[];
-      if(it.prod) parts.push(L('상품명',_esc(it.prod)));
-      if(it.prem) parts.push(L('보험료',_esc(it.prem)));
-      if(it.term) parts.push(L('납기/만기',_esc(it.term)));
-      if(it.pol) parts.push(L('증권번호',_esc(it.pol)));
-      if(it.cdt) parts.push(L('계약일',_esc(it.cdt)));
+      if(it.prod) parts.push(L('상품명',it.prod));
+      if(it.prem) parts.push(L('보험료',it.prem));
+      if(it.term) parts.push(L('납기/만기',it.term));
+      if(it.pol) parts.push(L('증권번호',it.pol));
+      if(it.cdt) parts.push(L('계약일',it.cdt));
       if(it.ctype==='mobile') parts.push('<div>📱 모바일 확인서</div>');
       else if(it.ctype==='paper'){
         var dp='📄 서면 확인서';
@@ -26474,8 +26478,8 @@ function rMcReq(){
       +'</td>'
       +'<td style="vertical-align:middle">'
         +'<div onclick="'+oc+'" title="고객정보 보기" style="cursor:pointer;display:inline-block"><span style="font-weight:700;font-size:15px;color:#2040cc;text-decoration:underline">'+_esc(nm)+'</span></div>'
-        +((r.insName&&r.insName!==nm)?'<div style="font-size:12.5px;color:'+(r.fetus?'#a05a10':'#555')+';margin-top:2px">'+(r.fetus?'👶 ':'')+'피보험자 '+_esc(r.insName)+'</div>':'')
-        +((r.fetus&&r.dueDate)?'<div style="font-size:12.5px;color:#a05a10;margin-top:2px">출생예정일 '+_esc(r.dueDate)+'</div>':'')
+        +((r.insName&&r.insName!==nm)?'<div class="csrcp" data-copy="'+_alertEsc(r.insName)+'" data-cplb="피보험자" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다" style="cursor:pointer;font-size:12.5px;color:'+(r.fetus?'#a05a10':'#555')+';margin-top:2px">'+(r.fetus?'👶 ':'')+'피보험자 '+_esc(r.insName)+'</div>':'')
+        +((r.fetus&&r.dueDate)?'<div class="csrcp" data-copy="'+_alertEsc(r.dueDate)+'" data-cplb="출생예정일" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다" style="cursor:pointer;font-size:12.5px;color:#a05a10;margin-top:2px">출생예정일 '+_esc(r.dueDate)+'</div>':'')
         +infoHtml
       +'</td>'
       +'<td style="vertical-align:top;padding-top:10px"><div style="display:flex;flex-wrap:wrap;align-items:flex-start">'+boxes+'</div></td>'
