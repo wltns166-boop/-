@@ -142,6 +142,93 @@ const uploadDisk = multer.diskStorage({
 });
 const upload = multer({ storage: uploadDisk, limits: { fileSize: 5 * 1024 * 1024 * 1024 } });
 
+/* ── 영상 메타데이터 사이드카 (영상.mp4 옆의 영상.mp4.json) ── */
+function sidecarPathFor(filePath) {
+  return `${filePath}.json`;
+}
+
+function readSidecarMeta(filePath) {
+  const p = sidecarPathFor(filePath);
+  if (!fs.existsSync(p)) return {};
+  try {
+    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return {
+      title: typeof m.title === 'string' ? m.title.slice(0, 100) : undefined,
+      description: typeof m.description === 'string' ? m.description.slice(0, 5000) : undefined,
+      tags: Array.isArray(m.tags) ? m.tags.map(String).slice(0, 30) : undefined,
+      privacy: ['public', 'unlisted', 'private'].includes(m.privacy) ? m.privacy : undefined,
+    };
+  } catch (e) {
+    console.error('[Shorts] 메타 파일 읽기 실패:', p, e.message);
+    return {};
+  }
+}
+
+/* ── 원격 업로드 대기열 (GitHub의 shorts-queue.json 을 주기적으로 확인해 영상을 받아옴) ── */
+const SHORTS_QUEUE_URL = process.env.SHORTS_QUEUE_URL || 'https://raw.githubusercontent.com/wltns166-boop/-/claude/vigilant-thompson-f9r2pz/shorts-queue.json';
+const SHORTS_QUEUE_INTERVAL = Math.max(15, Number(process.env.SHORTS_QUEUE_INTERVAL) || 60) * 1000;
+const SAFE_FILENAME_RE = /^[^\\/:*?"<>|]{1,150}\.(mp4|mov|webm|mkv|avi)$/i;
+let queueFetching = false;
+
+async function downloadToFile(url, destPath) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const tmp = `${destPath}.tmp`;
+  fs.writeFileSync(tmp, Buffer.from(await res.arrayBuffer()));
+  fs.renameSync(tmp, destPath);
+}
+
+async function fetchRemoteQueue() {
+  if (queueFetching || !SHORTS_QUEUE_URL) return;
+  queueFetching = true;
+  try {
+    const res = await fetch(`${SHORTS_QUEUE_URL}?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+    if (res.status === 404) return;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    db.state.shortsQueueDone = db.state.shortsQueueDone || [];
+    const done = new Set(db.state.shortsQueueDone);
+
+    for (const item of items) {
+      if (!item || typeof item.id !== 'string' || done.has(item.id)) continue;
+      const channel = typeof item.channel === 'string' && item.channel ? item.channel : DEFAULT_CHANNEL;
+      if (!CHANNEL_NAME_RE.test(channel) || !SAFE_FILENAME_RE.test(item.fileName || '') || !/^https?:\/\//.test(item.url || '')) {
+        console.error('[Queue] 잘못된 항목 건너뜀:', item.id);
+        continue;
+      }
+      const dir = channel === DEFAULT_CHANNEL ? SHORTS_DIR : path.join(SHORTS_DIR, channel);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, item.fileName);
+
+      try {
+        console.log(`[Queue:${channel}] 다운로드 시작: ${item.fileName}`);
+        fs.writeFileSync(sidecarPathFor(dest), JSON.stringify({
+          title: item.title, description: item.description, tags: item.tags, privacy: item.privacy,
+        }, null, 2));
+        await downloadToFile(item.url, dest);
+        console.log(`[Queue:${channel}] 다운로드 완료: ${item.fileName} (감시 폴더에 저장됨, 곧 업로드됩니다)`);
+        db.state.shortsQueueDone.push(item.id);
+        saveDB();
+      } catch (e) {
+        console.error(`[Queue:${channel}] 다운로드 실패 (${item.fileName}):`, e.message);
+        try { fs.unlinkSync(sidecarPathFor(dest)); } catch {}
+      }
+    }
+  } catch (e) {
+    console.error('[Queue] 대기열 확인 실패:', e.message);
+  } finally {
+    queueFetching = false;
+  }
+}
+
+function initRemoteQueue() {
+  if (!SHORTS_QUEUE_URL) return;
+  console.log(`[Queue] 원격 대기열 확인 시작 (${SHORTS_QUEUE_INTERVAL / 1000}초마다): ${SHORTS_QUEUE_URL}`);
+  fetchRemoteQueue();
+  setInterval(fetchRemoteQueue, SHORTS_QUEUE_INTERVAL);
+}
+
 /* 쇼츠 자동 업로드 */
 async function uploadVideoToYoutube(filePath, fileName, channel) {
   const client = clientFor(channel);
@@ -153,25 +240,27 @@ async function uploadVideoToYoutube(filePath, fileName, channel) {
   try {
     const youtube = google.youtube({ version: 'v3', auth: client });
 
-    // 파일명에서 제목 추출 (확장자 제거)
-    const title = path.parse(fileName).name;
+    // 같은 이름의 .json 파일이 있으면 제목/설명/태그/공개범위를 거기서 읽음
+    const meta = readSidecarMeta(filePath);
+    const title = meta.title || path.parse(fileName).name;
     const fileSize = fs.statSync(filePath).size;
 
     console.log(`[YouTube:${channel}] 업로드 시작: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
 
+    let lastLogged = -10;
     const fileStream = fs.createReadStream(filePath);
     const response = await youtube.videos.insert(
       {
         part: ['snippet', 'status'],
         requestBody: {
           snippet: {
-            title: title,
-            description: `자동 생성된 쇼츠 - ${new Date().toLocaleString('ko-KR')}`,
-            tags: ['shorts', 'auto-generated'],
+            title,
+            description: meta.description || '',
+            tags: meta.tags || ['shorts'],
             categoryId: '22',
           },
           status: {
-            privacyStatus: YOUTUBE_PRIVACY,
+            privacyStatus: meta.privacy || YOUTUBE_PRIVACY,
             madeForKids: false,
           },
         },
@@ -183,7 +272,10 @@ async function uploadVideoToYoutube(filePath, fileName, channel) {
       {
         onUploadProgress: (evt) => {
           const progress = Math.round((evt.bytesRead / fileSize) * 100);
-          console.log(`[YouTube:${channel}] ${fileName} 업로드 진행: ${progress}%`);
+          if (progress - lastLogged >= 10 || progress === 100) {
+            lastLogged = progress;
+            console.log(`[YouTube:${channel}] ${fileName} 업로드 진행: ${progress}%`);
+          }
         },
       }
     );
@@ -199,6 +291,8 @@ async function uploadVideoToYoutube(filePath, fileName, channel) {
     }
     const doneFilePath = path.join(doneDir, `${path.parse(fileName).name}_${videoId}${path.extname(fileName)}`);
     fs.renameSync(filePath, doneFilePath);
+    const sidecar = sidecarPathFor(filePath);
+    if (fs.existsSync(sidecar)) fs.renameSync(sidecar, `${doneFilePath}.json`);
 
     // DB에 기록
     db.state.youtubeUploads = db.state.youtubeUploads || [];
@@ -268,7 +362,7 @@ function initShortsWatcher() {
     const ext = path.extname(fileName).toLowerCase();
 
     if (!['.mp4', '.avi', '.mov', '.mkv', '.webm'].includes(ext)) {
-      console.log('[Shorts] 영상 파일이 아닙니다:', fileName);
+      if (ext !== '.json') console.log('[Shorts] 영상 파일이 아닙니다:', fileName);
       return;
     }
 
@@ -617,6 +711,7 @@ for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 
 loadDB();
 initYoutubeClient();
 initShortsWatcher();
+initRemoteQueue();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  InsureNet 서버 실행 중`);
   console.log(`  ─ 로컬:   http://localhost:${PORT}`);
