@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-7</div>
   </div>
 </div>
 
@@ -26362,7 +26362,8 @@ function deleteCardReq(id){
 }
 
 // ===== 모바일 계약 반영 요청 (mcreq, 2026-09-14) =====
-// 데이터: mcReqs=[{id('mq_..'),agent,dt,ts,custName,items:[{id('mqi_..'),ins,prod,prem,term,pol,cdt,done,doneTs?,doneBy?}]}]
+// 데이터: mcReqs=[{id('mq_..'),agent,dt,ts,custName(계약자),insName(피보험자·''=계약자 동일·태아보험이면 '태아'),fetus(0|1),
+//   items:[{id('mqi_..'),ins,prod,prem,term,pol,cdt,ctype(''|'mobile'|'paper'),docUrl(서면 확인서 Storage URL — paper일 때만),docName,done,doneTs?,doneBy?}]}]
 //   — 동기화 키 tops_mcreq(텍스트만, 함정 B). 행·박스 조작은 전부 고유 id 기준(함정 A — data 속성 + _alertEsc).
 // 열람: 관리자(BM·총무)=전체, 팀원=본인 신청만(고객등록 현황 계열). 완료/미완료 체크는 총무(_isChongmu)만.
 // 저장은 로컬 재읽기 후 전체 배열 교체 — last-write-wins(cardreq 계열 수용). 자유 텍스트 표시는 전부 _esc(XSS).
@@ -26838,8 +26839,10 @@ function mcrSave(){
       v[k]=el?el.value.trim():'';
     });
     v.ct=_mcrRowCt(row);
-    v.docUrl=(row._mcrDoc&&row._mcrDoc.u)||'';
-    v.docName=(row._mcrDoc&&row._mcrDoc.n)||'';
+    // 서면 확인서일 때만 파일 URL 저장 — 종류를 모바일로 바꾸거나 해제한 뒤에도 이전 업로드 URL이
+    // 화면에 안 보이는 숨은 필드로 데이터에 남던 문제(2026-09-14 리뷰 Medium)
+    v.docUrl=(v.ct==='paper'&&row._mcrDoc&&row._mcrDoc.u)||'';
+    v.docName=(v.ct==='paper'&&row._mcrDoc&&row._mcrDoc.n)||'';
     var any=v.ins||v.prod||v.prem||v.term||v.pol||v.cdt||v.ct||v.docUrl;
     if(!any) return;                       // 전부 빈 줄은 건너뜀
     if(!v.ins&&!badRow) badRow=i+1;        // 값은 있는데 보험사가 빈 첫 줄 기억
