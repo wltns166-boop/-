@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-5</div>
   </div>
 </div>
 
@@ -20315,6 +20315,20 @@ var SS_RATES=[
 var SS_DED={ base:200000000, child:50000000, lump:500000000, spMin:500000000, spMax:3000000000, finMin:20000000, finMax:200000000, report:0.03 };
 function _ssNum(v){ var d=String(v==null?'':v).replace(/[^0-9]/g,''); return d?Number(d):0; }
 function _ssFmtInput(v){ var d=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,15); return d?Number(d).toLocaleString():''; }
+// 금액 칸 입력 정형 + 캐럿 보존(_tripWhenFmt 패턴) — 9칸을 오가며 숫자를 고치는 계산기라
+//   값 재대입 때마다 커서가 끝으로 튕기면 중간 자릿수 수정이 어려움(2026-09-15 리뷰)
+function _ssFmtMoney(el){
+  var raw=String(el.value||'');
+  var caret=el.selectionStart==null?raw.length:el.selectionStart;
+  var before=raw.slice(0,caret).replace(/\D/g,'').length;   // 커서 앞 숫자 개수 기억
+  var out=_ssFmtInput(raw);
+  el.value=out;
+  var total=out.replace(/\D/g,'').length;
+  if(before>total) before=total;
+  var pos=0,cnt=0;
+  while(pos<out.length&&cnt<before){ if(out.charCodeAt(pos)>=48&&out.charCodeAt(pos)<=57)cnt++; pos++; }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
 function _ssComma(n){ return Number(Math.round(n)||0).toLocaleString(); }
 // 15억 3,000만원 형태 — 큰 금액을 한눈에 확인(입력 오타 방지)
 function _ssKor(n){
@@ -20361,7 +20375,10 @@ function _ssCompute(o){
   if(hasSp){
     share=1.5/(1.5+ch);
     spLimit=Math.min(taxable*share, SS_DED.spMax);
-    var take=_ssNum(o.sptake)>0?_ssNum(o.sptake):spLimit;
+    // 실제 상속액은 "빈칸"일 때만 법정지분으로 폴백 — 0을 명시 입력하면 0으로 계산(배우자 상속포기 시나리오.
+    // >0 판정으로 두면 0 입력이 공란과 같아져 더 큰 법정지분 기준으로 계산되던 결함 — 2026-09-15 리뷰)
+    var spRaw=String(o.sptake==null?'':o.sptake).replace(/[^0-9]/g,'');
+    var take=spRaw===''?spLimit:Number(spRaw);
     spDed=Math.max(SS_DED.spMin, Math.min(take, spLimit));
   }
   // 금융재산 상속공제 — 2천만원 이하는 전액, 초과는 20%(최소 2천만원·최대 2억)
@@ -20429,7 +20446,7 @@ function _ssResultHtml(r){
       +'</div>';
   }
   h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:11px;line-height:1.6">'
-    +'※ 참고용 간이 계산입니다. 동거주택 상속공제·가업상속공제·세대생략 할증 등 개별 사정은 반영되지 않았으며, 실제 신고세액은 세무 전문가 확인이 필요합니다.<br>'
+    +'※ 참고용 간이 계산입니다. 동거주택 상속공제·가업상속공제·세대생략 할증, 미성년자·연로자·장애인 공제, 배우자와 자녀 외의 상속인은 반영되지 않았으며, 실제 신고세액은 세무 전문가 확인이 필요합니다.<br>'
     +'※ 배우자 상속공제는 실제 상속받는 금액과 법정상속지분 한도(최대 30억원) 중 작은 값으로, 최소 5억원이 보장되는 것으로 계산했습니다.<br>'
     +'※ 금융재산 상속공제는 입력한 금융재산을 순금융재산으로 보고 계산합니다. 금융채무가 있으면 공제액이 줄어듭니다.'
     +'</div>';
@@ -20443,7 +20460,7 @@ function _ssPanelHtml(name,cat){
   var money=function(k,label,ph,tip){
     return '<div style="margin-bottom:9px">'
       +'<div style="font-size:12.5px;color:#555;margin-bottom:3px">'+label+(tip?' <span style="color:#9aa2bd;font-size:11.5px">'+tip+'</span>':'')+'</div>'
-      +'<div style="position:relative"><input data-ssk="'+k+'" inputmode="numeric" oninput="this.value=_ssFmtInput(this.value)" value="'+_esc(_ssFmtInput(o[k]||''))+'" placeholder="'+_esc(ph||'0')+'" style="'+_in+';padding-right:30px">'
+      +'<div style="position:relative"><input data-ssk="'+k+'" inputmode="numeric" oninput="_ssFmtMoney(this)" value="'+_esc(_ssFmtInput(o[k]||''))+'" placeholder="'+_esc(ph||'0')+'" style="'+_in+';padding-right:30px">'
       +'<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#8a92ac;pointer-events:none">원</span></div>'
       +'<div data-sshint="'+k+'" style="text-align:right;font-size:11.5px;color:#4858cc;min-height:15px;margin-top:2px"></div></div>';
   };
@@ -20475,7 +20492,7 @@ function _ssPanelHtml(name,cat){
           +'<div style="flex:1"><div style="font-size:12.5px;color:#555;margin-bottom:3px">자녀 수</div>'
             +'<input data-ssk="ch" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,&quot;&quot;).slice(0,2)" value="'+_esc(o.ch||'')+'" placeholder="0" style="'+_in+'"></div>'
         +'</div>'
-        +money('sptake','배우자가 실제 상속받을 금액','','비우면 법정상속지분으로 계산')
+        +money('sptake','배우자가 실제 상속받을 금액','','비우면 법정상속지분 · 0을 넣으면 상속포기로 계산')
         +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.</div>'
       +'</div>'
       +'<div style="flex:1 1 340px;min-width:290px">'
@@ -20635,8 +20652,15 @@ function ssGuidePrint(){
       +'<style>@page{size:A4;margin:12mm}body{margin:0;padding:14px;background:#fff;color:#1a1a2e;'
       +'font-family:-apple-system,BlinkMacSystemFont,\'Malgun Gothic\',\'맑은 고딕\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
       +'div{break-inside:avoid}</style></head><body>'+_ssGuideBody()+'</body></html>');
+    var done=false;
+    var go=function(){ if(done) return; done=true; try{ w.focus(); w.print(); }catch(e){} };
+    // 스타일·아이콘 글꼴이 준비된 뒤 인쇄(고정 대기로는 느린 회선에서 아이콘이 깨진 채 미리보기가 뜸 — 2026-09-15 리뷰)
+    try{ w.addEventListener('load', function(){
+      try{ if(w.document.fonts&&w.document.fonts.ready&&w.document.fonts.ready.then){ w.document.fonts.ready.then(go, go); return; } }catch(e){}
+      go();
+    }); }catch(e){}
     w.document.close();
-    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500);
+    setTimeout(go, 2500);   // load·폰트 이벤트를 못 받는 브라우저에서도 반드시 인쇄되도록 최대 대기
   }catch(e){ console.warn('상속세 설명서 출력 오류:', e); toast('출력 창을 여는 중 문제가 발생했습니다.'); }
 }
 // 분류 이름에 '대리발급'이 들어간 분류의 탭을 선택하면 서류 작성 패널이 표시된다:
