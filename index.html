@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-3</div>
   </div>
 </div>
 
@@ -26547,6 +26547,7 @@ function mcrDelete(el){
 function mcrOpen(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
   window._mcrGen=(window._mcrGen||0)+1;   // 모달 재오픈 세대 — 이전 세션의 파일 업로드 오귀속 방지
+  window._mcrOcrBusy=false;               // 이전 폼의 사진 인식 대기가 새 폼을 잠그지 않게(v-3 리뷰 — 옛 응답은 위 세대 가드가 폐기)
   var ci=g('mcr_cust'); if(ci) ci.value='';
   var cl=g('mcr_cust_list'); if(cl){ cl.style.display='none'; cl.innerHTML=''; }
   var fc=g('mcr_fetus'); if(fc) fc.checked=false;
@@ -27182,7 +27183,7 @@ async function mcrImgRecognize(fileList, startRid){
     var em=(e&&e.message)||String(e);
     if(stat) stat.textContent='사진 인식 실패: '+em;
     toast('사진 인식 실패: '+em);
-  }finally{ window._mcrOcrBusy=false; }
+  }finally{ if(gen===(window._mcrGen||0)) window._mcrOcrBusy=false; }   // 재오픈 뒤 끝난 옛 요청이 새 요청의 잠금을 풀지 않게
 }
 // 사진 입력 경로 — 붙여넣기(Ctrl+V)·드래그앤드롭 전용 핸들러(4.8 규칙: stopPropagation으로 공용 uni와 이중 처리 방지).
 //   인식 칸이 동적 생성되므로 패널(mcr_kk_wrap)에 위임 — 이벤트가 일어난 칸(.mcrkb)을 선택하고 그 번호부터 채움
