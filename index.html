@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-8</div>
   </div>
 </div>
 
@@ -20510,7 +20510,7 @@ function _ssTax(base){
 }
 function _ssGetVals(catId){
   window._ssVals=window._ssVals||{};
-  if(!window._ssVals[catId]) window._ssVals[catId]={re:'',fin:'',etc:'',gift:'',debt:'',fune:'',sp:'1',ch:'2',sptake:''};
+  if(!window._ssVals[catId]) window._ssVals[catId]={re:'',fin:'',etc:'',gift:'',debt:'',fune:'',sp:'1',ch:'2',sptake:'',gper:''};
   return window._ssVals[catId];
 }
 function _ssSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌더 직전 — _bdrSyncFromDom 계열)
@@ -20556,13 +20556,75 @@ function _ssCompute(o){
     dedSum:dedSum, dedUsed:dedUsed, base:base, rate:t.rate, cut:t.cut, tax:tax, rptDed:rptDed, pay:pay,
     gap:Math.max(0, pay-fin), rePct:estate>0?Math.round(re/estate*100):0 };
 }
+// ── 상속 vs 증여 (2026-09-15 v-8) ──
+// 증여재산공제는 **10년 합산** 기준 관계별 금액. 증여세율은 상속세와 같은 누진세율(SS_RATES 공용).
+// ⚠️ 세법이 바뀌면 SS_GIFT_DED·SS_RATES만 고치면 됨.
+var SS_GIFT_DED={spouse:600000000, adult:50000000, minor:20000000, kin:10000000};
+// 한 사람에게 증여할 때의 증여세(10년 내 다른 증여 없음 가정, 신고세액공제 3% 반영)
+function _ssGiftTax(amount, ded){
+  amount=Math.max(0, Math.round(Number(amount)||0));
+  ded=(ded==null)?SS_GIFT_DED.adult:Math.max(0, Number(ded)||0);
+  var base=Math.max(0, amount-ded);
+  var t=_ssTax(base), tax=Math.round(t.tax);
+  return { base:base, rate:t.rate, tax:tax, pay:Math.max(0, tax-Math.round(tax*SS_DED.report)) };
+}
+// "지금 그대로 상속" vs "자녀에게 미리 증여하고 남은 재산을 상속" — 화면에 입력된 값 그대로 비교.
+// 가정: ① 증여 후 10년이 지나 상속재산에 합산되지 않음 ② 증여 재원은 금융재산 → 모자라면 부동산 순
+//       ③ 자녀는 성년(공제 5천만원)이고 10년 내 다른 증여 없음. 취득세·이전비용은 미반영(화면에 명시)
+function _ssCompare(o){
+  o=o||{};
+  var per=_ssNum(o.gper); if(per<=0) return null;
+  var ch=Math.max(0, Math.min(20, parseInt(o.ch,10)||0)); if(ch<=0) return null;
+  var before=_ssCompute(o);
+  var fin=_ssNum(o.fin), re=_ssNum(o.re);
+  var want=per*ch;
+  var fromFin=Math.min(fin, want);
+  var fromRe=Math.min(re, want-fromFin);
+  var moved=fromFin+fromRe;                       // 가진 재산보다 많이 증여할 수는 없음
+  var o2={}; for(var k in o) o2[k]=o[k];
+  o2.fin=String(fin-fromFin); o2.re=String(re-fromRe);
+  var after=_ssCompute(o2);
+  var one=_ssGiftTax(per);
+  var giftPay=one.pay*ch;
+  return { per:per, ch:ch, want:want, moved:moved, short:Math.max(0,want-moved),
+    beforePay:before.pay, giftPay:giftPay, inhPay:after.pay, sum:giftPay+after.pay,
+    diff:before.pay-(giftPay+after.pay), giftRate:one.rate, giftBase:one.base };
+}
+function _ssCompareHtml(c){
+  if(!c) return '';
+  var good=c.diff>0;
+  var line=function(l,v,opt){ return _ssRow(l, v, opt); };
+  var h='<div style="margin-top:12px;padding:13px 15px;border-radius:9px;background:#fafbff;border:1px solid #dfe3f0">'
+    +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:7px"><i class="ti ti-arrows-exchange"></i> 미리 증여하면 어떻게 달라질까</div>'
+    +'<div style="font-size:12px;color:#7a819c;margin-bottom:6px;line-height:1.55">자녀 '+c.ch+'명에게 1인당 '+_ssComma(c.per)+'원 '
+    +'(합계 '+_ssComma(c.moved)+'원)을 미리 증여하고 <b>10년이 지난 뒤</b> 상속이 일어났다고 보았을 때입니다.</div>'
+    +line('증여세 합계 ('+c.ch+'명)', _ssComma(c.giftPay)+'원')
+    +line('줄어든 재산의 상속세', _ssComma(c.inhPay)+'원')
+    +line('증여 + 상속 합계', _ssComma(c.sum)+'원', {bt:1})
+    +line('지금 그대로 상속하면', _ssComma(c.beforePay)+'원')
+    +line(good?'미리 증여하면 줄어드는 세금':'미리 증여하면 늘어나는 세금',
+      _ssComma(Math.abs(c.diff))+'원', {bt:1, big:1, color:good?'#207830':'#c0392b'});
+  if(!good) h+='<div style="font-size:12.5px;color:#c0392b;margin-top:6px;line-height:1.55">'
+    +'이 조건에서는 미리 증여해도 세금이 줄지 않습니다. 상속공제(특히 배우자 공제는 법정상속지분에 비례)가 '
+    +'남은 상속재산과 함께 줄어들기 때문입니다. 증여 금액·대상을 바꿔 다시 비교해보세요.</div>';
+  else h+='<div style="font-size:12.5px;color:#207830;margin-top:6px;line-height:1.55">'
+    +'받는 사람마다 세율 구간이 나뉘고 10년마다 증여재산공제가 새로 생겨 생기는 차이입니다. '
+    +'증여한 돈으로 납세 재원(종신보험 등)을 준비하면 상속세를 낼 현금까지 함께 마련됩니다.</div>';
+  if(c.short>0) h+='<div style="font-size:12px;color:#c07020;margin-top:5px">입력한 재산(부동산+금융)보다 증여액이 커서 '
+    +_ssComma(c.short)+'원은 반영하지 못했습니다.</div>';
+  h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:7px;line-height:1.6">'
+    +'※ 자녀는 성년(증여재산공제 5천만원)이고 10년 내 다른 증여가 없다고 보았습니다. 증여 재원은 금융재산에서 먼저 빼고 모자라면 부동산에서 뺍니다.<br>'
+    +'※ 부동산을 증여하면 취득세 등 이전 비용이 즉시 발생하는데 이 비교에는 포함되지 않았습니다.</div>'
+    +'</div>';
+  return h;
+}
 function _ssRow(label,val,opt){
   opt=opt||{};
   return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:'+(opt.pad||'5px 0')+';'+(opt.bt?'border-top:1px solid #e6e9f4;margin-top:4px;padding-top:8px;':'')+'">'
     +'<span style="font-size:'+(opt.big?'14.5px':'13px')+';color:'+(opt.big?'#2a2a4a':'#5a6488')+';font-weight:'+(opt.big?'700':'500')+'">'+label+'</span>'
     +'<span style="font-size:'+(opt.big?'15.5px':'13.5px')+';font-weight:'+(opt.big?'800':'600')+';color:'+(opt.color||'#1a1a2e')+';white-space:nowrap">'+val+'</span></div>';
 }
-function _ssResultHtml(r){
+function _ssResultHtml(r, cmp){
   var minus=function(n){ return n>0?'- '+_ssComma(n)+'원':'0원'; };
   var h='';
   h+='<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:4px">1. 과세가액</div>'
@@ -20606,6 +20668,7 @@ function _ssResultHtml(r){
         +'</div>':'')
       +'</div>';
   }
+  h+=_ssCompareHtml(cmp);   // 미리 증여했을 때와의 비교(입력했을 때만)
   h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:11px;line-height:1.6">'
     +'※ 참고용 간이 계산입니다. 동거주택 상속공제·가업상속공제·세대생략 할증, 미성년자·연로자·장애인 공제, 배우자와 자녀 외의 상속인은 반영되지 않았으며, 실제 신고세액은 세무 전문가 확인이 필요합니다.<br>'
     +'※ 배우자 상속공제는 실제 상속받는 금액과 법정상속지분 한도(최대 30억원) 중 작은 값으로, 최소 5억원이 보장되는 것으로 계산했습니다.<br>'
@@ -20631,6 +20694,7 @@ function _ssPanelHtml(name,cat){
       +'<div style="font-weight:700;font-size:15px;color:#2a2a4a"><i class="ti ti-calculator"></i> '+_esc(cat.nm)+'기 <span style="font-size:11.5px;font-weight:400;color:#9aa2bd">— 고객 상담용 간이 계산</span></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
         +'<button onclick="ssGuideOpen()" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-book"></i> 상속세 설명서</button>'
+        +'<button onclick="ssGiftGuideOpen()" style="'+bt+'background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-arrows-exchange"></i> 상속 vs 증여</button>'
         +'<button onclick="ssReset('+an+','+ac+')" style="'+bt+'background:#fff;border:1px solid #d5d9e8;color:#6a7088"><i class="ti ti-eraser"></i> 초기화</button>'
       +'</div>'
     +'</div>'
@@ -20654,6 +20718,8 @@ function _ssPanelHtml(name,cat){
             +'<input data-ssk="ch" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,&quot;&quot;).slice(0,2)" value="'+_esc(o.ch||'')+'" placeholder="0" style="'+_in+'"></div>'
         +'</div>'
         +money('sptake','배우자가 실제 상속받을 금액','','비우면 법정상속지분 · 0을 넣으면 상속포기로 계산')
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 6px">상속 vs 증여 비교 <span style="font-weight:400;font-size:11.5px;color:#9aa2bd">— 선택</span></div>'
+        +money('gper','자녀 1인당 미리 증여할 금액','','넣으면 아래에 비교가 나옵니다')
         +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.</div>'
       +'</div>'
       +'<div style="flex:1 1 340px;min-width:290px">'
@@ -20668,7 +20734,7 @@ function _ssCalc(){
   _ssSyncFromDom(catId);
   var o=_ssGetVals(catId);
   try{
-    var out=g('ss_out'); if(out) out.innerHTML=_ssResultHtml(_ssCompute(o));
+    var out=g('ss_out'); if(out) out.innerHTML=_ssResultHtml(_ssCompute(o), _ssCompare(o));
     p.querySelectorAll('[data-sshint]').forEach(function(el){
       var n=_ssNum(o[el.getAttribute('data-sshint')]);
       el.textContent=n?_ssKor(n):'';
@@ -20779,21 +20845,212 @@ function _ssGuideBody(){
     +'</div>';
   return h;
 }
-function ssGuideOpen(){
+// ── 상속 vs 증여 설명서 (고객 상담용 그림 자료) ──
+// 상속세 설명서와 같은 방식 — 외부 이미지 없이 인라인 SVG·HTML로 그림(업로드 불필요·출력 가능).
+// 예시 숫자는 이 앱의 계산 코어(_ssCompute/_ssGiftTax)로 실제 계산해 검증한 값. 내용은 전부 상수 — XSS 무관.
+function _ssGiftGuideBody(){
+  var card='background:#fff;border:1px solid #e4e8f4;border-radius:12px;padding:18px 20px;margin-bottom:14px';
+  var h2='font-size:17px;font-weight:800;color:#1a1a2e;margin:0 0 10px;letter-spacing:-.3px';
+  var p='font-size:14px;color:#44485a;line-height:1.7;margin:0';
+  var h='';
+  // 1) 표지
+  h+='<div style="'+card+';background:linear-gradient(135deg,#1f6b3a,#2f8f4f);border:none;color:#fff;text-align:center;padding:26px 20px">'
+    +'<div style="font-size:13px;opacity:.85;letter-spacing:1px;margin-bottom:6px">TIMS 상담자료</div>'
+    +'<div style="font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.35">상속이 나을까, 증여가 나을까?</div>'
+    +'<div style="font-size:14px;opacity:.92;margin-top:10px;line-height:1.6">세율은 똑같습니다. 갈리는 것은<br><b>나눌 수 있느냐</b>와 <b>시간이 남았느냐</b>입니다.</div>'
+    +'</div>';
+  // 2) 한눈에 비교
+  var td='padding:9px 10px;font-size:13.5px;color:#44485a;border-top:1px solid #eceff7;line-height:1.5;vertical-align:top';
+  var th='padding:9px 10px;font-size:13px;font-weight:800;color:#2a3170;background:#eef1ff';
+  var row=function(k,a,b){ return '<tr><td style="'+td+';font-weight:700;color:#2a2a4a;white-space:nowrap">'+k+'</td>'
+    +'<td style="'+td+'">'+a+'</td><td style="'+td+'">'+b+'</td></tr>'; };
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">한눈에 비교</h2>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
+    +'<tr><th style="'+th+'"></th><th style="'+th+';text-align:left">상속</th><th style="'+th+';text-align:left">증여</th></tr>'
+    +row('언제','돌아가신 뒤 (때를 고를 수 없음)','살아 계실 때 언제든')
+    +row('누가 내나','상속인들이 함께 (연대 납부)','재산을 받은 사람이 각자')
+    +row('무엇에 매기나','돌아가신 분의 <b>전 재산을 합쳐서</b>','<b>받는 사람마다 따로</b>')
+    +row('공제','일괄 5억 + 배우자 최소 5억 등<br><b>공제가 큽니다</b>','10년간 배우자 6억 · 성년 자녀 5천만원<br><b>공제가 작습니다</b>')
+    +row('세율','10% ~ 50% 누진','10% ~ 50% 누진 <b>(상속과 동일)</b>')
+    +row('신고·납부','6개월 이내','증여받은 달의 말일부터 3개월 이내')
+    +'</table></div>'
+    +'<div style="margin-top:12px;padding:12px 14px;border-radius:9px;background:#eef1ff;border:1px solid #c8cce8;font-size:13.5px;color:#2a3170;line-height:1.7">'
+    +'<b>핵심:</b> 세율표가 같으니 "어느 세금이 싸냐"의 문제가 아닙니다. '
+    +'<b>공제가 큰 상속</b>과 <b>여러 사람·여러 번으로 나눌 수 있는 증여</b> 중 무엇이 내 재산 규모에 맞느냐의 문제입니다.'
+    +'</div></div>';
+  // 3) 나누면 세율이 내려간다 (SVG)
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">나누면 세율 구간이 내려갑니다</h2>'
+    +'<p style="'+p+'">누진세율이라 <b>한 덩어리로 물려줄수록 높은 세율</b>이 적용됩니다. 여러 사람에게 나누면 각자 낮은 구간에서 시작합니다.</p>'
+    +'<svg viewBox="0 0 600 175" width="100%" style="max-width:600px;display:block;margin:14px auto 0" role="img" aria-label="20억을 한 사람에게 줄 때와 네 사람에게 나눌 때의 세율 구간 비교">'
+      +'<text x="0" y="14" fill="#5a6488" font-size="13" font-family="sans-serif">같은 20억원을 물려줄 때</text>'
+      +'<text x="0" y="42" fill="#c0392b" font-size="13" font-weight="700" font-family="sans-serif">한 사람에게 한 번에</text>'
+      +'<rect x="0" y="52" width="270" height="52" rx="7" fill="#c0392b"/>'
+      +'<text x="135" y="77" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="sans-serif">20억</text>'
+      +'<text x="135" y="94" text-anchor="middle" fill="#fff" font-size="12.5" font-family="sans-serif">40% 구간까지 올라감</text>'
+      +'<text x="330" y="42" fill="#207830" font-size="13" font-weight="700" font-family="sans-serif">네 사람에게 나눠서</text>'
+      +[0,1,2,3].map(function(i){ var x=330+i*68;
+        return '<rect x="'+x+'" y="52" width="62" height="52" rx="7" fill="#3f8f5a"/>'
+          +'<text x="'+(x+31)+'" y="77" text-anchor="middle" fill="#fff" font-size="13.5" font-weight="800" font-family="sans-serif">5억</text>'
+          +'<text x="'+(x+31)+'" y="94" text-anchor="middle" fill="#fff" font-size="11.5" font-family="sans-serif">20%</text>'; }).join('')
+      +'<text x="0" y="128" fill="#44485a" font-size="13" font-family="sans-serif">여기에 10년마다 증여재산공제(성년 자녀 1인 5천만원)가 다시 생깁니다.</text>'
+      +'<text x="0" y="150" fill="#8a92ac" font-size="12" font-family="sans-serif">※ 실제 세액은 공제·기간·재산 종류에 따라 달라집니다.</text>'
+    +'</svg></div>';
+  // 4) 10년 타임라인
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">시간이 편입니다 — 10년 단위</h2>'
+    +'<p style="'+p+'">증여재산공제는 <b>10년마다 새로 생깁니다.</b> 반대로 증여 후 <b>10년 안에</b> 돌아가시면 그 재산이 상속재산에 다시 합산되어 효과가 사라집니다(상속인이 아닌 사람은 5년).</p>'
+    +'<svg viewBox="0 0 600 130" width="100%" style="max-width:600px;display:block;margin:14px auto 0" role="img" aria-label="10년 단위 증여 타임라인">'
+      +'<line x1="30" y1="62" x2="570" y2="62" stroke="#c8cede" stroke-width="3"/>'
+      +[[30,'지금','1차 증여'],[300,'10년 뒤','공제 다시 생김'],[570,'20년 뒤','공제 또 생김']].map(function(m){
+        return '<circle cx="'+m[0]+'" cy="62" r="9" fill="#3f8f5a"/>'
+          +'<text x="'+m[0]+'" y="40" text-anchor="middle" fill="#2a2a4a" font-size="13" font-weight="800" font-family="sans-serif">'+m[1]+'</text>'
+          +'<text x="'+m[0]+'" y="88" text-anchor="middle" fill="#5a6488" font-size="12" font-family="sans-serif">'+m[2]+'</text>'; }).join('')
+      +'<rect x="30" y="100" width="270" height="20" rx="5" fill="#fdecec"/>'
+      +'<text x="165" y="114" text-anchor="middle" fill="#c0392b" font-size="12" font-weight="700" font-family="sans-serif">이 기간에 상속이 일어나면 합산 — 효과 없음</text>'
+    +'</svg></div>';
+  // 5) 언제 어느 쪽이 유리한가
+  var col=function(color,bg,br,ic,t,items){
+    return '<div style="flex:1 1 250px;min-width:230px;padding:15px 16px;border:1px solid '+br+';border-radius:10px;background:'+bg+'">'
+      +'<div style="font-size:15px;font-weight:800;color:'+color+'"><i class="ti '+ic+'"></i> '+t+'</div>'
+      +items.map(function(x){ return '<div style="font-size:13.5px;color:#44485a;line-height:1.6;margin-top:8px">• '+x+'</div>'; }).join('')
+      +'</div>';
+  };
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">언제 어느 쪽이 유리한가</h2>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +col('#1f6b3a','#f6fbf7','#bfe2c6','ti-gift','증여가 유리한 경우',[
+        '재산이 <b>상속공제를 훨씬 넘을 때</b> — 상속세 한계세율이 40~50%인데 증여는 낮은 구간부터 시작합니다',
+        '물려줄 <b>사람이 여럿</b>일 때 — 받는 사람마다 세율 구간이 따로 시작합니다',
+        '<b>앞으로 값이 오를 재산</b>일 때 — 오르기 전 가액으로 넘기면 상승분에는 세금이 붙지 않습니다',
+        '<b>시간이 넉넉할 때</b> — 10년을 넘겨야 합산되지 않습니다'])
+      +col('#2a3170','#f6f8ff','#c8cce8','ti-home','상속이 유리한 경우',[
+        '재산이 <b>상속공제 범위 안</b>일 때 — 배우자와 자녀가 있으면 대체로 10억원까지는 상속세가 없습니다',
+        '<b>부동산 위주</b>일 때 — 증여하면 취득세 등 이전 비용이 즉시 나갑니다',
+        '건강이 좋지 않아 <b>10년을 확보하기 어려울 때</b> — 합산되면 증여세만 미리 낸 셈이 됩니다',
+        '배우자가 대부분을 받을 때 — <b>배우자 상속공제</b>가 최대 30억까지 커집니다'])
+    +'</div>'
+    +'<div style="margin-top:12px;padding:12px 14px;border-radius:9px;background:#fffaf2;border:1px solid #f0d9b8;font-size:13.5px;color:#7a5520;line-height:1.7">'
+    +'<b>흔한 오해:</b> "증여는 무조건 유리하다"는 사실이 아닙니다. 미리 나눠주면 <b>배우자 상속공제 한도도 함께 줄어들어</b>(법정상속지분에 비례) '
+    +'오히려 세금이 늘어나는 구간이 있습니다. 반드시 숫자로 비교해야 합니다.'
+    +'</div></div>';
+  // 6) 실제 계산 사례
+  var caseBox=function(bg,br,tc,title,rows,concl,cc){
+    return '<div style="flex:1 1 250px;min-width:240px;padding:15px 16px;border:1px solid '+br+';border-radius:10px;background:'+bg+'">'
+      +'<div style="font-size:14.5px;font-weight:800;color:'+tc+';margin-bottom:8px">'+title+'</div>'
+      +rows.map(function(r){ return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#44485a;padding:4px 0;line-height:1.5">'
+        +'<span>'+r[0]+'</span><span style="font-weight:700;color:#1a1a2e;white-space:nowrap">'+r[1]+'</span></div>'; }).join('')
+      +'<div style="margin-top:8px;padding-top:8px;border-top:1px solid '+br+';font-size:13.5px;font-weight:800;color:'+cc+';line-height:1.5">'+concl+'</div></div>';
+  };
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">숫자로 보면 이렇습니다</h2>'
+    +'<p style="'+p+'">두 사례 모두 <b>배우자와 자녀 2명</b>, 자녀에게 미리 증여한 뒤 <b>10년이 지나</b> 상속이 일어난 경우입니다.</p>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +caseBox('#f6fbf7','#bfe2c6','#1f6b3a','사례 1 · 재산 50억 (부동산)',
+        [['그대로 상속만','7억 5,937만원'],['자녀 2명에게 5억씩 증여','증여세 1억 5,520만원'],['남은 40억 상속세','5억 3,766만원'],['증여+상속 합계','6억 9,286만원']],
+        '→ 6,651만원 줄어듭니다','#1f6b3a')
+      +caseBox('#fffbfb','#f0c2c9','#c0392b','사례 2 · 재산 20억 (부동산 15 + 금융 5)',
+        [['그대로 상속만','9,977만원'],['자녀 2명에게 2억씩 증여','증여세 3,880만원'],['남은 16억 상속세','6,679만원'],['증여+상속 합계','1억 559만원']],
+        '→ 오히려 582만원 늘어납니다','#c0392b')
+    +'</div>'
+    +'<div style="margin-top:12px;padding:12px 14px;border-radius:9px;background:#eef1ff;border:1px solid #c8cce8;font-size:13.5px;color:#2a3170;line-height:1.7">'
+    +'재산이 클수록(상속세 한계세율이 높을수록) 증여의 효과가 커지고, <b>공제로 거의 가려지는 규모에서는 증여가 손해</b>가 됩니다. '
+    +'상속세 계산기의 <b>[미리 증여하면 어떻게 달라질까]</b>에서 고객의 실제 숫자로 바로 비교해보세요.'
+    +'</div></div>';
+  // 7) 증여 후 그 재산으로 상속 준비 — 3단계
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'"><i class="ti ti-shield-check" style="color:#207830"></i> 증여한 재산으로 상속을 준비하는 방법</h2>'
+    +'<p style="'+p+'">증여는 <b>세금을 줄이는 것</b>에서 끝나지 않습니다. 증여한 돈으로 <b>상속세를 낼 현금</b>까지 만들어 두는 것이 핵심입니다.</p>'
+    +'<svg viewBox="0 0 600 210" width="100%" style="max-width:600px;display:block;margin:14px auto 4px" role="img" aria-label="증여 후 자녀가 계약자가 되어 종신보험으로 납세 재원을 준비하는 3단계 구조">'
+      +'<rect x="0" y="20" width="170" height="60" rx="9" fill="#eef1ff" stroke="#c8cce8"/>'
+      +'<text x="85" y="45" text-anchor="middle" fill="#2a3170" font-size="14" font-weight="800" font-family="sans-serif">부모</text>'
+      +'<text x="85" y="65" text-anchor="middle" fill="#5a6488" font-size="12" font-family="sans-serif">현금을 증여</text>'
+      +'<path d="M175 50 L210 50" stroke="#8a96d8" stroke-width="2.5" marker-end="url(#ssg_arw)"/>'
+      +'<defs><marker id="ssg_arw" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">'
+      +'<path d="M0 0 L9 4.5 L0 9 z" fill="#8a96d8"/></marker></defs>'
+      +'<rect x="215" y="20" width="170" height="60" rx="9" fill="#f6fbf7" stroke="#bfe2c6"/>'
+      +'<text x="300" y="45" text-anchor="middle" fill="#1f6b3a" font-size="14" font-weight="800" font-family="sans-serif">자녀</text>'
+      +'<text x="300" y="65" text-anchor="middle" fill="#4a6a52" font-size="12" font-family="sans-serif">증여세 신고 · 납부</text>'
+      +'<path d="M390 50 L425 50" stroke="#8a96d8" stroke-width="2.5" marker-end="url(#ssg_arw)"/>'
+      +'<rect x="430" y="20" width="170" height="60" rx="9" fill="#f6fbf7" stroke="#bfe2c6"/>'
+      +'<text x="515" y="41" text-anchor="middle" fill="#1f6b3a" font-size="13.5" font-weight="800" font-family="sans-serif">종신보험 가입</text>'
+      +'<text x="515" y="58" text-anchor="middle" fill="#4a6a52" font-size="11.5" font-family="sans-serif">계약자·수익자 = 자녀</text>'
+      +'<text x="515" y="72" text-anchor="middle" fill="#4a6a52" font-size="11.5" font-family="sans-serif">피보험자 = 부모</text>'
+      +'<path d="M515 84 L515 118" stroke="#8a96d8" stroke-width="2.5" marker-end="url(#ssg_arw)"/>'
+      +'<rect x="330" y="124" width="270" height="56" rx="9" fill="#3f8f5a"/>'
+      +'<text x="465" y="147" text-anchor="middle" fill="#fff" font-size="14" font-weight="800" font-family="sans-serif">사망보험금 = 자녀의 고유재산</text>'
+      +'<text x="465" y="166" text-anchor="middle" fill="#dff2e5" font-size="12" font-family="sans-serif">상속세를 낼 현금으로 바로 사용</text>'
+      +'<text x="0" y="140" fill="#c0392b" font-size="12.5" font-weight="700" font-family="sans-serif">⚠ 부모가 보험료를 대신 내면</text>'
+      +'<text x="0" y="158" fill="#c0392b" font-size="12.5" font-weight="700" font-family="sans-serif">그 보험금은 상속재산이 됩니다.</text>'
+      +'<text x="0" y="176" fill="#8a92ac" font-size="11.5" font-family="sans-serif">계약자·수익자·납입 주체를 자녀로 일치.</text>'
+    +'</svg>'
+    +'<div style="margin-top:10px">'
+      +[['1단계','현금을 증여합니다','공제 범위(성년 자녀 10년간 5천만원)를 활용하고, 넘는 금액은 증여세를 신고·납부합니다. 신고를 해두어야 자금 출처가 분명해집니다.'],
+        ['2단계','자녀가 계약자가 되어 종신보험에 가입합니다','계약자와 수익자는 자녀, 피보험자는 부모. 보험료는 증여받은 돈이나 자녀 소득으로 냅니다.'],
+        ['3단계','사망보험금이 납세 재원이 됩니다','보험금이 자녀의 고유재산으로 지급되어, 집을 급매하거나 대출받지 않고 상속세를 낼 수 있습니다.']]
+        .map(function(s){ return '<div style="display:flex;gap:11px;align-items:flex-start;padding:10px 0;border-top:1px solid #f0f0f6">'
+          +'<span style="flex:none;font-size:12px;font-weight:800;color:#fff;background:#3f8f5a;border-radius:5px;padding:3px 8px;margin-top:2px">'+s[0]+'</span>'
+          +'<div><div style="font-size:14.5px;font-weight:700;color:#1a1a2e">'+s[1]+'</div>'
+          +'<div style="font-size:13.5px;color:#5a6488;line-height:1.6;margin-top:2px">'+s[2]+'</div></div></div>'; }).join('')
+    +'</div></div>';
+  // 8) 주의할 점
+  h+='<div style="'+card+';border-color:#f0c2c9;background:#fffbfb">'
+    +'<h2 style="'+h2+'"><i class="ti ti-alert-triangle" style="color:#c0392b"></i> 실행 전 꼭 확인할 것</h2>'
+    +[['10년을 넘겨야 합니다','증여 후 10년 안에 상속이 일어나면 그 재산이 상속재산에 합산됩니다(상속인이 아닌 사람은 5년). 빠를수록 좋습니다.'],
+      ['계약 구조를 틀리면 소용없습니다','계약자·수익자가 자녀여야 하고 보험료도 자녀가 내야 합니다. 부모가 대신 내면 보험금이 상속재산으로 잡힙니다.'],
+      ['증여는 되돌릴 수 없습니다','부동산은 취득세 등 이전 비용이 즉시 나가고, 평가 방법에 따라 세액이 달라집니다.'],
+      ['자금 출처가 남아야 합니다','증여세 신고를 해두지 않으면 나중에 자녀의 자산 형성 과정에서 문제가 될 수 있습니다.']]
+      .map(function(x){ return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid #f7e6e8">'
+        +'<i class="ti ti-point-filled" style="font-size:18px;color:#c0392b;flex:none;margin-top:2px"></i>'
+        +'<div><div style="font-size:14.5px;font-weight:700;color:#1a1a2e">'+x[0]+'</div>'
+        +'<div style="font-size:13.5px;color:#5a6488;line-height:1.6;margin-top:2px">'+x[1]+'</div></div></div>'; }).join('')
+    +'</div>';
+  // 9) 한 줄 결론 + 참고표
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">참고 — 증여재산공제 (10년 합산)</h2>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+      +[['배우자','6억원'],['성년 자녀·직계존비속','5천만원'],['미성년 자녀','2천만원'],['형제자매 등 기타 친족','1천만원']]
+        .map(function(x){ return '<div style="flex:1 1 130px;min-width:125px;text-align:center;padding:12px 8px;border:1px solid #e4e8f4;border-radius:9px;background:#fafbff">'
+          +'<div style="font-size:12.5px;color:#5a6488;line-height:1.4">'+x[0]+'</div>'
+          +'<div style="font-size:17px;font-weight:800;color:#2a3170;margin-top:4px">'+x[1]+'</div></div>'; }).join('')
+    +'</div>'
+    +'<div style="font-size:12.5px;color:#7a819c;margin-top:9px;line-height:1.6">혼인·출산에 따른 별도 공제가 추가로 있습니다. 적용 요건은 세무 전문가에게 확인해주세요.</div>'
+    +'<div style="margin-top:14px;padding:13px 15px;border-radius:9px;background:#eef1ff;border:1px solid #c8cce8">'
+      +'<div style="font-size:14px;color:#2a3170;line-height:1.7"><b>한 줄로 정리하면.</b> 재산이 상속공제 범위 안이면 서두를 이유가 없습니다. '
+      +'그보다 크고 앞으로 더 늘어날 재산이라면, 10년 단위로 나눠 주면서 <b>그 재산으로 세금 낼 현금까지 함께 준비</b>하는 것이 가장 안전합니다.</div>'
+    +'</div></div>';
+  h+='<div style="font-size:11.5px;color:#9aa2bd;line-height:1.6;padding:0 4px 4px">'
+    +'※ 이 자료는 고객 상담을 돕기 위한 일반적인 설명이며, 특정 상품의 가입을 권유하는 안내가 아닙니다.<br>'
+    +'※ 예시 금액은 배우자와 자녀 2명, 증여 후 10년 경과를 가정해 계산한 참고값입니다. 취득세·평가 차이·개별 공제는 반영되지 않았습니다.<br>'
+    +'※ 실제 세액과 실행 방법은 개별 사정과 세법 개정에 따라 달라지므로, 실행 전에는 반드시 세무 전문가의 확인이 필요합니다.'
+    +'</div>';
+  return h;
+}
+// 설명서 모달·출력은 두 자료 공용 — kind로 제목·본문만 갈라진다(2026-09-15 v-8)
+function _ssGuideMeta(kind){
+  return (kind==='gift')
+    ? {t:'상속 vs 증여 설명서', ic:'ti-arrows-exchange', body:_ssGiftGuideBody}
+    : {t:'상속세 설명서',       ic:'ti-book',            body:_ssGuideBody};
+}
+function ssGuideOpen(){ _ssGuideShow('ss'); }
+function ssGiftGuideOpen(){ _ssGuideShow('gift'); }
+function _ssGuideShow(kind){
   try{
+    var m=_ssGuideMeta(kind);
     var old=g('ssg_pop'); if(old) old.remove();
     var ov=document.createElement('div');
     ov.id='ssg_pop';
     ov.style.cssText='position:fixed;inset:0;z-index:99997;display:flex;align-items:flex-start;justify-content:center;background:rgba(3,8,30,.55);padding:20px 14px;overflow-y:auto';
     ov.innerHTML='<div id="ssg_card" style="background:#f4f6fc;border-radius:12px;max-width:720px;width:100%;box-shadow:0 18px 52px rgba(4,10,40,.45);cursor:default;margin:auto">'
       +'<div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#fff;border-bottom:1px solid #e4e8f4;border-radius:12px 12px 0 0">'
-        +'<div style="font-size:16.5px;font-weight:800;color:#181c2e;letter-spacing:-.3px"><i class="ti ti-book"></i> 상속세 설명서</div>'
+        +'<div style="font-size:16.5px;font-weight:800;color:#181c2e;letter-spacing:-.3px"><i class="ti '+m.ic+'"></i> '+_esc(m.t)+'</div>'
         +'<div style="display:flex;gap:6px;align-items:center">'
-          +'<button onclick="ssGuidePrint()" style="padding:7px 13px;border-radius:7px;background:#4858cc;border:none;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer"><i class="ti ti-printer"></i> 출력</button>'
+          +'<button onclick="ssGuidePrint(\''+kind+'\')" style="padding:7px 13px;border-radius:7px;background:#4858cc;border:none;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer"><i class="ti ti-printer"></i> 출력</button>'
           +'<span id="ssg_close" style="font-size:22px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 6px">&times;</span>'
         +'</div>'
       +'</div>'
-      +'<div style="padding:16px 18px 20px">'+_ssGuideBody()+'</div>'
+      +'<div style="padding:16px 18px 20px">'+m.body()+'</div>'
       +'</div>';
     ov.addEventListener('click',function(){ ov.remove(); });
     var card=ov.querySelector('#ssg_card');
@@ -20801,18 +21058,19 @@ function ssGuideOpen(){
     var cb=ov.querySelector('#ssg_close');
     if(cb) cb.addEventListener('click',function(){ ov.remove(); });
     document.body.appendChild(ov);
-  }catch(e){ console.warn('상속세 설명서 오류:', e); toast('설명서를 여는 중 문제가 발생했습니다.'); }
+  }catch(e){ console.warn('설명서 오류:', e); toast('설명서를 여는 중 문제가 발생했습니다.'); }
 }
 // 출력은 새 창(SPA 전체가 인쇄되는 것 방지 — dqPrint·mtView 패턴). 내용은 상수라 innerHTML 복사도 안전.
-function ssGuidePrint(){
+function ssGuidePrint(kind){
+  var m=_ssGuideMeta(kind);
   var w=window.open('','_blank');
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
   try{
-    w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>상속세 설명서</title>'
+    w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'+_esc(m.t)+'</title>'
       +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">'
       +'<style>@page{size:A4;margin:12mm}body{margin:0;padding:14px;background:#fff;color:#1a1a2e;'
       +'font-family:-apple-system,BlinkMacSystemFont,\'Malgun Gothic\',\'맑은 고딕\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-      +'div{break-inside:avoid}</style></head><body>'+_ssGuideBody()+'</body></html>');
+      +'div{break-inside:avoid}</style></head><body>'+m.body()+'</body></html>');
     var done=false;
     var go=function(){ if(done) return; done=true; try{ w.focus(); w.print(); }catch(e){} };
     // 스타일·아이콘 글꼴이 준비된 뒤 인쇄(고정 대기로는 느린 회선에서 아이콘이 깨진 채 미리보기가 뜸 — 2026-09-15 리뷰)
@@ -20822,7 +21080,7 @@ function ssGuidePrint(){
     }); }catch(e){}
     w.document.close();
     setTimeout(go, 2500);   // load·폰트 이벤트를 못 받는 브라우저에서도 반드시 인쇄되도록 최대 대기
-  }catch(e){ console.warn('상속세 설명서 출력 오류:', e); toast('출력 창을 여는 중 문제가 발생했습니다.'); }
+  }catch(e){ console.warn('설명서 출력 오류:', e); toast('출력 창을 여는 중 문제가 발생했습니다.'); }
 }
 // 분류 이름에 '대리발급'이 들어간 분류의 탭을 선택하면 서류 작성 패널이 표시된다:
 // 좌=위임자(고객)/위임받는자(로그인 계정 자동 입력·수정 가능) 정보 입력, 우=올린 양식 미리보기,
