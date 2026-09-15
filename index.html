@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-14</div>
   </div>
 </div>
 
@@ -1281,7 +1281,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <!-- 리스트 -->
       <div class="card">
         <table class="dt">
-          <thead><tr><th style="width:36px"></th><th>이름</th><th style="width:96px;white-space:nowrap" id="cust_th_agent">담당자</th><th style="width:70px">생년월일</th><th style="width:60px">지역</th><th>가족정보</th><th>특이사항</th><th style="width:70px;white-space:nowrap">고객등록요청</th><th style="width:80px;white-space:nowrap">메리츠 가설동</th><th style="width:82px;white-space:nowrap">수정·삭제</th></tr></thead>
+          <thead><tr><th style="width:36px"></th><th>이름</th><th style="width:96px;white-space:nowrap" id="cust_th_agent">담당자</th><th style="width:70px">생년월일</th><th style="width:60px">지역</th><th>가족정보</th><th>특이사항</th><th style="width:70px;white-space:nowrap">고객등록요청</th><th style="width:80px;white-space:nowrap">메리츠 가설동</th><th style="width:78px;white-space:nowrap">보험금청구</th><th style="width:82px;white-space:nowrap">수정·삭제</th></tr></thead>
           <tbody id="cust_tb"></tbody>
         </table>
       </div>
@@ -14389,14 +14389,102 @@ function openNoticeReads(i){
 // ===== 고객등록 =====
 var custs; try { custs = JSON.parse(localStorage.getItem('tops_custs')||'[]'); } catch(e){ custs=[]; }
 
-function deleteCustRow(idx){
-  if(!Array.isArray(custs)||!custs[idx]) return;
-  if(!confirm('"'+(custs[idx].name||'이 고객')+'" 정보를 삭제하시겠습니까?')) return;
-  custs.splice(idx,1);
-  try{ localStorage.setItem('tops_custs',JSON.stringify(custs)); }catch(e){ console.warn('tops_custs 저장 실패(quota):', e); }
-  try{sv('tops_custs',custs);}catch(e){}
+// ===== 고객 목록 — 같은 내용 합치기 · 청구신청 바로가기 (2026-09-15) =====
+// 지문(fingerprint)이 같으면 "같은 내용"으로 보고 목록에서 한 줄로 합친다.
+// ⚠️ **주민번호가 없으면 빈 문자열을 돌려줘 절대 합치지 않는다** — 이름만 같은 동명이인이
+//    한 줄로 합쳐지면 남의 기록이 화면에서 사라지고 삭제까지 함께 되는 사고가 난다.
+// 비교 대상은 화면에 보이는 값 + 담당자(이름·주민번호·담당자·지역·특이사항·가족 구성)
+//  — 하나라도 다르면 별개로 본다(잘못 합치는 쪽보다 두 줄로 보이는 쪽이 안전).
+function _custFp(c){
+  if(!c) return '';
+  var t=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); };
+  var rrn=t(c.rrn).replace(/-/g,'');
+  if(!rrn) return '';
+  var fam=(c.family||[]).filter(function(f){ return f&&t(f.name); })
+    .map(function(f){ return [t(f.name), t(f.rrn).replace(/-/g,''), t(f.rel)].join('~'); })
+    .sort().join(';');
+  return [t(c.name), rrn, t(c.m), t(c.region), t(c.note), fam].join('|');
+}
+function _famFp(f){
+  if(!f) return '';
+  var t=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); };
+  var rrn=t(f.rrn).replace(/-/g,'');
+  if(!rrn) return '';
+  return [t(f.name), rrn, t(f.rel)].join('|');
+}
+// custs 배열에서 같은 지문인 항목의 인덱스 전부(주민번호 없으면 자기 자신만)
+function _custDupIdxs(idx){
+  var c=(Array.isArray(custs)?custs:[])[idx]; if(!c) return [];
+  var fp=_custFp(c);
+  if(!fp) return [idx];
+  var out=[];
+  custs.forEach(function(x,i){ if(_custFp(x)===fp) out.push(i); });
+  if(out.indexOf(idx)<0) out.push(idx);
+  return out;
+}
+function _custsPersist(){
+  _lsSet('tops_custs', JSON.stringify(custs));
+  window._custs = custs;
+  try{ sv('tops_custs', custs); }catch(e){}
+}
+// [정리] — 같은 내용 중 첫 건만 남기고 나머지를 지운다(합쳐 보이던 줄을 데이터에서도 하나로)
+function custDupClean(idx){
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  var c=(Array.isArray(custs)?custs:[])[idx]; if(!c) return;
+  var idxs=_custDupIdxs(idx);
+  if(idxs.length<2){ toast('정리할 중복이 없습니다.'); rCustList(); return; }
+  if(!confirm('"'+(c.name||'이 고객')+'" — 내용이 같은 '+idxs.length+'건 중 1건만 남기고 '
+    +(idxs.length-1)+'건을 지웁니다. 계속할까요?')) return;
+  idxs.slice(1).sort(function(a,b){ return b-a; }).forEach(function(i){ custs.splice(i,1); });
+  _custsPersist();
   rCustList();
-  toast('삭제되었습니다.');
+  toast('중복 '+(idxs.length-1)+'건을 정리했습니다.');
+}
+// 고객 목록에서 바로 청구신청 — 청구신청 화면을 열고 계약자 칸을 이 고객(또는 가족)으로 채운다
+function claimFromCust(custIdx, famIdx){
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  var c=(Array.isArray(custs)?custs:[])[custIdx];
+  if(!c){ toast('고객 정보를 찾을 수 없습니다.'); return; }
+  // 목록 가시성과 같은 규칙(본인 고객만, 총무는 전체)
+  if(!_isChongmu() && (!cu || c.m !== cu.name)){ toast('본인 고객만 청구신청할 수 있습니다.'); return; }
+  var p;
+  if(famIdx!==undefined && famIdx!==null && famIdx!==''){
+    var f=(c.family||[])[famIdx];
+    if(!f||!f.name){ toast('가족 정보를 찾을 수 없습니다.'); return; }
+    var own=!!(String(f.region||'').trim()||String(f.addr||'').trim());
+    p={ name:f.name||'', rrn:f.rrn||'', phone:f.phone||'',
+        region: own?(f.region||''):(c.region||''),      // 가족 주소가 비면 대표 고객 주소 폴백(selectClaimCand와 동일)
+        addr:   own?(f.addr||''):(c.addr||''),
+        bankName:f.bankName||'', bankNum:f.bankNum||'' };
+  } else {
+    p=c;
+  }
+  showPage('claim_apply');
+  setTimeout(function(){
+    var w=g('claim_form_wrap');
+    if(w){
+      if(w.style.display!=='none') toggleClaimForm();   // 열려 있던 폼은 닫았다가
+      toggleClaimForm();                                 // 다시 열어 이전 입력을 깨끗이 비움
+    }
+    try{ _claimFillContractor(p); }catch(e){ console.warn('claimFromCust fill:', e); }
+  }, 80);
+}
+
+function deleteCustRow(idx){
+  if(Array.isArray(window._custs)){ custs=window._custs; }
+  if(!Array.isArray(custs)||!custs[idx]) return;
+  var nm=custs[idx].name||'이 고객';
+  // 목록에서 한 줄로 합쳐 보이던 '같은 내용'은 함께 지운다 —
+  // 첫 건만 지우면 남은 복제가 그 자리를 채워 "삭제가 안 된 것처럼" 보이기 때문.
+  var idxs=_custDupIdxs(idx);
+  var msg=(idxs.length>1)
+    ? ('"'+nm+'" — 내용이 같은 '+idxs.length+'건이 함께 삭제됩니다. 계속하시겠습니까?')
+    : ('"'+nm+'" 정보를 삭제하시겠습니까?');
+  if(!confirm(msg)) return;
+  idxs.sort(function(a,b){ return b-a; }).forEach(function(i){ custs.splice(i,1); });
+  _custsPersist();
+  rCustList();
+  toast(idxs.length>1?(idxs.length+'건이 삭제되었습니다.'):'삭제되었습니다.');
 }
 
 function rCustList(){
@@ -14429,12 +14517,24 @@ function rCustList(){
       ||(c.family&&c.family.some(function(f){return f.name&&f.name.toLowerCase().includes(q);}));
   });
   if(!list.length){
-    tb.innerHTML='<tr><td colspan="'+(chongmu?10:9)+'" class="em" style="padding:30px">등록된 고객이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="'+(chongmu?11:10)+'" class="em" style="padding:30px">등록된 고객이 없습니다.</td></tr>';
     return;
   }
+  // ── 같은 내용은 한 줄로 합쳐 표시 (2026-09-15) ──
+  //   지문(_custFp)이 같은 고객은 대표 1건만 그리고 [중복 n건] 배지를 붙인다.
+  //   ⚠️ 표시만 합치는 것이고, 핸들러에는 **대표 항목의 원본 인덱스**를 그대로 넘긴다(함정 A).
+  var _fpSeen={}, uniq=[];
+  list.forEach(function(c){
+    var fp=_custFp(c);
+    if(fp && _fpSeen[fp]){ _fpSeen[fp].n++; return; }   // 지문 ''(주민번호 없음)은 절대 합치지 않음
+    var it={c:c, n:1};
+    if(fp) _fpSeen[fp]=it;
+    uniq.push(it);
+  });
   var rows=[];
   var seq=0;
-  list.forEach(function(c){
+  uniq.forEach(function(it){
+    var c=it.c, dupN=it.n;
     var realIdx=custs.indexOf(c);
     var birth=c.rrn?c.rrn.slice(0,6):'-';
     var famInfo=(c.family&&c.family.filter(function(f){return f.name;}).length)
@@ -14444,10 +14544,15 @@ function rCustList(){
     var reqBtn='<button onclick="requestCustReg('+realIdx+')" style="font-size:13px;padding:3px 7px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.25);border-radius:5px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 요청</button>';
     var meritzBtn='<button onclick="requestMeritzFromList('+realIdx+')" style="font-size:13px;padding:3px 7px;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);border-radius:5px;color:#8a6a10;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 요청</button>';
     var delBtn='<button onclick="deleteCustRow('+realIdx+')" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>';
+    var claimBtn='<button onclick="claimFromCust('+realIdx+')" title="이 고객으로 청구신청을 시작합니다" style="font-size:13px;padding:3px 7px;background:rgba(30,150,90,.12);border:1px solid rgba(30,150,90,.3);border-radius:5px;color:#1a7a48;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-receipt"></i> 청구</button>';
+    var dupBadge=(dupN>1)
+      ? (' <span style="font-size:11px;color:#c0392b;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:8px;padding:1px 6px;white-space:nowrap">중복 '+dupN+'건</span>'
+         +' <button onclick="custDupClean('+realIdx+')" title="같은 내용 중 1건만 남기고 정리합니다" style="font-size:11px;padding:1px 6px;background:rgba(200,40,40,.06);border:1px solid rgba(200,40,40,.2);border-radius:8px;color:#c0392b;cursor:pointer;font-family:inherit">정리</button>')
+      : '';
     var editBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#3a48cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
     rows.push('<tr style="background:rgba(72,88,204,.04);border-top:2px solid rgba(72,88,204,.1)">'
       +'<td style="text-align:center;font-size:13px;color:#aaa">'+seq+'</td>'
-      +'<td style="font-weight:700;font-size:15px;color:#1a1a3a"><span onclick="openCustInfoByIdx('+realIdx+')" title="클릭하면 고객정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.45)">'+_esc(c.name)+'</span></td>'
+      +'<td style="font-weight:700;font-size:15px;color:#1a1a3a"><span onclick="openCustInfoByIdx('+realIdx+')" title="클릭하면 고객정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.45)">'+_esc(c.name)+'</span>'+dupBadge+'</td>'
       +(chongmu?'<td style="white-space:nowrap">'+(c.m?(function(){
           var agentMem=mem.find(function(mm){return mm.name===c.m;});
           var rank=agentMem?agentMem.rank:'';
@@ -14461,16 +14566,22 @@ function rCustList(){
       +'<td style="font-size:14px;color:#777;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(c.note||'-')+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'+reqBtn+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'+meritzBtn+'</td>'
+      +'<td style="text-align:center;white-space:nowrap">'+claimBtn+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'+editBtn+delBtn+'</td>'
       +'</tr>');
     if(c.family&&c.family.length){
+      var _famSeen={};
       c.family.forEach(function(f,fi){
         if(!f.name) return;
+        var ffp=_famFp(f);
+        if(ffp && _famSeen[ffp]) return;   // 같은 가족이 두 번 적힌 경우 한 줄만(지문 ''은 합치지 않음)
+        if(ffp) _famSeen[ffp]=1;
         var fbirth=f.rrn?f.rrn.slice(0,6):'-';
         seq++;
         var fReqBtn='<button onclick="requestCustRegFam('+realIdx+','+fi+')" style="font-size:13px;padding:3px 7px;background:rgba(30,130,200,.08);border:1px solid rgba(30,130,200,.15);border-radius:5px;color:#5588cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 요청</button>';
         var fMeritzBtn='<button onclick="requestMeritzFam('+realIdx+','+fi+')" style="font-size:13px;padding:3px 7px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:5px;color:#8a6a10;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 요청</button>';
         var fDelBtn='<button onclick="deleteFamRow('+realIdx+','+fi+')" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.15);border-radius:5px;color:#cc5555;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>';
+        var fClaimBtn='<button onclick="claimFromCust('+realIdx+','+fi+')" title="이 가족구성원으로 청구신청을 시작합니다" style="font-size:13px;padding:3px 7px;background:rgba(30,150,90,.09);border:1px solid rgba(30,150,90,.22);border-radius:5px;color:#3a8a60;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-receipt"></i> 청구</button>';
         var fEditBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정(가족 포함)" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.18);border-radius:5px;color:#5560cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
         rows.push('<tr style="border-top:1px solid rgba(0,0,0,.04)">'
           +'<td style="text-align:center;font-size:13px;color:#bbb">'+seq+'</td>'
@@ -14482,6 +14593,7 @@ function rCustList(){
           +'<td style="font-size:14px;color:#aaa">-</td>'
           +'<td style="text-align:center;white-space:nowrap">'+fReqBtn+'</td>'
           +'<td style="text-align:center;white-space:nowrap">'+fMeritzBtn+'</td>'
+          +'<td style="text-align:center;white-space:nowrap">'+fClaimBtn+'</td>'
           +'<td style="text-align:center;white-space:nowrap">'+fEditBtn+fDelBtn+'</td>'
           +'</tr>');
       });
@@ -14501,11 +14613,15 @@ function deleteFamRow(custIdx, famIdx){
     return;
   }
   window._delFamConfirm=null;
-  custs[custIdx].family.splice(famIdx,1);
-  custs[custIdx].familyCnt=custs[custIdx].family.length;
-  try{ localStorage.setItem('tops_custs',JSON.stringify(custs)); }catch(e){ console.warn('tops_custs 저장 실패(quota):', e); }
-  window._custs = custs;
-  try{sv('tops_custs',custs);}catch(e){}
+  // 한 줄로 합쳐 보이던 같은 내용의 가족도 함께 제거(대표만 지우면 복제가 그 자리를 채움)
+  var fam=custs[custIdx].family||[];
+  var ffp=_famFp(fam[famIdx]);
+  var fidx=[];
+  if(ffp) fam.forEach(function(x,i){ if(_famFp(x)===ffp) fidx.push(i); });
+  if(fidx.indexOf(famIdx)<0) fidx.push(famIdx);
+  fidx.sort(function(a,b){ return b-a; }).forEach(function(i){ fam.splice(i,1); });
+  custs[custIdx].familyCnt=fam.length;
+  _custsPersist();
   rCustList();
   toast('삭제되었습니다.');
 }
