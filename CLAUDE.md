@@ -847,6 +847,15 @@
   진단은 `.github/workflows/gs-diag.yml`(`.gs-diag-run` 갱신 푸시로 실행) — ①GET ping ②익명 POST ③프록시 경유.
   ⚠️ **판정은 ③으로만** 한다: ②는 curl -L이 앱스크립트의 POST 리다이렉트를 못 따라가
   **정상 서버에서도 405+HTML**을 돌려준다(이걸 근거로 "액세스 권한 문제"라고 오진했던 기록).
+- **⚠️ POST가 GET으로 바뀌어 도착하는 간헐 실패 (2026-09-15 v-19)**: 두 번째 증상은
+  `TEAM TOPS Drive sync OK (gsheet-17) https://docs.google.com/…` — **doGet의 기본 응답**이었다.
+  앱스크립트 POST는 302로 답하고 fetch가 그걸 따라가는 구조라, 리다이렉트가 `/exec`로 되돌면
+  **GET으로 바뀐 채** 도착해 doGet이 응답한다(서버 설정 문제 아님).
+  → `/api/drive` 프록시가 흡수한다: **JSON이 아니면 400ms 뒤 POST 재시도 → 그래도 아니면
+  읽기 액션(dvList)만 `?action=…` GET으로 폴백**(GET은 이 변환 자체가 없음).
+  ⚠️ 이 재시도·폴백을 빼지 말 것 — 빼면 자료함이 간헐적으로 실패한다.
+  GET 폴백은 **doGet에 라우팅이 있는 액션만**(현재 dvList). dvFile도 doGet에 추가하면 함께 넣을 것.
+  쿼리에는 문자열 값만 싣는다(base64 등 객체·대용량이 URL에 실리지 않게).
 - 저장·동기화 없음(함정 B 무관) — 탐색 상태는 메모리 `window._dvState`(member/path/busy/seq)뿐, **logout에서 리셋**.
   id는 `dv_` 접두(함정 E), 폴더·파일 조작은 전부 **이름 문자열이 식별자**(함정 A 무관), 표시·속성 전부 `_esc`/`_alertEsc`,
   onclick 인자는 `&`를 먼저 이스케이프(함정 A). 흰 카드라 글씨는 어두운 색(함정 D 역방향).

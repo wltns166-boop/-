@@ -1052,14 +1052,48 @@ exports.api = onRequest(
         res.status(400).json({ error: { message: "invalid drive url" } });
         return;
       }
-      try {
+      // ⚠️ 앱스크립트 POST는 302로 응답하고 fetch가 그걸 따라가는 구조라,
+      //    가끔 리다이렉트가 /exec로 되돌아 **GET으로 바뀐 채** 도착한다 →
+      //    doGet 기본 응답("TEAM TOPS Drive sync OK (…)")이나 구글 오류 HTML이 돌아온다
+      //    (2026-09-15 실제 사례 2건). 서버 설정 문제가 아니므로 여기서 재시도로 흡수한다.
+      //    ⚠️ 재시도를 빼지 말 것 — 빼면 자료함이 간헐적으로 "서버 응답이 올바르지 않습니다"로 실패한다.
+      const _dvPost = async () => {
         const r = await fetch(target, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body.payload || {}),
           redirect: "follow"
         });
-        const txt = await r.text();
+        return await r.text();
+      };
+      // 읽기 액션은 doGet에도 같은 경로가 있어(?action=dvList) 마지막 폴백으로 GET을 쓴다.
+      //   GET은 POST→GET 변환 문제가 없어 이 증상 자체가 생기지 않는다.
+      const _dvGet = async () => {
+        const p = body.payload || {};
+        const qs = Object.keys(p)
+          .filter((k) => typeof p[k] !== "object" && p[k] !== undefined && p[k] !== null)
+          .map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(String(p[k])))
+          .join("&");
+        const r = await fetch(target + (target.indexOf("?") >= 0 ? "&" : "?") + qs, {
+          method: "GET", redirect: "follow"
+        });
+        return await r.text();
+      };
+      const _isJson = (t) => { try { JSON.parse(t); return true; } catch (e) { return false; } };
+      try {
+        let txt = await _dvPost();
+        if (!_isJson(txt)) {                       // 1차 실패 → 잠깐 쉬고 재시도
+          await new Promise((r) => setTimeout(r, 400));
+          txt = await _dvPost();
+        }
+        if (!_isJson(txt)) {                       // 2차도 실패 → 읽기 액션이면 GET으로
+          // ⚠️ dvList만 — doGet에 라우팅이 있는 액션은 현재 이것뿐이다(gsheet-17).
+          //    dvFile도 doGet에 추가하면 여기에 함께 넣을 것.
+          const act = String((body.payload || {}).action || "");
+          if (act === "dvList") {
+            try { const g = await _dvGet(); if (_isJson(g)) txt = g; } catch (e) {}
+          }
+        }
         let j; try { j = JSON.parse(txt); } catch (e) { j = { raw: txt.slice(0, 500) }; }
         res.status(200).json(j);
       } catch (e) {
