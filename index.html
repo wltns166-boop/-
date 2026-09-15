@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-18</div>
   </div>
 </div>
 
@@ -28356,8 +28356,11 @@ function _dvErrMsg(r){
     // 앱스크립트가 JSON 대신 HTML(구글 로그인·오류 페이지)을 돌려준 경우 —
     // 원문을 그대로 보여주면 읽을 수 없으므로 원인과 조치를 문장으로 안내한다.
     if(/^\s*<(!doctype|html)/i.test(raw) || /accounts\.google\.com|_ppConfig/i.test(raw)){
-      return '드라이브 서버가 로그인 화면을 돌려줬습니다. 앱스크립트 [배포 관리]에서 '
-           + '**액세스 권한을 "모든 사용자"**로 바꿔 다시 배포해야 합니다.';
+      // 재배포 직후 새 버전이 퍼지는 동안 구글이 잠깐 오류·로그인 페이지를 돌려주는 일이 있다
+      // (2026-09-15 실제 사례 — 잠시 뒤 [새로고침]으로 정상 조회됨). 그래서 재시도를 먼저 안내하고,
+      // 계속될 때만 배포 설정 확인을 권한다. ⚠️ 곧장 "권한을 바꾸라"고 단정하지 말 것(잘못된 조치 유발).
+      return '드라이브 서버가 잠시 응답하지 못했습니다. [새로고침]을 눌러 다시 시도해 주세요. '
+           + '계속 같으면 관리자에게 앱스크립트 배포의 액세스 권한이 "모든 사용자"인지 확인을 요청하세요.';
     }
     return '서버 응답이 올바르지 않습니다: '+raw.slice(0,120);
   }
