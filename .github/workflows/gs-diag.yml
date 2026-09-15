@@ -1,0 +1,50 @@
+# 구글드라이브 앱스크립트 웹앱 진단 (수동 실행 전용)
+# — Claude 작업 컨테이너는 네트워크 정책상 외부 도메인 접근이 막혀 있어,
+#   GitHub Actions 러너가 대신 웹앱을 호출해 "익명 POST가 되는지"를 확인한다.
+# — [내 자료함]이 "서버 응답이 올바르지 않습니다: <!DOCTYPE html>…"로 실패할 때,
+#   원인이 (a) 배포 액세스 권한이 '모든 사용자'가 아님 (b) 서버 오류 중 무엇인지 가른다.
+#   ⚠️ 읽기 전용 호출만 한다(ping·dvList). 웹앱 URL은 index.html에 이미 공개돼 있는 값.
+name: GS Diag
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['.gs-diag-run']   # 이 파일을 갱신해 푸시하면 진단 1회 실행
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 웹앱 URL 추출
+        id: url
+        run: |
+          U=$(grep -oE 'window\.DRIVE_SYNC_URL = "[^"]+"' index.html | sed 's/.*"\(.*\)"/\1/')
+          echo "url=$U" >> "$GITHUB_OUTPUT"
+          echo "웹앱: ${U:0:60}…"
+      - name: ① GET ?ping=1 (버전 확인)
+        run: |
+          curl -sSL -m 60 "${{ steps.url.outputs.url }}?ping=1&v=diag" -o /tmp/ping.txt -w 'HTTP %{http_code}\n' || true
+          echo "── 응답 앞 300자 ──"; head -c 300 /tmp/ping.txt; echo
+      - name: ② 익명 POST dvList (프록시가 하는 것과 같은 요청)
+        run: |
+          curl -sSL -m 60 -X POST "${{ steps.url.outputs.url }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"dvList","member":"박지순","path":""}' \
+            -o /tmp/post.txt -w 'HTTP %{http_code}\n' || true
+          echo "── 응답 앞 400자 ──"; head -c 400 /tmp/post.txt; echo
+          echo
+          if head -c 200 /tmp/post.txt | grep -qi '<!doctype html\|<html'; then
+            echo "‼️ HTML이 돌아옴 = 익명 POST가 거부됨."
+            echo "   → 배포 [액세스 권한]이 '모든 사용자'가 아닐 가능성이 가장 큼."
+            echo "     script.google.com > [배포] > [배포 관리] > ✏️ > 액세스 권한: 모든 사용자 > [배포]"
+          else
+            echo "✅ JSON 응답 — 웹앱 자체는 익명 POST를 받는다."
+          fi
+      - name: ③ /api/drive 프록시 경유 (인트라넷이 실제로 쓰는 경로)
+        run: |
+          curl -sS -m 90 -X POST "https://team-tops-intranet.web.app/api/drive" \
+            -H 'Content-Type: text/plain;charset=utf-8' \
+            -d "{\"driveProxy\":true,\"url\":\"${{ steps.url.outputs.url }}\",\"payload\":{\"action\":\"dvList\",\"member\":\"박지순\",\"path\":\"\"}}" \
+            -o /tmp/proxy.txt -w 'HTTP %{http_code}\n' || true
+          echo "── 응답 앞 400자 ──"; head -c 400 /tmp/proxy.txt; echo
