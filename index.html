@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-15</div>
   </div>
 </div>
 
@@ -14393,26 +14393,31 @@ var custs; try { custs = JSON.parse(localStorage.getItem('tops_custs')||'[]'); }
 // 지문(fingerprint)이 같으면 "같은 내용"으로 보고 목록에서 한 줄로 합친다.
 // ⚠️ **주민번호가 없으면 빈 문자열을 돌려줘 절대 합치지 않는다** — 이름만 같은 동명이인이
 //    한 줄로 합쳐지면 남의 기록이 화면에서 사라지고 삭제까지 함께 되는 사고가 난다.
-// 비교 대상은 화면에 보이는 값 + 담당자(이름·주민번호·담당자·지역·특이사항·가족 구성)
-//  — 하나라도 다르면 별개로 본다(잘못 합치는 쪽보다 두 줄로 보이는 쪽이 안전).
+// ⚠️ **비교는 화면에 보이는 값이 아니라 저장된 내용 전체로 한다**(2026-09-15 v-15 리뷰) —
+//    합쳐진 줄은 [정리]·삭제에서 함께 지워지므로, 연락처·주소·직업·계좌·첨부처럼 목록에
+//    안 나오는 값이 다른데도 "같은 내용"으로 합치면 확인할 기회 없이 사라진다.
+//    그래서 등록 시각·내부 id 같은 무의미한 값(_CUST_FP_SKIP)만 빼고 전부 비교한다.
+//    ⚠️ 비교 범위를 화면 표시 항목으로 다시 좁히지 말 것.
+var _CUST_FP_SKIP = { ts:1, id:1, regTs:1, regDate:1, updTs:1, ut:1, familyCnt:1 };
+function _custFpVal(v){
+  if(v==null) return '';
+  if(Array.isArray(v)) return v.map(_custFpVal).join('\u0002');
+  if(typeof v==='object'){
+    return Object.keys(v).filter(function(k){ return !_CUST_FP_SKIP[k]; }).sort()
+      .map(function(k){ return k+'\u0001'+_custFpVal(v[k]); }).join('\u0002');
+  }
+  return String(v).replace(/\s+/g,' ').trim();
+}
 function _custFp(c){
-  if(!c) return '';
-  var t=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); };
-  var rrn=t(c.rrn).replace(/-/g,'');
-  if(!rrn) return '';
-  var fam=(c.family||[]).filter(function(f){ return f&&t(f.name); })
-    .map(function(f){ return [t(f.name), t(f.rrn).replace(/-/g,''), t(f.rel)].join('~'); })
-    .sort().join(';');
-  return [t(c.name), rrn, t(c.m), t(c.region), t(c.note), fam].join('|');
+  if(!c || typeof c!=='object') return '';
+  if(!String(c.rrn||'').replace(/[^0-9]/g,'')) return '';   // 주민번호 없으면 합치지 않음
+  return _custFpVal(c);
 }
 function _famFp(f){
-  if(!f) return '';
-  var t=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); };
-  var rrn=t(f.rrn).replace(/-/g,'');
-  if(!rrn) return '';
-  return [t(f.name), rrn, t(f.rel)].join('|');
+  if(!f || typeof f!=='object') return '';
+  if(!String(f.rrn||'').replace(/[^0-9]/g,'')) return '';
+  return _custFpVal(f);
 }
-// custs 배열에서 같은 지문인 항목의 인덱스 전부(주민번호 없으면 자기 자신만)
 function _custDupIdxs(idx){
   var c=(Array.isArray(custs)?custs:[])[idx]; if(!c) return [];
   var fp=_custFp(c);
@@ -14433,8 +14438,8 @@ function custDupClean(idx){
   var c=(Array.isArray(custs)?custs:[])[idx]; if(!c) return;
   var idxs=_custDupIdxs(idx);
   if(idxs.length<2){ toast('정리할 중복이 없습니다.'); rCustList(); return; }
-  if(!confirm('"'+(c.name||'이 고객')+'" — 내용이 같은 '+idxs.length+'건 중 1건만 남기고 '
-    +(idxs.length-1)+'건을 지웁니다. 계속할까요?')) return;
+  if(!confirm('"'+(c.name||'이 고객')+'" — 내용이 같은 '+idxs.length+'건 중 '
+    +'먼저 등록된 1건만 남기고 '+(idxs.length-1)+'건을 지웁니다. 계속할까요?')) return;
   idxs.slice(1).sort(function(a,b){ return b-a; }).forEach(function(i){ custs.splice(i,1); });
   _custsPersist();
   rCustList();
@@ -14547,7 +14552,7 @@ function rCustList(){
     var claimBtn='<button onclick="claimFromCust('+realIdx+')" title="이 고객으로 청구신청을 시작합니다" style="font-size:13px;padding:3px 7px;background:rgba(30,150,90,.12);border:1px solid rgba(30,150,90,.3);border-radius:5px;color:#1a7a48;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-receipt"></i> 청구</button>';
     var dupBadge=(dupN>1)
       ? (' <span style="font-size:11px;color:#c0392b;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:8px;padding:1px 6px;white-space:nowrap">중복 '+dupN+'건</span>'
-         +' <button onclick="custDupClean('+realIdx+')" title="같은 내용 중 1건만 남기고 정리합니다" style="font-size:11px;padding:1px 6px;background:rgba(200,40,40,.06);border:1px solid rgba(200,40,40,.2);border-radius:8px;color:#c0392b;cursor:pointer;font-family:inherit">정리</button>')
+         +' <button onclick="custDupClean('+realIdx+')" title="같은 내용 중 먼저 등록된 1건만 남기고 정리합니다" style="font-size:11px;padding:1px 6px;background:rgba(200,40,40,.06);border:1px solid rgba(200,40,40,.2);border-radius:8px;color:#c0392b;cursor:pointer;font-family:inherit">정리</button>')
       : '';
     var editBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#3a48cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
     rows.push('<tr style="background:rgba(72,88,204,.04);border-top:2px solid rgba(72,88,204,.1)">'
@@ -14570,12 +14575,18 @@ function rCustList(){
       +'<td style="text-align:center;white-space:nowrap">'+editBtn+delBtn+'</td>'
       +'</tr>');
     if(c.family&&c.family.length){
+      // 같은 가족이 두 번 적힌 경우 한 줄만 그린다(지문 ''=주민번호 없음은 합치지 않음).
+      // 숨긴 줄이 몇 건인지 배지로 알려야 함 — 삭제 시 함께 지워지기 때문(v-15 리뷰).
+      var _famCnt={};
+      c.family.forEach(function(f){ var k=_famFp(f); if(k) _famCnt[k]=(_famCnt[k]||0)+1; });
       var _famSeen={};
       c.family.forEach(function(f,fi){
         if(!f.name) return;
         var ffp=_famFp(f);
-        if(ffp && _famSeen[ffp]) return;   // 같은 가족이 두 번 적힌 경우 한 줄만(지문 ''은 합치지 않음)
+        if(ffp && _famSeen[ffp]) return;
         if(ffp) _famSeen[ffp]=1;
+        var fDupN=(ffp?_famCnt[ffp]:1)||1;
+        var fDupBadge=(fDupN>1)?(' <span style="font-size:11px;color:#c0392b;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.2);border-radius:8px;padding:1px 6px;white-space:nowrap">중복 '+fDupN+'건</span>'):'';
         var fbirth=f.rrn?f.rrn.slice(0,6):'-';
         seq++;
         var fReqBtn='<button onclick="requestCustRegFam('+realIdx+','+fi+')" style="font-size:13px;padding:3px 7px;background:rgba(30,130,200,.08);border:1px solid rgba(30,130,200,.15);border-radius:5px;color:#5588cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-send"></i> 요청</button>';
@@ -14585,7 +14596,7 @@ function rCustList(){
         var fEditBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정(가족 포함)" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.18);border-radius:5px;color:#5560cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
         rows.push('<tr style="border-top:1px solid rgba(0,0,0,.04)">'
           +'<td style="text-align:center;font-size:13px;color:#bbb">'+seq+'</td>'
-          +'<td style="font-size:14px;color:#3a4a7a;padding-left:16px"><span style="color:#ccc;margin-right:4px">└</span><span onclick="openCustInfoByIdx('+realIdx+','+fi+')" title="클릭하면 가족 정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.35)">'+_esc(f.name)+'</span></td>'
+          +'<td style="font-size:14px;color:#3a4a7a;padding-left:16px"><span style="color:#ccc;margin-right:4px">└</span><span onclick="openCustInfoByIdx('+realIdx+','+fi+')" title="클릭하면 가족 정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.35)">'+_esc(f.name)+'</span>'+fDupBadge+'</td>'
           +(chongmu?'<td style="font-size:13px;color:#aab">'+_esc(c.m||'-')+'</td>':'')
           +'<td style="font-size:14px;color:#888">'+fbirth+'</td>'
           +'<td style="font-size:14px;color:#5060aa">'+(f.region||'-')+'</td>'
@@ -14606,9 +14617,14 @@ function rCustList(){
 function deleteFamRow(custIdx, famIdx){
   if(!Array.isArray(custs)||!custs[custIdx]) return;
   var key='fam_'+custIdx+'_'+famIdx;
+  var _fam0=custs[custIdx].family||[];
+  var _ffp0=_famFp(_fam0[famIdx]);
+  var _fn0=_ffp0?_fam0.filter(function(x){ return _famFp(x)===_ffp0; }).length:1;
   if(window._delFamConfirm!==key){
     window._delFamConfirm=key;
-    toast('한 번 더 누르면 삭제됩니다.');
+    toast(_fn0>1
+      ? ('내용이 같은 '+_fn0+'건이 함께 삭제됩니다. 한 번 더 누르면 삭제됩니다.')
+      : '한 번 더 누르면 삭제됩니다.');
     setTimeout(function(){window._delFamConfirm=null;},3000);
     return;
   }
@@ -14623,7 +14639,7 @@ function deleteFamRow(custIdx, famIdx){
   custs[custIdx].familyCnt=fam.length;
   _custsPersist();
   rCustList();
-  toast('삭제되었습니다.');
+  toast(fidx.length>1?(fidx.length+'건이 삭제되었습니다.'):'삭제되었습니다.');
 }
 
 function requestCustRegFam(custIdx, famIdx){
