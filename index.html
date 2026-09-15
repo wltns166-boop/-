@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-7</div>
   </div>
 </div>
 
@@ -4855,6 +4855,14 @@ function _navSrchContent(q){
   hits.sort(function(a,b){ return (a.score-b.score)||((b.ts||0)-(a.ts||0)); });
   return hits;
 }
+// 자료 검색만 디바운스(2026-09-15 v-7 리뷰) — 글자 하나 칠 때마다 전 게시물 본문을 훑으면
+//   자료가 쌓일수록 메인 스레드가 밀린다. 메뉴 필터는 가벼우니 기존대로 즉시 반영.
+function _navSrchLater(q, anyMenu){
+  try{ clearTimeout(window._navSrchT); }catch(e){}
+  window._navSrchT=setTimeout(function(){
+    try{ _navSrchRender(_navSrchContent(q), anyMenu); }catch(e){ console.warn('자료 검색 오류:', e); }
+  }, 160);
+}
 function _navSrchRender(hits, anyMenu){
   var box=g('nav_srch_res'); if(!box) return;
   hits=hits||[];
@@ -4917,6 +4925,7 @@ function navSearch(q){
         });
         window._navSrchSnap=null;
       }
+      try{ clearTimeout(window._navSrchT); }catch(e){}   // 대기 중인 자료 검색이 뒤늦게 결과를 되살리지 않게
       _navSrchRender([]);   // 자료 결과 목록도 닫음
       return;
     }
@@ -4948,7 +4957,7 @@ function navSearch(q){
       var arr=g('nc_'+String(ch.id||'').replace(/^nch_/,'')); if(arr) arr.style.transform=show?'rotate(180deg)':'';
     });
     // 메뉴 필터에 이어 게시물·첨부파일·공지까지 찾아 목록으로 표시(2026-09-15)
-    _navSrchRender(_navSrchContent(q), anyMenu);
+    _navSrchLater(q, anyMenu);
   }catch(e){ console.warn('navSearch err:', e); }
 }
 function _navSrchClear(){ var i=g('nav_srch'); if(i&&i.value){ i.value=''; navSearch(''); } }
@@ -5613,8 +5622,11 @@ function showPage(name){
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
   else if(String(name).indexOf('cm_')===0) setTimeout(function(){
     var want=window._bdOpenWant; window._bdOpenWant=null;
-    window._bdOpenPost=(want&&want.name===name&&want.pid)?{name:name,pid:want.pid}:null;
-    rCustomPage(name);
+    var wantOk=!!(want&&want.name===name&&want.pid);
+    window._bdOpenPost=wantOk?{name:name,pid:want.pid}:null;
+    rCustomPage(name);   // 대상 게시물이 없으면 rCustomPage가 _bdOpenPost를 비우고 목록으로 폴백
+    // 검색 결과를 눌렀는데 목록만 뜨면 이유를 알 수 없음 — 공지 경로와 같게 안내(2026-09-15 v-7 리뷰)
+    if(wantOk&&!window._bdOpenPost) try{ toast('그 사이 삭제된 게시물입니다. 목록을 표시합니다.'); }catch(e){}
   },0);
   if(String(name).indexOf('cm_')!==0){ window._bdOpenPost=null; window._bdOpenWant=null; }   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
 }
