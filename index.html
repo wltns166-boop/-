@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-23</div>
   </div>
 </div>
 
@@ -21447,7 +21447,7 @@ var YR={
   cardFloor:0.25, cardRate:0.15, cardBase:70000000, cardLimitHi:3000000, cardLimitLo:2500000,
   child1:250000, child2:550000, childAdd:400000          // 자녀세액공제(8세 이상): 1명/2명/3명째부터 1인당
 };
-function _yrCnt(v,max){ var n=parseInt(String(v==null?'':v).replace(/[^0-9]/g,''),10); return Math.max(0, Math.min(max||20, n||0)); }
+function _yrCnt(v,max){ var n=parseInt(String(v==null?'':v).replace(/[^0-9]/g,''),10); return Math.max(0, Math.min(max==null?20:max, n||0)); }
 // 근로소득공제(총급여 → 공제액, 한도 2,000만원)
 function _yrIncDed(pay){
   if(pay<=0) return 0;
@@ -21499,7 +21499,12 @@ function _yrSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌�
 function _yrCompute(o){
   o=o||{};
   var pay=_ssNum(o.pay);
-  var fam=_yrCnt(o.fam), aged=_yrCnt(o.aged), dis=_yrCnt(o.dis), kid=_yrCnt(o.kid);
+  var fam=_yrCnt(o.fam), kid=_yrCnt(o.kid);
+  // 경로우대·장애인 추가공제 인원은 기본공제 인원(본인+부양가족)을 넘을 수 없다 —
+  //   상담 중 실수로 큰 수를 넣어도 조용히 과다공제되지 않게 클램프하고, 잘린 사실은 화면에 안내한다.
+  var agedIn=_yrCnt(o.aged), disIn=_yrCnt(o.dis), peopleMax=1+fam;
+  var aged=Math.min(agedIn, peopleMax), dis=Math.min(disIn, peopleMax);
+  var cntCut=(agedIn>aged)||(disIn>dis);
   var incDed=Math.round(_yrIncDed(pay));
   var earned=Math.max(0, pay-incDed);                       // 근로소득금액
   // ── 소득공제
@@ -21552,13 +21557,13 @@ function _yrCompute(o){
   var prepaidRaw=String(o.prepaid==null?'':o.prepaid).replace(/[^0-9]/g,'');
   var prepaid=_ssNum(o.prepaid);
   // ── 더 넣을 수 있는 여력(상담용) — 추가 공제 효과는 남은 결정세액까지만 실제 환급으로 이어진다
-  var roomIns=Math.max(0, YR.insLimit-insUse)+0;            // 일반 보장성보험료 여력
+  var roomIns=Math.max(0, YR.insLimit-insUse);              // 일반 보장성보험료 여력
   var roomPen=Math.max(0, YR.penTotLimit-penUse);
   var roomPenSaving=Math.min(Math.round(roomPen*penRate), deter);
   var roomInsSaving=Math.min(Math.round(roomIns*YR.insRate), Math.max(0, deter-roomPenSaving));
   return {
-    pay:pay, incDed:incDed, earned:earned,
-    personal:personal, pub:pub, pubAuto:pubAuto, card:card, cardDed:cardDed,
+    pay:pay, fam:fam, aged:aged, dis:dis, kid:kid, incDed:incDed, earned:earned,
+    personal:personal, pub:pub, pubAuto:pubAuto, card:card, cardDed:cardDed, cntCut:cntCut,
     dedSum:dedSum, dedUsed:dedUsed, dedCut:dedSum-dedUsed,
     base:base, rate:t.rate, calcTax:calcTax,
     items:items, credSum:credSum, credUsed:credUsed, credCut:credSum-credUsed,
@@ -21582,6 +21587,7 @@ function _yrResultHtml(r){
   h+=_yrRow('− 근로소득공제', _ssComma(r.incDed)+'원', {color:'#1f6b3a'});
   h+=_yrRow('= 근로소득금액', _ssComma(r.earned)+'원', {line:1});
   h+=_yrRow('− 인적공제', _ssComma(r.personal)+'원', {color:'#1f6b3a'});
+  if(r.cntCut) h+='<div style="font-size:11.5px;color:#c0392b;text-align:right">70세 이상·장애인 수는 본인+부양가족 '+(1+r.fam)+'명까지만 반영했습니다</div>';
   h+=_yrRow('− 공적보험료'+(r.pubAuto?' <span style="font-size:11px;color:#9aa2bd">(추정)</span>':''), _ssComma(r.pub)+'원', {color:'#1f6b3a'});
   if(r.card) h+=_yrRow('− 신용카드 등', _ssComma(r.cardDed)+'원', {color:'#1f6b3a'});
   if(r.dedCut>0) h+='<div style="font-size:11.5px;color:#c0392b;text-align:right">소득공제 '+_ssComma(r.dedCut)+'원은 소득을 넘어 반영되지 않았습니다</div>';
@@ -21675,8 +21681,8 @@ function _yrPanelHtml(name,cat){
       +cnt('kid','자녀 수','8세 이상')
     +'</div>'
     +'<div style="display:flex;gap:8px;margin-bottom:9px;flex-wrap:wrap">'
-      +cnt('aged','70세 이상','부양가족 중')
-      +cnt('dis','장애인','부양가족 중')
+      +cnt('aged','70세 이상','본인 포함')
+      +cnt('dis','장애인','본인 포함')
     +'</div>'
     +sect('소득공제','세금 매기는 소득을 줄입니다')
     +money('pub','공적보험료','자동 추정','국민연금·건강보험 등 — 비우면 총급여의 9%')
