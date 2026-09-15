@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.14-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-1</div>
   </div>
 </div>
 
@@ -27062,10 +27062,7 @@ function mcrParseText(){
   var applied=[];
   plan.forEach(function(p){
     var el=all[p.idx]; if(!el) return;
-    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){
-      var inp=el.querySelector('input[data-mf="'+k+'"]');
-      if(inp) inp.value=p.row[k]||'';
-    });
+    _mcrPutRow(el, p.row);
     applied.push(p.no+'번');
   });
   var custMsg=_mcrFillNames(cust, insd);
@@ -27074,14 +27071,31 @@ function mcrParseText(){
     +(extras?' · 일부 칸의 추가 계약 '+extras+'건은 반영 안 됨(여러 건 이어 채우기는 한 칸에만 붙여넣을 때 동작)':'')
     +' — 내용을 확인·수정한 뒤 [신청]을 눌러주세요.'+custMsg;
 }
+// 인식 행 1건을 계약 줄 입력칸에 대입(글자·사진 공용). 계약일은 값 대입 후 _mcrFmtYmd의 이전값 캐시(data-ymd/ymdlen)를
+//   비워 다음 백스페이스가 정상 동작하게 함(2026-09-15 v-4 재점검: 캐시가 옛 값이면 첫 백스페이스가 무반응)
+function _mcrPutRow(el, row){
+  ['ins','prod','prem','term','pol','cdt'].forEach(function(k){
+    var inp=el.querySelector('input[data-mf="'+k+'"]');
+    if(!inp) return;
+    inp.value=row[k]||'';
+    if(k==='cdt'){ delete inp.dataset.ymd; delete inp.dataset.ymdlen; }
+  });
+}
 // 인식 결과 → 폼 반영(글자·사진 공용) — 선택한 인식 칸의 번호(startRid의 줄)부터 차례로 채움.
 //   대상 구간 밖의 다른 계약 줄은 건드리지 않음(계약 건수별 칸 개편, 2026-09-14). 줄 대응은 data-mrid 위치 기준(정렬·필터 없음 — 함정 A 무관)
 function _mcrApply(rows, custNm, startRid, insdNm){
   var stat=g('mcr_kk_stat');
   var box=g('mcr_rows'); if(!box) return;
   var all=box.querySelectorAll('.mcrrow');
-  var start=0;
+  var start=-1;
   if(startRid){ for(var i=0;i<all.length;i++){ if(all[i].getAttribute('data-mrid')===startRid){ start=i; break; } } }
+  else start=0;
+  // 선택했던 인식 칸(줄)이 그 사이 삭제됐으면(사진 인식 응답 대기 중 ✕ 등) 1번 줄로 조용히 오귀속하지 않고 중단(2026-09-15 v-4 재점검)
+  if(start<0){
+    if(stat) stat.textContent='선택한 인식 칸이 삭제되어 인식 결과를 반영하지 않았습니다. 칸을 다시 선택한 뒤 인식해주세요.';
+    toast('선택한 인식 칸이 삭제되어 반영하지 않았습니다.');
+    return;
+  }
   var need=start+rows.length;
   if(need>all.length){
     _mcrSyncRows(need);   // 20건 초과는 내부에서 클램프+토스트
@@ -27093,10 +27107,7 @@ function _mcrApply(rows, custNm, startRid, insdNm){
   var applied=0;
   rows.forEach(function(r,i){
     var el=all[start+i]; if(!el) return;
-    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){
-      var inp=el.querySelector('input[data-mf="'+k+'"]');
-      if(inp) inp.value=r[k]||'';
-    });
+    _mcrPutRow(el, r);
     applied++;
   });
   var custMsg=_mcrFillNames(custNm, insdNm);
@@ -27113,6 +27124,7 @@ async function mcrImgRecognize(fileList, startRid){
   if(window._mcrOcrBusy){ toast('이미 사진을 인식하는 중입니다. 잠시만 기다려주세요.'); return; }
   if(!startRid){ var sb=_mcrKkSelBox(); startRid=sb?sb.getAttribute('data-mrid'):null; }   // 지정 없으면 선택(초록) 칸 기준
   window._mcrOcrBusy=true;
+  var gen=window._mcrGen||0;   // 모달 재오픈 세대 — 응답이 다른 세션(닫았다 다시 연 폼)에 들어가는 것 방지(서면 업로드와 같은 가드)
   var stat=g('mcr_kk_stat');
   if(stat) stat.textContent='📷 사진 인식 중… (AI 분석, 수 초~수십 초 걸립니다)';
   try{
@@ -27127,6 +27139,7 @@ async function mcrImgRecognize(fileList, startRid){
     var data=null; try{ data=await res.json(); }catch(e){}
     if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('서버 오류 '+res.status));
     var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'';
+    if(gen!==(window._mcrGen||0)) return;   // 그 사이 모달을 닫았다 다시 열었음 — 옛 응답 폐기
     var m=/\[[\s\S]*\]/.exec(text);
     if(!m) throw new Error('AI 응답에서 계약 내용을 찾지 못했습니다.');
     var arr=JSON.parse(m[0]);
@@ -27145,6 +27158,7 @@ async function mcrImgRecognize(fileList, startRid){
     }
     _mcrApply(rows, custNm, startRid, insdNm);
   }catch(e){
+    if(gen!==(window._mcrGen||0)) return;
     var em=(e&&e.message)||String(e);
     if(stat) stat.textContent='사진 인식 실패: '+em;
     toast('사진 인식 실패: '+em);
