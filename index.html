@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-12</div>
   </div>
 </div>
 
@@ -558,6 +558,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="ns"><div class="ni" id="n_delayreq">지급지연 요청서</div></div>
       <div class="ns"><div class="ni" id="n_samdocs">3종서류</div></div>
       <div class="ns"><div class="ni" id="n_mcreq">모바일 계약 반영 요청</div></div>
+      <div class="ns"><div class="ni" id="n_drive">내 자료함</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -2086,6 +2087,29 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <thead><tr><th style="width:100px">담당자</th><th style="width:230px">계약자 · 고객정보</th><th>반영 진행여부 · 계약정보</th><th style="width:50px">삭제</th></tr></thead>
           <tbody id="mcr_tb"></tbody>
         </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 내 자료함 (drive) — 구글드라이브 팀원별 폴더 열람·업로드 -->
+    <div class="pg" id="pg_drive">
+      <div class="sh"><div class="st"><i class="ti ti-folder"></i>내 자료함</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span class="ao" id="dv_mem_wrap" style="display:none;align-items:center;gap:5px;font-size:13px;color:#4a5090">
+            <span>팀원</span><select class="fs" id="dv_mem" onchange="dvMemChange()" style="min-width:130px;padding:6px 10px;background:#fff;color:#16203c;border:1px solid #c5cbe8"></select>
+          </span>
+          <button class="bp" onclick="dvMkdir()"><i class="ti ti-folder-plus"></i> 새 폴더</button>
+          <button class="bp" onclick="dvPick()"><i class="ti ti-upload"></i> 파일 올리기</button>
+          <button class="bp" onclick="dvReload()"><i class="ti ti-refresh"></i> 새로고침</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:13px;color:#8888aa;margin-bottom:10px">인트라넷이 구글드라이브에 저장해 둔 내 자료(보험금청구·DB배정·병력정리·보장분석표·사업계획서 등)를 여기서 바로 보고, 파일을 올릴 수 있습니다. 폴더를 눌러 들어가고, 파일 이름을 누르면 새 창에서 열립니다. 삭제는 관리자만 가능하며 드라이브 휴지통으로 이동합니다(복구 가능).</div>
+        <div id="dv_crumb" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:14px;margin-bottom:10px"></div>
+        <input type="file" id="dv_file" multiple style="display:none" onchange="dvUploadPick(this)">
+        <div id="dv_drop" style="border:2px dashed rgba(45,65,170,.28);border-radius:12px;padding:6px 6px 2px;background:#fbfcff">
+          <div id="dv_list"></div>
+          <div style="text-align:center;font-size:12px;color:#9aa3c8;padding:8px 0">파일을 이 영역에 끌어다 놓아도 올라갑니다.</div>
         </div>
       </div>
     </div>
@@ -4247,6 +4271,7 @@ function logout(){
   // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
+  window._dvState=null;  // 내 자료함 탐색 상태(팀원·경로) 리셋 — 다른 사용자가 이어받지 않게
   try{ var _sgp=g('ssg_pop'); if(_sgp) _sgp.remove(); }catch(e){}   // 설명서 모달이 로그인 화면 위에 남지 않게
   window._bdrUp=null; try{ var _buo=g('bdrup_overlay'); if(_buo) _buo.remove(); }catch(e){}   // 업로드 모달도 정리(로그인 화면 위 잔존 방지)
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
@@ -5004,6 +5029,7 @@ g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('bin
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
 g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq');});
+g('n_drive') && g('n_drive').addEventListener('click',function(){showPage('drive');});
 g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
@@ -5025,7 +5051,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',
+  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정'};
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
@@ -5616,7 +5642,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,dreport:rDreport,usage:rUsage,navset:rNavSet};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -23234,7 +23260,7 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
 document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if((w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
@@ -28149,6 +28175,350 @@ async function mcrImgRecognize(fileList, startRid){
       var b=boxOf(e); if(b) _mcrKkSel(b);
       mcrImgRecognize(imgs, b?b.getAttribute('data-mrid'):null);
     }
+  });
+})();
+
+// ===== 내 자료함 (drive, 2026-09-15) — 구글드라이브 팀원별 폴더 열람·업로드 =====
+// 서버: google-drive-sync.gs(gsheet-16)의 dvList / dvFile / dvUpload / dvMkdir / dvTrash.
+//  - 조회·열람·폴더생성·삭제는 /api/drive 프록시(_driveProxy)로 POST — 응답 JSON을 읽어 실패 사유를 그대로 안내한다.
+//  - 업로드만 앱스크립트로 직접 POST(no-cors) — Functions 요청 본문 한도(10MB)를 피하기 위함.
+//    응답을 못 읽으므로 업로드 뒤 목록을 다시 불러 "파일이 실제로 생겼는지"로 성공을 판정한다(조용한 실패 금지).
+//  - 파일 열람은 팀원 구글 계정에 이 드라이브 권한이 없어서 드라이브 링크 대신 서버가 내용(base64)을 전달한다.
+//    Functions 응답 한도 때문에 6MB 초과 파일은 서버가 거절 — 안내만 하고 열지 않는다(gs DV_MAX_READ와 같은 값).
+//  - 서버가 모든 경로를 "TEAM TOPS 자료/{팀원}/..." 안으로 제한(_dvSeg/_dvPathSegs)하고, 삭제는 휴지통 이동(복구 가능).
+// 저장·동기화 없음(함정 B 무관) — 탐색 상태는 메모리 window._dvState 뿐이고 logout에서 리셋.
+// id는 dv_ 접두(함정 E), 폴더·파일 조작은 전부 "이름 문자열"이 식별자라 인덱스 오용 없음(함정 A).
+// 화면은 흰 카드라 글씨는 어두운 색(함정 D 역방향).
+// ⚠️ 수용 한계(기존 계열): 관리자 판정은 클라이언트 가드뿐(앱스크립트 웹앱은 인증 없음 — bizsend·claimsend와 동일 계열).
+var DV_MAX_UP = 25 * 1024 * 1024;     // 업로드 1개 최대 25MB
+var DV_MAX_READ = 6 * 1024 * 1024;    // 서버가 내용을 돌려줄 수 있는 최대 크기(gs의 DV_MAX_READ와 맞출 것)
+
+function _dvSt(){
+  if(!window._dvState) window._dvState={member:'',path:[],busy:false,seq:0};
+  return window._dvState;
+}
+// 서버 오류 코드를 사람이 읽는 문구로
+function _dvErrMsg(r){
+  var e=(r&&r.error&&(r.error.message||r.error))||'';
+  e=String(e||'');
+  if(e==='sheet name required') return '드라이브 서버가 아직 최신 버전(gsheet-16)이 아닙니다 — 관리자가 앱스크립트를 재배포해야 합니다.';
+  if(e==='member required'||e==='bad args') return '요청 정보가 올바르지 않습니다.';
+  if(e==='bad path') return '폴더 경로에 쓸 수 없는 문자가 있습니다.';
+  if(e==='folder not found') return '폴더를 찾을 수 없습니다.';
+  if(e==='file not found') return '파일을 찾을 수 없습니다(이미 지워졌을 수 있습니다).';
+  if(e==='gdoc') return '이 구글 문서는 화면에서 열 수 없습니다.';
+  if(r&&r.raw) return '서버 응답이 올바르지 않습니다: '+String(r.raw).slice(0,120);
+  return e||'알 수 없는 오류';
+}
+function _dvSizeTxt(n){
+  n=Number(n||0); if(!n) return '';
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(0)+' KB';
+  return (n/1024/1024).toFixed(1)+' MB';
+}
+function _dvIcon(x){
+  var m=String((x&&x.mime)||''), n=String((x&&x.name)||'').toLowerCase();
+  if(/^image\//.test(m)) return '🖼️';
+  if(/pdf/.test(m)||/\.pdf$/.test(n)) return '📕';
+  if(/^video\//.test(m)) return '🎞️';
+  if(/^audio\//.test(m)) return '🎵';
+  if(/spreadsheet|excel|csv/.test(m)||/\.(xls|xlsx|csv)$/.test(n)) return '📊';
+  if(/presentation|powerpoint/.test(m)||/\.(ppt|pptx)$/.test(n)) return '📽️';
+  if(/document|word|hwp/.test(m)||/\.(doc|docx|hwp)$/.test(n)) return '📃';
+  return '📄';
+}
+// onclick에 이름 문자열 안전하게 심기 — & 를 먼저 이스케이프(함정 A)
+function _dvOn(fn, nm){
+  return 'onclick="'+(fn+'('+JSON.stringify(String(nm==null?'':nm))+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'"';
+}
+
+function rDrive(){
+  var st=_dvSt();
+  var me=(typeof cu!=='undefined'&&cu&&cu.name)?String(cu.name):'';
+  if(!_isAdmin()){
+    // 팀원·팀장은 언제나 본인 폴더만 — 관리자 세션에서 남의 폴더를 보다 로그아웃한 잔상 차단
+    if(st.member!==me){ st.member=me; st.path=[]; }
+  }else if(!st.member){ st.member=me; st.path=[]; }
+  _dvMemFill();
+  _dvLoad();
+}
+// 관리자 전용 팀원 선택 — 관리자 먼저 + 팀원 코드순(인트라넷 사용량 표와 같은 순서)
+function _dvMemFill(){
+  var sel=g('dv_mem'); if(!sel) return;
+  var st=_dvSt();
+  if(!_isAdmin()){ sel.innerHTML=''; return; }
+  var names=[];
+  try{
+    ((typeof _admList==='function'?_admList():(typeof ADMINS!=='undefined'?ADMINS:[]))||[]).forEach(function(a){
+      var n=a&&a.name&&String(a.name).trim(); if(n&&names.indexOf(n)<0) names.push(n);
+    });
+  }catch(e){}
+  try{
+    ((typeof mem!=='undefined'&&mem)?mem:[]).slice().sort(function(a,b){
+      return String((a&&a.code)||'').localeCompare(String((b&&b.code)||''));
+    }).forEach(function(m){
+      var n=m&&m.name&&String(m.name).trim(); if(n&&names.indexOf(n)<0) names.push(n);
+    });
+  }catch(e){}
+  if(st.member&&names.indexOf(st.member)<0) names.unshift(st.member);
+  sel.innerHTML=names.map(function(n){
+    return '<option value="'+_esc(n)+'"'+(n===st.member?' selected':'')+'>'+_esc(n)+'</option>';
+  }).join('');
+}
+function dvMemChange(){
+  var sel=g('dv_mem'); if(!sel) return;
+  if(!_isAdmin()){ toast('다른 팀원의 자료함은 관리자만 볼 수 있습니다.'); return; }
+  var st=_dvSt();
+  st.member=sel.value||''; st.path=[];
+  _dvLoad();
+}
+function dvUp(n){
+  var st=_dvSt();
+  n=Math.max(0, Math.min(Number(n)||0, st.path.length));
+  st.path=st.path.slice(0,n);
+  _dvLoad();
+}
+function dvOpen(name){
+  var nm=String(name==null?'':name).trim(); if(!nm) return;
+  var st=_dvSt();
+  st.path=st.path.concat([nm]);
+  _dvLoad();
+}
+function dvReload(){ _dvLoad(); }
+
+function _dvCrumb(){
+  var el=g('dv_crumb'); if(!el) return;
+  var st=_dvSt();
+  var h='<span style="color:#9aa3c8">위치</span> <span style="color:#c9cfe8">›</span> '
+      + '<a href="javascript:void(0)" onclick="dvUp(0)" style="color:#2a2a5a;font-weight:700;text-decoration:none">'
+      + _esc(st.member||'-')+'</a>';
+  st.path.forEach(function(seg,i){
+    h+=' <span style="color:#c9cfe8">›</span> <a href="javascript:void(0)" onclick="dvUp('+(i+1)+')" style="color:#2a4bd0;text-decoration:none">'+_esc(seg)+'</a>';
+  });
+  el.innerHTML=h;
+}
+
+function _dvLoad(){
+  var st=_dvSt(), box=g('dv_list'); if(!box) return;
+  _dvCrumb();
+  if(!st.member){ box.innerHTML='<div class="em">이름을 확인할 수 없습니다. 다시 로그인해 주세요.</div>'; return; }
+  box.innerHTML='<div class="em">불러오는 중…</div>';
+  var token=(st.seq=(st.seq||0)+1);
+  var member=st.member, pathStr=st.path.join('/');
+  _driveProxy({ action:'dvList', member:member, path:pathStr }).then(function(r){
+    if(token!==st.seq) return;                       // 그 사이 다른 폴더로 이동 — 낡은 응답 무시
+    if(!r||r.error||!r.ok) throw new Error(_dvErrMsg(r));   // ok 없는 응답(로그인 페이지 등)도 오류로
+    _dvDraw(r);
+  }).catch(function(e){
+    if(token!==st.seq) return;
+    box.innerHTML='<div class="em">목록을 불러오지 못했습니다.<br><span style="font-size:13px;color:#c0392b">'
+      +_esc(String((e&&e.message)||e))+'</span></div>';
+  });
+}
+
+function _dvDraw(r){
+  var box=g('dv_list'); if(!box) return;
+  var st=_dvSt(), adm=_isAdmin();
+  var folders=(r&&r.folders)||[], files=(r&&r.files)||[];
+  var cols=adm?4:3;
+  var h='<table class="dt"><thead><tr><th>이름</th><th style="width:100px">크기</th><th style="width:140px">수정한 날짜</th>'
+      +(adm?'<th style="width:70px">삭제</th>':'')+'</tr></thead><tbody>';
+  if(st.path.length){
+    h+='<tr><td colspan="'+cols+'"><a href="javascript:void(0)" onclick="dvUp('+(st.path.length-1)+')" style="color:#2a4bd0;text-decoration:none">⬆ 상위 폴더로</a></td></tr>';
+  }
+  folders.forEach(function(d){
+    var nm=String((d&&d.name)||'');
+    h+='<tr><td>📁 <a href="javascript:void(0)" '+_dvOn('dvOpen',nm)+' style="color:#16203c;font-weight:700;text-decoration:none">'+_esc(nm)+'</a></td>'
+      +'<td style="color:#9aa3c8">폴더</td><td></td>'
+      +(adm?('<td>'+_dvDelBtn('folder',nm)+'</td>'):'')+'</tr>';
+  });
+  files.forEach(function(x){
+    var nm=String((x&&x.name)||'');
+    h+='<tr><td>'+_dvIcon(x)+' <a href="javascript:void(0)" '+_dvOn('dvOpenFile',nm)+' style="color:#2a4bd0;text-decoration:none">'+_esc(nm)+'</a></td>'
+      +'<td style="color:#6a739c">'+_esc(_dvSizeTxt(x&&x.size))+'</td>'
+      +'<td style="color:#6a739c">'+_esc(String((x&&x.dt)||''))+'</td>'
+      +(adm?('<td>'+_dvDelBtn('file',nm)+'</td>'):'')+'</tr>';
+  });
+  if(!folders.length&&!files.length){
+    h+='<tr><td colspan="'+cols+'"><div class="em">이 폴더에 자료가 없습니다.</div></td></tr>';
+  }
+  h+='</tbody></table>';
+  box.innerHTML=h;
+}
+function _dvDelBtn(kind,nm){
+  return '<button class="bp" style="padding:3px 9px;font-size:12px;color:#c0392b" data-dvkind="'+_alertEsc(kind)
+    +'" data-dvname="'+_alertEsc(nm)+'" onclick="dvTrashClick(this)">삭제</button>';
+}
+
+// 파일 열람 — 서버가 내용을 base64로 주면 blob으로 새 탭에 띄운다.
+//   팝업 차단 대비: 클릭 제스처 안에서 새 탭을 먼저 열고(sdPrint 패턴) 내용이 오면 주소를 바꾼다.
+function dvOpenFile(name){
+  var nm=String(name==null?'':name).trim(); if(!nm) return;
+  var st=_dvSt();
+  if(st.busy){ toast('다른 작업이 진행 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+  var w=null;
+  try{ w=window.open('','_blank'); }catch(e){}
+  if(w){ try{ w.document.write('<!doctype html><meta charset="utf-8"><title>여는 중…</title><body style="font-family:sans-serif;padding:24px;color:#333">파일을 불러오는 중입니다…</body>'); }catch(e){} }
+  else { toast('팝업이 차단됐습니다 — 이 사이트의 팝업을 허용해 주세요.'); return; }
+  st.busy=true;
+  var member=st.member, pathStr=st.path.join('/');
+  _driveProxy({ action:'dvFile', member:member, path:pathStr, name:nm }).then(function(r){
+    if(!r||r.error||!r.ok){
+      var code=String((r&&r.error&&(r.error.message||r.error))||'');
+      if(code==='too_large'){
+        throw new Error('파일이 너무 커서('+_dvSizeTxt(DV_MAX_READ)+' 초과) 인트라넷에서 열 수 없습니다. 관리자에게 요청해 주세요.');
+      }
+      throw new Error(_dvErrMsg(r));
+    }
+    var blob=_dvB64Blob(String(r.data||''), String(r.mime||'application/octet-stream'));
+    var url=URL.createObjectURL(blob);
+    try{ w.location.replace(url); }catch(e){ w.location.href=url; }
+    setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 120000);
+  }).catch(function(e){
+    try{ w.close(); }catch(e2){}
+    toast('파일을 열지 못했습니다 — '+String((e&&e.message)||e));
+  }).then(function(){ st.busy=false; });
+}
+function _dvB64Blob(b64, mime){
+  var bin=atob(b64), len=bin.length, arr=new Uint8Array(len);
+  for(var i=0;i<len;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr], {type:mime});
+}
+
+function dvMkdir(){
+  var st=_dvSt();
+  if(st.busy){ toast('다른 작업이 진행 중입니다.'); return; }
+  if(!st.member){ toast('대상 팀원을 알 수 없습니다.'); return; }
+  var nm=prompt('새 폴더 이름을 입력하세요.');
+  if(nm==null) return;
+  nm=String(nm).trim();
+  if(!nm) return;
+  if(/[\/\\]/.test(nm)||nm==='.'||nm==='..'){ toast('폴더 이름에 / \\ 는 쓸 수 없습니다.'); return; }
+  st.busy=true;
+  var member=st.member, pathStr=st.path.join('/');
+  _driveProxy({ action:'dvMkdir', member:member, path:pathStr, name:nm }).then(function(r){
+    if(!r||r.error||!r.ok) throw new Error(_dvErrMsg(r));
+    toast('폴더를 만들었습니다.');
+    if(st.member===member&&st.path.join('/')===pathStr) _dvLoad();
+  }).catch(function(e){
+    toast('폴더를 만들지 못했습니다 — '+String((e&&e.message)||e));
+  }).then(function(){ st.busy=false; });
+}
+
+function dvPick(){
+  var el=g('dv_file'); if(!el) return;
+  var st=_dvSt();
+  if(st.busy){ toast('다른 작업이 진행 중입니다.'); return; }
+  try{ el.value=''; }catch(e){}
+  el.click();
+}
+function dvUploadPick(el){
+  var fs=(el&&el.files)||[];
+  dvUploadFiles(fs);
+  try{ el.value=''; }catch(e){}
+}
+// 업로드 — 앱스크립트로 직접 POST(no-cors, 응답 못 읽음) 후 목록 재조회로 성공 확인
+function dvUploadFiles(files){
+  var st=_dvSt();
+  if(st.busy){ toast('이미 다른 작업이 진행 중입니다.'); return; }
+  var list=Array.prototype.slice.call(files||[]);
+  if(!list.length) return;
+  if(!st.member){ toast('대상 팀원을 알 수 없습니다.'); return; }
+  var url=(typeof _driveSyncUrl==='function'?_driveSyncUrl():'')||window.DRIVE_SYNC_URL||'';
+  if(!url){ toast('드라이브 서버가 연결되지 않았습니다.'); return; }
+  var big=list.filter(function(f){ return f&&f.size>DV_MAX_UP; });
+  if(big.length){
+    toast('25MB를 넘어 제외된 파일: '+big.map(function(f){ return f.name; }).join(', '));
+    list=list.filter(function(f){ return f&&f.size<=DV_MAX_UP; });
+    if(!list.length) return;
+  }
+  st.busy=true;
+  var member=st.member, pathStr=st.path.join('/'), sent=[];
+  toast(list.length+'개 파일을 올리는 중입니다…');
+  var chain=Promise.resolve();
+  list.forEach(function(f){
+    chain=chain.then(function(){
+      return _dvReadB64(f).then(function(b64){
+        return fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'},
+          body: JSON.stringify({ action:'dvUpload', member:member, path:pathStr,
+            filename:String(f.name||'파일'), mime:String(f.type||'application/octet-stream'), data:b64 }) });
+      }).then(function(){ sent.push(String(f.name||'')); });
+    });
+  });
+  chain.then(function(){
+    // 응답을 읽을 수 없는 방식이라 목록을 다시 불러 실제로 생겼는지 확인한다(조용한 실패 금지)
+    return new Promise(function(res){ setTimeout(res, 800); }).then(function(){
+      return _driveProxy({ action:'dvList', member:member, path:pathStr });
+    });
+  }).then(function(rr){
+    if(!rr||rr.error||!rr.ok) throw new Error(_dvErrMsg(rr));
+    var have={};
+    ((rr&&rr.files)||[]).forEach(function(x){ have[String((x&&x.name)||'')]=1; });
+    var miss=sent.filter(function(n){ return !have[n]; });
+    if(miss.length) toast('확인되지 않은 파일이 있습니다: '+miss.join(', ')+' — [새로고침]으로 다시 확인해 주세요.');
+    else toast(sent.length+'개 파일을 올렸습니다.');
+    if(st.member===member&&st.path.join('/')===pathStr) _dvDraw(rr);
+  }).catch(function(e){
+    toast('업로드 결과를 확인하지 못했습니다 — [새로고침]을 눌러 확인해 주세요. ('+String((e&&e.message)||e)+')');
+  }).then(function(){ st.busy=false; });
+}
+function _dvReadB64(f){
+  return new Promise(function(res, rej){
+    var fr=new FileReader();
+    fr.onload=function(){
+      var s=String(fr.result||''), i=s.indexOf(',');
+      if(i<0){ rej(new Error('파일을 읽지 못했습니다: '+(f&&f.name))); return; }
+      res(s.slice(i+1));
+    };
+    fr.onerror=function(){ rej(new Error('파일을 읽지 못했습니다: '+(f&&f.name))); };
+    fr.readAsDataURL(f);
+  });
+}
+
+// 삭제(휴지통 이동) — 관리자만, 2번 클릭
+function dvTrashClick(btn){
+  if(!btn) return;
+  if(!_isAdmin()){ toast('삭제는 관리자만 가능합니다.'); return; }
+  var nm=btn.getAttribute('data-dvname')||'', kind=btn.getAttribute('data-dvkind')||'file';
+  if(btn.getAttribute('data-dvarm')!=='1'){
+    btn.setAttribute('data-dvarm','1'); btn.textContent='확실합니까?';
+    setTimeout(function(){
+      try{ if(btn.getAttribute('data-dvarm')==='1'){ btn.removeAttribute('data-dvarm'); btn.textContent='삭제'; } }catch(e){}
+    }, 3500);
+    return;
+  }
+  btn.removeAttribute('data-dvarm'); btn.textContent='삭제';
+  if(kind==='folder'&&!confirm('"'+nm+'" 폴더를 그 안의 자료까지 함께 휴지통으로 옮깁니다. 계속할까요?\n(드라이브 휴지통에서 복구할 수 있습니다)')) return;
+  _dvTrashDo(kind, nm);
+}
+function _dvTrashDo(kind, nm){
+  var st=_dvSt();
+  if(st.busy){ toast('다른 작업이 진행 중입니다.'); return; }
+  st.busy=true;
+  var member=st.member, pathStr=st.path.join('/');
+  _driveProxy({ action:'dvTrash', member:member, path:pathStr, name:nm, kind:kind }).then(function(r){
+    if(!r||r.error||!r.ok) throw new Error(_dvErrMsg(r));
+    if(!r.trashed) toast('대상을 찾지 못했습니다(이미 지워졌을 수 있습니다).');
+    else toast('휴지통으로 옮겼습니다. 드라이브 휴지통에서 복구할 수 있습니다.');
+    if(st.member===member&&st.path.join('/')===pathStr) _dvLoad();
+  }).catch(function(e){
+    toast('삭제하지 못했습니다 — '+String((e&&e.message)||e));
+  }).then(function(){ st.busy=false; });
+}
+
+// 자료함 드래그앤드롭 — 전용 핸들러(stopPropagation)로 uni 공용 처리와 이중 처리 방지(4.8 규칙)
+(function(){
+  var dz=g('dv_drop'); if(!dz) return;
+  function off(){ dz.style.background='#fbfcff'; dz.style.borderColor='rgba(45,65,170,.28)'; }
+  dz.addEventListener('dragover', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dz.style.background='#eef4ff'; dz.style.borderColor='#3f8f56';
+  });
+  dz.addEventListener('dragleave', function(e){ e.preventDefault(); e.stopPropagation(); off(); });
+  dz.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation(); off();
+    var fs=(e.dataTransfer&&e.dataTransfer.files)||[];
+    if(fs.length) dvUploadFiles(fs);
   });
 })();
 

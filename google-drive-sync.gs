@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-15';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-16';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -35,10 +35,15 @@ function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
 
+    // 개인 자료함 조회 — 읽기 전용이라 잠금 없이 바로 처리(POST로도 호출 가능하게)
+    if (body.action === 'dvList') return _dvList(body, out);
+    if (body.action === 'dvFile') return _dvFile(body, out);
+
     // 폴더를 만드는 작업은 동시 실행 시 중복 폴더가 생기므로 잠금으로 직렬화
     if (body.action === 'claimFile' || body.action === 'custFile' || body.action === 'custTable'
         || body.action === 'waRegister' || body.action === 'waGrid'
-        || body.action === 'waCreate' || body.action === 'waExport' || body.action === 'waOpen') {
+        || body.action === 'waCreate' || body.action === 'waExport' || body.action === 'waOpen'
+        || body.action === 'dvUpload' || body.action === 'dvMkdir' || body.action === 'dvTrash') {
       var lock = LockService.getScriptLock();
       try { lock.waitLock(50000); } catch (e) {}
       try {
@@ -49,6 +54,9 @@ function doPost(e) {
         if (body.action === 'waCreate')   return _waCreateSheet(body, out);
         if (body.action === 'waExport')   return _waExportXlsx(body, out);
         if (body.action === 'waOpen')     return _waOpenSheet(body, out);
+        if (body.action === 'dvUpload')   return _dvUpload(body, out);
+        if (body.action === 'dvMkdir')    return _dvMkdir(body, out);
+        if (body.action === 'dvTrash')    return _dvTrash(body, out);
         return _saveCustFile(body, out);
       } finally {
         try { lock.releaseLock(); } catch (e) {}
@@ -102,8 +110,160 @@ function doGet(e) {
     out.setMimeType(ContentService.MimeType.JSON);
     return out;
   }
+  // ?action=dvList&member=홍길동&path=보험금청구/김철수 → 그 폴더의 하위 폴더·파일 목록(JSON)
+  //   읽기 전용이라 GET. 브라우저에서 응답을 바로 읽어야 해서(목록 표시) POST가 아닌 GET을 쓴다.
+  if (e && e.parameter && e.parameter.action === 'dvList') {
+    var o = ContentService.createTextOutput();
+    o.setMimeType(ContentService.MimeType.JSON);
+    try { return _dvList(e.parameter, o); }
+    catch (err) { o.setContent(JSON.stringify({ error: String(err && err.message || err) })); return o; }
+  }
   var ss = _getSpreadsheet();
   return ContentService.createTextOutput('TEAM TOPS Drive sync OK (' + SERVER_VERSION + ')\n' + ss.getUrl());
+}
+
+// ===== 개인 자료함 (자료실 밖, 팀원별 드라이브 폴더 열람·업로드) — gsheet-16 =====
+// ⚠️ 모든 작업은 ROOT_FOLDER_NAME/{팀원}/... 안으로만 제한한다(_dvSeg가 / \ . .. 를 거부).
+//    삭제는 영구 삭제가 아니라 **휴지통 이동**(setTrashed) — 실수·오작동해도 드라이브 휴지통에서 복구 가능.
+function _dvSeg(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (!s || s === '.' || s === '..') return '';
+  if (s.indexOf('/') >= 0 || s.indexOf('\\') >= 0) return '';
+  return s;
+}
+function _dvPathSegs(v) {
+  var raw = String(v == null ? '' : v).split('/');
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var t = String(raw[i] || '').trim();
+    if (!t) continue;
+    var seg = _dvSeg(t);
+    if (!seg) return null;       // 하나라도 위험한 조각이 있으면 전체 거부
+    out.push(seg);
+  }
+  return out;
+}
+// 팀원 폴더 아래 경로를 따라감. create=false면 없을 때 null 반환(조회가 폴더를 만들지 않게)
+function _dvFolder(member, segs, create) {
+  var m = _dvSeg(member); if (!m) return null;
+  var root = _getFolder();
+  var f;
+  if (create) { f = _getChildFolder(root, m); }
+  else {
+    var it = root.getFoldersByName(m);
+    if (!it.hasNext()) return null;
+    f = it.next();
+  }
+  for (var i = 0; i < segs.length; i++) {
+    if (create) { f = _getChildFolder(f, segs[i]); }
+    else {
+      var it2 = f.getFoldersByName(segs[i]);
+      if (!it2.hasNext()) return null;
+      f = it2.next();
+    }
+  }
+  return f;
+}
+function _dvList(p, out) {
+  var member = _dvSeg(p.member);
+  if (!member) { out.setContent(JSON.stringify({ error: 'member required' })); return out; }
+  var segs = _dvPathSegs(p.path);
+  if (segs === null) { out.setContent(JSON.stringify({ error: 'bad path' })); return out; }
+  var f = _dvFolder(member, segs, false);
+  if (!f) { out.setContent(JSON.stringify({ ok: true, member: member, path: segs, folders: [], files: [], empty: 1 })); return out; }
+  var folders = [], files = [];
+  var fi = f.getFolders();
+  while (fi.hasNext() && folders.length < 300) { var d = fi.next(); folders.push({ name: d.getName() }); }
+  var xi = f.getFiles();
+  while (xi.hasNext() && files.length < 300) {
+    var x = xi.next();
+    files.push({ id: x.getId(), name: x.getName(), size: x.getSize(),
+      mime: x.getMimeType(), url: x.getUrl(), dt: Utilities.formatDate(x.getLastUpdated(), 'Asia/Seoul', 'yyyy.MM.dd HH:mm') });
+  }
+  folders.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+  files.sort(function (a, b) { return a.dt < b.dt ? 1 : (a.dt > b.dt ? -1 : 0); });
+  out.setContent(JSON.stringify({ ok: true, member: member, path: segs, folders: folders, files: files }));
+  return out;
+}
+function _dvUpload(body, out) {
+  var member = _dvSeg(body.member);
+  var name   = _dvSeg(body.filename);
+  var segs   = _dvPathSegs(body.path);
+  if (!member || !name || segs === null) { out.setContent(JSON.stringify({ error: 'bad args' })); return out; }
+  var f = _dvFolder(member, segs, true);
+  var blob = Utilities.newBlob(Utilities.base64Decode(String(body.data || '')),
+    String(body.mime || 'application/octet-stream'), name);
+  // 같은 이름이 있으면 휴지통으로(덮어쓰기 효과) — 기존 저장 액션과 같은 방침
+  var ex = f.getFilesByName(name);
+  while (ex.hasNext()) ex.next().setTrashed(true);
+  var nf = f.createFile(blob);
+  out.setContent(JSON.stringify({ ok: true, id: nf.getId(), name: nf.getName(), url: nf.getUrl() }));
+  return out;
+}
+function _dvMkdir(body, out) {
+  var member = _dvSeg(body.member);
+  var name   = _dvSeg(body.name);
+  var segs   = _dvPathSegs(body.path);
+  if (!member || !name || segs === null) { out.setContent(JSON.stringify({ error: 'bad args' })); return out; }
+  var f = _dvFolder(member, segs, true);
+  _getChildFolder(f, name);      // 이미 있으면 그대로 반환(중복 생성 안 함)
+  out.setContent(JSON.stringify({ ok: true, name: name }));
+  return out;
+}
+function _dvTrash(body, out) {
+  var member = _dvSeg(body.member);
+  var name   = _dvSeg(body.name);
+  var segs   = _dvPathSegs(body.path);
+  if (!member || !name || segs === null) { out.setContent(JSON.stringify({ error: 'bad args' })); return out; }
+  var f = _dvFolder(member, segs, false);
+  if (!f) { out.setContent(JSON.stringify({ error: 'folder not found' })); return out; }
+  var cnt = 0;
+  if (String(body.kind || 'file') === 'folder') {
+    var di = f.getFoldersByName(name);
+    while (di.hasNext()) { di.next().setTrashed(true); cnt++; }   // 휴지통 이동(복구 가능)
+  } else {
+    var xi = f.getFilesByName(name);
+    while (xi.hasNext()) { xi.next().setTrashed(true); cnt++; }
+  }
+  out.setContent(JSON.stringify({ ok: true, trashed: cnt }));
+  return out;
+}
+
+// 파일 내용을 base64로 돌려준다(인트라넷 화면에서 바로 열람·다운로드용).
+//   팀원 구글 계정에는 이 드라이브 권한이 없으므로 드라이브 링크 대신 서버가 내용을 전달한다.
+//   ⚠️ Functions 프록시 응답 한도(10MB) 때문에 큰 파일은 거절하고 드라이브 링크만 돌려준다.
+var DV_MAX_READ = 6 * 1024 * 1024;
+function _dvFile(body, out) {
+  var member = _dvSeg(body.member);
+  var name   = _dvSeg(body.name);
+  var segs   = _dvPathSegs(body.path);
+  if (!member || !name || segs === null) { out.setContent(JSON.stringify({ error: 'bad args' })); return out; }
+  var f = _dvFolder(member, segs, false);
+  if (!f) { out.setContent(JSON.stringify({ error: 'folder not found' })); return out; }
+  var it = f.getFilesByName(name);
+  if (!it.hasNext()) { out.setContent(JSON.stringify({ error: 'file not found' })); return out; }
+  var x = it.next();
+  var mime = x.getMimeType();
+  var blob = null;
+  if (String(mime).indexOf('application/vnd.google-apps') === 0) {
+    // 구글 문서·시트는 원본 바이트가 없으므로 PDF로 변환해 전달(변환 불가하면 링크만)
+    try { blob = x.getAs('application/pdf'); mime = 'application/pdf'; name = name + '.pdf'; }
+    catch (err) { out.setContent(JSON.stringify({ error: 'gdoc', url: x.getUrl() })); return out; }
+  } else {
+    if (x.getSize() > DV_MAX_READ) {
+      out.setContent(JSON.stringify({ error: 'too_large', size: x.getSize(), url: x.getUrl() }));
+      return out;
+    }
+    blob = x.getBlob();
+  }
+  var bytes = blob.getBytes();
+  if (bytes.length > DV_MAX_READ) {
+    out.setContent(JSON.stringify({ error: 'too_large', size: bytes.length, url: x.getUrl() }));
+    return out;
+  }
+  out.setContent(JSON.stringify({ ok: true, name: name, mime: mime, size: bytes.length,
+    data: Utilities.base64Encode(bytes) }));
+  return out;
 }
 
 // ===== 보장분석표 — 구글 스프레드시트 방식 =====
