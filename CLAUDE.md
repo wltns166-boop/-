@@ -684,6 +684,23 @@
   같은 이유로 rReqUnified 표의 content/agent/dt/kind에 `_esc` 추가 — 팀원 입력이 관리자 기기 innerHTML에
   도달하게 되면서 기존 미이스케이프 렌더가 실질 XSS 경로가 됨(3.85.5 rDbInfo 계열).
 
+## 4.98 모바일 계약 반영 요청 (mcreq, 2026-09-14 — v2026.09.14-1~-12)
+
+- 업무관리 > 3종서류 아래 메뉴(`n_mcreq` → `pg_mcreq`, 전원). 모바일로 체결한 계약의 전산 반영을 총무에게 요청하는 기능.
+- 데이터: `mcReqs=[{id('mq_..'),agent,dt,ts,custName(계약자),insName(피보험자·''=계약자 동일·태아보험이면 '태아'),fetus(0|1),dueDate(출생예정일 — 태아일 때만),items:[{id('mqi_..'),ins,prod,prem,term,pol,cdt,ctype(''|'mobile'|'paper'),docUrl(서면 확인서 Storage URL — paper일 때만 저장, v-7 리뷰),docName,done,doneTs?,doneBy?}]}]`
+  — 동기화 키 `tops_mcreq`(텍스트·URL만, 함정 B). 로드 2곳+스냅샷 자동 갱신 맵(cardreq 패턴), 조작 전부 고유 id 기준(함정 A — data-mcrid/data-mcrit/data-mrid), id는 `mcr_` 접두(함정 E), 자유 텍스트 표시 전부 _esc·속성 _alertEsc.
+- **권한·알림**: 열람·삭제는 팀원·BM=본인 신청만, **총무만 전체**(rCustStatus 계열, v-9에서 BM 전체 열람 제거). 완료/미완료 토글(`mcrBoxClick`)은 총무만(박스 클릭 전환·doneBy/doneTs 기록·신청자 pushNotify). 신청 시 총무에게 pushNotify(_admList 중 role '총무' 이름 배열)+pushAlert('총무','모바일계약').
+- **신청 모달 `m_mcreq`**(흰 배경 — `#m_mcreq .fi/.fl` 오버라이드, 함정 D): 계약자(+[태아보험] 체크 — 피보험자 칸 '태아' 잠금·해제 시 이전 값 복원 + 출생예정일 칸 표시)·피보험자(비우면 계약자 동일). 두 칸 모두 고객리스트 검색 `mcrCustSearch('ct'|'ins')`(총무 전체·그 외 본인 고객만, 가족은 "이름(소유주님 가족)" — _findCustByReqName이 그대로 파싱하는 기존 표기).
+  계약건수 ↔ 계약 줄·인식 칸이 `data-mrid`로 1:1 쌍(`_mcrSyncRows` 끝에서만 증감, `mcrRowDel`이 쌍 함께 삭제 — 중간 삭제에도 번호 안 어긋남).
+- 계약 줄: 보험사*/상품명/보험료/납기·만기/증권번호/계약일 + **확인서 종류** 버튼(📱mobile/📄paper — `.mcrct.sel` 초록, 재클릭 해제) + paper면 업로드 박스(클릭·드래그, Storage `claim_packages/mcreq_docs/` — 이미지 1600px 축소·PDF 25MB. `row._mcrDoc/_mcrDocBusy/_mcrDocSeq`+`window._mcrGen`+`row.isConnected` 3중 가드로 오귀속 방지 — cardreq 사진 패턴. 파일 올리면 paper 자동 선택, 업로드 중 신청 차단, paper 무파일 confirm).
+- **숫자 자동 정형(v-11)**: 출생예정일·계약일 `_mcrFmtYmd`(20261225→"2026년 12월 25일" 진행형 — 서식 글자만 지워지면 숫자 하나 줄여 백스페이스 삭제 보장, data-ymd 이전값 비교), 보험료 `_mcrFmtPrem`(입력 중 쉼표만)/`_mcrPremDone`(blur에 '원' — 즉시 붙이면 삭제가 막힘. "10만원대" 등 글자 값은 원문 유지 — 3.85.5 방침).
+- **자동 인식**: 계약 건수별 인식 칸(`.mcrkb` — 클릭=초록 선택 `_mcrKkSel`). [글자 자동 인식]=내용 있는 **모든 칸 일괄**(칸당 1건 — 서로 침범 방지·실패 칸 번호 안내, 한 칸만 쓰면 그 번호부터 여러 건 이어 채움 — `_mcrApply(rows,cust,startRid,insd)` 대상 구간만 confirm). 20건 초과는 토스트+실반영 건수 표시(조용한 잘림 금지 — v-2 리뷰).
+  파서 `_mcrParse`: "항목: 값" **콜론만**·라벨 14자 이내(자연문 오탐 방지), 줄 앞 장식(▶ • ★ 등) 제거, 머리말 `[보험사]`/`★보험사★` 인식(`_hins` 분리 보관 — 라벨 "보험사:"가 우선·같은 라벨 반복=새 블록 판정 무영향, Web발신·광고 무시), **값 빈 라벨은 다음 줄이 값**(pendingLb — 다른 라벨(모르는 것 포함) 나오면 해제, "설계번호 :\n값" 실제 카톡), 설계번호→증권번호 별칭, 계약자명·피보험자 분리 인식, 마스킹 이름(이*아)은 미기입+직접 검색 안내(`_mcrFillNames` — 태아 잠금 칸 안 건드림), 날짜 `_mcrFmtDate`(8자리 범위 검증 → "YYYY년 MM월 DD일").
+  사진 OCR `mcrImgRecognize`(/api/analyze Gemini — 공용 `_dbKkImgShrink`, 모델 오버라이드 `tops_ai_mcr_model`, 전용 paste/drop은 패널 위임+stopPropagation — 4.8 규칙. PII 전송은 3.85.5 계열 수용).
+- **목록 `rMcReq`**: 담당자(직급·시각) / 계약자·고객정보(이름 클릭=openCustInfo, 피보험자👶·출생예정일·고객 상세(주민번호/연락처/주소 — 총무 또는 담당자 본인만) — **전부 클릭 복사** `_csrCopyVal` 재사용) / 반영 진행여부·계약정보(계약건별 카드: "n번 계약"+보험사 완료(초록)/미완료(빨강) 박스+상세 클릭 복사+확인서 배지·서면 파일 링크 — `_MCR_URL_RE` 버킷 화이트리스트) / 삭제(2번 클릭). 미완료 건 우선 정렬(안정 정렬 — 그룹 내 최신순 유지).
+- 문서 레벨 dragover/drop 캐치올에 `m_mcreq` open 조건 포함(4.8·m_samdocs 계열). 관리자 확인 대기 팝업(reqstat)에는 미포함(필요 시 별도 과제).
+- ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(cardreq 계열 — 총무 완료 처리와 팀원 수정이 겹치면 늦은 저장이 이김), 클라이언트 가드(서버 미검증), Storage 고아 파일(줄 삭제·파일 빼기·종류 변경 시 원본 미삭제 — 오삭제 회피 방침).
+
 ## 5. 사업계획서 (bizplan)
 
 - 데이터: `bizplan = {url, subs:[{m, ts, link?, memo?, file?, form?}]}`.
