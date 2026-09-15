@@ -27,7 +27,7 @@
 var ROOT_FOLDER_NAME = 'TEAM TOPS 자료';     // 드라이브 폴더 이름
 var SPREADSHEET_NAME = 'TEAM TOPS 데이터';    // 구글시트 파일 이름
 var MAX_CELL = 45000;                        // 셀 최대 글자수(초과분 자름)
-var SERVER_VERSION = 'gsheet-16';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
+var SERVER_VERSION = 'gsheet-17';            // 범용 서버 버전(클라이언트가 doGet으로 확인)
 
 function doPost(e) {
   var out = ContentService.createTextOutput();
@@ -185,11 +185,15 @@ function _dvList(p, out) {
   out.setContent(JSON.stringify({ ok: true, member: member, path: segs, folders: folders, files: files }));
   return out;
 }
+// 브라우저가 실행할 수 있는 파일은 저장하지 않는다 — 열람 시 같은 출처로 렌더되면 스크립트가 돌 수 있다.
+//   (화면에서도 막지만 웹앱은 인증이 없어 직접 호출이 가능하므로 서버에서도 거절한다)
+var DV_BLOCK_EXT = /\.(html?|xht|xhtml|shtml|svgz?|mht|mhtml|hta|jsx?|mjs|vbs|swf|xml|xslt?)$/i;
 function _dvUpload(body, out) {
   var member = _dvSeg(body.member);
   var name   = _dvSeg(body.filename);
   var segs   = _dvPathSegs(body.path);
   if (!member || !name || segs === null) { out.setContent(JSON.stringify({ error: 'bad args' })); return out; }
+  if (DV_BLOCK_EXT.test(name)) { out.setContent(JSON.stringify({ error: 'blocked_type' })); return out; }
   var f = _dvFolder(member, segs, true);
   var blob = Utilities.newBlob(Utilities.base64Decode(String(body.data || '')),
     String(body.mime || 'application/octet-stream'), name);
@@ -218,12 +222,14 @@ function _dvTrash(body, out) {
   var f = _dvFolder(member, segs, false);
   if (!f) { out.setContent(JSON.stringify({ error: 'folder not found' })); return out; }
   var cnt = 0;
+  // ⚠️ 이름이 같은 항목이 여럿이면 **하나만** 휴지통으로 — 목록의 한 줄이 한 항목이므로
+  //    전부 지우면 화면에 보이지 않던 것까지 함께 사라진다(휴지통 이동이라 복구는 가능하지만 놀라는 동작).
   if (String(body.kind || 'file') === 'folder') {
     var di = f.getFoldersByName(name);
-    while (di.hasNext()) { di.next().setTrashed(true); cnt++; }   // 휴지통 이동(복구 가능)
+    if (di.hasNext()) { di.next().setTrashed(true); cnt++; }
   } else {
     var xi = f.getFilesByName(name);
-    while (xi.hasNext()) { xi.next().setTrashed(true); cnt++; }
+    if (xi.hasNext()) { xi.next().setTrashed(true); cnt++; }
   }
   out.setContent(JSON.stringify({ ok: true, trashed: cnt }));
   return out;
