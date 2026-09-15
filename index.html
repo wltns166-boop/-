@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-16</div>
   </div>
 </div>
 
@@ -14464,6 +14464,16 @@ function claimFromCust(custIdx, famIdx){
   } else {
     p=c;
   }
+  // 청구신청 폼이 열린 채 작성 중이면 먼저 확인 — 목록의 [청구] 한 번에 조용히 날아가지 않게(v-16 리뷰).
+  // 화면을 옮기기 "전에" 물어야 취소했을 때 원래 화면에 그대로 남는다.
+  var _w0=g('claim_form_wrap');
+  if(_w0 && _w0.style.display!=='none'){
+    var dirty=['claim_cust_name','claim_rrn','claim_phone','claim_addr','claim_ins_name','claim_ins_rrn',
+               'claim_desc','claim_account_name','claim_account_num'].some(function(id){
+      var el=g(id); return !!(el && String(el.value||'').trim());
+    });
+    if(dirty && !confirm('청구신청 폼에 작성 중인 내용이 있습니다.\n"'+(p.name||'')+'" 님으로 새로 시작하면 지금 입력한 내용은 사라집니다. 계속할까요?')) return;
+  }
   showPage('claim_apply');
   setTimeout(function(){
     var w=g('claim_form_wrap');
@@ -14615,6 +14625,7 @@ function rCustList(){
 
 
 function deleteFamRow(custIdx, famIdx){
+  if(Array.isArray(window._custs)){ custs=window._custs; }   // 최신 메모리본으로 시작(deleteCustRow 계열과 동일)
   if(!Array.isArray(custs)||!custs[custIdx]) return;
   var key='fam_'+custIdx+'_'+famIdx;
   var _fam0=custs[custIdx].family||[];
