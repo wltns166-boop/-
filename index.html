@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-9</div>
   </div>
 </div>
 
@@ -20519,12 +20519,14 @@ function _ssSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌�
   p.querySelectorAll('[data-ssk]').forEach(function(inp){ o[inp.getAttribute('data-ssk')]=inp.value; });
 }
 // 상속세 계산 코어 — 입력 버퍼 → 계산 결과 객체(표시·검증 공용, 모의 실행 대상)
+// 자녀 수 정규화 — _ssCompute와 _ssCompare가 함께 쓴다(상한을 고칠 때 한 곳만 보면 되도록, v-9 리뷰)
+function _ssChildCount(o){ return Math.max(0, Math.min(20, parseInt(o&&o.ch,10)||0)); }
 function _ssCompute(o){
   o=o||{};
   var re=_ssNum(o.re), fin=_ssNum(o.fin), etc=_ssNum(o.etc), gift=_ssNum(o.gift);
   var debt=_ssNum(o.debt), fune=_ssNum(o.fune);
   var hasSp=String(o.sp==null?'1':o.sp)==='1';
-  var ch=Math.max(0, Math.min(20, parseInt(o.ch,10)||0));
+  var ch=_ssChildCount(o);
   var estate=re+fin+etc;                                   // 총 상속재산
   var taxable=Math.max(0, estate+gift-debt-fune);           // 상속세 과세가액
   // 기초공제+기타 인적공제 vs 일괄공제 5억 중 큰 쪽. 단 배우자 단독상속(자녀 등 다른 상속인 없음)은 일괄공제 적용 불가
@@ -20574,44 +20576,50 @@ function _ssGiftTax(amount, ded){
 function _ssCompare(o){
   o=o||{};
   var per=_ssNum(o.gper); if(per<=0) return null;
-  var ch=Math.max(0, Math.min(20, parseInt(o.ch,10)||0)); if(ch<=0) return null;
+  var ch=_ssChildCount(o); if(ch<=0) return null;
   var before=_ssCompute(o);
   var fin=_ssNum(o.fin), re=_ssNum(o.re);
   var want=per*ch;
-  var fromFin=Math.min(fin, want);
-  var fromRe=Math.min(re, want-fromFin);
-  var moved=fromFin+fromRe;                       // 가진 재산보다 많이 증여할 수는 없음
+  // 가진 재산보다 많이 증여할 수는 없다 — 상속세뿐 아니라 **증여세도** 실제 줄 수 있는 금액 기준으로 계산할 것.
+  // (요청액 그대로 증여세를 매기면 못 주는 돈의 세금까지 큰 글씨로 표시돼 상담에서 오해를 부름 — v-9 리뷰)
+  var perEff=(want>fin+re)?Math.floor((fin+re)/ch):per;
+  var moved=perEff*ch;
+  var fromFin=Math.min(fin, moved);
+  var fromRe=Math.min(re, moved-fromFin);
   var o2={}; for(var k in o) o2[k]=o[k];
   o2.fin=String(fin-fromFin); o2.re=String(re-fromRe);
   var after=_ssCompute(o2);
-  var one=_ssGiftTax(per);
+  var one=_ssGiftTax(perEff);
   var giftPay=one.pay*ch;
-  return { per:per, ch:ch, want:want, moved:moved, short:Math.max(0,want-moved),
+  return { per:per, perEff:perEff, ch:ch, want:want, moved:moved, short:Math.max(0,want-moved),
     beforePay:before.pay, giftPay:giftPay, inhPay:after.pay, sum:giftPay+after.pay,
     diff:before.pay-(giftPay+after.pay), giftRate:one.rate, giftBase:one.base };
 }
 function _ssCompareHtml(c){
   if(!c) return '';
-  var good=c.diff>0;
+  var good=c.diff>0, same=(c.diff===0);
   var line=function(l,v,opt){ return _ssRow(l, v, opt); };
   var h='<div style="margin-top:12px;padding:13px 15px;border-radius:9px;background:#fafbff;border:1px solid #dfe3f0">'
     +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:7px"><i class="ti ti-arrows-exchange"></i> 미리 증여하면 어떻게 달라질까</div>'
-    +'<div style="font-size:12px;color:#7a819c;margin-bottom:6px;line-height:1.55">자녀 '+c.ch+'명에게 1인당 '+_ssComma(c.per)+'원 '
+    +'<div style="font-size:12px;color:#7a819c;margin-bottom:6px;line-height:1.55">자녀 '+c.ch+'명에게 1인당 '+_ssComma(c.perEff)+'원 '
     +'(합계 '+_ssComma(c.moved)+'원)을 미리 증여하고 <b>10년이 지난 뒤</b> 상속이 일어났다고 보았을 때입니다.</div>'
     +line('증여세 합계 ('+c.ch+'명)', _ssComma(c.giftPay)+'원')
     +line('줄어든 재산의 상속세', _ssComma(c.inhPay)+'원')
     +line('증여 + 상속 합계', _ssComma(c.sum)+'원', {bt:1})
     +line('지금 그대로 상속하면', _ssComma(c.beforePay)+'원')
-    +line(good?'미리 증여하면 줄어드는 세금':'미리 증여하면 늘어나는 세금',
-      _ssComma(Math.abs(c.diff))+'원', {bt:1, big:1, color:good?'#207830':'#c0392b'});
-  if(!good) h+='<div style="font-size:12.5px;color:#c0392b;margin-top:6px;line-height:1.55">'
+    +line(same?'세금 차이':(good?'미리 증여하면 줄어드는 세금':'미리 증여하면 늘어나는 세금'),
+      same?'없음':(_ssComma(Math.abs(c.diff))+'원'), {bt:1, big:1, color:same?'#5a6488':(good?'#207830':'#c0392b')});
+  if(same) h+='<div style="font-size:12.5px;color:#5a6488;margin-top:6px;line-height:1.55">'
+    +'이 조건에서는 미리 증여해도 총 세금이 같습니다. 증여 금액·대상을 바꿔 다시 비교해보세요.</div>';
+  else if(!good) h+='<div style="font-size:12.5px;color:#c0392b;margin-top:6px;line-height:1.55">'
     +'이 조건에서는 미리 증여해도 세금이 줄지 않습니다. 상속공제(특히 배우자 공제는 법정상속지분에 비례)가 '
     +'남은 상속재산과 함께 줄어들기 때문입니다. 증여 금액·대상을 바꿔 다시 비교해보세요.</div>';
   else h+='<div style="font-size:12.5px;color:#207830;margin-top:6px;line-height:1.55">'
     +'받는 사람마다 세율 구간이 나뉘고 10년마다 증여재산공제가 새로 생겨 생기는 차이입니다. '
     +'증여한 돈으로 납세 재원(종신보험 등)을 준비하면 상속세를 낼 현금까지 함께 마련됩니다.</div>';
   if(c.short>0) h+='<div style="font-size:12px;color:#c07020;margin-top:5px">입력한 재산(부동산+금융)보다 증여액이 커서 '
-    +_ssComma(c.short)+'원은 반영하지 못했습니다.</div>';
+    +'<b>1인당 '+_ssComma(c.perEff)+'원</b> 기준으로 계산했습니다 (요청 '+_ssComma(c.want)+'원 중 '
+    +_ssComma(c.short)+'원 미반영).</div>';
   h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:7px;line-height:1.6">'
     +'※ 자녀는 성년(증여재산공제 5천만원)이고 10년 내 다른 증여가 없다고 보았습니다. 증여 재원은 금융재산에서 먼저 빼고 모자라면 부동산에서 뺍니다.<br>'
     +'※ 부동산을 증여하면 취득세 등 이전 비용이 즉시 발생하는데 이 비교에는 포함되지 않았습니다.</div>'
