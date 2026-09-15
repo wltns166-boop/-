@@ -47,6 +47,12 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .nav-sh{display:none!important} /* 메뉴 검색 필터 숨김 — 클래스로만(권한 인라인 표시값 보존, cfg-hide 계열) */
 #nav_srch::placeholder{color:#5a6494}
 #nav_srch:focus{border-color:#4858cc}
+#nav_srch_res{margin:0 14px 8px;max-height:44vh;overflow-y:auto;border:1px solid #232e5c;border-radius:8px;background:rgba(255,255,255,.04);padding:6px 7px}
+.nsr{display:flex;gap:7px;align-items:flex-start;padding:6px 5px;border-radius:6px;cursor:pointer}
+.nsr:hover{background:rgba(90,110,255,.18)}
+.nsr>i{font-size:14px;color:#8a96d8;flex:none;margin-top:2px}
+.nsrt{font-size:12.5px;color:#e6ebff;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.nsrs{font-size:10.5px;color:#7c86b8;margin-top:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
 .ns .ni{font-size:15px;padding:7px 20px 7px 30px;color:#d0d8ff;}
 .ns .ni:hover{color:#ffffff;}
 
@@ -439,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-6</div>
   </div>
 </div>
 
@@ -486,10 +492,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   <nav id="sb">
     <div class="sbl"><div class="sblt" id="sb_brand_t">TIMS</div><div class="sbu" id="sbu"></div></div>
     <div class="nlb">메뉴</div>
-    <!-- 메뉴 검색 (2026-09-10) — 입력 시 메뉴 실시간 필터, Esc·지우면 원상 복귀 -->
-    <div style="padding:2px 14px 8px"><input id="nav_srch" type="text" placeholder="메뉴 검색" autocomplete="off"
+    <!-- 통합 검색 (2026-09-10 메뉴 → 2026-09-15 자료·파일 확장) — 메뉴 실시간 필터 + 게시물·첨부파일·공지 찾기, Esc·지우면 원상 복귀 -->
+    <div style="padding:2px 14px 8px"><input id="nav_srch" type="text" placeholder="메뉴·자료·파일 검색" autocomplete="off"
       oninput="navSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';navSearch('');this.blur();}"
       style="width:100%;box-sizing:border-box;padding:7px 11px;border-radius:8px;border:1px solid #232e5c;background:rgba(255,255,255,.05);color:#dfe5ff;font-size:13.5px;outline:none"></div>
+    <div id="nav_srch_res" style="display:none"></div>
     <div class="ni" id="n_home"><i class="ti ti-home"></i>홈</div>
     <div class="ni" id="n_notice"><i class="ti ti-bell"></i>공지사항</div>
     <div class="ni" id="n_schedule"><i class="ti ti-calendar-event"></i>지점일정</div>
@@ -4763,6 +4770,137 @@ function _navSrchEligible(el){
   return true;
 }
 function _navSrchLabel(el){ return String((el&&el.textContent)||'').replace(/\s+/g,'').toLowerCase(); }
+// ── 자료 검색 확장 (2026-09-15) — 메뉴 이름뿐 아니라 게시판 게시물(제목·본문)·첨부 파일명·공지사항까지 찾는다.
+// 열람 권한이 없거나 환경설정으로 숨긴 메뉴의 자료는 결과에 나오지 않음(_navSrchMenuOk — navSearch와 같은 규칙).
+// 결과 클릭 = 그 게시물/공지를 바로 열기(파일 항목도 원본 URL이 아니라 담긴 글로 이동 — 5.6 팀원 다운로드 정책 유지).
+// 저장·동기화 없음(함정 B 무관), 표시·속성 전부 _esc(자유 입력 제목·파일명 — XSS), 항목 조작은 고유 id 기준(함정 A).
+var NAV_SRCH_MAX=40;
+function _navSrchText(el){ return String((el&&el.textContent)||'').replace(/\s+/g,' ').trim(); }
+// 그 메뉴가 지금 사용자에게 보이는가 — 하위 항목이면 감싼 그룹 머리까지 검사(navSearch의 headOk 규칙과 동일)
+function _navSrchMenuOk(navId){
+  try{
+    var el=g(navId); if(!el||!_navSrchEligible(el)) return false;
+    var ns=el.parentElement;
+    if(ns&&ns.classList&&ns.classList.contains('ns')){
+      var ch=ns.parentElement;
+      if(ch&&ch.classList&&ch.classList.contains('nch')){
+        var head=ch.previousElementSibling;
+        if(head&&head.classList&&head.classList.contains('ni')&&!_navSrchEligible(head)) return false;
+      }
+    }
+    return true;
+  }catch(e){ return false; }
+}
+// 결과에 표시할 위치 — "자료실 › 상담자료"(하위 메뉴면 그룹 이름까지)
+function _navSrchPath(navId){
+  try{
+    var el=g(navId); if(!el) return '';
+    var own=_navSrchText(el);
+    var ns=el.parentElement;
+    if(ns&&ns.classList&&ns.classList.contains('ns')){
+      var ch=ns.parentElement;
+      if(ch&&ch.classList&&ch.classList.contains('nch')){
+        var head=ch.previousElementSibling;
+        if(head&&head.classList&&head.classList.contains('ni')) return _navSrchText(head)+' › '+own;
+      }
+    }
+    return own;
+  }catch(e){ return ''; }
+}
+// 자료 검색 — q는 navSearch가 정규화한 값(공백 제거·소문자). 정렬: 제목 일치 → 파일명 → 본문, 같은 등급이면 최신순
+function _navSrchContent(q){
+  var hits=[];
+  if(!q) return hits;
+  var nz=function(v){ return String(v==null?'':v).replace(/\s+/g,'').toLowerCase(); };
+  try{   // 게시판 게시물 + 첨부 파일명
+    var bd=(typeof boards!=='undefined'&&boards&&typeof boards==='object'&&!Array.isArray(boards))?boards:{};
+    Object.keys(bd).forEach(function(cmId){
+      if(String(cmId).indexOf('cm_')!==0||!Array.isArray(bd[cmId])) return;
+      if(!_navSrchMenuOk('n_'+cmId)) return;
+      var path=_navSrchPath('n_'+cmId);
+      var cats={}; try{ _bdCats(cmId).forEach(function(c){ if(c&&c.id) cats[c.id]=c.nm||''; }); }catch(e){}
+      bd[cmId].forEach(function(p){
+        if(!p||!p.id) return;
+        var cat=(p.cat&&cats[p.cat])?cats[p.cat]:'';
+        var where=path+(cat?' · '+cat:'');
+        var ttl=p.title||'(제목 없음)';
+        var tOk=nz(p.title).indexOf(q)>=0;
+        var bOk=!tOk&&nz(p.body).indexOf(q)>=0;
+        if(tOk||bOk) hits.push({k:'post',score:tOk?0:2,ts:p.ts||0,ic:'ti-file-text',title:ttl,sub:where,cm:cmId,pid:p.id});
+        (Array.isArray(p.files)?p.files:[]).forEach(function(f){
+          var nm=f&&f.n; if(!nm||nz(nm).indexOf(q)<0) return;
+          hits.push({k:'post',score:1,ts:p.ts||0,ic:'ti-paperclip',title:String(nm),sub:where+' · '+ttl,cm:cmId,pid:p.id});
+        });
+      });
+    });
+  }catch(e){ console.warn('자료 검색(게시판) 오류:', e); }
+  try{   // 공지사항 + 첨부 파일명
+    var nots=(typeof not!=='undefined'&&Array.isArray(not))?not:[];
+    if(nots.length&&_navSrchMenuOk('n_notice')){
+      nots.forEach(function(nt){
+        if(!nt) return;
+        var ttl=nt.title||'(제목 없음)';
+        var fp=String(nt.title||'')+'|'+String(nt.date||'');     // nid 없는 옛 공지용 지문(4.48 계열)
+        var ts=Date.parse(String(nt.date||'').replace(/\./g,'-'))||0;
+        var tOk=nz(nt.title).indexOf(q)>=0;
+        var bOk=!tOk&&nz(nt.content).indexOf(q)>=0;
+        if(tOk||bOk) hits.push({k:'notice',score:tOk?0:2,ts:ts,ic:'ti-bell',title:ttl,sub:'공지사항'+(nt.date?' · '+nt.date:''),nid:nt.nid||'',fp:fp});
+        (Array.isArray(nt.files)?nt.files:[]).forEach(function(f){
+          var nm=f&&f.name; if(!nm||nz(nm).indexOf(q)<0) return;
+          hits.push({k:'notice',score:1,ts:ts,ic:'ti-paperclip',title:String(nm),sub:'공지사항 · '+ttl,nid:nt.nid||'',fp:fp});
+        });
+      });
+    }
+  }catch(e){ console.warn('자료 검색(공지) 오류:', e); }
+  hits.sort(function(a,b){ return (a.score-b.score)||((b.ts||0)-(a.ts||0)); });
+  return hits;
+}
+function _navSrchRender(hits, anyMenu){
+  var box=g('nav_srch_res'); if(!box) return;
+  hits=hits||[];
+  if(!hits.length){
+    if(anyMenu===false){   // 메뉴도 자료도 못 찾음 — 조용히 빈 화면이 되지 않게 안내
+      box.innerHTML='<div style="font-size:11.5px;color:#7c86b8;padding:7px 5px;text-align:center">검색 결과가 없습니다</div>';
+      box.style.display='block';
+    } else { box.innerHTML=''; box.style.display='none'; }
+    return;
+  }
+  var shown=hits.slice(0,NAV_SRCH_MAX);
+  box.innerHTML='<div style="font-size:11px;color:#7c86b8;padding:2px 3px 5px">자료 '+hits.length+'건'
+    +(hits.length>shown.length?' · 상위 '+shown.length+'건':'')+'</div>'
+    +shown.map(function(h){
+      return '<div class="nsr" data-nsrk="'+_esc(h.k)+'" data-nsrcm="'+_esc(h.cm||'')+'" data-nsrpid="'+_esc(h.pid||'')+'"'
+        +' data-nsrnid="'+_esc(h.nid||'')+'" data-nsrfp="'+_esc(h.fp||'')+'" title="'+_esc(h.title)+'">'
+        +'<i class="ti '+_esc(h.ic)+'"></i>'
+        +'<span style="flex:1;min-width:0"><span class="nsrt">'+_esc(h.title)+'</span>'
+        +'<span class="nsrs">'+_esc(h.sub||'')+'</span></span></div>';
+    }).join('');
+  box.style.display='block';
+  box.querySelectorAll('.nsr').forEach(function(el){ el.addEventListener('click',function(){ _navSrchOpen(el); }); });
+}
+function _navSrchOpen(el){
+  try{
+    var k=el.getAttribute('data-nsrk');
+    if(k==='post'){
+      var cm=el.getAttribute('data-nsrcm'), pid=el.getAttribute('data-nsrpid');
+      if(!cm||!pid) return;
+      window._bdOpenWant={name:cm, pid:pid};   // showPage의 cm_ 분기가 이어받아 상세로 연다
+      showPage(cm);                             // showPage가 _navSrchClear로 검색창도 정리
+      return;
+    }
+    if(k==='notice'){
+      var nid=el.getAttribute('data-nsrnid')||'', fp=el.getAttribute('data-nsrfp')||'';
+      var arr=(typeof not!=='undefined'&&Array.isArray(not))?not:[];
+      var idx=-1, i;
+      // 클릭 시점에 다시 찾는다 — 실시간 수신으로 not이 통째 교체돼도 엉뚱한 공지가 열리지 않게(함정 A)
+      if(nid) for(i=0;i<arr.length;i++){ if(arr[i]&&arr[i].nid===nid){ idx=i; break; } }
+      if(idx<0) for(i=0;i<arr.length;i++){ if(arr[i]&&(String(arr[i].title||'')+'|'+String(arr[i].date||''))===fp){ idx=i; break; } }
+      if(idx<0){ toast('그 사이 변경·삭제된 공지입니다. 다시 검색해주세요.'); _navSrchClear(); return; }
+      _navSrchClear();
+      openNoticeDetail(idx);
+    }
+  }catch(e){ console.warn('검색 결과 열기 오류:', e); toast('검색 결과를 여는 중 문제가 발생했습니다.'); }
+}
 function navSearch(q){
   try{
     var sb=g('sb'); if(!sb) return;
@@ -4779,16 +4917,18 @@ function navSearch(q){
         });
         window._navSrchSnap=null;
       }
+      _navSrchRender([]);   // 자료 결과 목록도 닫음
       return;
     }
     if(!window._navSrchSnap){ var s={}; chs.forEach(function(ch){ s[ch.id]=ch.classList.contains('open'); }); window._navSrchSnap=s; }
+    var anyMenu=false;
     var kids=Array.prototype.slice.call(sb.children);
     kids.forEach(function(el,i){
       if(!el.classList||!el.classList.contains('ni')) return;
       var ch=(kids[i+1]&&kids[i+1].classList&&kids[i+1].classList.contains('nch'))?kids[i+1]:null;
       var headOk=_navSrchEligible(el);
       var selfMatch=headOk&&_navSrchLabel(el).indexOf(q)>=0;
-      if(!ch){ el.classList.toggle('nav-sh',!selfMatch); return; } // 단독 메뉴
+      if(!ch){ el.classList.toggle('nav-sh',!selfMatch); if(selfMatch) anyMenu=true; return; } // 단독 메뉴
       // 그룹 머리가 권한·설정으로 숨김이면 그룹 전체를 검색에서 제외 — 머리에만 인라인 숨김을 거는
       // 패턴(신입관리 leaderNavIds 등)에서 하위 항목이 검색 펼침으로 노출되던 결함(2026-09-10 리뷰)
       if(!headOk){ el.classList.add('nav-sh'); ch.classList.add('nav-sh'); ch.classList.remove('open'); return; }
@@ -4801,11 +4941,14 @@ function navSearch(q){
         if(ok) any=true;
       });
       var show=selfMatch||any;
+      if(show) anyMenu=true;
       el.classList.toggle('nav-sh',!show);
       ch.classList.toggle('nav-sh',!show);
       ch.classList.toggle('open',show); // 일치 그룹은 펼쳐서 바로 보여줌
       var arr=g('nc_'+String(ch.id||'').replace(/^nch_/,'')); if(arr) arr.style.transform=show?'rotate(180deg)':'';
     });
+    // 메뉴 필터에 이어 게시물·첨부파일·공지까지 찾아 목록으로 표시(2026-09-15)
+    _navSrchRender(_navSrchContent(q), anyMenu);
   }catch(e){ console.warn('navSearch err:', e); }
 }
 function _navSrchClear(){ var i=g('nav_srch'); if(i&&i.value){ i.value=''; navSearch(''); } }
@@ -5466,8 +5609,14 @@ function showPage(name){
   setAdmin();
   const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
-  else if(String(name).indexOf('cm_')===0) setTimeout(function(){ window._bdOpenPost=null; rCustomPage(name); },0);   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터
-  if(String(name).indexOf('cm_')!==0) window._bdOpenPost=null;   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
+  // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
+  // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
+  else if(String(name).indexOf('cm_')===0) setTimeout(function(){
+    var want=window._bdOpenWant; window._bdOpenWant=null;
+    window._bdOpenPost=(want&&want.name===name&&want.pid)?{name:name,pid:want.pid}:null;
+    rCustomPage(name);
+  },0);
+  if(String(name).indexOf('cm_')!==0){ window._bdOpenPost=null; window._bdOpenWant=null; }   // 게시판 밖으로 이동하면 상세 상태 해제(방향키 리스너 잔존 방지)
 }
 
 // ===== 인트라넷 사용량 집계·조회 (관리자 전용 열람) =====
