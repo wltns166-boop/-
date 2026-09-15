@@ -445,7 +445,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-11</div>
   </div>
 </div>
 
@@ -20561,12 +20561,12 @@ function _ssCompute(o){
 }
 // ── 상속 vs 증여 (2026-09-15 v-8) ──
 // 증여재산공제는 **10년 합산** 기준 관계별 금액. 증여세율은 상속세와 같은 누진세율(SS_RATES 공용).
-// ⚠️ 세법이 바뀌면 SS_GIFT_DED·SS_RATES만 고치면 됨.
-var SS_GIFT_DED={spouse:600000000, adult:50000000, minor:20000000, kin:10000000};
+// ⚠️ 세법이 바뀌면 **SS_GIFT_RELS**(관계별 증여재산공제)·SS_RATES만 고치면 됨 — 공제액은 거기 한 곳에만 둘 것.
+//   (v-10까지 SS_GIFT_DED에 같은 숫자가 중복돼 있었고, 실제 계산은 SS_GIFT_RELS만 썼다 — v-11 리뷰에서 제거)
 // 한 사람에게 증여할 때의 증여세(10년 내 다른 증여 없음 가정, 신고세액공제 3% 반영)
 function _ssGiftTax(amount, ded, prior){
   amount=Math.max(0, Math.round(Number(amount)||0));
-  ded=(ded==null)?SS_GIFT_DED.adult:Math.max(0, Number(ded)||0);
+  ded=(ded==null)?_ssGiftRel('adult')[2]:Math.max(0, Number(ded)||0);
   prior=Math.max(0, Math.round(Number(prior)||0));
   // 10년 내 이미 받은 증여가 있으면 합산해 세액을 구하고 옛 증여분 산출세액을 뺀다(합산과세 → 기납부세액 공제)
   var tAll=_ssTax(Math.max(0, amount+prior-ded));
@@ -20603,7 +20603,8 @@ function _ssGiftHtml(gc){
     +'증여 금액을 넣으면<br>증여세와 상속세 비교가 나옵니다.</div>';
   var h=_ssRow('증여 금액 (1인당)', _ssComma(gc.amt)+'원')
     +(gc.prior>0?_ssRow('＋ 10년 내 이미 증여한 금액', _ssComma(gc.prior)+'원'):'')
-    +_ssRow('－ 증여재산공제 ('+_esc(gc.relLabel)+')', '- '+_ssComma(gc.ded)+'원')
+    +_ssRow('－ 증여재산공제 ('+_esc(gc.relLabel)+')', '- '+_ssComma(gc.one.dedUsed)+'원'
+      +(gc.one.dedUsed<gc.ded?' <span style="font-size:11.5px;color:#9aa2bd;font-weight:500">(한도 '+_ssComma(gc.ded)+'원)</span>':''))
     +_ssRow('과세표준', _ssComma(gc.one.base)+'원', {bt:1})
     +_ssRow('적용 세율', gc.one.base>0?(Math.round(gc.one.rate*100)+'%'):'해당 없음')
     +_ssRow('산출세액', _ssComma(gc.one.tax)+'원')
@@ -20660,11 +20661,18 @@ function _ssAptHtml(a){
         +'<div style="height:100%;width:'+w+'%;background:'+(now?'#c0392b':'#9fb0f2')+'"></div></div>'
       +'</div>';
   }).join('');
-  if(a.upRate!==null&&a.upDiff>0) h+='<div style="margin-top:10px;padding:11px 13px;border-radius:9px;background:#fdf2f3;border:1px solid #f0c2c9;font-size:13px;color:#8c2b20;line-height:1.65">'
+  // 안내 문구 분기(v-11 리뷰):
+  //  ⓐ 지금 0원인데 10% 오르면 세금이 생기는 경우 — 이 기능이 가장 보여줘야 할 순간인데 예전엔 어느 문구도 안 떴다
+  //     (upRate가 base>0일 때만 값이라 첫 조건에서 빠지고, upDiff≠0이라 둘째 조건에도 안 걸림)
+  //  ⓑ 증가액이 있으면 배율은 upRate가 있을 때만 덧붙인다
+  //  ⓒ "20% 올라도 없다"는 +20% 행까지 실제로 0원일 때만(예전엔 +10%만 보고 단정 — 표의 막대와 모순)
+  if(a.base<=0&&a.upDiff>0) h+='<div style="margin-top:10px;padding:11px 13px;border-radius:9px;background:#fffaf2;border:1px solid #f0d9b8;font-size:13px;color:#7a5520;line-height:1.65">'
+    +'지금 시세로는 상속세가 없지만, <b>10%만 올라도 '+_ssComma(a.upDiff)+'원</b>이 생깁니다. 공제 범위 바로 앞이라 시세에 따라 달라집니다.</div>';
+  else if(a.upDiff>0) h+='<div style="margin-top:10px;padding:11px 13px;border-radius:9px;background:#fdf2f3;border:1px solid #f0c2c9;font-size:13px;color:#8c2b20;line-height:1.65">'
     +'시세가 <b>10% 오르면</b> 상속세는 <b>'+_ssComma(a.upDiff)+'원</b> 늘어납니다'
-    +(a.upRate>10?' — 재산은 10% 늘었는데 세금은 <b>'+a.upRate+'%</b> 늘어납니다. 누진세율이라 오를수록 부담이 더 빨리 커집니다.':'.')
+    +((a.upRate!==null&&a.upRate>10)?' — 재산은 10% 늘었는데 세금은 <b>'+a.upRate+'%</b> 늘어납니다. 누진세율이라 오를수록 부담이 더 빨리 커집니다.':'.')
     +'</div>';
-  else if(a.upDiff===0) h+='<div style="margin-top:10px;padding:11px 13px;border-radius:9px;background:#f1faf2;border:1px solid #bfe2c6;font-size:13px;color:#207830;line-height:1.65">'
+  else if(a.max===0) h+='<div style="margin-top:10px;padding:11px 13px;border-radius:9px;background:#f1faf2;border:1px solid #bfe2c6;font-size:13px;color:#207830;line-height:1.65">'
     +'지금은 시세가 20% 올라도 상속공제 범위 안이라 상속세가 없습니다. 다만 시세가 더 오르면 달라질 수 있습니다.</div>';
   h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:9px;line-height:1.6">'
     +'※ 입력한 부동산 금액만 움직여 다시 계산한 값입니다. 금융재산·채무·상속인 조건은 그대로 두었습니다.<br>'
