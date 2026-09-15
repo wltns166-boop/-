@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-4</div>
   </div>
 </div>
 
@@ -4239,6 +4239,8 @@ function logout(){
   // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
   // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
   window._bdrVals=null;
+  window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
+  try{ var _sgp=g('ssg_pop'); if(_sgp) _sgp.remove(); }catch(e){}   // 설명서 모달이 로그인 화면 위에 남지 않게
   window._bdrUp=null; try{ var _buo=g('bdrup_overlay'); if(_buo) _buo.remove(); }catch(e){}   // 업로드 모달도 정리(로그인 화면 위 잔존 방지)
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
   // 재렌더 생략 가드가 고착돼 공지 목록 실시간 갱신이 막힘
@@ -19752,6 +19754,8 @@ function rCustomPage(name){
   var body=g('cm_body'); if(!body) return;
   // 대리발급 패널이 떠 있으면 재렌더 전에 입력값을 버퍼로 회수(실시간 수신 재렌더에 입력이 날아가지 않게)
   try{ var _bp=g('bdr_panel'); if(_bp) _bdrSyncFromDom(_bp.getAttribute('data-bdrcat')); }catch(e){}
+  // 상속세 계산기도 같은 이유로 입력값을 버퍼로 회수(2026-09-15)
+  try{ var _sp=g('ss_panel'); if(_sp) _ssSyncFromDom(_sp.getAttribute('data-sscat')); }catch(e){}
   var c=_navCustomById(name);
   if(!c){ body.innerHTML='<div class="card" style="color:#888;font-size:14px">메뉴를 찾을 수 없습니다. (삭제되었을 수 있습니다)</div>'; return; }
   var q=JSON.stringify(name).replace(/"/g,'&quot;');
@@ -19792,6 +19796,13 @@ function rCustomPage(name){
     if(_dc&&_bdIsDaeri(_dc)) daeriCat=_dc;
   }
   var daeriPanel=daeriCat?_bdDaeriHtml(name,daeriCat):'';
+  // '상속세' 분류 탭 선택 시 상속세 계산기 패널 (2026-09-15 — 대리발급 패널과 같은 자리·같은 방식)
+  var sangCat=null;
+  if(csel&&csel!=='_none'&&!daeriCat){
+    var _sc=cats.filter(function(cc){ return cc.id===csel; })[0];
+    if(_sc&&_bdIsSang(_sc)) sangCat=_sc;
+  }
+  var sangPanel=sangCat?_ssPanelHtml(name,sangCat):'';
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
@@ -19816,9 +19827,10 @@ function rCustomPage(name){
       +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
       +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
       +'</div>':'')
-    +'</div>'+catbar+daeriPanel+grid+pager+'</div>';
+    +'</div>'+catbar+daeriPanel+sangPanel+grid+pager+'</div>';
   _bdBind(body,name);
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
+  if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
 // 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
@@ -20285,6 +20297,348 @@ function bdCatSave(){
   try{ if(String(window._curPage||'')===nm) rCustomPage(nm); }catch(err){}
 }
 // ===== 게시판 대리발급 서류 작성 (2026-09-10) =====
+// ===== 상속세 계산기 · 설명서 (ss, 2026-09-15) =====
+// 분류 이름에 '상속세'가 들어간 분류 탭을 선택하면 게시판 목록 위에 계산기 패널이 표시된다(대리발급 패널 계열).
+// 입력값은 저장·동기화 없음(함정 B 무관) — 재렌더 보존용 메모리 버퍼 window._ssVals[분류id]만 사용.
+//   고객 재무정보라 logout에서 리셋(_bdrVals 계열). id는 ss_/ssg_ 접두(함정 E), 자유 텍스트 표시는 _esc.
+// ⚠️ 참고용 간이 계산 — 누진세율·일괄공제·배우자상속공제·금융재산상속공제만 반영한 근사치이며
+//   동거주택공제·가업상속공제·세대생략할증 등은 미반영(화면에 명시). 세법이 바뀌면 SS_RATES/SS_DED 상수를 갱신할 것.
+function _bdIsSang(cat){ return !!(cat&&/상속세/.test(String(cat.nm||''))); }
+// 상속세 누진세율 — [과세표준 상한, 세율, 누진공제]
+var SS_RATES=[
+  {lim:100000000,  rate:0.10, cut:0},
+  {lim:500000000,  rate:0.20, cut:10000000},
+  {lim:1000000000, rate:0.30, cut:60000000},
+  {lim:3000000000, rate:0.40, cut:160000000},
+  {lim:Infinity,   rate:0.50, cut:460000000}
+];
+var SS_DED={ base:200000000, child:50000000, lump:500000000, spMin:500000000, spMax:3000000000, finMin:20000000, finMax:200000000, report:0.03 };
+function _ssNum(v){ var d=String(v==null?'':v).replace(/[^0-9]/g,''); return d?Number(d):0; }
+function _ssFmtInput(v){ var d=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,15); return d?Number(d).toLocaleString():''; }
+function _ssComma(n){ return Number(Math.round(n)||0).toLocaleString(); }
+// 15억 3,000만원 형태 — 큰 금액을 한눈에 확인(입력 오타 방지)
+function _ssKor(n){
+  n=Math.round(Number(n)||0);
+  if(n<=0) return '0원';
+  var eok=Math.floor(n/100000000), man=Math.floor((n%100000000)/10000), won=n%10000, out='';
+  if(eok) out+=eok.toLocaleString()+'억 ';
+  if(man) out+=man.toLocaleString()+'만 ';
+  if(won) out+=won.toLocaleString();
+  return out.replace(/\s+$/,'')+'원';
+}
+function _ssTax(base){
+  if(base<=0) return {tax:0, rate:0, cut:0};
+  for(var i=0;i<SS_RATES.length;i++){
+    if(base<=SS_RATES[i].lim) return {tax:Math.max(0, base*SS_RATES[i].rate-SS_RATES[i].cut), rate:SS_RATES[i].rate, cut:SS_RATES[i].cut};
+  }
+  return {tax:0, rate:0, cut:0};
+}
+function _ssGetVals(catId){
+  window._ssVals=window._ssVals||{};
+  if(!window._ssVals[catId]) window._ssVals[catId]={re:'',fin:'',etc:'',gift:'',debt:'',fune:'',sp:'1',ch:'2',sptake:''};
+  return window._ssVals[catId];
+}
+function _ssSyncFromDom(catId){ // 화면 입력값을 버퍼로 회수(재렌더 직전 — _bdrSyncFromDom 계열)
+  var p=g('ss_panel'); if(!p||!catId||p.getAttribute('data-sscat')!==catId) return;
+  var o=_ssGetVals(catId);
+  p.querySelectorAll('[data-ssk]').forEach(function(inp){ o[inp.getAttribute('data-ssk')]=inp.value; });
+}
+// 상속세 계산 코어 — 입력 버퍼 → 계산 결과 객체(표시·검증 공용, 모의 실행 대상)
+function _ssCompute(o){
+  o=o||{};
+  var re=_ssNum(o.re), fin=_ssNum(o.fin), etc=_ssNum(o.etc), gift=_ssNum(o.gift);
+  var debt=_ssNum(o.debt), fune=_ssNum(o.fune);
+  var hasSp=String(o.sp==null?'1':o.sp)==='1';
+  var ch=Math.max(0, Math.min(20, parseInt(o.ch,10)||0));
+  var estate=re+fin+etc;                                   // 총 상속재산
+  var taxable=Math.max(0, estate+gift-debt-fune);           // 상속세 과세가액
+  // 기초공제+기타 인적공제 vs 일괄공제 5억 중 큰 쪽. 단 배우자 단독상속(자녀 등 다른 상속인 없음)은 일괄공제 적용 불가
+  var personal=SS_DED.base+ch*SS_DED.child;
+  var sole=hasSp&&ch<=0;
+  var basic=sole?personal:Math.max(personal, SS_DED.lump);
+  // 배우자 상속공제 — 최소 5억 보장, 한도 min(과세가액×법정지분, 30억). 실제 상속액 미입력이면 법정지분만큼 받는 것으로 가정
+  var spDed=0, spLimit=0, share=0;
+  if(hasSp){
+    share=1.5/(1.5+ch);
+    spLimit=Math.min(taxable*share, SS_DED.spMax);
+    var take=_ssNum(o.sptake)>0?_ssNum(o.sptake):spLimit;
+    spDed=Math.max(SS_DED.spMin, Math.min(take, spLimit));
+  }
+  // 금융재산 상속공제 — 2천만원 이하는 전액, 초과는 20%(최소 2천만원·최대 2억)
+  var finDed=fin<=0?0:(fin<=SS_DED.finMin?fin:Math.min(Math.max(fin*0.2, SS_DED.finMin), SS_DED.finMax));
+  var dedSum=basic+spDed+finDed;
+  var dedUsed=Math.min(taxable, dedSum);                    // 공제는 과세가액을 넘을 수 없음
+  var base=Math.max(0, taxable-dedUsed);
+  var t=_ssTax(base);
+  var tax=Math.round(t.tax);
+  var rptDed=Math.round(tax*SS_DED.report);                 // 신고세액공제 3%
+  var pay=Math.max(0, tax-rptDed);
+  return { re:re, fin:fin, etc:etc, gift:gift, debt:debt, fune:fune, hasSp:hasSp, ch:ch, sole:sole, share:share,
+    estate:estate, taxable:taxable, personal:personal, basic:basic, spDed:spDed, spLimit:spLimit, finDed:finDed,
+    dedSum:dedSum, dedUsed:dedUsed, base:base, rate:t.rate, cut:t.cut, tax:tax, rptDed:rptDed, pay:pay,
+    gap:Math.max(0, pay-fin), rePct:estate>0?Math.round(re/estate*100):0 };
+}
+function _ssRow(label,val,opt){
+  opt=opt||{};
+  return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:'+(opt.pad||'5px 0')+';'+(opt.bt?'border-top:1px solid #e6e9f4;margin-top:4px;padding-top:8px;':'')+'">'
+    +'<span style="font-size:'+(opt.big?'14.5px':'13px')+';color:'+(opt.big?'#2a2a4a':'#5a6488')+';font-weight:'+(opt.big?'700':'500')+'">'+label+'</span>'
+    +'<span style="font-size:'+(opt.big?'15.5px':'13.5px')+';font-weight:'+(opt.big?'800':'600')+';color:'+(opt.color||'#1a1a2e')+';white-space:nowrap">'+val+'</span></div>';
+}
+function _ssResultHtml(r){
+  var minus=function(n){ return n>0?'- '+_ssComma(n)+'원':'0원'; };
+  var h='';
+  h+='<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:4px">1. 과세가액</div>'
+    +_ssRow('총 상속재산', _ssComma(r.estate)+'원')
+    +(r.gift>0?_ssRow('＋ 10년 내 사전증여재산', _ssComma(r.gift)+'원'):'')
+    +(r.debt>0?_ssRow('－ 채무·공과금', minus(r.debt)):'')
+    +(r.fune>0?_ssRow('－ 장례비용', minus(r.fune)):'')
+    +_ssRow('상속세 과세가액', _ssComma(r.taxable)+'원', {bt:1});
+  h+='<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 4px">2. 상속공제</div>'
+    +_ssRow(r.sole?'기초공제 ＋ 인적공제':'일괄공제 (기초＋인적공제와 비교해 큰 쪽)', _ssComma(r.basic)+'원')
+    +(r.hasSp?_ssRow('배우자 상속공제', _ssComma(r.spDed)+'원'):'')
+    +(r.finDed>0?_ssRow('금융재산 상속공제', _ssComma(r.finDed)+'원'):'')
+    +_ssRow('공제 합계', _ssComma(r.dedUsed)+'원'+(r.dedSum>r.dedUsed?' <span style="font-size:11.5px;color:#9aa2bd;font-weight:500">(과세가액 한도)</span>':''), {bt:1});
+  h+='<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 4px">3. 세액</div>'
+    +_ssRow('과세표준', _ssComma(r.base)+'원')
+    +_ssRow('적용 세율', r.base>0?(Math.round(r.rate*100)+'%'+(r.cut>0?' <span style="font-size:11.5px;color:#9aa2bd;font-weight:500">(누진공제 '+_ssComma(r.cut)+'원)</span>':'')):'해당 없음')
+    +_ssRow('산출세액', _ssComma(r.tax)+'원')
+    +(r.rptDed>0?_ssRow('－ 신고세액공제 (3%)', minus(r.rptDed)):'');
+  var payColor=r.pay>0?'#c0392b':'#207830';
+  h+='<div style="margin-top:12px;padding:13px 15px;border-radius:9px;background:'+(r.pay>0?'#fdf2f3':'#f1faf2')+';border:1px solid '+(r.pay>0?'#f0c2c9':'#bfe2c6')+'">'
+    +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      +'<span style="font-size:14.5px;font-weight:800;color:#2a2a4a">납부할 상속세</span>'
+      +'<span style="font-size:22px;font-weight:800;color:'+payColor+';white-space:nowrap">'+_ssComma(r.pay)+'원</span></div>'
+    +'<div style="text-align:right;font-size:12.5px;color:#7a819c;margin-top:2px">'+_ssKor(r.pay)+'</div>'
+    +(r.pay<=0?'<div style="font-size:12.5px;color:#207830;margin-top:4px">상속공제 범위 안이라 낼 세금이 없습니다.</div>':'')
+    +'</div>';
+  if(r.pay>0){
+    var bar=r.estate>0?Math.max(2,Math.min(100,r.rePct)):0;
+    h+='<div style="margin-top:12px;padding:13px 15px;border-radius:9px;background:#fafbff;border:1px solid #dfe3f0">'
+      +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:7px"><i class="ti ti-coins"></i> 납부 재원 점검</div>'
+      +_ssRow('바로 쓸 수 있는 금융재산', _ssComma(r.fin)+'원')
+      +_ssRow('납부할 상속세', _ssComma(r.pay)+'원')
+      +(r.gap>0
+        ?_ssRow('현금 부족액', _ssComma(r.gap)+'원', {bt:1, big:1, color:'#c0392b'})
+          +'<div style="font-size:12.5px;color:#c0392b;margin-top:6px;line-height:1.55">부족한 '+_ssKor(r.gap)+'을 6개월 안에 현금으로 마련해야 합니다. 부동산 급매·대출·연부연납을 검토하거나, 미리 납세 재원을 준비해 두는 방법이 있습니다.</div>'
+        :_ssRow('현금 부족액', '없음', {bt:1, big:1, color:'#207830'})
+          +'<div style="font-size:12.5px;color:#207830;margin-top:6px">금융재산으로 상속세를 낼 수 있습니다.</div>')
+      +(r.estate>0?'<div style="margin-top:10px">'
+        +'<div style="font-size:12px;color:#5a6488;margin-bottom:4px">상속재산 중 부동산 비중 <b style="color:#2a2a4a">'+r.rePct+'%</b></div>'
+        +'<div style="height:11px;border-radius:6px;background:#e4e8f4;overflow:hidden"><div style="height:100%;width:'+bar+'%;background:#4858cc"></div></div>'
+        +'</div>':'')
+      +'</div>';
+  }
+  h+='<div style="font-size:11.5px;color:#9aa2bd;margin-top:11px;line-height:1.6">'
+    +'※ 참고용 간이 계산입니다. 동거주택 상속공제·가업상속공제·세대생략 할증 등 개별 사정은 반영되지 않았으며, 실제 신고세액은 세무 전문가 확인이 필요합니다.<br>'
+    +'※ 배우자 상속공제는 실제 상속받는 금액과 법정상속지분 한도(최대 30억원) 중 작은 값으로, 최소 5억원이 보장되는 것으로 계산했습니다.<br>'
+    +'※ 금융재산 상속공제는 입력한 금융재산을 순금융재산으로 보고 계산합니다. 금융채무가 있으면 공제액이 줄어듭니다.'
+    +'</div>';
+  return h;
+}
+function _ssPanelHtml(name,cat){
+  var o=_ssGetVals(cat.id);
+  var an=JSON.stringify(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var ac=JSON.stringify(cat.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var _in='width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff;text-align:right';
+  var money=function(k,label,ph,tip){
+    return '<div style="margin-bottom:9px">'
+      +'<div style="font-size:12.5px;color:#555;margin-bottom:3px">'+label+(tip?' <span style="color:#9aa2bd;font-size:11.5px">'+tip+'</span>':'')+'</div>'
+      +'<div style="position:relative"><input data-ssk="'+k+'" inputmode="numeric" oninput="this.value=_ssFmtInput(this.value)" value="'+_esc(_ssFmtInput(o[k]||''))+'" placeholder="'+_esc(ph||'0')+'" style="'+_in+';padding-right:30px">'
+      +'<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#8a92ac;pointer-events:none">원</span></div>'
+      +'<div data-sshint="'+k+'" style="text-align:right;font-size:11.5px;color:#4858cc;min-height:15px;margin-top:2px"></div></div>';
+  };
+  var bt='padding:7px 13px;border-radius:7px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;';
+  return '<div id="ss_panel" data-sscat="'+_esc(cat.id)+'" oninput="_ssCalc()" onchange="_ssCalc()" style="margin-top:12px;border:1px solid #dfe3f0;border-radius:10px;padding:14px 16px;background:#fafbff">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+      +'<div style="font-weight:700;font-size:15px;color:#2a2a4a"><i class="ti ti-calculator"></i> '+_esc(cat.nm)+'기 <span style="font-size:11.5px;font-weight:400;color:#9aa2bd">— 고객 상담용 간이 계산</span></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        +'<button onclick="ssGuideOpen()" style="'+bt+'background:#eef1ff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-book"></i> 상속세 설명서</button>'
+        +'<button onclick="ssReset('+an+','+ac+')" style="'+bt+'background:#fff;border:1px solid #d5d9e8;color:#6a7088"><i class="ti ti-eraser"></i> 초기화</button>'
+      +'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">'
+      +'<div style="flex:0 1 330px;min-width:270px">'
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">상속재산</div>'
+        +money('re','부동산','','아파트·토지·상가 등')
+        +money('fin','금융재산','','예금·주식·사망보험금 등')
+        +money('etc','기타재산','','차량·회원권 등')
+        +money('gift','10년 내 사전증여재산','','있을 때만')
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 6px">차감</div>'
+        +money('debt','채무·공과금','','대출·미납세금 등')
+        +money('fune','장례비용','','')
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 6px">상속인</div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:9px">'
+          +'<div style="flex:1"><div style="font-size:12.5px;color:#555;margin-bottom:3px">배우자</div>'
+            +'<select data-ssk="sp" style="'+_in+';text-align:left">'
+            +[['1','있음'],['0','없음']].map(function(op){ return '<option value="'+op[0]+'"'+(String(o.sp==null?'1':o.sp)===op[0]?' selected':'')+'>'+op[1]+'</option>'; }).join('')
+            +'</select></div>'
+          +'<div style="flex:1"><div style="font-size:12.5px;color:#555;margin-bottom:3px">자녀 수</div>'
+            +'<input data-ssk="ch" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,&quot;&quot;).slice(0,2)" value="'+_esc(o.ch||'')+'" placeholder="0" style="'+_in+'"></div>'
+        +'</div>'
+        +money('sptake','배우자가 실제 상속받을 금액','','비우면 법정상속지분으로 계산')
+        +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.</div>'
+      +'</div>'
+      +'<div style="flex:1 1 340px;min-width:290px">'
+        +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">계산 결과</div>'
+        +'<div id="ss_out" style="border:1px solid #e4e8f4;border-radius:8px;padding:13px 15px;background:#fff"></div>'
+      +'</div>'
+    +'</div></div>';
+}
+function _ssCalc(){
+  var p=g('ss_panel'); if(!p) return;
+  var catId=p.getAttribute('data-sscat');
+  _ssSyncFromDom(catId);
+  var o=_ssGetVals(catId);
+  try{
+    var out=g('ss_out'); if(out) out.innerHTML=_ssResultHtml(_ssCompute(o));
+    p.querySelectorAll('[data-sshint]').forEach(function(el){
+      var n=_ssNum(o[el.getAttribute('data-sshint')]);
+      el.textContent=n?_ssKor(n):'';
+    });
+  }catch(e){ console.warn('상속세 계산 오류:', e); }
+}
+function ssReset(name,catId){
+  if(!confirm('입력한 금액을 모두 지울까요?')) return;
+  try{ var p=g('ss_panel'); if(p) p.remove(); }catch(e){}   // 재렌더 직전 회수(_ssSyncFromDom)가 옛 값을 되살리지 않게 먼저 제거
+  window._ssVals=window._ssVals||{};
+  delete window._ssVals[catId];
+  try{ rCustomPage(name); }catch(e){}
+}
+// ----- 상속세 설명서 (그림 설명 — 고객에게 보여주는 용도) -----
+// 외부 이미지 파일 없이 인라인 SVG로 그린다(업로드·Storage 불필요, 어느 기기에서도 선명·출력 가능).
+// 내용은 전부 상수 문자열 — 사용자 입력이 들어가지 않아 XSS 무관. 흰 카드 + 어두운 글씨(함정 D 역방향).
+function _ssGuideBody(){
+  var card='background:#fff;border:1px solid #e4e8f4;border-radius:12px;padding:18px 20px;margin-bottom:14px';
+  var h2='font-size:17px;font-weight:800;color:#1a1a2e;margin:0 0 10px;letter-spacing:-.3px';
+  var p='font-size:14px;color:#44485a;line-height:1.7;margin:0';
+  var h='';
+  // 1) 표지
+  h+='<div style="'+card+';background:linear-gradient(135deg,#3a40aa,#4858cc);border:none;color:#fff;text-align:center;padding:26px 20px">'
+    +'<div style="font-size:13px;opacity:.85;letter-spacing:1px;margin-bottom:6px">TIMS 상담자료</div>'
+    +'<div style="font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.35">상속세, 왜 미리 준비해야 할까요?</div>'
+    +'<div style="font-size:14px;opacity:.9;margin-top:10px;line-height:1.6">남겨줄 재산은 정해져 있지만,<br>세금을 낼 <b>현금</b>은 준비한 사람에게만 있습니다.</div>'
+    +'</div>';
+  // 2) 핵심 3가지
+  var stat=function(ic,big,small,color){
+    return '<div style="flex:1 1 150px;min-width:140px;text-align:center;padding:16px 10px;border:1px solid #e4e8f4;border-radius:10px;background:#fafbff">'
+      +'<i class="ti '+ic+'" style="font-size:28px;color:'+color+'"></i>'
+      +'<div style="font-size:26px;font-weight:800;color:'+color+';margin-top:6px;letter-spacing:-.5px">'+big+'</div>'
+      +'<div style="font-size:13px;color:#5a6488;margin-top:4px;line-height:1.5">'+small+'</div></div>';
+  };
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">상속세의 세 가지 사실</h2>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +stat('ti-percentage','50%','최고 세율<br>물려줄 재산의 절반까지','#c0392b')
+      +stat('ti-calendar-clock','6개월','신고·납부 기한<br>돌아가신 달의 말일부터','#c07020')
+      +stat('ti-cash','현금','원칙은 현금 일시납<br>부동산으로는 못 냅니다','#3a40aa')
+    +'</div></div>';
+  // 3) 자산 구성 — 부동산에 묶인 재산
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">문제는 여기서 시작됩니다</h2>'
+    +'<p style="'+p+'">우리나라 가정의 재산은 대부분 <b>부동산</b>에 묶여 있습니다. 그런데 상속세는 부동산이 아니라 <b>현금</b>으로 내야 합니다.</p>'
+    +'<svg viewBox="0 0 600 132" width="100%" style="max-width:600px;display:block;margin:16px auto 0" role="img" aria-label="자산 구성 예시 — 부동산 76퍼센트, 금융 24퍼센트">'
+      +'<text x="0" y="14" fill="#5a6488" font-size="13" font-family="sans-serif">어느 가정의 자산 10억원 (예시)</text>'
+      +'<defs><clipPath id="ssg_clipbar"><rect x="0" y="26" width="600" height="48" rx="8"/></clipPath></defs>'
+      +'<g clip-path="url(#ssg_clipbar)">'
+        +'<rect x="0" y="26" width="456" height="48" fill="#4858cc"/>'
+        +'<rect x="456" y="26" width="144" height="48" fill="#aab7f5"/>'
+      +'</g>'
+      +'<text x="16" y="56" fill="#fff" font-size="15" font-weight="700" font-family="sans-serif">부동산 7억 6천만원</text>'
+      +'<text x="470" y="49" fill="#2a3170" font-size="12.5" font-weight="700" font-family="sans-serif">금융</text>'
+      +'<text x="470" y="65" fill="#2a3170" font-size="12.5" font-weight="700" font-family="sans-serif">2억 4천만원</text>'
+      +'<text x="0" y="98" fill="#c0392b" font-size="14" font-weight="700" font-family="sans-serif">상속세는 이 중 &quot;현금&quot;에서만 낼 수 있습니다.</text>'
+      +'<text x="0" y="118" fill="#8a92ac" font-size="12" font-family="sans-serif">부동산 비중이 높을수록 세금 낼 돈이 부족해집니다.</text>'
+    +'</svg></div>';
+  // 4) 세율 계단
+  var bars=[['1억 이하','10%',24,'#bcc6f8'],['5억 이하','20%',48,'#98a5f0'],['10억 이하','30%',72,'#7080e2'],['30억 이하','40%',96,'#4858cc'],['30억 초과','50%',120,'#c0392b']];
+  var sv='<svg viewBox="0 0 600 200" width="100%" style="max-width:600px;display:block;margin:14px auto 0" role="img" aria-label="상속세 누진세율 — 10퍼센트에서 50퍼센트까지">';
+  sv+='<line x1="0" y1="156" x2="600" y2="156" stroke="#dfe3f0" stroke-width="1"/>';
+  bars.forEach(function(b,i){
+    var x=14+i*118, w=92, y=156-b[2];
+    sv+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+b[2]+'" rx="5" fill="'+b[3]+'"/>'
+      +'<text x="'+(x+w/2)+'" y="'+(y-8)+'" text-anchor="middle" fill="'+(i===4?'#c0392b':'#3a40aa')+'" font-size="16" font-weight="800" font-family="sans-serif">'+b[1]+'</text>'
+      +'<text x="'+(x+w/2)+'" y="176" text-anchor="middle" fill="#5a6488" font-size="12.5" font-family="sans-serif">'+b[0]+'</text>';
+  });
+  sv+='<text x="0" y="196" fill="#8a92ac" font-size="12" font-family="sans-serif">과세표준(상속재산에서 공제를 뺀 금액) 구간별 세율</text></svg>';
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'">재산이 클수록 세율도 올라갑니다</h2>'
+    +'<p style="'+p+'">상속세는 누진세입니다. 공제를 빼고 남은 금액이 클수록 더 높은 세율이 적용되어, 30억원을 넘으면 <b style="color:#c0392b">절반이 세금</b>이 됩니다.</p>'
+    +sv+'</div>';
+  // 5) 준비 안 하면 벌어지는 일
+  var bad=function(ic,t,d){
+    return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid #f0f0f6">'
+      +'<i class="ti '+ic+'" style="font-size:20px;color:#c0392b;flex:none;margin-top:2px"></i>'
+      +'<div><div style="font-size:14.5px;font-weight:700;color:#1a1a2e">'+t+'</div>'
+      +'<div style="font-size:13.5px;color:#5a6488;line-height:1.6;margin-top:2px">'+d+'</div></div></div>';
+  };
+  h+='<div style="'+card+';border-color:#f0c2c9;background:#fffbfb">'
+    +'<h2 style="'+h2+'"><i class="ti ti-alert-triangle" style="color:#c0392b"></i> 준비하지 않으면</h2>'
+    +bad('ti-home-dollar','살던 집을 급하게 팝니다','6개월 안에 현금을 만들어야 하니 제값을 받기 어렵습니다. 급매는 시세보다 낮게 팔릴 수밖에 없습니다.')
+    +bad('ti-building-bank','빚을 내서 세금을 냅니다','세금을 내려고 대출을 받으면, 물려받은 재산에서 매달 이자가 빠져나갑니다.')
+    +bad('ti-users-group','가족끼리 다툽니다','누가 얼마를 낼지 정하지 못해 재산 분할이 늦어지고, 그 사이 가산세가 붙습니다.')
+    +bad('ti-receipt-tax','가산세가 붙습니다','기한을 넘기면 신고세액공제 3퍼센트를 못 받고, 무신고·납부지연 가산세까지 더해집니다.')
+    +'</div>';
+  // 6) 준비 방법
+  var good=function(ic,t,d){
+    return '<div style="flex:1 1 170px;min-width:160px;padding:15px 14px;border:1px solid #bfe2c6;border-radius:10px;background:#f6fbf7">'
+      +'<i class="ti '+ic+'" style="font-size:24px;color:#207830"></i>'
+      +'<div style="font-size:14.5px;font-weight:800;color:#1a5c28;margin-top:6px">'+t+'</div>'
+      +'<div style="font-size:13px;color:#4a6a52;line-height:1.6;margin-top:4px">'+d+'</div></div>';
+  };
+  h+='<div style="'+card+'">'
+    +'<h2 style="'+h2+'"><i class="ti ti-shield-check" style="color:#207830"></i> 미리 준비하는 방법</h2>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +good('ti-umbrella','종신보험으로 납세 재원 마련','사망보험금은 상속이 일어나는 바로 그 시점에 현금으로 지급됩니다. 세금 낼 돈을 미리 만들어 두는 방법입니다.')
+      +good('ti-gift','10년 단위 사전증여','증여공제를 활용해 미리 나누어 물려주면 상속재산 자체를 줄일 수 있습니다. 10년이 지나야 합산되지 않습니다.')
+      +good('ti-calendar-dollar','연부연납 활용','요건을 갖추면 세금을 여러 해에 걸쳐 나누어 낼 수 있습니다. 다만 이자 성격의 가산금이 붙습니다.')
+    +'</div>'
+    +'<div style="margin-top:14px;padding:13px 15px;border-radius:9px;background:#eef1ff;border:1px solid #c8cce8">'
+      +'<div style="font-size:14px;color:#2a3170;line-height:1.7"><b>핵심은 순서입니다.</b> 상속이 일어난 뒤에는 선택지가 급매와 대출뿐이지만, 미리 준비하면 살던 집을 지키면서 세금을 낼 수 있습니다.</div>'
+    +'</div></div>';
+  h+='<div style="font-size:11.5px;color:#9aa2bd;line-height:1.6;padding:0 4px 4px">'
+    +'※ 이 자료는 고객 상담을 돕기 위한 일반적인 설명이며, 특정 상품의 가입을 권유하는 안내가 아닙니다. 자산 구성 그림의 금액은 이해를 돕기 위한 예시입니다.<br>'
+    +'※ 실제 적용되는 세율·공제와 납부 방법은 개별 사정과 세법 개정에 따라 달라질 수 있어, 신고 전에는 반드시 세무 전문가의 확인이 필요합니다.'
+    +'</div>';
+  return h;
+}
+function ssGuideOpen(){
+  try{
+    var old=g('ssg_pop'); if(old) old.remove();
+    var ov=document.createElement('div');
+    ov.id='ssg_pop';
+    ov.style.cssText='position:fixed;inset:0;z-index:99997;display:flex;align-items:flex-start;justify-content:center;background:rgba(3,8,30,.55);padding:20px 14px;overflow-y:auto';
+    ov.innerHTML='<div id="ssg_card" style="background:#f4f6fc;border-radius:12px;max-width:720px;width:100%;box-shadow:0 18px 52px rgba(4,10,40,.45);cursor:default;margin:auto">'
+      +'<div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#fff;border-bottom:1px solid #e4e8f4;border-radius:12px 12px 0 0">'
+        +'<div style="font-size:16.5px;font-weight:800;color:#181c2e;letter-spacing:-.3px"><i class="ti ti-book"></i> 상속세 설명서</div>'
+        +'<div style="display:flex;gap:6px;align-items:center">'
+          +'<button onclick="ssGuidePrint()" style="padding:7px 13px;border-radius:7px;background:#4858cc;border:none;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer"><i class="ti ti-printer"></i> 출력</button>'
+          +'<span id="ssg_close" style="font-size:22px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 6px">&times;</span>'
+        +'</div>'
+      +'</div>'
+      +'<div style="padding:16px 18px 20px">'+_ssGuideBody()+'</div>'
+      +'</div>';
+    ov.addEventListener('click',function(){ ov.remove(); });
+    var card=ov.querySelector('#ssg_card');
+    if(card) card.addEventListener('click',function(ev){ ev.stopPropagation(); });
+    var cb=ov.querySelector('#ssg_close');
+    if(cb) cb.addEventListener('click',function(){ ov.remove(); });
+    document.body.appendChild(ov);
+  }catch(e){ console.warn('상속세 설명서 오류:', e); toast('설명서를 여는 중 문제가 발생했습니다.'); }
+}
+// 출력은 새 창(SPA 전체가 인쇄되는 것 방지 — dqPrint·mtView 패턴). 내용은 상수라 innerHTML 복사도 안전.
+function ssGuidePrint(){
+  var w=window.open('','_blank');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  try{
+    w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>상속세 설명서</title>'
+      +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">'
+      +'<style>@page{size:A4;margin:12mm}body{margin:0;padding:14px;background:#fff;color:#1a1a2e;'
+      +'font-family:-apple-system,BlinkMacSystemFont,\'Malgun Gothic\',\'맑은 고딕\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      +'div{break-inside:avoid}</style></head><body>'+_ssGuideBody()+'</body></html>');
+    w.document.close();
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500);
+  }catch(e){ console.warn('상속세 설명서 출력 오류:', e); toast('출력 창을 여는 중 문제가 발생했습니다.'); }
+}
 // 분류 이름에 '대리발급'이 들어간 분류의 탭을 선택하면 서류 작성 패널이 표시된다:
 // 좌=위임자(고객)/위임받는자(로그인 계정 자동 입력·수정 가능) 정보 입력, 우=올린 양식 미리보기,
 // 관리자는 [양식 업로드]·[좌표 직접설정](m_claimcal 'daeri' 모드), 전원 [미리보기]/[출력].
