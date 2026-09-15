@@ -439,7 +439,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.15-2</div>
   </div>
 </div>
 
@@ -12005,6 +12005,7 @@ function _cwVacPopup(){
 // 구성은 환경설정 [업무 현황 팝업] 탭에서 역할별 편집(reqstatcfg — 동기화 키 tops_reqstatcfg, 텍스트만 함정 B 무관.
 // 역할 키가 배열이면 그대로 사용(빈 배열=그 역할 팝업 끔), 없으면 REQSTAT_DEF 기본값).
 // 항목 클릭 시 해당 페이지로 이동, 바깥 클릭·[닫기]로 닫음. id는 reqstat_/rs_ 접두(함정 E).
+// 하단 [하루동안 안열기] 체크박스(2026-09-15) — 기기·사용자별 24시간 보류(_reqStatHide*, tops_reqstat_hide 로컬 전용).
 // 집계는 표시 시점의 로컬 캐시 기준 — 클라우드 수신 후 홈 재렌더 때 팝업이 열려 있으면 건수를 갱신한다.
 // 팀원·팀장은 본인 건만 집계(own), 지점장·총무는 전체. link:1 항목은 건수 없는 바로가기.
 var REQSTAT_ITEMS={
@@ -12167,11 +12168,24 @@ function _reqStatBind(ov){
     el.onclick=function(ev){ ev.stopPropagation(); var pg=el.getAttribute('data-rspg'); ov.remove(); try{ showPage(pg); }catch(e){} };
   });
 }
+// [하루동안 안열기](2026-09-15) — 기기별 보류. localStorage `tops_reqstat_hide` = {사용자명: 만료ts(체크 시점+24h)}.
+//   기기 설정이라 동기화 없음(텍스트 소량 — 함정 B 무관, 저장은 _lsSet). 체크 즉시 기록, 해제하면 삭제.
+function _reqStatHideMap(){ try{ var v=JSON.parse(localStorage.getItem('tops_reqstat_hide')||'{}'); if(v&&typeof v==='object'&&!Array.isArray(v)) return v; }catch(e){} return {}; }
+function _reqStatHideOn(){ try{ return (_reqStatHideMap()[cu&&cu.name]||0)>Date.now(); }catch(e){ return false; } }
+function _reqStatHideSet(on){
+  try{
+    var nm=cu&&cu.name; if(!nm) return;
+    var mp=_reqStatHideMap();
+    if(on) mp[nm]=Date.now()+24*60*60*1000; else delete mp[nm];
+    _lsSet('tops_reqstat_hide', JSON.stringify(mp));
+  }catch(e){}
+}
 function _reqStatPopup(){
   try{
     if(!cu) return;                                       // 로그인한 전 사용자(역할별 구성 — reqstatcfg)
     if(/[?&]rr=1/.test(location.search)) return;          // 서버 캡처 화면 제외
     var existing=g('reqstat_pop');
+    if(!existing&&_reqStatHideOn()) return;               // [하루동안 안열기] 체크(기기별·사용자별) — 24시간 표시 보류
     if(window._reqStatShown&&!existing) return;           // 이번 홈 체류 중 이미 닫았으면 재표시 안 함(홈 이탈 시 showPage가 리셋)
     var rows=_reqStatRows();
     if(!rows.length){ if(existing) existing.remove(); return; } // 이 역할은 팝업 끔(구성 비움)
@@ -12197,13 +12211,19 @@ function _reqStatPopup(){
         +'<span id="reqstat_close" style="font-size:20px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 4px">&times;</span>'
       +'</div>'
       +'<div id="reqstat_rows" style="display:flex;flex-direction:column;gap:7px;padding:14px 18px">'+_reqStatRowsHtml(rows)+'</div>'
-      +'<div style="padding:0 18px 14px;font-size:11.5px;color:#9aa2bd">항목을 누르면 해당 화면으로 이동합니다 · 바깥을 누르면 닫힙니다</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px 14px">'
+        +'<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#5a6488;cursor:pointer;user-select:none;margin:0">'
+          +'<input type="checkbox" id="reqstat_hide_cb" style="width:15px;height:15px;accent-color:#2b3a8c;cursor:pointer;margin:0">하루동안 안열기</label>'
+        +'<span style="font-size:11.5px;color:#9aa2bd">바깥을 누르면 닫힙니다</span>'
+      +'</div>'
       +'</div>';
     ov.addEventListener('click',function(){ ov.remove(); });                 // 바깥(어두운 영역) 클릭 시 닫힘
     var card=ov.querySelector('#reqstat_card');
     if(card) card.addEventListener('click',function(ev){ ev.stopPropagation(); });   // 카드 내부 클릭은 유지
     var cb=ov.querySelector('#reqstat_close');
     if(cb) cb.addEventListener('click',function(){ ov.remove(); });
+    var hc=ov.querySelector('#reqstat_hide_cb');
+    if(hc){ hc.checked=_reqStatHideOn(); hc.addEventListener('change',function(){ _reqStatHideSet(hc.checked); }); }
     _reqStatBind(ov);
     document.body.appendChild(ov);
   }catch(e){ console.warn('reqstat popup err:', e); }
