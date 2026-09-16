@@ -1361,10 +1361,11 @@ function renderCards() {
       <div class="card-h">💳 ${esc(c.name)}<span class="sub c-expense" style="font-weight:800">${fmt(sum)}</span></div>
       <div class="card-b">
         <div class="dropzone" ondragover="dzOver(event, this)" ondragleave="dzLeave(this)" ondrop="dzDrop(event, '${c.id}', this)"
-          onclick="if (event.target.tagName !== 'INPUT') { selectCard('${c.id}'); this.querySelector('input').click(); }">
+          onclick="if (!['INPUT', 'BUTTON'].includes(event.target.tagName)) { selectCard('${c.id}'); this.querySelector('input').click(); }">
           <input type="file" hidden multiple accept=".xlsx,.xls,.csv,.pdf,image/*" onchange="handleCardFiles('${c.id}', this.files); this.value = ''">
           <div class="dz-t1">📄 엑셀 · CSV · PDF · 이미지 업로드</div>
-          <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기<br>박스를 선택한 뒤 스크린샷 붙여넣기(Ctrl+V)도 됩니다</div>
+          <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기 · Ctrl+V 붙여넣기</div>
+          <button class="btn ghost sm" style="margin-top:8px" onclick="pasteFromClipboard('${c.id}')">📋 캡처 붙여넣기</button>
         </div>
         ${list.length ? `<div style="overflow-x:auto"><table class="tbl ct-tbl">
           <tr><th style="text-align:left">날짜</th><th style="text-align:left">내역</th><th style="text-align:left">분야</th><th>금액</th><th></th></tr>
@@ -1650,6 +1651,30 @@ document.addEventListener('paste', e => {
   }
   handleCardFiles(selectedCardId, files);
 });
+
+/* '캡처 붙여넣기' 버튼: 클립보드의 이미지를 직접 읽어 인식 */
+async function pasteFromClipboard(cardId) {
+  selectCard(cardId);
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    appAlert('이 브라우저에서는 버튼 붙여넣기를 지원하지 않습니다.\n화면을 캡처한 뒤 이 박스를 클릭하고 Ctrl+V를 눌러주세요.');
+    return;
+  }
+  try {
+    const items = await navigator.clipboard.read();
+    const files = [];
+    for (const it of items) {
+      const type = (it.types || []).find(t => t.startsWith('image/'));
+      if (type) files.push(new File([await it.getType(type)], 'clipboard.png', { type }));
+    }
+    if (!files.length) {
+      toast('클립보드에 이미지가 없습니다. 화면을 캡처한 뒤 다시 눌러주세요');
+      return;
+    }
+    handleCardFiles(cardId, files);
+  } catch (e) {
+    appAlert('클립보드를 읽지 못했습니다.\n브라우저가 권한을 물으면 허용해 주세요.\n또는 캡처 후 이 박스를 클릭하고 Ctrl+V를 눌러도 됩니다.');
+  }
+}
 
 /* 파일 종류별 분기: 엑셀/CSV(즉시 파싱), PDF(텍스트 추출→이미지 인식), 이미지(Claude 인식) */
 function handleCardFiles(cardId, files) {
