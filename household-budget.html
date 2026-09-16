@@ -1758,19 +1758,21 @@ function finishParsedRows(cardId, data) {
 }
 function sampleErrorAlert(e) {
   hideBusy();
-  if (e && e.code === 'not_granted') appAlert('Claude 사용이 허용되지 않아 인식할 수 없습니다.\n허용 창이 뜨면 허용을 눌러주세요.');
-  else if (e && e.code === 'image_rejected') appAlert('이미지를 읽을 수 없습니다. PNG/JPG로 다시 시도해 보세요.');
-  else if (e && e.code === 'rate_limited') appAlert('요청이 많아 잠시 후 다시 시도해 주세요.');
-  else appAlert('내역을 읽지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : ''));
+  const code = e && e.code;
+  if (code === 'not_granted') appAlert('Claude 사용이 허용되지 않아 인식할 수 없습니다.\n허용 창이 뜨면 허용을 눌러주세요.');
+  else if (code === 'images_unavailable') appAlert('지금 사용 중인 Claude 화면에서는 이미지 전송이 지원되지 않습니다.\n브라우저/앱을 최신으로 업데이트해 다시 시도하거나, 내역을 엑셀·CSV로 올려주세요.');
+  else if (code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled') appAlert('이 계정/화면에서는 Claude 인식 기능을 사용할 수 없습니다.');
+  else if (code === 'image_rejected') appAlert('이미지를 읽을 수 없습니다. PNG/JPG로 다시 시도해 보세요.');
+  else if (code === 'rate_limited') appAlert('요청이 많아 잠시 후 다시 시도해 주세요.');
+  else appAlert('내역을 읽지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : '') + (code ? '\n[오류 코드: ' + code + ']' : ''));
 }
 async function parseImageFile(cardId, file) {
   const sample = await getSample();
-  let caps = null;
-  if (sample) { try { caps = await sample.limits(); } catch {} }
-  if (!sample || !caps || !caps.images) {
-    appAlert('이미지 인식은 클라우드 가계부(claude.ai 페이지)에서 열었을 때만 사용할 수 있습니다.');
+  if (!sample) {
+    appAlert('이미지 인식은 클라우드 가계부(claude.ai 페이지)에서만 사용할 수 있습니다.\n페이지를 새로고침한 뒤 다시 시도해 보세요.');
     return;
   }
+  // 미리 막지 않고 실제로 시도 — 안 되면 정확한 이유를 안내
   busyToast('🔍 이미지에서 내역을 읽는 중... (최대 1분)');
   try {
     const data = await sample.json(parsePrompt(), { images: [file], cache: false });
@@ -1889,16 +1891,14 @@ async function parsePdfFile(cardId, file) {
     if (allText.replace(/\s/g, '').length > 30 && await parseTextWithClaude(cardId, allText)) return;
     // 3) 글자가 없는 스캔본 → 페이지를 이미지로 그려 Claude 인식
     const sample = await getSample();
-    let caps = null;
-    if (sample) { try { caps = await sample.limits(); } catch {} }
-    if (!caps || !caps.images) {
+    if (!sample) {
       hideBusy();
       appAlert('PDF에서 내역을 찾지 못했습니다.\n엑셀/CSV로 받거나, 명세서 화면을 캡처해 이미지로 붙여넣어 보세요.');
       return;
     }
     busyToast('🔍 PDF를 이미지로 인식하는 중... (최대 1분)');
     const blobs = [];
-    for (let p = 1; p <= Math.min(pdf.numPages, 3, caps.images.maxCount); p++) {
+    for (let p = 1; p <= Math.min(pdf.numPages, 3); p++) {
       const page = await pdf.getPage(p);
       const vp = page.getViewport({ scale: 2 });
       const cv = document.createElement('canvas');
