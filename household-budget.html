@@ -1568,14 +1568,14 @@ function detectColumns(rows) {
   const DESC_H = /가맹점|이용하신\s*곳|사용처|이용처|상호|merchant|store/i;
   const DESC_H2 = /이용내역|사용내역|내역|적요/i;               // 차선책
   const AMT_H = /이용금액|사용금액|승인금액|거래금액|결제금액|매출금액|출금액|금액|amount/i;
-  const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구/i;
+  const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구|번호|no\.?$|카드/i;
   for (let i = 0; i < Math.min(rows.length, 12); i++) {
     const cells = (rows[i] || []).map(c => String(c ?? '').trim());
     let di = -1, mi = -1, mi2 = -1, ai = -1;
     cells.forEach((s, j) => {
       if (!s) return;
       if (di < 0 && DATE_H.test(s)) di = j;
-      if (mi < 0 && DESC_H.test(s) && !AMT_BAD.test(s)) mi = j;
+      if (mi < 0 && DESC_H.test(s) && !AMT_BAD.test(s) && !/카드/.test(s)) mi = j;
       if (mi2 < 0 && DESC_H2.test(s)) mi2 = j;
       if (AMT_H.test(s) && !AMT_BAD.test(s) && ai < 0) ai = j;
     });
@@ -1614,17 +1614,22 @@ function rowsToCardTx(rows, cardId) {
   }
   // 헤더를 못 찾은 파일: 행별 추정 (카드명은 내역 후보에서 제외)
   for (const cells of rows) {
-    let date = null, amount = null, desc = '', descAny = '';
+    let date = null, amount = null, amountComma = null, desc = '', descAny = '';
     for (const cell of cells) {
       const s = String(cell ?? '').trim();
       if (!s) continue;
       if (!date) { const d = parseDateLoose(s); if (d) { date = d; continue; } }
       const a = parseAmountLoose(s);
-      if (a !== null) { if (amount === null || a > amount) amount = a; continue; }
+      if (a !== null) {
+        if (/,/.test(s)) { if (amountComma === null || a > amountComma) amountComma = a; }
+        else if (!/^\d{7,}$/.test(s)) { if (amount === null || a > amount) amount = a; }   // 콤마 없는 7자리 이상(승인번호 등)은 제외
+        continue;
+      }
       if (s.length > descAny.length) descAny = s;
       if (!looksLikeCardName(s) && s.length > desc.length) desc = s;
     }
-    if (date && amount) out.push({ id: uid(), cardId, date, desc: (desc || descAny).slice(0, 40), amount });
+    if (amountComma !== null) amount = amountComma;   // "12,000"처럼 표기된 숫자가 있으면 그것이 금액
+    if (date && amount) out.push({ id: uid(), cardId, date, desc: (desc || descAny).slice(0, 40), amount, _guess: !desc });
   }
   return out;
 }
@@ -1706,12 +1711,19 @@ function handleCardFiles(cardId, files) {
 }
 
 /* 추출된 내역을 중복 제거 후 저장 (같은 파일 재업로드에도 안전) */
+/* 거래가 아닌 요약 행(합계·청구금액·개별계좌 등) */
+const SUMMARY_RE = /합계|입금하실|개별계좌|일시불\s*\+\s*할부|소계|총\s*(이용|결제|합|계)|청구\s*(금액|합계)|결제\s*예정|이월|미결제|누적|잔액|포인트/;
+const txKey = t => [t.cardId, t.date, String(t.desc || '').replace(/\s+/g, ''), t.amount].join('|');
 function addImportedRows(cardId, items, note) {
+  const before = items.length;
+  items = items.filter(t => !SUMMARY_RE.test(String(t.desc || '')));
+  const skippedSummary = before - items.length;
   if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
   // 가져온 내역은 날짜와 상관없이 전부 "지금 보고 있는 달"의 사용내역으로 등록
-  items.forEach(t => { if (!t.billMonth) t.billMonth = selYM; });
-  const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
-  const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
+  items.forEach(t => { if (!t.billMonth) t.billMonth = selYM; delete t._guess; });
+  const existing = new Set(cardTxAll().map(txKey));
+  const fresh = items.filter(t => !existing.has(txKey(t)));
+  if (skippedSummary) note = (note ? note + ' · ' : '') + `요약 ${skippedSummary}행 제외`;
   if (!fresh.length) { appAlert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
   const list = cardTxAll().concat(fresh);
   list.sort((a, b) => a.date < b.date ? 1 : -1);
@@ -1721,11 +1733,50 @@ function addImportedRows(cardId, items, note) {
   render();
 }
 
+/* 추출 결과가 믿을 만한지 검사: 카드 상품명이 내역으로 들어갔거나 승인번호급 숫자가 금액이면 불신 */
+function plausibleRows(items) {
+  if (!items.length) return false;
+  const bad = items.filter(t => looksLikeCardName(t.desc) || !t.desc || t.amount >= 20000000 || t._guess).length;
+  return bad / items.length < 0.3;
+}
+/* 엑셀/CSV 행 → 내역. 헤더 기반 추출이 실패하거나 결과가 이상하면 Claude에게 열 매핑을 물어본다(값은 로컬에서 읽음). */
+async function importRows(cardId, rows) {
+  rows = (rows || []).filter(r => Array.isArray(r));
+  let items = rowsToCardTx(rows, cardId);
+  if (detectColumns(rows) && plausibleRows(items)) { addImportedRows(cardId, items); return; }
+  const sample = await getSample();
+  if (sample && rows.length) {
+    busyToast('🔍 표의 열 구성을 확인하는 중...');
+    try {
+      const preview = rows.slice(0, 15).map((r, i) => i + ': ' + r.map(c => String(c ?? '').trim()).join(' | ')).join('\n');
+      const map = await sample.json(
+        '아래는 카드 이용내역 표의 앞부분입니다(행번호: 셀 | 셀 | ...). 각 셀은 0부터 세는 열 번호를 가집니다.\n'
+        + '거래 날짜(이용일) 열, 가맹점명(이용하신 곳) 열, 이용금액 열의 번호와 첫 거래 행 번호를 JSON으로만 답하세요.\n'
+        + '형식: {"date":0,"desc":2,"amount":4,"firstRow":3}\n'
+        + '- 승인번호·카드번호·카드 상품명·누적금액·포인트·할부 열은 고르지 마세요\n\n' + preview,
+        { cache: false });
+      hideBusy();
+      const d = Number(map && map.date), m = Number(map && map.desc), a = Number(map && map.amount), f = Number(map && map.firstRow) || 0;
+      if (Number.isInteger(d) && Number.isInteger(a) && d !== a) {
+        const mapped = [];
+        for (let i = Math.max(0, f); i < rows.length; i++) {
+          const cells = rows[i];
+          const date = parseDateLoose(String(cells[d] ?? ''));
+          const amount = parseAmountLoose(String(cells[a] ?? ''));
+          if (!date || !amount) continue;
+          mapped.push({ id: uid(), cardId, date, desc: String(Number.isInteger(m) ? cells[m] ?? '' : '').trim().slice(0, 40), amount });
+        }
+        if (mapped.length) { addImportedRows(cardId, mapped); return; }
+      }
+    } catch (e) { hideBusy(); }
+  }
+  addImportedRows(cardId, items);
+}
 function parseCsvFile(cardId, file) {
   const reader = new FileReader();
   reader.onload = () => {
     const text = String(reader.result).replace(/^﻿/, '');
-    addImportedRows(cardId, rowsToCardTx(text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine), cardId));
+    importRows(cardId, text.split(/\r?\n/).filter(l => l.trim()).map(parseCSVLine));
   };
   reader.readAsText(file);
 }
@@ -1736,7 +1787,7 @@ function parseSheetFile(cardId, file) {
     try {
       const wb = XLSX.read(reader.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      addImportedRows(cardId, rowsToCardTx(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }), cardId));
+      importRows(cardId, XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }));
     } catch (e) { appAlert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
   };
   reader.readAsArrayBuffer(file);
@@ -1948,7 +1999,8 @@ async function parseTextWithClaude(cardId, text) {
     const data = await sample.json(
       '아래는 카드 이용내역 PDF에서 추출한 글자입니다. 거래 내역을 모두 찾아 JSON으로만 답하세요.\n'
       + '형식: {"rows":[{"date":"YYYY-MM-DD","desc":"가맹점명","amount":12345}]}\n'
-      + '- amount는 원 단위 양수 숫자 (이용금액 기준, 누적금액·포인트·할부회차 제외)\n'
+      + '- amount는 원 단위 양수 숫자 (이용금액 기준, 누적금액·포인트·할부회차·승인번호(8자리) 제외)\n'
+      + '- desc는 실제 가맹점명. 카드 상품명(예: American Express Gold, 플래티늄 카드)이나 카드번호는 desc로 쓰지 말 것. 한 거래가 여러 줄에 걸쳐 있으면 합쳐서 한 건으로\n'
       + '- 연도가 없으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더·취소 행 제외\n\n'
       + text.slice(0, 50000),
       { cache: false });
@@ -2003,14 +2055,20 @@ async function parsePdfFile(cardId, file) {
     const a = rowsToCardTx(mergedRows, cardId);
     const b = parseStatementByColumns(pagesLines, cardId);
     const items = b.length > a.length ? b : a;
-    if (items.length) {
+    const trusted = items === b ? items.length > 0 : plausibleRows(items);
+    if (items.length && trusted) {
       hideBusy();
       addImportedRows(cardId, items, items.skippedCancel ? `취소 ${items.skippedCancel}건 제외` : '');
       return;
     }
-    // 3) 표로 못 읽었지만 글자는 있음 → Claude 텍스트 정리 (이미지 기능 불필요)
+    // 3) 표로 못 읽었거나(또는 카드명·승인번호가 섞인 이상한 결과) → Claude가 글자를 읽어 정리 (이미지 기능 불필요)
     const allText = mergedRows.map(r => r.join(' | ')).join('\n');
     if (allText.replace(/\s/g, '').length > 30 && await parseTextWithClaude(cardId, allText)) return;
+    if (items.length) {   // Claude를 못 쓰는 환경: 추정 결과라도 등록
+      hideBusy();
+      addImportedRows(cardId, items, '자동 추정 · 확인 필요');
+      return;
+    }
     // 4) 글자가 없는 스캔본 → 페이지를 이미지로 그려 Claude 인식
     const sample = await getSample();
     if (!sample) {
