@@ -1689,7 +1689,7 @@ function handleCardFiles(cardId, files) {
 }
 
 /* 추출된 내역을 중복 제거 후 저장 (같은 파일 재업로드에도 안전) */
-function addImportedRows(cardId, items) {
+function addImportedRows(cardId, items, note) {
   if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
   const existing = new Set(cardTxAll().map(t => [t.cardId, t.date, t.desc, t.amount].join('|')));
   const fresh = items.filter(t => !existing.has([t.cardId, t.date, t.desc, t.amount].join('|')));
@@ -1698,7 +1698,7 @@ function addImportedRows(cardId, items) {
   list.sort((a, b) => a.date < b.date ? 1 : -1);
   lsSet('cardTx', list);
   const dup = items.length - fresh.length;
-  toast(`${fresh.length}건을 불러왔습니다${dup ? ` (중복 ${dup}건 건너뜀)` : ''}`);
+  toast(`${fresh.length}건을 불러왔습니다${dup ? ` · 중복 ${dup}건 건너뜀` : ''}${note ? ` · ${note}` : ''}`);
   render();
 }
 
@@ -1798,33 +1798,125 @@ async function ensurePdfJs() {
   if (!window.pdfjsLib) await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
   if (!window.pdfjsLib) return null;
   if (!window.pdfjsWorker) await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
-  // worker 스크립트가 이미 로드되어 있으면 pdf.js가 이것을 그대로 사용한다
   window.pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   return window.pdfjsLib;
 }
 
-/* PDF 페이지의 글자들을 y좌표로 묶어 '표의 한 줄'로 복원 */
-function pdfItemsToRows(items) {
+/* PDF 글자들을 y좌표로 줄 단위 묶음 (글자가 조각난 명세서 대응) */
+function groupPdfLines(items) {
   const parts = [];
   for (const it of items) {
     if (!it.str || !it.str.trim()) continue;
-    parts.push({ x: it.transform[4], y: it.transform[5], s: it.str.trim() });
+    parts.push({ x: it.transform[4], y: it.transform[5], w: it.width || 0, s: it.str.trim() });
   }
   parts.sort((a, b) => (b.y - a.y) || (a.x - b.x));
-  const rows = [];
-  let cur = [], curY = null;
+  const lines = [];
+  let cur = null;
   for (const p of parts) {
-    if (curY === null || Math.abs(p.y - curY) <= 3.5) {   // 같은 줄로 볼 높이 오차
-      cur.push(p);
-      curY = curY === null ? p.y : curY;
-    } else {
-      rows.push(cur.sort((a, b) => a.x - b.x).map(i => i.s));
-      cur = [p]; curY = p.y;
-    }
+    if (cur && Math.abs(p.y - cur.y) <= 3.5) cur.parts.push(p);
+    else { cur = { y: p.y, parts: [p] }; lines.push(cur); }
   }
-  if (cur.length) rows.push(cur.sort((a, b) => a.x - b.x).map(i => i.s));
-  return rows;
+  lines.forEach(L => L.parts.sort((a, b) => a.x - b.x));
+  return lines;
+}
+/* 한 줄의 조각 글자들을 간격 기준으로 단어(셀)로 합침 */
+function mergeLineCells(parts) {
+  const cells = [];
+  let cur = null;
+  for (const p of parts) {
+    if (cur && p.x - (cur.x + cur.w) < 2.5) { cur.s += p.s; cur.w = p.x + p.w - cur.x; }
+    else { cur = { x: p.x, w: p.w, s: p.s }; cells.push(cur); }
+  }
+  return cells;
+}
+
+/* 헤더의 열 x좌표를 기준으로, 여러 줄에 걸친 거래 1건을 블록으로 복원하는 파서.
+   국민카드처럼 글자가 조각나고 한 거래가 4~6줄인 명세서 PDF용.
+   취소 건은 명세서 총액과 같도록 제외한다. */
+function parseStatementByColumns(pagesLines, cardId) {
+  let cols = null, bounds = null, idxDate = -1, idxDesc = -1, idxAmt = -1, idxCard = -1;
+  const out = [];
+  out.skippedCancel = 0;
+  const colOf = p => { const cx = p.x + p.w / 2; let i = 0; while (i < bounds.length && cx > bounds[i]) i++; return i; };
+
+  for (const lines of pagesLines) {
+    let start = 0;
+    if (!cols) {
+      for (let i = 0; i < lines.length; i++) {
+        const cells = mergeLineCells(lines[i].parts);
+        const text = cells.map(c => c.s).join('');
+        if (/이용일/.test(text) && /이용금액|승인금액/.test(text)) {
+          // 위·아래 줄의 보조 헤더(결제방법·가맹점정보·적립·상태)도 열 기준점으로 추가
+          const extra = [];
+          for (const j of [i - 1, i + 1]) {
+            if (j < 0 || j >= lines.length) continue;
+            for (const c of mergeLineCells(lines[j].parts)) {
+              if (/결제|방법|가맹점|정보|적립|포인트|상|태|리/.test(c.s)) extra.push(c);
+            }
+          }
+          cols = cells.concat(extra).sort((a, b) => a.x - b.x)
+            .filter((c, k, arr) => k === 0 || c.x - arr[k - 1].x > 8);
+          idxDate = cols.findIndex(c => /이용일|승인일|거래일/.test(c.s));
+          idxDesc = cols.findIndex(c => /이용하신곳|가맹점명|이용처|사용처/.test(c.s));
+          if (idxDesc < 0) idxDesc = cols.findIndex(c => /^가맹점$/.test(c.s));
+          idxAmt = cols.findIndex(c => /이용금액|승인금액|거래금액/.test(c.s));
+          idxCard = cols.findIndex(c => /카드명|이용카드/.test(c.s));
+          bounds = [];
+          for (let j = 0; j < cols.length - 1; j++) bounds.push((cols[j].x + cols[j].w + cols[j + 1].x) / 2);
+          start = i + 2;
+          break;
+        }
+      }
+      if (!cols) continue;
+      if (idxDate < 0 || idxAmt < 0) return out;
+    }
+
+    let block = null;
+    const colText = (blk, idx, withHangulFromCard) => blk.map(L =>
+      L.parts.filter(p => {
+        const c = colOf(p);
+        if (c === idx) return true;
+        if (withHangulFromCard && c === idxCard && /[가-힣]/.test(p.s)) return true;   // 카드명 열로 넘친 가맹점 글자
+        return false;
+      }).map(p => p.s).join('')
+    ).filter(Boolean).join(' ').trim();
+    const flush = () => {
+      if (!block) return;
+      const dm = colText(block, idxDate).match(/20\d{2}[-.\/]\d{1,2}[-.\/]\d{1,2}/);
+      const date = dm ? parseDateLoose(dm[0]) : null;
+      const am = colText(block, idxAmt).replace(/\s/g, '').match(/\d{1,3}(?:,\d{3})+|\d+/);
+      const amount = am ? Number(am[0].replace(/,/g, '')) : 0;
+      const desc = (idxDesc >= 0 ? colText(block, idxDesc, true) : '').replace(/\s+/g, ' ');
+      // 상태 열에 '취/소'가 세로로 쪼개져 있어도 감지 (금액 열보다 오른쪽의 '취' 글자)
+      const amtRight = cols[idxAmt].x + cols[idxAmt].w;
+      const cancelled = block.some(L => L.parts.some(p => p.x > amtRight && (p.s === '취' || p.s.includes('취소'))));
+      block = null;
+      if (!date || !amount) return;
+      if (cancelled) { out.skippedCancel++; return; }
+      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount });
+    };
+    for (let i = start; i < lines.length; i++) {
+      const L = lines[i];
+      const dTxt = L.parts.filter(p => colOf(p) === idxDate).map(p => p.s).join('');
+      if (/20\d{2}[-.\/]\d{1,2}[-.\/]\d{1,2}/.test(dTxt)) {
+        // 직전 블록의 마지막 줄이 가맹점명 글자뿐이면 = 다음 거래의 이름이 위로 감긴 것
+        let carried = null;
+        if (block && block.length > 1) {
+          const last = block[block.length - 1];
+          const onlyDesc = last.parts.every(p => {
+            const c = colOf(p);
+            return c === idxDesc || (c === idxCard && /[가-힣]/.test(p.s));
+          });
+          if (onlyDesc) carried = block.pop();
+        }
+        flush();
+        block = carried ? [carried, L] : [L];
+      } else if (block) block.push(L);
+    }
+    flush();
+  }
+  return out;
 }
 
 /* 표로 인식하지 못한 PDF 글자를 Claude에게 보내 내역으로 정리 (이미지 없이 텍스트만) */
@@ -1837,7 +1929,7 @@ async function parseTextWithClaude(cardId, text) {
       '아래는 카드 이용내역 PDF에서 추출한 글자입니다. 거래 내역을 모두 찾아 JSON으로만 답하세요.\n'
       + '형식: {"rows":[{"date":"YYYY-MM-DD","desc":"가맹점명","amount":12345}]}\n'
       + '- amount는 원 단위 양수 숫자 (이용금액 기준, 누적금액·포인트·할부회차 제외)\n'
-      + '- 연도가 없으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더 행 제외\n\n'
+      + '- 연도가 없으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더·취소 행 제외\n\n'
       + text.slice(0, 50000),
       { cache: false });
     finishParsedRows(cardId, data);
@@ -1858,7 +1950,6 @@ async function parsePdfFile(cardId, file) {
   const raw = await file.arrayBuffer();
   let pdf = null;
   let password;
-  // 카드사 명세서 PDF는 비밀번호가 걸린 경우가 있음 → 물어보고 다시 시도
   for (let attempt = 0; attempt < 3 && !pdf; attempt++) {
     try {
       pdf = await lib.getDocument({ data: raw.slice(0), password }).promise;
@@ -1881,20 +1972,26 @@ async function parsePdfFile(cardId, file) {
   }
   if (!pdf) { hideBusy(); appAlert('비밀번호가 맞지 않아 PDF를 열지 못했습니다.'); return; }
   try {
-    // 1) 글자 추출 → 표 형태로 복원해 열 매핑 시도
-    const rows = [];
-    let allText = '';
-    for (let p = 1; p <= Math.min(pdf.numPages, 10); p++) {
-      const tc = await (await pdf.getPage(p)).getTextContent();
-      const pageRows = pdfItemsToRows(tc.items);
-      rows.push(...pageRows);
-      allText += pageRows.map(r => r.join('\t')).join('\n') + '\n';
+    // 1) 글자 추출 → 줄/셀 복원
+    const pagesLines = [];
+    for (let p = 1; p <= Math.min(pdf.numPages, 20); p++) {
+      pagesLines.push(groupPdfLines((await (await pdf.getPage(p)).getTextContent()).items));
     }
-    const items = rowsToCardTx(rows, cardId);
-    if (items.length) { hideBusy(); addImportedRows(cardId, items); return; }
-    // 2) 표로 못 읽었지만 글자는 있음 → Claude에게 글자를 보내 정리 (이미지 기능 불필요)
+    const mergedRows = [];
+    for (const lines of pagesLines) for (const L of lines) mergedRows.push(mergeLineCells(L.parts).map(c => c.s));
+    // 2) 일반 표 파서와 열좌표 블록 파서 중 더 많이 찾은 쪽 사용
+    const a = rowsToCardTx(mergedRows, cardId);
+    const b = parseStatementByColumns(pagesLines, cardId);
+    const items = b.length > a.length ? b : a;
+    if (items.length) {
+      hideBusy();
+      addImportedRows(cardId, items, items.skippedCancel ? `취소 ${items.skippedCancel}건 제외` : '');
+      return;
+    }
+    // 3) 표로 못 읽었지만 글자는 있음 → Claude 텍스트 정리 (이미지 기능 불필요)
+    const allText = mergedRows.map(r => r.join(' | ')).join('\n');
     if (allText.replace(/\s/g, '').length > 30 && await parseTextWithClaude(cardId, allText)) return;
-    // 3) 글자가 없는 스캔본 → 페이지를 이미지로 그려 Claude 인식
+    // 4) 글자가 없는 스캔본 → 페이지를 이미지로 그려 Claude 인식
     const sample = await getSample();
     if (!sample) {
       hideBusy();
