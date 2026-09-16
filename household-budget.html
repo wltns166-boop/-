@@ -776,6 +776,8 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   <div class="modal" style="max-width:340px">
     <div class="modal-b" style="padding:24px 22px 18px">
       <div id="confirm-msg" style="font-size:14px;line-height:1.75;white-space:pre-line"></div>
+      <input id="confirm-input" type="password" autocomplete="off"
+        style="display:none;width:100%;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;background:var(--card);color:var(--text)">
       <div class="modal-foot">
         <button class="btn ghost" id="confirm-cancel">취소</button>
         <button class="btn" id="confirm-ok">확인</button>
@@ -800,6 +802,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════
@@ -1532,7 +1535,7 @@ function parseDateLoose(s) {
   if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
   m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})$/);          // 월/일만 있으면 보고 있는 달의 연도 사용
+  m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})(?!\d)/);     // 월/일만 있으면(뒤에 "(수)" 등이 붙어도) 보고 있는 달의 연도 사용
   if (m) return `${selYM.slice(0, 4)}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
   if (/^\d{5}$/.test(s)) {                              // 엑셀 날짜 일련번호
     const n = Number(s);
@@ -1749,33 +1752,123 @@ async function parseImageFile(cardId, file) {
     finishParsedRows(cardId, data);
   } catch (e) { sampleErrorAlert(e); }
 }
-async function parsePdfFile(cardId, file) {
-  if (!window.pdfjsLib) { appAlert('PDF 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
-  busyToast('📄 PDF에서 내역을 읽는 중...');
+/* pdf.js와 작업자 모듈 로드 —
+   아티팩트 보안 정책은 라이브러리가 스스로 내려받는 파일(worker)을 막으므로,
+   worker도 <script>로 미리 불러와 메인 스레드에서 동작시킨다. */
+async function loadScriptOnce(src) {
+  await new Promise(res => {
+    const sc = document.createElement('script');
+    sc.src = src; sc.onload = res; sc.onerror = res;
+    document.head.appendChild(sc);
+  });
+}
+async function ensurePdfJs() {
+  if (!window.pdfjsLib) await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  if (!window.pdfjsLib) return null;
+  if (!window.pdfjsWorker) await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+  // worker 스크립트가 이미 로드되어 있으면 pdf.js가 이것을 그대로 사용한다
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return window.pdfjsLib;
+}
+
+/* PDF 페이지의 글자들을 y좌표로 묶어 '표의 한 줄'로 복원 */
+function pdfItemsToRows(items) {
+  const parts = [];
+  for (const it of items) {
+    if (!it.str || !it.str.trim()) continue;
+    parts.push({ x: it.transform[4], y: it.transform[5], s: it.str.trim() });
+  }
+  parts.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+  const rows = [];
+  let cur = [], curY = null;
+  for (const p of parts) {
+    if (curY === null || Math.abs(p.y - curY) <= 3.5) {   // 같은 줄로 볼 높이 오차
+      cur.push(p);
+      curY = curY === null ? p.y : curY;
+    } else {
+      rows.push(cur.sort((a, b) => a.x - b.x).map(i => i.s));
+      cur = [p]; curY = p.y;
+    }
+  }
+  if (cur.length) rows.push(cur.sort((a, b) => a.x - b.x).map(i => i.s));
+  return rows;
+}
+
+/* 표로 인식하지 못한 PDF 글자를 Claude에게 보내 내역으로 정리 (이미지 없이 텍스트만) */
+async function parseTextWithClaude(cardId, text) {
+  const sample = await getSample();
+  if (!sample) return false;
+  busyToast('🔍 내역을 읽는 중... (최대 1분)');
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    // 1) 텍스트 추출: 같은 높이의 글자들을 한 줄로 묶어 표 형태로 복원
+    const data = await sample.json(
+      '아래는 카드 이용내역 PDF에서 추출한 글자입니다. 거래 내역을 모두 찾아 JSON으로만 답하세요.\n'
+      + '형식: {"rows":[{"date":"YYYY-MM-DD","desc":"가맹점명","amount":12345}]}\n'
+      + '- amount는 원 단위 양수 숫자 (이용금액 기준, 누적금액·포인트·할부회차 제외)\n'
+      + '- 연도가 없으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더 행 제외\n\n'
+      + text.slice(0, 50000),
+      { cache: false });
+    finishParsedRows(cardId, data);
+    return true;
+  } catch (e) {
+    sampleErrorAlert(e);
+    return true;   // 오류 안내는 이미 표시함
+  }
+}
+
+async function parsePdfFile(cardId, file) {
+  const lib = await ensurePdfJs();
+  if (!lib) {
+    appAlert('PDF 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 명세서 화면을 캡처해 이미지로 붙여넣어 보세요.');
+    return;
+  }
+  busyToast('📄 PDF에서 내역을 읽는 중...');
+  const raw = await file.arrayBuffer();
+  let pdf = null;
+  let password;
+  // 카드사 명세서 PDF는 비밀번호가 걸린 경우가 있음 → 물어보고 다시 시도
+  for (let attempt = 0; attempt < 3 && !pdf; attempt++) {
+    try {
+      pdf = await lib.getDocument({ data: raw.slice(0), password }).promise;
+    } catch (e) {
+      if (e && (e.name === 'PasswordException' || /password/i.test(e.message || ''))) {
+        hideBusy();
+        password = await appPrompt(
+          attempt === 0
+            ? '이 PDF에 비밀번호가 걸려 있습니다.\n카드사가 안내한 비밀번호를 입력하세요.'
+            : '비밀번호가 맞지 않습니다. 다시 입력해 주세요.',
+          'PDF 비밀번호');
+        if (!password) return;
+        busyToast('📄 PDF에서 내역을 읽는 중...');
+      } else {
+        hideBusy();
+        appAlert('PDF를 여는 데 실패했습니다.\n(' + ((e && e.message) || e) + ')\n명세서 화면을 캡처해 이미지로 붙여넣으면 인식할 수 있습니다.');
+        return;
+      }
+    }
+  }
+  if (!pdf) { hideBusy(); appAlert('비밀번호가 맞지 않아 PDF를 열지 못했습니다.'); return; }
+  try {
+    // 1) 글자 추출 → 표 형태로 복원해 열 매핑 시도
     const rows = [];
+    let allText = '';
     for (let p = 1; p <= Math.min(pdf.numPages, 10); p++) {
       const tc = await (await pdf.getPage(p)).getTextContent();
-      const lines = {};
-      for (const it of tc.items) {
-        if (!it.str || !it.str.trim()) continue;
-        const y = Math.round(it.transform[5] / 4);
-        (lines[y] = lines[y] || []).push({ x: it.transform[4], s: it.str.trim() });
-      }
-      for (const k of Object.keys(lines)) rows.push(lines[k].sort((a, b) => a.x - b.x).map(i => i.s));
+      const pageRows = pdfItemsToRows(tc.items);
+      rows.push(...pageRows);
+      allText += pageRows.map(r => r.join('\t')).join('\n') + '\n';
     }
     const items = rowsToCardTx(rows, cardId);
     if (items.length) { hideBusy(); addImportedRows(cardId, items); return; }
-    // 2) 글자가 없는 스캔 PDF → 페이지를 이미지로 그려 Claude로 인식
+    // 2) 표로 못 읽었지만 글자는 있음 → Claude에게 글자를 보내 정리 (이미지 기능 불필요)
+    if (allText.replace(/\s/g, '').length > 30 && await parseTextWithClaude(cardId, allText)) return;
+    // 3) 글자가 없는 스캔본 → 페이지를 이미지로 그려 Claude 인식
     const sample = await getSample();
     let caps = null;
     if (sample) { try { caps = await sample.limits(); } catch {} }
     if (!caps || !caps.images) {
       hideBusy();
-      appAlert('PDF에서 내역을 찾지 못했습니다.\n엑셀/CSV로 받거나, 화면을 캡처해 이미지로 붙여넣어 보세요.');
+      appAlert('PDF에서 내역을 찾지 못했습니다.\n엑셀/CSV로 받거나, 명세서 화면을 캡처해 이미지로 붙여넣어 보세요.');
       return;
     }
     busyToast('🔍 PDF를 이미지로 인식하는 중... (최대 1분)');
@@ -2571,22 +2664,29 @@ document.addEventListener('keydown', e => {
 /* ── 자체 확인/알림 대화상자 ──
    아티팩트 등 샌드박스 환경에서는 브라우저 기본 확인창이 조용히 막히므로
    앱 안의 모달로 대체한다. */
-function appDialog(msg, isConfirm) {
+function appDialog(msg, isConfirm, withInput, placeholder) {
   return new Promise(resolve => {
     const bg = document.getElementById('confirm-modal');
     document.getElementById('confirm-msg').textContent = msg;
     const okBtn = document.getElementById('confirm-ok');
     const cancelBtn = document.getElementById('confirm-cancel');
+    const input = document.getElementById('confirm-input');
     cancelBtn.style.display = isConfirm ? '' : 'none';
-    const done = v => { bg.classList.remove('open'); okBtn.onclick = cancelBtn.onclick = null; resolve(v); };
-    okBtn.onclick = () => done(true);
-    cancelBtn.onclick = () => done(false);
+    input.style.display = withInput ? '' : 'none';
+    input.value = '';
+    input.placeholder = placeholder || '';
+    const done = v => { bg.classList.remove('open'); okBtn.onclick = cancelBtn.onclick = input.onkeydown = null; resolve(v); };
+    okBtn.onclick = () => done(withInput ? input.value : true);
+    cancelBtn.onclick = () => done(withInput ? null : false);
+    input.onkeydown = e => { if (e.key === 'Enter') okBtn.click(); };
     bg.classList.add('open');
-    setTimeout(() => okBtn.focus(), 50);
+    setTimeout(() => (withInput ? input : okBtn).focus(), 50);
   });
 }
 function appConfirm(msg) { return appDialog(msg, true); }
 function appAlert(msg) { return appDialog(msg, false); }
+/* 입력을 받는 대화상자 (취소하면 null) */
+function appPrompt(msg, placeholder) { return appDialog(msg, true, true, placeholder); }
 
 /* ── 토스트 ── */
 let toastTimer = null;
