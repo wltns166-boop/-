@@ -1760,13 +1760,18 @@ function sampleErrorAlert(e) {
   hideBusy();
   const code = e && e.code;
   if (code === 'not_granted') appAlert('Claude 사용이 허용되지 않아 인식할 수 없습니다.\n허용 창이 뜨면 허용을 눌러주세요.');
-  else if (code === 'images_unavailable') appAlert('지금 사용 중인 Claude 화면에서는 이미지 전송이 지원되지 않습니다.\n브라우저/앱을 최신으로 업데이트해 다시 시도하거나, 내역을 엑셀·CSV로 올려주세요.');
+  else if (code === 'images_unavailable') { imagesBlocked = true; appAlert('이 화면은 아직 이미지 인식(전송)을 지원하지 않습니다.\n대신 카드사 앱/홈페이지에서 이용내역을 PDF로 저장해 올리면 인식됩니다.\n(엑셀·CSV 파일도 가능)'); }
   else if (code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled') appAlert('이 계정/화면에서는 Claude 인식 기능을 사용할 수 없습니다.');
   else if (code === 'image_rejected') appAlert('이미지를 읽을 수 없습니다. PNG/JPG로 다시 시도해 보세요.');
   else if (code === 'rate_limited') appAlert('요청이 많아 잠시 후 다시 시도해 주세요.');
   else appAlert('내역을 읽지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : '') + (code ? '\n[오류 코드: ' + code + ']' : ''));
 }
+let imagesBlocked = false;   // 이 화면에서 이미지 전송 미지원 확인됨
 async function parseImageFile(cardId, file) {
+  if (imagesBlocked) {
+    appAlert('이 화면은 아직 이미지 인식을 지원하지 않습니다.\n카드사 앱/홈페이지에서 이용내역을 PDF로 저장해 올리면 인식됩니다.\n(엑셀·CSV 파일도 가능)');
+    return;
+  }
   const sample = await getSample();
   if (!sample) {
     appAlert('이미지 인식은 클라우드 가계부(claude.ai 페이지)에서만 사용할 수 있습니다.\n페이지를 새로고침한 뒤 다시 시도해 보세요.');
