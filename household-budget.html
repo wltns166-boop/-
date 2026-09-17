@@ -298,6 +298,25 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .cat-add .emo { width: 58px; text-align: center; }
 .cat-add .nm2 { width: 140px; }
 
+/* ── 가져오기 확인 표 ── */
+.imp-sum { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+.imp-sum b { font-size: 15px; }
+.imp-tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.imp-wrap { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+.imp-tbl th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+.imp-tbl td { padding: 4px 6px; }
+.imp-tbl input[type=text] {
+  width: 100%; border: 1px solid transparent; border-radius: 7px; padding: 6px 7px;
+  background: transparent; color: var(--text); font: inherit; outline: none;
+}
+.imp-tbl input[type=text]:hover { border-color: var(--line); }
+.imp-tbl input[type=text]:focus { border-color: var(--accent); background: var(--card); }
+.imp-tbl td.amt input { text-align: right; font-weight: 700; }
+.imp-tbl tr.off input { opacity: .4; text-decoration: line-through; }
+.imp-tbl tr.odd td.desc input { color: var(--expense); }
+.imp-tag { font-size: 11px; font-weight: 700; color: var(--muted); }
+.imp-tag.warn { color: var(--expense); }
+
 /* ── 플로팅 추가 버튼 ── */
 .fab {
   position: fixed; right: 26px; bottom: 26px; z-index: 30;
@@ -766,6 +785,34 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <div class="modal-foot">
         <button class="btn ghost" onclick="closeModal('goal-modal')">취소</button>
         <button class="btn" onclick="saveGoal()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 가져온 내역 확인 모달 ═══ -->
+<div class="modal-bg" id="import-modal" style="z-index:55">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-h"><span>📥 가져온 내역 확인</span><button class="close" onclick="cancelImport()">✕</button></div>
+    <div class="modal-b">
+      <div id="import-sum" class="imp-sum"></div>
+      <div class="imp-tools">
+        <button class="btn ghost sm" onclick="importCheckAll(true)">전체 선택</button>
+        <button class="btn ghost sm" onclick="importCheckAll(false)">전체 해제</button>
+        <button class="btn ghost sm" onclick="importCheckOdd()">이상한 행만 빼기</button>
+      </div>
+      <div class="imp-wrap">
+        <table class="tbl imp-tbl">
+          <thead><tr>
+            <th style="width:30px"></th><th style="width:104px">날짜</th><th>내역 (가맹점)</th>
+            <th style="width:104px">금액</th><th style="width:66px">비고</th>
+          </tr></thead>
+          <tbody id="import-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" onclick="cancelImport()">취소</button>
+        <button class="btn" id="import-save" onclick="commitImport()">저장</button>
       </div>
     </div>
   </div>
@@ -1714,22 +1761,80 @@ function handleCardFiles(cardId, files) {
 /* 거래가 아닌 요약 행(합계·청구금액·개별계좌 등) */
 const SUMMARY_RE = /합계|입금하실|개별계좌|일시불\s*\+\s*할부|소계|총\s*(이용|결제|합|계)|청구\s*(금액|합계)|결제\s*예정|이월|미결제|누적|잔액|포인트/;
 const txKey = t => [t.cardId, t.date, String(t.desc || '').replace(/\s+/g, ''), t.amount].join('|');
+/* 가져온 내역은 바로 저장하지 않고 확인 표를 띄운다 —
+   잘못 읽힌 행은 여기서 고치거나 빼고 저장할 수 있다. */
+let impRows = [], impCardId = null, impNote = '';
 function addImportedRows(cardId, items, note) {
-  const before = items.length;
-  items = items.filter(t => !SUMMARY_RE.test(String(t.desc || '')));
-  const skippedSummary = before - items.length;
   if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
   // 가져온 내역은 날짜와 상관없이 전부 "지금 보고 있는 달"의 사용내역으로 등록
-  items.forEach(t => { if (!t.billMonth) t.billMonth = selYM; delete t._guess; });
+  items.forEach(t => { if (!t.billMonth) t.billMonth = selYM; });
   const existing = new Set(cardTxAll().map(txKey));
-  const fresh = items.filter(t => !existing.has(txKey(t)));
-  if (skippedSummary) note = (note ? note + ' · ' : '') + `요약 ${skippedSummary}행 제외`;
-  if (!fresh.length) { appAlert('파일의 내역이 모두 이미 등록되어 있어 건너뛰었습니다.'); return; }
-  const list = cardTxAll().concat(fresh);
+  impCardId = cardId;
+  impNote = note || '';
+  impRows = items.map(t => {
+    const summary = SUMMARY_RE.test(String(t.desc || ''));
+    const dup = existing.has(txKey(t));
+    const odd = !t.desc || looksLikeCardName(t.desc) || t.amount >= 20000000 || !!t._guess;
+    delete t._guess;
+    return { t, on: !summary && !dup, summary, dup, odd };
+  });
+  renderImport();
+  document.getElementById('import-modal').classList.add('open');
+}
+function impTag(r) {
+  if (r.summary) return '<span class="imp-tag warn">요약</span>';
+  if (r.dup) return '<span class="imp-tag">중복</span>';
+  if (r.odd) return '<span class="imp-tag warn">확인</span>';
+  return '';
+}
+function renderImport() {
+  const card = getCards().find(c => c.id === impCardId);
+  const on = impRows.filter(r => r.on);
+  const sum = on.reduce((s, r) => s + (Number(r.t.amount) || 0), 0);
+  const odd = impRows.filter(r => r.on && (r.odd || r.summary)).length;
+  document.getElementById('import-sum').innerHTML =
+    `<b>${card ? esc(card.name) : '카드'}</b> · ${ymLabel(selYM)} 사용내역으로 등록됩니다`
+    + `<br>선택 <b>${on.length}</b>건 / 전체 ${impRows.length}건 · 합계 <b>${fmt(sum)}</b>`
+    + (impNote ? `<br><span class="imp-tag">${esc(impNote)}</span>` : '')
+    + (odd ? `<br><span class="imp-tag warn">확인이 필요한 행 ${odd}건 — 빨간 글씨 행의 내역·금액을 확인하세요</span>` : '');
+  document.getElementById('import-body').innerHTML = impRows.map((r, i) => `
+    <tr class="${r.on ? '' : 'off'} ${r.odd || r.summary ? 'odd' : ''}">
+      <td><input type="checkbox" ${r.on ? 'checked' : ''} onchange="impToggle(${i}, this.checked)"></td>
+      <td><input type="text" value="${esc(r.t.date)}" onchange="impEdit(${i}, 'date', this.value)"></td>
+      <td class="desc"><input type="text" value="${esc(r.t.desc || '')}" placeholder="가맹점명" onchange="impEdit(${i}, 'desc', this.value)"></td>
+      <td class="amt"><input type="text" inputmode="numeric" value="${(Number(r.t.amount) || 0).toLocaleString()}" onchange="impEdit(${i}, 'amount', this.value)"></td>
+      <td>${impTag(r)}</td>
+    </tr>`).join('');
+  document.getElementById('import-save').textContent = on.length ? `${on.length}건 저장` : '저장';
+  document.getElementById('import-save').disabled = !on.length;
+}
+function impToggle(i, on) { impRows[i].on = on; renderImport(); }
+function impEdit(i, field, val) {
+  const r = impRows[i];
+  if (field === 'amount') r.t.amount = parseAmountLoose(val) || 0;
+  else if (field === 'date') r.t.date = parseDateLoose(val) || r.t.date;
+  else r.t.desc = String(val).trim().slice(0, 40);
+  r.odd = !r.t.desc || looksLikeCardName(r.t.desc) || r.t.amount >= 20000000;
+  r.summary = SUMMARY_RE.test(String(r.t.desc || ''));
+  renderImport();
+}
+function importCheckAll(on) { impRows.forEach(r => r.on = on); renderImport(); }
+function importCheckOdd() { impRows.forEach(r => { if (r.odd || r.summary || r.dup) r.on = false; }); renderImport(); }
+function cancelImport() {
+  closeModal('import-modal');
+  impRows = []; impCardId = null;
+  toast('가져오기를 취소했습니다 · 저장된 내역은 그대로입니다');
+}
+function commitImport() {
+  const picked = impRows.filter(r => r.on && r.t.amount > 0).map(r => r.t);
+  if (!picked.length) { appAlert('저장할 내역을 하나 이상 선택하세요.'); return; }
+  const list = cardTxAll().concat(picked);
   list.sort((a, b) => a.date < b.date ? 1 : -1);
   lsSet('cardTx', list);
-  const dup = items.length - fresh.length;
-  toast(`${fresh.length}건을 ${ymLabel(selYM)} 내역으로 불러왔습니다${dup ? ` · 중복 ${dup}건 건너뜀` : ''}${note ? ` · ${note}` : ''}`);
+  const left = impRows.length - picked.length;
+  closeModal('import-modal');
+  impRows = []; impCardId = null;
+  toast(`${picked.length}건을 ${ymLabel(selYM)} 내역으로 저장했습니다${left ? ` · ${left}건 제외` : ''}`);
   render();
 }
 
@@ -2864,6 +2969,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const cm = document.getElementById('confirm-modal');
   if (cm.classList.contains('open')) { document.getElementById('confirm-cancel').click(); return; }
+  if (document.getElementById('import-modal').classList.contains('open')) { cancelImport(); return; }
   document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
 });
 
