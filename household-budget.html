@@ -1100,7 +1100,8 @@ function cardPeriodStart(c) {
   if (!c) return null;
   const n = Number(c.periodStart);
   if (n >= 1 && n <= 31) return n;
-  const m = String(c.period || '').match(/\d{1,2}/);
+  const m = String(c.period || '').match(/(\d{1,2})\s*일/) || String(c.period || '').match(/^\D*(\d{1,2})(?!\d)/);
+  if (m) m[0] = m[1];
   const p = m ? Number(m[0]) : 0;
   return p >= 1 && p <= 31 ? p : null;
 }
@@ -1399,7 +1400,7 @@ function renderCards() {
     const list = monthCt.filter(t => t.cardId === c.id);
     const s = list.reduce((a, t) => a + Number(t.amount || 0), 0);
     // 카드사 관리에서 직접 입력한 사용기간이 우선, 없으면 내역 날짜 범위 자동 표시
-    let period = esc(String(c.period || '').trim());
+    let period = esc(String(c.period || periodLabel(cardPeriodStart(c)) || '').trim());
     if (!period) {
       period = '-';
       if (list.length) {
@@ -1616,19 +1617,39 @@ document.addEventListener('keydown', e => {
 
 /* ── 카드사 파일(엑셀/CSV) 업로드 → 날짜/내역/금액 자동 추출 ── */
 function parseAmountLoose(s) {
-  s = String(s ?? '').trim().replace(/[,원\s]/g, '');
-  if (!/^-?\d{1,9}(\.\d+)?$/.test(s)) return null;
+  const r = parseAmountSigned(s);
+  return r ? r.n : null;
+}
+/* 금액 + 부호. "-12,000", "(12,000)", "₩5,000" 등 → {n:12000, neg:true/false} */
+function parseAmountSigned(s) {
+  s = String(s ?? '').trim().replace(/[,원₩\s]/g, '');
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  if (/^[-−]/.test(s)) { neg = true; s = s.slice(1); }
+  if (!/^\d{1,9}(\.\d+)?$/.test(s)) return null;
   const n = Math.abs(Number(s));
-  return n >= 10 ? n : null;      // 10원 미만(카드번호 조각 등)은 금액으로 보지 않음
+  return n >= 10 ? { n, neg } : null;      // 10원 미만(카드번호 조각 등)은 금액으로 보지 않음
+}
+/* 취소 거래 표시(구분/상태 열 값이나 가맹점명 뒤의 "(취소)") */
+const CANCEL_RE = /취소|cancel|환불|매입취소/i;
+function looksLikeCardNumber(s) { return /\d{4}[-\s]\d{2,4}[*\d]|\*{2,}/.test(s); }
+/* 실제 존재하는 날짜만 YYYY-MM-DD로 (2026-13-45, 2026-09-31 같은 값은 거부) */
+function ymd(y, m, d) {
+  y = Number(y); m = Number(m); d = Number(d);
+  if (!(y >= 2000 && y <= 2100 && m >= 1 && m <= 12 && d >= 1)) return null;
+  if (d > new Date(y, m, 0).getDate()) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 function parseDateLoose(s) {
   s = String(s ?? '').trim();
   let m = s.match(/^(\d{4})[.\-\/년\s]+(\d{1,2})[.\-\/월\s]+(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+  if (m) return ymd(m[1], m[2], m[3]);
   m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  if (m) return ymd(m[1], m[2], m[3]);
+  m = s.match(/^(\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})(?!\d)/);   // 26.09.05 → 2026-09-05 (첫 수가 13 이상이면 연도)
+  if (m && Number(m[1]) > 12) return ymd(2000 + Number(m[1]), m[2], m[3]);
   m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})(?!\d)/);     // 월/일만 있으면(뒤에 "(수)" 등이 붙어도) 보고 있는 달의 연도 사용
-  if (m) return `${selYM.slice(0, 4)}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
+  if (m) return ymd(selYM.slice(0, 4), m[1], m[2]);
   if (/^\d{5}$/.test(s)) {                              // 엑셀 날짜 일련번호
     const n = Number(s);
     if (n > 30000 && n < 70000) return new Date(Math.round((n - 25569) * 86400000)).toISOString().slice(0, 10);
@@ -1642,7 +1663,7 @@ function detectColumns(rows) {
   const DESC_H = /가맹점|이용하신\s*곳|사용처|이용처|상호|merchant|store/i;
   const DESC_H2 = /이용내역|사용내역|내역|적요/i;               // 차선책
   const AMT_H = /이용금액|사용금액|승인금액|거래금액|결제금액|매출금액|출금액|금액|amount/i;
-  const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구|번호|no\.?$|카드/i;
+  const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구|번호|no\.?$|카드|취소/i;
   for (let i = 0; i < Math.min(rows.length, 12); i++) {
     const cells = (rows[i] || []).map(c => String(c ?? '').trim());
     let di = -1, mi = -1, mi2 = -1, ai = -1;
@@ -1670,40 +1691,46 @@ function rowsToCardTx(rows, cardId) {
     for (let i = cols.headerRow + 1; i < rows.length; i++) {
       const cells = rows[i];
       const date = parseDateLoose(String(cells[cols.date] ?? ''));
-      const amount = parseAmountLoose(String(cells[cols.amount] ?? ''));
-      if (!date || !amount) continue;
+      const am = parseAmountSigned(String(cells[cols.amount] ?? ''));
+      if (!date || !am) continue;
       let desc = cols.desc >= 0 ? String(cells[cols.desc] ?? '').trim() : '';
+      // 구분/상태 등 다른 열에 '취소'가 있거나 금액이 음수면 취소 거래
+      const cancel = am.neg || cells.some((c, j) => j !== cols.desc && CANCEL_RE.test(String(c ?? ''))) || /\(\s*취소\s*\)|취소$/.test(desc);
       if (!desc) {
-        // 가맹점 열이 없으면: 날짜/숫자/카드명이 아닌 가장 긴 문자열
+        // 가맹점 열이 없으면: 날짜/숫자/카드명/카드번호가 아닌 가장 긴 문자열
         for (const cell of cells) {
           const s = String(cell ?? '').trim();
           if (!s || parseDateLoose(s) || parseAmountLoose(s) !== null) continue;
-          if (looksLikeCardName(s)) continue;
+          if (looksLikeCardName(s) || looksLikeCardNumber(s)) continue;
           if (s.length > desc.length) desc = s;
         }
       }
-      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount });
+      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount: am.n, _cancel: cancel, _guess: !desc });
     }
     if (out.length) return out;
   }
   // 헤더를 못 찾은 파일: 행별 추정 (카드명은 내역 후보에서 제외)
   for (const cells of rows) {
-    let date = null, amount = null, amountComma = null, desc = '', descAny = '';
+    let date = null, amount = null, amountComma = null, desc = '', descAny = '', neg = false, cancel = false, plainCount = 0;
     for (const cell of cells) {
       const s = String(cell ?? '').trim();
       if (!s) continue;
       if (!date) { const d = parseDateLoose(s); if (d) { date = d; continue; } }
-      const a = parseAmountLoose(s);
+      const a = parseAmountSigned(s);
       if (a !== null) {
-        if (/,/.test(s)) { if (amountComma === null || a > amountComma) amountComma = a; }
-        else if (!/^\d{7,}$/.test(s)) { if (amount === null || a > amount) amount = a; }   // 콤마 없는 7자리 이상(승인번호 등)은 제외
+        if (/,/.test(s)) { if (amountComma === null || a.n > amountComma) { amountComma = a.n; neg = a.neg; } }
+        else if (!/^\d{7,}$/.test(s)) { plainCount++; if (amount === null || a.n > amount) { amount = a.n; if (amountComma === null) neg = a.neg; } }   // 콤마 없는 7자리 이상(승인번호 등)은 제외
         continue;
       }
+      if (CANCEL_RE.test(s) && s.length <= 6) { cancel = true; continue; }
+      if (looksLikeCardNumber(s)) continue;
       if (s.length > descAny.length) descAny = s;
       if (!looksLikeCardName(s) && s.length > desc.length) desc = s;
     }
     if (amountComma !== null) amount = amountComma;   // "12,000"처럼 표기된 숫자가 있으면 그것이 금액
-    if (date && amount) out.push({ id: uid(), cardId, date, desc: (desc || descAny).slice(0, 40), amount, _guess: !desc });
+    // 콤마 없는 숫자가 둘 이상이면(금액과 승인번호가 섞임) 어느 것이 금액인지 확실하지 않음 → 확인 표시
+    const ambiguous = amountComma === null && plainCount >= 2;
+    if (date && amount) out.push({ id: uid(), cardId, date, desc: (desc || descAny).slice(0, 40), amount, _cancel: neg || cancel, _guess: !desc || ambiguous });
   }
   return out;
 }
@@ -1786,40 +1813,64 @@ function handleCardFiles(cardId, files) {
 
 /* 추출된 내역을 중복 제거 후 저장 (같은 파일 재업로드에도 안전) */
 /* 거래가 아닌 요약 행(합계·청구금액·개별계좌 등) */
-const SUMMARY_RE = /합계|입금하실|개별계좌|일시불\s*\+\s*할부|소계|총\s*(이용|결제|합|계)|청구\s*(금액|합계)|결제\s*예정|이월|미결제|누적|잔액|포인트/;
+const SUMMARY_RE = /합계|입금하실|개별계좌|일시불\s*\+\s*할부|소계|총\s*(이용|결제|합|계)|청구\s*(금액|합계)|결제\s*예정|이월\s*(금액|잔액|액)|미결제|누적|잔액|포인트/;
 const txKey = t => [t.cardId, t.date, String(t.desc || '').replace(/\s+/g, ''), t.amount].join('|');
 /* 가져온 내역은 바로 저장하지 않고 확인 표를 띄운다 —
    잘못 읽힌 행은 여기서 고치거나 빼고 저장할 수 있다. */
-let impRows = [], impCardId = null, impNote = '';
+let impRows = [], impCardId = null, impNote = '', impExisting = new Set();
+const impQueue = [];   // 파일 여러 개를 한꺼번에 올렸을 때 순서대로 확인
 function addImportedRows(cardId, items, note) {
   if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
+  if (document.getElementById('import-modal').classList.contains('open')) {
+    impQueue.push({ cardId, items, note });   // 지금 확인 중인 표를 끝내면 이어서 표시
+    toast(`파일 ${impQueue.length}개가 대기 중입니다 · 지금 표를 저장하거나 취소하면 이어서 확인합니다`);
+    return;
+  }
   // 청구월: 카드의 사용기간 시작일 기준으로 계산 (시작일이 없으면 지금 보고 있는 달)
   const card = getCards().find(c => c.id === cardId);
   items.forEach(t => { t.billMonth = billMonthFor(card, t.date); });
-  const existing = new Set(cardTxAll().map(txKey));
+  impExisting = new Set(cardTxAll().map(txKey));
   impCardId = cardId;
   impNote = note || '';
   impRows = items.map(t => {
-    const summary = SUMMARY_RE.test(String(t.desc || ''));
-    const dup = existing.has(txKey(t));
-    const odd = !t.desc || looksLikeCardName(t.desc) || t.amount >= 20000000 || !!t._guess;
+    const cancel = !!t._cancel;
+    delete t._cancel;
+    const r = { t, on: true, cancel, summary: false, dup: false, odd: !!t._guess, noAmt: false };
     delete t._guess;
-    return { t, on: !summary && !dup, summary, dup, odd };
+    impCheck(r);
+    r.on = !r.summary && !r.dup && !r.cancel && !r.noAmt;
+    return r;
   });
   renderImport();
   document.getElementById('import-modal').classList.add('open');
 }
+/* 행 상태 재계산 (요약/중복/이상/금액 없음). odd는 파서가 준 확인 표시를 유지 */
+function impCheck(r) {
+  const d = String(r.t.desc || '');
+  r.summary = SUMMARY_RE.test(d);
+  r.dup = impExisting.has(txKey(r.t));
+  r.noAmt = !(Number(r.t.amount) > 0);
+  r.odd = r.odd || !d || looksLikeCardName(d) || r.t.amount >= 20000000;
+}
 function impTag(r) {
+  if (r.noAmt) return '<span class="imp-tag warn">금액?</span>';
+  if (r.cancel) return '<span class="imp-tag warn">취소</span>';
   if (r.summary) return '<span class="imp-tag warn">요약</span>';
   if (r.dup) return '<span class="imp-tag">중복</span>';
   if (r.odd) return '<span class="imp-tag warn">확인</span>';
   return '';
 }
+function impNext() {
+  impRows = []; impCardId = null;
+  const next = impQueue.shift();
+  if (next) setTimeout(() => addImportedRows(next.cardId, next.items, next.note), 250);
+}
 function renderImport() {
   const card = getCards().find(c => c.id === impCardId);
-  const on = impRows.filter(r => r.on);
-  const sum = on.reduce((s, r) => s + (Number(r.t.amount) || 0), 0);
-  const odd = impRows.filter(r => r.on && (r.odd || r.summary)).length;
+  const on = impRows.filter(r => r.on && !r.noAmt);
+  const sum = on.reduce((s, r) => s + (r.cancel ? -1 : 1) * (Number(r.t.amount) || 0), 0);
+  const odd = impRows.filter(r => r.on && (r.odd || r.summary || r.noAmt)).length;
+  const cancels = impRows.filter(r => r.cancel).length;
   const byMonth = {};
   on.forEach(r => { byMonth[r.t.billMonth] = (byMonth[r.t.billMonth] || 0) + 1; });
   const monthsTxt = Object.keys(byMonth).sort().map(ym => `${ymLabel(ym)} ${byMonth[ym]}건`).join(' · ');
@@ -1827,14 +1878,14 @@ function renderImport() {
   document.getElementById('import-sum').innerHTML =
     `<b>${card ? esc(card.name) : '카드'}</b> · ${start ? `사용기간 ${periodLabel(start)} 기준으로 청구 달을 계산했습니다` : `${ymLabel(selYM)} 사용내역으로 등록됩니다 (카드사 관리에서 사용 시작일을 넣으면 자동 계산)`}`
     + `<br>선택 <b>${on.length}</b>건 / 전체 ${impRows.length}건 · 합계 <b>${fmt(sum)}</b>${monthsTxt ? ` · ${monthsTxt}` : ''}`
-    + (impNote ? `<br><span class="imp-tag">${esc(impNote)}</span>` : '')
+    + (impNote || cancels ? `<br><span class="imp-tag">${esc(impNote)}${impNote && cancels ? ' · ' : ''}${cancels ? `취소 ${cancels}건은 기본 제외 (체크하면 마이너스로 저장)` : ''}</span>` : '')
     + (odd ? `<br><span class="imp-tag warn">확인이 필요한 행 ${odd}건 — 빨간 글씨 행의 내역·금액을 확인하세요</span>` : '');
   document.getElementById('import-body').innerHTML = impRows.map((r, i) => `
     <tr class="${r.on ? '' : 'off'} ${r.odd || r.summary ? 'odd' : ''}">
       <td><input type="checkbox" ${r.on ? 'checked' : ''} onchange="impToggle(${i}, this.checked)"></td>
       <td><input type="text" value="${esc(r.t.date)}" onchange="impEdit(${i}, 'date', this.value)"></td>
       <td class="desc"><input type="text" value="${esc(r.t.desc || '')}" placeholder="가맹점명" onchange="impEdit(${i}, 'desc', this.value)"></td>
-      <td class="amt"><input type="text" inputmode="numeric" value="${(Number(r.t.amount) || 0).toLocaleString()}" onchange="impEdit(${i}, 'amount', this.value)"></td>
+      <td class="amt"><input type="text" inputmode="numeric" value="${(r.cancel ? '-' : '') + (Number(r.t.amount) || 0).toLocaleString()}" onchange="impEdit(${i}, 'amount', this.value)"></td>
       <td class="ym">${Number(String(r.t.billMonth || '').slice(5))}월</td>
       <td>${impTag(r)}</td>
     </tr>`).join('');
@@ -1844,25 +1895,32 @@ function renderImport() {
 function impToggle(i, on) { impRows[i].on = on; renderImport(); }
 function impEdit(i, field, val) {
   const r = impRows[i];
-  if (field === 'amount') r.t.amount = parseAmountLoose(val) || 0;
-  else if (field === 'date') {
-    r.t.date = parseDateLoose(val) || r.t.date;
+  if (field === 'amount') {
+    const a = parseAmountSigned(val);
+    r.t.amount = a ? a.n : 0;
+    r.cancel = !!(a && a.neg);
+    if (!a) toast('금액은 10원 이상의 숫자로 입력하세요');
+  } else if (field === 'date') {
+    const d = parseDateLoose(val);
+    if (d) r.t.date = d; else toast('날짜는 2026-09-05 형식으로 입력하세요');
     r.t.billMonth = billMonthFor(getCards().find(c => c.id === impCardId), r.t.date);
   }
   else r.t.desc = String(val).trim().slice(0, 40);
-  r.odd = !r.t.desc || looksLikeCardName(r.t.desc) || r.t.amount >= 20000000;
-  r.summary = SUMMARY_RE.test(String(r.t.desc || ''));
+  r.odd = false;   // 사용자가 고친 행은 다시 계산
+  impCheck(r);
+  if (r.noAmt) r.on = false;
   renderImport();
 }
 function importCheckAll(on) { impRows.forEach(r => r.on = on); renderImport(); }
-function importCheckOdd() { impRows.forEach(r => { if (r.odd || r.summary || r.dup) r.on = false; }); renderImport(); }
+function importCheckOdd() { impRows.forEach(r => { if (r.odd || r.summary || r.dup || r.cancel || r.noAmt) r.on = false; }); renderImport(); }
 function cancelImport() {
   closeModal('import-modal');
-  impRows = []; impCardId = null;
   toast('가져오기를 취소했습니다 · 저장된 내역은 그대로입니다');
+  impNext();
 }
 function commitImport() {
-  const picked = impRows.filter(r => r.on && r.t.amount > 0).map(r => r.t);
+  // 취소 건을 체크했으면 마이너스 금액으로 저장해 합계에서 빠지게 함
+  const picked = impRows.filter(r => r.on && r.t.amount > 0).map(r => r.cancel ? { ...r.t, amount: -r.t.amount } : r.t);
   if (!picked.length) { appAlert('저장할 내역을 하나 이상 선택하세요.'); return; }
   const list = cardTxAll().concat(picked);
   list.sort((a, b) => a.date < b.date ? 1 : -1);
@@ -1870,7 +1928,7 @@ function commitImport() {
   const left = impRows.length - picked.length;
   const months = [...new Set(picked.map(t => t.billMonth))].sort().map(ymLabel).join(', ');
   closeModal('import-modal');
-  impRows = []; impCardId = null;
+  impNext();
   toast(`${picked.length}건을 ${months} 내역으로 저장했습니다${left ? ` · ${left}건 제외` : ''}`);
   render();
 }
@@ -1891,12 +1949,12 @@ async function importRows(cardId, rows) {
     busyToast('🔍 표의 열 구성을 확인하는 중...');
     try {
       const preview = rows.slice(0, 15).map((r, i) => i + ': ' + r.map(c => String(c ?? '').trim()).join(' | ')).join('\n');
-      const map = await sample.json(
+      const map = await withTimeout(sample.json(
         '아래는 카드 이용내역 표의 앞부분입니다(행번호: 셀 | 셀 | ...). 각 셀은 0부터 세는 열 번호를 가집니다.\n'
         + '거래 날짜(이용일) 열, 가맹점명(이용하신 곳) 열, 이용금액 열의 번호와 첫 거래 행 번호를 JSON으로만 답하세요.\n'
         + '형식: {"date":0,"desc":2,"amount":4,"firstRow":3}\n'
         + '- 승인번호·카드번호·카드 상품명·누적금액·포인트·할부 열은 고르지 마세요\n\n' + preview,
-        { cache: false });
+        { cache: false }), 90000);
       hideBusy();
       const d = Number(map && map.date), m = Number(map && map.desc), a = Number(map && map.amount), f = Number(map && map.firstRow) || 0;
       if (Number.isInteger(d) && Number.isInteger(a) && d !== a) {
@@ -1937,6 +1995,10 @@ function parseSheetFile(cardId, file) {
 
 /* ── 이미지/PDF 인식 (Claude sample 기능, 클라우드 가계부에서만) ── */
 let sampleApi;
+/* Claude 헬퍼가 응답하지 않을 때 무한 대기 방지 */
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('응답 시간 초과'), { code: 'timeout' })), ms))]);
+}
 async function getSample() {
   if (sampleApi === undefined) {
     sampleApi = null;
@@ -1976,6 +2038,7 @@ function sampleErrorAlert(e) {
   else if (code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled') appAlert('이 계정/화면에서는 Claude 인식 기능을 사용할 수 없습니다.');
   else if (code === 'image_rejected') appAlert('이미지를 읽을 수 없습니다. PNG/JPG로 다시 시도해 보세요.');
   else if (code === 'rate_limited') appAlert('요청이 많아 잠시 후 다시 시도해 주세요.');
+  else if (code === 'timeout') appAlert('인식이 너무 오래 걸려 중단했습니다. 다시 시도하거나 엑셀/CSV로 올려주세요.');
   else appAlert('내역을 읽지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : '') + (code ? '\n[오류 코드: ' + code + ']' : ''));
 }
 let imagesBlocked = false;   // 이 화면에서 이미지 전송 미지원 확인됨
@@ -1992,7 +2055,7 @@ async function parseImageFile(cardId, file) {
   // 미리 막지 않고 실제로 시도 — 안 되면 정확한 이유를 안내
   busyToast('🔍 이미지에서 내역을 읽는 중... (최대 1분)');
   try {
-    const data = await sample.json(parsePrompt(), { images: [file], cache: false });
+    const data = await withTimeout(sample.json(parsePrompt(), { images: [file], cache: false }), 120000);
     finishParsedRows(cardId, data);
   } catch (e) { sampleErrorAlert(e); }
 }
@@ -2138,14 +2201,14 @@ async function parseTextWithClaude(cardId, text) {
   if (!sample) return false;
   busyToast('🔍 내역을 읽는 중... (최대 1분)');
   try {
-    const data = await sample.json(
+    const data = await withTimeout(sample.json(
       '아래는 카드 이용내역 PDF에서 추출한 글자입니다. 거래 내역을 모두 찾아 JSON으로만 답하세요.\n'
       + '형식: {"rows":[{"date":"YYYY-MM-DD","desc":"가맹점명","amount":12345}]}\n'
       + '- amount는 원 단위 양수 숫자 (이용금액 기준, 누적금액·포인트·할부회차·승인번호(8자리) 제외)\n'
       + '- desc는 실제 가맹점명. 카드 상품명(예: American Express Gold, 플래티늄 카드)이나 카드번호는 desc로 쓰지 말 것. 한 거래가 여러 줄에 걸쳐 있으면 합쳐서 한 건으로\n'
       + '- 연도가 없으면 ' + selYM.slice(0, 4) + '년으로 가정\n- 합계·헤더·취소 행 제외\n\n'
       + text.slice(0, 50000),
-      { cache: false });
+      { cache: false }), 120000);
     finishParsedRows(cardId, data);
     return true;
   } catch (e) {
@@ -2228,7 +2291,7 @@ async function parsePdfFile(cardId, file) {
       await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
       blobs.push(await new Promise(res => cv.toBlob(res, 'image/png')));
     }
-    const data = await sample.json(parsePrompt(), { images: blobs, cache: false });
+    const data = await withTimeout(sample.json(parsePrompt(), { images: blobs, cache: false }), 120000);
     finishParsedRows(cardId, data);
   } catch (e) { sampleErrorAlert(e); }
 }
