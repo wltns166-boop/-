@@ -312,6 +312,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .imp-tbl input[type=text]:hover { border-color: var(--line); }
 .imp-tbl input[type=text]:focus { border-color: var(--accent); background: var(--card); }
 .imp-tbl td.amt input { text-align: right; font-weight: 700; }
+.imp-tbl td.ym { font-size: 12px; font-weight: 700; color: var(--accent); text-align: center; }
 .imp-tbl tr.off input { opacity: .4; text-decoration: line-through; }
 .imp-tbl tr.odd td.desc input { color: var(--expense); }
 .imp-tag { font-size: 11px; font-weight: 700; color: var(--muted); }
@@ -805,7 +806,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
         <table class="tbl imp-tbl">
           <thead><tr>
             <th style="width:30px"></th><th style="width:104px">날짜</th><th>내역 (가맹점)</th>
-            <th style="width:104px">금액</th><th style="width:66px">비고</th>
+            <th style="width:104px">금액</th><th style="width:48px">청구</th><th style="width:66px">비고</th>
           </tr></thead>
           <tbody id="import-body"></tbody>
         </table>
@@ -1094,6 +1095,28 @@ function getCards() { return ls('cards', []); }
 function cardTxAll() { return ls('cardTx', []); }
 /* 내역이 속한 달 = 가져올 때 보고 있던 달(billMonth). 없으면 실제 날짜의 달 */
 function billYM(t) { return t.billMonth || t.date.slice(0, 7); }
+/* 카드의 사용기간 시작일(1~31). 숫자 필드가 없으면 예전 문구("14일~13일")에서 첫 숫자를 읽음 */
+function cardPeriodStart(c) {
+  if (!c) return null;
+  const n = Number(c.periodStart);
+  if (n >= 1 && n <= 31) return n;
+  const m = String(c.period || '').match(/\d{1,2}/);
+  const p = m ? Number(m[0]) : 0;
+  return p >= 1 && p <= 31 ? p : null;
+}
+function periodLabel(start) {
+  if (!start) return '';
+  return start === 1 ? '1일~말일' : `${start}일~${start - 1}일`;
+}
+/* 거래 날짜가 어느 달 청구분인지: 시작일(예 14일) 이후면 다음 달, 이전이면 그 달.
+   시작일이 없으면 지금 보고 있는 달로 등록 */
+function billMonthFor(card, date) {
+  const start = cardPeriodStart(card);
+  if (!start) return selYM;
+  const ym = date.slice(0, 7);
+  if (start === 1) return ym;
+  return Number(date.slice(8, 10)) >= start ? ymAdd(ym, 1) : ym;
+}
 function cardTxOfMonth(ym) { return cardTxAll().filter(t => billYM(t) === ym); }
 function cardSumOfMonth(ym) { return cardTxOfMonth(ym).reduce((s, t) => s + Number(t.amount || 0), 0); }
 /* 카드 사용을 포함한 그 달의 총지출 */
@@ -1417,7 +1440,7 @@ function renderCards() {
           onclick="if (!['INPUT', 'BUTTON'].includes(event.target.tagName)) { selectCard('${c.id}'); this.querySelector('input').click(); }">
           <input type="file" hidden multiple accept=".xlsx,.xls,.csv,.pdf,image/*" onchange="handleCardFiles('${c.id}', this.files); this.value = ''">
           <div class="dz-t1">📄 엑셀 · CSV · PDF · 이미지 업로드</div>
-          <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기 · Ctrl+V 붙여넣기<br>올린 내역은 <b>지금 보고 있는 달</b>의 사용내역으로 등록됩니다</div>
+          <div class="dz-t2">클릭해서 파일 선택 · 파일을 끌어다 놓기 · Ctrl+V 붙여넣기<br>카드의 <b>사용 시작일</b> 기준으로 청구 달이 자동 계산됩니다 (미설정 시 보고 있는 달)</div>
           <button class="btn ghost sm" style="margin-top:8px" onclick="pasteFromClipboard('${c.id}')">📋 캡처 붙여넣기</button>
         </div>
         ${list.length ? `<div style="overflow-x:auto"><table class="tbl ct-tbl">
@@ -1516,15 +1539,16 @@ function togglePaid(cardId) {
   toast(c.paid[selYM] ? `'${c.name}' 결제 완료로 표시했습니다` : `'${c.name}' 미완료로 표시했습니다`);
   render();
 }
-/* 카드사 사용기간(표시용 문구) 저장 (카드사 관리 모달) */
+/* 카드사 사용기간 시작일 저장 (카드사 관리 모달) — 표시 문구도 함께 갱신 */
 function setCardPeriod(cardId, v) {
   const cards = getCards();
   const c = cards.find(x => x.id === cardId);
   if (!c) return;
-  v = String(v || '').trim();
-  if (v) c.period = v; else delete c.period;
+  const d = Number(v);
+  if (d >= 1 && d <= 31) { c.periodStart = d; c.period = periodLabel(d); }
+  else { delete c.periodStart; delete c.period; }
   lsSet('cards', cards);
-  toast('사용기간이 저장되었습니다');
+  toast(d >= 1 && d <= 31 ? `사용기간을 ${periodLabel(d)}로 저장했습니다` : '사용기간을 지웠습니다');
   renderCardModal();
   render();
 }
@@ -1551,8 +1575,11 @@ function renderCardModal() {
       <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
       <div class="rec-info"><div class="t1">${esc(c.name)}</div>
         <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
-      <input class="bud-input" type="text" placeholder="사용기간" title="예: 전월 14일~당월 13일" maxlength="20"
-        style="width:118px;text-align:center;font-size:12px" value="${esc(c.period || '')}" onchange="setCardPeriod('${c.id}', this.value)">
+      <span style="color:var(--muted);font-size:12px;white-space:nowrap">사용 시작일</span>
+      <input class="bud-input" type="number" min="1" max="31" placeholder="14" title="사용기간 시작일 (예: 14 → 전월 14일~당월 13일이 그 달 청구분)"
+        style="width:60px;text-align:center" value="${cardPeriodStart(c) || ''}" onchange="setCardPeriod('${c.id}', this.value)">
+      <span style="color:var(--muted);font-size:11.5px;min-width:74px">${periodLabel(cardPeriodStart(c)) || '미설정'}</span>
+      <span style="color:var(--muted);font-size:12px;white-space:nowrap">결제일</span>
       <input class="bud-input" type="number" min="1" max="31" placeholder="결제일" title="매월 결제일 (1~31)"
         style="width:64px;text-align:center" value="${c.payDay || ''}" onchange="setCardPayDay('${c.id}', this.value)">
       <span style="color:var(--muted);font-size:12px">일</span>
@@ -1766,8 +1793,9 @@ const txKey = t => [t.cardId, t.date, String(t.desc || '').replace(/\s+/g, ''), 
 let impRows = [], impCardId = null, impNote = '';
 function addImportedRows(cardId, items, note) {
   if (!items.length) { appAlert('파일에서 날짜와 금액이 있는 내역을 찾지 못했습니다.'); return; }
-  // 가져온 내역은 날짜와 상관없이 전부 "지금 보고 있는 달"의 사용내역으로 등록
-  items.forEach(t => { if (!t.billMonth) t.billMonth = selYM; });
+  // 청구월: 카드의 사용기간 시작일 기준으로 계산 (시작일이 없으면 지금 보고 있는 달)
+  const card = getCards().find(c => c.id === cardId);
+  items.forEach(t => { t.billMonth = billMonthFor(card, t.date); });
   const existing = new Set(cardTxAll().map(txKey));
   impCardId = cardId;
   impNote = note || '';
@@ -1792,9 +1820,13 @@ function renderImport() {
   const on = impRows.filter(r => r.on);
   const sum = on.reduce((s, r) => s + (Number(r.t.amount) || 0), 0);
   const odd = impRows.filter(r => r.on && (r.odd || r.summary)).length;
+  const byMonth = {};
+  on.forEach(r => { byMonth[r.t.billMonth] = (byMonth[r.t.billMonth] || 0) + 1; });
+  const monthsTxt = Object.keys(byMonth).sort().map(ym => `${ymLabel(ym)} ${byMonth[ym]}건`).join(' · ');
+  const start = cardPeriodStart(card);
   document.getElementById('import-sum').innerHTML =
-    `<b>${card ? esc(card.name) : '카드'}</b> · ${ymLabel(selYM)} 사용내역으로 등록됩니다`
-    + `<br>선택 <b>${on.length}</b>건 / 전체 ${impRows.length}건 · 합계 <b>${fmt(sum)}</b>`
+    `<b>${card ? esc(card.name) : '카드'}</b> · ${start ? `사용기간 ${periodLabel(start)} 기준으로 청구 달을 계산했습니다` : `${ymLabel(selYM)} 사용내역으로 등록됩니다 (카드사 관리에서 사용 시작일을 넣으면 자동 계산)`}`
+    + `<br>선택 <b>${on.length}</b>건 / 전체 ${impRows.length}건 · 합계 <b>${fmt(sum)}</b>${monthsTxt ? ` · ${monthsTxt}` : ''}`
     + (impNote ? `<br><span class="imp-tag">${esc(impNote)}</span>` : '')
     + (odd ? `<br><span class="imp-tag warn">확인이 필요한 행 ${odd}건 — 빨간 글씨 행의 내역·금액을 확인하세요</span>` : '');
   document.getElementById('import-body').innerHTML = impRows.map((r, i) => `
@@ -1803,6 +1835,7 @@ function renderImport() {
       <td><input type="text" value="${esc(r.t.date)}" onchange="impEdit(${i}, 'date', this.value)"></td>
       <td class="desc"><input type="text" value="${esc(r.t.desc || '')}" placeholder="가맹점명" onchange="impEdit(${i}, 'desc', this.value)"></td>
       <td class="amt"><input type="text" inputmode="numeric" value="${(Number(r.t.amount) || 0).toLocaleString()}" onchange="impEdit(${i}, 'amount', this.value)"></td>
+      <td class="ym">${Number(String(r.t.billMonth || '').slice(5))}월</td>
       <td>${impTag(r)}</td>
     </tr>`).join('');
   document.getElementById('import-save').textContent = on.length ? `${on.length}건 저장` : '저장';
@@ -1812,7 +1845,10 @@ function impToggle(i, on) { impRows[i].on = on; renderImport(); }
 function impEdit(i, field, val) {
   const r = impRows[i];
   if (field === 'amount') r.t.amount = parseAmountLoose(val) || 0;
-  else if (field === 'date') r.t.date = parseDateLoose(val) || r.t.date;
+  else if (field === 'date') {
+    r.t.date = parseDateLoose(val) || r.t.date;
+    r.t.billMonth = billMonthFor(getCards().find(c => c.id === impCardId), r.t.date);
+  }
   else r.t.desc = String(val).trim().slice(0, 40);
   r.odd = !r.t.desc || looksLikeCardName(r.t.desc) || r.t.amount >= 20000000;
   r.summary = SUMMARY_RE.test(String(r.t.desc || ''));
@@ -1832,9 +1868,10 @@ function commitImport() {
   list.sort((a, b) => a.date < b.date ? 1 : -1);
   lsSet('cardTx', list);
   const left = impRows.length - picked.length;
+  const months = [...new Set(picked.map(t => t.billMonth))].sort().map(ymLabel).join(', ');
   closeModal('import-modal');
   impRows = []; impCardId = null;
-  toast(`${picked.length}건을 ${ymLabel(selYM)} 내역으로 저장했습니다${left ? ` · ${left}건 제외` : ''}`);
+  toast(`${picked.length}건을 ${months} 내역으로 저장했습니다${left ? ` · ${left}건 제외` : ''}`);
   render();
 }
 
