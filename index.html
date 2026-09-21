@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-4</div>
   </div>
 </div>
 
@@ -2170,7 +2170,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           </div>
           <div class="fpg2" style="margin-top:9px">
             <div><label class="fpl">적립상품 ① 현재 적립액</label><input class="fpi num" id="fp_s1cur" inputmode="numeric" oninput="fpMoney(this)" placeholder="0"></div>
-            <div><label class="fpl">적립상품 ① 만기 수령액</label><input class="fpi num" id="fp_s1mat" inputmode="numeric" oninput="fpMoney(this)" placeholder="0"></div>
+            <div><label class="fpl">적립상품 ① 납입기간 (년)</label><input class="fpi num" id="fp_s1yrs" inputmode="numeric" oninput="fpIntIn(this,50)" placeholder="비우면 시나리오 연수"><div id="fp_s1mat_hint" style="font-size:11.5px;color:#4858cc;min-height:14px;margin-top:3px;text-align:right"></div></div>
           </div>
           <div style="margin-top:9px"><div><label class="fpl">변액연금 일시납 금액</label><input class="fpi num" id="fp_vaL" inputmode="numeric" oninput="fpMoney(this)" placeholder="0"></div></div>
           <div class="fpsec">가정 연 수익률 (%)</div>
@@ -5203,7 +5203,7 @@ function rDelayReq(){
 //   두 벌로 나누면 "화면과 다른 문서가 출력되는" 사고가 난다. 나누지 말 것.
 
 var FP_KEYS=['cust','date','yrs','income','living','s1nm','s1','s2nm','s2','va',
-             'cma','isa','s1cur','s1mat','vaL','months','r1','r2','r3','l1','l2','l3','isaR'];
+             'cma','isa','s1cur','s1yrs','vaL','months','r1','r2','r3','l1','l2','l3','isaR'];
 var FP_DEF={yrs:'5',r1:'8',r2:'9',r3:'10',l1:'20',l2:'25',l3:'30',isaR:'5'};
 
 function _fpNum(v){ var d=String(v==null?'':v).replace(/[^0-9]/g,''); return d?Number(d):0; }
@@ -5237,7 +5237,13 @@ function _fpCompute(o){
   var income=_fpNum(o.income), living=_fpNum(o.living),
       s1=_fpNum(o.s1), s2=_fpNum(o.s2), va=_fpNum(o.va),
       cma=_fpNum(o.cma), isa=_fpNum(o.isa),
-      s1cur=_fpNum(o.s1cur), s1mat=_fpNum(o.s1mat), vaL=_fpNum(o.vaL);
+      s1cur=_fpNum(o.s1cur), vaL=_fpNum(o.vaL);
+  // 적립상품 ① 만기 수령액 = 월 납입액 × 12 × 납입기간(년) — 원금 단순 합산(이자·정부기여금 별도).
+  //   납입기간을 비우면 시나리오 연수와 동일(템플릿 의미상 만기 시점 = 시나리오 연수).
+  var s1yrs=parseInt(String(o.s1yrs==null?'':o.s1yrs).replace(/[^0-9]/g,''),10);
+  if(!(s1yrs>=1)) s1yrs=yrs;
+  if(s1yrs>50) s1yrs=50;
+  var s1mat=s1*12*s1yrs;
   var months=parseInt(String(o.months==null?'':o.months).replace(/[^0-9]/g,''),10);
   if(!(months>0)) months=yrs*12;
   if(months>600) months=600;
@@ -5274,7 +5280,7 @@ function _fpCompute(o){
   if(living&&cma&&!emOk) warn.push('비상금 권장액(생활비 6개월 = '+_ssComma(em6)+'원)보다 CMA 목돈이 적습니다.');
 
   return {yrs:yrs,months:months,income:income,living:living,s1:s1,s2:s2,va:va,
-    cma:cma,isa:isa,s1cur:s1cur,s1mat:s1mat,vaL:vaL,
+    cma:cma,isa:isa,s1cur:s1cur,s1yrs:s1yrs,s1mat:s1mat,vaL:vaL,
     ded1:ded1,free1:free1,ded2:ded2,free2:free2,isaMon:isaMon,
     save1:save1,save2:save2,rate1:rate1,rate2:rate2,em6:em6,emOk:emOk,
     cmaAfter:cmaAfter,cmaKeep:cmaKeep,prinMon:prinMon,prinTot:prinTot,mEff:mEff,prinEff:prinEff,
@@ -5418,7 +5424,7 @@ function _fpBody(v,r){
     +'<tr class="fp-hl"><td colspan="2">'+y+'년 후 합계금액</td><td class="fp-num">'+N(Math.round(r.tot[0]))+' ~ '+N(Math.round(r.tot[2]))+'</td><td>'+s1+' 만기 시점 기준 (보수적~공격적)</td></tr>'
     +'</table>');
   h.push('<p class="fp-small">※ 적립상품의 이자는 <b>월 납입액 × 기간 × 금리</b>에 따라 달라지며, 정부기여금은 별도입니다. '
-    +'만기 수령액('+W(r.s1mat)+')은 고객님의 실제 계약 조건으로 산출한 값입니다. '
+    +'만기 수령액('+W(r.s1mat)+')은 월 납입액 × 12 × 납입기간('+r.s1yrs+'년) 원금 기준이며, 이자·정부기여금은 별도입니다. '
     +'본 리포트의 수익률·세제는 작성 시점 기준이며 실제 계약 조건은 상품설명서·약관 확인이 필요합니다.</p>');
 
   // 2장
@@ -5496,7 +5502,7 @@ function _fpBody(v,r){
   h.push('<h3>3-4. '+y+'년 후 자산 합계 ('+s2+' 제외)</h3><table>'
     +'<tr><th>구분</th><th class="fp-num">금액(원)</th><th>비고</th></tr>'
     +'<tr><td>수시입출금 목돈 (비상금)</td><td class="fp-num">'+CK+'</td><td>일시납 '+N(r.vaL)+' 출금 후 잔액'+(r.cmaAfter<0?(' (재원 '+C(-r.cmaAfter)+'원 부족)'):'')+'</td></tr>'
-    +'<tr><td>'+s1+' 만기 수령액</td><td class="fp-num">'+N(r.s1mat)+'</td><td>계약 조건 기준</td></tr>'
+    +'<tr><td>'+s1+' 만기 수령액</td><td class="fp-num">'+N(r.s1mat)+'</td><td>월 '+N(r.s1)+' × '+(r.s1yrs*12)+'회 원금</td></tr>'
     +'<tr><td>ISA (원금 '+N(r.isa)+' + 월 '+IM+' 적립, 연 '+r.isaR+'% 가정)</td><td class="fp-num">'+A(Math.round(r.isaFv))+'</td><td>'+y+'년 적립 기준</td></tr>'
     +'<tr><td>변액연금 월납 적립금</td><td class="fp-num">'+N(Math.round(r.monFv[0]))+' ~ '+N(Math.round(r.monFv[2]))+'</td><td>연 '+r.rs[0]+'~'+r.rs[2]+'% 가정</td></tr>'
     +'<tr><td>변액연금 일시납 적립금</td><td class="fp-num">'+N(Math.round(r.lumpFv[0]))+' ~ '+N(Math.round(r.lumpFv[2]))+'</td><td>연 '+r.ls[0]+'~'+r.ls[2]+'% 가정</td></tr>'
@@ -5655,6 +5661,8 @@ function fpRender(){
       : '';
     w.style.display=r.warn.length?'block':'none';
   }
+  var h1=g('fp_s1mat_hint');
+  if(h1) h1.textContent=(r.s1>0)?('만기 수령액 '+_ssComma(r.s1mat)+'원 (월 '+_ssComma(r.s1)+' × '+(r.s1yrs*12)+'회)'):'';
   var s=g('fp_sum');
   if(s) s.innerHTML='월 여유자금(컨설팅 후) <b>'+_ssComma(r.isaMon)+'원</b> · 저축률 '
     +(Math.round(r.rate1*10)/10)+'% → <b>'+(Math.round(r.rate2*10)/10)+'%</b> · '
