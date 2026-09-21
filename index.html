@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-2</div>
   </div>
 </div>
 
@@ -4358,7 +4358,7 @@ function logout(){
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
   window._dvState=null;  // 내 자료함 탐색 상태(팀원·경로) 리셋 — 다른 사용자가 이어받지 않게
-  window._fpVals=null;   // 재무상담 포토폴리오 입력(고객 소득·자산)도 같은 이유로 리셋(2026-09-21)
+  try{ if(typeof _fpClear==='function') _fpClear(); }catch(e){}   // 재무상담 포토폴리오 — 버퍼뿐 아니라 입력칸·미리보기 DOM까지 초기화(고객 소득·자산 잔존 차단, v-2 리뷰)
   try{ var _sgp=g('ssg_pop'); if(_sgp) _sgp.remove(); }catch(e){}   // 설명서 모달이 로그인 화면 위에 남지 않게
   window._bdrUp=null; try{ var _buo=g('bdrup_overlay'); if(_buo) _buo.remove(); }catch(e){}   // 업로드 모달도 정리(로그인 화면 위 잔존 방지)
   // 공지 상단고정 선택 모드 리셋(2026-09-08 리뷰) — 켜진 채 로그아웃하면 다음 로그인 세션에서
@@ -5254,7 +5254,11 @@ function _fpCompute(o){
   var emOk=(em6>0&&cma>=em6);
   var cmaAfter=cma-vaL;                          // 일시납 출금 후 CMA 잔액
   var prinMon=va*months, prinTot=vaL+prinMon;
-  var monFv=[_fpFvMon(va,rs[0],months),_fpFvMon(va,rs[1],months),_fpFvMon(va,rs[2],months)];
+  // "N년 후" 표는 연수(yrs) 시점 기준 — 월납 횟수가 연수×12를 넘으면 그때까지 납입분만 반영하고,
+  //   연수보다 짧으면 납입 종료 후 잔여 기간을 같은 수익률로 거치 복리 평가한다(다른 기간이 섞이지 않게 — v-2 리뷰).
+  var mEff=Math.min(months,yrs*12), tail=yrs*12-mEff, prinEff=va*mEff;
+  var monAt=function(pct){ return _fpFvMon(va,pct,mEff)*Math.pow(1+((Number(pct)||0)/100/12),tail); };
+  var monFv=[monAt(rs[0]),monAt(rs[1]),monAt(rs[2])];
   var lumpFv=[_fpFvLump(vaL,ls[0],yrs),_fpFvLump(vaL,ls[1],yrs),_fpFvLump(vaL,ls[2],yrs)];
   var isaFv=_fpFvLump(isa,isaR,yrs)+_fpFvMon(isaMon,isaR,yrs*12);
   var cmaKeep=Math.max(0,cmaAfter);
@@ -5273,7 +5277,7 @@ function _fpCompute(o){
     cma:cma,isa:isa,s1cur:s1cur,s1mat:s1mat,vaL:vaL,
     ded1:ded1,free1:free1,ded2:ded2,free2:free2,isaMon:isaMon,
     save1:save1,save2:save2,rate1:rate1,rate2:rate2,em6:em6,emOk:emOk,
-    cmaAfter:cmaAfter,cmaKeep:cmaKeep,prinMon:prinMon,prinTot:prinTot,
+    cmaAfter:cmaAfter,cmaKeep:cmaKeep,prinMon:prinMon,prinTot:prinTot,mEff:mEff,prinEff:prinEff,
     rs:rs,ls:ls,isaR:isaR,monFv:monFv,lumpFv:lumpFv,isaFv:isaFv,tot:tot,warn:warn};
 }
 
@@ -5338,6 +5342,11 @@ function _fpBody(v,r){
   var P=function(n){ return (Math.round((Number(n)||0)*10)/10)+'%'; };
   var A=function(n){ return (Number(n)>0)?('약 '+_ssComma(n)):'＿＿＿＿＿'; };
   var y=r.yrs, mo=r.months;
+  // 소득이 입력됐다면 여유자금·ISA 이관액은 0이어도 숫자로 표시(밑줄=미입력과 구분), CMA 잔액도 같은 규칙
+  var IM=(r.income>0)?C(r.isaMon):'＿＿＿＿＿', IMW=(r.income>0)?(C(r.isaMon)+'원'):'＿＿＿＿＿원';
+  var IMY=(r.income>0)?(C(r.isaMon*12)+'원'):'＿＿＿＿＿원';
+  var CK=(r.cma>0||r.vaL>0)?C(r.cmaKeep):'＿＿＿＿＿';
+  var FR1=(r.income>0)?(C(Math.max(0,r.free1))+'원'):'＿＿＿＿＿원';
   var s1=E(String(v.s1nm||'').trim()||'적립상품 ①'), s2=E(String(v.s2nm||'').trim()||'적립상품 ②');
   var cust=E(String(v.cust||'').trim()||'고객');
   var dt=E(_dqFmtDate(String(v.date||'').trim()));
@@ -5382,17 +5391,21 @@ function _fpBody(v,r){
     +'<tr><td>'+s2+'</td><td class="fp-num">−'+N(r.s2)+'</td><td>저축 · 묶이는 돈</td></tr>'
     +'<tr><td>변액연금 월납입</td><td class="fp-num">−'+N(r.va)+'</td><td>평생 복리 적립</td></tr>'
     +'<tr class="fp-total"><td colspan="2">차감 합계</td><td class="fp-num">−'+N(r.ded2)+'</td><td>—</td></tr>'
-    +'<tr class="fp-hl"><td colspan="2">ISA 납입 (0 ~ 여유자금)</td><td class="fp-num">0 ~ '+N(r.isaMon)+'</td><td>여유자금 전액 이관</td></tr>'
-    +'<tr class="fp-total"><td colspan="2">월 여유자금</td><td class="fp-num">'+N(r.isaMon)+' → ISA</td><td>—</td></tr>'
+    +'<tr class="fp-hl"><td colspan="2">ISA 납입 (0 ~ 여유자금)</td><td class="fp-num">0 ~ '+IM+'</td><td>여유자금 전액 이관</td></tr>'
+    +'<tr class="fp-total"><td colspan="2">월 여유자금</td><td class="fp-num">'+IM+' → ISA</td><td>—</td></tr>'
     +'</table>');
+  if(r.income>0&&r.free2<0){   // 클램프된 0을 무설명으로 내보내지 않는다(v-2 리뷰 — yr의 cntCut·dedCut 계열)
+    h.push('<p class="fp-small">※ 입력 조건상 월 지출·저축 합계가 세후 소득을 '+C(-r.free2)
+      +'원 초과합니다. 위 표의 ISA 이관액(월 여유자금)은 0원으로 계산했습니다 — 납입 구조 조정 상담이 필요합니다.</p>');
+  }
   h.push('<div class="fp-kpi">'
     +'<div class="fp-kc"><span class="fp-n">'+P(r.rate1)+'</span><span class="fp-l">컨설팅 전 저축률<br>(적립·저축 납입 기준)</span></div>'
     +'<div class="fp-kc"><span class="fp-n">'+P(r.rate2)+'</span><span class="fp-l">컨설팅 후 저축률<br>(변액연금 납입 포함)</span></div>'
-    +'<div class="fp-kc"><span class="fp-n">0 ~ '+N(r.isaMon)+'</span><span class="fp-l">ISA 납입액<br>(월 여유자금)</span></div>'
+    +'<div class="fp-kc"><span class="fp-n">0 ~ '+IM+'</span><span class="fp-l">ISA 납입액<br>(월 여유자금)</span></div>'
     +'<div class="fp-kc"><span class="fp-n">'+N(r.cma)+'</span><span class="fp-l">CMA 목돈</span></div>'
     +'</div>');
-  h.push('<div class="fp-ok"><b>컨설팅 포인트:</b> 여유자금 '+W(Math.max(0,r.free1))+' 중 <b>변액연금 '+W(r.va)+'</b>을 평생 복리 적립으로 돌리고, '
-    +'남은 <b>여유자금 '+W(r.isaMon)+'은 전액 ISA로 이관</b>합니다. ISA 납입액은 고정이 아니라 <b>0 ~ '+N(r.isaMon)+'원</b>으로, '
+  h.push('<div class="fp-ok"><b>컨설팅 포인트:</b> 여유자금 '+FR1+' 중 <b>변액연금 '+W(r.va)+'</b>을 평생 복리 적립으로 돌리고, '
+    +'남은 <b>여유자금 '+IMW+'은 전액 ISA로 이관</b>합니다. ISA 납입액은 고정이 아니라 <b>0 ~ '+IM+'원</b>으로, '
     +'남는 만큼 채워가는 방식입니다. 이를 통해 "평생 복리통장(변액연금)"과 "절세 목돈(ISA)"의 역할이 명확히 분리됩니다.</div>');
 
   h.push('<h3>1-3. 보유 자산 현황</h3><table>'
@@ -5417,7 +5430,7 @@ function _fpBody(v,r){
       +'<li>생활비 '+W(r.living)+' 기준 6개월 = '+W(r.em6)+' → <b>'+(r.em6>0?(r.emOk?'충분히 확보':'추가 확보 필요'):'생활비 입력 필요')+'</b></li>'
       +'<li>수시입출금 + 매일 이자</li><li>일부는 예금자보호 상품으로 분산</li></ul></div>'
     +'<div class="fp-cell fp-t2"><h4>2층 · 절세 (중기)</h4><p><b>ISA 재가입 + '+s2+'</b></p><ul>'
-      +'<li>납입: <b>0 ~ '+N(r.isaMon)+'원</b> (남는 대로)</li>'
+      +'<li>납입: <b>0 ~ '+IM+'원</b> (남는 대로)</li>'
       +'<li>비과세 한도 활용 (서민형 400만)</li><li>만기 재가입으로 비과세 한도 리셋</li>'
       +'<li>목표: <b>단기 '+y+'년 후</b> 자금 및 중기 목돈</li></ul></div>'
     +'<div class="fp-cell fp-t3"><h4>3층 · 노후 (장기)</h4><p><b>변액연금 '+W(r.vaL)+' + 월 '+W(r.va)+'</b></p><ul>'
@@ -5428,7 +5441,7 @@ function _fpBody(v,r){
   h.push('<table>'
     +'<tr><th>층</th><th>자산</th><th class="fp-num">금액</th><th>사용 시점</th><th>역할</th></tr>'
     +'<tr><td>1층</td><td>수시입출금 목돈</td><td class="fp-num">'+N(r.cma)+'</td><td>즉시 ~ 수개월</td><td>비상금·유동성</td></tr>'
-    +'<tr><td>2층</td><td>ISA 재가입</td><td class="fp-num">'+N(r.isa)+' + 월 0~'+N(r.isaMon)+'</td><td>3년 ~ '+y+'년</td><td>비과세 절세 적립</td></tr>'
+    +'<tr><td>2층</td><td>ISA 재가입</td><td class="fp-num">'+N(r.isa)+' + 월 0~'+IM+'</td><td>3년 ~ '+y+'년</td><td>비과세 절세 적립</td></tr>'
     +'<tr><td>2층</td><td>'+s2+'</td><td class="fp-num">월 '+N(r.s2)+'</td><td>만기 예정</td><td>가족 목적 자금</td></tr>'
     +'<tr><td>3층</td><td>변액연금 일시납</td><td class="fp-num">'+N(r.vaL)+'</td><td><b>자유 (평생)</b></td><td><b>10년 비과세 복리통장</b></td></tr>'
     +'<tr><td>3층</td><td>변액연금 월납</td><td class="fp-num">월 '+N(r.va)+'</td><td><b>자유 (평생)</b></td><td><b>10년 비과세 복리통장</b></td></tr>'
@@ -5456,15 +5469,20 @@ function _fpBody(v,r){
     +'<tr class="fp-total"><td>총 납입원금('+(Math.round(mo/12*10)/10)+'년)</td><td class="fp-num">'+N(r.prinTot)+'</td><td colspan="2">= 일시납 '+N(r.vaL)+' + 월납 '+N(r.prinMon)+'</td></tr>'
     +'</table>');
 
-  h.push('<h3>3-2. 월납 '+W(r.va)+' · '+y+'년 후 시나리오 (약 '+(Math.round(mo/12*10)/10)+'년)</h3><table>'
+  h.push('<h3>3-2. 월납 '+W(r.va)+' · '+y+'년 후 시나리오 (납입 '+r.mEff+'회 반영)</h3><table>'
     +'<tr><th>가정 연 수익률</th><th class="fp-num">'+y+'년 후 적립금(세전)</th><th class="fp-num">납입원금</th><th class="fp-num">운용수익</th></tr>'
     +[0,1,2].map(function(k){
         return '<tr'+(k===2?' class="fp-hl"':'')+'><td>연 '+r.rs[k]+'% 가정</td>'
           +'<td class="fp-num">'+A(Math.round(r.monFv[k]))+'</td>'
-          +'<td class="fp-num">'+N(r.prinMon)+'</td>'
-          +'<td class="fp-num">'+A(Math.round(r.monFv[k]-r.prinMon))+'</td></tr>';
+          +'<td class="fp-num">'+N(r.prinEff)+'</td>'
+          +'<td class="fp-num">'+A(Math.round(r.monFv[k]-r.prinEff))+'</td></tr>';
       }).join('')
     +'</table>');
+  if(r.va>0&&r.months!==y*12){
+    h.push('<p class="fp-small">※ 월납 납입 횟수는 총 '+r.months+'회이며, 위 표는 '+y+'년 시점 기준으로 '
+      +(r.months>y*12?('그때까지 납입한 '+r.mEff+'회분만 반영했습니다.')
+                     :('납입 종료('+r.mEff+'회) 후 잔여 기간을 같은 수익률로 거치 운용한 값입니다.'))+'</p>');
+  }
   h.push('<h3>3-3. 일시납 '+W(r.vaL)+' · '+y+'년 후 시나리오 (약 '+y+'년)</h3><table>'
     +'<tr><th>가정 연 수익률</th><th class="fp-num">'+y+'년 후 적립금(세전)</th><th class="fp-num">납입원금</th><th class="fp-num">운용수익</th></tr>'
     +[0,1,2].map(function(k){
@@ -5477,15 +5495,19 @@ function _fpBody(v,r){
 
   h.push('<h3>3-4. '+y+'년 후 자산 합계 ('+s2+' 제외)</h3><table>'
     +'<tr><th>구분</th><th class="fp-num">금액(원)</th><th>비고</th></tr>'
-    +'<tr><td>수시입출금 목돈 (비상금)</td><td class="fp-num">'+N(r.cmaKeep)+'</td><td>일시납 '+N(r.vaL)+' 출금 후 잔액</td></tr>'
+    +'<tr><td>수시입출금 목돈 (비상금)</td><td class="fp-num">'+CK+'</td><td>일시납 '+N(r.vaL)+' 출금 후 잔액'+(r.cmaAfter<0?(' (재원 '+C(-r.cmaAfter)+'원 부족)'):'')+'</td></tr>'
     +'<tr><td>'+s1+' 만기 수령액</td><td class="fp-num">'+N(r.s1mat)+'</td><td>계약 조건 기준</td></tr>'
-    +'<tr><td>ISA (원금 '+N(r.isa)+' + 월 '+N(r.isaMon)+' 적립, 연 '+r.isaR+'% 가정)</td><td class="fp-num">'+A(Math.round(r.isaFv))+'</td><td>'+y+'년 적립 기준</td></tr>'
+    +'<tr><td>ISA (원금 '+N(r.isa)+' + 월 '+IM+' 적립, 연 '+r.isaR+'% 가정)</td><td class="fp-num">'+A(Math.round(r.isaFv))+'</td><td>'+y+'년 적립 기준</td></tr>'
     +'<tr><td>변액연금 월납 적립금</td><td class="fp-num">'+N(Math.round(r.monFv[0]))+' ~ '+N(Math.round(r.monFv[2]))+'</td><td>연 '+r.rs[0]+'~'+r.rs[2]+'% 가정</td></tr>'
     +'<tr><td>변액연금 일시납 적립금</td><td class="fp-num">'+N(Math.round(r.lumpFv[0]))+' ~ '+N(Math.round(r.lumpFv[2]))+'</td><td>연 '+r.ls[0]+'~'+r.ls[2]+'% 가정</td></tr>'
     +'<tr class="fp-total"><td>보수적 (월납 '+r.rs[0]+'% + 일시납 '+r.ls[0]+'%)</td><td class="fp-num">'+N(Math.round(r.tot[0]))+'</td><td>—</td></tr>'
     +'<tr class="fp-total"><td>중립적 (월납 '+r.rs[1]+'% + 일시납 '+r.ls[1]+'%)</td><td class="fp-num">'+N(Math.round(r.tot[1]))+'</td><td>—</td></tr>'
     +'<tr class="fp-hl"><td>공격적 (월납 '+r.rs[2]+'% + 일시납 '+r.ls[2]+'%)</td><td class="fp-num">'+N(Math.round(r.tot[2]))+'</td><td>—</td></tr>'
     +'</table>');
+  if(r.cmaAfter<0){
+    h.push('<p class="fp-small">※ 변액연금 일시납('+C(r.vaL)+'원)이 CMA 목돈('+C(r.cma)
+      +'원)보다 커서 잔액을 0원으로 표시했습니다 — 일시납 재원 확인이 필요합니다.</p>');
+  }
 
   h.push('<div class="fp-warn"><b>⚠️ 수익률 가정에 대한 반드시 읽어야 할 경고</b><br>'
     +'위 시나리오는 <b>보장 수익률이 아니라 현재 고객님 기준 가정 수익률</b>입니다. '
@@ -5500,9 +5522,9 @@ function _fpBody(v,r){
   h.push('<table>'
     +'<tr><th>'+y+'년 후부터 자금</th><th class="fp-num">금액</th><th>어디로 가는가</th></tr>'
     +'<tr><td>'+s1+' 만기 수령액</td><td class="fp-num">'+N(r.s1mat)+'</td><td>ISA 한도 미충족분 우선 납입 → 초과분은 CMA 보강</td></tr>'
-    +'<tr><td>수시입출금 목돈 잔액</td><td class="fp-num">'+N(r.cmaKeep)+'</td><td>비상금 유지</td></tr>'
+    +'<tr><td>수시입출금 목돈 잔액</td><td class="fp-num">'+CK+'</td><td>비상금 유지</td></tr>'
     +'<tr><td>변액연금 일시납</td><td class="fp-num">'+N(r.vaL)+'</td><td><b>'+y+'년 후에도 복리 유지</b> → 10년 이상 유지 전제</td></tr>'
-    +'<tr><td>ISA 적립 지속</td><td class="fp-num">월 '+N(r.isaMon)+'</td><td>납입 한도(연 2,000만) 내 지속 적립</td></tr>'
+    +'<tr><td>ISA 적립 지속</td><td class="fp-num">월 '+IM+'</td><td>납입 한도(연 2,000만) 내 지속 적립</td></tr>'
     +'<tr><td>변액연금 월납</td><td class="fp-num">월 '+N(r.va)+'</td><td><b>'+y+'년 후에도 계속 납입</b> → 10년 이상 유지 전제</td></tr>'
     +'<tr><td>'+s2+'</td><td class="fp-num">월 '+N(r.s2)+'</td><td>만기 시 목적 자금으로 사용</td></tr>'
     +'</table>');
@@ -5536,11 +5558,11 @@ function _fpBody(v,r){
     +'<tr><td>서민형 요건</td><td>직전 과세연도 근로소득 5,000만 원 이하 (해당 시 서민형 신청 권장)</td></tr>'
     +'<tr><td>납입 한도</td><td>연 2,000만 원 (의무 가입 3년)</td></tr>'
     +'<tr><td>최근 개편 포인트</td><td>신규 계좌는 만기 최장 5년(3년+2년 연장)으로 제한, <b>미사용 납입한도 이월 폐지</b></td></tr>'
-    +'<tr class="fp-hl"><td>납입 계획</td><td><b>생활비에서 남은 잔액 + 여유자금 '+W(r.isaMon)+' → 매월 ISA로 이관</b> (연 환산 '+W(r.isaMon*12)+')</td></tr>'
+    +'<tr class="fp-hl"><td>납입 계획</td><td><b>생활비에서 남은 잔액 + 여유자금 '+IMW+' → 매월 ISA로 이관</b> (연 환산 '+IMY+')</td></tr>'
     +'</table>');
   h.push('<div class="fp-ok"><b>실행 포인트:</b> 만기가 도래한 지금 재가입하면 비과세 한도(최대 400만)가 리셋됩니다. '
     +'개편으로 납입한도 이월이 폐지되었으므로, <b>여유자금이 생기는 즉시 한도를 채우는 방식</b>이 유리합니다. '
-    +'매달 생활비 잔액과 여유 '+W(r.isaMon)+'을 꾸준히 ISA로 흘려보내면 비과세 한도를 빠르게 채울 수 있습니다. '
+    +'매달 생활비 잔액과 여유 '+IMW+'을 꾸준히 ISA로 흘려보내면 비과세 한도를 빠르게 채울 수 있습니다. '
     +'소득 요건을 확인해 서민형으로 신청하세요.</div>');
 
   // 6장
@@ -5642,6 +5664,8 @@ function fpPctIn(el){
   var v=String(el.value||'').replace(/[^0-9.]/g,'');
   var p=v.split('.'); if(p.length>2) v=p[0]+'.'+p.slice(1).join('');
   if(v.length>6) v=v.slice(0,6);
+  var n=parseFloat(v);
+  if(isFinite(n)&&n>100) v='100';   // 계산이 100%로 클램프되므로 입력칸도 맞춘다(말없이 어긋나지 않게 — v-2 리뷰)
   if(el.value!==v) el.value=v;
   fpRender();
 }
@@ -5658,17 +5682,26 @@ function rFp(){
     var t=new Date();
     d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
   }
-  // 기본값(연수·가정 수익률)은 비어 있을 때만 채운다 — 사용자가 지운 값을 되살리지 않게 최초 1회
+  // 기본값(연수·가정 수익률)은 페이지에 들어올 때마다 '비어 있는 칸에만' 채운다 — 값이 있는 칸은 건드리지 않음
   Object.keys(FP_DEF).forEach(function(k){ var el=g('fp_'+k); if(el&&!el.value) el.value=FP_DEF[k]; });
   // 메모리 버퍼 복원(페이지를 떠났다 돌아와도 상담 중인 입력이 남아 있게)
   var b=window._fpVals;
   if(b) FP_KEYS.forEach(function(k){ var el=g('fp_'+k); if(el&&b[k]!=null&&b[k]!=='') el.value=b[k]; });
   fpRender();
 }
+// 입력칸·미리보기·버퍼 완전 초기화(확인창 없음 — 로그아웃·[초기화] 공용).
+// ⚠️ 버퍼(window._fpVals)만 지우면 안 된다 — SPA 로그아웃은 화면만 가리므로 입력칸 .value와
+//   미리보기 innerHTML에 고객 소득·자산이 그대로 남아, 다음 로그인 사용자에게 보인다(v-2 리뷰).
+function _fpClear(){
+  FP_KEYS.forEach(function(k){ var el=g('fp_'+k); if(el) el.value=''; });
+  var pv=g('fp_prev'); if(pv) pv.innerHTML='';
+  var w=g('fp_warn'); if(w){ w.innerHTML=''; w.style.display='none'; }
+  var s=g('fp_sum'); if(s) s.innerHTML='';
+  window._fpVals=null;
+}
 function fpReset(){
   if(!confirm('입력한 내용을 모두 지울까요?')) return;
-  FP_KEYS.forEach(function(k){ var el=g('fp_'+k); if(el) el.value=''; });
-  window._fpVals=null;
+  _fpClear();
   rFp();
   toast('초기화했습니다.');
 }
