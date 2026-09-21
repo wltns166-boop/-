@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-3</div>
   </div>
 </div>
 
@@ -5624,7 +5624,10 @@ function _fpBody(v,r){
 }
 
 // ── 화면 ──
-function _fpVals(){
+// ⚠️ 이름 주의: 메모리 버퍼는 window._fpVals(객체)다 — 이 함수 이름을 _fpVals로 쓰면
+//   전역 함수 선언이 버퍼 대입(window._fpVals=v)에 덮여 두 번째 렌더부터 TypeError로
+//   실시간 미리보기가 통째로 멈춘다(2026-09-21 실사고 — 4.48 _pdfToImages 덮임과 같은 계열).
+function _fpReadVals(){
   var o={};
   FP_KEYS.forEach(function(k){ var el=g('fp_'+k); o[k]=el?String(el.value||''):''; });
   o.agent=(typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'';
@@ -5641,7 +5644,7 @@ function _fpEnsureStyle(){
 function fpRender(){
   var box=g('fp_prev'); if(!box) return;
   _fpEnsureStyle();
-  var v=_fpVals(), r;
+  var v=_fpReadVals(), r;
   try{ r=_fpCompute(v); }catch(e){ console.warn('재무 리포트 계산 오류:', e); return; }
   window._fpVals=v;   // 재렌더·페이지 이동에도 입력 보존(메모리 전용 — 저장 안 함)
   try{ box.innerHTML=_fpBody(v,r); }catch(e){ console.warn('재무 리포트 본문 오류:', e); return; }
@@ -5706,7 +5709,7 @@ function fpReset(){
   toast('초기화했습니다.');
 }
 function fpPrint(){
-  var v=_fpVals(), r;
+  var v=_fpReadVals(), r;
   try{ r=_fpCompute(v); }catch(e){ console.warn('재무 리포트 계산 오류:', e); toast('보고서를 만들지 못했습니다.'); return; }
   if(!r.income){ toast('월 세후소득을 먼저 입력해 주세요.'); return; }
   var cust=String(v.cust||'').trim().slice(0,30);
