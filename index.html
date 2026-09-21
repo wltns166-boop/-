@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-6</div>
   </div>
 </div>
 
@@ -5433,7 +5433,12 @@ function _fpBody(v,r){
   h.push('<div class="fp-tier">'
     +'<div class="fp-cell fp-t1"><h4>1층 · 유동성 (단기)</h4><p><b>수시입출금 목돈 '+W(r.cma)+'</b></p><ul>'
       +'<li>목적: 비상금 + 돌발지출</li>'
-      +'<li>생활비 '+W(r.living)+' 기준 6개월 = '+W(r.em6)+' → <b>'+(r.em6>0?(r.emOk?'충분히 확보':'추가 확보 필요'):'생활비 입력 필요')+'</b></li>'
+      +'<li>생활비 '+W(r.living)+' 기준 6개월 = '+W(r.em6)+' → '
+        +(r.em6>0
+          ? (r.emOk
+             ? '<b style="color:#1a7f4e">충분히 확보</b>'
+             : '<b style="color:#c0392b">추가 확보 필요 (부족 '+C(r.em6-r.cma)+'원)</b>')
+          : '<b>생활비 입력 필요</b>')+'</li>'
       +'<li>수시입출금 + 매일 이자</li><li>일부는 예금자보호 상품으로 분산</li></ul></div>'
     +'<div class="fp-cell fp-t2"><h4>2층 · 절세 (중기)</h4><p><b>ISA 재가입 + '+s2+'</b></p><ul>'
       +'<li>납입: <b>0 ~ '+IM+'원</b> (남는 대로)</li>'
