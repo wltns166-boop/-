@@ -1670,17 +1670,21 @@ function detectColumns(rows) {
   const DESC_H2 = /이용내역|사용내역|내역|적요/i;               // 차선책
   const AMT_H = /이용금액|사용금액|승인금액|거래금액|결제금액|매출금액|출금액|금액|amount/i;
   const AMT_BAD = /누적|합계|잔액|포인트|적립|할인|수수료|캐시백|할부|회차|원금|잔여|청구|번호|no\.?$|카드|취소/i;
-  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+  const CANCEL_H = /취소\s*여부|취소\s*구분|정상.?취소|승인\s*구분|매출\s*구분|거래\s*구분|^상태$|^구분$/;
+  const FIELD_H = /업종|분야|카테고리|가맹점\s*종류/;
+  for (let i = 0; i < Math.min(rows.length, 60); i++) {
     const cells = (rows[i] || []).map(c => String(c ?? '').trim());
-    let di = -1, mi = -1, mi2 = -1, ai = -1;
+    let di = -1, mi = -1, mi2 = -1, ai = -1, ci = -1, fi = -1;
     cells.forEach((s, j) => {
       if (!s) return;
       if (di < 0 && DATE_H.test(s)) di = j;
       if (mi < 0 && DESC_H.test(s) && !AMT_BAD.test(s) && !/카드/.test(s)) mi = j;
       if (mi2 < 0 && DESC_H2.test(s)) mi2 = j;
       if (AMT_H.test(s) && !AMT_BAD.test(s) && ai < 0) ai = j;
+      if (ci < 0 && CANCEL_H.test(s)) ci = j;
+      if (fi < 0 && FIELD_H.test(s)) fi = j;
     });
-    if (di >= 0 && ai >= 0) return { headerRow: i, date: di, desc: mi >= 0 ? mi : mi2, amount: ai };
+    if (di >= 0 && ai >= 0) return { headerRow: i, date: di, desc: mi >= 0 ? mi : mi2, amount: ai, cancel: ci, field: fi };
   }
   return null;
 }
@@ -1700,8 +1704,11 @@ function rowsToCardTx(rows, cardId) {
       const am = parseAmountSigned(String(cells[cols.amount] ?? ''));
       if (!date || !am) continue;
       let desc = cols.desc >= 0 ? String(cells[cols.desc] ?? '').trim() : '';
-      // 구분/상태 등 다른 열에 '취소'가 있거나 금액이 음수면 취소 거래
-      const cancel = am.neg || cells.some((c, j) => j !== cols.desc && CANCEL_RE.test(String(c ?? ''))) || /\(\s*취소\s*\)|취소$/.test(desc);
+      // 취소여부 열이 Y/취소이거나, 다른 열에 '취소'가 있거나, 금액이 음수면 취소 거래
+      const cv = cols.cancel >= 0 ? String(cells[cols.cancel] ?? '').trim() : '';
+      const cancel = am.neg || /^(Y|취소|매입취소|승인취소|취소승인)$/i.test(cv)
+        || cells.some((c, j) => j !== cols.desc && j !== cols.cancel && CANCEL_RE.test(String(c ?? ''))) || /\(\s*취소\s*\)|취소$/.test(desc);
+      const field = cols.field >= 0 ? String(cells[cols.field] ?? '').trim().slice(0, 10) : '';
       if (!desc) {
         // 가맹점 열이 없으면: 날짜/숫자/카드명/카드번호가 아닌 가장 긴 문자열
         for (const cell of cells) {
@@ -1711,7 +1718,7 @@ function rowsToCardTx(rows, cardId) {
           if (s.length > desc.length) desc = s;
         }
       }
-      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount: am.n, _cancel: cancel, _guess: !desc });
+      out.push({ id: uid(), cardId, date, desc: desc.slice(0, 40), amount: am.n, field, _cancel: cancel, _guess: !desc });
     }
     if (out.length) return out;
   }
@@ -1812,7 +1819,7 @@ function handleCardFiles(cardId, files) {
     if ((file.type || '').startsWith('image/')) parseImageFile(cardId, file);
     else if (name.endsWith('.pdf') || file.type === 'application/pdf') parsePdfFile(cardId, file);
     else if (name.endsWith('.csv') || file.type === 'text/csv') parseCsvFile(cardId, file);
-    else if (name.endsWith('.xlsx') || name.endsWith('.xls')) parseSheetFile(cardId, file);
+    else if (name.endsWith('.xlsx') || name.endsWith('.xls') || /excel|spreadsheet/i.test(file.type || '')) parseSheetFile(cardId, file);
     else appAlert('지원하지 않는 파일입니다: ' + (file.name || file.type) + '\n엑셀/CSV/PDF/이미지를 올려주세요.');
   }
 }
@@ -1986,14 +1993,38 @@ function parseCsvFile(cardId, file) {
   };
   reader.readAsText(file);
 }
+/* 카드사 홈페이지의 '.xls' 내보내기는 실제로는 HTML 표인 경우가 많다 (롯데카드 등).
+   표가 여러 개(요약 표 + 내역 표)라 엑셀 라이브러리는 첫 표만 읽으므로 모든 표의 행을 직접 모은다. */
+function htmlTablesToRows(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const rows = [];
+  doc.querySelectorAll('table').forEach(tbl => {
+    tbl.querySelectorAll('tr').forEach(tr => {
+      const cells = [...tr.querySelectorAll('td,th')].map(td => td.textContent.replace(/\s+/g, ' ').trim());
+      if (cells.some(Boolean)) rows.push(cells);
+    });
+  });
+  return rows;
+}
 function parseSheetFile(cardId, file) {
-  if (!window.XLSX) { appAlert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const wb = XLSX.read(reader.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      importRows(cardId, XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }));
+      const buf = reader.result;
+      const head = new TextDecoder('utf-8').decode(new Uint8Array(buf.slice(0, 4096)));
+      if (/<\s*(html|table|!doctype)/i.test(head)) {
+        const cs = (head.match(/charset=["']?\s*([\w-]+)/i) || [])[1] || 'utf-8';
+        let text;
+        try { text = new TextDecoder(/euc-?kr|ks_c_5601|cp949|x-windows-949/i.test(cs) ? 'euc-kr' : 'utf-8').decode(buf); }
+        catch { text = new TextDecoder('utf-8').decode(buf); }
+        importRows(cardId, htmlTablesToRows(text));
+        return;
+      }
+      if (!window.XLSX) { appAlert('엑셀 파일을 읽는 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인하거나, 엑셀에서 CSV로 저장해 올려주세요.'); return; }
+      const wb = XLSX.read(buf, { type: 'array' });
+      const rows = [];
+      wb.SheetNames.forEach(n => rows.push(...XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' })));
+      importRows(cardId, rows);
     } catch (e) { appAlert('엑셀 파일을 읽을 수 없습니다: ' + e.message); }
   };
   reader.readAsArrayBuffer(file);
