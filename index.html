@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-4</div>
   </div>
 </div>
 
@@ -1382,6 +1382,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
                 <input type="radio" name="exam_type" value="회사접수" style="accent-color:#4858cc;width:15px;height:15px"> <span style="color:#1a1a2e">회사접수</span>
               </label>
             </div>
+          </div>
+
+          <!-- 시험일정 -->
+          <div class="fg">
+            <div class="fl">시험일정</div>
+            <input class="fi" id="exam_date" placeholder="예: 2026-10-15 또는 10월 15일(수) 오전">
           </div>
 
           <input type="hidden" id="exam_edit_idx">
@@ -23659,8 +23665,19 @@ function _examsFresh(){
   try{ var a=JSON.parse(localStorage.getItem('tops_exams')||'[]'); if(Array.isArray(a)){ window._examsMem=a; return a; } }catch(e){}
   return [];
 }
+function _examId(){ return 'ex_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
+function _examsEnsureIds(arr){ (Array.isArray(arr)?arr:[]).forEach(function(e){ if(e&&typeof e==='object'&&!e.id) e.id=_examId(); }); }
+// 항목 위치 재확인(2026-09-22 v-4 리뷰): 수정 폼·비동기 콜백이 붙잡아 둔 렌더 시점 인덱스가
+// 그 사이 스냅샷 수신(다른 기기의 추가·삭제)으로 낡으면 엉뚱한 신청건을 덮어쓰던 함정 A 잔여 경로 차단 —
+// id('ex_..') 우선 재탐색, 레거시 무id 항목만 인덱스 폴백(저장 시 id 자동 부여로 자연 소멸). 못 찾으면 -1.
+function _examLoc(i,eid){
+  exams=_examsFresh();
+  if(eid){ for(var j=0;j<exams.length;j++){ if(exams[j]&&exams[j].id===eid) return j; } return -1; }
+  return (typeof i==='number'&&i>=0&&i<exams.length&&exams[i])?i:-1;
+}
 function _examsPersist(arr){
   exams=Array.isArray(arr)?arr:[];
+  _examsEnsureIds(exams);
   window._examsMem=exams;
   _lsSet('tops_exams',JSON.stringify(exams));
   try{ sv('tops_exams',exams); }catch(e){}
@@ -23707,12 +23724,13 @@ function rExam(){
   }
   tb.innerHTML=visibleExams.map(function(e,vi){
     var i=exams.indexOf(e);
-    var passStr=e.pass&&e.pass.length?e.pass.join(', '):'-';
-    var applyStr=e.apply&&e.apply.length?e.apply.join(', '):'-';
+    var eid=(e.id||'');
+    var passStr=_esc(e.pass&&e.pass.length?e.pass.join(', '):'-');
+    var applyStr=_esc(e.apply&&e.apply.length?e.apply.join(', '):'-');
     // 접수완료여부 - 1줄, 관리자 클릭 가능
     var doneCell;
     if(isAdmin){
-      doneCell='<button onclick="toggleExamDone('+i+')" style="font-size:13px;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit;border:none;font-weight:600;white-space:nowrap;'
+      doneCell='<button onclick="toggleExamDone('+i+',\''+eid+'\')" style="font-size:13px;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit;border:none;font-weight:600;white-space:nowrap;'
         +(e.done?'background:#1a9050;color:#fff':'background:#cc3030;color:#fff')
         +'">'+( e.done?'완료':'미완료')+'</button>';
     } else {
@@ -23723,31 +23741,31 @@ function rExam(){
     // 소속 + 직급
     var belongMem=mem.find(function(m){return m.name===e.belong;});
     var belongRank=belongMem?belongMem.rank:'';
-    var belongCell=e.belong?(e.belong+(belongRank?' ('+belongRank+')':''))  :'-';
+    var belongCell=e.belong?(_esc(e.belong)+(belongRank?' ('+_esc(belongRank)+')':''))  :'-';
     // 수험표 버튼
     var ticketCell;
     if(e.ticketData){
       // 수험표 있음 - 다운로드 + 재업로드
       ticketCell='<div style="display:flex;flex-direction:column;gap:3px;align-items:center">'
-        +'<button onclick="downloadTicket('+i+')" style="font-size:12px;padding:2px 7px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:4px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-download"></i> 다운로드</button>'
-        +'<label style="font-size:12px;padding:2px 7px;background:#f5f5fa;border:1px solid #ccc;border-radius:4px;color:#666;cursor:pointer;white-space:nowrap"><i class="ti ti-upload"></i> 재업로드<input type="file" accept="image/*,.pdf" onchange="uploadTicket('+i+',this)" style="display:none"></label>'
+        +'<button onclick="downloadTicket('+i+',\''+eid+'\')" style="font-size:12px;padding:2px 7px;background:rgba(30,130,200,.12);border:1px solid rgba(30,130,200,.3);border-radius:4px;color:#1a60cc;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-download"></i> 다운로드</button>'
+        +'<label style="font-size:12px;padding:2px 7px;background:#f5f5fa;border:1px solid #ccc;border-radius:4px;color:#666;cursor:pointer;white-space:nowrap"><i class="ti ti-upload"></i> 재업로드<input type="file" accept="image/*,.pdf" onchange="uploadTicket('+i+',this,\''+eid+'\')" style="display:none"></label>'
         +'</div>';
     } else {
       // 수험표 없음 - 업로드 버튼
-      ticketCell='<label style="font-size:12px;padding:3px 9px;background:rgba(80,80,200,.1);border:1px solid rgba(80,80,200,.25);border-radius:4px;color:#4858cc;cursor:pointer;white-space:nowrap;display:inline-block"><i class="ti ti-upload"></i> 업로드<input type="file" accept="image/*,.pdf" onchange="uploadTicket('+i+',this)" style="display:none"></label>';
+      ticketCell='<label style="font-size:12px;padding:3px 9px;background:rgba(80,80,200,.1);border:1px solid rgba(80,80,200,.25);border-radius:4px;color:#4858cc;cursor:pointer;white-space:nowrap;display:inline-block"><i class="ti ti-upload"></i> 업로드<input type="file" accept="image/*,.pdf" onchange="uploadTicket('+i+',this,\''+eid+'\')" style="display:none"></label>';
     }
     return '<tr>'
-      +'<td style="font-weight:600;font-size:15px">'+e.name+'</td>'
+      +'<td style="font-weight:600;font-size:15px">'+_esc(e.name)+'</td>'
       +'<td style="font-size:14px;color:#555;line-height:1.4">'+belongCell+'</td>'
       +'<td style="font-size:14px;color:#1a8a40;font-weight:600">'+passStr+'</td>'
       +'<td style="font-size:14px;color:#4858cc;font-weight:600">'+applyStr+'</td>'
       +'<td style="text-align:center;white-space:nowrap">'+doneCell+'</td>'
-      +'<td style="font-size:14px;color:#444">'+(e.examDate||'-')+'</td>'
+      +'<td style="font-size:14px;color:#444">'+_esc(e.examDate||'-')+'</td>'
       +'<td style="text-align:center;vertical-align:middle">'+ticketCell+'</td>'
-      +'<td style="font-size:14px;color:#444">'+(e.type||'-')+'</td>'
+      +'<td style="font-size:14px;color:#444;white-space:nowrap">'+(e.type||'-')+'</td>'
       +'<td style="white-space:nowrap">'
-        +'<button class="be" onclick="editExam('+i+')" style="font-size:13px;padding:2px 7px;margin-right:3px"><i class="ti ti-edit"></i></button>'
-        +(isAdmin?'<button class="bd" onclick="deleteExamByIdx('+i+')" style="font-size:13px;padding:2px 7px"><i class="ti ti-trash"></i></button>':'')
+        +'<button class="be" onclick="editExam('+i+',\''+eid+'\')" style="font-size:13px;padding:2px 7px;margin-right:3px"><i class="ti ti-edit"></i></button>'
+        +(isAdmin?'<button class="bd" onclick="deleteExamByIdx('+i+',\''+eid+'\')" style="font-size:13px;padding:2px 7px"><i class="ti ti-trash"></i></button>':'')
       +'</td>'
       +'</tr>';
   }).join('');
@@ -23760,7 +23778,7 @@ function toggleExamForm(){
   rExam(); // 소속 select 최신화
   if(wrap.style.display==='none'){
     g('exam_form_title').textContent='시험신청';
-    ['exam_name','exam_belong','exam_rrn','exam_phone','exam_email','exam_addr'].forEach(function(id){var el=g(id);if(el)el.value='';});
+    ['exam_name','exam_belong','exam_rrn','exam_phone','exam_email','exam_addr','exam_date'].forEach(function(id){var el=g(id);if(el)el.value='';});
     document.querySelectorAll('input[name="exam_apply"]').forEach(function(cb){cb.checked=false;});
     document.querySelectorAll('input[name="exam_pass"]').forEach(function(cb){cb.checked=false;});
     document.querySelectorAll('input[name="exam_type"]').forEach(function(r){r.checked=false;});
@@ -23796,17 +23814,20 @@ function saveExam(){
     addr:(g('exam_addr')||{value:''}).value.trim(),
     apply:apply, pass:pass,
     type:typeEl?typeEl.value:'',
-    done:false, examDate:'', ticket:false,
+    done:false, examDate:(g('exam_date')||{value:''}).value.trim(), ticket:false,
     regDate:tds(),
     submitter:(cu&&cu.name)||''
   };
   var idx=(g('exam_edit_idx')||{value:''}).value;
   if(idx!==''){
-    obj.done=exams[+idx].done||false;
-    obj.examDate=exams[+idx].examDate||'';
-    obj.ticket=exams[+idx].ticket||false;
-    obj.submitter=exams[+idx].submitter||(cu&&cu.name)||''; // 수정 시 기존 신청자 유지
-    exams[+idx]=obj;
+    var k=/^ex_/.test(idx)?_examLoc(-1,idx):_examLoc(+idx,'');
+    if(k<0){ toast('수정하려던 신청을 찾을 수 없습니다(다른 기기에서 변경·삭제됨). 저장하지 않았습니다.'); cancelExamForm(); rExam(); return; }
+    obj.id=exams[k].id;
+    obj.done=exams[k].done||false;
+    obj.ticket=exams[k].ticket||false;
+    if(exams[k].ticketData){ obj.ticketData=exams[k].ticketData; obj.ticketName=exams[k].ticketName||''; } // 수험표 승계(기존엔 수정 저장 시 유실)
+    obj.submitter=exams[k].submitter||(cu&&cu.name)||''; // 수정 시 기존 신청자 유지
+    exams[k]=obj;
   } else {
     // 신규 등록은 저장 직전 최신본(_examsFresh — 스냅샷 수신분 포함)을 재로드 후 추가 —
     // 낡은 메모리 배열로 통째 저장해 남의 신청을 지우는 경로 차단(함정 C 계열, 2026-09-22)
@@ -23819,8 +23840,9 @@ function saveExam(){
   toast(idx!==''?'수정되었습니다.':'시험신청이 완료되었습니다!');
 }
 
-function editExam(i){
-  var e=exams[i]; if(!e) return;
+function editExam(i,eid){
+  var k=_examLoc(i,eid); if(k<0){ toast('신청 내역을 찾을 수 없습니다. 목록을 새로고침합니다.'); rExam(); return; }
+  var e=exams[k];
   g('exam_form_title').textContent='시험신청 수정';
   g('exam_name').value=e.name||'';
   g('exam_belong').value=e.belong||'';
@@ -23828,10 +23850,11 @@ function editExam(i){
   g('exam_phone').value=e.phone||'';
   g('exam_email').value=e.email||'';
   g('exam_addr').value=e.addr||'';
+  var edt=g('exam_date'); if(edt)edt.value=e.examDate||'';
   document.querySelectorAll('input[name="exam_apply"]').forEach(function(cb){cb.checked=e.apply&&e.apply.includes(cb.value);});
   document.querySelectorAll('input[name="exam_pass"]').forEach(function(cb){cb.checked=e.pass&&e.pass.includes(cb.value);});
   document.querySelectorAll('input[name="exam_type"]').forEach(function(r){r.checked=r.value===e.type;});
-  g('exam_edit_idx').value=i;
+  g('exam_edit_idx').value=(e.id||String(k));
   var db=g('exam_del_btn');if(db)db.style.display='inline-flex';
   var wrap=g('exam_form_wrap');if(wrap){wrap.style.display='block';wrap.scrollIntoView({behavior:'smooth',block:'start'});}
   var btn=g('btn_exam_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
@@ -23840,39 +23863,47 @@ function editExam(i){
 function deleteExam(){
   var idx=(g('exam_edit_idx')||{value:''}).value;
   if(idx==='') return;
-  exams.splice(+idx,1);
+  var k=/^ex_/.test(idx)?_examLoc(-1,idx):_examLoc(+idx,'');
+  if(k<0){ toast('삭제하려던 신청을 찾을 수 없습니다(이미 삭제되었을 수 있습니다).'); cancelExamForm(); rExam(); return; }
+  exams.splice(k,1);
   _examsPersist(exams);
   cancelExamForm();rExam();toast('삭제되었습니다.');
 }
 
-function deleteExamByIdx(i){
-  if(window._delExamIdx===i){
-    exams.splice(i,1);
+function deleteExamByIdx(i,eid){
+  var key=eid||('i:'+i);
+  if(window._delExamKey===key){
+    window._delExamKey=null;
+    var k=_examLoc(i,eid);
+    if(k<0){ toast('신청 내역을 찾을 수 없습니다(다른 기기에서 변경됨). 목록을 새로고침합니다.'); rExam(); return; }
+    exams.splice(k,1);
     _examsPersist(exams);
     rExam();toast('삭제되었습니다.');
-    window._delExamIdx=null;
   } else {
-    window._delExamIdx=i;
+    window._delExamKey=key;
     toast('한 번 더 누르면 삭제됩니다.');
-    setTimeout(function(){window._delExamIdx=null;},3000);
+    setTimeout(function(){window._delExamKey=null;},3000);
   }
 }
 
-function toggleExamDone(i){
-  if(!exams[i]) return;
-  exams[i].done=!exams[i].done;
+function toggleExamDone(i,eid){
+  var k=_examLoc(i,eid);
+  if(k<0){ toast('신청 내역을 찾을 수 없습니다(다른 기기에서 변경됨). 목록을 새로고침합니다.'); rExam(); return; }
+  exams[k].done=!exams[k].done;
   _examsPersist(exams);
   rExam();
 }
 
-function uploadTicket(idx, input){
+function uploadTicket(idx, input, eid){
   var file=input.files[0]; if(!file) return;
   if(file.size > 5*1024*1024){ toast('파일 크기는 5MB 이하여야 합니다.'); return; }
   var reader=new FileReader();
   reader.onload=function(ev){
-    exams[idx].ticketData=ev.target.result;
-    exams[idx].ticketName=file.name;
-    exams[idx].ticket=true;
+    var k=_examLoc(idx,eid); // 파일 읽는 사이 스냅샷 수신 가능 — 위치 재탐색
+    if(k<0){ toast('신청 내역을 찾을 수 없습니다(다른 기기에서 변경됨). 목록을 새로고침합니다.'); rExam(); return; }
+    exams[k].ticketData=ev.target.result;
+    exams[k].ticketName=file.name;
+    exams[k].ticket=true;
     _examsPersist(exams);
     rExam();
     toast('수험표가 업로드되었습니다!');
@@ -23880,8 +23911,9 @@ function uploadTicket(idx, input){
   reader.readAsDataURL(file);
 }
 
-function downloadTicket(idx){
-  var e=exams[idx]; if(!e||!e.ticketData) return;
+function downloadTicket(idx,eid){
+  var k=_examLoc(idx,eid); if(k<0) return;
+  var e=exams[k]; if(!e||!e.ticketData) return;
   var a=document.createElement('a');
   a.href=e.ticketData;
   a.download=e.ticketName||('수험표_'+e.name);

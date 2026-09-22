@@ -238,7 +238,7 @@
   stopPropagation(4.8 규칙 — uni 이중 처리 방지). 연타 가드 `_dbKkOcrBusy`.
   ⚠️ 고객 PII가 Gemini API로 전송됨 — 보장분석(병력 PDF 텍스트)과 동일 계열의 기존 수용 사항.
 
-### 3.89 시험신청 가시성·저장 (exam, 2026-09-22 — v2026.09.22-1~-3)
+### 3.89 시험신청 가시성·저장 (exam, 2026-09-22 — v2026.09.22-1~-4)
 
 - **가시성 3단계 (v-2, 사용자 확정 규칙)**: 관리자(BM)·총무=전체 / **팀장=본인+하부인원**(`getMyTeam()` 재귀 —
   출장보고·리쿠르팅과 동일) / **팀원=본인 신청만**. 판정은 신청자(submitter) **또는** 소속(belong)이 내 팀 범위(`_exTeam`).
@@ -257,7 +257,19 @@
     setItem보다 먼저 기록 — quota 기기에서도 수신 즉시 메모리에 반영되고, 스냅샷 자동 갱신 맵의 exam:rExam이 화면 갱신.
   - ⚠️ localStorage는 **다음 부팅용 캐시일 뿐** — `JSON.parse(localStorage.getItem('tops_exams'))` 직접 읽기를 새로 만들지 말 것.
 - ⚠️ 신규 등록(saveExam add 경로)은 push 직전 `_examsFresh()` 재로드 — 낡은 메모리 배열로 통째 저장해
-  다른 기기의 신청을 클라우드에서 지우는 경로 차단(함정 C 계열). 수정 경로는 렌더 시점 인덱스 기반이라 재로드 안 함(기존 유지).
+  다른 기기의 신청을 클라우드에서 지우는 경로 차단(함정 C 계열).
+- **고유 id 도입 (v-4, 리뷰 반영)**: `exams[].id`('ex_<ts>_<rand>') — 부여는 **저장 경로에서만**(`_examsPersist` 초입
+  `_examsEnsureIds`. 재로드 때 임시 부여 금지 — claims 6장과 같은 규칙: 기기마다 다른 id가 생김).
+  조작 경로 전부(수정 폼 `exam_edit_idx`에 id 저장, saveExam 수정 분기·deleteExam·deleteExamByIdx·toggleExamDone·
+  uploadTicket(FileReader 비동기)·downloadTicket·editExam)가 실행 시점에 `_examLoc(i,eid)`로 위치를 재탐색 —
+  폼을 열어둔 사이 스냅샷 수신(다른 기기의 추가·삭제)으로 낡은 인덱스가 남의 신청건을 덮어쓰거나 지우던
+  함정 A 잔여 경로 차단(v-3 리뷰 High). 못 찾으면 저장·삭제 중단+토스트, 레거시 무id 항목만 인덱스 폴백
+  (누구든 저장하면 id 자동 부여로 자연 소멸). 2번 클릭 삭제 표식도 id 기준(`_delExamKey`).
+  같은 커밋: **수정 저장 시 수험표(ticketData/ticketName) 유실 버그 수정**(obj 통째 교체가 승계 안 했음).
+- **시험일정 입력·표시 (v-4, 사용자 요청)**: 폼에 `exam_date` 칸(자유 텍스트) — `examDate`는 그동안 어디서도
+  입력 불가한 죽은 필드였음(saveExam이 항상 ''). 신규·수정 공통 입력, 리스트 '시험일' 열·일일보고서에 표시.
+  접수유형 셀은 white-space:nowrap(2줄 깨짐 수정). **rExam 자유 텍스트 셀에 `_esc` 추가**(name/belong/examDate 등 —
+  examDate 자유 입력 신설로 기존 미이스케이프 렌더가 실질 XSS 경로가 됨, 3.85.5 rDbInfo 계열).
 - ⚠️ 수험표(uploadTicket)는 base64 원본(≤5MB)을 exams[].ticketData에 넣어 tops/data로 동기화 — 3.12(1MiB 한도) 위험 요소.
   현재 문서 63%(2026-09-22 실측)라 당장은 수용, 수험표가 쌓여 한도 재발하면 Storage URL 방식 전환이 근본 해결.
 
