@@ -238,7 +238,7 @@
   stopPropagation(4.8 규칙 — uni 이중 처리 방지). 연타 가드 `_dbKkOcrBusy`.
   ⚠️ 고객 PII가 Gemini API로 전송됨 — 보장분석(병력 PDF 텍스트)과 동일 계열의 기존 수용 사항.
 
-### 3.89 시험신청 가시성 (exam, 2026-09-22 — v2026.09.22-1)
+### 3.89 시험신청 가시성·저장 (exam, 2026-09-22 — v2026.09.22-1~-3)
 
 - **가시성 3단계 (v-2, 사용자 확정 규칙)**: 관리자(BM)·총무=전체 / **팀장=본인+하부인원**(`getMyTeam()` 재귀 —
   출장보고·리쿠르팅과 동일) / **팀원=본인 신청만**. 판정은 신청자(submitter) **또는** 소속(belong)이 내 팀 범위(`_exTeam`).
@@ -247,7 +247,16 @@
 - **팀원도 페이지 접근·신청 가능 (v-2)**: showPage 팀장 가드 목록·setAdmin의 leaderNavIds에서 exam 제거
   (n_exam 인라인 display '' 복원 포함 — 이전 세션에서 none으로 남은 잔상 정리), toggleExamForm의 _isLeader 가드 제거.
   접수유형(개별/회사) 선택·완료 토글·삭제는 기존대로 관리자만.
-- ⚠️ 신규 등록(saveExam add 경로)은 push 직전 localStorage 최신본을 재로드 — 낡은 메모리 배열로 통째 저장해
+- **메모리 우선 저장소 (v-3, 2026-09-22 재제보 대응)**: 재제보("정옥 신청했는데 안 올라옴")의 유력 원인은
+  기기 localStorage quota 포화(tops_pkg_* 캐시 — 함정 B)로 `_lsSet`·스냅샷의 setItem이 조용히 실패해
+  **localStorage만 읽던 목록이 옛 상태로 얼어붙는 것**(클라우드 데이터는 정상 실측). claims 패턴 축소판으로 해결:
+  - 조회는 전부 **`_examsFresh()`**(메모리 `window._examsMem` 우선 → 없으면 localStorage 파싱·캐싱, 손상 JSON은 빈 배열).
+    적용: rExam 초입·일일보고서 DR_SRC 'exam'·reqstat 팝업 'exam'·부팅 초기값. 새 리더 코드도 반드시 이걸 쓸 것.
+  - 저장은 전부 **`_examsPersist(arr)`**(메모리 사본 + `_lsSet` + sv — saveExam/deleteExam/deleteExamByIdx/
+    toggleExamDone/uploadTicket 5곳). 스냅샷 핸들러 2곳(loadFromFirestore/onSnapshot)은 `window._examsMem=d.exams`를
+    setItem보다 먼저 기록 — quota 기기에서도 수신 즉시 메모리에 반영되고, 스냅샷 자동 갱신 맵의 exam:rExam이 화면 갱신.
+  - ⚠️ localStorage는 **다음 부팅용 캐시일 뿐** — `JSON.parse(localStorage.getItem('tops_exams'))` 직접 읽기를 새로 만들지 말 것.
+- ⚠️ 신규 등록(saveExam add 경로)은 push 직전 `_examsFresh()` 재로드 — 낡은 메모리 배열로 통째 저장해
   다른 기기의 신청을 클라우드에서 지우는 경로 차단(함정 C 계열). 수정 경로는 렌더 시점 인덱스 기반이라 재로드 안 함(기존 유지).
 - ⚠️ 수험표(uploadTicket)는 base64 원본(≤5MB)을 exams[].ticketData에 넣어 tops/data로 동기화 — 3.12(1MiB 한도) 위험 요소.
   현재 문서 63%(2026-09-22 실측)라 당장은 수용, 수험표가 쌓여 한도 재발하면 Storage URL 방식 전환이 근본 해결.

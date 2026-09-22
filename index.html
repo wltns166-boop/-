@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-3</div>
   </div>
 </div>
 
@@ -3801,7 +3801,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
     if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
-    if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
+    if(Array.isArray(d.exams))    { window._examsMem=d.exams; try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
@@ -3894,7 +3894,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
     if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
-    if(Array.isArray(d.exams))    { try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
+    if(Array.isArray(d.exams))    { window._examsMem=d.exams; try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
@@ -8935,8 +8935,8 @@ function drBuild(){
         tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-']; }))
         :emptyMsg('다음날('+ndLbl+') 출장 일정이 없습니다.')};
     }
-    if(src==='exam'){ // 시험신청 — 전체 신청 내역 (실시간 동기화는 localStorage만 갱신하므로 렌더 시 재로드)
-      try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){}
+    if(src==='exam'){ // 시험신청 — 전체 신청 내역 (렌더 시 _examsFresh 재로드 — 메모리 사본 우선)
+      exams=_examsFresh();
       var el2=Array.isArray(exams)?exams:[];
       return {t:'시험신청', h:el2.length?tbl(['이름','소속','접수과목','합격과목','시험일','접수'],
         el2.map(function(e){ return [_esc(e.name||'-'),_esc(e.belong||'-'),_esc((e.apply||[]).join(', ')||'-'),_esc((e.pass||[]).join(', ')||'-'),_esc(e.examDate||'-'),okTag(e.done,'완료','미완료')]; }))
@@ -12936,7 +12936,7 @@ function _reqStatCount(key, own){
       return (claims||[]).filter(function(c){ return c&&!c.done&&(!own||c.agent===me); }).length;
     }
     case 'exam': {
-      var ex=JSON.parse(localStorage.getItem('tops_exams')||'[]');
+      var ex=_examsFresh();
       return (Array.isArray(ex)?ex:[]).filter(function(e){ return e&&!e.done&&(!own||e.submitter===me); }).length;
     }
     case 'jp': {
@@ -23650,10 +23650,25 @@ function rExpect(keepRows){
 function _esc(v){ if(v==null) return ''; return (''+v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ===== 시험신청 =====
-var exams = JSON.parse(localStorage.getItem('tops_exams')||'[]');
+// 저장·조회 공용 헬퍼 (2026-09-22 v-3): localStorage가 quota 포화(tops_pkg_* 캐시 등 — 함정 B)로
+// 쓰기가 조용히 실패하는 기기에서 목록이 옛 상태로 얼어붙던 문제 해결 — claims의
+// _persistClaims/_reloadClaims 축소판. 메모리 사본(window._examsMem)이 항상 우선이고
+// localStorage는 캐시(다음 부팅용)일 뿐이다. 새 리더 코드는 반드시 _examsFresh()를 쓸 것.
+function _examsFresh(){
+  if(Array.isArray(window._examsMem)) return window._examsMem;
+  try{ var a=JSON.parse(localStorage.getItem('tops_exams')||'[]'); if(Array.isArray(a)){ window._examsMem=a; return a; } }catch(e){}
+  return [];
+}
+function _examsPersist(arr){
+  exams=Array.isArray(arr)?arr:[];
+  window._examsMem=exams;
+  _lsSet('tops_exams',JSON.stringify(exams));
+  try{ sv('tops_exams',exams); }catch(e){}
+}
+var exams = _examsFresh();
 
 function rExam(){
-  try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){ exams=[]; }
+  exams=_examsFresh();
   var tb=g('exam_tb'); if(!tb) return;
 
   // 소속 select 채우기
@@ -23793,14 +23808,12 @@ function saveExam(){
     obj.submitter=exams[+idx].submitter||(cu&&cu.name)||''; // 수정 시 기존 신청자 유지
     exams[+idx]=obj;
   } else {
-    // 신규 등록은 저장 직전 로컬 최신본(스냅샷이 갱신해 둠)을 재로드 후 추가 —
+    // 신규 등록은 저장 직전 최신본(_examsFresh — 스냅샷 수신분 포함)을 재로드 후 추가 —
     // 낡은 메모리 배열로 통째 저장해 남의 신청을 지우는 경로 차단(함정 C 계열, 2026-09-22)
-    try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){}
-    if(!Array.isArray(exams)) exams=[];
+    exams=_examsFresh();
     exams.push(obj);
   }
-  _lsSet('tops_exams',JSON.stringify(exams));
-  try{sv('tops_exams',exams);}catch(e){}
+  _examsPersist(exams);
   cancelExamForm();
   rExam();
   toast(idx!==''?'수정되었습니다.':'시험신청이 완료되었습니다!');
@@ -23828,16 +23841,14 @@ function deleteExam(){
   var idx=(g('exam_edit_idx')||{value:''}).value;
   if(idx==='') return;
   exams.splice(+idx,1);
-  _lsSet('tops_exams',JSON.stringify(exams));
-  try{sv('tops_exams',exams);}catch(e){}
+  _examsPersist(exams);
   cancelExamForm();rExam();toast('삭제되었습니다.');
 }
 
 function deleteExamByIdx(i){
   if(window._delExamIdx===i){
     exams.splice(i,1);
-    _lsSet('tops_exams',JSON.stringify(exams));
-    try{sv('tops_exams',exams);}catch(e){}
+    _examsPersist(exams);
     rExam();toast('삭제되었습니다.');
     window._delExamIdx=null;
   } else {
@@ -23850,8 +23861,7 @@ function deleteExamByIdx(i){
 function toggleExamDone(i){
   if(!exams[i]) return;
   exams[i].done=!exams[i].done;
-  _lsSet('tops_exams',JSON.stringify(exams));
-  try{sv('tops_exams',exams);}catch(e){}
+  _examsPersist(exams);
   rExam();
 }
 
@@ -23863,8 +23873,7 @@ function uploadTicket(idx, input){
     exams[idx].ticketData=ev.target.result;
     exams[idx].ticketName=file.name;
     exams[idx].ticket=true;
-    _lsSet('tops_exams',JSON.stringify(exams));
-    try{sv('tops_exams',exams);}catch(e){}
+    _examsPersist(exams);
     rExam();
     toast('수험표가 업로드되었습니다!');
   };
