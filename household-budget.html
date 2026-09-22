@@ -403,6 +403,16 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .pay-chip.done { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .pay-chip:hover { filter: brightness(.96); }
 
+.card-m-row { padding: 12px 0; border-bottom: 1px solid var(--line2); }
+.card-m-row:last-child { border-bottom: 0; }
+.card-m-top { display: flex; align-items: center; gap: 12px; }
+.card-m-top .rec-info { flex: 1; min-width: 0; }
+.card-m-top .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-m-set { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 9px 0 0 48px; font-size: 12px; color: var(--muted); font-weight: 700; }
+.card-m-set label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.card-m-set input { width: 62px; text-align: center; padding: 6px 8px; font-size: 13px; }
+.card-m-set .hint { color: var(--accent); font-weight: 700; }
+
 /* ── 고정 항목: 보험 세부 항목 ── */
 .rec-sub-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
 .rec-sub-row input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; font-size: 12.5px; outline: none; }
@@ -769,7 +779,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
 <!-- ═══ 카드사 관리 모달 ═══ -->
 <div class="modal-bg" id="card-modal">
-  <div class="modal" style="max-width:540px">
+  <div class="modal" style="max-width:560px">
     <div class="modal-h"><span>💳 카드사 관리</span><button class="close" onclick="closeModal('card-modal')">✕</button></div>
     <div class="modal-b">
       <div id="card-m-list"></div>
@@ -1577,21 +1587,24 @@ function openCardModal() { renderCardModal(); document.getElementById('card-moda
 function renderCardModal() {
   const cards = getCards();
   const ct = cardTxAll();
-  document.getElementById('card-m-list').innerHTML = cards.length ? cards.map(c => `
-    <div class="rec-row">
-      <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
-      <div class="rec-info"><div class="t1">${esc(c.name)}</div>
-        <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
-      <span style="color:var(--muted);font-size:12px;white-space:nowrap">사용 시작일</span>
-      <input class="bud-input" type="number" min="1" max="31" placeholder="14" title="사용기간 시작일 (예: 14 → 전월 14일~당월 13일이 그 달 청구분)"
-        style="width:60px;text-align:center" value="${cardPeriodStart(c) || ''}" onchange="setCardPeriod('${c.id}', this.value)">
-      <span style="color:var(--muted);font-size:11.5px;min-width:74px">${periodLabel(cardPeriodStart(c)) || '미설정'}</span>
-      <span style="color:var(--muted);font-size:12px;white-space:nowrap">결제일</span>
-      <input class="bud-input" type="number" min="1" max="31" placeholder="결제일" title="매월 결제일 (1~31)"
-        style="width:64px;text-align:center" value="${c.payDay || ''}" onchange="setCardPayDay('${c.id}', this.value)">
-      <span style="color:var(--muted);font-size:12px">일</span>
-      <button class="icon-btn" title="삭제" onclick="removeCard('${c.id}')">🗑️</button>
-    </div>`).join('')
+  document.getElementById('card-m-list').innerHTML = cards.length ? cards.map(c => {
+    const start = cardPeriodStart(c);
+    return `
+    <div class="card-m-row">
+      <div class="card-m-top">
+        <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
+        <div class="rec-info"><div class="t1">${esc(c.name)}</div>
+          <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
+        <button class="icon-btn" title="카드사 삭제" onclick="removeCard('${c.id}')">🗑️</button>
+      </div>
+      <div class="card-m-set">
+        <label title="사용기간 시작일. 예: 14 → 전월 14일~당월 13일 사용분이 그 달 청구">사용 시작일
+          <input class="bud-input" type="number" min="1" max="31" placeholder="14" value="${start || ''}" onchange="setCardPeriod('${c.id}', this.value)">
+          <span class="hint">${start ? periodLabel(start) : '미설정 · 보고 있는 달로 등록'}</span></label>
+        <label title="매월 결제일 (1~31)">결제일
+          <input class="bud-input" type="number" min="1" max="31" placeholder="13" value="${c.payDay || ''}" onchange="setCardPayDay('${c.id}', this.value)">일</label>
+      </div>
+    </div>`; }).join('')
     : `<div class="empty" style="padding:18px">아직 카드사가 없습니다<br>아래에 이름을 입력하고 추가하세요</div>`;
 }
 function addCard() {
