@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.21-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-1</div>
   </div>
 </div>
 
@@ -23678,7 +23678,11 @@ function rExam(){
 
   // 본인 신청 내역만 (관리자는 전체)
   var isAdmin=cu&&cu.admin;
-  var visibleExams=isAdmin ? exams : exams.filter(function(e,i){ return !e.submitter || e.submitter===(cu&&cu.name); });
+  // 본인이 등록한 건 + 소속(belong)이 본인인 건 — 관리자가 대신 등록해 줘도 소속 팀장 화면에 보이게(2026-09-22 실사고)
+  var visibleExams=isAdmin ? exams : exams.filter(function(e,i){
+    var me=cu&&cu.name;
+    return !e.submitter || e.submitter===me || (e.belong&&e.belong===me);
+  });
   if(!visibleExams.length){
     tb.innerHTML='<tr><td colspan="9" class="em" style="padding:30px">신청 내역이 없습니다.</td></tr>';
     return;
@@ -23787,6 +23791,10 @@ function saveExam(){
     obj.submitter=exams[+idx].submitter||(cu&&cu.name)||''; // 수정 시 기존 신청자 유지
     exams[+idx]=obj;
   } else {
+    // 신규 등록은 저장 직전 로컬 최신본(스냅샷이 갱신해 둠)을 재로드 후 추가 —
+    // 낡은 메모리 배열로 통째 저장해 남의 신청을 지우는 경로 차단(함정 C 계열, 2026-09-22)
+    try{ exams=JSON.parse(localStorage.getItem('tops_exams')||'[]'); }catch(e){}
+    if(!Array.isArray(exams)) exams=[];
     exams.push(obj);
   }
   _lsSet('tops_exams',JSON.stringify(exams));
