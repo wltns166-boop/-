@@ -406,6 +406,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .card-m-row { padding: 12px 0; border-bottom: 1px solid var(--line2); }
 .card-m-row:last-child { border-bottom: 0; }
 .card-m-top { display: flex; align-items: center; gap: 12px; }
+.card-m-row .drag-handle {
+  cursor: grab; color: var(--muted); font-size: 15px; letter-spacing: -3px; padding: 6px 4px; user-select: none;
+  border-radius: 6px; line-height: 1;
+}
+.card-m-row .drag-handle:hover { background: var(--bg); color: var(--text); }
+.card-m-row .drag-handle:active { cursor: grabbing; }
+.card-m-row.dragging { opacity: .45; }
+.card-m-row.over-top { box-shadow: inset 0 3px 0 var(--accent); }
+.card-m-row.over-bottom { box-shadow: inset 0 -3px 0 var(--accent); }
 .card-m-top .rec-info { flex: 1; min-width: 0; }
 .card-m-top .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-m-set { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 9px 0 0 48px; font-size: 12px; color: var(--muted); font-weight: 700; }
@@ -1590,8 +1599,11 @@ function renderCardModal() {
   document.getElementById('card-m-list').innerHTML = cards.length ? cards.map(c => {
     const start = cardPeriodStart(c);
     return `
-    <div class="card-m-row">
+    <div class="card-m-row" data-id="${c.id}"
+      ondragover="cmDragOver(event, this)" ondragleave="cmDragLeave(this)" ondrop="cmDrop(event, this)">
       <div class="card-m-top">
+        <span class="drag-handle" title="끌어서 순서 바꾸기" draggable="true"
+          ondragstart="cmDragStart(event, '${c.id}')" ondragend="cmDragEnd()">⋮⋮</span>
         <div class="tx-ico" style="background:var(--accent-soft)">💳</div>
         <div class="rec-info"><div class="t1">${esc(c.name)}</div>
           <div class="t2">등록된 내역 ${ct.filter(t => t.cardId === c.id).length}건</div></div>
@@ -1606,6 +1618,50 @@ function renderCardModal() {
       </div>
     </div>`; }).join('')
     : `<div class="empty" style="padding:18px">아직 카드사가 없습니다<br>아래에 이름을 입력하고 추가하세요</div>`;
+}
+/* ── 카드사 순서: 드래그로 교체 ── */
+let cmDragId = null;
+function cmDragStart(e, id) {
+  cmDragId = id;
+  const row = e.target.closest('.card-m-row');
+  if (row) { row.classList.add('dragging'); if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(row, 20, 20); }
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id);
+}
+function cmDragOver(e, row) {
+  if (!cmDragId || row.dataset.id === cmDragId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const r = row.getBoundingClientRect();
+  const below = e.clientY > r.top + r.height / 2;
+  row.classList.toggle('over-top', !below);
+  row.classList.toggle('over-bottom', below);
+}
+function cmDragLeave(row) { row.classList.remove('over-top', 'over-bottom'); }
+function cmDrop(e, row) {
+  e.preventDefault();
+  const targetId = row.dataset.id;
+  const below = row.classList.contains('over-bottom');
+  cmDragLeave(row);
+  const fromId = cmDragId || e.dataTransfer.getData('text/plain');
+  cmDragEnd();
+  if (!fromId || fromId === targetId) return;
+  const cards = getCards();
+  const from = cards.findIndex(c => c.id === fromId);
+  if (from < 0) return;
+  const [moved] = cards.splice(from, 1);
+  let to = cards.findIndex(c => c.id === targetId);
+  if (to < 0) return;
+  if (below) to += 1;
+  cards.splice(to, 0, moved);
+  lsSet('cards', cards);
+  renderCardModal();
+  render();
+  toast(`'${moved.name}' 순서를 바꿨습니다`);
+}
+function cmDragEnd() {
+  cmDragId = null;
+  document.querySelectorAll('.card-m-row').forEach(r => r.classList.remove('dragging', 'over-top', 'over-bottom'));
 }
 function addCard() {
   const el = document.getElementById('card-m-name');
