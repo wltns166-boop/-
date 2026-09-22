@@ -551,7 +551,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
           <button class="btn ghost sm" onclick="openShareModal()" title="이 달 대시보드를 이미지로 만들어 카톡 등으로 보냅니다">🖼 카톡으로 보내기</button>
         </div>
         <div class="stat-grid">
-          <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
+          <div class="stat clickable" onclick="openIncomeModal()" title="누르면 이번 달 수입을 입력·수정합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
           <div class="stat clickable" onclick="openGoalModal()" title="누르면 이번 달 목표 지출을 설정합니다"><div class="lbl">🎯 목표 지출</div><div class="val c-accent" id="d-goal">-</div><div class="cmp" id="d-goal-cmp"></div></div>
           <div class="stat clickable" onclick="openTxModal(null, null, 'expense')" title="누르면 이번 달 지출을 바로 입력합니다"><div class="lbl">❤️ 이번 달 지출</div><div class="val c-expense" id="d-expense">0원</div><div class="cmp" id="d-expense-cmp"></div></div>
           <div class="stat"><div class="lbl">📊 예산 사용률</div>
@@ -804,6 +804,22 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <div class="cat-add" style="margin-top:14px">
         <input id="card-m-name" placeholder="카드사 이름 (예: 신한카드)" maxlength="15" style="flex:1;min-width:120px">
         <button class="btn sm" onclick="addCard()">＋ 추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 이번 달 수입 입력 모달 ═══ -->
+<div class="modal-bg" id="income-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-h"><span>💙 이번 달 수입</span><button class="close" onclick="closeModal('income-modal')">✕</button></div>
+    <div class="modal-b">
+      <div class="f-row"><label>수입 금액 (원)</label>
+        <input type="number" id="income-m-amount" min="0" step="10000" placeholder="예) 5000000" inputmode="numeric"></div>
+      <div id="income-m-note" style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:-4px"></div>
+      <div class="modal-foot">
+        <button class="btn ghost" onclick="closeModal('income-modal')">취소</button>
+        <button class="btn" onclick="saveIncome()">저장</button>
       </div>
     </div>
   </div>
@@ -2763,7 +2779,8 @@ function renderBudget() {
   }
 
   // 이번 달 급여 / 수입 합계
-  const salaryTx = monthTx.find(t => t.type === 'income' && t.salaryInput);
+  const si = salaryIndex(txAll());
+  const salaryTx = si >= 0 ? txAll()[si] : null;
   document.getElementById('b-salary-input').value = salaryTx ? salaryTx.amount : '';
   const incTotal = sumBy(monthTx, 'income');
   document.getElementById('b-salary-info').innerHTML =
@@ -2823,20 +2840,48 @@ function saveCatBudget(name, v) {
   render();
 }
 /* 이번 달 급여 저장 — 급여 거래(수입) 1건을 만들거나 갱신 */
+/* 대시보드 수입 칸·예산 페이지 급여 칸이 함께 고쳐 쓰는 '이번 달 수입' 기록의 위치.
+   표시(salaryInput)가 없으면 그 달의 가장 최근 수입 기록을 그 자리로 삼는다 (새로 추가하지 않고 수정). */
+function salaryIndex(tx) {
+  let i = tx.findIndex(t => t.type === 'income' && t.salaryInput && t.date.startsWith(selYM));
+  if (i >= 0) return i;
+  const month = tx.map((t, k) => ({ t, k })).filter(x => x.t.type === 'income' && x.t.date.startsWith(selYM) && !x.t.recurId);
+  if (!month.length) return -1;
+  month.sort((a, b) => a.t.date < b.t.date ? 1 : -1);
+  return month[0].k;
+}
+function openIncomeModal() {
+  const tx = txAll();
+  const i = salaryIndex(tx);
+  const others = txOfMonth(selYM).filter(t => t.type === 'income' && !(i >= 0 && t.id === tx[i].id));
+  document.getElementById('income-m-amount').value = i >= 0 ? tx[i].amount : '';
+  document.getElementById('income-m-note').textContent = others.length
+    ? `그 외 수입 ${others.length}건 ${fmt(sumBy(others, 'income'))}은 그대로 합산됩니다 · 0을 넣으면 삭제`
+    : '다시 입력하면 새로 추가되지 않고 이 값이 바뀝니다 · 0을 넣으면 삭제';
+  document.getElementById('income-modal').classList.add('open');
+  setTimeout(() => document.getElementById('income-m-amount').focus(), 50);
+}
+function saveIncome() {
+  saveSalary(document.getElementById('income-m-amount').value);
+  closeModal('income-modal');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'income-m-amount') saveIncome();
+});
 function saveSalary(v) {
   const amount = Math.max(0, Number(v) || 0);
   const tx = txAll();
-  const i = tx.findIndex(t => t.type === 'income' && t.salaryInput && t.date.startsWith(selYM));
+  const i = salaryIndex(tx);
   if (amount > 0) {
-    if (i >= 0) tx[i].amount = amount;
+    if (i >= 0) { tx[i].amount = amount; tx[i].salaryInput = true; }
     else {
       const date = selYM === curYM() ? todayStr() : selYM + '-01';
       tx.push({ id: uid(), date, type: 'income', category: '급여', amount, method: '계좌이체', memo: '급여', salaryInput: true });
     }
-    toast('이번 달 급여가 저장되었습니다');
+    toast('이번 달 수입이 저장되었습니다');
   } else if (i >= 0) {
     tx.splice(i, 1);
-    toast('이번 달 급여가 삭제되었습니다');
+    toast('이번 달 수입을 삭제했습니다');
   }
   tx.sort((a, b) => a.date < b.date ? 1 : -1);
   txSave(tx);
