@@ -112,6 +112,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .empty .big { font-size: 34px; display: block; margin-bottom: 6px; }
 
 /* ── 대시보드 ── */
+.dash-actions { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
 .stat {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
@@ -541,6 +542,9 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
       <!-- ═══ 대시보드 ═══ -->
       <section class="page active" id="page-dashboard">
+        <div class="dash-actions">
+          <button class="btn ghost sm" onclick="sendDashToKakao()" title="이 달 요약을 카카오톡 '나와의 채팅'으로 보냅니다">💬 카톡으로 나에게 보내기</button>
+        </div>
         <div class="stat-grid">
           <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
           <div class="stat clickable" onclick="openGoalModal()" title="누르면 이번 달 목표 지출을 설정합니다"><div class="lbl">🎯 목표 지출</div><div class="val c-accent" id="d-goal">-</div><div class="cmp" id="d-goal-cmp"></div></div>
@@ -1300,6 +1304,66 @@ function renderDashboard() {
   renderDonut(monthTx, exp);
   renderCardUsage();
   renderRecent(monthTx);
+}
+/* ── 대시보드 요약을 카카오톡 '나와의 채팅'으로 (카카오 메모 도구는 200자 제한) ── */
+function buildDashSummary() {
+  const monthTx = txOfMonth(selYM);
+  const inc = sumBy(monthTx, 'income');
+  const exp = expenseOfMonth(selYM);
+  const budgets = ls('budgets', { total: 0, byCat: {} });
+  const total = Number(budgets.total) || 0;
+  const lines = [
+    `📒 우리집 가계부 ${ymLabel(selYM)}`,
+    `수입 ${fmt(inc)} · 지출 ${fmt(exp)}`,
+    `수지 ${fmtSign(inc - exp)}`,
+  ];
+  if (total > 0) {
+    const remain = total - exp;
+    lines.push(`예산 ${Math.round(exp / total * 100)}% 사용 · ${remain >= 0 ? fmt(remain) + ' 남음' : fmt(-remain) + ' 초과'}`);
+  }
+  const monthCt = cardTxOfMonth(selYM);
+  // 카드 이름은 '국민카드 - 미엘' → '국민'으로 줄이되, 같은 카드사가 둘이면 뒤 이름까지 붙여 구분
+  const shortName = c => c.name.split(/\s*[-–]\s*/)[0].replace(/카드$/, '');
+  const dupBase = new Set(getCards().map(shortName).filter((n, i, a) => a.indexOf(n) !== i));
+  const cardParts = getCards().map(c => ({
+    name: dupBase.has(shortName(c)) ? c.name.replace(/카드/, '').replace(/\s*[-–]\s*/, ' ') : shortName(c),
+    sum: monthCt.filter(t => t.cardId === c.id).reduce((s, t) => s + Number(t.amount || 0), 0) }))
+    .filter(x => x.sum > 0).sort((a, b) => b.sum - a.sum).map(x => `${x.name} ${fmtShort(x.sum)}`);
+  // 200자 안에 들어가는 만큼만 카드사 표기
+  let text = lines.join('\n');
+  for (let n = cardParts.length; n >= 1; n--) {
+    const t = text + '\n카드 ' + cardParts.slice(0, n).join(' · ') + (n < cardParts.length ? ' 외' : '');
+    if (t.length <= 200) { text = t; break; }
+  }
+  return text.slice(0, 200);
+}
+async function sendDashToKakao() {
+  const text = buildDashSummary();
+  if (!(window.claude && window.claude.use)) {
+    appAlert('카카오톡 보내기는 클라우드 가계부(claude.ai 페이지)에서만 사용할 수 있습니다.\n\n보낼 내용:\n' + text);
+    return;
+  }
+  if (!(await appConfirm('아래 내용을 카카오톡 "나와의 채팅"으로 보낼까요?\n\n' + text))) return;
+  busyToast('💬 카카오톡으로 보내는 중...');
+  let mcp = null;
+  try { mcp = await window.claude.use('mcp'); } catch {}
+  if (!mcp) { hideBusy(); appAlert('이 화면에서는 카카오 연결 기능을 쓸 수 없습니다.\n페이지를 새로고침한 뒤 다시 시도해 보세요.'); return; }
+  try {
+    await mcp.callTool('PlayMCP', 'KakaotalkChat-MemoChat', { message: text });
+    hideBusy();
+    toast('카카오톡 나와의 채팅으로 보냈습니다');
+  } catch (e) {
+    hideBusy();
+    const code = e && e.code;
+    if (code === 'server_not_connected' || code === 'server_not_found') appAlert('카카오(PlayMCP) 커넥터가 연결되어 있지 않습니다.\nclaude.ai 설정 → 커넥터에서 PlayMCP를 추가한 뒤 다시 시도하세요.');
+    else if (code === 'needs_reauth') appAlert('카카오 연결이 만료되었습니다.\nclaude.ai 설정 → 커넥터에서 PlayMCP를 다시 연결해 주세요.');
+    else if (code === 'not_in_manifest' || code === 'not_granted') appAlert('이 페이지에 카카오 연결 사용이 허용되지 않았습니다.\n허용 창이 뜨면 허용을 누르거나, 페이지 설정에서 PlayMCP를 켜 주세요.');
+    else if (code === 'selection_required') appAlert('카카오 커넥터가 여러 개 연결되어 있습니다. 화면 안내에서 하나를 선택한 뒤 다시 시도하세요.');
+    else if (code === 'blocked_by_policy' || code === 'approval_required') appAlert('조직 정책으로 이 도구 사용이 막혀 있습니다.');
+    else if (code === 'tool_error') appAlert('카카오가 메시지를 거절했습니다.\n' + (e.message || ''));
+    else if (code === 'cancelled') toast('보내기를 취소했습니다');
+    else appAlert('보내지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : '') + (code ? '\n[오류 코드: ' + code + ']' : '') + (e && e.retryable ? '\n잠시 후 다시 시도해 보세요.' : ''));
+  }
 }
 function cmpText(cur, prev, label) {
   if (!prev) return label + ' 기록 없음';
