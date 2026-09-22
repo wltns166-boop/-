@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-2</div>
   </div>
 </div>
 
@@ -4754,7 +4754,8 @@ function setAdmin(){
   });
   // TL 이상 전용 nav 항목 (계보도·시험신청·팀실적·요청관리·신입관리)
   var isLeader=_isLeader();
-  var leaderNavIds=['n_exam','n_team_perf','n_req_menu','n_new_menu'];
+  var leaderNavIds=['n_team_perf','n_req_menu','n_new_menu'];   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
+  var _ne=g('n_exam'); if(_ne) _ne.style.display='';
   leaderNavIds.forEach(function(id){
     var el=g(id); if(!el) return;
     el.style.display=isLeader?'':'none';
@@ -6263,7 +6264,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
   }
-  if(['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+  if(['team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -23678,10 +23679,12 @@ function rExam(){
 
   // 본인 신청 내역만 (관리자는 전체)
   var isAdmin=cu&&cu.admin;
-  // 본인이 등록한 건 + 소속(belong)이 본인인 건 — 관리자가 대신 등록해 줘도 소속 팀장 화면에 보이게(2026-09-22 실사고)
+  // 가시성 3단계(2026-09-22): 관리자·총무=전체 / 팀장=본인+하부인원(getMyTeam — 출장보고·리쿠르팅과 동일 재귀) /
+  // 팀원=본인만. 신청자(submitter) 또는 소속(belong)이 내 팀 범위면 표시 — belong 조건은
+  // 관리자가 팀장 몫을 대신 등록한 건(submitter=관리자)이 그 팀장 화면에 보이게 하는 실사고 해결분.
+  var _exTeam=isAdmin?null:((typeof getMyTeam==='function'&&getMyTeam())||[cu&&cu.name]);
   var visibleExams=isAdmin ? exams : exams.filter(function(e,i){
-    var me=cu&&cu.name;
-    return !e.submitter || e.submitter===me || (e.belong&&e.belong===me);
+    return (e.submitter&&_exTeam.indexOf(e.submitter)>=0) || (e.belong&&_exTeam.indexOf(e.belong)>=0);
   });
   if(!visibleExams.length){
     tb.innerHTML='<tr><td colspan="9" class="em" style="padding:30px">신청 내역이 없습니다.</td></tr>';
@@ -23737,7 +23740,6 @@ function rExam(){
 
 
 function toggleExamForm(){
-  if(!_isLeader()){ toast('TL 이상만 사용할 수 있습니다.'); return; }
   var wrap=g('exam_form_wrap');
   if(!wrap) return;
   rExam(); // 소속 select 최신화
