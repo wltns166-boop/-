@@ -113,6 +113,11 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 
 /* ── 대시보드 ── */
 .dash-actions { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.share-hint { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; line-height: 1.6; }
+.share-wrap { max-height: 58vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); text-align: center; }
+.share-wrap img { width: 100%; display: block; }
+.share-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.share-acts .btn { flex: 1; min-width: 120px; padding: 11px 0; font-size: 13.5px; }
 .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
 .stat {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
@@ -543,7 +548,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <!-- ═══ 대시보드 ═══ -->
       <section class="page active" id="page-dashboard">
         <div class="dash-actions">
-          <button class="btn ghost sm" onclick="sendDashToKakao()" title="이 달 요약을 카카오톡 '나와의 채팅'으로 보냅니다">💬 카톡으로 나에게 보내기</button>
+          <button class="btn ghost sm" onclick="openShareModal()" title="이 달 대시보드를 이미지로 만들어 카톡 등으로 보냅니다">🖼 카톡으로 보내기</button>
         </div>
         <div class="stat-grid">
           <div class="stat clickable" onclick="openTxModal(null, null, 'income')" title="누르면 이번 달 수입을 바로 입력합니다"><div class="lbl">💙 이번 달 수입</div><div class="val c-income" id="d-income">0원</div><div class="cmp" id="d-income-cmp"></div></div>
@@ -842,6 +847,23 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
       <div class="modal-foot">
         <button class="btn ghost" onclick="cancelImport()">취소</button>
         <button class="btn" id="import-save" onclick="commitImport()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 대시보드 이미지 공유 모달 ═══ -->
+<div class="modal-bg" id="share-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-h"><span>🖼 대시보드 이미지</span><button class="close" onclick="closeModal('share-modal')">✕</button></div>
+    <div class="modal-b">
+      <div class="share-hint">PC: <b>이미지 복사</b> 후 카톡 대화창에 Ctrl+V · 휴대폰: <b>공유</b>에서 카카오톡 선택</div>
+      <div class="share-wrap"><img id="share-img" alt="대시보드 이미지"></div>
+      <div class="share-acts">
+        <button class="btn" onclick="shareCopy()">📋 이미지 복사</button>
+        <button class="btn ghost" id="share-btn" onclick="shareNative()">📤 공유</button>
+        <button class="btn ghost" onclick="shareSave()">💾 저장</button>
+        <button class="btn ghost" onclick="sendDashToKakao()" title="글자 요약(200자)을 카톡 '나와의 채팅'으로">💬 글로 보내기</button>
       </div>
     </div>
   </div>
@@ -1364,6 +1386,187 @@ async function sendDashToKakao() {
     else if (code === 'cancelled') toast('보내기를 취소했습니다');
     else appAlert('보내지 못했습니다.' + (e && e.message ? '\n(' + e.message + ')' : '') + (code ? '\n[오류 코드: ' + code + ']' : '') + (e && e.retryable ? '\n잠시 후 다시 시도해 보세요.' : ''));
   }
+}
+/* ── 대시보드를 이미지(PNG)로 그려 카톡 등으로 보내기 ──
+   카카오 메모 도구는 글자만 받으므로, 이미지는 복사(PC) / 공유(휴대폰) / 저장으로 전달한다. */
+const IMG_FONT = "'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif";
+function drawDashImage() {
+  const W = 1080, P = 56, C = {
+    bg: '#f4f6f8', card: '#ffffff', line: '#e5e9ef', text: '#1a2433', muted: '#7b8794', accent: '#059669',
+    accentSoft: '#d1fae5', income: '#2563eb', expense: '#ef4444', expenseSoft: '#fee2e2', track: '#eef1f5', warn: '#f59e0b',
+  };
+  const monthTx = txOfMonth(selYM);
+  const inc = sumBy(monthTx, 'income');
+  const exp = expenseOfMonth(selYM);
+  const budgets = ls('budgets', { total: 0, byCat: {} });
+  const total = Number(budgets.total) || 0;
+  const cards = getCards();
+  const monthCt = cardTxOfMonth(selYM);
+  const cardRows = cards.map(c => ({ c, sum: monthCt.filter(t => t.cardId === c.id).reduce((s, t) => s + Number(t.amount || 0), 0), paid: !!(c.paid && c.paid[selYM]) }));
+  // 카테고리 (도넛과 같은 기준: 카드사도 항목으로)
+  const byCat = {};
+  monthTx.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount || 0); });
+  const cats = Object.entries(byCat).map(([name, v]) => { const i = catInfo('expense', name); return { name: `${i.emoji} ${name}`, v, color: i.color }; });
+  cards.forEach((c, i) => { const v = cardRows[i].sum; if (v > 0) cats.push({ name: `💳 ${c.name}`, v, color: PALETTE[(i + 6) % PALETTE.length] }); });
+  cats.sort((a, b) => b.v - a.v);
+  const catTop = cats.slice(0, 6);
+  const rest = cats.slice(6).reduce((s, x) => s + x.v, 0);
+  if (rest > 0) catTop.push({ name: '📦 그 외', v: rest, color: '#cbd5e1' });
+  // 12개월
+  const months = [];
+  for (let i = 11; i >= 0; i--) { const ym = ymAdd(selYM, -i); months.push({ ym, inc: sumBy(txOfMonth(ym), 'income'), exp: expenseOfMonth(ym) }); }
+
+  // 높이 계산
+  const H_HEAD = 150, H_TILES = 2 * 168 + 16, H_CHART = 400, ROW = 50;
+  const H_CATS = catTop.length ? 92 + catTop.length * ROW : 0;
+  const H_CARDS = cardRows.length ? 92 + cardRows.length * ROW : 0;
+  const H = P + H_HEAD + H_TILES + 24 + H_CHART + (H_CATS ? 24 + H_CATS : 0) + (H_CARDS ? 24 + H_CARDS : 0) + 70;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const rr = (X, Y, w, h, r, fill, stroke) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = 2; x.stroke(); } };
+  const tx = (str, X, Y, size, color, weight, align) => { x.font = `${weight || 500} ${size}px ${IMG_FONT}`; x.fillStyle = color; x.textAlign = align || 'left'; x.textBaseline = 'alphabetic'; x.fillText(str, X, Y); };
+  const fit = (str, max, size, weight) => { x.font = `${weight || 500} ${size}px ${IMG_FONT}`; while (str.length > 1 && x.measureText(str).width > max) str = str.slice(0, -2) + '…'; return str; };
+
+  x.fillStyle = C.bg; x.fillRect(0, 0, W, H);
+  let y = P;
+  // 헤더
+  tx('💰 우리집 가계부', P, y + 34, 28, C.muted, 700);
+  tx(`${ymLabel(selYM)} 가계부`, P, y + 100, 60, C.text, 800);
+  tx(`${todayStr().replace(/-/g, '.')} 기준`, W - P, y + 100, 24, C.muted, 500, 'right');
+  y += H_HEAD;
+  // 타일 4개 (2x2)
+  const tw = (W - P * 2 - 16) / 2, th = 168;
+  const tile = (col, row, label, val, valColor, sub) => {
+    const X = P + col * (tw + 16), Y = y + row * (th + 16);
+    rr(X, Y, tw, th, 22, C.card, C.line);
+    tx(label, X + 28, Y + 48, 24, C.muted, 700);
+    tx(fit(val, tw - 56, 46, 800), X + 28, Y + 106, 46, valColor, 800);
+    if (sub) tx(fit(sub, tw - 56, 22), X + 28, Y + 142, 22, C.muted, 500);
+  };
+  tile(0, 0, '💙 이번 달 수입', fmt(inc), C.income);
+  tile(1, 0, '❤️ 이번 달 지출', fmt(exp), C.expense, '카드 사용 포함');
+  tile(0, 1, '💚 수지 (수입−지출)', fmtSign(inc - exp), inc - exp >= 0 ? C.income : C.expense);
+  if (total > 0) {
+    const pct = Math.round(exp / total * 100);
+    const remain = total - exp;
+    const X = P + tw + 16, Y = y + th + 16;
+    rr(X, Y, tw, th, 22, C.card, C.line);
+    tx('📊 예산 사용률', X + 28, Y + 48, 24, C.muted, 700);
+    const col = pct >= 100 ? C.expense : pct >= 80 ? C.warn : C.accent;
+    tx(`${pct}%`, X + 28, Y + 100, 46, col, 800);
+    tx(fit(remain >= 0 ? `${fmt(remain)} 남음` : `${fmt(-remain)} 초과`, tw - 200, 24, 700), X + 150, Y + 100, 24, col, 700);
+    rr(X + 28, Y + 124, tw - 56, 18, 9, C.track);
+    rr(X + 28, Y + 124, Math.max(18, (tw - 56) * Math.min(100, pct) / 100), 18, 9, col);
+    tx(`목표 ${fmt(total)}`, X + 28, Y + 160, 20, C.muted);
+  } else {
+    tile(1, 1, '📊 예산 사용률', '미설정', C.muted, '대시보드에서 목표 지출을 설정하세요');
+  }
+  y += H_TILES + 24;
+  // 12개월 추이
+  rr(P, y, W - P * 2, H_CHART, 22, C.card, C.line);
+  tx('📊 최근 12개월 추이', P + 28, y + 48, 28, C.text, 800);
+  rr(W - P - 250, y + 30, 16, 16, 4, C.income); tx('수입', W - P - 226, y + 45, 20, C.muted, 700);
+  rr(W - P - 150, y + 30, 16, 16, 4, C.expense); tx('지출', W - P - 126, y + 45, 20, C.muted, 700);
+  const gut = 78, cx0 = P + 28 + gut, cw = W - P * 2 - 56 - gut, base = y + H_CHART - 60, chH = 250;
+  const max = Math.max(1, ...months.map(m => Math.max(m.inc, m.exp)));
+  x.strokeStyle = C.line; x.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(f => { const gy = base - chH * f; x.beginPath(); x.moveTo(cx0, gy); x.lineTo(cx0 + cw, gy); x.stroke(); tx(fmtShort(max * f), cx0 - 10, gy + 6, 17, C.muted, 500, 'right'); });
+  const slot = cw / 12, bw = Math.min(22, slot * 0.28);
+  months.forEach((m, i) => {
+    const cxm = cx0 + slot * i + slot / 2;
+    const hi = Math.round(m.inc / max * chH), he = Math.round(m.exp / max * chH);
+    const cur = m.ym === selYM;
+    if (cur) rr(cx0 + slot * i + 4, base - chH - 10, slot - 8, chH + 46, 12, C.accentSoft);
+    if (hi > 0) rr(cxm - bw - 3, base - hi, bw, hi, 5, C.income);
+    if (he > 0) rr(cxm + 3, base - he, bw, he, 5, C.expense);
+    tx(`${Number(m.ym.slice(5))}월`, cxm, base + 30, 19, cur ? C.accent : C.muted, cur ? 800 : 600, 'center');
+  });
+  y += H_CHART + 24;
+  // 카테고리별 지출
+  if (H_CATS) {
+    rr(P, y, W - P * 2, H_CATS, 22, C.card, C.line);
+    tx('🍩 카테고리별 지출', P + 28, y + 48, 28, C.text, 800);
+    tx(`총 ${fmt(exp)}`, W - P - 28, y + 48, 22, C.muted, 700, 'right');
+    const cmax = Math.max(1, catTop[0].v);
+    catTop.forEach((c, i) => {
+      const Y = y + 92 + i * ROW;
+      rr(P + 28, Y + 8, 14, 14, 4, c.color);
+      tx(fit(c.name, 230, 22, 700), P + 54, Y + 22, 22, C.text, 700);
+      rr(P + 300, Y + 6, 420, 18, 9, C.track);
+      rr(P + 300, Y + 6, Math.max(18, 420 * c.v / cmax), 18, 9, c.color);
+      tx(`${Math.round(c.v / Math.max(1, exp) * 100)}%`, P + 790, Y + 22, 20, C.muted, 600, 'right');
+      tx(fmt(c.v), W - P - 28, Y + 22, 22, C.text, 800, 'right');
+    });
+    y += H_CATS + 24;
+  }
+  // 카드사별 사용량
+  if (H_CARDS) {
+    rr(P, y, W - P * 2, H_CARDS, 22, C.card, C.line);
+    tx('💳 카드사별 사용량', P + 28, y + 48, 28, C.text, 800);
+    const csum = cardRows.reduce((s, r) => s + r.sum, 0);
+    tx(`합계 ${fmt(csum)}`, W - P - 28, y + 48, 22, C.muted, 700, 'right');
+    const cmax = Math.max(1, ...cardRows.map(r => r.sum));
+    cardRows.forEach((r, i) => {
+      const Y = y + 92 + i * ROW;
+      tx(fit(`💳 ${r.c.name}`, 250, 22, 700), P + 28, Y + 22, 22, C.text, 700);
+      rr(P + 300, Y + 6, 330, 18, 9, C.track);
+      if (r.sum > 0) rr(P + 300, Y + 6, Math.max(18, 330 * r.sum / cmax), 18, 9, C.expense);
+      tx(fmt(r.sum), P + 800, Y + 22, 22, C.expense, 800, 'right');
+      const chipW = 92, chipX = W - P - 28 - chipW;
+      rr(chipX, Y - 2, chipW, 32, 16, r.paid ? C.accentSoft : C.expenseSoft);
+      tx(r.paid ? '결제완료' : '미결제', chipX + chipW / 2, Y + 20, 18, r.paid ? C.accent : C.expense, 800, 'center');
+    });
+    y += H_CARDS + 24;
+  }
+  tx('우리집 가계부 · 대시보드', W / 2, H - 28, 18, C.muted, 500, 'center');
+  return cv;
+}
+let shareBlob = null, shareUrl = null;
+async function openShareModal() {
+  busyToast('🖼 이미지를 만드는 중...');
+  try {
+    const cv = drawDashImage();
+    shareBlob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    if (shareUrl) URL.revokeObjectURL(shareUrl);
+    shareUrl = URL.createObjectURL(shareBlob);
+    document.getElementById('share-img').src = shareUrl;
+    const f = shareFile();
+    document.getElementById('share-btn').style.display = (navigator.canShare && navigator.canShare({ files: [f] })) ? '' : 'none';
+    hideBusy();
+    document.getElementById('share-modal').classList.add('open');
+  } catch (e) { hideBusy(); appAlert('이미지를 만들지 못했습니다.\n(' + ((e && e.message) || e) + ')'); }
+}
+function shareFile() { return new File([shareBlob], `가계부_${selYM}.png`, { type: 'image/png' }); }
+async function shareCopy() {
+  if (!shareBlob) return;
+  try {
+    if (!navigator.clipboard || !window.ClipboardItem) throw new Error('unsupported');
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]);
+    toast('이미지를 복사했습니다 · 카톡 대화창에서 Ctrl+V');
+  } catch (e) {
+    appAlert('이 브라우저에서는 이미지 복사가 막혀 있습니다.\n"저장"으로 파일을 받은 뒤 카톡에 올려주세요.');
+  }
+}
+async function shareNative() {
+  if (!shareBlob) return;
+  try { await navigator.share({ files: [shareFile()], title: `${ymLabel(selYM)} 가계부` }); }
+  catch (e) { if (!(e && e.name === 'AbortError')) appAlert('공유 창을 열 수 없습니다.\n"이미지 복사"나 "저장"을 이용해 주세요.'); }
+}
+async function shareSave() {
+  if (!shareBlob) return;
+  if (dlApi === undefined) {
+    dlApi = null;
+    try { if (window.claude && window.claude.use) dlApi = await window.claude.use('downloads'); } catch {}
+  }
+  const name = `가계부_${selYM}.png`;
+  if (dlApi) {
+    try { await dlApi.save({ filename: name, data: shareBlob }); toast('이미지를 저장했습니다'); return; }
+    catch (e) { if (e && e.code === 'declined') return; }
+  }
+  const a = document.createElement('a');
+  a.href = shareUrl; a.download = name; a.click();
+  toast('이미지를 저장했습니다');
 }
 function cmpText(cur, prev, label) {
   if (!prev) return label + ' 기록 없음';
