@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-2</div>
   </div>
 </div>
 
@@ -11809,7 +11809,7 @@ function _medHospNorm(h){
 function _medParseTables(lines){
   var recs=[], tables=0, dropped=0;
   lines=(lines||[]).slice().sort(function(a,b){ return a.pg!==b.pg ? a.pg-b.pg : b.y-a.y; });
-  var cols=null, hdrToks=null, prev=null, hdrPg=0, justHdr=false;
+  var cols=null, hdrToks=null, prev=null, hdrPg=0, justHdr=false, curFile=-1;
   function buildCols(toks){
     var seen={};
     var cs=toks.slice().sort(function(a,b){ return a.x-b.x; }).map(function(t){
@@ -11838,6 +11838,8 @@ function _medParseTables(lines){
   }
   function numOf(v){ return parseInt(String(v||'').replace(/\D/g,''),10)||0; }
   lines.forEach(function(ln){
+    var f=Math.floor((ln.pg||0)/1000);
+    if(f!==curFile){ curFile=f; cols=null; hdrToks=null; prev=null; justHdr=false; }   // 파일 경계 — 이전 파일의 열 배치를 새 파일에 적용하지 않는다(리뷰 반영)
     var toks=_medTokens(ln.items);
     if(!toks.length) return;
     if(isHeader(toks) && !hasDate(toks)){
@@ -12329,7 +12331,15 @@ function saveMedResult(){
   const text=window._lastMedText||'';
   const html=document.getElementById('med_result_text').innerHTML;
   if(!text){ toast('저장할 정리 결과가 없습니다. 먼저 병력 분석을 실행해 주세요.'); return; }
-  if(window._lastMedSavedId && mhx.some(function(m){ return m&&m.id===window._lastMedSavedId; })){ toast('이 결과는 이미 목록에 저장되어 있습니다.'); return; }
+  const savedId=window._lastMedSavedId;
+  if(savedId && mhx.some(function(m){ return m&&m.id===savedId; })){
+    // 이미 자동 저장된 결과 — 고객명을 고쳐 다시 누른 경우 그 기록의 고객명만 갱신(중복 줄 금지, 리뷰 반영)
+    const custNow=(document.getElementById('med_cust').value||'(미입력)');
+    _mhxCloudMerge(function(arr){ arr.forEach(function(m){ if(m&&m.id===savedId) m.cust=custNow; }); return arr; }).then(function(){
+      rWm(); toast('이미 저장된 결과입니다 — 고객명을 "'+custNow+'"(으)로 갱신했습니다.');
+    });
+    return;
+  }
   const e=_mhxNewEntry(text,html);
   window._lastMedSavedId=e.id;
   _mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){
