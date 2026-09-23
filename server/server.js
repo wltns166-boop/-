@@ -339,6 +339,14 @@ async function processShortsQueue() {
     }
   } finally {
     shortsProcessing = false;
+    // 업로드 진행 중에 새로 감지된 영상은 위 루프에 포함되지 못하므로, 남아있으면 다시 처리 예약
+    const hasReadyPending = Object.values(SHORTS_QUEUE).some(
+      (q) => q.status === 'pending' && isChannelAuthed(q.channel)
+    );
+    if (hasReadyPending) {
+      clearTimeout(queueTimer);
+      queueTimer = setTimeout(processShortsQueue, 5000);
+    }
   }
 }
 
