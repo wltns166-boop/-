@@ -11,7 +11,9 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: `claude/tims-intranet-continuation-1kupar` (2026-09-08부터 — 세션 접미사 브랜치. 이전: claude/tims-intranet-continuation-q1rowj(219dba8) → claude/tims-gs-auto-deploy-ih0edz-g13v3j(12d1e53) → claude/tims-gs-auto-deploy-ih0edz(fe1d72b에서 분기, 그 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i))
+- 작업 브랜치: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
+  ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
+  **세션은 한 번에 하나만, 항상 이 브랜치의 원격 최신 위에서** 시작할 것.) (이전 이력: `claude/tims-intranet-continuation-1kupar` 2026-09-08부터 — 세션 접미사 브랜치. 이전: claude/tims-intranet-continuation-q1rowj(219dba8) → claude/tims-gs-auto-deploy-ih0edz-g13v3j(12d1e53) → claude/tims-gs-auto-deploy-ih0edz(fe1d72b에서 분기, 그 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i))
   ⚠️ 새 세션은 **원격 `claude/tims-intranet-continuation-1kupar`의 최신 커밋** 위에서 시작할 것 — `claude/**` 푸시는 즉시 라이브 배포되므로 낡은 브랜치(q1rowj의 219dba8, g13v3j의 12d1e53 등)에서 푸시하면 옛 코드가 배포된다.
 - 대화·주석은 **한국어**로.
 
@@ -383,6 +385,9 @@
     부대 항목 제외. ⑥ [목록 저장]은 자동 저장 뒤 고객명을 고쳐 누르면 거부 대신 **그 기록의 고객명 갱신**(savedId만으로 판정 —
     `_mhxCloudMerge`가 직렬이라 자동 저장 체인 뒤에 실행, 더블클릭 경합에도 중복 없음). ⑦ 날짜 미상 안내에 10대 질병 섹션 포함.
   모의 실행: 가짜 좌표 표(4종 결합·약국 전용 처방·쪼개진 머리글·우측정렬 숫자) + analyzeMedical 전체 흐름 스텁 실행(파서 단독 / 파일1 파서+파일3 AI 폴백·잘림 경고).
+- **v-4 (2026-09-23) — 다른 세션 작업 병합**: 4.994(미상 분리 nameKey · 원본 기록지 3종 드라이브 보관 `_medDriveSrcSave` · 목록 [자료함] 버튼 ·
+  `_medFolderCust`)를 이 구조 위에 병합. 옛 프롬프트의 규칙 7(미상 최소화)은 삭제된 프롬프트에 있었으므로 `_medAiPrompt` 규칙 6
+  ("진단명 없음 · 병원명"으로 병원별 분리)으로 옮김. 파서 경로는 `_medRecsToRows`가 처음부터 병원별로 나눔.
 - ⚠️ 수용·미해결: 같은 날짜에 병원이 둘 이상이면 약국 조제의 처방일수가 그날의 모든 상병 행에 붙음(과다 포함 — 안전 방향),
   같은 열 이름이 한 표에 둘이면 두 번째는 무시(`buildCols` seen), 재분석마다 새 줄이 쌓임(덮어쓰기 없음 — 드라이브 PDF도 매번 업로드),
   결과 카드 [PDF 저장]은 고지사항 없이·목록 [전체]는 포함(두 종류 PDF), 목록 정렬·검색 없음, 레거시 `m_wm` 수동 추가 모달은 여는 버튼 없는 죽은 코드.
@@ -984,6 +989,37 @@
   비우면 시나리오 연수와 동일·1~50 클램프)으로 교체. 만기 수령액은 `_fpCompute`가 **월 납입액 × 12 × 납입기간**으로
   자동 계산(원금 단순 합산 — 이자·정부기여금 별도, 보고서 1장 각주·3-4 비고에 근거 명시).
   입력칸 아래 힌트(`fp_s1mat_hint`)에 계산 결과 실시간 표시. FP_KEYS의 s1mat은 s1yrs로 교체(옛 버퍼의 s1mat 값은 무시됨).
+
+## 4.994 병력정리 (wm/mhx) — 미상 분리 · 원본 기록지 드라이브 보관 (2026-09-23, v2026.09.23-1~-2)
+
+- **파이프라인**: PDF 3종(f1 기본진료기록·f2 처방기록·f3 세부기록) → pdf.js 좌표 기반 텍스트 복원(_cleanMedText) →
+  80,000자 청크 분할(_splitMedChunks) → 청크별 AI(analyzeMedical의 규칙 0~7 프롬프트, claude-sonnet) → 표 행 수집 →
+  **`_mergeMedRowsByCode`가 코드/병명 기준 병합**(약 처방일수 최장값·같은 날 수술 1회·치료내용 행 흡수 등 집계는 코드 담당) → 자동 저장.
+- **"미상" 거대 행 분리 (2026-09-23 실사고)**: 진단·약 정보가 전혀 없는 수진 내역을 AI가 "미상" 한 행으로 뭉치고,
+  병합의 병명 키(nameNorm — 괄호 제거)가 청크별 미상 행을 전부 한 그룹으로 합쳐 **병원 수십 곳·통원 112회짜리
+  무의미한 행**이 되던 문제. 수정: ① 프롬프트 규칙 7 — 미상 내역은 병원별로 나누고 병명을 "미상(내과)"처럼
+  진료과목 병기, 진단 있는 행과의 중복 생성 금지. ② `nameKey` — **미상 행은 괄호 안 과목까지 보존해 그룹 구분**
+  (일반 병명은 기존 nameNorm 그대로). 무괄호 "미상"끼리는 기존대로 병합(구형 데이터 호환). ⚠️ nameKey를 nameNorm으로
+  되돌리면 거대 미상 행이 재발한다. 최근 5년 요약(통원 7회↑)도 과목별 분리로 자연히 소음이 줄어듦.
+- **원본 기록지 드라이브 보관 (2026-09-23)**: 분석 성공 시 `_medDriveSrcSave(cust, files)`가 업로드한 PDF 3종 원본을
+  **정리본 PDF(_medDrivePdfSave)와 같은 `{담당자}/병력정리/{고객}/` 폴더**에 저장(파일명 `원본_<종류>_<날짜>_<원래이름>`).
+  업로드는 내 자료함 dvUpload 직접 POST 재사용(no-cors — gs 무변경·재배포 불필요), 응답을 못 읽으므로
+  **dvList 재조회로 성공 확인 후 토스트**(4.995 규칙 — 조용한 실패 금지). 25MB 초과 파일은 생략+콘솔 경고,
+  드라이브 미연결이면 조용히 생략(_medDrivePdfSave 계열). 실패해도 분석·mhx 저장에는 영향 없음.
+- **[자료함] 버튼**: 저장된 병력정리 목록 PDF 칸에 초록 [자료함](`medOpenDrive(i)`) — `_dvState.member/path`를
+  세팅하고 showPage('drive'). 관리자는 작성자(m.m) 폴더, 그 외 본인 폴더(비관리자는 rDrive의 `_dvForceOwn`이 재확정 —
+  **member가 본인과 일치하면 path는 유지**되는 4.995 동작에 의존. _dvForceOwn이 path를 무조건 초기화하도록 바뀌면
+  이 버튼이 루트로 떨어짐). busy 중이면 이동 보류. 인덱스는 visibleMhx가 원본 인덱스 보존(기존 패턴).
+- **v-2 리뷰 반영 (2026-09-23)**: ① [High] 원본 업로드가 **전부** 실패하면(sent 0건) dvList 확인 없이 조용히 끝나던
+  결함 — failed/skipped 배열로 사전 제외·실패를 전부 추적해 **어떤 경우든 결과 토스트**(무통보 실패 금지).
+  25MB 초과·읽기 실패·차단 형식도 안내에 포함(부분 누락이 "n건 저장" 성공처럼 보이던 문제).
+  ② [Medium] 고객명에 '/'가 있으면 원본(dvUpload — path를 '/'로 분해)과 정리본 PDF(배열 folders — 문자 그대로
+  폴더명)가 **다른 폴더로 갈라짐** — `_medFolderCust`('/'·'\\'→'_')로 원본 업로드·[자료함] 경로·정리본 PDF(cust)
+  세 경로 통일. ⚠️ 한 곳만 고치면 다시 갈라진다. ③ 업로드 전 `DV_BLOCK_EXT` 검사(4.995 v-13 방어와 동일 — 
+  PDF 파싱을 통과해야 도달하는 경로라 실위험은 낮지만 방어 통일), 파일명 날짜는 `td()`(KST — UTC면 새벽에 하루 어긋남).
+- ⚠️ 수용 한계(기존 계열): 미상 행 자체는 원문에 진단이 없는 내역이라 완전 제거 불가(과목 표기로 완화),
+  진단 있는 행과 미상 행 사이의 이중 계산 방지는 프롬프트 지시 수준. dvUpload 직접 POST는 인증 없음(4.995 계열).
+  같은 과목의 미상 행은 병원이 달라도 한 그룹(hosps 병기) — "과목별 분리"가 사양이며 병원별 완전 분리는 아님.
 
 ## 4.995 내 자료함 (drive, 2026-09-15 — v2026.09.15-12)
 
