@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-6</div>
   </div>
 </div>
 
@@ -11785,12 +11785,13 @@ var MED_COLS=[
   {k:'date', re:/(진료개시일|진료시작일|진료일자|진료일(?!수)|조제일자|조제일|요양개시일|처방일자|처방일|입원일자|내원일자|진료년월일|처방전발행일|진료년월)/},
   {k:'hosp', re:/(병[·・.]?의원|요양기관|병원명|기관명|약국명|의료기관|병원)/},
   {k:'kind', re:/^(입원\/외래|입원외래|진료형태|진료구분|처방\/조제|처방조제|입원\/외래구분)$/},
-  {k:'code', re:/(상병기호|상병코드|주상병|질병코드|진단코드|질병분류|상병$)/},
-  {k:'name', re:/(상병명|진단명|질병명|상병내용|질병내용)/},
-  {k:'dept', re:/^(진료과목|진료과|과목)$/},
+  {k:'name', re:/(상병명|진단명|질병명|상병내용|질병내용)/},          // ⚠ code보다 먼저 — "주상병명"이 code(주상병)로 오인되던 문제(2026-09-23 실서식)
+  {k:'code', re:/(상병기호|상병코드|주상병(?!명)|질병코드|진단코드|질병분류|상병$)/},
+  {k:'dept', re:/^(진료과목|진료과|과목|진단과)$/},
+  {k:'act2', re:/^(코드명)$/},                                          // 세부진료정보의 "코드명" — 절제(술) 단어로 수술 판정(사용자 확정 규칙)
   {k:'ddays', re:/(총투약일수|투약일수|투여일수)/},
   {k:'drug', re:/(약품명|성분명|약제명|제품명)/},
-  {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명)/}
+  {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명|진료내역)/}
 ];
 var MED_DATE_RE=/(\d{4})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})일?/;
 var MED_CODE_RE=/^[A-Z]{1,2}\d{2}\.?\d{0,2}$/i;
@@ -11837,7 +11838,7 @@ function _medParseTables(lines){
   var recs=[], tables=0, dropped=0;
   lines=(lines||[]).slice().sort(function(a,b){ return a.pg!==b.pg ? a.pg-b.pg : b.y-a.y; });
   var cols=null, hdrToks=null, hdrPg=0, justHdr=false, curFile=-1, buf=[];
-  var TEXT_COLS={name:1,hosp:1,dept:1,act:1,kind:1,drug:1,code:1};
+  var TEXT_COLS={name:1,hosp:1,dept:1,act:1,act2:1,kind:1,drug:1,code:1};
   function buildCols(toks){
     var seen={};
     var cs=toks.slice().sort(function(a,b){ return a.x-b.x; }).map(function(t){
@@ -11868,15 +11869,16 @@ function _medParseTables(lines){
   }
   function numOf(v){ var m=String(v||'').match(/\d+/); return m?parseInt(m[0],10):0; }   // 첫 숫자만
   function glueHeader(toks){
-    if(!hdrToks || !toks.every(function(t){ return t.t.length<=5 && !MED_CODE_RE.test(t.t) && !/\d{4}/.test(t.t); })) return false;
+    if(!hdrToks) return false;
     var glued=false;
     toks.forEach(function(t){
+      if(MED_CODE_RE.test(t.t) || MED_DATE_RE.test(t.t) || /^\d+$/.test(t.t)) return;   // 데이터 값은 머리글 조각이 아님
       for(var i=0;i<hdrToks.length;i++){
         var h=hdrToks[i];
         if(!(t.x < h.x+h.w+4 && t.x+t.w > h.x-4)) continue;
-        // 아직 열 이름이 안 되는 머리글 토큰을 "완성"하는 조각만 이어붙인다("총투약"+"일수"). 이미 열 이름인 머리글 아래의
-        // 짧은 데이터 조각("(양방)신")을 머리글로 오인해 삼키던 문제 방지(2026-09-23 모의 실행에서 재현)
-        if(!_medColOf(h.t) && _medColOf(h.t+t.t)){ h.t=h.t+t.t; h.s=h.s+t.s; h.w=Math.max(h.w, t.x+t.w-h.x); glued=true; }
+        // 이미 열 이름인 머리글 아래의 짧은 데이터 조각("(양방)신")을 삼키지 않도록, 아직 열 이름이 아닌 머리글 토큰에만 붙인다
+        // ("입원/"+"외래", "주상병"+"코드", "내원"+"일수", "총"+"투약일수" — 2026-09-23 실서식 3종의 두 줄 머리글)
+        if(!_medColOf(h.t)){ h.t=h.t+t.t; h.s=h.s+t.s; h.w=Math.max(h.w, t.x+t.w-h.x); glued=true; }
         break;
       }
     });
@@ -11895,7 +11897,7 @@ function _medParseTables(lines){
     return a + (/(및|또는|과|와|의|,)$/.test(a) && !/^[,)]/.test(b) ? ' ' : '') + b;
   }
   function mergeFrag(rec, cells, before){
-    ['name','hosp','dept','act','kind','drug'].forEach(function(k){
+    ['name','hosp','dept','act','act2','kind','drug'].forEach(function(k){
       if(!cells[k]) return;
       rec[k] = before ? joinFrag(cells[k], rec[k]) : joinFrag(rec[k], cells[k]);
     });
@@ -11903,6 +11905,9 @@ function _medParseTables(lines){
   function flush(){
     if(!buf.length) return;
     var b=buf; buf=[];
+    // 표 종류: 상병(dx — 코드·병명 열) / 처방(rx — 약품·투약일수 열, 상병 열 없음) / 진료행위(act — 진료내역·코드명 열) / 기타
+    var ck={}; (cols||[]).forEach(function(c){ if(c.k) ck[c.k]=1; });
+    var tblKind = (ck.code||ck.name) ? 'dx' : (ck.act||ck.act2) ? 'act' : (ck.drug||ck.ddays) ? 'rx' : 'other';
     var anchors=[]; b.forEach(function(l,i){ if(l.date) anchors.push(i); });
     if(!anchors.length){ dropped+=b.length; return; }
     // 기준 줄 사이 조각 구간을 가장 큰 세로 간격에서 분할 → 각 기준 줄이 가질 위/아래 조각 범위
@@ -11926,7 +11931,8 @@ function _medParseTables(lines){
       var codeTxt=String(c.code||'').replace(/\s/g,''), codeOk=MED_CODE_RE.test(codeTxt);
       var rec={date:l.date, hosp:String(c.hosp||'').trim(), dept:String(c.dept||'').trim(), kind:String(c.kind||'').trim(),
                code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'', name:String(c.name||'').trim(),
-               vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), pg:l.pg};
+               vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), act2:String(c.act2||'').trim(),
+               tbl:tblKind, pg:l.pg};
       if(!codeOk && c.code && !c.name && /[가-힣]/.test(c.code)) rec.name=String(c.code).trim();
       var ab=above[i]||[i,i], bl=below[i]||[i+1,i+1], extra=[];
       var pre={};                                                          // 위 조각은 위→아래 순으로 모아 한 덩어리로 앞에 붙인다(역순 삽입 방지)
@@ -11941,6 +11947,7 @@ function _medParseTables(lines){
         if(isFragment(fc)) mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false); else dropped++;
       }
       rec.hosp=_medHospNorm(rec.hosp);
+      if(rec.act2) rec.act=(rec.act?rec.act+' / ':'')+rec.act2;
       recs.push(rec); extra.forEach(function(r){ r.hosp=_medHospNorm(r.hosp); recs.push(r); });
     });
   }
@@ -11986,7 +11993,7 @@ function _medRecsToRows(recs){
         var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=r.act;
         other.forEach(function(o){
           if(!sameHosp(o,hosp)) return;
-          if(o.ddays>dd) dd=o.ddays;
+          if(o.tbl!=='act' && o.ddays>dd) dd=o.ddays;                       // 세부진료정보의 "총투약일수 1"(진찰료 등)은 처방일수가 아님 — 무시
           if(o.vdays>vd) vd=o.vdays;
           if(!kind && o.kind) kind=o.kind;
           if(!hosp && o.hosp && !/약국/.test(o.hosp)) hosp=o.hosp;
@@ -11995,21 +12002,31 @@ function _medRecsToRows(recs){
         rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act));
       });
     }else{
-      // 상병 없는 날짜: 병원별로 한 행
+      // 상병 없는 날짜: 병원별로 한 행. 세부진료(act 표)만 있는 날짜는 절제/수술 단어가 있을 때만 행을 만든다(진찰료·처치 나열은 행이 아님)
       var byH={};
-      other.forEach(function(o){ var k=hospKey(o.hosp)||'-'; if(!byH[k]) byH[k]=Object.assign({},o); else { var b=byH[k]; if(o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); } });
+      other.forEach(function(o){
+        if(o.tbl==='act' && !_medSurgWord(o.act)) return;
+        var k=hospKey(o.hosp)||'-';
+        if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays)});
+        else { var b=byH[k]; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); }
+      });
       Object.keys(byH).forEach(function(k){ var o=byH[k]; var h=/약국/.test(o.hosp)?'':o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
     }
   });
   return rows;
 }
+// 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
+function _medSurgWord(act){
+  var m=String(act||'').match(/[^\s\/·,()]*(절제|적출|절개술|성형술|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);
+  return m?m[0]:'';
+}
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
   var inpat=/입원/.test(String(kind||''));
   var visit=inpat?'0회':'1회';
   var inD=inpat?((vdays||1)+'일'):'없음';
-  var surg=/절제|적출|절개술|성형술|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기))/.test(String(act||''));   // "수술 전 검사"·"수술실 사용료" 같은 부대 항목 제외(리뷰 반영)
+  var sw=_medSurgWord(act), surg=!!sw;
   var nm=String(name||'').replace(/\|/g,'/');
-  if(surg && act) nm+='('+String(act).replace(/\|/g,'/').slice(0,30)+')';
+  if(surg) nm+='('+sw.replace(/\|/g,'/').slice(0,30)+')';
   var h=String(hosp||'').replace(/\|/g,'/');
   if(/약국/.test(h)) h='';
   return '| '+date+' | '+nm+' | '+String(code||'').replace(/\|/g,'/')+' | '+(h||'-')+' | '+visit+' | '+inD+' | '+(surg?'1회':'없음')+' | '+(ddays||0)+'일 |';
