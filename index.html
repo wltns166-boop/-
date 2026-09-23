@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-5</div>
   </div>
 </div>
 
@@ -11787,6 +11787,7 @@ var MED_COLS=[
   {k:'kind', re:/^(입원\/외래|입원외래|진료형태|진료구분|처방\/조제|처방조제|입원\/외래구분)$/},
   {k:'code', re:/(상병기호|상병코드|주상병|질병코드|진단코드|질병분류|상병$)/},
   {k:'name', re:/(상병명|진단명|질병명|상병내용|질병내용)/},
+  {k:'dept', re:/^(진료과목|진료과|과목)$/},
   {k:'ddays', re:/(총투약일수|투약일수|투여일수)/},
   {k:'drug', re:/(약품명|성분명|약제명|제품명)/},
   {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명)/}
@@ -11829,9 +11830,14 @@ function _medHospNorm(h){
 }
 // 페이지별 줄 배열 → 표 인식 → 기록(recs) — {recs, tables, dropped}
 function _medParseTables(lines){
+  // 실제 심평원 표(2026-09-23 확인): 상병명 칸이 한 행 안에서 여러 줄로 줄바꿈되고 날짜·병원·코드는 그 행의
+  // 가운데 줄에 세로 정렬된다. 그래서 "날짜 있는 줄=기준 줄"로 잡고, 기준 줄 사이의 조각 줄들은 줄 간격이 가장
+  // 크게 벌어지는 곳(행 경계에는 여백이 있음)에서 나눠 위 조각은 아래 기록, 아래 조각은 위 기록에 붙인다.
+  // ⚠ "날짜 없는 줄은 무조건 직전 기록에 이어붙임"으로 되돌리지 말 것 — 병명이 앞뒤 기록에 조각나 뒤섞인다.
   var recs=[], tables=0, dropped=0;
   lines=(lines||[]).slice().sort(function(a,b){ return a.pg!==b.pg ? a.pg-b.pg : b.y-a.y; });
-  var cols=null, hdrToks=null, prev=null, hdrPg=0, justHdr=false, curFile=-1;
+  var cols=null, hdrToks=null, hdrPg=0, justHdr=false, curFile=-1, buf=[];
+  var TEXT_COLS={name:1,hosp:1,dept:1,act:1,kind:1,drug:1,code:1};
   function buildCols(toks){
     var seen={};
     var cs=toks.slice().sort(function(a,b){ return a.x-b.x; }).map(function(t){
@@ -11852,7 +11858,7 @@ function _medParseTables(lines){
   function assign(toks){
     var cells={};
     toks.forEach(function(t){
-      // 숫자 칸은 오른쪽 정렬이 흔해 시작 x가 앞 칸으로 새기 쉬움 — 숫자 토큰은 중심 x, 글자 토큰은 시작 x로 배정(리뷰 반영)
+      // 숫자 칸은 오른쪽 정렬이 흔해 시작 x가 앞 칸으로 새기 쉬움 — 숫자 토큰은 중심 x, 글자 토큰은 시작 x로 배정
       var ax = /^[\d,.]+$/.test(t.t) ? (t.x + t.w/2) : t.x;
       for(var i=0;i<cols.length;i++){
         if(ax>=cols[i].x0 && ax<cols[i].x1){ var k=cols[i].k||('_'+i); cells[k]=(cells[k]?cells[k]+' ':'')+t.s.trim(); break; }
@@ -11860,52 +11866,104 @@ function _medParseTables(lines){
     });
     return cells;
   }
-  function numOf(v){ var m=String(v||'').match(/\d+/); return m?parseInt(m[0],10):0; }   // 첫 숫자만 — 두 숫자가 한 칸에 섞여도 이어붙이지 않음
-  // 머리글 낱말이 두 줄로 쪼개진 경우("총투약"/"일수") — 짧은 조각 줄이면 x가 겹치는 머리글 토큰에 이어붙여 다시 인식
+  function numOf(v){ var m=String(v||'').match(/\d+/); return m?parseInt(m[0],10):0; }   // 첫 숫자만
   function glueHeader(toks){
     if(!hdrToks || !toks.every(function(t){ return t.t.length<=5 && !MED_CODE_RE.test(t.t) && !/\d{4}/.test(t.t); })) return false;
     var glued=false;
     toks.forEach(function(t){
-      for(var i=0;i<hdrToks.length;i++){ var h=hdrToks[i]; if(t.x < h.x+h.w+4 && t.x+t.w > h.x-4){ h.t=h.t+t.t; h.s=h.s+t.s; h.w=Math.max(h.w, t.x+t.w-h.x); glued=true; break; } }
+      for(var i=0;i<hdrToks.length;i++){
+        var h=hdrToks[i];
+        if(!(t.x < h.x+h.w+4 && t.x+t.w > h.x-4)) continue;
+        // 아직 열 이름이 안 되는 머리글 토큰을 "완성"하는 조각만 이어붙인다("총투약"+"일수"). 이미 열 이름인 머리글 아래의
+        // 짧은 데이터 조각("(양방)신")을 머리글로 오인해 삼키던 문제 방지(2026-09-23 모의 실행에서 재현)
+        if(!_medColOf(h.t) && _medColOf(h.t+t.t)){ h.t=h.t+t.t; h.s=h.s+t.s; h.w=Math.max(h.w, t.x+t.w-h.x); glued=true; }
+        break;
+      }
     });
     if(glued) cols=buildCols(hdrToks);
     return glued;
   }
+  // 조각 줄 판정: 글자 열(병명·병원·과목·행위·구분·약품·코드)에만 값이 있고 날짜가 없는 줄
+  function isFragment(cells){
+    var ks=Object.keys(cells);
+    return ks.length>0 && ks.every(function(k){ return TEXT_COLS[k]; });
+  }
+  // 줄바꿈 조각 이어붙임 — 한글 표는 낱말 중간에서 줄이 바뀌므로 공백 없이 잇되, 앞 조각이 접속어로 끝나면 공백
+  function joinFrag(a,b){
+    a=String(a||''); b=String(b||'');
+    if(!a) return b; if(!b) return a;
+    return a + (/(및|또는|과|와|의|,)$/.test(a) && !/^[,)]/.test(b) ? ' ' : '') + b;
+  }
+  function mergeFrag(rec, cells, before){
+    ['name','hosp','dept','act','kind','drug'].forEach(function(k){
+      if(!cells[k]) return;
+      rec[k] = before ? joinFrag(cells[k], rec[k]) : joinFrag(rec[k], cells[k]);
+    });
+  }
+  function flush(){
+    if(!buf.length) return;
+    var b=buf; buf=[];
+    var anchors=[]; b.forEach(function(l,i){ if(l.date) anchors.push(i); });
+    if(!anchors.length){ dropped+=b.length; return; }
+    // 기준 줄 사이 조각 구간을 가장 큰 세로 간격에서 분할 → 각 기준 줄이 가질 위/아래 조각 범위
+    var above={}, below={};
+    for(var a=0;a<anchors.length;a++){
+      var i=anchors[a], prevA=a>0?anchors[a-1]:-1, nextA=a<anchors.length-1?anchors[a+1]:b.length;
+      // 위 구간: (prevA, i) — prevA가 있으면 분할, 없으면 전부 이 기록
+      if(a===0) above[i]=[0,i]; 
+      // 아래 구간: (i, nextA)
+      if(nextA>=b.length){ below[i]=[i+1,b.length]; }
+      else{
+        var lo=i, hi=nextA, bestGap=-1, cut=i+1;   // cut: 이 인덱스부터 다음 기록의 위 조각
+        for(var j=lo;j<hi;j++){ var gap=Math.abs(b[j].y-b[j+1].y); if(gap>bestGap+1e-6){ bestGap=gap; cut=j+1; } }
+        // 코드가 적힌 조각 줄(같은 날짜의 두 번째 상병 행)은 항상 위 기록 쪽 — 줄 간격이 균일하면 분할점이 앞으로 잡혀 다음 기록에 붙는 것 방지
+        for(var j3=i+1;j3<hi;j3++){ if(MED_CODE_RE.test(String(b[j3].cells.code||'').replace(/\s/g,'')) && j3+1>cut) cut=j3+1; }
+        below[i]=[i+1,cut]; above[nextA]=[cut,nextA];
+      }
+    }
+    anchors.forEach(function(i){
+      var l=b[i], c=l.cells;
+      var codeTxt=String(c.code||'').replace(/\s/g,''), codeOk=MED_CODE_RE.test(codeTxt);
+      var rec={date:l.date, hosp:String(c.hosp||'').trim(), dept:String(c.dept||'').trim(), kind:String(c.kind||'').trim(),
+               code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'', name:String(c.name||'').trim(),
+               vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), pg:l.pg};
+      if(!codeOk && c.code && !c.name && /[가-힣]/.test(c.code)) rec.name=String(c.code).trim();
+      var ab=above[i]||[i,i], bl=below[i]||[i+1,i+1], extra=[];
+      var pre={};                                                          // 위 조각은 위→아래 순으로 모아 한 덩어리로 앞에 붙인다(역순 삽입 방지)
+      for(var j=ab[0];j<ab[1];j++){ if(isFragment(b[j].cells)) mergeFrag(pre,b[j].cells,false); else dropped++; }
+      mergeFrag(rec,pre,true);
+      for(var j2=bl[0];j2<bl[1];j2++){
+        var fc=b[j2].cells, fct=String(fc.code||'').replace(/\s/g,'');
+        if(MED_CODE_RE.test(fct) && fct!==rec.codeRaw){                   // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
+          var r2=Object.assign({},rec,{code:_medCodeNorm(fct),codeRaw:fct,name:String(fc.name||'').trim(),act:String(fc.act||'').trim()});
+          extra.push(r2); continue;
+        }
+        if(isFragment(fc)) mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false); else dropped++;
+      }
+      rec.hosp=_medHospNorm(rec.hosp);
+      recs.push(rec); extra.forEach(function(r){ r.hosp=_medHospNorm(r.hosp); recs.push(r); });
+    });
+  }
   lines.forEach(function(ln){
     var f=Math.floor((ln.pg||0)/1000);
-    if(f!==curFile){ curFile=f; cols=null; hdrToks=null; prev=null; justHdr=false; }   // 파일 경계 — 이전 파일의 열 배치를 새 파일에 적용하지 않는다(리뷰 반영)
+    if(f!==curFile){ flush(); curFile=f; cols=null; hdrToks=null; justHdr=false; }   // 파일 경계 — 이전 파일의 열 배치를 새 파일에 적용하지 않는다
+    if(cols && hdrPg!==ln.pg){ flush(); }                                              // 쪽이 바뀌면 행 블록도 끊는다(머리글은 쪽마다 반복)
     var toks=_medTokens(ln.items);
     if(!toks.length) return;
     if(isHeader(toks) && !hasDate(toks)){
+      flush();
       if(justHdr && hdrPg===ln.pg){ hdrToks=hdrToks.concat(toks); cols=buildCols(hdrToks); }   // 두 줄 머리글 — 이어 붙임
-      else { hdrToks=toks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; }); cols=buildCols(hdrToks); tables++; hdrPg=ln.pg; prev=null; }
+      else { hdrToks=toks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; }); cols=buildCols(hdrToks); tables++; hdrPg=ln.pg; }
       justHdr=true; return;
     }
     if(justHdr && hdrPg===ln.pg && !hasDate(toks) && glueHeader(toks)) return;   // 쪼개진 머리글 조각 줄
     justHdr=false;
     if(!cols) return;
+    if(hdrPg!==ln.pg) hdrPg=ln.pg;   // 같은 파일의 다음 쪽(머리글 미반복 서식) — 열 배치는 유지
     var cells=assign(toks);
-    var date=_medDateNorm(cells.date||'');
-    var codeTxt=String(cells.code||'').replace(/\s/g,'');
-    var codeOk=MED_CODE_RE.test(codeTxt);
-    if(date){
-      prev={date:date, hosp:_medHospNorm(cells.hosp), kind:String(cells.kind||'').trim(), code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'',
-            name:String(cells.name||'').trim(), vdays:numOf(cells.vdays), ddays:numOf(cells.ddays), drug:String(cells.drug||'').trim(), act:String(cells.act||'').trim(), pg:ln.pg};
-      if(!codeOk && cells.code && !cells.name && /[가-힣]/.test(cells.code)) prev.name=String(cells.code).trim();   // 코드 칸 자리에 병명이 온 서식
-      recs.push(prev);
-      return;
-    }
-    if(!prev || prev.pg!==ln.pg){ if(cells.code||cells.name||cells.ddays) dropped++; return; }   // 표 밖 안내문·머리말
-    if(codeOk && codeTxt!==prev.codeRaw){                        // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
-      var r=Object.assign({},prev,{code:_medCodeNorm(codeTxt),codeRaw:codeTxt,name:String(cells.name||'').trim(),act:String(cells.act||'').trim()});
-      recs.push(r); prev=r; return;
-    }
-    // 긴 병명·병원명 줄바꿈 이어붙임
-    if(cells.name) prev.name=(prev.name+' '+cells.name).trim();
-    if(cells.hosp && !prev.hosp) prev.hosp=_medHospNorm(cells.hosp);
-    if(cells.act) prev.act=(prev.act+' '+cells.act).trim();
-    if(cells.ddays && !prev.ddays) prev.ddays=numOf(cells.ddays);
+    buf.push({y:ln.y, pg:ln.pg, cells:cells, date:_medDateNorm(cells.date||'')});
   });
+  flush();
   return {recs:recs, tables:tables, dropped:dropped};
 }
 // 기록(recs) → _mergeMedRowsByCode가 읽는 8칸 마크다운 행.
@@ -11934,13 +11992,13 @@ function _medRecsToRows(recs){
           if(!hosp && o.hosp && !/약국/.test(o.hosp)) hosp=o.hosp;
           if(o.act) act=(act+' '+o.act).trim();
         });
-        rows.push(_medRowLine(d, r.name||'진단명 없음 · '+(hosp||'-'), r.code, hosp, kind, vd, dd, act));
+        rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act));
       });
     }else{
       // 상병 없는 날짜: 병원별로 한 행
       var byH={};
       other.forEach(function(o){ var k=hospKey(o.hosp)||'-'; if(!byH[k]) byH[k]=Object.assign({},o); else { var b=byH[k]; if(o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); } });
-      Object.keys(byH).forEach(function(k){ var o=byH[k]; var h=/약국/.test(o.hosp)?'':o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-'), '', h, o.kind, o.vdays, o.ddays, o.act)); });
+      Object.keys(byH).forEach(function(k){ var o=byH[k]; var h=/약국/.test(o.hosp)?'':o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
     }
   });
   return rows;
@@ -12212,6 +12270,18 @@ async function analyzeMedical(){
       throw new Error('정리할 진료 내역을 찾지 못했습니다. ' + (chunkErrors.join(' / ') || '(표 머리글·날짜가 있는 줄이 없음 — [추출원문]으로 확인해 주세요)'));
     }
     var badRows = allRows.filter(function(r){ return !_medRowCells(r); }).length;
+    // 원문 코드 ↔ 표 코드 대조(빠짐 검증): 원문에서 코드 모양 토큰을 모아 표에 실린 코드와 비교해 결과 하단에 명시
+    var codeAudit = '';
+    try{
+      var rawAll = medFileData.map(function(f){ return f.raw||f.text||''; }).join('\n');
+      var known = _medRawCodes(rawAll), inTable = {};
+      allRows.forEach(function(r){ var c=_medRowCells(r); if(!c) return; var m=String(c[2]||'').toUpperCase().match(/^([A-Z]\d{2}(?:\.\d{1,2})?)/); if(m){ inTable[m[1]]=1; inTable[m[1].slice(0,3)]=1; } });
+      var full = Object.keys(known).filter(function(k){ return k.length>3; });          // 소수점 포함 정식 코드만(3자리 범주 키는 보조)
+      var missing = full.filter(function(k){ return !inTable[k] && !inTable[k.slice(0,3)]; });
+      var tableCnt = Object.keys(inTable).filter(function(k){ return k.length>3; }).length;
+      codeAudit = '※ 코드 대조: 원문에서 찾은 상병코드 '+full.length+'종 / 표에 실린 코드 '+tableCnt+'종'
+                + (missing.length ? ' / ⚠ 표에 없는 원문 코드: '+missing.slice(0,20).join(', ')+(missing.length>20?' 외 '+(missing.length-20)+'종':'') : ' / 빠진 코드 없음');
+    }catch(ae){ codeAudit=''; }
 
     // 같은 상병코드끼리 묶어 기간(최초~최근)·통원 횟수 합산, 약 처방일수는 최장값(합산 금지 — 확정 규칙)
     var mergedRows = _mergeMedRowsByCode(allRows);
@@ -12223,6 +12293,7 @@ async function analyzeMedical(){
     finalLines.push('');
     if(srcNote) finalLines.push(srcNote);
     if(chunks.length > 1) finalLines.push('※ 원본이 길어 ' + chunks.length + '개 부분으로 나누어 처리 후 통합되었습니다.');
+    if(codeAudit) finalLines.push(codeAudit);
     if(badRows) finalLines.push('⚠ 칸 수가 맞지 않아 제외된 행 ' + badRows + '개 — [추출원문]과 대조해 주세요.');
     if(chunkErrors.length) finalLines.push('⚠ 일부 구간 처리 실패: ' + chunkErrors.join(', '));
     var text = finalLines.join('\n');
