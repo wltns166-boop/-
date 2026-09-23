@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-15</div>
   </div>
 </div>
 
@@ -11671,7 +11671,8 @@ function _mergeMedRowsByCode(rows){
     String(hospName||'').split(/[·,，]/).forEach(function(hn){
       hn=hn.trim();
       if(!hn || hn==='-' || /약국/.test(hn)) return;                  // 약국명은 병원명 칸에 표기 금지
-      if(g.hosps.indexOf(hn)===-1) g.hosps.push(hn);
+      var hnKey=hn.replace(/\s/g,'');                                   // 띄어쓰기만 다른 같은 병원("고운빛안과의 원")은 하나로(v-15)
+      if(!g.hosps.some(function(x){ return x.replace(/\s/g,'')===hnKey; })) g.hosps.push(hn);
     });
     // 같은 날 수술은 1회로: 하루짜리 진료기간의 수술 행이 여러 개 와도(부위·행위코드별 분리 등)
     // 그 날짜로는 그룹당 1회만 산입. 기간(여러 날)에 걸친 행은 AI가 센 횟수를 그대로 사용.
@@ -11928,7 +11929,10 @@ function _medParseTables(lines){
     ['name','hosp','dept','act','act2','kind','drug'].forEach(function(k){
       if(!cells[k]) return;
       if(rec[k] && String(rec[k]).indexOf(String(cells[k]))!==-1) return;   // 같은 값 반복 결합 방지("외래외래" — 리뷰 반영)
-      rec[k] = before ? joinFrag(cells[k], rec[k]) : joinFrag(rec[k], cells[k]);
+      // 병원명·진단과·구분은 낱말 중간 줄바꿈이라 항상 공백 없이 잇는다 — 병명용 접속어 규칙("…의" 뒤 공백)을 적용하면
+      // "고운빛안과의"+"원"이 "고운빛안과의 원"이 되어 같은 병원이 두 이름으로 갈라졌음(2026-09-23 실사고, v-15)
+      var j = (k==='hosp'||k==='dept'||k==='kind') ? function(a,b){ return String(a||'')+String(b||''); } : joinFrag;
+      rec[k] = before ? j(cells[k], rec[k]) : j(rec[k], cells[k]);
     });
     if(cells.ddays && !rec.ddays && rec.date) rec.ddays=numOf(cells.ddays);   // 숫자 칸이 조각 줄에 온 서식 — 기준 줄에 없을 때만
     if(cells.vdays && !rec.vdays && rec.date) rec.vdays=numOf(cells.vdays);
@@ -12067,7 +12071,8 @@ function _medRecsToRows(recs){
           if(o.tbl!=='act' && o.ddays>dd) dd=o.ddays;                       // 세부진료정보의 "총투약일수 1"(진찰료 등)은 처방일수가 아님 — 무시
           if(o.vdays>vd) vd=o.vdays;
           if(!kind && o.kind && !isPharm(o)) kind=o.kind;                    // 약국 행의 '처방조제' 구분은 진료 행에 복사하지 않음(통원 0회 회귀 방지)
-          if(!hosp && o.hosp && !/약국/.test(o.hosp)) hosp=o.hosp;
+          // 병원명 폴백 폐지(v-15): 기본진료정보 행은 병원명이 항상 있으므로 못 읽었다면 파싱 문제 — 같은 날 다른 병원(처방·세부 행)의 이름을
+          // 물려받으면 엉뚱한 병원(라온내과의원)이 안과 상병에 붙는다. 빈 채로 두어 눈에 띄게 한다.
           if(o.act) act=(act+' '+o.act).trim();
         });
         rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act));
