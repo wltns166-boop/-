@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-25</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-26</div>
   </div>
 </div>
 
@@ -9696,7 +9696,7 @@ function _medNoticeItems(note){
     return /(입원|수술)/.test(stripped);
   }
   // 병명 칸에만 "절제술"이 적힌 행(예: "결장 폴립(폴립절제술)" + 입원/수술 "없음")도 수술 내역으로 포함
-  function hospIncl(r){ return hospPositive(r.hosp) || resectPos(r.disease); }
+  function hospIncl(r){ return hospPositive(r.hosp); }   // 병명 글자로는 수술을 판정하지 않는다 — "척추후궁절제후증후군"이 수술로 잡히던 실사고(v-26). 표의 입원·수술 칸만 기준
   return {
     parsed: rows.length,
     drugUnit: drugUnit,
@@ -9767,8 +9767,7 @@ function _medNoticeSectionsHtml(m, opts){
       })
     +sec('1. 5년 이내 입원·수술 내역', hospL, function(r){
         var h=String(r.hosp||'').trim();
-        if((!h||h==='없음'||h==='-')&&/절제/.test(String(r.disease||''))) return '절제 시행(수술로 간주)';
-        return r.hosp;
+        return r.hosp;   // 병명 기반 '절제 시행(수술로 간주)' 표기 폐지(v-26) — 표의 수술 칸만
       })
     +sec('2. 5년 이내 통원치료 7회 이상', visitL, function(r){ return '통원 '+r.visit+'회'; })
     +sec('3. 5년 이내 '+(nt.drugUnit==='회'?'약 처방 30회':'약 처방일수 30일')+' 이상 투약', drugL, function(r){ return '총 '+r.drug+nt.drugUnit; })
