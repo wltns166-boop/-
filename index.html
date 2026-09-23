@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-24</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-25</div>
   </div>
 </div>
 
@@ -11920,19 +11920,26 @@ function _medParseTables(lines){
       // 좁은 칸에서는 아랫줄 낱말끼리도 붙어 한 토큰("투여횟수투약일수")이 되어 윗줄 글자 둘("1일"·"총")에 걸친다 — 윗줄 글자 사이 경계(중간 x)에서
       // 글자를 비례 분할해 각각 붙인다(v-24 실사고: 통째로 "1일"에 붙어 총투약일수 열이 한 칸 왼쪽으로 밀림). 한 글자에만 걸치면 겹침이 가장 큰 것에.
       var pieces=[];
-      if(cands.length===2 && t.t.length>=2){
-        // 분할점: 두 조각을 각 윗글자에 붙였을 때 열 이름(_medColOf)으로 인식되는 개수가 가장 많은 k — 글자 폭 비율만으로는 한 글자가 어긋난다
-        var cw=t.w/Math.max(1,t.s.length), str=t.s.replace(/\s+/g,''), bestK=-1, bestScore=-1;
-        var propK=Math.round(((cands[0].h.x+cands[0].h.w + cands[1].h.x)/2 - t.x)/cw);
-        for(var k=1;k<str.length;k++){
-          var sc=(_medColOf(cands[0].h.t+str.slice(0,k))?1:0)+(_medColOf(cands[1].h.t+str.slice(k))?1:0);
-          var score=sc*100-Math.abs(k-propK);   // 인식 개수 우선, 같으면 비례 위치에 가까운 k
-          if(score>bestScore){ bestScore=score; bestK=k; }
+      if(cands.length>=2 && t.t.length>=cands.length){
+        // 분할점: 조각을 각 윗글자에 붙였을 때 열 이름(_medColOf)으로 인식되는 개수가 가장 많은 k — 글자 폭 비율만으로는 한 글자가 어긋난다.
+        // 후보가 셋 이상이면 왼쪽부터 경계마다 같은 기준으로 차례로 나눈다(리뷰 반영, v-25)
+        var cw=t.w/Math.max(1,t.s.length), str=t.s.replace(/\s+/g,''), pos=0;
+        for(var bi=0; bi<cands.length-1; bi++){
+          var left=cands[bi].h, right=cands[bi+1].h, remain=cands.length-1-bi;   // 오른쪽에 남겨야 할 최소 글자 수=남은 후보 수
+          var propK=Math.round(((left.x+left.w + right.x)/2 - t.x)/cw), bestK=-1, bestScore=-Infinity;
+          for(var k=pos+1;k<=str.length-remain;k++){
+            var sc=(_medColOf(left.t+str.slice(pos,k))?1:0)+(_medColOf(right.t+str.slice(k))?1:0);
+            var score=sc*100-Math.abs(k-propK);   // 인식 개수 우선, 같으면 비례 위치에 가까운 k
+            if(score>bestScore){ bestScore=score; bestK=k; }
+          }
+          if(bestK<0) break;
+          pieces.push({h:left, s:str.slice(pos,bestK), x:t.x+pos*cw, w:(bestK-pos)*cw}); pos=bestK;
         }
-        if(bestK>0){ pieces.push({h:cands[0].h, s:str.slice(0,bestK), x:t.x, w:bestK*cw}); pieces.push({h:cands[1].h, s:str.slice(bestK), x:t.x+bestK*cw, w:(str.length-bestK)*cw}); }
+        if(pieces.length===cands.length-1) pieces.push({h:cands[cands.length-1].h, s:str.slice(pos), x:t.x+pos*cw, w:(str.length-pos)*cw}); else pieces=[];
       }
       if(!pieces.length){ var bc=cands.reduce(function(a,b){ return b.ov>a.ov?b:a; }); pieces=[{h:bc.h, s:t.s, x:t.x, w:t.w}]; }
-      pieces.forEach(function(pc){ var bh=pc.h, ps=pc.s.replace(/\s+/g,''); if(!ps) return; bh.t=bh.t+ps; bh.s=bh.s+pc.s; var x0=Math.min(bh.x,pc.x), x1=Math.max(bh.x+bh.w,pc.x+pc.w); bh.x=x0; bh.w=x1-x0; glued=true; });
+      // 윗글자의 x(왼쪽 앵커)는 그대로 두고 폭만 오른쪽으로 넓힌다 — x를 왼쪽으로 줄이면 buildCols 경계가 왼쪽 열 데이터를 끌어온다(리뷰 반영)
+      pieces.forEach(function(pc){ var bh=pc.h, ps=pc.s.replace(/\s+/g,''); if(!ps) return; bh.t=bh.t+ps; bh.s=bh.s+pc.s; bh.w=Math.max(bh.w, pc.x+pc.w-bh.x); glued=true; });
     });
     if(glued) cols=buildCols(hdrToks);
     return glued;
@@ -12159,7 +12166,7 @@ function _medRecsToRows(recs){
 // 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
 function _medSurgWord(act){
   // 사용자 확정 규칙(2026-09-23, v-22·v-23): 수술 판정 글자는 세부진료기록에서만 보되, 낱말은 절제술·수술·적출·절개술·성형술("…술 후"=과거 수술 뒤 상태, "수술 전/후/실/동의…" 부대 항목은 제외).
-  var m=String(act||'').match(/[^\s\/·,()]*(절제술(?!\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);
+  var m=String(act||'').match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
