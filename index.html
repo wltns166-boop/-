@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-14</div>
   </div>
 </div>
 
@@ -9710,7 +9710,7 @@ function _medNoticeItems(note){
 // 계약 전 알릴의무 "10대 질병" 판정 — 상병코드 범위 우선, 없으면 병명 키워드. 해당 없으면 ''.
 // (암·백혈병·고혈압·협심증·심근경색·심장판막증·간경화·뇌졸중·당뇨병·에이즈/HIV — 표준 청약서 문항 기준)
 function _medMajorDisease(code, name){
-  var c=String(code||'').toUpperCase().replace(/\s/g,'').match(/([A-Z])(\d{2})(?:\.(\d+))?/);
+  var c=_medCodeNorm(code).match(/^([A-Z])(\d{2})(?:\.(\d+))?/);   // 표 코드는 원문 그대로(AK703)라 범위 판정 전 정규화(K70.3) — v-14
   var n=String(name||'');
   if(c){
     var L=c[1], N=parseInt(c[2],10), sub=c[3]||'';
@@ -11987,7 +11987,7 @@ function _medParseTables(lines){
       var sc=splitCode(c.code), codeTxt=sc.code, codeOk=MED_CODE_RE.test(codeTxt);
       if(sc.rest) c.name = sc.rest + (c.name ? ' '+String(c.name).trim() : '');   // 붙어 온 병명 조각은 병명 앞에
       var rec={date:l.date, hosp:String(c.hosp||'').trim(), dept:String(c.dept||'').trim(), kind:String(c.kind||'').trim(),
-               code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'', name:String(c.name||'').trim(),
+               code:codeOk?codeTxt.toUpperCase():'', codeRaw:codeOk?codeTxt:'', name:String(c.name||'').trim(),
                vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), act2:String(c.act2||'').trim(),
                tbl:tblKind, pg:l.pg};
       if(!codeOk && c.code && !c.name && /[가-힣]/.test(c.code)) rec.name=String(c.code).trim();
@@ -11998,7 +11998,7 @@ function _medParseTables(lines){
       for(var j2=bl[0];j2<bl[1];j2++){
         var fc=b[j2].cells, fsc=splitCode(fc.code), fct=fsc.code;
         if(MED_CODE_RE.test(fct) && fct!==rec.codeRaw){                   // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
-          var r2=Object.assign({},rec,{code:_medCodeNorm(fct),codeRaw:fct,name:(fsc.rest?fsc.rest+' ':'')+String(fc.name||'').trim(),act:String(fc.act||'').trim()});
+          var r2=Object.assign({},rec,{code:fct.toUpperCase(),codeRaw:fct,name:(fsc.rest?fsc.rest+' ':'')+String(fc.name||'').trim(),act:String(fc.act||'').trim()});
           extra.push(r2); continue;
         }
         if(isFragment(fc)) mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false); else dropped++;
@@ -12123,7 +12123,7 @@ function _medVerifyRows(rows, rawText){
     if(!cells || /진료기간/.test(cells[0])) return line;
     var code=String(cells[2]||'').trim();
     if(!code || code==='-' ) return line;
-    var m=code.toUpperCase().match(/^([A-Z])(\d{2})\.?(\d{0,2})/);
+    var m=_medCodeNorm(code).match(/^([A-Z])(\d{2})\.?(\d{0,2})/);   // 원문 그대로 표기(AM2556)도 정규화해 대조 — v-14
     if(!m) return line;
     var full=m[1]+m[2]+(m[3]?'.'+m[3]:''), base=m[1]+m[2];
     if(!known[full] && !known[base]){ flagged++; cells[2]=code+' ⚠원문미확인'; return '| '+cells.join(' | ')+' |'; }
@@ -12369,7 +12369,7 @@ async function analyzeMedical(){
     try{
       var rawAll = medFileData.map(function(f){ return f.raw||f.text||''; }).join('\n');
       var known = _medRawCodes(rawAll), inTable = {};
-      allRows.forEach(function(r){ var c=_medRowCells(r); if(!c) return; var m=String(c[2]||'').toUpperCase().match(/^([A-Z]\d{2}(?:\.\d{1,2})?)/); if(m){ inTable[m[1]]=1; inTable[m[1].slice(0,3)]=1; } });
+      allRows.forEach(function(r){ var c=_medRowCells(r); if(!c) return; var m=_medCodeNorm(String(c[2]||'').replace(/\s*⚠.*$/,'')).match(/^([A-Z]\d{2}(?:\.\d{1,2})?)/); if(m){ inTable[m[1]]=1; inTable[m[1].slice(0,3)]=1; } });
       var full = Object.keys(known).filter(function(k){ return k.length>3; });          // 소수점 포함 정식 코드만(3자리 범주 키는 보조)
       var missing = full.filter(function(k){ return !inTable[k] && !inTable[k.slice(0,3)]; });
       var tableCnt = Object.keys(inTable).filter(function(k){ return k.length>3; }).length;
