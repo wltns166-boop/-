@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-10</div>
   </div>
 </div>
 
@@ -12041,7 +12041,7 @@ function _medRecsToRows(recs){
           if(!sameHosp(o,hosp)) return;
           if(o.tbl!=='act' && o.ddays>dd) dd=o.ddays;                       // 세부진료정보의 "총투약일수 1"(진찰료 등)은 처방일수가 아님 — 무시
           if(o.vdays>vd) vd=o.vdays;
-          if(!kind && o.kind) kind=o.kind;
+          if(!kind && o.kind && !isPharm(o)) kind=o.kind;                    // 약국 행의 '처방조제' 구분은 진료 행에 복사하지 않음(통원 0회 회귀 방지)
           if(!hosp && o.hosp && !/약국/.test(o.hosp)) hosp=o.hosp;
           if(o.act) act=(act+' '+o.act).trim();
         });
