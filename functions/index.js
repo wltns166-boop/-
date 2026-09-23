@@ -1205,11 +1205,14 @@ exports.api = onRequest(
           return;
         }
         let text = "";
+        let stop = "";
         try {
           const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
           text = parts.map(function (p) { return (p && p.text) || ""; }).join("");
+          stop = String((data.candidates && data.candidates[0] && data.candidates[0].finishReason) || "");
         } catch (e) { text = ""; }
-        res.status(200).json({ content: [{ type: "text", text: text }] });
+        // stop: Gemini finishReason("STOP"/"MAX_TOKENS" …) — 병력정리 폴백이 출력 잘림을 감지하는 데 사용(2026-09-23). 기존 호출부는 무시해도 무해.
+        res.status(200).json({ content: [{ type: "text", text: text }], stop: stop });
       } catch (e) {
         console.error("gemini proxy error:", e);
         res.status(500).json({ error: { message: String((e && e.message) || e) } });

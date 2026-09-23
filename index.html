@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-1</div>
   </div>
 </div>
 
@@ -9557,8 +9557,8 @@ function rWm(){
   const visibleMhx=mhx.reduce(function(acc,m,i){if(showAll||(cu&&m.m&&m.m===cu.name))acc.push({m:m,i:i});return acc;},[]);
   if(!visibleMhx.length){tb.innerHTML='<tr><td colspan="7" class="em">데이터가 없습니다.</td></tr>';return;}
   tb.innerHTML=visibleMhx.map(function(item){const m=item.m;const i=item.i;return `<tr>
-    <td style="white-space:nowrap">${m.dt}</td>
-    <td style="font-weight:600">${m.cust}${showAll?'<span style="font-size:12px;color:#8888bb;font-weight:400;margin-left:6px">'+(m.m||'작성자 미상')+'</span>':''}</td>
+    <td style="white-space:nowrap">${_esc(m.dt)}</td>
+    <td style="font-weight:600">${_esc(m.cust)}${showAll?'<span style="font-size:12px;color:#8888bb;font-weight:400;margin-left:6px">'+_esc(m.m||'작성자 미상')+'</span>':''}</td>
     <td style="text-align:center">
       <button class="be bpd" onclick="viewMedDetail(${i})" style="padding:4px 10px;font-size:14px"><i class="ti ti-eye"></i> 상세보기</button>
     </td>
@@ -9662,6 +9662,9 @@ function _medNoticeItems(note){
   }
   rows.forEach(function(r){ r.noDate = latestDate(r.period)===null; });   // 날짜 미상 표시(안내 문구용)
   function in5y(r){ return r.noDate ? true : latestDate(r.period)>=cutoff; }   // 날짜 미상은 포함(고지 안전 우선)
+  var cut3m=new Date(); cut3m.setMonth(cut3m.getMonth()-3); cut3m.setHours(0,0,0,0);
+  function in3m(r){ return r.noDate ? false : latestDate(r.period)>=cut3m; }   // 3개월 항목은 날짜가 확실한 것만(미상은 5년 항목에서 이미 안내)
+  rows.forEach(function(r){ r.major=_medMajorDisease(r.code, r.disease); });
   // 절제(수술) 양성 판정 — "절제 소견 없음"·"향후 절제 고려/예정" 같은 부정·미래형은 제외
   function resectPos(s){
     s=String(s||'');
@@ -9682,10 +9685,42 @@ function _medNoticeItems(note){
   return {
     parsed: rows.length,
     drugUnit: drugUnit,
+    recent: rows.filter(function(r){ return in3m(r); }),                          // 최근 3개월 내 진찰·검사·투약(모든 진료)
     hosp:  rows.filter(function(r){ return in5y(r) && hospIncl(r); }),
     visit: rows.filter(function(r){ return in5y(r) && r.visit>=7; }),
-    drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; })
+    drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; }),
+    major: rows.filter(function(r){ return in5y(r) && r.major; })                 // 5년 내 10대 질병(상병코드 범위·병명 키워드)
   };
+}
+// 계약 전 알릴의무 "10대 질병" 판정 — 상병코드 범위 우선, 없으면 병명 키워드. 해당 없으면 ''.
+// (암·백혈병·고혈압·협심증·심근경색·심장판막증·간경화·뇌졸중·당뇨병·에이즈/HIV — 표준 청약서 문항 기준)
+function _medMajorDisease(code, name){
+  var c=String(code||'').toUpperCase().replace(/\s/g,'').match(/([A-Z])(\d{2})(?:\.(\d+))?/);
+  var n=String(name||'');
+  if(c){
+    var L=c[1], N=parseInt(c[2],10), sub=c[3]||'';
+    if(L==='C'&&N>=91&&N<=95) return '백혈병';
+    if(L==='C'&&N>=0&&N<=97) return '암';
+    if(L==='I'&&N>=10&&N<=15) return '고혈압';
+    if(L==='I'&&N===20) return '협심증';
+    if(L==='I'&&N>=21&&N<=23) return '심근경색';
+    if(L==='I'&&((N>=5&&N<=9)||(N>=34&&N<=39))) return '심장판막증';
+    if(L==='K'&&(N===74||(N===70&&/^3/.test(sub)))) return '간경화';
+    if(L==='I'&&N>=60&&N<=64) return '뇌졸중';
+    if(L==='E'&&N>=10&&N<=14) return '당뇨병';
+    if(L==='B'&&N>=20&&N<=24) return '에이즈(HIV)';
+  }
+  if(/백혈병/.test(n)) return '백혈병';
+  if(/악성|암종|암$|암\b|암\(|림프종|육종/.test(n) && !/양성/.test(n)) return '암';
+  if(/고혈압/.test(n)) return '고혈압';
+  if(/협심증/.test(n)) return '협심증';
+  if(/심근경색/.test(n)) return '심근경색';
+  if(/판막/.test(n)) return '심장판막증';
+  if(/간경변|간경화/.test(n)) return '간경화';
+  if(/뇌졸중|뇌경색|뇌출혈|지주막하출혈/.test(n)) return '뇌졸중';
+  if(/당뇨/.test(n)) return '당뇨병';
+  if(/에이즈|HIV|후천성면역/i.test(n)) return '에이즈(HIV)';
+  return '';
 }
 // 고지사항 섹션 HTML 공용 생성 — 새창 보기(viewMedNotice)와 PDF(saveMedPdfByIdx)가 함께 사용
 // (판정 기준 meta 줄 + 3개 섹션 표 + 하단 안내문. h3/.cnt/.hl/.note 클래스 스타일은 호출측 CSS가 제공)
@@ -9697,7 +9732,7 @@ function _medNoticeSectionsHtml(m, opts){
     if(!opts.excludeDental) return list;
     return list.filter(function(r){ return !_isDentalRow(String(r.disease||'')+' '+String(r.hospital||''), String(r.code||'')); });
   };
-  var hospL=drop(nt.hosp), visitL=drop(nt.visit), drugL=drop(nt.drug);
+  var hospL=drop(nt.hosp), visitL=drop(nt.visit), drugL=drop(nt.drug), recentL=drop(nt.recent), majorL=drop(nt.major);
   var cutoff=new Date(); cutoff.setFullYear(cutoff.getFullYear()-5);
   var fmt=function(d){ return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); };
   var sec=function(title, list, valFn){
@@ -9709,7 +9744,12 @@ function _medNoticeSectionsHtml(m, opts){
     }
     return h;
   };
-  return '<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 판정 기준: 최근 5년 ('+fmt(cutoff)+' ~ 오늘)'+(opts.excludeDental?' &nbsp;|&nbsp; 치과진료 제외':'')+'</div>'
+  var cut3m=new Date(); cut3m.setMonth(cut3m.getMonth()-3);
+  return '<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 판정 기준: 최근 3개월 ('+fmt(cut3m)+' ~) · 최근 5년 ('+fmt(cutoff)+' ~ 오늘)'+(opts.excludeDental?' &nbsp;|&nbsp; 치과진료 제외':'')+'</div>'
+    +sec('0. 최근 3개월 이내 진찰·검사·투약', recentL, function(r){
+        var p=[]; if(r.visit) p.push('통원 '+r.visit+'회'); var h=String(r.hosp||'').trim(); if(h&&h!=='없음'&&h!=='-') p.push(h); if(r.drug) p.push('투약 '+r.drug+nt.drugUnit);
+        return p.join(' · ')||'진료 기록';
+      })
     +sec('1. 5년 이내 입원·수술 내역', hospL, function(r){
         var h=String(r.hosp||'').trim();
         if((!h||h==='없음'||h==='-')&&/절제/.test(String(r.disease||''))) return '절제 시행(수술로 간주)';
@@ -9717,7 +9757,9 @@ function _medNoticeSectionsHtml(m, opts){
       })
     +sec('2. 5년 이내 통원치료 7회 이상', visitL, function(r){ return '통원 '+r.visit+'회'; })
     +sec('3. 5년 이내 '+(nt.drugUnit==='회'?'약 처방 30회':'약 처방일수 30일')+' 이상 투약', drugL, function(r){ return '총 '+r.drug+nt.drugUnit; })
+    +sec('4. 5년 이내 10대 질병 (암·백혈병·고혈압·협심증·심근경색·심장판막증·간경화·뇌졸중·당뇨병·에이즈)', majorL, function(r){ return r.major; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
+               +' "1년 이내 추가검사(재검사) 소견"은 기록만으로 판정할 수 없어 표시하지 않습니다 — 고객에게 직접 확인해 주세요.'
                +([].concat(hospL,visitL,drugL).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [상세보기]로 원문을 확인해 주세요.</div>');
 }
@@ -9748,7 +9790,7 @@ function viewMedNotice(i){
 function viewMedDetail(i){
   const m=mhx[i];
   if(!m)return;
-  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+m.cust+' 병력정리</title>'
+  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+_medEsc(m.cust)+' 병력정리</title>'
     +'<style>@media print{@page{margin:8mm;size:A4 portrait}}'
     +'body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:16px;font-size:12px;color:#111;}'
     +'h2{font-size:18px;font-weight:700;color:#1a1a3a;margin-bottom:4px}'
@@ -9759,8 +9801,8 @@ function viewMedDetail(i){
     +'tr:nth-child(even) td{background:#f8f8ff}'
     +'div{margin:5px 0}'
     +'</style></head><body>'
-    +'<h2>'+m.cust+' 병력정리</h2>'
-    +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m+'</div>'
+    +'<h2>'+_medEsc(m.cust)+' 병력정리</h2>'
+    +'<div class="meta">작성일: '+_medEsc(m.dt)+' | 담당: '+_medEsc(m.m)+'</div>'
     +(m.noteHtml||_medNoteToHtml(m.note)||'')
     +'</body></html>';
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
@@ -9810,7 +9852,7 @@ function _medPdfDocHtml(m, excludeDental, opts){
     removedCount = filtered.removed;
     titleSuffix = ' (치과 제외)';
   }
-  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+m.cust+' 병력정리'+titleSuffix+'</title>'
+  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+_medEsc(m.cust)+' 병력정리'+titleSuffix+'</title>'
     +'<style>@media print{@page{margin:8mm;size:A4 portrait}}'
     +'body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;padding:16px;font-size:12px;color:#111}'
     +'h2{font-size:18px;font-weight:700;color:#1a1a3a;margin-bottom:4px}'
@@ -9828,8 +9870,8 @@ function _medPdfDocHtml(m, excludeDental, opts){
     +'.note{font-size:10.5px;color:#888;margin-top:10px;line-height:1.6}'
     +'.notice-sec{page-break-before:always}'
     +'</style></head><body>'
-    +'<h2>'+m.cust+' 병력정리'+titleSuffix+'</h2>'
-    +'<div class="meta">작성일: '+m.dt+' | 담당: '+m.m
+    +'<h2>'+_medEsc(m.cust)+' 병력정리'+titleSuffix+'</h2>'
+    +'<div class="meta">작성일: '+_medEsc(m.dt)+' | 담당: '+_medEsc(m.m)
     +(removedCount>0 ? ' | <span class="dent-note">⚠ 치과진료 '+removedCount+'건 제외됨</span>' : '')
     +'</div>'
     +noteHtml
@@ -9875,7 +9917,7 @@ function saveMedExcelByIdx(i){
     // 표 없으면 텍스트로 저장
     const uri='data:text/plain;charset=utf-8,'+encodeURIComponent(m.note||'');
     const a=document.createElement('a');
-    a.href=uri;a.download=m.cust+'_병력정리.txt';
+    a.href=uri;a.download=_medFileName(m.cust)+'_병력정리.txt';
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     toast('텍스트 파일로 저장되었습니다.');
     return;
@@ -9894,7 +9936,7 @@ function saveMedExcelByIdx(i){
   const csv='\uFEFF'+rows.join('\r\n');
   const uri='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   const a=document.createElement('a');
-  a.href=uri;a.download=m.cust+'_병력정리.csv';
+  a.href=uri;a.download=_medFileName(m.cust)+'_병력정리.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('엑셀 파일이 저장되었습니다!');
 }
@@ -11711,7 +11753,210 @@ function _splitMedChunks(text, maxLen){
   return chunks;
 }
 
-async function extractPdfText(file, password){
+// ===== 병력정리 — 서식 파서 (2026-09-23, 사용자 확정: AI 추정 폐지) =====
+// 심평원 PDF는 열 배치가 고정된 표라, 머리글 글자(진료일·상병기호·상병명·내원일수·총투약일수 …)의 x좌표로
+// 열 경계를 잡고 그 아래 줄의 글자를 열에 배정해 코드가 직접 표를 만든다. AI "옮겨 적기" 단계가 없으므로
+// 표에 실리는 상병코드는 전부 원문에 실제로 적힌 글자뿐이다(없는 코드 원천 차단). 머리글을 하나도 못 찾으면
+// AI 전사 폴백(_medAiPrompt — 원문 그대로만, 추정 금지) + 원문 대조 검증(_medVerifyRows).
+var MED_COLS=[
+  {k:'date', re:/^(진료개시일|진료시작일|진료일자|진료일|조제일자|조제일|요양개시일|처방일자|처방일|입원일자|내원일자|진료년월일|처방전발행일)$/},
+  {k:'hosp', re:/(병[·・.]?의원|요양기관|병원명|기관명|약국명|의료기관|병원)/},
+  {k:'kind', re:/^(입원\/외래|입원외래|진료형태|진료구분|처방\/조제|처방조제|입원\/외래구분)$/},
+  {k:'code', re:/(상병기호|상병코드|주상병|질병코드|진단코드|질병분류|상병$)/},
+  {k:'name', re:/(상병명|진단명|질병명|상병내용|질병내용)/},
+  {k:'vdays', re:/(내원일수|방문일수|입내원일수|입원일수|재원일수|진료일수)/},
+  {k:'ddays', re:/(총투약일수|투약일수|투여일수)/},
+  {k:'drug', re:/(약품명|성분명|약제명|제품명)/},
+  {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명)/}
+];
+var MED_DATE_RE=/(\d{4})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})일?/;
+var MED_CODE_RE=/^[A-Z]{1,2}\d{2}\.?\d{0,2}$/i;
+// 줄의 글자 조각을 토큰으로 합침 — 붙어 있는 조각(간격 2.5 이내)은 한 단어, 떨어져 있으면 다른 칸
+function _medTokens(items){
+  var toks=[];
+  (items||[]).slice().sort(function(a,b){ return a.x-b.x; }).forEach(function(c){
+    var s=String(c.s||''); if(!s.trim()) return;
+    var last=toks[toks.length-1];
+    if(last && c.x-(last.x+last.w)<=2.5){ last.s+=s; last.w=(c.x+(c.w||0))-last.x; }
+    else toks.push({x:c.x,w:c.w||0,s:s});
+  });
+  toks.forEach(function(t){ t.t=t.s.replace(/\s+/g,''); });
+  return toks;
+}
+function _medColOf(txt){
+  for(var i=0;i<MED_COLS.length;i++){ if(MED_COLS[i].re.test(txt)) return MED_COLS[i].k; }
+  return '';
+}
+function _medDateNorm(s){
+  var m=String(s||'').match(MED_DATE_RE);
+  if(!m){ var m8=String(s||'').match(/(?:^|\D)(20\d{2}|19\d{2})(\d{2})(\d{2})(?!\d)/); if(!m8) return ''; m=[0,m8[1],m8[2],m8[3]]; }
+  var y=+m[1], mo=+m[2], d=+m[3];
+  if(mo<1||mo>12||d<1||d>31) return '';
+  return y+'.'+String(mo).padStart(2,'0')+'.'+String(d).padStart(2,'0');
+}
+// 상병기호 정규화 — 원문 자릿수 그대로, 주상병 구분문자(앞 영문 1자)만 떼고 소수점만 넣는다 (K291→K29.1, AI4890→I48.90).
+// ⚠ 자릿수를 늘리거나 줄이지 말 것 — "두 자리 덧붙이기"가 없는 코드를 만들던 원인(2026-09-23).
+function _medCodeNorm(raw){
+  var s=String(raw||'').toUpperCase().replace(/[\s]/g,'');
+  var m=s.match(/^([A-Z])?([A-Z])(\d{2})\.?(\d{0,2})$/);
+  if(!m) return s;
+  return m[2]+m[3]+(m[4]?'.'+m[4]:'');
+}
+function _medHospNorm(h){
+  return String(h||'').replace(/\s+/g,' ').replace(/[&＆]\s*[^&＆]*약국.*$/,'').trim();
+}
+// 페이지별 줄 배열 → 표 인식 → 기록(recs) — {recs, tables, dropped}
+function _medParseTables(lines){
+  var recs=[], tables=0, dropped=0;
+  lines=(lines||[]).slice().sort(function(a,b){ return a.pg!==b.pg ? a.pg-b.pg : b.y-a.y; });
+  var cols=null, hdrToks=null, prev=null, hdrPg=0, justHdr=false;
+  function buildCols(toks){
+    var seen={};
+    var cs=toks.slice().sort(function(a,b){ return a.x-b.x; }).map(function(t){
+      var k=_medColOf(t.t); if(k && seen[k]) k=''; if(k) seen[k]=1;   // 같은 열 이름은 처음 것만
+      return {k:k, x:t.x, w:t.w};
+    });
+    for(var i=0;i<cs.length;i++){
+      cs[i].x0 = i===0 ? -Infinity : (cs[i-1].x+cs[i-1].w+cs[i].x)/2;   // 경계=앞 머리글 끝과 이 머리글 시작의 중간
+      cs[i].x1 = i===cs.length-1 ? Infinity : (cs[i].x+cs[i].w+cs[i+1].x)/2;
+    }
+    return cs;
+  }
+  function isHeader(toks){
+    var keys={}; toks.forEach(function(t){ var k=_medColOf(t.t); if(k) keys[k]=1; });
+    return Object.keys(keys).length>=2 && !!(keys.date||keys.code||keys.name||keys.ddays||keys.drug);
+  }
+  function hasDate(toks){ return toks.some(function(t){ return MED_DATE_RE.test(t.t) || /^(19|20)\d{6}$/.test(t.t); }); }
+  function assign(toks){
+    var cells={};
+    toks.forEach(function(t){
+      for(var i=0;i<cols.length;i++){
+        if(t.x>=cols[i].x0 && t.x<cols[i].x1){ var k=cols[i].k||('_'+i); cells[k]=(cells[k]?cells[k]+' ':'')+t.s.trim(); break; }
+      }
+    });
+    return cells;
+  }
+  function numOf(v){ return parseInt(String(v||'').replace(/\D/g,''),10)||0; }
+  lines.forEach(function(ln){
+    var toks=_medTokens(ln.items);
+    if(!toks.length) return;
+    if(isHeader(toks) && !hasDate(toks)){
+      if(justHdr && hdrPg===ln.pg){ hdrToks=hdrToks.concat(toks); cols=buildCols(hdrToks); }   // 두 줄 머리글 — 이어 붙임
+      else { hdrToks=toks; cols=buildCols(toks); tables++; hdrPg=ln.pg; prev=null; }
+      justHdr=true; return;
+    }
+    justHdr=false;
+    if(!cols) return;
+    var cells=assign(toks);
+    var date=_medDateNorm(cells.date||'');
+    var codeTxt=String(cells.code||'').replace(/\s/g,'');
+    var codeOk=MED_CODE_RE.test(codeTxt);
+    if(date){
+      prev={date:date, hosp:_medHospNorm(cells.hosp), kind:String(cells.kind||'').trim(), code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'',
+            name:String(cells.name||'').trim(), vdays:numOf(cells.vdays), ddays:numOf(cells.ddays), drug:String(cells.drug||'').trim(), act:String(cells.act||'').trim(), pg:ln.pg};
+      if(!codeOk && cells.code && !cells.name && /[가-힣]/.test(cells.code)) prev.name=String(cells.code).trim();   // 코드 칸 자리에 병명이 온 서식
+      recs.push(prev);
+      return;
+    }
+    if(!prev || prev.pg!==ln.pg){ if(cells.code||cells.name||cells.ddays) dropped++; return; }   // 표 밖 안내문·머리말
+    if(codeOk && codeTxt!==prev.codeRaw){                        // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
+      var r=Object.assign({},prev,{code:_medCodeNorm(codeTxt),codeRaw:codeTxt,name:String(cells.name||'').trim(),act:String(cells.act||'').trim()});
+      recs.push(r); prev=r; return;
+    }
+    // 긴 병명·병원명 줄바꿈 이어붙임
+    if(cells.name) prev.name=(prev.name+' '+cells.name).trim();
+    if(cells.hosp && !prev.hosp) prev.hosp=_medHospNorm(cells.hosp);
+    if(cells.act) prev.act=(prev.act+' '+cells.act).trim();
+    if(cells.ddays && !prev.ddays) prev.ddays=numOf(cells.ddays);
+  });
+  return {recs:recs, tables:tables, dropped:dropped};
+}
+// 기록(recs) → _mergeMedRowsByCode가 읽는 8칸 마크다운 행.
+// 상병(코드) 행에 같은 날짜·같은 병원의 처방(총투약일수)·진료형태(입원/외래·내원일수)를 붙이고,
+// 상병이 전혀 없는 날짜의 진료·처방은 병명 "진단명 없음 · 병원명"으로 남긴다(추정 금지 — 원문에 없는 병명을 만들지 않는다).
+function _medRecsToRows(recs){
+  var byDate={};
+  recs.forEach(function(r){ (byDate[r.date]=byDate[r.date]||[]).push(r); });
+  var rows=[];
+  function hospKey(h){ return String(h||'').replace(/\s/g,'').slice(0,4); }
+  function isPharm(o){ return /약국/.test(String(o.hosp||'')) || /조제/.test(String(o.kind||'')); }
+  // 약국·처방조제 행은 병원 이름이 달라도 그 날짜의 진료에 속한다(처방일수 전달) — 병원 일치는 진료 행끼리만 검사
+  function sameHosp(o,hosp){ if(isPharm(o)) return true; var x=hospKey(o.hosp), y=hospKey(hosp); return !x||!y||x===y; }
+  Object.keys(byDate).sort().forEach(function(d){
+    var list=byDate[d];
+    var dis=list.filter(function(r){ return r.code || r.name; });
+    var other=list.filter(function(r){ return !r.code && !r.name; });
+    if(dis.length){
+      dis.forEach(function(r){
+        var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=r.act;
+        other.forEach(function(o){
+          if(!sameHosp(o,hosp)) return;
+          if(o.ddays>dd) dd=o.ddays;
+          if(o.vdays>vd) vd=o.vdays;
+          if(!kind && o.kind) kind=o.kind;
+          if(!hosp && o.hosp && !/약국/.test(o.hosp)) hosp=o.hosp;
+          if(o.act) act=(act+' '+o.act).trim();
+        });
+        rows.push(_medRowLine(d, r.name||'진단명 없음 · '+(hosp||'-'), r.code, hosp, kind, vd, dd, act));
+      });
+    }else{
+      // 상병 없는 날짜: 병원별로 한 행
+      var byH={};
+      other.forEach(function(o){ var k=hospKey(o.hosp)||'-'; if(!byH[k]) byH[k]=Object.assign({},o); else { var b=byH[k]; if(o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); } });
+      Object.keys(byH).forEach(function(k){ var o=byH[k]; var h=/약국/.test(o.hosp)?'':o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-'), '', h, o.kind, o.vdays, o.ddays, o.act)); });
+    }
+  });
+  return rows;
+}
+function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
+  var inpat=/입원/.test(String(kind||''));
+  var visit=inpat?'0회':'1회';
+  var inD=inpat?((vdays||1)+'일'):'없음';
+  var surg=/절제|수술|적출|절개술|성형술/.test(String(act||''));
+  var nm=String(name||'').replace(/\|/g,'/');
+  if(surg && act) nm+='('+String(act).replace(/\|/g,'/').slice(0,30)+')';
+  var h=String(hosp||'').replace(/\|/g,'/');
+  if(/약국/.test(h)) h='';
+  return '| '+date+' | '+nm+' | '+String(code||'').replace(/\|/g,'/')+' | '+(h||'-')+' | '+visit+' | '+inD+' | '+(surg?'1회':'없음')+' | '+(ddays||0)+'일 |';
+}
+// AI 전사 폴백 결과의 상병코드를 원문과 대조 — 원문에 없는 코드는 지우지 않고 "⚠원문미확인"을 붙여 눈에 띄게 한다.
+function _medVerifyRows(rows, rawText){
+  var raw=String(rawText||'').toUpperCase().replace(/[.\s\-]/g,'');
+  var flagged=0;
+  var out=rows.map(function(line){
+    var cells=_medRowCells(line);
+    if(!cells || /진료기간/.test(cells[0])) return line;
+    var code=String(cells[2]||'').trim();
+    if(!code || code==='-' ) return line;
+    var m=code.toUpperCase().match(/^([A-Z])(\d{2})\.?(\d{0,2})/);
+    if(!m) return line;
+    var key=m[1]+m[2]+(m[3]||'');
+    if(raw.indexOf(key)===-1 && raw.indexOf(m[1]+m[2])===-1){ flagged++; cells[2]=code+' ⚠원문미확인'; return '| '+cells.join(' | ')+' |'; }
+    return line;
+  });
+  out.flagged=flagged;
+  return out;
+}
+// AI 전사 폴백 프롬프트 — 옮겨 적기만. 원문에 없는 값(병명·코드·횟수)을 만들지 않는다(추정 규칙 전부 폐지, 2026-09-23).
+function _medAiPrompt(chunk, part, total){
+  var pl=[];
+  pl.push(chunk);
+  pl.push('---');
+  if(total>1) pl.push('이것은 의료기록을 '+total+'부분으로 나눈 중 '+part+'번째 부분입니다. 이 부분의 내역만 옮겨 적으세요.');
+  pl.push('위 원문은 PDF 표를 줄 단위로 복원한 것입니다. 각 줄이 표의 한 행이며, 같은 줄 안의 값끼리 짝입니다.');
+  pl.push('아래 표 형식으로 옮겨 적으세요. 규칙:');
+  pl.push('1) 원문에 적힌 값만 옮깁니다. 원문에 없는 병명·상병코드·횟수·일수를 만들어 넣지 마세요. 없으면 빈칸(-)으로 둡니다.');
+  pl.push('2) 상병코드는 원문 글자 그대로 씁니다(변환·보정·자릿수 추가 금지). 약 이름으로 병명이나 코드를 추정하지 마세요.');
+  pl.push('3) 약품명·주사·재료·검사 항목은 병명이 아니므로 행으로 만들지 마세요. 처방조제 행은 그 날짜의 총투약일수만 "약 처방일수"에 적습니다.');
+  pl.push('4) 진료구분이 입원이면 입원일수에 내원일수를, 외래면 통원 1회로 적습니다. 진료행위명에 "절제"·"수술"이 있으면 수술횟수 1회.');
+  pl.push('5) 한 줄 = 한 진료일. 날짜별로 합치거나 나누지 말고 원문 행 그대로 옮깁니다. 표만 출력하고 다른 설명은 쓰지 마세요.');
+  pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
+  pl.push('|---|---|---|---|---|---|---|---|');
+  return pl.join('\n');
+}
+
+// linesOut(선택): 배열을 넘기면 페이지별 줄(글자 x좌표·폭 포함)을 그대로 실어 준다 — 서식 파서(_medParseTables)용.
+async function extractPdfText(file, password, linesOut){
   return new Promise(function(resolve){
     var reader = new FileReader();
     reader.onload = function(e){
@@ -11755,6 +12000,7 @@ async function extractPdfText(file, password){
                       // 열 사이 간격이 크면 2칸 공백(열 구분 신호) — _cleanMedText가 홑공백은 지우고
                       // 2칸 이상만 열 구분으로 남기므로, 여기서 공백을 전부 1칸으로 눌러버리면 값이 몽땅 붙는다
                       var items=ln.items.sort(function(a,b){ return a.x-b.x; });
+                      if(linesOut) linesOut.push({pg:page.pageNumber, y:ln.y, items:items.map(function(c){ return {x:c.x,w:c.w,s:c.s}; })});
                       var s='', prevEnd=null;
                       items.forEach(function(c){
                         if(prevEnd===null) s=c.s;
@@ -11804,11 +12050,14 @@ async function analyzeMedical(){
     // 텍스트 추출
     var pw = document.getElementById('pdf_pw').value;
     var combinedText = '';
+    var medLines = [];   // 서식 파서용 좌표 줄(파일 3개 합산 — pg는 파일 순서로 구분)
     for(var fi=0; fi<files.length; fi++){
       var id = files[fi][0];
       var file = files[fi][1];
       loadEl.textContent='📄 '+labels[id]+' 추출 중... ('+(fi+1)+'/'+files.length+')';
-      var extracted = await extractPdfText(file, pw);
+      var fileLines = [];
+      var extracted = await extractPdfText(file, pw, fileLines);
+      fileLines.forEach(function(l){ l.pg = fi*1000 + l.pg; medLines.push(l); });
       var errPrefixes = ['PDF오류','추출실패','PDF잠김','페이지오류','PDF.js미로드','읽기실패'];
       var isErr = errPrefixes.some(function(p){ return extracted.indexOf(p) === 0; });
       if(extracted && !isErr && extracted.length > 10){
@@ -11825,101 +12074,83 @@ async function analyzeMedical(){
     }
     try{ window._lastMedRaw = combinedText; }catch(e){}
 
-    // 분할 분석 — 한 요청이 60초·분당 토큰 한도를 넘지 않도록 작게 쪼개고 각각 호출
-    var MAX_CHUNK_CHARS = 80000;
-    var chunks = _splitMedChunks(combinedText, MAX_CHUNK_CHARS);
+    window._lastMedText = ''; window._lastMedSavedId = null;
+
+    // ① 서식 파서(코드) — 머리글 x좌표로 열을 잘라 원문 글자만 표로 만든다(AI 미사용, 추정 없음)
     var allRows = [];
     var chunkErrors = [];
-
-    for(var ci=0; ci<chunks.length; ci++){
-      loadEl.textContent = '🤖 AI 분석 중... (' + (ci+1) + '/' + chunks.length + ')';
-      var pl = [];
-      if(pw) pl.push('PDF비밀번호: ' + pw);
-      pl.push(chunks[ci]);
-      pl.push('---');
-      if(chunks.length > 1){
-        pl.push('이것은 큰 의료기록을 ' + chunks.length + '부분으로 나눈 중 ' + (ci+1) + '번째 부분입니다. 이 부분에 나온 진료내역만 정리하세요 (다른 부분은 별도 분석되어 합쳐집니다).');
-      } else {
-        pl.push('위 의료기록 전체를 빠짐없이 분석하여 보험심사용 병력을 정리해주세요.');
-      }
-      pl.push('중요: 이 부분의 모든 진료내역을 누락 없이 포함해야 합니다.');
-      pl.push('규칙:');
-      pl.push('  0) 원문은 PDF에서 좌표 기반으로 복원한 텍스트로, 각 줄이 원본 표의 한 행입니다. 줄 단위로 열 값을 대응시키세요(진료일·병원명·내원일수·총투약일수는 같은 줄 안에서 짝지음).');
-      pl.push('  1) 자료에 상병코드·진단명(상병기호)이 직접 있으면 그 값을 사용. 병력(질병명)은 기록의 상병명을 그대로 기재(예: "상세불명의 급성 상기도감염"). "기타질환" 같은 포괄 분류 금지. ★상병코드가 비슷하거나(예: K29.1과 K29.9) 병명이 사실상 같은 질환이면 행을 나누지 말고 하나의 병력으로 합칠 것.');
-      pl.push('     - ★★상병코드는 반드시 KCD/ICD 표준 형식(영문 1글자+숫자, 예: I48.9, K29.1, E03)으로 기재. 자료의 상병기호가 "AI4890"처럼 앞에 주상병 구분문자(A/B 등)가 붙고 소수점이 생략된 형태면 실제 코드로 변환할 것(예: AI4890→I48.90, AK2919→K29.19 — 첫 구분문자 제거, 숫자 2자리 뒤에 소수점). 진료행위·수가·청구 코드를 상병코드 칸에 쓰지 말 것. 기재 전에 병명과 코드가 의학적으로 일치하는지 확인(예: 심방세동이면 I48.x).');
-      pl.push('  2) ★★중요: 만약 자료에 상병코드·진단명이 없고 "약 처방/조제 내역(약품명·성분명)"만 있으면, 절대 전부 "미상"으로 두지 말고, 처방된 약(성분)을 근거로 환자의 질병을 추정하여 정리하세요.');
-      pl.push('     - 같은 질환을 치료하는 약들은 하나의 병력으로 묶고, 대표 질병명과 대표 상병코드(ICD-10)를 기재. ★병명에 "(추정)"·"추정" 같은 표기는 절대 붙이지 말 것 — 병명만 깔끔하게 쓸 것.');
-      pl.push('     - 성분 기준 추정 예: 레보티록신(씬지로이드)→갑상선기능저하증(E03), 탐스로신→전립선증식증(N40), 솔리페나신→과민성방광/배뇨장애(N32), 텔미사르탄·암로디핀·카르베딜롤·히드로클로로티아지드→본태성고혈압(I10), 다파글리플로진·리나글립틴→2형당뇨병(E11), 클로피도그렐·아스피린·니트로글리세린설하정→허혈성심장질환·협심증(I20~I25), 에제티미브·로수바스타틴→고지혈증(E78), 도르졸라미드 등 점안액→녹내장(H40), 레보세티리진·베포타스틴·히드록시진→알레르기비염·두드러기(J30/L50), 파모티딘·라푸티딘·모사프리드→위염·위장질환(K29), 모메타손·클로베타솔 등 스테로이드 연고→피부염(L20~L30).');
-      pl.push('     - 추정 시 진료기간은 그 질환 약이 처방된 최초~최근 날짜 범위, 약 처방일수는 그 질환 처방들의 총투약일수 중 가장 긴 값으로 적으세요(합산 금지).');
-      pl.push('     - ★★과잉 추정 금지: 자료에 해당 진단명·상병코드가 직접 적혀 있지 않으면, 수면제·수면유도제·신경안정제·항불안제·항우울제 계열 약(졸피뎀/스틸녹스, 트리아졸람, 디아제팜, 알프라졸람, 로라제팜, 에티졸람, 독세핀, 멜라토닌, 저용량 쿠에티아핀 등)만을 근거로 불면증(F51)·우울증(F32)·불안장애(F41) 같은 정신과 질환 행을 만들지 말 것 — 이런 약은 감기·통증·수술 전후 등에 단기 병용 처방이 흔해 잘못된 병명이 될 위험이 큼. 이 약들이 다른 약과 함께 처방됐으면 그 다른 약이 가리키는 질환 행에 포함시키고, 근거가 그 약뿐이면 병력 행을 만들지 말 것.');
-      pl.push('     - ★같은 진료 건에 진단명·상병코드가 이미 기록돼 있으면 약 성분 추정으로 별도의 새 병명 행을 추가하지 말 것 — 추정은 진단명이 전혀 없는 처방 건에만 사용.');
-      pl.push('  2.5) ★★치료내용은 병력 행이 아님: 약품명·주사제명("…주사액"·"…주사")·의료재료명(봉합사/SUTURE 등)·검사·측정 행위명(산소포화도 측정 등)·"항생제 처방"·"변비약 처방" 같은 치료 항목을 병력(질병명) 칸에 쓰거나 별도 행으로 나열하지 말 것. 같은 날 같은 병원에서 이뤄진 처방·주사·재료·검사는 전부 그날 진료의 주 진단(상병) 한 행에 포함시킬 것(예: 수술 당일의 항생제·진통제 주사·봉합사·산소포화도 측정은 그 수술 병력 한 행으로 묶고 별도 행 금지). 주 진단을 알 수 없으면 그 처방들이 치료하는 질병 하나로 추정하여 한 행만 기재.');
-      pl.push('  3) ★★약 처방일수(정확 기재): "처방조제정보"·"처방조제" 표는 열이 [순번|진료시작일|병·의원&약국|처방/조제|약품명|성분명|1회투약량|1일투여횟수|총투약일수] 순서다. 행 끝에 숫자 3개가 연달아 나오면 순서대로 1회투약량/1일투여횟수/총투약일수이며, "약 처방일수"에는 반드시 마지막 숫자(총투약일수)를 쓸 것(예: "1 1 189" → 189일. 1회투약량·1일투여횟수를 일수로 쓰지 말 것).');
-      pl.push('     - ★★이중 계산 금지: 같은 처방은 병원(외래) 행과 약국(처방조제) 행 두 줄로 중복 기재된다. 같은 진료시작일에 병원과 약국이 짝으로 나오면 반드시 하나의 처방(1건)으로만 취급하고 절대 두 번 세지 말 것.');
-      pl.push('     - ★★합산 금지: 같은 질병으로 처방이 여러 번이어도 총투약일수를 더하지 말 것. "약 처방일수"에는 기록된 총투약일수 중 가장 긴 값 하나를 그대로 기재(예: 189일과 30일이 있으면 "189일". 189+30=219일로 쓰면 오답). 같은 방문에 약별 일수가 다르면(주사 1일+내복약 7일) 가장 긴 일수 사용. 처방 "건수"를 일수로 적지 말 것.');
-      pl.push('     - "병원명" 칸에는 그 병력을 진료한 병·의원 이름만 기재할 것(기본진료정보·처방조제정보의 "병·의원&약국" 칸 참조). ★★약국명("…약국")은 절대 기재 금지 — 약국 조제 내역은 그 약을 처방한 병·의원 이름으로 기재하고, 처방 병원을 알 수 없으면 "-"로 둘 것. 여러 병원이면 "·"로 이어서 기재. 병명 칸에는 병원명을 넣지 말 것.');
-      pl.push('  4) ★★수술 판정(누락 금지): 자료 어디든(진료과목·진료행위명·코드명·처방명 등) "절제"라는 단어가 포함되면(예: "결장경하 종양 수술-폴립절제술", "폴립 절제") 그 진료는 반드시 수술로 분류 — 진료구분이 "처치 및 수술"·"외래(통원)"이어도 절제면 수술이다. "수술" 단어가 직접 적힌 경우도 수술. 이 경우 "수술횟수" 칸을 절대 "없음"으로 두지 말고 "N회"로 기재하고, 병력(질병명) 뒤에 수술명을 괄호로 남길 것(예: "결장 폴립(폴립절제술)").');
-      pl.push('     - ★수술 횟수는 "수술한 날짜 수"로 셈: 같은 날에 절제·수술 항목이 여러 개(여러 부위, 여러 행위코드, 폴립 여러 개 절제)라도 그날은 수술 1회로 계산. 다른 날 수술만 횟수를 더함.');
-      pl.push('  5) ★★입원 판정(정확 기재): "기본진료정보" 표에서 "입원/외래(진료구분)" 칸이 "입원"인 행이 입원이다. 입원일수는 그 행의 "내원일수" 칸 숫자를 그대로 쓸 것(예: 입원 + 내원일수 3 → 입원일수 3일). "재원일수" 표기가 있으면 그 값도 입원일수. 같은 질병으로 입원이 여러 번이면 각 입원의 내원일수를 합산.');
-      pl.push('  6) 칸 작성 규칙: "입원일수" 칸 — 입원 없으면 "없음", 있으면 "N일" / "수술횟수" 칸 — 수술 없으면 "없음", 있으면 "N회". 두 칸을 절대 합쳐 쓰지 말 것.');
-      pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
-      pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
-      pl.push('|---|---|---|---|---|---|---|---|');
-      pl.push('| YYYY.MM.DD~YYYY.MM.DD | 질병명 | 코드 | 병·의원명 | N회 | 없음 또는 N일 | 없음 또는 N회 | N일 |');
-      var prompt = pl.join('\n');
-
-      try {
-        var _aiUrl = (function(){ try{ return localStorage.getItem('tops_ai_proxy_url')||''; }catch(e){ return ''; } })() || (window.AI_PROXY_URL||'') || '/api/analyze';
-        var data = null, lastErr = '';
-        async function _wait(sec, label){ for(var s=sec; s>0; s--){ loadEl.textContent='🤖 AI 사용량 한도 — '+s+'초 후 자동 재시도 ('+(ci+1)+'/'+chunks.length+') '+(label||''); await new Promise(function(r){setTimeout(r,1000);}); } }
-        for(var attempt=0; attempt<4 && !data; attempt++){
-          var res;
-          try{
-            res = await fetch(_aiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify({ model: (window.AI_MODEL||'claude-sonnet-4-6'), max_tokens: 8000, prompt: prompt })
-            });
-          }catch(netErr){
-            // 서버 함수 타임아웃·연결 끊김은 HTTP 응답 없이 예외로 떨어짐 — 5xx와 동일하게 재시도
-            lastErr='네트워크 오류: '+netErr.message;
-            if(attempt<3){ await _wait(8 + attempt*12); continue; }
-            break;
-          }
-          if(!res.ok){
-            var errData = await res.json().catch(function(){return {};});
-            lastErr = (errData.error && errData.error.message) || ('API오류 ' + res.status);
-            // 분당 토큰 한도(429) 또는 일시 과부하(529)면 잠시 기다렸다 자동 재시도
-            if((res.status===429 || res.status===529 || res.status===502 || res.status===503 || res.status===504 || res.status===500 || /rate limit|exceed|429|529|5\d\d|overloaded|timeout|gateway/i.test(lastErr)) && attempt<3){
-              await _wait(res.status===429 ? (40 + attempt*30) : (8 + attempt*12));
-              continue;
+    var chunks = [];
+    var srcNote = '';
+    var parsed = null;
+    try{ parsed = _medParseTables(medLines); }catch(pe){ console.warn('서식 파서 오류:', pe); parsed = null; }
+    if(parsed && parsed.recs.length){
+      loadEl.textContent = '📋 표 서식 정리 중...';
+      allRows = _medRecsToRows(parsed.recs);
+      srcNote = '※ PDF 표 서식을 코드가 직접 읽어 정리했습니다(AI 미사용 · 인식된 표 '+parsed.tables+'개, 기록 '+parsed.recs.length+'건).';
+      if(parsed.dropped) srcNote += ' 표 밖 줄 '+parsed.dropped+'개는 제외.';
+    } else {
+      // ② AI 전사 폴백 — 머리글을 못 찾은 서식. 옮겨 적기만 시키고(추정 금지) 결과 코드는 원문과 대조한다.
+      var MAX_CHUNK_CHARS = 80000;
+      chunks = _splitMedChunks(combinedText, MAX_CHUNK_CHARS);
+      for(var ci=0; ci<chunks.length; ci++){
+        loadEl.textContent = '🤖 표 서식 미인식 — AI 전사 중... (' + (ci+1) + '/' + chunks.length + ')';
+        var prompt = _medAiPrompt(chunks[ci], ci+1, chunks.length);
+        try {
+          var _aiUrl = (function(){ try{ return localStorage.getItem('tops_ai_proxy_url')||''; }catch(e){ return ''; } })() || (window.AI_PROXY_URL||'') || '/api/analyze';
+          var data = null, lastErr = '';
+          async function _wait(sec, label){ for(var s=sec; s>0; s--){ loadEl.textContent='🤖 AI 사용량 한도 — '+s+'초 후 자동 재시도 ('+(ci+1)+'/'+chunks.length+') '+(label||''); await new Promise(function(r){setTimeout(r,1000);}); } }
+          for(var attempt=0; attempt<4 && !data; attempt++){
+            var res;
+            try{
+              res = await fetch(_aiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ model: (window.AI_MODEL||'claude-sonnet-4-6'), max_tokens: 8000, prompt: prompt })
+              });
+            }catch(netErr){
+              lastErr='네트워크 오류: '+netErr.message;
+              if(attempt<3){ await _wait(8 + attempt*12); continue; }
+              break;
             }
-            break;
+            if(!res.ok){
+              var errData = await res.json().catch(function(){return {};});
+              lastErr = (errData.error && errData.error.message) || ('API오류 ' + res.status);
+              if((res.status===429 || res.status===529 || res.status===502 || res.status===503 || res.status===504 || res.status===500 || /rate limit|exceed|429|529|5\d\d|overloaded|timeout|gateway/i.test(lastErr)) && attempt<3){
+                await _wait(res.status===429 ? (40 + attempt*30) : (8 + attempt*12));
+                continue;
+              }
+              break;
+            }
+            data = await res.json();
           }
-          data = await res.json();
+          if(!data){ chunkErrors.push((ci+1)+'번째 부분: ' + (lastErr||'실패')); continue; }
+          var chunkText = data.content && data.content.map(function(c){return c.text||'';}).join('').trim();
+          if(!chunkText){ chunkErrors.push((ci+1)+'번째 부분: 결과없음'); continue; }
+          // 출력 잘림 감지 — 서버가 Gemini finishReason(stop) / Anthropic stop_reason을 넘겨줌. 잘리면 뒷부분 행이 조용히 빠지므로 명시.
+          if(data.stop==='MAX_TOKENS' || data.stop_reason==='max_tokens') chunkErrors.push((ci+1)+'번째 부분: AI 출력이 길이 한도에서 잘림(뒷부분 누락 가능)');
+          chunkText.split('\n').forEach(function(line){
+            var t = line.trim();
+            if(!t) return;
+            if(/^\|\s*진료기간/.test(t)) return;
+            if(/^\|[\s\-:|]+\|$/.test(t)) return;
+            if(t.charAt(0)==='|' && t.length>5) allRows.push(t);
+          });
+        } catch(e){
+          console.error('chunk '+(ci+1)+' err:', e);
+          chunkErrors.push((ci+1)+'번째 부분: ' + e.message);
         }
-        if(!data){ chunkErrors.push((ci+1)+'번째 부분: ' + (lastErr||'실패')); continue; }
-        var chunkText = data.content && data.content.map(function(c){return c.text||'';}).join('').trim();
-        if(!chunkText){ chunkErrors.push((ci+1)+'번째 부분: 결과없음'); continue; }
-        // 청크 결과에서 데이터 행만 추출 (헤더/구분선 제외)
-        chunkText.split('\n').forEach(function(line){
-          var t = line.trim();
-          if(!t) return;
-          if(/^\|\s*진료기간/.test(t)) return;
-          if(/^\|[\s\-:|]+\|$/.test(t)) return;
-          if(t.charAt(0)==='|' && t.length>5) allRows.push(t);
-        });
-      } catch(e){
-        console.error('chunk '+(ci+1)+' err:', e);
-        chunkErrors.push((ci+1)+'번째 부분: ' + e.message);
+        if(ci < chunks.length-1){ await new Promise(function(r){setTimeout(r,9000);}); }
       }
-      // 다음 청크 전 간격 — 분당 토큰 한도(429) 완화
-      if(ci < chunks.length-1){ await new Promise(function(r){setTimeout(r,9000);}); }
+      var verified = _medVerifyRows(allRows, combinedText);
+      allRows = verified;
+      srcNote = '⚠ PDF 표 서식을 인식하지 못해 AI가 원문을 옮겨 적었습니다(추정 없음). 상병코드는 원문과 대조했으며'
+              + (verified.flagged ? ' 원문에서 확인되지 않은 코드 '+verified.flagged+'건에 "⚠원문미확인" 표시.' : ' 전부 원문에서 확인됨.');
     }
 
     if(!allRows.length){
-      throw new Error('분석 결과 없음. ' + (chunkErrors.join(' / ') || ''));
+      throw new Error('정리할 진료 내역을 찾지 못했습니다. ' + (chunkErrors.join(' / ') || '(표 머리글·날짜가 있는 줄이 없음 — [추출원문]으로 확인해 주세요)'));
     }
+    var badRows = allRows.filter(function(r){ return !_medRowCells(r); }).length;
 
     // 같은 상병코드끼리 묶어 기간(최초~최근)·통원 횟수 합산, 약 처방일수는 최장값(합산 금지 — 확정 규칙)
     var mergedRows = _mergeMedRowsByCode(allRows);
@@ -11928,23 +12159,22 @@ async function analyzeMedical(){
       '| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |',
       '|---|---|---|---|---|---|---|---|'
     ].concat(mergedRows);
-    if(chunks.length > 1){
-      finalLines.push('');
-      finalLines.push('※ 원본 PDF가 길어 ' + chunks.length + '개 부분으로 나누어 분석 후 통합되었습니다.');
-    }
-    if(chunkErrors.length){
-      finalLines.push('⚠ 일부 구간 분석 실패: ' + chunkErrors.join(', '));
-    }
+    finalLines.push('');
+    if(srcNote) finalLines.push(srcNote);
+    if(chunks.length > 1) finalLines.push('※ 원본이 길어 ' + chunks.length + '개 부분으로 나누어 처리 후 통합되었습니다.');
+    if(badRows) finalLines.push('⚠ 칸 수가 맞지 않아 제외된 행 ' + badRows + '개 — [추출원문]과 대조해 주세요.');
+    if(chunkErrors.length) finalLines.push('⚠ 일부 구간 처리 실패: ' + chunkErrors.join(', '));
     var text = finalLines.join('\n');
 
+    window._lastMedText = text;
     renderMedResult(text);
     resultEl.style.display='block';
     autoSaveMedResult(text, document.getElementById('med_result_text').innerHTML);
-    toast(chunks.length > 1 ? ('분석 완료 — ' + chunks.length + '개 부분 통합!') : '분석 완료! 자동 저장됩니다.');
+    toast(chunkErrors.length ? '정리 완료(일부 구간 실패 — 결과 하단 안내 확인)' : '정리 완료! 자동 저장됩니다.');
 
   }catch(err){
     document.getElementById('med_result_text').innerHTML =
-      '<div style="color:#cc4040;margin-bottom:12px">⚠ '+err.message+'</div>' +
+      '<div style="color:#cc4040;margin-bottom:12px">⚠ '+_medEsc(err.message)+'</div>' +
       '<pre style="font-size:15px;color:#333">| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |\n|---|---|---|---|---|---|---|---|\n|  |  |  |  |  |  |  |  |</pre>';
     resultEl.style.display='block';
     toast('오류: '+err.message);
@@ -11998,6 +12228,7 @@ function renderMedResult(text){
 
 // AI 출력·PDF 유래 텍스트를 innerHTML에 넣기 전 이스케이프 — 악성 PDF가 AI 출력에 태그를 심는 저장형 XSS 방어
 function _medEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _medFileName(s){ var t=String(s==null?'':s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'').trim().slice(0,40); return t||'병력정리'; }
 
 function buildTable(rows){
   var dataRows = rows.filter(function(r){ return !r.every(function(c){return /^[-:]+$/.test(c);}); });
@@ -12045,12 +12276,16 @@ function buildTable(rows){
 function clearMed(){
   medFiles.f1=null;medFiles.f2=null;medFiles.f3=null;
   ['1','2','3'].forEach(n=>{
-    const info=document.getElementById('info'+n),zone=document.getElementById('zone'+n);
-    if(info){info.textContent='클릭하여 PDF 선택';info.style.color='';}
+    const info=document.getElementById('info'+n),zone=document.getElementById('zone'+n),inp=document.getElementById('f'+n);
+    if(inp){ try{ inp.value=''; }catch(e){} }   // ⚠ analyzeMedical이 input.files를 직접 읽으므로 여기서 안 비우면 이전 고객 PDF가 다시 분석됨(2026-09-23)
+    if(info){info.textContent='PDF를 선택하세요';info.style.color='';}
     if(zone){zone.style.borderColor='';zone.style.background='';}
   });
   document.getElementById('med_cust').value='';
+  var pwEl=document.getElementById('pdf_pw'); if(pwEl) pwEl.value='';
+  document.getElementById('med_result_text').innerHTML='';
   document.getElementById('med_result').style.display='none';
+  window._lastMedRaw=''; window._lastMedText=''; window._lastMedSavedId=null;
   toast('초기화되었습니다.');
 }
 
@@ -12084,16 +12319,19 @@ function _mhxCloudMerge(mutator){
 }
 function _mhxNewEntry(text, html){
   const cust=document.getElementById('med_cust').value||'(미입력)';
-  const dt=new Date().toISOString().slice(0,10);
+  const dt=td();   // KST — toISOString은 UTC라 새벽 0~9시 분석이 전날로 기록되던 버그(2026-09-23, 3.85 계열)
   // id: 삭제 시 고유 식별용 — items(앞 80자)는 표 머리글이라 모든 분석에서 동일해 판별력이 없음
   const id=Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
   return {id,cust,m:cu?cu.name:'',items:text.slice(0,80),note:text,noteHtml:html,dt};
 }
 function saveMedResult(){
-  const text=document.getElementById('med_result_text').textContent;
+  // ⚠ note는 반드시 마크다운 원문(window._lastMedText) — 화면 textContent는 파이프·줄바꿈이 없어 고지사항·PDF·엑셀이 표를 못 읽는다(2026-09-23 수정)
+  const text=window._lastMedText||'';
   const html=document.getElementById('med_result_text').innerHTML;
-  if(!text)return;
+  if(!text){ toast('저장할 정리 결과가 없습니다. 먼저 병력 분석을 실행해 주세요.'); return; }
+  if(window._lastMedSavedId && mhx.some(function(m){ return m&&m.id===window._lastMedSavedId; })){ toast('이 결과는 이미 목록에 저장되어 있습니다.'); return; }
   const e=_mhxNewEntry(text,html);
+  window._lastMedSavedId=e.id;
   _mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){
     rWm();toast('저장되었습니다.');
     try{ _medDrivePdfSave(e); }catch(err){}
@@ -12103,6 +12341,7 @@ function saveMedResult(){
 // 병력정리 분석 완료 시 자동저장
 function autoSaveMedResult(text, html){
   const e=_mhxNewEntry(text,html);
+  window._lastMedSavedId=e.id;
   _mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){
     rWm();
     try{ _medDrivePdfSave(e); }catch(err){}
@@ -12152,7 +12391,7 @@ function saveMedExcel(){
   const cust=document.getElementById('med_cust').value||'병력정리';
   const uri='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   const a=document.createElement('a');
-  a.href=uri;a.download=cust+'_병력정리.csv';
+  a.href=uri;a.download=_medFileName(cust)+'_병력정리.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('엑셀 파일이 저장되었습니다!');
 }
@@ -12161,7 +12400,7 @@ function runAnalyze(){
   try{
     analyzeMedical().catch(function(e){
       document.getElementById('med_loading').style.display='none';
-      document.getElementById('med_result_text').innerHTML='<div style="color:#cc4040">오류: '+e.message+'</div>';
+      document.getElementById('med_result_text').innerHTML='<div style="color:#cc4040">오류: '+_medEsc(e.message)+'</div>';
       document.getElementById('med_result').style.display='block';
       toast('오류: '+e.message);
     });
@@ -12178,7 +12417,7 @@ function saveMedPdf(){
   var resultHtml = document.getElementById('med_result_text').innerHTML;
 
   var head = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
-    + '<title>'+cust+' 병력정리</title>'
+    + '<title>'+_medEsc(cust)+' 병력정리</title>'
     + '<style>'
     + 'body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;font-size:15px;color:#111;padding:20px;}'
     + 'h2{font-size:20px;font-weight:700;margin-bottom:4px;color:#1a1a3a;}'
@@ -12190,8 +12429,8 @@ function saveMedPdf(){
     + 'div{margin:5px 0;}'
     + '@media print{@page{margin:15mm;size:A4;}}'
     + '</style></head><body>'
-    + '<h2>'+cust+' 병력정리</h2>'
-    + '<div class="meta">작성일: '+dd+'&nbsp;|&nbsp;담당: '+analyst+'</div>'
+    + '<h2>'+_medEsc(cust)+' 병력정리</h2>'
+    + '<div class="meta">작성일: '+dd+'&nbsp;|&nbsp;담당: '+_medEsc(analyst)+'</div>'
     + resultHtml
     + '</body></html>';
 
