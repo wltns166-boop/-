@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.22-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-1</div>
   </div>
 </div>
 
@@ -9568,7 +9568,8 @@ function rWm(){
     <td style="text-align:center;white-space:nowrap">
       <button onclick="saveMedPdfByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(200,40,40,.12);border:1px solid rgba(200,50,50,.25);border-radius:6px;color:#cc3030;cursor:pointer;font-family:inherit;margin-right:4px" title="전체 병력 PDF로 저장"><i class="ti ti-file-type-pdf"></i> 전체</button>
       <button onclick="saveMedPdfByIdx(${i},true)" style="padding:4px 10px;font-size:13px;background:rgba(255,140,40,.12);border:1px solid rgba(255,140,40,.3);border-radius:6px;color:#c06010;cursor:pointer;font-family:inherit;margin-right:4px" title="치과진료 항목 제외 PDF"><i class="ti ti-file-type-pdf"></i> 치과제외</button>
-      <button onclick="printMedByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:6px;color:#4858cc;cursor:pointer;font-family:inherit" title="전체 병력 프린터로 출력"><i class="ti ti-printer"></i> 전체출력</button>
+      <button onclick="printMedByIdx(${i})" style="padding:4px 10px;font-size:13px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:6px;color:#4858cc;cursor:pointer;font-family:inherit;margin-right:4px" title="전체 병력 프린터로 출력"><i class="ti ti-printer"></i> 전체출력</button>
+      <button onclick="medOpenDrive(${i})" style="padding:4px 10px;font-size:13px;background:rgba(20,140,60,.1);border:1px solid rgba(30,160,70,.25);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit" title="드라이브에 저장된 원본 기록지·정리본 PDF 열람"><i class="ti ti-folder"></i> 자료함</button>
     </td>
     <td style="text-align:center">
       <button onclick="saveMedExcelByIdx(${i})" style="padding:4px 10px;font-size:14px;background:rgba(20,140,60,.12);border:1px solid rgba(30,160,70,.25);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit"><i class="ti ti-file-spreadsheet"></i> 엑셀</button>
@@ -9577,6 +9578,20 @@ function rWm(){
       <button onclick="deleteMedByIdx(${i})" style="padding:4px 8px;font-size:14px;background:rgba(180,40,40,.1);border:1px solid rgba(200,50,50,.2);border-radius:6px;color:#cc4040;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>
     </td>
   </tr>`;}).join('');
+}
+
+// 저장된 병력정리 → [내 자료함]의 병력정리/{고객} 폴더 바로 열기 (원본 3종 + 정리본 PDF 열람, 2026-09-23)
+function medOpenDrive(i){
+  var m=mhx[i];
+  if(!m){ toast('항목을 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  var st=_dvSt();
+  if(st.busy){ toast('자료함에서 다른 작업이 진행 중입니다. 잠시 후 다시 시도하세요.'); return; }
+  var me=(typeof cu!=='undefined'&&cu&&cu.name)?String(cu.name):'';
+  // 관리자는 작성자(m.m) 폴더로, 그 외는 본인 폴더 — 비관리자는 rDrive의 _dvForceOwn이 재확정하며
+  // member가 본인과 일치하면 경로(path)는 유지된다(불일치 시에만 초기화 — 4.995 규칙)
+  st.member=(_isAdmin()&&m.m)?String(m.m):me;
+  st.path=['병력정리', String(m.cust||'(미입력)')];
+  showPage('drive');
 }
 
 function deleteMedByIdx(i){
@@ -11567,6 +11582,13 @@ function _mergeMedRowsByCode(rows){
       .replace(/추정|상세불명의|상세불명|기타|양방|한방/g,'')
       .replace(/[^가-힣a-zA-Z0-9]/g,'');
   }
+  function nameKey(n){                                                           // 그룹 키용 — 미상 행은 괄호 안 과목까지 구분
+    var raw=String(n||'').trim();
+    // '미상(내과)'와 '미상(피부과)'가 nameNorm(괄호 제거)으로 전부 '미상' 한 그룹에 합쳐져
+    // 병원 수십 곳·통원 백여 회짜리 무의미한 거대 행이 되던 문제(2026-09-23) — 과목별로 분리 유지
+    if(/미상/.test(raw)) return raw.replace(/[^가-힣a-zA-Z0-9()]/g,'');
+    return nameNorm(raw);
+  }
   var groups={}, order=[], byCode={}, byName={};
   rows.forEach(function(line){
     var cells=_medRowCells(line);        // 순번 보정 + 6~8칸 강제 (칸 밀림 오염 방지, _medNoticeItems와 동일 규칙)
@@ -11584,7 +11606,7 @@ function _mergeMedRowsByCode(rows){
     name=String(name).replace(/\s*\(\s*추정[^)]*\)/g,'').replace(/\s*추정\s*$/,'').trim();
     // 그룹 결정: 상병코드 앞부분이 같으면(예: K29.x) 같은 병력. 병명이 같아도
     // 코드 계열이 서로 다르면 다른 질환일 수 있으므로 병합하지 않는다(예: "급성 위염" K29 vs J45)
-    var ck=codeBase(code), nk=nameNorm(name);
+    var ck=codeBase(code), nk=nameKey(name);
     var key='';
     if(ck && byCode[ck]) key=byCode[ck];
     else if(nk && byName[nk]){
@@ -11862,6 +11884,9 @@ async function analyzeMedical(){
       pl.push('     - ★수술 횟수는 "수술한 날짜 수"로 셈: 같은 날에 절제·수술 항목이 여러 개(여러 부위, 여러 행위코드, 폴립 여러 개 절제)라도 그날은 수술 1회로 계산. 다른 날 수술만 횟수를 더함.');
       pl.push('  5) ★★입원 판정(정확 기재): "기본진료정보" 표에서 "입원/외래(진료구분)" 칸이 "입원"인 행이 입원이다. 입원일수는 그 행의 "내원일수" 칸 숫자를 그대로 쓸 것(예: 입원 + 내원일수 3 → 입원일수 3일). "재원일수" 표기가 있으면 그 값도 입원일수. 같은 질병으로 입원이 여러 번이면 각 입원의 내원일수를 합산.');
       pl.push('  6) 칸 작성 규칙: "입원일수" 칸 — 입원 없으면 "없음", 있으면 "N일" / "수술횟수" 칸 — 수술 없으면 "없음", 있으면 "N회". 두 칸을 절대 합쳐 쓰지 말 것.');
+      pl.push('  7) ★★"미상" 최소화: 진단명·상병코드·약품(성분) 정보가 전혀 없는 단순 수진 내역이라도 절대 전부를 하나의 "미상" 행으로 뭉치지 말 것.');
+      pl.push('     - 병원별로 행을 나누고, 병명 칸은 병원 이름에 든 진료과목을 살려 "미상(내과)"·"미상(피부과)"·"미상(산부인과)"·"미상(한의원)"·"미상(치과)" 형식으로 기재(과목을 알 수 없는 병원만 "미상"). 상병코드는 "-".');
+      pl.push('     - 같은 병원의 같은 시기 내역이 이미 진단명 있는 행에 포함돼 있으면, 그 내역으로 미상 행을 또 만들지 말 것(중복·이중 계산 금지).');
       pl.push('출력형식(반드시 표만 출력, 다른 설명·머리말·꼬리말 없이 표 자체만 출력):');
       pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
       pl.push('|---|---|---|---|---|---|---|---|');
@@ -11940,6 +11965,7 @@ async function analyzeMedical(){
     renderMedResult(text);
     resultEl.style.display='block';
     autoSaveMedResult(text, document.getElementById('med_result_text').innerHTML);
+    try{ _medDriveSrcSave(document.getElementById('med_cust').value, files); }catch(e){ console.warn('원본 저장 호출 실패:',e); }
     toast(chunks.length > 1 ? ('분석 완료 — ' + chunks.length + '개 부분 통합!') : '분석 완료! 자동 저장됩니다.');
 
   }catch(err){
@@ -12107,6 +12133,49 @@ function autoSaveMedResult(text, html){
     rWm();
     try{ _medDrivePdfSave(e); }catch(err){}
   });
+}
+
+// 병력기록지 원본 PDF(기본진료·처방·세부)를 구글드라이브 {담당자}/병력정리/{고객}/ 폴더에 함께 보관 (2026-09-23)
+// — 정리본 PDF(_medDrivePdfSave)와 같은 폴더라 [내 자료함]·목록의 [자료함] 버튼에서 함께 열람.
+//   업로드는 내 자료함 dvUpload 직접 POST 재사용(no-cors — 응답을 못 읽으므로 dvList 재조회로 성공 확인, 4.995 규칙).
+//   실패해도 분석·저장 결과에는 영향 없음(원본은 사용자 PC에도 있음 — 안내 토스트만).
+function _medDriveSrcSave(cust, files){
+  try{
+    var url=(typeof _driveSyncUrl==='function'?_driveSyncUrl():'')||'';
+    if(!url||!files||!files.length) return;
+    var member=(typeof cu!=='undefined'&&cu&&cu.name)?String(cu.name):'';
+    if(!member) return;
+    var labels={f1:'기본진료기록',f2:'처방기록',f3:'세부기록'};
+    var pathStr='병력정리/'+String(cust||'(미입력)');
+    var dt=new Date().toISOString().slice(0,10);
+    var sent=[];
+    var chain=Promise.resolve();
+    files.forEach(function(pair){
+      var id=pair[0], f=pair[1];
+      if(!f||f.size>25*1024*1024){ if(f) console.warn('병력 원본 25MB 초과 — 업로드 생략:',f.name); return; }
+      chain=chain.then(function(){
+        return _dvReadB64(f).then(function(b64){
+          var nm='원본_'+(labels[id]||id)+'_'+dt+'_'+String(f.name||'기록지.pdf').replace(/[\\/:*?"<>|]/g,'_');
+          return fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+            body:JSON.stringify({action:'dvUpload',member:member,path:pathStr,
+              filename:nm,mime:String(f.type||'application/pdf'),data:b64})})
+            .then(function(){ sent.push(nm); });
+        }).catch(function(e){ console.warn('병력 원본 업로드 실패:',id,e); });
+      });
+    });
+    chain.then(function(){
+      if(!sent.length) return;
+      return new Promise(function(res){ setTimeout(res,1200); }).then(function(){
+        return _driveProxy({action:'dvList',member:member,path:pathStr});
+      }).then(function(rr){
+        var have={};
+        (((rr&&rr.files)||[])).forEach(function(x){ have[String((x&&x.name)||'')]=1; });
+        var miss=sent.filter(function(n){ return !have[n]; });
+        if(miss.length) toast('병력기록지 원본 '+miss.length+'건이 드라이브에 저장되지 않았습니다 — [내 자료함]에서 확인해 주세요.');
+        else toast('병력기록지 원본 '+sent.length+'건이 구글드라이브(병력정리 폴더)에 함께 저장되었습니다.');
+      }).catch(function(e){ console.warn('병력 원본 업로드 확인 실패:',e); });
+    });
+  }catch(e){ console.warn('병력 원본 드라이브 저장 오류:',e); }
 }
 
 // 병력정리 PDF를 구글드라이브 {담당자}/병력정리/{고객}/ 폴더에 저장
