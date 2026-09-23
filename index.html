@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-11</div>
   </div>
 </div>
 
@@ -11869,6 +11869,13 @@ function _medParseTables(lines){
     return cells;
   }
   function numOf(v){ var m=String(v||'').match(/\d+/); return m?parseInt(m[0],10):0; }   // 첫 숫자만
+  // 코드 칸이 꽉 차 옆 병명 조각과 붙어 추출된 경우("AM2556절통, 아래") — 코드와 나머지(병명 조각)로 분리(2026-09-23 실서식)
+  function splitCode(txt){
+    var t=String(txt||'').replace(/^\s+|\s+$/g,'');
+    var m=t.match(/^([A-Z]{1,2}\d{2}\.?\d{0,2})\s*([가-힣(].*)$/i);
+    if(m) return {code:m[1].replace(/\s/g,''), rest:m[2].trim()};
+    return {code:t.replace(/\s/g,''), rest:''};
+  }
   function glueHeader(toks){
     if(!hdrToks) return false;
     var glued=false;
@@ -11943,7 +11950,7 @@ function _medParseTables(lines){
           cut=lo+1+Math.min(G, upCnt);
         }
         // 코드가 적힌 조각 줄(같은 날짜의 두 번째 상병 행)은 항상 위 기록 쪽
-        for(var j3=i+1;j3<hi;j3++){ if(MED_CODE_RE.test(String(b[j3].cells.code||'').replace(/\s/g,'')) && j3+1>cut) cut=j3+1; }
+        for(var j3=i+1;j3<hi;j3++){ if(MED_CODE_RE.test(splitCode(b[j3].cells.code).code) && j3+1>cut) cut=j3+1; }
         below[i]=[i+1,cut]; above[nextA]=[cut,nextA];
       }
     }
@@ -11960,7 +11967,8 @@ function _medParseTables(lines){
     carryRec=null;
     anchors.forEach(function(i){
       var l=b[i], c=l.cells;
-      var codeTxt=String(c.code||'').replace(/\s/g,''), codeOk=MED_CODE_RE.test(codeTxt);
+      var sc=splitCode(c.code), codeTxt=sc.code, codeOk=MED_CODE_RE.test(codeTxt);
+      if(sc.rest) c.name = sc.rest + (c.name ? ' '+String(c.name).trim() : '');   // 붙어 온 병명 조각은 병명 앞에
       var rec={date:l.date, hosp:String(c.hosp||'').trim(), dept:String(c.dept||'').trim(), kind:String(c.kind||'').trim(),
                code:codeOk?_medCodeNorm(codeTxt):'', codeRaw:codeOk?codeTxt:'', name:String(c.name||'').trim(),
                vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), act2:String(c.act2||'').trim(),
@@ -11971,9 +11979,9 @@ function _medParseTables(lines){
       for(var j=ab[0];j<ab[1];j++){ if(isFragment(b[j].cells)) mergeFrag(pre,b[j].cells,false); else dropped++; }
       mergeFrag(rec,pre,true);
       for(var j2=bl[0];j2<bl[1];j2++){
-        var fc=b[j2].cells, fct=String(fc.code||'').replace(/\s/g,'');
+        var fc=b[j2].cells, fsc=splitCode(fc.code), fct=fsc.code;
         if(MED_CODE_RE.test(fct) && fct!==rec.codeRaw){                   // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
-          var r2=Object.assign({},rec,{code:_medCodeNorm(fct),codeRaw:fct,name:String(fc.name||'').trim(),act:String(fc.act||'').trim()});
+          var r2=Object.assign({},rec,{code:_medCodeNorm(fct),codeRaw:fct,name:(fsc.rest?fsc.rest+' ':'')+String(fc.name||'').trim(),act:String(fc.act||'').trim()});
           extra.push(r2); continue;
         }
         if(isFragment(fc)) mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false); else dropped++;
