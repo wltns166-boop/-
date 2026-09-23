@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-22</div>
   </div>
 </div>
 
@@ -12108,7 +12108,7 @@ function _medRecsToRows(recs){
     if(!dis.length){ dis=list.filter(function(r){ return (r.code||r.name) && isPharm(r); }); other=list.filter(function(r){ return dis.indexOf(r)===-1; }); }   // 그날 약국 행뿐이면 그 상병으로(통원 0회)
     if(dis.length){
       dis.forEach(function(r){
-        var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=r.act;
+        var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=(r.tbl==='act'?r.act:'');   // 수술 판정 글자는 세부진료기록(act 표)에서만(v-22 사용자 규칙)
         other.forEach(function(o){
           if(!sameHosp(o,hosp)) return;
           if(o.tbl!=='act' && o.ddays>dd) dd=o.ddays;                       // 세부진료정보의 "총투약일수 1"(진찰료 등)은 처방일수가 아님 — 무시
@@ -12116,7 +12116,7 @@ function _medRecsToRows(recs){
           if(!kind && o.kind && !isPharm(o)) kind=o.kind;                    // 약국 행의 '처방조제' 구분은 진료 행에 복사하지 않음(통원 0회 회귀 방지)
           // 병원명 폴백 폐지(v-15): 기본진료정보 행은 병원명이 항상 있으므로 못 읽었다면 파싱 문제 — 같은 날 다른 병원(처방·세부 행)의 이름을
           // 물려받으면 엉뚱한 병원(라온내과의원)이 안과 상병에 붙는다. 빈 채로 두어 눈에 띄게 한다.
-          if(o.act) act=(act+' '+o.act).trim();
+          if(o.act && o.tbl==='act') act=(act+' '+o.act).trim();
         });
         rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act));
       });
@@ -12126,8 +12126,8 @@ function _medRecsToRows(recs){
       other.forEach(function(o){
         if(o.tbl==='act' && !_medSurgWord(o.act)) return;
         var k=hospKey(o.hosp)||'-';
-        if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays)});
-        else { var b=byH[k]; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); }
+        if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays), act:(o.tbl==='act'?o.act:'')});
+        else { var b=byH[k]; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act && o.tbl==='act') b.act=(b.act+' '+o.act).trim(); }
       });
       Object.keys(byH).forEach(function(k){ var o=byH[k]; if(/약국/.test(String(o.hosp||''))||/조제/.test(String(o.kind||''))) return;   // 상병 없는 약국 행뿐인 날짜는 행을 만들지 않음(정보 없음 — v-16)
         var h=o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
@@ -12137,7 +12137,8 @@ function _medRecsToRows(recs){
 }
 // 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
 function _medSurgWord(act){
-  var m=String(act||'').match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?!\s*후|술\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "절제술후"(과거 수술 뒤 상태)는 수술이 아님(v-21)
+  // 사용자 확정 규칙(2026-09-23, v-22): 수술은 세부진료기록에 "절제술" 낱말이 있을 때만. 적출·절개술·성형술·"수술" 단독은 판정하지 않는다. "절제술 후"(과거 수술 뒤 상태)는 제외.
+  var m=String(act||'').match(/[^\s\/·,()]*절제술(?!\s*후)[^\s\/·,()]*/);
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
@@ -12206,7 +12207,7 @@ function _medAiPrompt(chunk, part, total){
   pl.push('1) 원문에 적힌 값만 옮깁니다. 원문에 없는 병명·상병코드·횟수·일수를 만들어 넣지 마세요. 없으면 빈칸(-)으로 둡니다.');
   pl.push('2) 상병코드는 원문 글자 그대로 씁니다(변환·보정·자릿수 추가 금지). 약 이름으로 병명이나 코드를 추정하지 마세요.');
   pl.push('3) 약품명·주사·재료·검사 항목은 병명이 아니므로 행으로 만들지 마세요. 처방조제 행은 그 날짜의 총투약일수만 "약 처방일수"에 적습니다.');
-  pl.push('4) 진료구분이 입원이면 입원일수에 내원일수를, 외래면 통원 1회로 적습니다. 진료행위명에 "절제"·"수술"이 있으면 수술횟수 1회.');
+  pl.push('4) 진료구분이 입원이면 입원일수에 내원일수를, 외래면 통원 1회로 적습니다. 수술횟수는 세부진료정보의 진료내역·코드명에 "절제술"이라는 낱말이 있을 때만 1회(다른 낱말로 수술을 판정하지 말 것).');
   pl.push('5) 한 줄 = 한 진료일. 날짜별로 합치거나 나누지 말고 원문 행 그대로 옮깁니다.');
   pl.push('6) 상병명·상병코드가 없는 진료는 병명 칸에 "진단명 없음 · 병원명" 형식으로 병원별로 적습니다(여러 병원을 하나의 미상 행으로 뭉치지 말 것). 표만 출력하고 다른 설명은 쓰지 마세요.');
   pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
