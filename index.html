@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-16</div>
   </div>
 </div>
 
@@ -11995,6 +11995,8 @@ function _medParseTables(lines){
                vdays:numOf(c.vdays), ddays:numOf(c.ddays), drug:String(c.drug||'').trim(), act:String(c.act||'').trim(), act2:String(c.act2||'').trim(),
                tbl:tblKind, pg:l.pg};
       if(!codeOk && c.code && !c.name && /[가-힣]/.test(c.code)) rec.name=String(c.code).trim();
+      // 약국·비급여 행의 코드 칸 "$"·병명 칸 "해당없음"(2026-09-23 실서식)은 상병이 아니므로 빈값으로 — 병명 "해당없음" 행이 생기지 않게(v-16)
+      rec.name=rec.name.replace(/^\$\s*/,'').trim(); if(/^해당\s*없음$/.test(rec.name)) rec.name='';
       var ab=above[i]||[i,i], bl=below[i]||[i+1,i+1], extra=[];
       var pre={};                                                          // 위 조각은 위→아래 순으로 모아 한 덩어리로 앞에 붙인다(역순 삽입 방지)
       for(var j=ab[0];j<ab[1];j++){ if(isFragment(b[j].cells)) mergeFrag(pre,b[j].cells,false); else dropped++; }
@@ -12086,7 +12088,8 @@ function _medRecsToRows(recs){
         if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays)});
         else { var b=byH[k]; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act) b.act=(b.act+' '+o.act).trim(); }
       });
-      Object.keys(byH).forEach(function(k){ var o=byH[k]; var h=/약국/.test(o.hosp)?'':o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
+      Object.keys(byH).forEach(function(k){ var o=byH[k]; if(/약국/.test(String(o.hosp||''))||/조제/.test(String(o.kind||''))) return;   // 상병 없는 약국 행뿐인 날짜는 행을 만들지 않음(정보 없음 — v-16)
+        var h=o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
     }
   });
   return rows;
