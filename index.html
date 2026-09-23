@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-9</div>
   </div>
 </div>
 
@@ -11837,7 +11837,7 @@ function _medParseTables(lines){
   // ⚠ "날짜 없는 줄은 무조건 직전 기록에 이어붙임"으로 되돌리지 말 것 — 병명이 앞뒤 기록에 조각나 뒤섞인다.
   var recs=[], tables=0, dropped=0, hdrInfo=[];
   lines=(lines||[]).slice().sort(function(a,b){ return a.pg!==b.pg ? a.pg-b.pg : b.y-a.y; });
-  var cols=null, hdrToks=null, hdrPg=0, justHdr=false, curFile=-1, buf=[], carryRec=null;
+  var cols=null, hdrToks=null, hdrPg=0, justHdr=false, curFile=-1, buf=[], carryRec=null, prevLn=null;
   function noteHdr(){ if(hdrInfo.length>=6) return; hdrInfo.push(hdrToks.map(function(t){ return t.t+(_medColOf(t.t)?'='+_medColOf(t.t):''); }).join('|')); }
   var TEXT_COLS={name:1,hosp:1,dept:1,act:1,act2:1,kind:1,drug:1,code:1};
   function buildCols(toks){
@@ -11991,11 +11991,23 @@ function _medParseTables(lines){
     var toks=_medTokens(ln.items);
     if(!toks.length) return;
     if(isHeader(toks) && !hasDate(toks)){
+      // 세 줄 머리글(2026-09-23 실서식): 한 줄짜리 머리글은 세로 가운데, 두 줄짜리 머리글의 윗줄은 그 위에 있다.
+      // 직전 줄이 같은 쪽·가까운 y·날짜 없음이고 이 줄의 머리글 사이 빈 x에 놓여 있으면 머리글 윗줄로 합친다.
+      var topToks=null;
+      if(!justHdr && prevLn && prevLn.pg===ln.pg && Math.abs(prevLn.y-ln.y)<=24 && !hasDate(prevLn.toks) && prevLn.toks.length){
+        var inGap=prevLn.toks.every(function(t){ var cx=t.x+t.w/2; return !toks.some(function(h){ return cx>=h.x-1 && cx<=h.x+h.w+1; }); });
+        if(inGap){ topToks=prevLn.toks; if(buf.length && buf[buf.length-1].y===prevLn.y && buf[buf.length-1].pg===prevLn.pg) buf.pop(); }
+      }
       flush();
       if(justHdr && hdrPg===ln.pg){ hdrToks=hdrToks.concat(toks); cols=buildCols(hdrToks); hdrInfo.pop(); noteHdr(); }   // 두 줄 머리글 — 이어 붙임
-      else { hdrToks=toks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; }); cols=buildCols(hdrToks); tables++; hdrPg=ln.pg; noteHdr(); }
-      justHdr=true; return;
+      else {
+        hdrToks=toks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; });
+        if(topToks) hdrToks=hdrToks.concat(topToks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; }));
+        cols=buildCols(hdrToks); tables++; hdrPg=ln.pg; noteHdr();
+      }
+      justHdr=true; prevLn={pg:ln.pg,y:ln.y,toks:toks}; return;
     }
+    prevLn={pg:ln.pg,y:ln.y,toks:toks};
     if(justHdr && hdrPg===ln.pg && !hasDate(toks) && glueHeader(toks)){ hdrInfo.pop(); noteHdr(); return; }   // 쪼개진 머리글 조각 줄
     justHdr=false;
     if(!cols) return;
@@ -12019,8 +12031,9 @@ function _medRecsToRows(recs){
   function sameHosp(o,hosp){ if(isPharm(o)) return true; var x=hospKey(o.hosp), y=hospKey(hosp); return !x||!y||x===y; }
   Object.keys(byDate).sort().forEach(function(d){
     var list=byDate[d];
-    var dis=list.filter(function(r){ return r.code || r.name; });
-    var other=list.filter(function(r){ return !r.code && !r.name; });
+    var dis=list.filter(function(r){ return (r.code || r.name) && !isPharm(r); });
+    var other=list.filter(function(r){ return !(r.code || r.name) || isPharm(r); });
+    if(!dis.length){ dis=list.filter(function(r){ return (r.code||r.name) && isPharm(r); }); other=list.filter(function(r){ return dis.indexOf(r)===-1; }); }   // 그날 약국 행뿐이면 그 상병으로(통원 0회)
     if(dis.length){
       dis.forEach(function(r){
         var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=r.act;
@@ -12055,7 +12068,8 @@ function _medSurgWord(act){
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
   var inpat=/입원/.test(String(kind||''));
-  var visit=inpat?'0회':'1회';
+  var pharm=/약국/.test(String(hosp||''))||/조제/.test(String(kind||''));
+  var visit=(inpat||pharm)?'0회':'1회';   // 약국 조제 행은 통원이 아님
   var inD=inpat?((vdays||1)+'일'):'없음';
   var sw=_medSurgWord(act), surg=!!sw;
   var nm=String(name||'').replace(/\|/g,'/');
@@ -12147,6 +12161,10 @@ async function extractPdfText(file, password, linesOut){
                     var lines=[];
                     tc.items.forEach(function(it){
                       if(!it.str || !it.str.trim()) return;
+                      var tr=it.transform||[1,0,0,1,0,0];
+                      // 페이지 방향과 다른 회전·기울임 글자(대각선 "본인 외 열람금지" 워터마크 등)는 표 줄에 섞이므로 제외(2026-09-23 실서식)
+                      var tilted = swap ? (Math.abs(tr[0])>0.05||Math.abs(tr[3])>0.05) : (Math.abs(tr[1])>0.05||Math.abs(tr[2])>0.05);
+                      if(tilted) return;
                       var y=swap?it.transform[4]:it.transform[5], x=swap?it.transform[5]:it.transform[4], ln=null;
                       for(var k=lines.length-1;k>=0;k--){ if(Math.abs(lines[k].y-y)<=2){ ln=lines[k]; break; } }
                       if(!ln){ ln={y:y,items:[]}; lines.push(ln); }
