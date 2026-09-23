@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-19</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-20</div>
   </div>
 </div>
 
@@ -11981,7 +11981,8 @@ function _medParseTables(lines){
         }
         // "(양방)/(한방)/(치과)…"로 시작하는 병명 조각 줄(코드 없음)은 다음 기록의 첫 병명 줄 — 행 경계 여백이 병명 줄 간격보다
         // 좁은 서식에서 앞 기록 꼬리에 "(양방)신"이 붙던 실사고(v-19). 그 줄부터는 아래 기록.
-        for(var j4=i+1;j4<hi;j4++){ var nm4=String(b[j4].cells.name||''); if(/^\((양방|한방|치과|한의|보건|의과)\)/.test(nm4) && !MED_CODE_RE.test(splitCode(b[j4].cells.code).code)){ if(j4<cut) cut=j4; break; } }
+        var lastCode=i; for(var j5=i+1;j5<hi;j5++){ if(MED_CODE_RE.test(splitCode(b[j5].cells.code).code)) lastCode=j5; }   // 같은 날짜 두 번째 상병(코드 줄)까지는 위 기록
+        for(var j4=lastCode+1;j4<hi;j4++){ var nm4=String(b[j4].cells.name||''); if(/^\((양방|한방|치과|한의|보건|의과)\)/.test(nm4)){ if(j4<cut) cut=j4; break; } }
         // 코드가 적힌 조각 줄(같은 날짜의 두 번째 상병 행)은 항상 위 기록 쪽
         for(var j3=i+1;j3<hi;j3++){ if(MED_CODE_RE.test(splitCode(b[j3].cells.code).code) && j3+1>cut) cut=j3+1; }
         below[i]=[i+1,cut]; above[nextA]=[cut,nextA];
@@ -12013,22 +12014,27 @@ function _medParseTables(lines){
       var pre={};                                                          // 위 조각은 위→아래 순으로 모아 한 덩어리로 앞에 붙인다(역순 삽입 방지)
       for(var j=ab[0];j<ab[1];j++){ if(isFragment(b[j].cells)) mergeFrag(pre,b[j].cells,false); else dropped++; }
       mergeFrag(rec,pre,true);
+      var pend=null;   // 두 번째 상병의 이름 줄("(치과)…")이 코드 줄보다 위에 놓인 서식: 접두 줄부터 코드 줄까지를 그 상병의 병명으로(v-20 리뷰)
       for(var j2=bl[0];j2<bl[1];j2++){
         var fc=b[j2].cells, fsc=splitCode(fc.code), fct=fsc.code;
         if(MED_CODE_RE.test(fct) && fct!==rec.codeRaw){                   // 같은 날짜의 두 번째 상병 행(날짜 칸 비어 있음)
           var r2=Object.assign({},rec,{code:fct.toUpperCase(),codeRaw:fct,name:(fsc.rest?fsc.rest+' ':'')+String(fc.name||'').trim(),act:String(fc.act||'').trim()});
+          if(pend){ mergeFrag(r2,pend,true); pend=null; }
           extra.push(r2); continue;
         }
-        if(isFragment(fc)) mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false); else dropped++;
+        if(!isFragment(fc)){ dropped++; continue; }
+        if(/^\((양방|한방|치과|한의|보건|의과)\)/.test(String(fc.name||''))) pend={};   // 새 상병의 첫 병명 줄 — 코드 줄이 올 때까지 보류
+        if(pend) mergeFrag(pend, fc, false); else mergeFrag(extra.length?extra[extra.length-1]:rec, fc, false);
       }
+      if(pend) mergeFrag(extra.length?extra[extra.length-1]:rec, pend, false);   // 코드 줄 없이 끝나면(마지막 기록 등) 기존대로 꼬리에
       rec.hosp=_medHospNorm(rec.hosp);
       if(rec.act2) rec.act=(rec.act?rec.act+' / ':'')+rec.act2;
       // 원문 순번(완전성 자가 점검용) — 기준 줄에 없으면 위·아래 조각 줄의 숫자 조각("123"+"4")을 이어붙인다(두 줄 줄바꿈 순번)
       var sq=String(c._0||'').replace(/\D/g,'');
-      if(!sq){ var up='', dn=''; for(var s1=ab[0];s1<ab[1];s1++){ var v1=String(b[s1].cells._0||'').trim(); if(/^\d{1,4}$/.test(v1)) up+=v1; } for(var s2=bl[0];s2<bl[1];s2++){ var v2=String(b[s2].cells._0||'').trim(); if(/^\d{1,4}$/.test(v2)) dn+=v2; } sq=up+dn; }
+      if(!sq){ var ups=[], dns=[]; for(var s1=ab[0];s1<ab[1];s1++){ var v1=String(b[s1].cells._0||'').trim(); if(/^\d{1,4}$/.test(v1)) ups.push(v1); } for(var s2=bl[0];s2<bl[1];s2++){ var v2=String(b[s2].cells._0||'').trim(); if(/^\d{1,4}$/.test(v2)) dns.push(v2); } if(ups.length===1 && dns.length===1) sq=ups[0]+dns[0]; }   // 두 줄 순번은 위·아래 조각이 정확히 하나씩일 때만(리뷰)
       var fk=Math.floor((l.pg||0)/1000)+':'+tblKind;
       if(sq && /^\d{1,6}$/.test(sq)){ var sn=parseInt(sq,10); if(!(seqMax[fk]>=sn)) seqMax[fk]=sn; }
-      seqCnt[fk]=(seqCnt[fk]||0)+1+extra.length;
+      seqCnt[fk]=(seqCnt[fk]||0)+1;   // 원문 순번을 가진 기준 줄만 센다(같은 날짜 두 번째 상병 extra는 순번이 없음 — 리뷰)
       recs.push(rec); extra.forEach(function(r){ r.hosp=_medHospNorm(r.hosp); recs.push(r); });
       carryRec = extra.length ? extra[extra.length-1] : rec;   // 이 버퍼의 마지막 기록 — 다음 쪽 첫 조각 이월 대상
     });
@@ -12052,7 +12058,13 @@ function _medParseTables(lines){
           if(pl.pg!==ln.pg || Math.abs(pl.y-ln.y)>24 || hasDate(pl.toks) || !pl.toks.length) break;
           var inGap=pl.toks.every(function(t){ var cx=t.x+t.w/2; return !acc.some(function(h){ return cx>=h.x-1 && cx<=h.x+h.w+1; }); });
           if(!inGap) break;
-          topToks=(topToks||[]).concat(pl.toks); acc=acc.concat(pl.toks);
+          // 데이터 줄(앞 표의 잔여 줄)은 윗줄이 아님 — 3자리 이상 숫자·금액·코드 모양 토큰이 있으면 중단(v-20 리뷰 High)
+          if(pl.toks.some(function(t){ return /\d{3,}|\d,\d{3}/.test(t.t) || MED_CODE_RE.test(t.t); })) break;
+          // 본 머리글이 이미 가진 열 키와 같은 키의 토큰은 빼서 가짜 토큰이 x가 작다는 이유로 열 키를 선점하지 못하게(buildCols seen)
+          var mainKeys={}; toks.forEach(function(h){ var k=_medColOf(h.t); if(k) mainKeys[k]=1; });
+          var use=pl.toks.filter(function(t){ var k=_medColOf(t.t); return !(k && mainKeys[k]); });
+          if(!use.length) break;
+          topToks=(topToks||[]).concat(use); acc=acc.concat(use);
           if(buf.length && buf[buf.length-1].y===pl.y && buf[buf.length-1].pg===pl.pg) buf.pop();
         }
       }
