@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-2</div>
   </div>
 </div>
 
@@ -9590,7 +9590,7 @@ function medOpenDrive(i){
   // 관리자는 작성자(m.m) 폴더로, 그 외는 본인 폴더 — 비관리자는 rDrive의 _dvForceOwn이 재확정하며
   // member가 본인과 일치하면 경로(path)는 유지된다(불일치 시에만 초기화 — 4.995 규칙)
   st.member=(_isAdmin()&&m.m)?String(m.m):me;
-  st.path=['병력정리', String(m.cust||'(미입력)')];
+  st.path=['병력정리', _medFolderCust(m.cust)];
   showPage('drive');
 }
 
@@ -12139,6 +12139,13 @@ function autoSaveMedResult(text, html){
 // — 정리본 PDF(_medDrivePdfSave)와 같은 폴더라 [내 자료함]·목록의 [자료함] 버튼에서 함께 열람.
 //   업로드는 내 자료함 dvUpload 직접 POST 재사용(no-cors — 응답을 못 읽으므로 dvList 재조회로 성공 확인, 4.995 규칙).
 //   실패해도 분석·저장 결과에는 영향 없음(원본은 사용자 PC에도 있음 — 안내 토스트만).
+function _medFolderCust(c){
+  // 병력정리 드라이브 폴더용 고객명 정규화(2026-09-23 v-2 리뷰) — 고객명에 '/'가 들어가면
+  // dvUpload(문자열 path를 '/'로 분해)와 정리본 PDF(배열 folders — 문자 그대로 폴더명)의
+  // 폴더가 서로 갈라진다. 원본 업로드·[자료함] 이동·정리본 PDF 세 경로 전부 이걸로 통일할 것.
+  var s=String(c||'').replace(/[\\/]/g,'_').trim();
+  return s||'(미입력)';
+}
 function _medDriveSrcSave(cust, files){
   try{
     var url=(typeof _driveSyncUrl==='function'?_driveSyncUrl():'')||'';
@@ -12146,34 +12153,47 @@ function _medDriveSrcSave(cust, files){
     var member=(typeof cu!=='undefined'&&cu&&cu.name)?String(cu.name):'';
     if(!member) return;
     var labels={f1:'기본진료기록',f2:'처방기록',f3:'세부기록'};
-    var pathStr='병력정리/'+String(cust||'(미입력)');
-    var dt=new Date().toISOString().slice(0,10);
-    var sent=[];
+    var pathStr='병력정리/'+_medFolderCust(cust);
+    var dt=(typeof td==='function'?td():new Date().toISOString().slice(0,10));   // KST 날짜(프로젝트 관례 — UTC면 새벽에 하루 어긋남)
+    var sent=[], failed=[], skipped=[];   // v-2 리뷰: 사전 제외·실패도 전부 추적 — 무통보 실패 금지
     var chain=Promise.resolve();
     files.forEach(function(pair){
       var id=pair[0], f=pair[1];
-      if(!f||f.size>25*1024*1024){ if(f) console.warn('병력 원본 25MB 초과 — 업로드 생략:',f.name); return; }
+      if(!f) return;
+      var lb=labels[id]||id;
+      if(typeof DV_BLOCK_EXT!=='undefined'&&DV_BLOCK_EXT.test(String(f.name||''))){ skipped.push(lb+'(차단 형식)'); return; }   // 4.995 v-13 방어와 동일
+      if(f.size>25*1024*1024){ skipped.push(lb+'(25MB 초과)'); return; }
       chain=chain.then(function(){
         return _dvReadB64(f).then(function(b64){
-          var nm='원본_'+(labels[id]||id)+'_'+dt+'_'+String(f.name||'기록지.pdf').replace(/[\\/:*?"<>|]/g,'_');
+          var nm='원본_'+lb+'_'+dt+'_'+String(f.name||'기록지.pdf').replace(/[\\/:*?"<>|]/g,'_');
           return fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
             body:JSON.stringify({action:'dvUpload',member:member,path:pathStr,
               filename:nm,mime:String(f.type||'application/pdf'),data:b64})})
             .then(function(){ sent.push(nm); });
-        }).catch(function(e){ console.warn('병력 원본 업로드 실패:',id,e); });
+        }).catch(function(e){ failed.push(lb); console.warn('병력 원본 업로드 실패:',id,e); });
       });
     });
     chain.then(function(){
-      if(!sent.length) return;
+      if(!sent.length&&!failed.length&&!skipped.length) return;
+      var pre=failed.concat(skipped);   // 업로드 시도 전/중에 이미 빠진 것들
+      if(!sent.length){
+        // 전부 실패 — dvList 확인 없이 즉시 안내(v-2 리뷰 High: 여기서 조용히 끝나던 결함)
+        toast('병력기록지 원본이 드라이브에 저장되지 않았습니다('+pre.join(', ')+') — [내 자료함]에서 수동으로 올릴 수 있습니다.');
+        return;
+      }
       return new Promise(function(res){ setTimeout(res,1200); }).then(function(){
         return _driveProxy({action:'dvList',member:member,path:pathStr});
       }).then(function(rr){
         var have={};
         (((rr&&rr.files)||[])).forEach(function(x){ have[String((x&&x.name)||'')]=1; });
         var miss=sent.filter(function(n){ return !have[n]; });
-        if(miss.length) toast('병력기록지 원본 '+miss.length+'건이 드라이브에 저장되지 않았습니다 — [내 자료함]에서 확인해 주세요.');
+        var probCnt=miss.length+pre.length;
+        if(probCnt) toast('병력기록지 원본 '+sent.filter(function(n){return have[n];}).length+'건 저장, '+probCnt+'건은 저장되지 않았습니다'+(pre.length?'('+pre.join(', ')+' 포함)':'')+' — [내 자료함]에서 확인해 주세요.');
         else toast('병력기록지 원본 '+sent.length+'건이 구글드라이브(병력정리 폴더)에 함께 저장되었습니다.');
-      }).catch(function(e){ console.warn('병력 원본 업로드 확인 실패:',e); });
+      }).catch(function(e){
+        console.warn('병력 원본 업로드 확인 실패:',e);
+        toast('병력기록지 원본 업로드 결과를 확인하지 못했습니다'+(pre.length?'('+pre.join(', ')+'는 저장 안 됨)':'')+' — [내 자료함]에서 확인해 주세요.');
+      });
     });
   }catch(e){ console.warn('병력 원본 드라이브 저장 오류:',e); }
 }
@@ -12192,7 +12212,7 @@ function _medDrivePdfSave(m, _retried){
     return fetch('/api/medpdf',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({medpdf:1, idToken:t||'', html:html, driveUrl:driveUrl,
         member:(typeof _memberName==='function'?_memberName(m.m):m.m)||m.m||'미지정',
-        cust:m.cust||'(미입력)',
+        cust:_medFolderCust(m.cust),   // 폴더명 — 원본 업로드·[자료함] 경로와 동일 정규화(v-2)
         filename:(m.cust||'고객')+'님 병력분석 '+(m.dt||'')+'.pdf'})});
   }).then(function(r){ return r.json().then(function(j){ return {st:r.status,j:j}; }); }).then(function(o){
     if(o.j&&o.j.ok){ toast('병력정리 PDF가 구글드라이브에 저장되었습니다.'); return; }
