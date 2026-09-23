@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-13</div>
   </div>
 </div>
 
@@ -11872,9 +11872,13 @@ function _medParseTables(lines){
       // 토큰 시작 x만 보면 덩어리 전체가 입원/외래 칸으로 들어가 코드·병명 조각이 조용히 사라진다(v-12 실사고 — splitCode만으로는 못 잡던 경우).
       if(codeIdx>=0 && Math.abs(ci-codeIdx)<=1 && !/^[\d,.]+$/.test(t.t)){
         var gm=s.match(/^([^A-Za-z\d]*?)\s*([A-Z]{1,2}\d{2}\.?\d{0,2})\s*([^A-Za-z\d].*)?$/);
-        if(gm && (gm[1]||gm[3])){
-          var nk = cols[codeIdx+1] ? (cols[codeIdx+1].k||('_'+(codeIdx+1))) : 'name';
-          parts=[]; if(gm[1]) parts.push([k,gm[1].trim()]); parts.push(['code',gm[2]]); if(gm[3]) parts.push([nk,gm[3].trim()]);
+        // 병명 안의 괄호 병기("당뇨병(E11)")는 코드 칸 값이 아님 — 앞 조각이 '('로 끝나거나 뒤 조각이 ')'로 시작하면 분리하지 않는다(리뷰 반영)
+        if(gm && (gm[1]||gm[3]) && !/\($/.test(gm[1]||'') && !/^\)/.test(gm[3]||'')){
+          // 앞 조각: 토큰이 code 칸 자체로 배정됐으면 code 왼쪽 칸(입원/외래)으로 — 같은 'code' 키에 합치면 코드가 통째로 무효화됨(리뷰 Medium)
+          var pk = (ci===codeIdx) ? ((cols[codeIdx-1]&&cols[codeIdx-1].k)||('_'+(codeIdx-1))) : k;
+          // 뒤 조각: code 다음 칸(병명). 다음 칸이 없거나 열 이름이 비어 있으면(중복 머리글) 죽은 키 대신 병명으로(리뷰 Low)
+          var nk = (cols[codeIdx+1]&&cols[codeIdx+1].k) || 'name';
+          parts=[]; if(gm[1]) parts.push([pk,gm[1].trim()]); parts.push(['code',gm[2]]); if(gm[3]) parts.push([nk,gm[3].trim()]);
         }
       }
       parts.forEach(function(p){ if(!p[1]) return; cells[p[0]]=(cells[p[0]]?cells[p[0]]+' ':'')+p[1]; });
