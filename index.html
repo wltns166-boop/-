@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-20</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-21</div>
   </div>
 </div>
 
@@ -11700,8 +11700,10 @@ function _mergeMedRowsByCode(rows){
     }
     // 안전망: 행에 "절제"가 보이는데 수술 횟수 미기재면 플래그만 세움 — 그룹당 1회 보정(행마다 +1 하면
     // 추적관찰 통원 행이 같은 병명 "(…절제술)"을 달고 올 때 수술 횟수가 방문수만큼 부풀어짐)
-    var rt=String(opTxt||'')+' '+String(name);
-    if(/절제/.test(rt) && !/절제[^|]*?(없음|안\s*함|아님|미시행|계획|예정|고려|필요)/.test(rt)) g.resect=true;
+    // 병명 본문은 보지 않는다 — "척추후궁절제후증후군"(M96.1)·"위절제후증후군"처럼 과거 수술 뒤 상태를 뜻하는 진단명이 수술 1회로 잡히던 실사고(v-21).
+    // 병명 뒤 괄호 표기("(폴립절제술)")와 수술 칸 글자만 보고, "절제후/절제술 후"는 제외.
+    var rt=String(opTxt||'')+' '+(String(name).match(/\([^)]*\)/g)||[]).join(' ');
+    if(/절제/.test(rt) && !/절제(술)?\s*후/.test(rt) && !/절제[^|]*?(없음|안\s*함|아님|미시행|계획|예정|고려|필요)/.test(rt)) g.resect=true;
   });
   // ── 후처리: "치료내용" 행 정리 (같은 날·같은 병원 중복 기재 방지) ──
   // 처방기록이 항목별로 쪼개지면 하루 치 치료(항생제 처방·○○주사·봉합사·산소포화도 측정 등)가
@@ -12135,7 +12137,7 @@ function _medRecsToRows(recs){
 }
 // 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
 function _medSurgWord(act){
-  var m=String(act||'').match(/[^\s\/·,()]*(절제|적출|절개술|성형술|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);
+  var m=String(act||'').match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?!\s*후|술\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "절제술후"(과거 수술 뒤 상태)는 수술이 아님(v-21)
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
