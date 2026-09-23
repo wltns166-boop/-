@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-3</div>
   </div>
 </div>
 
@@ -9711,7 +9711,7 @@ function _medMajorDisease(code, name){
     if(L==='B'&&N>=20&&N<=24) return '에이즈(HIV)';
   }
   if(/백혈병/.test(n)) return '백혈병';
-  if(/악성|암종|암$|암\b|암\(|림프종|육종/.test(n) && !/양성/.test(n)) return '암';
+  if(/악성|암종|림프종|육종|[가-힣]암(?![가-힣])/.test(n) && !/양성/.test(n)) return '암';   // "위암 4기"·"직장암 수술 후" — \b는 한글 경계를 못 잡음(리뷰 반영)
   if(/고혈압/.test(n)) return '고혈압';
   if(/협심증/.test(n)) return '협심증';
   if(/심근경색/.test(n)) return '심근경색';
@@ -9760,7 +9760,7 @@ function _medNoticeSectionsHtml(m, opts){
     +sec('4. 5년 이내 10대 질병 (암·백혈병·고혈압·협심증·심근경색·심장판막증·간경화·뇌졸중·당뇨병·에이즈)', majorL, function(r){ return r.major; })
     +(nt.parsed? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 실제 청약 고지 시 원본 내역과 대조해 주세요.'
                +' "1년 이내 추가검사(재검사) 소견"은 기록만으로 판정할 수 없어 표시하지 않습니다 — 고객에게 직접 확인해 주세요.'
-               +([].concat(hospL,visitL,drugL).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
+               +([].concat(hospL,visitL,drugL,majorL).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [상세보기]로 원문을 확인해 주세요.</div>');
 }
 // 고지사항 상세보기 — 새 창
@@ -11759,12 +11759,12 @@ function _splitMedChunks(text, maxLen){
 // 표에 실리는 상병코드는 전부 원문에 실제로 적힌 글자뿐이다(없는 코드 원천 차단). 머리글을 하나도 못 찾으면
 // AI 전사 폴백(_medAiPrompt — 원문 그대로만, 추정 금지) + 원문 대조 검증(_medVerifyRows).
 var MED_COLS=[
-  {k:'date', re:/^(진료개시일|진료시작일|진료일자|진료일|조제일자|조제일|요양개시일|처방일자|처방일|입원일자|내원일자|진료년월일|처방전발행일)$/},
+  {k:'vdays', re:/(내원일수|방문일수|입내원일수|입원일수|재원일수|진료일수)/},
+  {k:'date', re:/(진료개시일|진료시작일|진료일자|진료일(?!수)|조제일자|조제일|요양개시일|처방일자|처방일|입원일자|내원일자|진료년월일|처방전발행일|진료년월)/},
   {k:'hosp', re:/(병[·・.]?의원|요양기관|병원명|기관명|약국명|의료기관|병원)/},
   {k:'kind', re:/^(입원\/외래|입원외래|진료형태|진료구분|처방\/조제|처방조제|입원\/외래구분)$/},
   {k:'code', re:/(상병기호|상병코드|주상병|질병코드|진단코드|질병분류|상병$)/},
   {k:'name', re:/(상병명|진단명|질병명|상병내용|질병내용)/},
-  {k:'vdays', re:/(내원일수|방문일수|입내원일수|입원일수|재원일수|진료일수)/},
   {k:'ddays', re:/(총투약일수|투약일수|투여일수)/},
   {k:'drug', re:/(약품명|성분명|약제명|제품명)/},
   {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명)/}
@@ -11830,13 +11830,25 @@ function _medParseTables(lines){
   function assign(toks){
     var cells={};
     toks.forEach(function(t){
+      // 숫자 칸은 오른쪽 정렬이 흔해 시작 x가 앞 칸으로 새기 쉬움 — 숫자 토큰은 중심 x, 글자 토큰은 시작 x로 배정(리뷰 반영)
+      var ax = /^[\d,.]+$/.test(t.t) ? (t.x + t.w/2) : t.x;
       for(var i=0;i<cols.length;i++){
-        if(t.x>=cols[i].x0 && t.x<cols[i].x1){ var k=cols[i].k||('_'+i); cells[k]=(cells[k]?cells[k]+' ':'')+t.s.trim(); break; }
+        if(ax>=cols[i].x0 && ax<cols[i].x1){ var k=cols[i].k||('_'+i); cells[k]=(cells[k]?cells[k]+' ':'')+t.s.trim(); break; }
       }
     });
     return cells;
   }
-  function numOf(v){ return parseInt(String(v||'').replace(/\D/g,''),10)||0; }
+  function numOf(v){ var m=String(v||'').match(/\d+/); return m?parseInt(m[0],10):0; }   // 첫 숫자만 — 두 숫자가 한 칸에 섞여도 이어붙이지 않음
+  // 머리글 낱말이 두 줄로 쪼개진 경우("총투약"/"일수") — 짧은 조각 줄이면 x가 겹치는 머리글 토큰에 이어붙여 다시 인식
+  function glueHeader(toks){
+    if(!hdrToks || !toks.every(function(t){ return t.t.length<=5 && !MED_CODE_RE.test(t.t) && !/\d{4}/.test(t.t); })) return false;
+    var glued=false;
+    toks.forEach(function(t){
+      for(var i=0;i<hdrToks.length;i++){ var h=hdrToks[i]; if(t.x < h.x+h.w+4 && t.x+t.w > h.x-4){ h.t=h.t+t.t; h.s=h.s+t.s; h.w=Math.max(h.w, t.x+t.w-h.x); glued=true; break; } }
+    });
+    if(glued) cols=buildCols(hdrToks);
+    return glued;
+  }
   lines.forEach(function(ln){
     var f=Math.floor((ln.pg||0)/1000);
     if(f!==curFile){ curFile=f; cols=null; hdrToks=null; prev=null; justHdr=false; }   // 파일 경계 — 이전 파일의 열 배치를 새 파일에 적용하지 않는다(리뷰 반영)
@@ -11844,9 +11856,10 @@ function _medParseTables(lines){
     if(!toks.length) return;
     if(isHeader(toks) && !hasDate(toks)){
       if(justHdr && hdrPg===ln.pg){ hdrToks=hdrToks.concat(toks); cols=buildCols(hdrToks); }   // 두 줄 머리글 — 이어 붙임
-      else { hdrToks=toks; cols=buildCols(toks); tables++; hdrPg=ln.pg; prev=null; }
+      else { hdrToks=toks.map(function(t){ return {x:t.x,w:t.w,s:t.s,t:t.t}; }); cols=buildCols(hdrToks); tables++; hdrPg=ln.pg; prev=null; }
       justHdr=true; return;
     }
+    if(justHdr && hdrPg===ln.pg && !hasDate(toks) && glueHeader(toks)) return;   // 쪼개진 머리글 조각 줄
     justHdr=false;
     if(!cols) return;
     var cells=assign(toks);
@@ -11914,7 +11927,7 @@ function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
   var inpat=/입원/.test(String(kind||''));
   var visit=inpat?'0회':'1회';
   var inD=inpat?((vdays||1)+'일'):'없음';
-  var surg=/절제|수술|적출|절개술|성형술/.test(String(act||''));
+  var surg=/절제|적출|절개술|성형술|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기))/.test(String(act||''));   // "수술 전 검사"·"수술실 사용료" 같은 부대 항목 제외(리뷰 반영)
   var nm=String(name||'').replace(/\|/g,'/');
   if(surg && act) nm+='('+String(act).replace(/\|/g,'/').slice(0,30)+')';
   var h=String(hosp||'').replace(/\|/g,'/');
@@ -11922,8 +11935,19 @@ function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
   return '| '+date+' | '+nm+' | '+String(code||'').replace(/\|/g,'/')+' | '+(h||'-')+' | '+visit+' | '+inD+' | '+(surg?'1회':'없음')+' | '+(ddays||0)+'일 |';
 }
 // AI 전사 폴백 결과의 상병코드를 원문과 대조 — 원문에 없는 코드는 지우지 않고 "⚠원문미확인"을 붙여 눈에 띄게 한다.
+function _medRawCodes(rawText){
+  // 원문을 공백·구분자로 쪼개 코드 모양 토큰만 모아 정규화 집합으로(부분 문자열 우연 일치 방지 — 리뷰 반영)
+  var set={};
+  String(rawText||'').toUpperCase().split(/[^A-Z0-9.]+/).forEach(function(t){   // 영숫자 경계로 분리 — 한글에 붙은 "…상병J069감기"도 J069로 잡힘
+    t=t.replace(/^\.+|\.+$/g,'');
+    if(!t || !MED_CODE_RE.test(t)) return;
+    var n=_medCodeNorm(t); set[n]=1;
+    var b=n.match(/^([A-Z]\d{2})/); if(b) set[b[1]]=1;
+  });
+  return set;
+}
 function _medVerifyRows(rows, rawText){
-  var raw=String(rawText||'').toUpperCase().replace(/[.\s\-]/g,'');
+  var known=_medRawCodes(rawText);
   var flagged=0;
   var out=rows.map(function(line){
     var cells=_medRowCells(line);
@@ -11932,8 +11956,8 @@ function _medVerifyRows(rows, rawText){
     if(!code || code==='-' ) return line;
     var m=code.toUpperCase().match(/^([A-Z])(\d{2})\.?(\d{0,2})/);
     if(!m) return line;
-    var key=m[1]+m[2]+(m[3]||'');
-    if(raw.indexOf(key)===-1 && raw.indexOf(m[1]+m[2])===-1){ flagged++; cells[2]=code+' ⚠원문미확인'; return '| '+cells.join(' | ')+' |'; }
+    var full=m[1]+m[2]+(m[3]?'.'+m[3]:''), base=m[1]+m[2];
+    if(!known[full] && !known[base]){ flagged++; cells[2]=code+' ⚠원문미확인'; return '| '+cells.join(' | ')+' |'; }
     return line;
   });
   out.flagged=flagged;
@@ -12052,19 +12076,20 @@ async function analyzeMedical(){
     // 텍스트 추출
     var pw = document.getElementById('pdf_pw').value;
     var combinedText = '';
-    var medLines = [];   // 서식 파서용 좌표 줄(파일 3개 합산 — pg는 파일 순서로 구분)
+    var medFileData = [];   // 파일별 {label, text(정리본), lines(좌표 줄)} — 파일 단위로 파서/AI 경로를 나눈다
     for(var fi=0; fi<files.length; fi++){
       var id = files[fi][0];
       var file = files[fi][1];
       loadEl.textContent='📄 '+labels[id]+' 추출 중... ('+(fi+1)+'/'+files.length+')';
       var fileLines = [];
       var extracted = await extractPdfText(file, pw, fileLines);
-      fileLines.forEach(function(l){ l.pg = fi*1000 + l.pg; medLines.push(l); });
+      fileLines.forEach(function(l){ l.pg = fi*1000 + l.pg; });
       var errPrefixes = ['PDF오류','추출실패','PDF잠김','페이지오류','PDF.js미로드','읽기실패'];
       var isErr = errPrefixes.some(function(p){ return extracted.indexOf(p) === 0; });
       if(extracted && !isErr && extracted.length > 10){
         var cleaned = _cleanMedText(extracted);
         combinedText += '\n\n=== ' + labels[id] + ' ('+cleaned.length+'자) ===\n' + cleaned;
+        medFileData.push({label:labels[id], text:cleaned, raw:extracted, lines:fileLines});   // raw=정리 전 원문(코드 대조용 — 정리본은 홑공백이 지워져 토큰이 붙음)
       } else if(extracted.indexOf('PDF잠김') === 0){
         throw new Error(labels[id]+': 비밀번호로 보호된 PDF입니다. 안내창 또는 \'PDF 비밀번호\' 칸에 비밀번호(보통 생년월일 6자리 또는 주민번호 앞 6자리)를 입력 후 다시 시도해주세요.');
       } else if(extracted){
@@ -12078,29 +12103,40 @@ async function analyzeMedical(){
 
     window._lastMedText = ''; window._lastMedSavedId = null;
 
-    // ① 서식 파서(코드) — 머리글 x좌표로 열을 잘라 원문 글자만 표로 만든다(AI 미사용, 추정 없음)
+    // ① 서식 파서(코드) — 파일마다 머리글 x좌표로 열을 잘라 원문 글자만 표로 만든다(AI 미사용, 추정 없음).
+    //    표를 하나도 못 읽은 파일만 ② AI 전사 폴백으로 보완하고, 결과 하단에 파일별 경로를 명시한다(표 하나가 조용히 빠지는 것 방지 — 리뷰 반영).
     var allRows = [];
     var chunkErrors = [];
     var chunks = [];
     var srcNote = '';
-    var parsed = null;
-    try{ parsed = _medParseTables(medLines); }catch(pe){ console.warn('서식 파서 오류:', pe); parsed = null; }
-    if(parsed && parsed.recs.length){
+    var parsedRecs = [], parsedTables = 0, parsedDropped = 0, okFiles = [], aiFiles = [];
+    medFileData.forEach(function(f){
+      var pr = null;
+      try{ pr = _medParseTables(f.lines); }catch(pe){ console.warn('서식 파서 오류('+f.label+'):', pe); }
+      if(pr && pr.recs.length){ parsedRecs = parsedRecs.concat(pr.recs); parsedTables += pr.tables; parsedDropped += pr.dropped; okFiles.push(f.label+' '+pr.recs.length+'건'); }
+      else aiFiles.push(f);
+    });
+    if(parsedRecs.length){
       loadEl.textContent = '📋 표 서식 정리 중...';
-      allRows = _medRecsToRows(parsed.recs);
-      srcNote = '※ PDF 표 서식을 코드가 직접 읽어 정리했습니다(AI 미사용 · 인식된 표 '+parsed.tables+'개, 기록 '+parsed.recs.length+'건).';
-      if(parsed.dropped) srcNote += ' 표 밖 줄 '+parsed.dropped+'개는 제외.';
-    } else {
-      // ② AI 전사 폴백 — 머리글을 못 찾은 서식. 옮겨 적기만 시키고(추정 금지) 결과 코드는 원문과 대조한다.
+      allRows = _medRecsToRows(parsedRecs);
+      srcNote = '※ 표 서식을 코드가 직접 읽어 정리(AI 미사용): ' + okFiles.join(' · ') + ' (표 '+parsedTables+'개).';
+      if(parsedDropped) srcNote += ' 표 밖 줄 '+parsedDropped+'개 제외.';
+    }
+    var flaggedTotal = 0;
+    for(var afi=0; afi<aiFiles.length; afi++){
+      var af = aiFiles[afi];
       var MAX_CHUNK_CHARS = 80000;
-      chunks = _splitMedChunks(combinedText, MAX_CHUNK_CHARS);
-      for(var ci=0; ci<chunks.length; ci++){
-        loadEl.textContent = '🤖 표 서식 미인식 — AI 전사 중... (' + (ci+1) + '/' + chunks.length + ')';
-        var prompt = _medAiPrompt(chunks[ci], ci+1, chunks.length);
+      var fchunks = _splitMedChunks(af.text, MAX_CHUNK_CHARS);
+      chunks = chunks.concat(fchunks);
+      var aiRows = [];
+      for(var ci=0; ci<fchunks.length; ci++){
+        loadEl.textContent = '🤖 '+af.label+' 표 서식 미인식 — AI 전사 중... (' + (ci+1) + '/' + fchunks.length + ')';
+        var prompt = _medAiPrompt(fchunks[ci], ci+1, fchunks.length);
+        var tag = af.label + (fchunks.length>1 ? ' '+(ci+1)+'번째 부분' : '');
         try {
           var _aiUrl = (function(){ try{ return localStorage.getItem('tops_ai_proxy_url')||''; }catch(e){ return ''; } })() || (window.AI_PROXY_URL||'') || '/api/analyze';
           var data = null, lastErr = '';
-          async function _wait(sec, label){ for(var s=sec; s>0; s--){ loadEl.textContent='🤖 AI 사용량 한도 — '+s+'초 후 자동 재시도 ('+(ci+1)+'/'+chunks.length+') '+(label||''); await new Promise(function(r){setTimeout(r,1000);}); } }
+          async function _wait(sec, label){ for(var s=sec; s>0; s--){ loadEl.textContent='🤖 AI 사용량 한도 — '+s+'초 후 자동 재시도 ('+tag+') '+(label||''); await new Promise(function(r){setTimeout(r,1000);}); } }
           for(var attempt=0; attempt<4 && !data; attempt++){
             var res;
             try{
@@ -12125,28 +12161,28 @@ async function analyzeMedical(){
             }
             data = await res.json();
           }
-          if(!data){ chunkErrors.push((ci+1)+'번째 부분: ' + (lastErr||'실패')); continue; }
+          if(!data){ chunkErrors.push(tag+': ' + (lastErr||'실패')); continue; }
           var chunkText = data.content && data.content.map(function(c){return c.text||'';}).join('').trim();
-          if(!chunkText){ chunkErrors.push((ci+1)+'번째 부분: 결과없음'); continue; }
+          if(!chunkText){ chunkErrors.push(tag+': 결과없음'); continue; }
           // 출력 잘림 감지 — 서버가 Gemini finishReason(stop) / Anthropic stop_reason을 넘겨줌. 잘리면 뒷부분 행이 조용히 빠지므로 명시.
-          if(data.stop==='MAX_TOKENS' || data.stop_reason==='max_tokens') chunkErrors.push((ci+1)+'번째 부분: AI 출력이 길이 한도에서 잘림(뒷부분 누락 가능)');
+          if(data.stop==='MAX_TOKENS' || data.stop_reason==='max_tokens') chunkErrors.push(tag+': AI 출력이 길이 한도에서 잘림(뒷부분 누락 가능)');
           chunkText.split('\n').forEach(function(line){
             var t = line.trim();
             if(!t) return;
             if(/^\|\s*진료기간/.test(t)) return;
             if(/^\|[\s\-:|]+\|$/.test(t)) return;
-            if(t.charAt(0)==='|' && t.length>5) allRows.push(t);
+            if(t.charAt(0)==='|' && t.length>5) aiRows.push(t);
           });
         } catch(e){
-          console.error('chunk '+(ci+1)+' err:', e);
-          chunkErrors.push((ci+1)+'번째 부분: ' + e.message);
+          console.error('AI 전사 오류('+tag+'):', e);
+          chunkErrors.push(tag+': ' + e.message);
         }
-        if(ci < chunks.length-1){ await new Promise(function(r){setTimeout(r,9000);}); }
+        if(ci < fchunks.length-1 || afi < aiFiles.length-1){ await new Promise(function(r){setTimeout(r,9000);}); }
       }
-      var verified = _medVerifyRows(allRows, combinedText);
-      allRows = verified;
-      srcNote = '⚠ PDF 표 서식을 인식하지 못해 AI가 원문을 옮겨 적었습니다(추정 없음). 상병코드는 원문과 대조했으며'
-              + (verified.flagged ? ' 원문에서 확인되지 않은 코드 '+verified.flagged+'건에 "⚠원문미확인" 표시.' : ' 전부 원문에서 확인됨.');
+      var verified = _medVerifyRows(aiRows, af.raw||af.text);
+      flaggedTotal += verified.flagged;
+      allRows = allRows.concat(verified);
+      srcNote += (srcNote?' ':'') + '⚠ '+af.label+': 표 서식을 인식하지 못해 AI가 원문을 옮겨 적음(추정 없음, '+verified.length+'행'+(verified.flagged?', 원문 미확인 코드 '+verified.flagged+'건 ⚠표시':'')+').';
     }
 
     if(!allRows.length){
@@ -12332,7 +12368,7 @@ function saveMedResult(){
   const html=document.getElementById('med_result_text').innerHTML;
   if(!text){ toast('저장할 정리 결과가 없습니다. 먼저 병력 분석을 실행해 주세요.'); return; }
   const savedId=window._lastMedSavedId;
-  if(savedId && mhx.some(function(m){ return m&&m.id===savedId; })){
+  if(savedId){   // 자동 저장이 시작됐으면(체인에 들어감) 새 항목 대신 갱신 — _mhxCloudMerge가 직렬이라 자동 저장 뒤에 실행됨(더블클릭 경합 방지, 리뷰 반영)
     // 이미 자동 저장된 결과 — 고객명을 고쳐 다시 누른 경우 그 기록의 고객명만 갱신(중복 줄 금지, 리뷰 반영)
     const custNow=(document.getElementById('med_cust').value||'(미입력)');
     _mhxCloudMerge(function(arr){ arr.forEach(function(m){ if(m&&m.id===savedId) m.cust=custNow; }); return arr; }).then(function(){
