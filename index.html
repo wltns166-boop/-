@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-17</div>
   </div>
 </div>
 
@@ -11863,7 +11863,8 @@ function _medParseTables(lines){
     var codeIdx=-1; cols.forEach(function(c,i){ if(c.k==='code') codeIdx=i; });
     toks.forEach(function(t){
       // 숫자 칸은 오른쪽 정렬이 흔해 시작 x가 앞 칸으로 새기 쉬움 — 숫자 토큰은 중심 x, 글자 토큰은 시작 x로 배정
-      var ax = /^[\d,.]+$/.test(t.t) ? (t.x + t.w/2) : t.x;
+      // 코드 모양 토큰(AM5422)도 중심 x — 6자리 코드는 칸을 꽉 채워 시작 x가 왼쪽(입원/외래) 칸 경계를 넘어 붙지 않은 채 옆 칸에 묻혔음(v-17 실사고)
+      var ax = (/^[\d,.]+$/.test(t.t) || MED_CODE_RE.test(t.t)) ? (t.x + t.w/2) : t.x;
       var ci=-1;
       for(var i=0;i<cols.length;i++){ if(ax>=cols[i].x0 && ax<cols[i].x1){ ci=i; break; } }
       if(ci<0) return;
@@ -11914,7 +11915,8 @@ function _medParseTables(lines){
   // 조각 줄 판정: 날짜·순번(첫 열) 값이 없고 글자 열(병명·병원·과목·행위·구분·약품·코드)에 값이 있는 줄.
   // 숫자 칸 값이 섞여 있어도 글자 부분은 살린다(줄 전체를 버리면 병명 일부가 조용히 사라짐 — 리뷰 반영)
   function isFragment(cells){
-    if(cells.date || cells._0) return false;
+    if(cells.date) return false;
+    if(cells._0 && !/^\d{1,4}$/.test(String(cells._0).trim())) return false;   // 순번 칸에 긴 글자=표 밖 안내문. 숫자 조각("123"/"4" — 두 줄 행의 순번 줄바꿈)은 조각 줄(v-17 실사고)
     var all=Object.keys(cells).map(function(k){ return cells[k]; }).join(' ').trim();
     if(/^(\d+\s*\/\s*\d+|[-–—]?\s*\d+\s*[-–—]?|page\s*\d+.*|[※·•\-].*)$/i.test(all)) return false;   // "125/125"·"- 3 -" 쪽 번호, ※ 각주
     return Object.keys(cells).some(function(k){ return TEXT_COLS[k]; });
@@ -11948,7 +11950,9 @@ function _medParseTables(lines){
     // 줄 간격 기준: 버퍼 안 최소 양의 간격 = 한 칸 안의 줄 간격(pitch). 그 1.8배를 넘는 간격은 행 경계·표 밖으로 본다.
     var pitch=Infinity; for(var q=0;q<b.length-1;q++){ var gq=Math.abs(b[q].y-b[q+1].y); if(gq>0.5 && gq<pitch) pitch=gq; }
     // 줄이 둘뿐이면 pitch가 곧 그 간격이 돼 각주까지 "가깝다"고 보므로 상한 36pt(글자 줄 간격의 2~3배)를 둔다
-    var farGap=isFinite(pitch) ? Math.min(pitch*1.8, 36) : 36;
+    // 순번·진단과가 반 줄 어긋나 놓이는 서식(v-17)에서는 최소 간격이 글자 줄 간격의 절반(5pt)이 되어 1.8배(9pt)로는 마지막 기록의
+    // 병명 3번째 줄(10pt 간격)부터 잘렸음 — 2.5배로(5→12.5, 10→25). 상한 36은 그대로.
+    var farGap=isFinite(pitch) ? Math.min(pitch*2.5, 36) : 36;
     // 기준 줄 사이 조각 구간을 가장 큰 세로 간격에서 분할 → 각 기준 줄이 가질 위/아래 조각 범위
     var above={}, below={};
     for(var a=0;a<anchors.length;a++){
