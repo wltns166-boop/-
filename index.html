@@ -459,7 +459,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.23-18</div>
   </div>
 </div>
 
@@ -9710,7 +9710,7 @@ function _medNoticeItems(note){
 // 계약 전 알릴의무 "10대 질병" 판정 — 상병코드 범위 우선, 없으면 병명 키워드. 해당 없으면 ''.
 // (암·백혈병·고혈압·협심증·심근경색·심장판막증·간경화·뇌졸중·당뇨병·에이즈/HIV — 표준 청약서 문항 기준)
 function _medMajorDisease(code, name){
-  var c=_medCodeNorm(code).match(/^([A-Z])(\d{2})(?:\.(\d+))?/);   // 표 코드는 원문 그대로(AK703)라 범위 판정 전 정규화(K70.3) — v-14
+  var c=_medCodeNorm(String(code||'').replace(/\s*⚠.*$/,'')).match(/^([A-Z])(\d{2})(?:\.(\d+))?/);   // 표 코드는 원문 그대로(AK703)라 범위 판정 전 정규화(K70.3) — v-14. AI 폴백의 " ⚠원문미확인" 접미사는 떼고(v-18 리뷰)
   var n=String(name||'');
   if(c){
     var L=c[1], N=parseInt(c[2],10), sub=c[3]||'';
@@ -11795,7 +11795,7 @@ var MED_COLS=[
   {k:'act', re:/(진료행위|행위명|수술명|처치명|수술및처치|항목명|진료내역)/}
 ];
 var MED_DATE_RE=/(\d{4})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})일?/;
-var MED_CODE_RE=/^[A-Z]{1,2}\d{2}\.?\d{0,2}$/i;
+var MED_CODE_RE=/^[A-Z]{1,2}\d{2}\.?\d{0,3}$/i;   // 소수점 뒤 3자리(KCD 세분류 — 원문 AM79108=M79.108, 2026-09-23 실서식 v-18)
 // 줄의 글자 조각을 토큰으로 합침 — 붙어 있는 조각(간격 2.5 이내)은 한 단어, 떨어져 있으면 다른 칸
 function _medTokens(items){
   var toks=[];
@@ -11823,7 +11823,7 @@ function _medDateNorm(s){
 // ⚠ 자릿수를 늘리거나 줄이지 말 것 — "두 자리 덧붙이기"가 없는 코드를 만들던 원인(2026-09-23).
 function _medCodeNorm(raw){
   var s=String(raw||'').toUpperCase().replace(/[\s]/g,'');
-  var m=s.match(/^([A-Z])?([A-Z])(\d{2})\.?(\d{0,2})$/);
+  var m=s.match(/^([A-Z])?([A-Z])(\d{2})\.?(\d{0,3})$/);
   if(!m) return s;
   return m[2]+m[3]+(m[4]?'.'+m[4]:'');
 }
@@ -11863,17 +11863,19 @@ function _medParseTables(lines){
     var codeIdx=-1; cols.forEach(function(c,i){ if(c.k==='code') codeIdx=i; });
     toks.forEach(function(t){
       // 숫자 칸은 오른쪽 정렬이 흔해 시작 x가 앞 칸으로 새기 쉬움 — 숫자 토큰은 중심 x, 글자 토큰은 시작 x로 배정
-      // 코드 모양 토큰(AM5422)도 중심 x — 6자리 코드는 칸을 꽉 채워 시작 x가 왼쪽(입원/외래) 칸 경계를 넘어 붙지 않은 채 옆 칸에 묻혔음(v-17 실사고)
-      var ax = (/^[\d,.]+$/.test(t.t) || MED_CODE_RE.test(t.t)) ? (t.x + t.w/2) : t.x;
+      var ax = /^[\d,.]+$/.test(t.t) ? (t.x + t.w/2) : t.x;
       var ci=-1;
       for(var i=0;i<cols.length;i++){ if(ax>=cols[i].x0 && ax<cols[i].x1){ ci=i; break; } }
       if(ci<0) return;
+      // 순수 코드 모양 토큰(AM5422)이 코드 열 이웃(±1) 칸에 떨어지면 code 칸으로 당긴다 — 6자리 코드는 칸을 꽉 채워 시작 x가 왼쪽 경계를
+      // 넘어 입원/외래 칸에 묻혔음(v-17 실사고). 중심 x 배정은 왼쪽 정렬 서식에서 반대로 병명 칸으로 넘기므로 쓰지 않음(v-18 리뷰 High).
+      if(codeIdx>=0 && ci!==codeIdx && Math.abs(ci-codeIdx)<=1 && MED_CODE_RE.test(t.t)) ci=codeIdx;
       var k=cols[ci].k||('_'+ci), s=t.s.trim(), parts=[[k,s]];
       // 코드 칸이 꽉 차 양옆 칸 글자와 한 토큰으로 추출된 경우("외래AM2556절통," / "AM2556절통, 아래" — 2026-09-23 실서식, 안순희 건):
       // 코드 열 이웃(±1)에 떨어진 글자 토큰 안에 코드 모양이 박혀 있으면 앞 글자=토큰이 시작한 칸, 코드=code 칸, 뒤 글자=code 다음 칸(병명)으로 나눈다.
       // 토큰 시작 x만 보면 덩어리 전체가 입원/외래 칸으로 들어가 코드·병명 조각이 조용히 사라진다(v-12 실사고 — splitCode만으로는 못 잡던 경우).
       if(codeIdx>=0 && Math.abs(ci-codeIdx)<=1 && !/^[\d,.]+$/.test(t.t)){
-        var gm=s.match(/^([^A-Za-z\d]*?)\s*([A-Z]{1,2}\d{2}\.?\d{0,2})\s*([^A-Za-z\d].*)?$/);
+        var gm=s.match(/^([^A-Za-z\d]*?)\s*([A-Z]{1,2}\d{2}\.?\d{0,3})\s*([^A-Za-z\d].*)?$/);
         // 병명 안의 괄호 병기("당뇨병(E11)")는 코드 칸 값이 아님 — 앞 조각이 '('로 끝나거나 뒤 조각이 ')'로 시작하면 분리하지 않는다(리뷰 반영)
         if(gm && (gm[1]||gm[3]) && !/\($/.test(gm[1]||'') && !/^\)/.test(gm[3]||'')){
           // 앞 조각: 토큰이 code 칸 자체로 배정됐으면 code 왼쪽 칸(입원/외래)으로 — 같은 'code' 키에 합치면 코드가 통째로 무효화됨(리뷰 Medium)
@@ -11891,7 +11893,7 @@ function _medParseTables(lines){
   // 코드 칸이 꽉 차 옆 병명 조각과 붙어 추출된 경우("AM2556절통, 아래") — 코드와 나머지(병명 조각)로 분리(2026-09-23 실서식)
   function splitCode(txt){
     var t=String(txt||'').replace(/^\s+|\s+$/g,'');
-    var m=t.match(/^([A-Z]{1,2}\d{2}\.?\d{0,2})\s*([가-힣(].*)$/i);
+    var m=t.match(/^([A-Z]{1,2}\d{2}\.?\d{0,3})\s*([가-힣(].*)$/i);
     if(m) return {code:m[1].replace(/\s/g,''), rest:m[2].trim()};
     return {code:t.replace(/\s/g,''), rest:''};
   }
@@ -11919,6 +11921,7 @@ function _medParseTables(lines){
     if(cells._0 && !/^\d{1,4}$/.test(String(cells._0).trim())) return false;   // 순번 칸에 긴 글자=표 밖 안내문. 숫자 조각("123"/"4" — 두 줄 행의 순번 줄바꿈)은 조각 줄(v-17 실사고)
     var all=Object.keys(cells).map(function(k){ return cells[k]; }).join(' ').trim();
     if(/^(\d+\s*\/\s*\d+|[-–—]?\s*\d+\s*[-–—]?|page\s*\d+.*|[※·•\-].*)$/i.test(all)) return false;   // "125/125"·"- 3 -" 쪽 번호, ※ 각주
+    if(/^(합계|총계|소계|계)\b|^(합계|총계|소계)/.test(all)) return false;                 // 표 하단 요약 줄(순번 칸 숫자+"합계" 글자)은 조각이 아님(v-18 리뷰)
     return Object.keys(cells).some(function(k){ return TEXT_COLS[k]; });
   }
   // 줄바꿈 조각 이어붙임 — 한글 표는 낱말 중간에서 줄이 바뀌므로 공백 없이 잇되, 앞 조각이 접속어로 끝나면 공백
@@ -11948,11 +11951,13 @@ function _medParseTables(lines){
     var anchors=[]; b.forEach(function(l,i){ if(l.date) anchors.push(i); });
     if(!anchors.length){ dropped+=b.length; return; }
     // 줄 간격 기준: 버퍼 안 최소 양의 간격 = 한 칸 안의 줄 간격(pitch). 그 1.8배를 넘는 간격은 행 경계·표 밖으로 본다.
-    var pitch=Infinity; for(var q=0;q<b.length-1;q++){ var gq=Math.abs(b[q].y-b[q+1].y); if(gq>0.5 && gq<pitch) pitch=gq; }
-    // 줄이 둘뿐이면 pitch가 곧 그 간격이 돼 각주까지 "가깝다"고 보므로 상한 36pt(글자 줄 간격의 2~3배)를 둔다
-    // 순번·진단과가 반 줄 어긋나 놓이는 서식(v-17)에서는 최소 간격이 글자 줄 간격의 절반(5pt)이 되어 1.8배(9pt)로는 마지막 기록의
-    // 병명 3번째 줄(10pt 간격)부터 잘렸음 — 2.5배로(5→12.5, 10→25). 상한 36은 그대로.
-    var farGap=isFinite(pitch) ? Math.min(pitch*2.5, 36) : 36;
+    // pitch=병명 칸이 있는 줄들 사이의 최소 간격(줄바꿈된 병명의 줄 간격). 순번·진단과가 반 줄 어긋나 놓이는 서식(v-17)은 버퍼 전체 최소 간격이
+    // 절반(5pt)이 되어 1.8배(9pt)로 마지막 기록의 병명 3번째 줄(10pt)부터 잘렸음 — 병명 줄만으로 재면 10pt. 병명 줄이 둘 미만이면 전체 최소 간격 폴백.
+    var pitch=Infinity, nys=b.filter(function(l){ return !!l.cells.name; }).map(function(l){ return l.y; }).sort(function(x,y){ return y-x; });
+    for(var q=0;q<nys.length-1;q++){ var gq=Math.abs(nys[q]-nys[q+1]); if(gq>0.5 && gq<pitch) pitch=gq; }
+    if(!isFinite(pitch)){ for(var q2=0;q2<b.length-1;q2++){ var g2=Math.abs(b[q2].y-b[q2+1].y); if(g2>0.5 && g2<pitch) pitch=g2; } }
+    // 줄이 둘뿐이면 pitch가 곧 그 간격이 돼 각주까지 "가깝다"고 보므로 상한 36pt(글자 줄 간격의 2~3배)를 둔다(v-7). 배수 1.8 유지(v-18 리뷰 — 각주 부착 경로 재확대 금지)
+    var farGap=isFinite(pitch) ? Math.min(pitch*1.8, 36) : 36;
     // 기준 줄 사이 조각 구간을 가장 큰 세로 간격에서 분할 → 각 기준 줄이 가질 위/아래 조각 범위
     var above={}, below={};
     for(var a=0;a<anchors.length;a++){
@@ -12135,7 +12140,7 @@ function _medVerifyRows(rows, rawText){
     if(!cells || /진료기간/.test(cells[0])) return line;
     var code=String(cells[2]||'').trim();
     if(!code || code==='-' ) return line;
-    var m=_medCodeNorm(code).match(/^([A-Z])(\d{2})\.?(\d{0,2})/);   // 원문 그대로 표기(AM2556)도 정규화해 대조 — v-14
+    var m=_medCodeNorm(code).match(/^([A-Z])(\d{2})\.?(\d{0,3})/);   // 원문 그대로 표기(AM2556)도 정규화해 대조 — v-14
     if(!m) return line;
     var full=m[1]+m[2]+(m[3]?'.'+m[3]:''), base=m[1]+m[2];
     if(!known[full] && !known[base]){ flagged++; cells[2]=code+' ⚠원문미확인'; return '| '+cells.join(' | ')+' |'; }
@@ -12381,7 +12386,7 @@ async function analyzeMedical(){
     try{
       var rawAll = medFileData.map(function(f){ return f.raw||f.text||''; }).join('\n');
       var known = _medRawCodes(rawAll), inTable = {};
-      allRows.forEach(function(r){ var c=_medRowCells(r); if(!c) return; var m=_medCodeNorm(String(c[2]||'').replace(/\s*⚠.*$/,'')).match(/^([A-Z]\d{2}(?:\.\d{1,2})?)/); if(m){ inTable[m[1]]=1; inTable[m[1].slice(0,3)]=1; } });
+      allRows.forEach(function(r){ var c=_medRowCells(r); if(!c) return; var m=_medCodeNorm(String(c[2]||'').replace(/\s*⚠.*$/,'')).match(/^([A-Z]\d{2}(?:\.\d{1,3})?)/); if(m){ inTable[m[1]]=1; inTable[m[1].slice(0,3)]=1; } });
       var full = Object.keys(known).filter(function(k){ return k.length>3; });          // 소수점 포함 정식 코드만(3자리 범주 키는 보조)
       var missing = full.filter(function(k){ return !inTable[k] && !inTable[k.slice(0,3)]; });
       var tableCnt = Object.keys(inTable).filter(function(k){ return k.length>3; }).length;
