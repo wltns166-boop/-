@@ -412,6 +412,15 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #pg_rsv .rsvmeta{font-size:12px;color:#6b7390;margin-top:8px}
 #m_rsvset .rsvtk{font-size:12.5px;padding:4px 9px;border:1px solid #c5cbe8;border-radius:6px;background:#fff;color:#3040aa;cursor:pointer;font-family:inherit}
 #m_rsvset .rsvtk:hover{background:#f0f3ff}
+#rsv_setwrap{display:flex;gap:14px;align-items:flex-start}
+#rsv_titlebox{flex:0 0 320px}
+#rsv_titles{max-height:330px;overflow:auto;border:1px solid #dde1ec;border-radius:8px}
+#rsv_titles .rsvtr{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #eef0f6;font-size:13px;color:#1c1e26}
+#rsv_titles .rsvtr:last-child{border-bottom:none}
+#rsv_titles .rsvtn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rsv_titles .rsvtn small{color:#8890a8;margin-left:4px}
+#rsv_titles label{display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#3a4468;font-size:12.5px;white-space:nowrap}
+@media(max-width:760px){#rsv_setwrap{display:block}#rsv_titlebox{margin-top:12px}}
 @media(max-width:860px){#rsv_wrap{display:block}#rsv_in{margin-bottom:14px}}
 /* ── 3종서류 (pg_samdocs) — 흰 카드 위 검정 글씨(함정 D 역방향), sd_ 접두 스코프 ── */
 #pg_samdocs .sdl{display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px}
@@ -474,7 +483,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-4</div>
   </div>
 </div>
 
@@ -2254,7 +2263,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     </div>
 
     <!-- 예약문자발송 — 문구 틀 설정 모달 (흰 배경, 함정 D 역방향) -->
-    <div class="mb" id="m_rsvset"><div class="mo" style="width:560px;max-width:96vw;max-height:92vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+    <div class="mb" id="m_rsvset"><div class="mo" style="width:920px;max-width:96vw;max-height:92vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
       <div class="mth" style="color:#1a1a2e"><span>예약문자 기본 문구 설정</span><span class="mc" onclick="g('m_rsvset').classList.remove('open')" style="color:#555">×</span></div>
       <div style="font-size:12.5px;color:#4a5270;line-height:1.6;margin-bottom:8px">
         아래 칸 이름을 문구에 넣으면 입력한 내용으로 바뀝니다. 버튼을 누르면 커서 위치에 들어갑니다.<br>
@@ -2267,7 +2276,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <button class="rsvtk" onclick="rsvInsTok('{상담일시}')">{상담일시}</button>
         <button class="rsvtk" onclick="rsvInsTok('{상담장소}')">{상담장소}</button>
       </div>
-      <textarea class="rsvi" id="rsv_tpl" rows="10" maxlength="1000" style="resize:vertical;line-height:1.6"></textarea>
+      <div id="rsv_setwrap">
+        <div style="flex:1;min-width:0"><textarea class="rsvi" id="rsv_tpl" rows="12" maxlength="1000" style="resize:vertical;line-height:1.6"></textarea></div>
+        <div id="rsv_titlebox" style="display:none">
+          <div style="font-size:13px;font-weight:700;color:#3040aa;margin-bottom:4px">직함 지정 <span style="font-weight:400;font-size:11.5px;color:#8890a8">(관리자 — {직함}에 들어갈 글자)</span></div>
+          <div style="font-size:11.5px;color:#8890a8;margin-bottom:6px">둘 다 해제하면 이름만 들어갑니다.</div>
+          <div id="rsv_titles"></div>
+        </div>
+      </div>
       <div style="display:flex;gap:6px;justify-content:space-between;flex-wrap:wrap;margin-top:12px">
         <button class="bp" onclick="rsvTplDefault()"><i class="ti ti-restore"></i> 기본 문구로</button>
         <div style="display:flex;gap:6px">
@@ -5228,18 +5244,56 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
 // ===== 예약문자발송 (rsv, 2026-09-26) — 좌 입력(성함·날짜·장소) → 우 문자 미리보기 실시간 완성 =====
 // 입력값(고객 성함·연락처)은 저장·동기화하지 않음(화면에서만 — 로그아웃 시 _rsvClear로 비움).
 // 문구 틀만 사용자별로 저장: 동기화 키 tops_rsvcfg = {tpl:{사용자이름: 문구}} (텍스트만, 함정 B).
-//   키는 _rsvKey()(사원코드 'c_코드', 코드 없는 관리자만 'n_이름'). 빈 문구('')=기본 문구. 저장은 본인 키 하나만 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 한다.
+//   키는 _rsvKey()(사원코드 'c_코드', 코드 없는 관리자만 'n_이름'). 빈 문구('')=기본 문구.
+//   직함 지정(관리자 전용)은 tops_rsvcfg.title = {키: '팀장'|'지점장'|''(이름만)} — 같은 키 규칙, 저장 시 화면의 줄만 merge. 저장은 본인 키 하나만 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 한다.
 var RSV_DEF_TPL='[예약 확정 알림]\n{성함} 고객님 방금 전화드린 {담당자}{직함} 입니다.\n상담 예약이 확정 되었습니다.\n\n상담일자 : {상담일시}\n상담장소 : {상담장소}';
 var rsvCfg={};
 try{ rsvCfg=JSON.parse(localStorage.getItem('tops_rsvcfg')||'{}')||{}; }catch(e){ rsvCfg={}; }
 function _rsvMe(){ return (cu&&cu.name)?String(cu.name):''; }   // {담당자} 표시용 이름
 // 문구 저장 키 — 사원코드 우선(동명이인·개명 시 덮어쓰기 방지, 함정 A 계열), 코드 없는 관리자 계정만 이름
-// {직함} — 지점장(관리자 BM 역할 · 팀원 직급 BM/SBM)이면 '지점장', 그 외 '팀장'
+// {직함} — 관리자가 [설정]에서 지정한 값(rsvCfg.title[키]: '팀장'|'지점장'|''=이름만)이 우선,
+//   지정이 없으면 자동: 지점장(관리자 BM 역할 · 팀원 직급 BM/SBM)이면 '지점장', 그 외 '팀장'
+var RSV_TITLES=['팀장','지점장'];
+function _rsvTitleAuto(isAdm, roleOrRank){
+  if(isAdm) return roleOrRank==='BM'?'지점장':'팀장';
+  return (['BM','SBM'].indexOf(roleOrRank)>=0)?'지점장':'팀장';
+}
+function _rsvTitleOf(key, auto){
+  var t=(rsvCfg&&rsvCfg.title&&typeof rsvCfg.title==='object')?rsvCfg.title[key]:undefined;
+  return (t===''||RSV_TITLES.indexOf(t)>=0)?t:auto;
+}
 function _rsvTitle(){
   try{
-    if(cu&&cu.admin) return (cu.role==='BM')?'지점장':'팀장';
-    return (['BM','SBM'].indexOf(_myRank())>=0)?'지점장':'팀장';
+    var auto=(cu&&cu.admin)?_rsvTitleAuto(true,cu.role):_rsvTitleAuto(false,_myRank());
+    return _rsvTitleOf(_rsvKey(), auto);
   }catch(e){ return '팀장'; }
+}
+// 직함 지정 목록 — 관리자 계정 + 구성원(사용정지·이름 없는 코드 제외). 키는 _rsvKey와 같은 규칙('c_코드'|'n_이름')
+function _rsvTitleRows(){
+  var rows=[];
+  try{ _admList().forEach(function(a){ if(a&&a.name) rows.push({key:'n_'+a.name, name:a.name, sub:a.role||'', auto:_rsvTitleAuto(true,a.role)}); }); }catch(e){}
+  (Array.isArray(mem)?mem:[]).filter(function(m){ return m&&m.name&&String(m.name).trim()&&!m.suspended; })
+    .slice().sort(function(a,b){ return String(a.code||'').localeCompare(String(b.code||'')); })
+    .forEach(function(m){ var k=m.code?'c_'+m.code:'n_'+m.name; rows.push({key:k, name:m.name, sub:m.rank||'', auto:_rsvTitleAuto(false,m.rank)}); });
+  return rows;
+}
+function _rsvTitlesDraw(){
+  var box=g('rsv_titlebox'), el=g('rsv_titles'); if(!box||!el) return;
+  if(!_isAdmin()){ box.style.display='none'; el.innerHTML=''; return; }
+  box.style.display='';
+  var rows=_rsvTitleRows();
+  if(!rows.length){ el.innerHTML='<div style="padding:10px;font-size:12.5px;color:#8890a8">구성원이 없습니다.</div>'; return; }
+  el.innerHTML=rows.map(function(r){
+    var cur=_rsvTitleOf(r.key, r.auto), k=_alertEsc(r.key);
+    return '<div class="rsvtr" data-rsvk="'+k+'" data-rsvo="'+_alertEsc(cur)+'"><span class="rsvtn">'+_esc(r.name)+(r.sub?'<small>'+_esc(r.sub)+'</small>':'')+'</span>'+
+      RSV_TITLES.map(function(t){ return '<label><input type="checkbox" data-rsvt="'+t+'"'+(cur===t?' checked':'')+' onchange="rsvTitleChk(this)">'+t+'</label>'; }).join('')+'</div>';
+  }).join('');
+}
+// 한 사람에 하나만(체크하면 같은 줄의 다른 칸 해제)
+function rsvTitleChk(el){
+  if(!el.checked) return;
+  var row=el.closest('.rsvtr'); if(!row) return;
+  row.querySelectorAll('input[data-rsvt]').forEach(function(x){ if(x!==el) x.checked=false; });
 }
 function _rsvKey(){ if(cu&&cu.code) return 'c_'+String(cu.code); return (cu&&cu.name)?'n_'+String(cu.name):''; }
 function _rsvTpl(){
@@ -5261,7 +5315,7 @@ function _rsvWhen(dv,tv){
 function _rsvFill(mode){
   var nm=(g('rsv_name')||{}).value||'', pl=(g('rsv_place')||{}).value||'';
   var w=_rsvWhen((g('rsv_date')||{}).value,(g('rsv_time')||{}).value);
-  var vals={'성함':{v:nm.trim(),ph:'○○○'},'담당자':{v:_rsvMe(),ph:'○○○'},'직함':{v:_rsvTitle(),ph:'팀장'},'상담일시':{v:w.ok?w.s:'',ph:w.s},'상담장소':{v:pl.trim(),ph:'○○○'}};
+  var vals={'성함':{v:nm.trim(),ph:'○○○'},'담당자':{v:_rsvMe(),ph:'○○○'},'직함':{v:_rsvTitle(),ph:'',opt:1},'상담일시':{v:w.ok?w.s:'',ph:w.s},'상담장소':{v:pl.trim(),ph:'○○○'}};
   var empty=[];
   var tpl=_rsvTpl();
   // 토큰 사이 일반 글자는 html 모드에서 이스케이프(함정: 문구 틀은 사용자 입력 — XSS 방지)
@@ -5270,7 +5324,7 @@ function _rsvFill(mode){
     var plain=tpl.slice(last,m.index);
     out+=(mode==='html')?_esc(plain):plain;
     var o=vals[m[1]];
-    if(o.v) out+=(mode==='html')?_esc(o.v):o.v;
+    if(o.v||o.opt) out+=(mode==='html')?_esc(o.v):o.v;
     else { if(empty.indexOf(m[1])<0) empty.push(m[1]); out+=(mode==='html')?'<span class="rsvph">'+_esc(o.ph)+'</span>':o.ph; }
     last=re.lastIndex;
   }
@@ -5327,6 +5381,7 @@ function rsvSms(){
 function rsvOpenSet(){
   if(!_rsvMe()){ toast('로그인 후 이용해 주세요.'); return; }
   var ta=g('rsv_tpl'); if(ta) ta.value=_rsvTpl();
+  _rsvTitlesDraw();
   g('m_rsvset').classList.add('open');
 }
 function rsvInsTok(tok){
@@ -5345,11 +5400,25 @@ function rsvSaveSet(){
   if(!rsvCfg.tpl||typeof rsvCfg.tpl!=='object') rsvCfg.tpl={};
   rsvCfg.tpl[me]=store;
   var one={tpl:{}}; one.tpl[me]=store;
+  if(_isAdmin()){
+    var tbox=g('rsv_titles');
+    if(tbox&&g('rsv_titlebox').style.display!=='none'){
+      if(!rsvCfg.title||typeof rsvCfg.title!=='object'||Array.isArray(rsvCfg.title)) rsvCfg.title={};
+      one.title={};
+      tbox.querySelectorAll('.rsvtr[data-rsvk]').forEach(function(row){
+        var k=row.getAttribute('data-rsvk'), sel=row.querySelector('input[data-rsvt]:checked');
+        var v=sel?sel.getAttribute('data-rsvt'):'';
+        if(!k||(v&&RSV_TITLES.indexOf(v)<0)) return;
+        if(v===row.getAttribute('data-rsvo')) return;   // 바꾼 줄만 저장 — 안 건드린 줄은 자동 규칙(직급 변경)을 계속 따르게
+        rsvCfg.title[k]=v; one.title[k]=v;
+      });
+    }
+  }
   sv('tops_rsvcfg', one);                            // 클라우드: 본인 키만 merge(다른 사용자 문구 보존)
   _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg));      // 로컬: 전체 캐시로 다시 덮어씀(sv가 본인 키만 쓴 것 보정)
   g('m_rsvset').classList.remove('open');
   rsvRender();
-  toast('문구를 저장했습니다.');
+  toast(_isAdmin()?'문구와 직함 지정을 저장했습니다.':'문구를 저장했습니다.');
 }
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
 // 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
