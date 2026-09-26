@@ -474,7 +474,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-2</div>
   </div>
 </div>
 
@@ -5227,13 +5227,15 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
 // ===== 예약문자발송 (rsv, 2026-09-26) — 좌 입력(성함·날짜·장소) → 우 문자 미리보기 실시간 완성 =====
 // 입력값(고객 성함·연락처)은 저장·동기화하지 않음(화면에서만 — 로그아웃 시 _rsvClear로 비움).
 // 문구 틀만 사용자별로 저장: 동기화 키 tops_rsvcfg = {tpl:{사용자이름: 문구}} (텍스트만, 함정 B).
-//   빈 문구('')=기본 문구. 저장은 본인 키 하나만 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 한다.
+//   키는 _rsvKey()(사원코드 'c_코드', 코드 없는 관리자만 'n_이름'). 빈 문구('')=기본 문구. 저장은 본인 키 하나만 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 한다.
 var RSV_DEF_TPL='[예약 확정 알림]\n{성함} 고객님 방금 전화드린 {담당자}팀장 입니다.\n상담 예약이 확정 되었습니다.\n\n상담일자 : {상담일시}\n상담장소 : {상담장소}';
 var rsvCfg={};
 try{ rsvCfg=JSON.parse(localStorage.getItem('tops_rsvcfg')||'{}')||{}; }catch(e){ rsvCfg={}; }
-function _rsvMe(){ return (cu&&cu.name)?String(cu.name):''; }
+function _rsvMe(){ return (cu&&cu.name)?String(cu.name):''; }   // {담당자} 표시용 이름
+// 문구 저장 키 — 사원코드 우선(동명이인·개명 시 덮어쓰기 방지, 함정 A 계열), 코드 없는 관리자 계정만 이름
+function _rsvKey(){ if(cu&&cu.code) return 'c_'+String(cu.code); return (cu&&cu.name)?'n_'+String(cu.name):''; }
 function _rsvTpl(){
-  var t=(rsvCfg&&rsvCfg.tpl&&typeof rsvCfg.tpl==='object')?rsvCfg.tpl[_rsvMe()]:'';
+  var t=(rsvCfg&&rsvCfg.tpl&&typeof rsvCfg.tpl==='object')?rsvCfg.tpl[_rsvKey()]:'';
   return (typeof t==='string'&&t.trim())?t:RSV_DEF_TPL;
 }
 // 'YYYY-MM-DD' + 'HH:MM' → "9월 27일 토요일 14시 30분" (비어 있는 부분은 ○ 자리표시, 완성 여부 함께 반환)
@@ -5327,7 +5329,7 @@ function rsvInsTok(tok){
 }
 function rsvTplDefault(){ var ta=g('rsv_tpl'); if(ta) ta.value=RSV_DEF_TPL; }
 function rsvSaveSet(){
-  var me=_rsvMe(); if(!me){ toast('로그인 후 이용해 주세요.'); return; }
+  var me=_rsvKey(); if(!me){ toast('로그인 후 이용해 주세요.'); return; }
   var v=String((g('rsv_tpl')||{}).value||'').replace(/\r\n/g,'\n').slice(0,1000);
   if(!v.trim()){ toast('문구를 입력해 주세요. (기본 문구로 되돌리려면 [기본 문구로])'); return; }
   var store=(v===RSV_DEF_TPL)?'':v;   // 기본 문구와 같으면 빈값 저장 — 이후 기본 문구가 바뀌면 따라가게
@@ -5339,7 +5341,7 @@ function rsvSaveSet(){
   _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg));      // 로컬: 전체 캐시로 다시 덮어씀(sv가 본인 키만 쓴 것 보정)
   g('m_rsvset').classList.remove('open');
   rsvRender();
-  toast('기본 문구를 저장했습니다.');
+  toast('문구를 저장했습니다.');
 }
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
 // 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
