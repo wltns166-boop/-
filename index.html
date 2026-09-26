@@ -498,7 +498,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-7</div>
   </div>
 </div>
 
@@ -5546,6 +5546,7 @@ async function _rsvScreenCapture(pos){
     cv.getContext('2d').drawImage(v, Math.round(rc.left*sx), Math.round(rc.top*sy), cw, ch, 0, 0, cw, ch);
     var blob=await new Promise(function(r){ cv.toBlob(r,'image/jpeg',0.9); });
     if(!blob) throw new Error('이미지 변환 실패');
+    if(window._rsvMapPos!==pos){ toast('그 사이 장소가 바뀌었습니다. 다시 캡처해 주세요.'); return true; }
     _rsvMapImgSet({blob:blob, q:pos.q});
     toast('지도 첨부 완료');
     return true;
@@ -5612,9 +5613,15 @@ function rsvCardDel(){
 function rsvShare(){
   var text=_rsvReadyText(); if(text==null) return;
   if(_rsvCard()&&!window._rsvCardBlob){ _rsvCardPrefetch(); toast('명함을 불러오는 중입니다. 잠시 후 다시 눌러 주세요.'); return; }
+  // 캡처 뒤 장소를 바꿨으면 옛 장소 지도가 새 장소 문구와 함께 나가지 않게 막는다(v-7 리뷰 — 약속 장소 착각 방지)
+  var mi=window._rsvMapImg, curQ=String((g('rsv_place')||{}).value||'').trim().slice(0,80), useMap=!!mi;
+  if(mi&&mi.q!==curQ){
+    if(!confirm('첨부된 지도는 예전 장소('+(mi.q||'알 수 없음')+')입니다.\n지도를 빼고 문구·명함만 보낼까요?\n(취소하면 멈춥니다 — [지도 캡처]로 다시 첨부하세요)')) return;
+    useMap=false;
+  }
   var files=[];
   try{
-    if(window._rsvMapImg) files.push(new File([window._rsvMapImg.blob],'상담장소_지도.'+(/png/.test(window._rsvMapImg.blob.type)?'png':'jpg'),{type:window._rsvMapImg.blob.type||'image/jpeg'}));
+    if(useMap) files.push(new File([window._rsvMapImg.blob],'상담장소_지도.'+(/png/.test(window._rsvMapImg.blob.type)?'png':'jpg'),{type:window._rsvMapImg.blob.type||'image/jpeg'}));
     if(window._rsvCardBlob) files.push(new File([window._rsvCardBlob],'명함.jpg',{type:window._rsvCardBlob.type||'image/jpeg'}));
   }catch(e){ files=[]; }
   try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function(){}); }catch(e){}
