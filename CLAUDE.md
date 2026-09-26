@@ -1130,6 +1130,11 @@
   빈 문구('')=기본 문구 `RSV_DEF_TPL`(기본과 같으면 ''로 저장 — 기본 문구 변경을 따라가게). 저장은 `sv('tops_rsvcfg',{tpl:{me:문구}})`로
   **본인 키만** 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 하고, 로컬은 `_lsSet`으로 전체 캐시를 다시 씀. 클라우드 로드 두 곳에서 `rsvCfg` 반영.
 - 입력값(고객 성함·연락처)은 저장하지 않음 — 로그아웃 시 `_rsvClear`로 입력칸·미리보기·모달 정리(fp와 같은 이유).
+- **상담장소 지도 (v-5, 사용자 선택 "지도 표시만")**: 미리보기 오른쪽 `#rsv_map`에 구글 지도 임베드 iframe
+  (`maps.google.com/maps?q=…&output=embed` — API 키 불필요, CSP 없음 확인) + [큰 지도로 보기] 링크(`rsv_maplink`).
+  `rsvRender`→`_rsvMapLater`(600ms 디바운스)→`_rsvMapDraw`(같은 장소면 재로드 안 함 `window._rsvMapQ`, 80자 제한, encodeURIComponent).
+  **화면 표시 전용 — 문자에는 들어가지 않음**(sms: 링크는 글자만, 외부 iframe은 캡처 불가 — 사용자 문의 답변 기록).
+  로그아웃·초기화(`_rsvClear`)에서 지도도 비움(고객 장소 잔존 방지).
 - **직함 지정 (v-4, 관리자 전용)**: [설정] 모달 오른쪽 `#rsv_titlebox`(비관리자는 숨김) — 관리자 계정+구성원(사용정지 제외, 코드순) 목록에
   [팀장]/[지점장] 체크박스(한 줄에 하나만 `rsvTitleChk`, 둘 다 해제=직함 없이 이름만). 저장은 `tops_rsvcfg.title={키:'팀장'|'지점장'|''}`
   (키 규칙은 `_rsvKey`와 동일 — 'c_코드'/'n_관리자이름', 줄 식별은 data-rsvk 속성 — 함정 A), [저장] 시 **열 때 값(data-rsvo)과 달라진 줄만** merge(안 건드린 줄은 자동 규칙 유지).

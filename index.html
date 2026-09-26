@@ -422,6 +422,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #rsv_titles label{display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#3a4468;font-size:12.5px;white-space:nowrap}
 @media(max-width:760px){#rsv_setwrap{display:block}#rsv_titlebox{margin-top:12px}}
 @media(max-width:860px){#rsv_wrap{display:block}#rsv_in{margin-bottom:14px}}
+#rsv_pv{display:flex;gap:12px;align-items:flex-start}
+#rsv_pv #rsv_phone{flex:1 1 360px;min-width:0}
+#rsv_mapbox{flex:1 1 300px;min-width:0}
+#rsv_map{height:300px;border:1px solid #dde1ec;border-radius:12px;overflow:hidden;background:#f3f5fa}
+#rsv_map iframe{width:100%;height:100%;border:0;display:block}
+#rsv_map .rsvmapph{height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#8890a8;padding:0 16px;text-align:center}
+#rsv_maplink a{color:#3040aa;text-decoration:none}
+@media(max-width:1180px){#rsv_pv{display:block}#rsv_mapbox{margin-top:12px}}
 /* ── 3종서류 (pg_samdocs) — 흰 카드 위 검정 글씨(함정 D 역방향), sd_ 접두 스코프 ── */
 #pg_samdocs .sdl{display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px}
 #pg_samdocs .sdi{width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9cdd6;border-radius:6px;background:#fafbfd;color:#1c1e26}
@@ -483,7 +491,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-5</div>
   </div>
 </div>
 
@@ -2251,7 +2259,13 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div id="rsv_out">
           <div class="card">
             <div style="font-size:13px;font-weight:700;color:#3040aa;margin-bottom:10px">문자 미리보기</div>
-            <div id="rsv_phone"><div id="rsv_bubble"></div></div>
+            <div id="rsv_pv">
+              <div id="rsv_phone"><div id="rsv_bubble"></div></div>
+              <div id="rsv_mapbox">
+                <div id="rsv_map"><div class="rsvmapph"><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</div></div>
+                <div id="rsv_maplink" style="font-size:12px;margin-top:6px;min-height:16px"></div>
+              </div>
+            </div>
             <div class="rsvmeta" id="rsv_meta"></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
               <button class="bp" onclick="rsvCopy()"><i class="ti ti-copy"></i> 문자 내용 복사</button>
@@ -5336,11 +5350,32 @@ function _rsvFill(mode){
 function _rsvBytes(s){ var b=0; for(var i=0;i<s.length;i++) b+=(s.charCodeAt(i)>127)?2:1; return b; }
 function rsvRender(){
   var bb=g('rsv_bubble'); if(!bb) return;
+  _rsvMapLater();
   var h=_rsvFill('html'), t=_rsvFill('text');
   bb.innerHTML=h.out;
   var b=_rsvBytes(t.out), meta=g('rsv_meta');
   if(meta) meta.innerHTML=b+'바이트 · '+(b<=90?'단문(SMS)':'장문(LMS)')+
     (h.empty.length?' · <span style="color:#b07000">비어 있는 칸: '+_esc(h.empty.join(', '))+'</span>':' · <span style="color:#1a8040">모든 칸 입력됨</span>');
+}
+// 상담장소 지도(구글 지도 임베드 — 키 불필요, 화면 표시 전용·문자에는 들어가지 않음).
+//   입력 중 매 글자마다 iframe을 다시 불러오지 않게 600ms 디바운스, 같은 장소면 재로드 안 함.
+function _rsvMapLater(){
+  clearTimeout(window._rsvMapT);
+  window._rsvMapT=setTimeout(_rsvMapDraw, 600);
+}
+function _rsvMapDraw(){
+  var box=g('rsv_map'), lk=g('rsv_maplink'); if(!box) return;
+  var q=String((g('rsv_place')||{}).value||'').trim().slice(0,80);
+  if(q===window._rsvMapQ) return;
+  window._rsvMapQ=q;
+  if(!q){
+    box.innerHTML='<div class="rsvmapph"><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</div>';
+    if(lk) lk.innerHTML='';
+    return;
+  }
+  var eq=encodeURIComponent(q);
+  box.innerHTML='<iframe title="상담장소 지도" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q='+eq+'&hl=ko&z=16&output=embed"></iframe>';
+  if(lk) lk.innerHTML='<a href="https://www.google.com/maps/search/?api=1&query='+eq+'" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i> 큰 지도로 보기</a> <span style="color:#8890a8">· 장소 이름이 모호하면 주소로 입력하세요</span>';
 }
 function rRsv(){ rsvRender(); }
 function _rsvClear(){
@@ -5348,6 +5383,7 @@ function _rsvClear(){
   var bb=g('rsv_bubble'); if(bb) bb.innerHTML='';
   var mt=g('rsv_meta'); if(mt) mt.innerHTML='';
   var ms=g('m_rsvset'); if(ms) ms.classList.remove('open');
+  clearTimeout(window._rsvMapT); window._rsvMapQ=null; _rsvMapDraw();
 }
 function rsvReset(){
   if(!confirm('입력한 내용을 모두 지울까요?')) return;
