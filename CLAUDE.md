@@ -1130,11 +1130,23 @@
   빈 문구('')=기본 문구 `RSV_DEF_TPL`(기본과 같으면 ''로 저장 — 기본 문구 변경을 따라가게). 저장은 `sv('tops_rsvcfg',{tpl:{me:문구}})`로
   **본인 키만** 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 하고, 로컬은 `_lsSet`으로 전체 캐시를 다시 씀. 클라우드 로드 두 곳에서 `rsvCfg` 반영.
 - 입력값(고객 성함·연락처)은 저장하지 않음 — 로그아웃 시 `_rsvClear`로 입력칸·미리보기·모달 정리(fp와 같은 이유).
-- **상담장소 지도 (v-5, 사용자 선택 "지도 표시만")**: 미리보기 오른쪽 `#rsv_map`에 구글 지도 임베드 iframe
-  (`maps.google.com/maps?q=…&output=embed` — API 키 불필요, CSP 없음 확인) + [큰 지도로 보기] 링크(`rsv_maplink`).
-  `rsvRender`→`_rsvMapLater`(600ms 디바운스)→`_rsvMapDraw`(같은 장소면 재로드 안 함 `window._rsvMapQ`, 80자 제한, encodeURIComponent).
-  **화면 표시 전용 — 문자에는 들어가지 않음**(sms: 링크는 글자만, 외부 iframe은 캡처 불가 — 사용자 문의 답변 기록).
-  로그아웃·초기화(`_rsvClear`)에서 지도도 비움(고객 장소 잔존 방지).
+- **상담장소 지도 — 네이버 지도 (v-6, 2026-09-26 — v-5 구글 임베드 교체)**: 미리보기 오른쪽 `#rsv_map`(안에 `#rsv_nmap` 지도·`#rsv_mapph` 안내).
+  Maps JS v3 `oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=rnavzrwrfk&submodules=geocoder`(`RSV_NMAP_ID` — **Client ID는 공개 값**,
+  NCP 콘솔 Application의 Web 서비스 URL에 등록된 주소에서만 동작 — 인증 실패 시 `navermap_authFailure`가 화면에 안내).
+  `_rsvNmapLoad`(스크립트 1회 지연 로드 — 페이지를 열기만 해선 로드·과금 없음) → `_rsvGeocode`(`naver.maps.Service.geocode`,
+  결과 캐시 `window._rsvGeoCache` — 같은 장소 재조회 안 함) → 지도·마커. 600ms 디바운스, 늦은 응답은 `_rsvMapSeq`로 무시.
+  **주소만 찾음**(장소 이름 "스타벅스 ○○점"은 못 찾음 — 안내 문구). [네이버 지도로 보기] 링크 `map.naver.com/p/search/…`.
+- **지도 이미지·명함 첨부 + [공유하기로 보내기] (v-6, 사용자 선택 (가))**: 왼쪽 [지도 첨부]·[내 명함] 칸.
+  · [지도 캡처](`rsvMapCapture`): **서버 `/api/staticmap`(functions `_staticMapHandle`)이 네이버 Static Map을 받아 base64로 반환** —
+    Client Secret은 **GitHub Secrets `NCP_MAP_KEY`** → functions-deploy.yml이 `.env`에 `>>` 추가(GEMINI와 같은 방식, defineSecret 금지).
+    서버는 한반도 좌표만·분당 30회 상한, 신규(maps.apigw) → 구(naveropenapi.apigw) 게이트웨이 순 시도.
+    키 미설정·실패면 PC는 `_rsvScreenCapture`(getDisplayMedia "이 탭" → 지도 영역만 잘라냄)로 대체, 휴대폰은 [사진 선택] 안내.
+    지도 이미지는 **메모리만**(`window._rsvMapImg` — 고객별 1회성, 장소가 바뀌면 "다시 캡처" 경고, `_rsvClear`에서 비움).
+  · [명함 올리기](`rsvCardFile`): Storage `claim_packages/rsv_cards/`(1600px JPEG — `_custAlienShrink`) + `tops_rsvcfg.card[_rsvKey()]={u,n,ts}`
+    (본인 키만 merge, 삭제는 ''로 기록 — merge라 키 삭제 불가). 표시 전 `_RSV_CARD_URL_RE` 버킷 화이트리스트, 교체·삭제 시 옛 파일 정리(최선 노력).
+    명함 blob은 `_rsvCardPrefetch`로 **미리 받아 둠**(공유 시점에 받으면 iOS 제스처 시간 초과로 공유 거부).
+  · [공유하기로 보내기](`rsvShare`): `navigator.share({text, files:[지도, 명함]})` — 휴대폰 공유 창에서 문자 앱 선택 → MMS 작성 화면.
+    일부 기종·앱은 사진과 함께 온 글자를 버려서 **문구를 클립보드에도 복사**하고 붙여넣기 안내. PC·미지원 브라우저는 토스트.
 - **직함 지정 (v-4, 관리자 전용)**: [설정] 모달 오른쪽 `#rsv_titlebox`(비관리자는 숨김) — 관리자 계정+구성원(사용정지 제외, 코드순) 목록에
   [팀장]/[지점장] 체크박스(한 줄에 하나만 `rsvTitleChk`, 둘 다 해제=직함 없이 이름만). 저장은 `tops_rsvcfg.title={키:'팀장'|'지점장'|''}`
   (키 규칙은 `_rsvKey`와 동일 — 'c_코드'/'n_관리자이름', 줄 식별은 data-rsvk 속성 — 함정 A), [저장] 시 **열 때 값(data-rsvo)과 달라진 줄만** merge(안 건드린 줄은 자동 규칙 유지).

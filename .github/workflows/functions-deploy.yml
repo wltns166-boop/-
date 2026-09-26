@@ -45,6 +45,13 @@ jobs:
           else
             echo "::warning::GEMINI_API_KEY 시크릿이 없습니다 — Gemini 호출 시 '키 미설정' 오류가 납니다"
           fi
+          # 네이버 지도 Static Map 키(예약문자발송 지도 이미지) — .env에 이어 쓰기(>>)
+          if [ -n "${{ secrets.NCP_MAP_KEY }}" ]; then
+            printf 'NCP_MAP_KEY=%s\n' "${{ secrets.NCP_MAP_KEY }}" >> functions/.env
+            echo "NCP_MAP_KEY 주입 완료"
+          else
+            echo "::warning::NCP_MAP_KEY 시크릿이 없습니다 — 예약문자 [지도 캡처]가 서버 이미지 대신 화면 캡처로 대체됩니다"
+          fi
 
       - name: Deploy Cloud Functions
         run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force

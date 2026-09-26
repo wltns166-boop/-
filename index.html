@@ -425,9 +425,16 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #rsv_pv{display:flex;gap:12px;align-items:flex-start}
 #rsv_pv #rsv_phone{flex:1 1 360px;min-width:0}
 #rsv_mapbox{flex:1 1 300px;min-width:0}
-#rsv_map{height:300px;border:1px solid #dde1ec;border-radius:12px;overflow:hidden;background:#f3f5fa}
-#rsv_map iframe{width:100%;height:100%;border:0;display:block}
-#rsv_map .rsvmapph{height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#8890a8;padding:0 16px;text-align:center}
+#rsv_map{position:relative;height:300px;border:1px solid #dde1ec;border-radius:12px;overflow:hidden;background:#f3f5fa}
+#rsv_nmap{position:absolute;inset:0;visibility:hidden}
+#rsv_map .rsvmapph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#8890a8;padding:0 16px;text-align:center;line-height:1.6}
+#pg_rsv .rsvatt{border:1px dashed #c9cdd6;border-radius:8px;padding:8px 10px;background:#fafbfd}
+#pg_rsv .rsvattst{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#8890a8;min-height:24px}
+#pg_rsv .rsvattst img{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #dde1ec}
+#pg_rsv .rsvattst .ok{color:#1a8040;font-weight:700}
+#pg_rsv .rsvattst .rsvx{margin-left:auto;border:none;background:none;color:#b03030;cursor:pointer;font-size:13px;font-family:inherit}
+#pg_rsv .rsvattbtn{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+#pg_rsv .rsvattbtn .bp{font-size:13px;padding:5px 10px}
 #rsv_maplink a{color:#3040aa;text-decoration:none}
 @media(max-width:1180px){#rsv_pv{display:block}#rsv_mapbox{margin-top:12px}}
 /* ── 3종서류 (pg_samdocs) — 흰 카드 위 검정 글씨(함정 D 역방향), sd_ 접두 스코프 ── */
@@ -491,7 +498,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-6</div>
   </div>
 </div>
 
@@ -2254,7 +2261,21 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div class="rsvg2"><input class="rsvi" id="rsv_date" type="date" oninput="rsvRender()" onchange="rsvRender()" aria-label="상담 날짜"><input class="rsvi" id="rsv_time" type="time" step="600" oninput="rsvRender()" onchange="rsvRender()" aria-label="상담 시각"></div>
           </div>
           <div class="rsvrow"><label class="rsvl" for="rsv_place">상담장소</label><input class="rsvi" id="rsv_place" maxlength="80" oninput="rsvRender()" placeholder="예: TOPS 지점 3층 상담실"></div>
-          <div class="rsvrow" style="margin-bottom:0"><label class="rsvl" for="rsv_hp">고객 휴대폰 번호 <span style="font-weight:400;color:#8890a8">(선택 — 휴대폰에서 [문자 앱 열기]용)</span></label><input class="rsvi" id="rsv_hp" inputmode="numeric" maxlength="13" oninput="dqPhone(this)" placeholder="010-0000-0000"></div>
+          <div class="rsvrow"><label class="rsvl" for="rsv_hp">고객 휴대폰 번호 <span style="font-weight:400;color:#8890a8">(선택 — 휴대폰에서 [문자 앱 열기]용)</span></label><input class="rsvi" id="rsv_hp" inputmode="numeric" maxlength="13" oninput="dqPhone(this)" placeholder="010-0000-0000"></div>
+          <div class="rsvrow"><label class="rsvl">지도 첨부</label>
+            <div class="rsvatt">
+              <div class="rsvattst" id="rsv_mapatt_st"></div>
+              <div class="rsvattbtn"><button class="bp" onclick="rsvMapCapture()"><i class="ti ti-camera"></i> 지도 캡처</button><button class="bp" onclick="g('rsv_mapfile').click()"><i class="ti ti-photo"></i> 사진 선택</button></div>
+              <input type="file" id="rsv_mapfile" accept="image/*" style="display:none" onchange="rsvMapFile(this)">
+            </div>
+          </div>
+          <div class="rsvrow" style="margin-bottom:0"><label class="rsvl">내 명함 <span style="font-weight:400;color:#8890a8">(한 번 올리면 계속 사용)</span></label>
+            <div class="rsvatt">
+              <div class="rsvattst" id="rsv_cardatt_st"></div>
+              <div class="rsvattbtn"><button class="bp" onclick="g('rsv_cardfile').click()"><i class="ti ti-id-badge-2"></i> 명함 올리기</button></div>
+              <input type="file" id="rsv_cardfile" accept="image/*" style="display:none" onchange="rsvCardFile(this)">
+            </div>
+          </div>
         </div>
         <div id="rsv_out">
           <div class="card">
@@ -2262,7 +2283,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div id="rsv_pv">
               <div id="rsv_phone"><div id="rsv_bubble"></div></div>
               <div id="rsv_mapbox">
-                <div id="rsv_map"><div class="rsvmapph"><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</div></div>
+                <div id="rsv_map"><div id="rsv_nmap"></div><div class="rsvmapph" id="rsv_mapph"><span><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</span></div></div>
                 <div id="rsv_maplink" style="font-size:12px;margin-top:6px;min-height:16px"></div>
               </div>
             </div>
@@ -2270,6 +2291,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
               <button class="bp" onclick="rsvCopy()"><i class="ti ti-copy"></i> 문자 내용 복사</button>
               <button class="bp" onclick="rsvSms()"><i class="ti ti-message-forward"></i> 문자 앱 열기</button>
+              <button class="bp" onclick="rsvShare()" style="background:#1a9050;color:#fff;border-color:#1a9050"><i class="ti ti-share"></i> 공유하기로 보내기 (문구+지도+명함)</button>
             </div>
           </div>
         </div>
@@ -5351,31 +5373,263 @@ function _rsvBytes(s){ var b=0; for(var i=0;i<s.length;i++) b+=(s.charCodeAt(i)>
 function rsvRender(){
   var bb=g('rsv_bubble'); if(!bb) return;
   _rsvMapLater();
+  _rsvAttDraw();
   var h=_rsvFill('html'), t=_rsvFill('text');
   bb.innerHTML=h.out;
   var b=_rsvBytes(t.out), meta=g('rsv_meta');
   if(meta) meta.innerHTML=b+'바이트 · '+(b<=90?'단문(SMS)':'장문(LMS)')+
     (h.empty.length?' · <span style="color:#b07000">비어 있는 칸: '+_esc(h.empty.join(', '))+'</span>':' · <span style="color:#1a8040">모든 칸 입력됨</span>');
 }
-// 상담장소 지도(구글 지도 임베드 — 키 불필요, 화면 표시 전용·문자에는 들어가지 않음).
-//   입력 중 매 글자마다 iframe을 다시 불러오지 않게 600ms 디바운스, 같은 장소면 재로드 안 함.
+// 상담장소 지도 — 네이버 지도(Maps JS v3 + geocoder 서브모듈, 2026-09-26 v-6). 화면 표시·지도 이미지 첨부용(문자 본문에는 들어가지 않음).
+//   Client ID는 웹 페이지에 들어가는 공개 값(NCP 콘솔에 등록한 서비스 URL에서만 동작). Secret은 서버(functions .env)에만 둔다.
+//   입력 중 매 글자마다 주소 검색이 나가지 않게 600ms 디바운스, 같은 장소면 재조회 안 함(무료 이용량 절약 — 결과는 _rsvGeoCache).
+var RSV_NMAP_ID='rnavzrwrfk';
+function _rsvNmapLoad(){
+  if(window.naver&&naver.maps&&naver.maps.Service) return Promise.resolve();
+  if(window._rsvNmapP) return window._rsvNmapP;
+  window._rsvNmapP=new Promise(function(res,rej){
+    // 인증 실패(Client ID·서비스 URL 불일치) 시 SDK가 부르는 전역 콜백 — 화면에 원인 안내
+    window.navermap_authFailure=function(){ window._rsvNmapAuthFail=true; _rsvMapMsg('네이버 지도 인증에 실패했습니다. 네이버 클라우드 콘솔의 Web 서비스 URL에 지금 접속한 주소가 등록돼 있는지 확인해 주세요.'); };
+    var s=document.createElement('script');
+    s.src='https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId='+encodeURIComponent(RSV_NMAP_ID)+'&submodules=geocoder';
+    s.onload=function(){ (window.naver&&naver.maps)?res():rej(new Error('naver maps 없음')); };
+    s.onerror=function(){ window._rsvNmapP=null; rej(new Error('네이버 지도를 불러오지 못했습니다.')); };
+    document.head.appendChild(s);
+  });
+  return window._rsvNmapP;
+}
+function _rsvMapMsg(msg){
+  var ph=g('rsv_mapph'), nm=g('rsv_nmap');
+  if(nm) nm.style.visibility='hidden';
+  if(ph){ ph.style.display='flex'; ph.innerHTML='<span><i class="ti ti-map-pin"></i> '+_esc(msg)+'</span>'; }
+}
 function _rsvMapLater(){
   clearTimeout(window._rsvMapT);
   window._rsvMapT=setTimeout(_rsvMapDraw, 600);
+}
+function _rsvGeocode(q){
+  window._rsvGeoCache=window._rsvGeoCache||{};
+  if(window._rsvGeoCache[q]!==undefined) return Promise.resolve(window._rsvGeoCache[q]);
+  return new Promise(function(res,rej){
+    naver.maps.Service.geocode({query:q}, function(status, resp){
+      if(status!==naver.maps.Service.Status.OK){ rej(new Error('주소 검색 실패')); return; }
+      var a=(resp&&resp.v2&&resp.v2.addresses)||[];
+      var hit=a.length?{lat:+a[0].y, lng:+a[0].x, addr:a[0].roadAddress||a[0].jibunAddress||q}:null;
+      window._rsvGeoCache[q]=hit; res(hit);
+    });
+  });
 }
 function _rsvMapDraw(){
   var box=g('rsv_map'), lk=g('rsv_maplink'); if(!box) return;
   var q=String((g('rsv_place')||{}).value||'').trim().slice(0,80);
   if(q===window._rsvMapQ) return;
   window._rsvMapQ=q;
-  if(!q){
-    box.innerHTML='<div class="rsvmapph"><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</div>';
-    if(lk) lk.innerHTML='';
-    return;
-  }
+  var seq=window._rsvMapSeq=(window._rsvMapSeq||0)+1;   // 늦게 온 옛 장소 결과가 새 장소를 덮지 않게
+  window._rsvMapPos=null;
+  if(lk) lk.innerHTML='';
+  if(!q){ _rsvMapMsg('상담장소를 입력하면 지도가 표시됩니다'); return; }
+  if(window._rsvNmapAuthFail){ _rsvMapMsg('네이버 지도 인증에 실패했습니다. 콘솔의 Web 서비스 URL을 확인해 주세요.'); return; }
+  _rsvMapMsg('지도를 찾는 중…');
   var eq=encodeURIComponent(q);
-  box.innerHTML='<iframe title="상담장소 지도" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q='+eq+'&hl=ko&z=16&output=embed"></iframe>';
-  if(lk) lk.innerHTML='<a href="https://www.google.com/maps/search/?api=1&query='+eq+'" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i> 큰 지도로 보기</a> <span style="color:#8890a8">· 장소 이름이 모호하면 주소로 입력하세요</span>';
+  if(lk) lk.innerHTML='<a href="https://map.naver.com/p/search/'+eq+'" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i> 네이버 지도로 보기</a>';
+  _rsvNmapLoad().then(function(){ return _rsvGeocode(q); }).then(function(hit){
+    if(seq!==window._rsvMapSeq) return;
+    if(!hit){ _rsvMapMsg('주소를 찾지 못했습니다. 도로명·지번 주소로 입력해 주세요(예: 광주 서구 상무중앙로 110).'); return; }
+    var pos=new naver.maps.LatLng(hit.lat, hit.lng);
+    var nm=g('rsv_nmap'), ph=g('rsv_mapph');
+    if(ph) ph.style.display='none';
+    if(nm) nm.style.visibility='visible';
+    if(!window._rsvNmap||window._rsvNmap.getElement()!==nm){
+      window._rsvNmap=new naver.maps.Map(nm,{center:pos, zoom:16});
+      window._rsvNmapMk=new naver.maps.Marker({position:pos, map:window._rsvNmap});
+    } else {
+      window._rsvNmap.setCenter(pos); window._rsvNmap.setZoom(16); window._rsvNmapMk.setPosition(pos);
+    }
+    window._rsvMapPos={lat:hit.lat, lng:hit.lng, q:q};
+    _rsvAttDraw();
+  }).catch(function(e){
+    if(seq!==window._rsvMapSeq) return;
+    _rsvMapMsg((e&&e.message)||'지도를 불러오지 못했습니다.');
+  });
+}
+
+// ── 지도 이미지·명함 첨부 + 휴대폰 [공유하기]로 문구+사진 함께 보내기 (v-6) ──
+//   지도 이미지: 메모리에만(고객별 1회성 — 저장 안 함, 로그아웃·초기화 시 비움).
+//   명함: 사용자별 1장 — Storage claim_packages/rsv_cards/ 원본 + tops_rsvcfg.card[_rsvKey()]={u,n,ts} (URL만 — 함정 B).
+var _RSV_CARD_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Frsv_cards%2F/;
+function _rsvMapImgSet(o){
+  var old=window._rsvMapImg;
+  if(old&&old.url){ try{ URL.revokeObjectURL(old.url); }catch(e){} }
+  window._rsvMapImg=o?{blob:o.blob, url:URL.createObjectURL(o.blob), q:o.q||''}:null;
+  _rsvAttDraw();
+}
+function _rsvCard(){
+  var c=(rsvCfg&&rsvCfg.card&&typeof rsvCfg.card==='object')?rsvCfg.card[_rsvKey()]:null;
+  return (c&&typeof c==='object'&&_RSV_CARD_URL_RE.test(String(c.u||'')))?c:null;
+}
+// 공유 시점에 사진을 받으면 휴대폰(iOS)의 클릭 제스처 유효시간이 지나 공유가 막힌다 — 미리 받아 둔다
+function _rsvCardPrefetch(){
+  var c=_rsvCard();
+  if(!c){ window._rsvCardBlob=null; window._rsvCardBlobU=null; return; }
+  if(window._rsvCardBlobU===c.u) return;
+  window._rsvCardBlobU=c.u; window._rsvCardBlob=null;
+  fetch(c.u).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+    .then(function(b){ if(window._rsvCardBlobU===c.u) window._rsvCardBlob=b; })
+    .catch(function(e){ console.warn('명함 미리 받기 실패:', e); if(window._rsvCardBlobU===c.u) window._rsvCardBlobU=null; });
+}
+function _rsvAttDraw(){
+  var ms=g('rsv_mapatt_st'), cs=g('rsv_cardatt_st');
+  if(ms){
+    var mi=window._rsvMapImg, curQ=String((g('rsv_place')||{}).value||'').trim().slice(0,80);
+    if(mi){
+      var stale=mi.q&&mi.q!==curQ;
+      ms.innerHTML='<img src="'+_alertEsc(mi.url)+'" alt="지도">'+(stale?'<span style="color:#b07000;font-weight:700">장소가 바뀌었습니다 — 다시 캡처하세요</span>':'<span class="ok">✓ 지도 첨부 완료</span>')+
+        '<button class="rsvx" onclick="rsvMapDel()">✕ 빼기</button>';
+    } else ms.innerHTML='첨부된 지도 없음';
+  }
+  if(cs){
+    var c=_rsvCard();
+    cs.innerHTML=c?'<img src="'+_alertEsc(c.u)+'" alt="명함"><span class="ok">✓ 명함 등록됨</span><button class="rsvx" onclick="rsvCardDel()">✕ 삭제</button>':'등록된 명함 없음';
+  }
+  _rsvCardPrefetch();
+}
+function rsvMapDel(){ _rsvMapImgSet(null); }
+function _rsvB64ToBlob(b64, mime){
+  var bin=atob(b64), u8=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+  return new Blob([u8],{type:mime||'image/png'});
+}
+function _rsvDataUrlToBlob(du){ var p=String(du).split(','); var mime=(p[0].match(/data:([^;]+)/)||[])[1]||'image/jpeg'; return _rsvB64ToBlob(p[1], mime); }
+// [지도 캡처] — 서버가 네이버 Static Map 이미지를 받아 준다(휴대폰도 동작). 서버 키 미설정·실패 시 PC는 화면 캡처로 대체.
+async function rsvMapCapture(){
+  var pos=window._rsvMapPos;
+  if(!pos){ toast('상담장소를 입력해 지도가 표시된 뒤 눌러 주세요.'); return; }
+  if(window._rsvCapBusy) return;
+  window._rsvCapBusy=true;
+  var st=g('rsv_mapatt_st'); if(st) st.innerHTML='지도 이미지를 만드는 중…';
+  try{
+    var r=await fetch('/api/staticmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staticmap:1, lat:pos.lat, lng:pos.lng})});
+    var j=null; try{ j=await r.json(); }catch(e){}
+    if(j&&j.ok&&j.b64){
+      if(window._rsvMapPos!==pos){ toast('그 사이 장소가 바뀌었습니다. 다시 눌러 주세요.'); _rsvAttDraw(); return; }
+      _rsvMapImgSet({blob:_rsvB64ToBlob(j.b64, j.mime||'image/png'), q:pos.q});
+      toast('지도 첨부 완료'); return;
+    }
+    var why=(j&&j.error&&j.error.message)||('HTTP '+r.status);
+    console.warn('static map 실패:', why);
+    if(await _rsvScreenCapture(pos)) return;
+    toast('지도 이미지를 만들지 못했습니다('+why+'). 화면을 캡처해 [사진 선택]으로 올려 주세요.');
+    _rsvAttDraw();
+  }catch(e){
+    if(await _rsvScreenCapture(pos)) return;
+    toast('지도 이미지를 만들지 못했습니다. 화면을 캡처해 [사진 선택]으로 올려 주세요.');
+    _rsvAttDraw();
+  }finally{ window._rsvCapBusy=false; }
+}
+// 대체 경로: PC 크롬·엣지 화면 공유(이 탭)로 지도 영역만 잘라 이미지화. 지원 안 하면 false.
+async function _rsvScreenCapture(pos){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia)) return false;
+  if(!confirm('지도 이미지를 서버에서 만들지 못했습니다.\n이 화면을 캡처해서 지도 부분만 잘라 첨부할까요?\n(다음 창에서 "이 탭"을 선택해 주세요)')) return false;
+  var box=g('rsv_map'); if(!box) return false;
+  try{ box.scrollIntoView({block:'center'}); }catch(e){}
+  var stream=null;
+  try{
+    stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser'}, audio:false, preferCurrentTab:true, selfBrowserSurface:'include'});
+    var tr=stream.getVideoTracks()[0], set=(tr&&tr.getSettings)?tr.getSettings():{};
+    if(set.displaySurface&&set.displaySurface!=='browser'){ toast('"이 탭"을 선택해야 지도 부분을 자를 수 있습니다.'); return true; }
+    var v=document.createElement('video'); v.muted=true; v.playsInline=true; v.srcObject=stream; await v.play();
+    await new Promise(function(r){ setTimeout(r,500); });   // 공유 안내 막대가 사라질 시간
+    var rc=box.getBoundingClientRect(), sx=v.videoWidth/window.innerWidth, sy=v.videoHeight/window.innerHeight;
+    var cw=Math.round(rc.width*sx), ch=Math.round(rc.height*sy);
+    if(cw<50||ch<50) throw new Error('캡처 크기 오류');
+    var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+    cv.getContext('2d').drawImage(v, Math.round(rc.left*sx), Math.round(rc.top*sy), cw, ch, 0, 0, cw, ch);
+    var blob=await new Promise(function(r){ cv.toBlob(r,'image/jpeg',0.9); });
+    if(!blob) throw new Error('이미지 변환 실패');
+    _rsvMapImgSet({blob:blob, q:pos.q});
+    toast('지도 첨부 완료');
+    return true;
+  }catch(e){
+    if(e&&e.name==='NotAllowedError'){ toast('화면 캡처가 취소되었습니다.'); return true; }
+    console.warn('screen capture 실패:', e); return false;
+  }finally{ if(stream) stream.getTracks().forEach(function(t){ t.stop(); }); }
+}
+// [사진 선택] — 휴대폰 화면 캡처 등 직접 고른 지도 사진
+async function rsvMapFile(inp){
+  var f=inp&&inp.files&&inp.files[0]; if(inp) inp.value='';
+  if(!f) return;
+  if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(f.name||'')){ toast('사진 파일만 첨부할 수 있습니다.'); return; }
+  try{
+    var du=await _custAlienShrink(f);   // 1600px JPEG 축소(기존 업로더 재사용 — 문자 앱 용량 제한 대비)
+    _rsvMapImgSet({blob:_rsvDataUrlToBlob(du), q:String((g('rsv_place')||{}).value||'').trim().slice(0,80)});
+    toast('지도 첨부 완료');
+  }catch(e){ toast('사진을 읽지 못했습니다: '+((e&&e.message)||e)); }
+}
+// [명함 올리기] — Storage 업로드 후 URL만 사용자별 저장(한 번 올리면 계속 사용, 다른 기기도 동일)
+async function rsvCardFile(inp){
+  var f=inp&&inp.files&&inp.files[0]; if(inp) inp.value='';
+  if(!f) return;
+  var key=_rsvKey(); if(!key){ toast('로그인 후 이용해 주세요.'); return; }
+  if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(f.name||'')){ toast('명함 사진(이미지)만 올릴 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  if(window._rsvCardBusy) return;
+  window._rsvCardBusy=true;
+  var cs=g('rsv_cardatt_st'); if(cs) cs.innerHTML='명함 올리는 중…';
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var du=await _custAlienShrink(f);
+    var bin=atob(du.split(',')[1]), u8=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    var ref=firebase.storage().ref('claim_packages/rsv_cards/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
+    await ref.put(u8,{contentType:'image/jpeg'});
+    var url=await ref.getDownloadURL();
+    if(key!==_rsvKey()){ try{ ref.delete().catch(function(){}); }catch(e){} return; }   // 업로드 중 로그아웃·계정 전환 — 버림
+    var old=_rsvCard();
+    _rsvCardSave(key, {u:url, n:f.name||'명함.jpg', ts:Date.now()});
+    if(old&&old.u!==url){ try{ firebase.storage().refFromURL(old.u).delete().catch(function(){}); }catch(e){} }   // 옛 명함 정리(최선 노력)
+    toast('명함을 등록했습니다. 다음부터 자동으로 첨부됩니다.');
+  }catch(e){ console.warn('rsv card upload err:', e); toast('명함 업로드 실패: '+((e&&e.message)||e)); }
+  finally{ window._rsvCardBusy=false; _rsvAttDraw(); }
+}
+function _rsvCardSave(key, val){
+  if(!rsvCfg||typeof rsvCfg!=='object'||Array.isArray(rsvCfg)) rsvCfg={};
+  if(!rsvCfg.card||typeof rsvCfg.card!=='object') rsvCfg.card={};
+  rsvCfg.card[key]=val;
+  var one={card:{}}; one.card[key]=val;
+  sv('tops_rsvcfg', one);                          // 클라우드: 본인 키만 merge(다른 사람 명함 보존)
+  _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg));   // 로컬: 전체 캐시 재기록
+}
+function rsvCardDel(){
+  var c=_rsvCard(), key=_rsvKey(); if(!c||!key) return;
+  if(!confirm('등록한 명함을 삭제할까요?')) return;
+  _rsvCardSave(key, '');   // merge라 키 삭제 대신 빈값으로 기록(다른 기기에서 부활 방지 — navcfg 계열)
+  try{ firebase.storage().refFromURL(c.u).delete().catch(function(){}); }catch(e){}
+  window._rsvCardBlob=null; window._rsvCardBlobU=null;
+  _rsvAttDraw(); toast('명함을 삭제했습니다.');
+}
+// [공유하기로 보내기] — 휴대폰 공유 창 → 문자(메시지) 앱 선택 시 문구+지도+명함이 담긴 MMS 작성 화면.
+//   일부 기종·앱은 사진과 함께 온 글자를 버리므로 문구를 클립보드에도 복사해 둔다(붙여넣기 안내).
+function rsvShare(){
+  var text=_rsvReadyText(); if(text==null) return;
+  if(_rsvCard()&&!window._rsvCardBlob){ _rsvCardPrefetch(); toast('명함을 불러오는 중입니다. 잠시 후 다시 눌러 주세요.'); return; }
+  var files=[];
+  try{
+    if(window._rsvMapImg) files.push(new File([window._rsvMapImg.blob],'상담장소_지도.'+(/png/.test(window._rsvMapImg.blob.type)?'png':'jpg'),{type:window._rsvMapImg.blob.type||'image/jpeg'}));
+    if(window._rsvCardBlob) files.push(new File([window._rsvCardBlob],'명함.jpg',{type:window._rsvCardBlob.type||'image/jpeg'}));
+  }catch(e){ files=[]; }
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function(){}); }catch(e){}
+  if(!navigator.share){ toast('이 브라우저는 공유하기를 지원하지 않습니다. 휴대폰(크롬·사파리)에서 이용해 주세요. 문구는 복사해 두었습니다.'); return; }
+  var data={text:text};
+  if(files.length){
+    if(navigator.canShare&&!navigator.canShare({files:files})){ toast('이 브라우저는 사진 공유를 지원하지 않습니다. 문구는 복사해 두었습니다.'); return; }
+    data.files=files;
+  }
+  navigator.share(data).then(function(){
+    toast('보냈습니다. 문자에 글이 빠졌으면 붙여넣기 하세요(문구 복사됨).');
+  }).catch(function(e){
+    if(e&&e.name==='AbortError') return;
+    toast(e&&e.name==='NotAllowedError'?'공유 창을 열지 못했습니다. 한 번 더 눌러 주세요.':'공유하지 못했습니다: '+((e&&e.message)||e));
+  });
 }
 function rRsv(){ rsvRender(); }
 function _rsvClear(){
@@ -5384,6 +5638,8 @@ function _rsvClear(){
   var mt=g('rsv_meta'); if(mt) mt.innerHTML='';
   var ms=g('m_rsvset'); if(ms) ms.classList.remove('open');
   clearTimeout(window._rsvMapT); window._rsvMapQ=null; _rsvMapDraw();
+  _rsvMapImgSet(null);   // 고객별 지도 이미지 — 다음 사용자에게 남지 않게
+  window._rsvCardBlob=null; window._rsvCardBlobU=null;
 }
 function rsvReset(){
   if(!confirm('입력한 내용을 모두 지울까요?')) return;

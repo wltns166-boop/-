@@ -1022,6 +1022,44 @@ exports.kakaoDaily = onSchedule(
 //    CI 배포가 값 입력 프롬프트에서 멈춰 실패한다(2026-08-13 실사고).
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
+// ── 네이버 Static Map 중계 (예약문자발송 지도 이미지 — 2026-09-26) ─────────────
+//   Client Secret(NCP_MAP_KEY)은 브라우저에 두면 안 되므로 서버가 대신 받아 base64로 돌려준다.
+//   키는 GitHub Secrets NCP_MAP_KEY → 배포 워크플로가 functions/.env로 주입(GEMINI_API_KEY와 같은 방식, defineSecret 금지).
+//   Client ID는 공개 값(웹 SDK에도 들어감)이라 기본값을 둔다. 좌표는 한반도 범위만, 분당 30회 상한(무료 이용량 보호).
+const _smHits = [];
+async function _staticMapHandle(body, res) {
+  const id = process.env.NCP_MAP_KEY_ID || "rnavzrwrfk";
+  const key = process.env.NCP_MAP_KEY || "";
+  if (!key) { res.status(200).json({ error: { message: "서버에 네이버 지도 키(NCP_MAP_KEY)가 설정되지 않았습니다" } }); return; }
+  const lat = Number(body.lat), lng = Number(body.lng);
+  if (!isFinite(lat) || !isFinite(lng) || lat < 33 || lat > 39.5 || lng < 124 || lng > 132.5) {
+    res.status(400).json({ error: { message: "좌표가 올바르지 않습니다" } }); return;
+  }
+  const now = Date.now();
+  while (_smHits.length && now - _smHits[0] > 60000) _smHits.shift();
+  if (_smHits.length >= 30) { res.status(429).json({ error: { message: "잠시 후 다시 시도해 주세요" } }); return; }
+  _smHits.push(now);
+  const c = lng.toFixed(6) + "," + lat.toFixed(6);
+  const qs = "w=640&h=400&scale=2&level=16&format=jpg&center=" + encodeURIComponent(c) +
+    "&markers=" + encodeURIComponent("type:d|size:mid|pos:" + lng.toFixed(6) + " " + lat.toFixed(6));
+  // 신규(2025~) 게이트웨이 → 구 게이트웨이 순으로 시도(콘솔 세대에 따라 한쪽만 열려 있음)
+  const hosts = ["https://maps.apigw.ntruss.com/map-static/v2/raster", "https://naveropenapi.apigw.ntruss.com/map-static/v2/raster"];
+  let last = "";
+  for (const h of hosts) {
+    try {
+      const r = await fetch(h + "?" + qs, { headers: { "x-ncp-apigw-api-key-id": id, "x-ncp-apigw-api-key": key } });
+      const ct = String(r.headers.get("content-type") || "");
+      if (r.ok && /^image\//.test(ct)) {
+        const buf = Buffer.from(await r.arrayBuffer());
+        res.status(200).json({ ok: 1, mime: ct.split(";")[0], b64: buf.toString("base64") });
+        return;
+      }
+      last = "HTTP " + r.status + " " + (await r.text()).slice(0, 160);
+    } catch (e) { last = String((e && e.message) || e); }
+  }
+  res.status(200).json({ error: { message: "네이버 Static Map 응답 실패 — " + last } });
+}
+
 exports.api = onRequest(
   // memory 2GiB: 카카오 발송(sendnow)이 보고서 캡처용 헤드리스 크로미움을 띄우므로 필요
   { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
@@ -1041,6 +1079,9 @@ exports.api = onRequest(
 
     // 병력정리 PDF 드라이브 저장 (HTML → PDF 변환 후 업로드)
     if (body.medpdf) { await _medPdfHandle(body, res); return; }
+
+    // 예약문자발송 — 네이버 Static Map 지도 이미지
+    if (body.staticmap) { await _staticMapHandle(body, res); return; }
 
     // 드라이브(앱스크립트) 프록시 — 브라우저는 CORS로 앱스크립트 응답을 못 읽으므로
     // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.
