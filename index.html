@@ -499,7 +499,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.27-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.27-2</div>
   </div>
 </div>
 
@@ -5402,7 +5402,8 @@ function _rsvNmapLoad(){
 function _rsvMapMsg(msg){
   var ph=g('rsv_mapph'), nm=g('rsv_nmap'), im=g('rsv_mapimg');
   if(nm) nm.style.visibility='hidden';
-  if(im) im.style.display='none';
+  if(im){ im.style.display='none'; im.removeAttribute('src'); }
+  if(window._rsvMapPrevUrl){ try{ URL.revokeObjectURL(window._rsvMapPrevUrl); }catch(e){} window._rsvMapPrevUrl=null; }
   if(ph){ ph.style.display='flex'; ph.innerHTML='<span><i class="ti ti-map-pin"></i> '+_esc(msg)+'</span>'; }
 }
 function _rsvMapLater(){
@@ -5464,15 +5465,25 @@ function _rsvStaticGet(pos){
   window._rsvStaticCache=window._rsvStaticCache||{};
   var k=pos.lat.toFixed(6)+','+pos.lng.toFixed(6);
   if(window._rsvStaticCache[k]) return Promise.resolve(window._rsvStaticCache[k]);
-  return fetch('/api/staticmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staticmap:1, lat:pos.lat, lng:pos.lng})})
+  // 진행 중인 같은 좌표 요청은 공유(미리보기 로딩 중 [지도 캡처]를 눌러도 서버를 두 번 부르지 않게 — v-2 리뷰)
+  window._rsvStaticInflight=window._rsvStaticInflight||{};
+  if(window._rsvStaticInflight[k]) return window._rsvStaticInflight[k];
+  var cacheRef=window._rsvStaticCache;
+  var pr=fetch('/api/staticmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staticmap:1, lat:pos.lat, lng:pos.lng})})
     .then(function(r){ return r.json().catch(function(){ return {error:{message:'HTTP '+r.status}}; }); })
     .then(function(j){
       if(!(j&&j.ok&&j.b64)) throw new Error((j&&j.error&&j.error.message)||'지도 이미지 없음');
       var b=_rsvB64ToBlob(j.b64, j.mime||'image/jpeg');
-      var keys=Object.keys(window._rsvStaticCache); if(keys.length>=20) delete window._rsvStaticCache[keys[0]];
-      window._rsvStaticCache[k]=b;
+      if(cacheRef===window._rsvStaticCache){   // 로그아웃·초기화로 캐시가 바뀌었으면 넣지 않음
+        var keys=Object.keys(cacheRef); while(keys.length>=20) delete cacheRef[keys.shift()];
+        cacheRef[k]=b;
+      }
       return b;
     });
+  window._rsvStaticInflight[k]=pr;
+  var done=function(){ if(window._rsvStaticInflight&&window._rsvStaticInflight[k]===pr) delete window._rsvStaticInflight[k]; };
+  pr.then(done,done);
+  return pr;
 }
 // 대체: 움직이는 네이버 지도(Maps JS v3)
 function _rsvDynMap(hit){
@@ -5693,7 +5704,7 @@ function _rsvClear(){
   _rsvMapImgSet(null);   // 고객별 지도 이미지 — 다음 사용자에게 남지 않게
   if(window._rsvMapPrevUrl){ try{ URL.revokeObjectURL(window._rsvMapPrevUrl); }catch(e){} window._rsvMapPrevUrl=null; }
   var _rim=g('rsv_mapimg'); if(_rim){ _rim.removeAttribute('src'); _rim.style.display='none'; }
-  window._rsvStaticCache={}; window._rsvGeoCache={};
+  window._rsvStaticCache={}; window._rsvGeoCache={}; window._rsvStaticInflight={};
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
 }
 function rsvReset(){
