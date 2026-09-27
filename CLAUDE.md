@@ -1136,6 +1136,11 @@
   `_rsvNmapLoad`(스크립트 1회 지연 로드 — 페이지를 열기만 해선 로드·과금 없음) → `_rsvGeocode`(`naver.maps.Service.geocode`,
   결과 캐시 `window._rsvGeoCache` — 같은 장소 재조회 안 함) → 지도·마커. 600ms 디바운스, 늦은 응답은 `_rsvMapSeq`로 무시.
   **주소만 찾음**(장소 이름 "스타벅스 ○○점"은 못 찾음 — 안내 문구). [네이버 지도로 보기] 링크 `map.naver.com/p/search/…`.
+- **미리보기 = 서버 지도 사진 우선 (2026-09-27 v2026.09.27-1, 실사용 제보)**: 휴대폰에서 움직이는 지도(Maps JS)가 **회색 빈칸**으로만
+  보이던 제보 — 원인은 재현 불가(작업 환경에서 네이버 차단). 좌표를 찾으면 `_rsvStaticGet`(서버 `/api/staticmap`)으로 받은
+  **지도 사진을 `#rsv_mapimg`에 표시**(= 문자에 첨부될 그림과 동일), 실패 시에만 `_rsvDynMap`(움직이는 지도 + `refresh(true)`)으로 대체.
+  사진은 좌표별 캐시 `window._rsvStaticCache`(최대 20 — 같은 장소 재입력·[지도 캡처] 시 재호출 없음), `_rsvClear`에서 캐시·미리보기 URL 비움.
+  [지도 캡처]는 캐시된 사진을 바로 첨부(서버 재호출 없음) → 실패 시 기존 화면 캡처 대체 경로.
 - **지도 이미지·명함 첨부 + [공유하기로 보내기] (v-6, 사용자 선택 (가))**: 왼쪽 [지도 첨부]·[내 명함] 칸.
   · [지도 캡처](`rsvMapCapture`): **서버 `/api/staticmap`(functions `_staticMapHandle`)이 네이버 Static Map을 받아 base64로 반환** —
     Client Secret은 **GitHub Secrets `NCP_MAP_KEY`** → functions-deploy.yml이 `.env`에 `>>` 추가(GEMINI와 같은 방식, defineSecret 금지).

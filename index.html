@@ -427,6 +427,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #rsv_mapbox{flex:1 1 300px;min-width:0}
 #rsv_map{position:relative;height:300px;border:1px solid #dde1ec;border-radius:12px;overflow:hidden;background:#f3f5fa}
 #rsv_nmap{position:absolute;inset:0;visibility:hidden}
+#rsv_mapimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
 #rsv_map .rsvmapph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#8890a8;padding:0 16px;text-align:center;line-height:1.6}
 #pg_rsv .rsvatt{border:1px dashed #c9cdd6;border-radius:8px;padding:8px 10px;background:#fafbfd}
 #pg_rsv .rsvattst{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#8890a8;min-height:24px}
@@ -498,7 +499,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.26-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.27-1</div>
   </div>
 </div>
 
@@ -2283,7 +2284,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div id="rsv_pv">
               <div id="rsv_phone"><div id="rsv_bubble"></div></div>
               <div id="rsv_mapbox">
-                <div id="rsv_map"><div id="rsv_nmap"></div><div class="rsvmapph" id="rsv_mapph"><span><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</span></div></div>
+                <div id="rsv_map"><div id="rsv_nmap"></div><img id="rsv_mapimg" alt="상담장소 지도"><div class="rsvmapph" id="rsv_mapph"><span><i class="ti ti-map-pin"></i> 상담장소를 입력하면 지도가 표시됩니다</span></div></div>
                 <div id="rsv_maplink" style="font-size:12px;margin-top:6px;min-height:16px"></div>
               </div>
             </div>
@@ -5399,8 +5400,9 @@ function _rsvNmapLoad(){
   return window._rsvNmapP;
 }
 function _rsvMapMsg(msg){
-  var ph=g('rsv_mapph'), nm=g('rsv_nmap');
+  var ph=g('rsv_mapph'), nm=g('rsv_nmap'), im=g('rsv_mapimg');
   if(nm) nm.style.visibility='hidden';
+  if(im) im.style.display='none';
   if(ph){ ph.style.display='flex'; ph.innerHTML='<span><i class="ti ti-map-pin"></i> '+_esc(msg)+'</span>'; }
 }
 function _rsvMapLater(){
@@ -5435,8 +5437,49 @@ function _rsvMapDraw(){
   _rsvNmapLoad().then(function(){ return _rsvGeocode(q); }).then(function(hit){
     if(seq!==window._rsvMapSeq) return;
     if(!hit){ _rsvMapMsg('주소를 찾지 못했습니다. 도로명·지번 주소로 입력해 주세요(예: 광주 서구 상무중앙로 110).'); return; }
+    window._rsvMapPos={lat:hit.lat, lng:hit.lng, q:q};
+    // v-8: 미리보기는 서버가 받아 준 네이버 지도 사진(=문자에 첨부될 그림)을 우선 표시 — 휴대폰에서 움직이는 지도가
+    //   회색 빈칸으로 보이던 제보 대응. 사진을 못 받으면 아래 움직이는 지도로 대체.
+    return _rsvStaticGet(window._rsvMapPos).then(function(b){
+      if(seq!==window._rsvMapSeq) return;
+      var im=g('rsv_mapimg'), ph0=g('rsv_mapph'), nm0=g('rsv_nmap');
+      if(window._rsvMapPrevUrl){ try{ URL.revokeObjectURL(window._rsvMapPrevUrl); }catch(e){} }
+      window._rsvMapPrevUrl=URL.createObjectURL(b);
+      if(im){ im.src=window._rsvMapPrevUrl; im.style.display='block'; }
+      if(ph0) ph0.style.display='none';
+      if(nm0) nm0.style.visibility='hidden';
+      _rsvAttDraw();
+    }).catch(function(e){
+      if(seq!==window._rsvMapSeq) return;
+      console.warn('정적 지도 실패 — 움직이는 지도로 대체:', e);
+      _rsvDynMap(hit);
+    });
+  }).catch(function(e){
+    if(seq!==window._rsvMapSeq) return;
+    _rsvMapMsg((e&&e.message)||'지도를 불러오지 못했습니다.');
+  });
+}
+// 서버 Static Map 이미지(장소별 캐시 — 같은 장소를 다시 입력해도 재호출 없음, 무료 이용량 절약)
+function _rsvStaticGet(pos){
+  window._rsvStaticCache=window._rsvStaticCache||{};
+  var k=pos.lat.toFixed(6)+','+pos.lng.toFixed(6);
+  if(window._rsvStaticCache[k]) return Promise.resolve(window._rsvStaticCache[k]);
+  return fetch('/api/staticmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staticmap:1, lat:pos.lat, lng:pos.lng})})
+    .then(function(r){ return r.json().catch(function(){ return {error:{message:'HTTP '+r.status}}; }); })
+    .then(function(j){
+      if(!(j&&j.ok&&j.b64)) throw new Error((j&&j.error&&j.error.message)||'지도 이미지 없음');
+      var b=_rsvB64ToBlob(j.b64, j.mime||'image/jpeg');
+      var keys=Object.keys(window._rsvStaticCache); if(keys.length>=20) delete window._rsvStaticCache[keys[0]];
+      window._rsvStaticCache[k]=b;
+      return b;
+    });
+}
+// 대체: 움직이는 네이버 지도(Maps JS v3)
+function _rsvDynMap(hit){
+  try{
     var pos=new naver.maps.LatLng(hit.lat, hit.lng);
-    var nm=g('rsv_nmap'), ph=g('rsv_mapph');
+    var nm=g('rsv_nmap'), ph=g('rsv_mapph'), im=g('rsv_mapimg');
+    if(im) im.style.display='none';
     if(ph) ph.style.display='none';
     if(nm) nm.style.visibility='visible';
     if(!window._rsvNmap||window._rsvNmap.getElement()!==nm){
@@ -5445,12 +5488,9 @@ function _rsvMapDraw(){
     } else {
       window._rsvNmap.setCenter(pos); window._rsvNmap.setZoom(16); window._rsvNmapMk.setPosition(pos);
     }
-    window._rsvMapPos={lat:hit.lat, lng:hit.lng, q:q};
+    try{ window._rsvNmap.refresh&&window._rsvNmap.refresh(true); }catch(e){}   // 숨김→표시 전환 뒤 타일 다시 그리기
     _rsvAttDraw();
-  }).catch(function(e){
-    if(seq!==window._rsvMapSeq) return;
-    _rsvMapMsg((e&&e.message)||'지도를 불러오지 못했습니다.');
-  });
+  }catch(e){ _rsvMapMsg('지도를 표시하지 못했습니다: '+((e&&e.message)||e)); }
 }
 
 // ── 지도 이미지·명함 첨부 + 휴대폰 [공유하기]로 문구+사진 함께 보내기 (v-6) ──
@@ -5508,6 +5548,11 @@ async function rsvMapCapture(){
   window._rsvCapBusy=true;
   var st=g('rsv_mapatt_st'); if(st) st.innerHTML='지도 이미지를 만드는 중…';
   try{
+    try{
+      var cb=await _rsvStaticGet(pos);
+      if(window._rsvMapPos!==pos){ toast('그 사이 장소가 바뀌었습니다. 다시 눌러 주세요.'); _rsvAttDraw(); return; }
+      _rsvMapImgSet({blob:cb, q:pos.q}); toast('지도 첨부 완료'); return;
+    }catch(e0){ console.warn('static map 실패:', e0); }
     var r=await fetch('/api/staticmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staticmap:1, lat:pos.lat, lng:pos.lng})});
     var j=null; try{ j=await r.json(); }catch(e){}
     if(j&&j.ok&&j.b64){
@@ -5646,6 +5691,9 @@ function _rsvClear(){
   var ms=g('m_rsvset'); if(ms) ms.classList.remove('open');
   clearTimeout(window._rsvMapT); window._rsvMapQ=null; _rsvMapDraw();
   _rsvMapImgSet(null);   // 고객별 지도 이미지 — 다음 사용자에게 남지 않게
+  if(window._rsvMapPrevUrl){ try{ URL.revokeObjectURL(window._rsvMapPrevUrl); }catch(e){} window._rsvMapPrevUrl=null; }
+  var _rim=g('rsv_mapimg'); if(_rim){ _rim.removeAttribute('src'); _rim.style.display='none'; }
+  window._rsvStaticCache={}; window._rsvGeoCache={};
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
 }
 function rsvReset(){
