@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-8</div>
   </div>
 </div>
 
@@ -5583,16 +5583,16 @@ function _rsvCardPrefetch(){
 //   navigator.share는 클릭 직후에만 허용되므로(iOS) 첨부가 바뀔 때마다 미리 만들어 둔다. {mb,cb,blob} — 재료 blob이 같을 때만 재사용.
 function _rsvComboPrep(){
   var mi=window._rsvMapImg, mb=mi&&mi.blob, cb=window._rsvCardBlob;
-  if(!mb||!cb){ window._rsvCombo=null; return; }
+  if(!mb||!cb){ window._rsvCombo=null; window._rsvComboSeq=(window._rsvComboSeq||0)+1; return; }   // 진행 중인 옛 합성이 되살아나지 않게
   var cur=window._rsvCombo;
   if(cur&&cur.mb===mb&&cur.cb===cb) return;
   var seq=window._rsvComboSeq=(window._rsvComboSeq||0)+1;
   window._rsvCombo={mb:mb, cb:cb, blob:null};
   _rsvSheetBuild('', mb, cb).then(function(sh){
     if(seq!==window._rsvComboSeq) return;
-    if(sh.miss&&sh.miss.length){ window._rsvCombo=null; console.warn('지도+명함 사진 — 빠진 사진:', sh.miss); return; }
+    if(sh.miss&&sh.miss.length){ window._rsvCombo={mb:mb, cb:cb, blob:null, fail:1}; console.warn('지도+명함 사진 — 빠진 사진:', sh.miss); return; }
     window._rsvCombo={mb:mb, cb:cb, blob:sh.blob};
-  }).catch(function(e){ if(seq===window._rsvComboSeq) window._rsvCombo=null; console.warn('지도+명함 사진 만들기 실패:', e); });
+  }).catch(function(e){ if(seq===window._rsvComboSeq) window._rsvCombo={mb:mb, cb:cb, blob:null, fail:1}; console.warn('지도+명함 사진 만들기 실패:', e); });
 }
 function _rsvAttDraw(){
   var ms=g('rsv_mapatt_st'), cs=g('rsv_cardatt_st');
@@ -5784,8 +5784,9 @@ function rsvShare(){
     useMap=false;
   }
   var files=[];
-  if(useMap&&window._rsvCardBlob){
-    var cb=window._rsvCombo;
+  var cb=window._rsvCombo, comboFail=!!(useMap&&cb&&cb.fail&&cb.mb===window._rsvMapImg.blob&&cb.cb===window._rsvCardBlob);
+  if(comboFail) toast('지도·명함을 한 장으로 합치지 못해 사진 2장으로 보냅니다.');   // 합치기 실패 시 따로 첨부(공유가 막히지 않게)
+  if(useMap&&window._rsvCardBlob&&!comboFail){
     if(!cb||cb.mb!==window._rsvMapImg.blob||cb.cb!==window._rsvCardBlob||!cb.blob){
       _rsvComboPrep(); toast('지도·명함 사진을 준비하는 중입니다. 잠시 후 다시 눌러 주세요.'); return;
     }
