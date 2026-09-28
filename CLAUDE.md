@@ -1192,6 +1192,7 @@
   `body.geocode`, NCP Geocoding `map-geocode/v2/geocode` — Static Map과 같은 `NCP_MAP_KEY`·신규→구 게이트웨이 순, 분당 60회). **functions 수정 — 자동 배포.**
   ② 서버 실패 시에만 `_rsvNmapLoad`→`_rsvGeocodeJs`(브라우저 geocoder) — `_rsvNmapLoad`는 onload 뒤 `naver.maps.Service.geocode`가 생길 때까지 최대 8초 대기.
   ③ 움직이는 지도 대체(`_rsvDynMap`)도 그때 `_rsvNmapLoad` 후 실행(이제 Maps JS는 정적 지도 실패 때만 로드). 두 경로 다 실패하면 두 사유를 함께 표시.
+  리뷰 반영: 브라우저 geocoder 결과도 `cacheRef===window._rsvGeoCache`일 때만 캐시 기록(로그아웃 뒤 늦은 콜백이 다음 사용자 캐시를 오염시키던 경로), 조기 반환도 `.geocode`까지 확인, 8초 초과 재시도 시 스크립트 태그 `#rsv_nmap_js` 재사용(로드 실패한 태그만 교체).
   ⚠️ NCP 콘솔 Application에 **Geocoding** API가 켜져 있어야 서버 경로가 동작(꺼져 있으면 401 사유가 화면에 나오고 브라우저 경로로 재시도). 모의 실행 `geocode-sim` 통과.
 - **직함 지정 (v-4, 관리자 전용)**: [설정] 모달 오른쪽 `#rsv_titlebox`(비관리자는 숨김) — 관리자 계정+구성원(사용정지 제외, 코드순) 목록에
   [팀장]/[지점장] 체크박스(한 줄에 하나만 `rsvTitleChk`, 둘 다 해제=직함 없이 이름만). 저장은 `tops_rsvcfg.title={키:'팀장'|'지점장'|''}`

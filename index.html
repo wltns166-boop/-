@@ -5406,13 +5406,16 @@ function rsvRender(){
 //   입력 중 매 글자마다 주소 검색이 나가지 않게 600ms 디바운스, 같은 장소면 재조회 안 함(무료 이용량 절약 — 결과는 _rsvGeoCache).
 var RSV_NMAP_ID='rnavzrwrfk';
 function _rsvNmapLoad(){
-  if(window.naver&&naver.maps&&naver.maps.Service) return Promise.resolve();
+  if(window.naver&&naver.maps&&naver.maps.Service&&naver.maps.Service.geocode) return Promise.resolve();
   if(window._rsvNmapP) return window._rsvNmapP;
   window._rsvNmapP=new Promise(function(res,rej){
     // 인증 실패(Client ID·서비스 URL 불일치) 시 SDK가 부르는 전역 콜백 — 화면에 원인 안내
     window.navermap_authFailure=function(){ window._rsvNmapAuthFail=true; _rsvMapMsg('네이버 지도 인증에 실패했습니다. 네이버 클라우드 콘솔의 Web 서비스 URL에 지금 접속한 주소가 등록돼 있는지 확인해 주세요.'); };
-    var s=document.createElement('script');
-    s.src='https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId='+encodeURIComponent(RSV_NMAP_ID)+'&submodules=geocoder';
+    // 8초 초과로 한 번 실패한 뒤 재시도하면 이미 붙인 스크립트를 재사용(중복 로드 방지 — 리뷰 반영)
+    var old=document.getElementById('rsv_nmap_js');
+    if(old&&old._rsvFailed){ old.parentNode&&old.parentNode.removeChild(old); old=null; }   // 로드 자체가 실패한 옛 태그는 버리고 새로
+    var s=old||document.createElement('script');
+    if(!old){ s.id='rsv_nmap_js'; s.src='https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId='+encodeURIComponent(RSV_NMAP_ID)+'&submodules=geocoder'; }
     // geocoder 하위 모듈은 maps.js 로드 뒤 따로 불러와진다 — onload 직후엔 naver.maps.Service가 아직 없음(2026-09-28 실사고). 최대 8초 기다림.
     s.onload=function(){
       var t0=Date.now();
@@ -5422,8 +5425,9 @@ function _rsvNmapLoad(){
         setTimeout(wait,150);
       })();
     };
-    s.onerror=function(){ window._rsvNmapP=null; rej(new Error('네이버 지도를 불러오지 못했습니다.')); };
-    document.head.appendChild(s);
+    s.onerror=function(){ s._rsvFailed=true; window._rsvNmapP=null; rej(new Error('네이버 지도를 불러오지 못했습니다.')); };
+    if(old){ if(window.naver&&naver.maps) s.onload(); }   // 이미 로드된 스크립트면 onload가 다시 오지 않으므로 직접 대기 시작
+    else document.head.appendChild(s);
   });
   return window._rsvNmapP;
 }
@@ -5453,18 +5457,19 @@ function _rsvGeocode(q){
     })
     .catch(function(e){
       console.warn('서버 주소 검색 실패 — 브라우저 지도 모듈로 재시도:', e);
-      return _rsvNmapLoad().then(function(){ return _rsvGeocodeJs(q); }).catch(function(e2){
+      return _rsvNmapLoad().then(function(){ return _rsvGeocodeJs(q, cacheRef); }).catch(function(e2){
         throw new Error('주소로 위치를 찾지 못했습니다('+((e2&&e2.message)||e2)+' / 서버: '+((e&&e.message)||e)+')');
       });
     });
 }
-function _rsvGeocodeJs(q){
+function _rsvGeocodeJs(q, cacheRef){
   return new Promise(function(res,rej){
     naver.maps.Service.geocode({query:q}, function(status, resp){
       if(status!==naver.maps.Service.Status.OK){ rej(new Error('주소 검색 실패')); return; }
       var a=(resp&&resp.v2&&resp.v2.addresses)||[];
       var hit=a.length?{lat:+a[0].y, lng:+a[0].x, addr:a[0].roadAddress||a[0].jibunAddress||q}:null;
-      (window._rsvGeoCache=window._rsvGeoCache||{})[q]=hit; res(hit);
+      if(cacheRef&&cacheRef===window._rsvGeoCache) cacheRef[q]=hit;   // 그 사이 로그아웃·초기화로 캐시가 바뀌었으면 기록 안 함(리뷰 반영)
+      res(hit);
     });
   });
 }
