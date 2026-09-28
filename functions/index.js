@@ -1179,6 +1179,90 @@ async function _geocodeHandle(body, res) {
   res.status(200).json({ error: { message: "네이버 주소 검색 응답 실패 — " + last } });
 }
 
+// 예약문자발송 — [문자 바로 보내기] (2026-09-28, 사용자 선택: 솔라피 · 요금은 대표 계정 하나 · 발신번호는 팀원 각자 번호 · 글 + 지도·명함 사진 MMS)
+//   솔라피(SOLAPI) REST v4. 키는 GitHub Secrets → .env: SOLAPI_API_KEY / SOLAPI_API_SECRET (대표 계정 하나 — 모든 발송 요금이 이 계정 충전금에서 차감).
+//   ⚠️ 발신번호는 클라이언트 값을 믿지 않고 서버가 tops/auth 구성원 명단(code→hp, 없으면 이름이 1명일 때만)에서 찾는다 — 남의 번호로 보내기 차단.
+//   발신번호는 솔라피 콘솔 [발신번호]에 등록(본인 인증 또는 타인 번호 위임)된 번호만 발송된다. 남용 방지: 발신번호당 10초 간격·하루 100건, 전체 하루 500건.
+async function _rsvSmsHandle(body, res) {
+  try {
+    const tk = String(body.idToken || "");
+    if (!tk) throw new Error("no token");
+    await admin.auth().verifyIdToken(tk);
+  } catch (e) { res.status(401).json({ error: { message: "인증이 필요합니다. 인트라넷 화면에서 다시 시도하세요." } }); return; }
+  const ak = process.env.SOLAPI_API_KEY || "", sk = process.env.SOLAPI_API_SECRET || "";
+  if (!ak || !sk) { res.json({ ok: false, error: "문자 발송 설정이 아직 없습니다(SOLAPI_API_KEY·SOLAPI_API_SECRET) — 관리자에게 문의하세요." }); return; }
+  const key = String(body.key || ""), nm = String(body.name || "").trim();
+  const to = String(body.to || "").replace(/\D/g, "");
+  if (!/^01[016789]\d{7,8}$/.test(to)) { res.json({ ok: false, error: "받는 사람 휴대폰 번호가 올바르지 않습니다." }); return; }
+  const text = String(body.text || "").replace(/\r\n/g, "\n").trim();
+  if (!text) { res.json({ ok: false, error: "보낼 문구가 없습니다." }); return; }
+  let bytes = 0; for (const ch of text) bytes += (ch.charCodeAt(0) > 127 ? 2 : 1);
+  if (bytes > 2000) { res.json({ ok: false, error: "문구가 너무 깁니다(2,000바이트 초과 — 한글 약 1,000자)." }); return; }
+  let img = String(body.img || "");
+  if (img) {
+    img = img.replace(/^data:image\/jpe?g;base64,/, "");
+    if (!/^[A-Za-z0-9+/=]+$/.test(img) || img.length > 275000) { res.json({ ok: false, error: "첨부 사진이 올바르지 않거나 200KB를 넘습니다." }); return; }
+  }
+  // 발신번호 = 구성원 명단의 본인 번호(서버 조회)
+  const authSnap = await admin.firestore().collection("tops").doc("auth").get();
+  const memList = (authSnap.exists && Array.isArray((authSnap.data() || {}).mem)) ? authSnap.data().mem : [];
+  let me = null;
+  if (/^c_/.test(key)) me = memList.find((m) => m && String(m.code || "") === key.slice(2)) || null;
+  if (!me && nm) { const byName = memList.filter((m) => m && String(m.name || "") === nm); if (byName.length === 1) me = byName[0]; }
+  // 관리자 계정(ADMINS)은 구성원 명단에 없을 수 있다 — GitHub Secrets SOLAPI_FROM_MAP("이름:번호;이름:번호")로 보충(선택 설정)
+  if (!me && nm && /^n_/.test(key)) {
+    String(process.env.SOLAPI_FROM_MAP || "").split(/[;,\n]/).forEach((pair) => {
+      const i = pair.indexOf(":"); if (i < 0) return;
+      if (pair.slice(0, i).trim() === nm) me = { name: nm, hp: pair.slice(i + 1).trim() };
+    });
+  }
+  if (!me) { res.json({ ok: false, error: "구성원 명단에서 내 정보를 찾지 못했습니다 — 구성원 관리에 이름·휴대폰 번호를 등록하세요(관리자 계정은 SOLAPI_FROM_MAP 설정 필요)." }); return; }
+  if (me.sus) { res.json({ ok: false, error: "사용 정지된 계정입니다." }); return; }
+  const from = String(me.hp || "").replace(/\D/g, "");
+  if (!/^0\d{8,10}$/.test(from)) { res.json({ ok: false, error: "구성원 관리에 내 휴대폰 번호가 없습니다 — 번호를 등록해야 발신번호로 쓸 수 있습니다." }); return; }
+  // 남용 방지 카운터(서버 전용 문서 — 규칙상 클라이언트 접근 불가)
+  const dayK = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const cref = admin.firestore().collection("kakao_private").doc("smscnt");
+  const lim = await admin.firestore().runTransaction(async (t) => {
+    const d = (await t.get(cref)).data() || {};
+    const day = (d.day === dayK) ? d : { day: dayK, all: 0, by: {}, last: {} };
+    day.by = day.by || {}; day.last = day.last || {};
+    if (day.last[from] && Date.now() - day.last[from] < 10000) return "10초에 1건만 보낼 수 있습니다.";
+    if ((day.by[from] || 0) >= 100) return "오늘 보낼 수 있는 건수(100건)를 넘었습니다.";
+    if ((day.all || 0) >= 500) return "오늘 팀 전체 발송 한도(500건)를 넘었습니다 — 관리자에게 문의하세요.";
+    day.by[from] = (day.by[from] || 0) + 1; day.all = (day.all || 0) + 1; day.last[from] = Date.now();
+    t.set(cref, day);
+    return "";
+  }).catch((e) => "발송 한도 확인 실패: " + String((e && e.message) || e));
+  if (lim) { res.status(429).json({ error: { message: lim } }); return; }
+  const crypto = require("crypto");
+  const call = async (path, payload) => {
+    const date = new Date().toISOString(), salt = crypto.randomBytes(16).toString("hex");
+    const sig = crypto.createHmac("sha256", sk).update(date + salt).digest("hex");
+    const r = await fetch("https://api.solapi.com" + path, { method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "HMAC-SHA256 apiKey=" + ak + ", date=" + date + ", salt=" + salt + ", signature=" + sig },
+      body: JSON.stringify(payload) });
+    const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) { j = null; }
+    return { ok: r.ok, status: r.status, j, txt };
+  };
+  const why = (x) => String((x.j && (x.j.errorMessage || x.j.statusMessage || x.j.errorCode)) || x.txt || "").slice(0, 200);
+  try {
+    let imageId = "";
+    if (img) {
+      const up = await call("/storage/v1/files", { file: img, type: "MMS", name: "reservation.jpg" });
+      if (!up.ok || !up.j || !up.j.fileId) { res.json({ ok: false, error: "사진 첨부 실패 — HTTP " + up.status + " " + why(up) }); return; }
+      imageId = up.j.fileId;
+    }
+    const message = { to, from, text, subject: "상담 예약 안내" };
+    if (imageId) message.imageId = imageId;
+    const sr = await call("/messages/v4/send", { message });
+    const sc = String((sr.j && sr.j.statusCode) || "");
+    if (sr.ok && /^2/.test(sc)) { res.json({ ok: true, type: imageId ? "MMS" : "LMS", id: (sr.j && (sr.j.messageId || sr.j.groupId)) || "" }); return; }
+    const m = why(sr);
+    res.json({ ok: false, error: "문자 발송 실패 — HTTP " + sr.status + " " + m + (/sender|발신|from/i.test(m) ? " (이 발신번호(" + from + ")가 솔라피 [발신번호]에 등록됐는지 확인)" : /balance|잔액|point|포인트/i.test(m) ? " (솔라피 충전금 확인)" : "") });
+  } catch (e) { res.json({ ok: false, error: "문자 발송 오류: " + String((e && e.message) || e) }); }
+}
+
 exports.api = onRequest(
   // memory 2GiB: 카카오 발송(sendnow)이 보고서 캡처용 헤드리스 크로미움을 띄우므로 필요
   { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
@@ -1202,6 +1286,7 @@ exports.api = onRequest(
     // 예약문자발송 — 네이버 Static Map 지도 이미지
     if (body.staticmap) { await _staticMapHandle(body, res); return; }
     if (body.geocode) { await _geocodeHandle(body, res); return; }
+    if (body.rsvsms) { await _rsvSmsHandle(body, res); return; }
 
     // 드라이브(앱스크립트) 프록시 — 브라우저는 CORS로 앱스크립트 응답을 못 읽으므로
     // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.

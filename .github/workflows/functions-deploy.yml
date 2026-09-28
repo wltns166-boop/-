@@ -53,6 +53,18 @@ jobs:
             echo "::warning::NCP_MAP_KEY 시크릿이 없습니다 — 예약문자 [지도 캡처]가 서버 이미지 대신 화면 캡처로 대체됩니다"
           fi
 
+      # 예약문자 [문자 바로 보내기] — 솔라피(대표 계정 API 키·시크릿). 없으면 버튼이 "설정 없음"을 안내.
+      - name: Write SOLAPI keys (.env)
+        run: |
+          if [ -n "${{ secrets.SOLAPI_API_KEY }}" ] && [ -n "${{ secrets.SOLAPI_API_SECRET }}" ]; then
+            printf 'SOLAPI_API_KEY=%s\nSOLAPI_API_SECRET=%s\n' "${{ secrets.SOLAPI_API_KEY }}" "${{ secrets.SOLAPI_API_SECRET }}" >> functions/.env
+            echo "SOLAPI 키 주입 완료"
+            # 선택: 관리자 계정 발신번호("이름:번호;이름:번호") — 구성원 명단에 없는 관리자용
+            if [ -n "${{ secrets.SOLAPI_FROM_MAP }}" ]; then printf 'SOLAPI_FROM_MAP=%s\n' "${{ secrets.SOLAPI_FROM_MAP }}" >> functions/.env; fi
+          else
+            echo "::warning::SOLAPI 시크릿(SOLAPI_API_KEY/SOLAPI_API_SECRET)이 없습니다 — 예약문자 [문자 바로 보내기]가 동작하지 않습니다"
+          fi
+
       - name: Deploy Cloud Functions
         run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force
         env:

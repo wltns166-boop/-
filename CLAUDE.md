@@ -1214,6 +1214,17 @@
   버튼 `#rsv_imgbtn`) → 카톡에서 고객을 고르면 **사진으로** 전송. 만든 사진은 `window._rsvImgShare={text,mb,cb,blob}` 캐시(재료가 같으면 재사용 — 만드는 사이
   제스처 허용 시간이 지나 NotAllowedError면 "한 번 더 눌러 주세요"로 캐시 재사용), `_rsvClear`에서 비움·`_rsvImgSeq`로 로그아웃 뒤 늦은 결과 버림.
   장소가 바뀐 지도는 confirm 후 뺌(공유와 같은 규칙), 발송 내역 via `img`('사진 공유'). 글자는 사진 안에 있으므로 text는 싣지 않음.
+- **[문자 바로 보내기] — 솔라피 (2026-09-28 — v2026.09.28-10, 사용자 확정: 개인 가입 가능한 솔라피 · 요금은 대표 계정 하나 · 발신번호는 팀원 각자 번호 · 글+지도·명함 사진)**:
+  `rsvSmsSend`(버튼 `#rsv_smsbtn`) → `/api/rsvsms`(functions `_rsvSmsHandle` — **functions 수정, 자동 배포**) → 솔라피 REST v4
+  (`Authorization: HMAC-SHA256 apiKey=…, date=ISO, salt=…, signature=hex(HMAC-SHA256(secret, date+salt))`, 사진은 `/storage/v1/files`{file,type:'MMS'}→fileId →
+  `/messages/v4/send`{message:{to,from,text,subject,imageId}}, statusCode 2xxx=접수). 키는 **GitHub Secrets `SOLAPI_API_KEY`·`SOLAPI_API_SECRET`**(대표 계정 하나 —
+  팀원 누가 보내도 이 계정 충전금에서 차감, functions-deploy.yml이 `.env`에 추가, 없으면 경고만 — 버튼은 "설정 없음" 안내).
+  글은 문자 본문, 사진은 `_rsvSheetBuild('', 지도, 명함)`(말풍선 없음 — 공유하기와 같은 구성)을 `_rsvMmsJpeg`가 JPG ≤195KB·1500×1440 이내로(솔라피 MMS 200KB 한도),
+  지도·명함이 둘 다 없으면 글만(LMS). ⚠️ **발신번호는 서버가 `tops/auth` 구성원 명단에서 찾는다**(키 c_코드→code, 없으면 이름이 정확히 1명일 때만 — 화면 값은 안내용),
+  관리자 계정은 선택 시크릿 `SOLAPI_FROM_MAP`("이름:번호;…", 키가 n_이름일 때만). 발신번호는 솔라피 콘솔 [발신번호]에 **본인 인증 또는 타인 번호 위임**으로 등록된 번호만 발송됨
+  (미등록이면 실패 사유에 "솔라피 [발신번호]에 등록됐는지 확인"). 남용 방지 `kakao_private/smscnt` 트랜잭션(발신번호당 10초·하루 100건, 팀 전체 하루 500건, KST).
+  성공 시 발송 내역 via `mms`('문자 발송'). 모의 실행 `solapi-sim`(서명 검증·파일→MMS·10초 제한·정지/잘못된 번호·관리자 번호 보충·미등록 안내·글만 LMS) 통과.
+  ⚠️ 수용: 서버는 요청자 신원을 검증할 수 없어(익명 토큰) 다른 팀원 키로 그 사람 번호 발송이 가능 — 한도로 완화(dbassign·rsvsend 계열).
 - **직함 지정 (v-4, 관리자 전용)**: [설정] 모달 오른쪽 `#rsv_titlebox`(비관리자는 숨김) — 관리자 계정+구성원(사용정지 제외, 코드순) 목록에
   [팀장]/[지점장] 체크박스(한 줄에 하나만 `rsvTitleChk`, 둘 다 해제=직함 없이 이름만). 저장은 `tops_rsvcfg.title={키:'팀장'|'지점장'|''}`
   (키 규칙은 `_rsvKey`와 동일 — 'c_코드'/'n_관리자이름', 줄 식별은 data-rsvk 속성 — 함정 A), [저장] 시 **열 때 값(data-rsvo)과 달라진 줄만** merge(안 건드린 줄은 자동 규칙 유지).
