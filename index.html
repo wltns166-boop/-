@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-4</div>
   </div>
 </div>
 
@@ -5413,7 +5413,15 @@ function _rsvNmapLoad(){
     window.navermap_authFailure=function(){ window._rsvNmapAuthFail=true; _rsvMapMsg('네이버 지도 인증에 실패했습니다. 네이버 클라우드 콘솔의 Web 서비스 URL에 지금 접속한 주소가 등록돼 있는지 확인해 주세요.'); };
     var s=document.createElement('script');
     s.src='https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId='+encodeURIComponent(RSV_NMAP_ID)+'&submodules=geocoder';
-    s.onload=function(){ (window.naver&&naver.maps)?res():rej(new Error('naver maps 없음')); };
+    // geocoder 하위 모듈은 maps.js 로드 뒤 따로 불러와진다 — onload 직후엔 naver.maps.Service가 아직 없음(2026-09-28 실사고). 최대 8초 기다림.
+    s.onload=function(){
+      var t0=Date.now();
+      (function wait(){
+        if(window.naver&&naver.maps&&naver.maps.Service&&naver.maps.Service.geocode){ res(); return; }
+        if(Date.now()-t0>8000){ window._rsvNmapP=null; rej(new Error(window.naver&&naver.maps?'네이버 주소 검색 모듈을 불러오지 못했습니다.':'네이버 지도를 불러오지 못했습니다.')); return; }
+        setTimeout(wait,150);
+      })();
+    };
     s.onerror=function(){ window._rsvNmapP=null; rej(new Error('네이버 지도를 불러오지 못했습니다.')); };
     document.head.appendChild(s);
   });
@@ -5430,15 +5438,33 @@ function _rsvMapLater(){
   clearTimeout(window._rsvMapT);
   window._rsvMapT=setTimeout(_rsvMapDraw, 600);
 }
+// 주소 → 좌표: ① 서버(/api/geocode — 지도 사진과 같은 서버 키) ② 실패 시 브라우저 Maps JS geocoder.
 function _rsvGeocode(q){
   window._rsvGeoCache=window._rsvGeoCache||{};
   if(window._rsvGeoCache[q]!==undefined) return Promise.resolve(window._rsvGeoCache[q]);
+  var cacheRef=window._rsvGeoCache;
+  return fetch('/api/geocode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({geocode:1, q:q})})
+    .then(function(r){ return r.json().catch(function(){ return {error:{message:'HTTP '+r.status}}; }); })
+    .then(function(j){
+      if(!(j&&j.ok)) throw new Error((j&&j.error&&j.error.message)||'주소 검색 실패');
+      var hit=j.hit&&isFinite(+j.hit.lat)&&isFinite(+j.hit.lng)?{lat:+j.hit.lat, lng:+j.hit.lng, addr:String(j.hit.addr||q)}:null;
+      if(cacheRef===window._rsvGeoCache) cacheRef[q]=hit;
+      return hit;
+    })
+    .catch(function(e){
+      console.warn('서버 주소 검색 실패 — 브라우저 지도 모듈로 재시도:', e);
+      return _rsvNmapLoad().then(function(){ return _rsvGeocodeJs(q); }).catch(function(e2){
+        throw new Error('주소로 위치를 찾지 못했습니다('+((e2&&e2.message)||e2)+' / 서버: '+((e&&e.message)||e)+')');
+      });
+    });
+}
+function _rsvGeocodeJs(q){
   return new Promise(function(res,rej){
     naver.maps.Service.geocode({query:q}, function(status, resp){
       if(status!==naver.maps.Service.Status.OK){ rej(new Error('주소 검색 실패')); return; }
       var a=(resp&&resp.v2&&resp.v2.addresses)||[];
       var hit=a.length?{lat:+a[0].y, lng:+a[0].x, addr:a[0].roadAddress||a[0].jibunAddress||q}:null;
-      window._rsvGeoCache[q]=hit; res(hit);
+      (window._rsvGeoCache=window._rsvGeoCache||{})[q]=hit; res(hit);
     });
   });
 }
@@ -5455,7 +5481,7 @@ function _rsvMapDraw(){
   _rsvMapMsg('지도를 찾는 중…');
   var eq=encodeURIComponent(q);
   if(lk) lk.innerHTML='<a href="https://map.naver.com/p/search/'+eq+'" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i> 네이버 지도로 보기</a>';
-  _rsvNmapLoad().then(function(){ return _rsvGeocode(q); }).then(function(hit){
+  _rsvGeocode(q).then(function(hit){
     if(seq!==window._rsvMapSeq) return;
     if(!hit){ _rsvMapMsg('주소를 찾지 못했습니다. 도로명·지번 주소로 입력해 주세요(예: 광주 서구 상무중앙로 110).'); return; }
     window._rsvMapPos={lat:hit.lat, lng:hit.lng, q:q};
@@ -5473,7 +5499,7 @@ function _rsvMapDraw(){
     }).catch(function(e){
       if(seq!==window._rsvMapSeq) return;
       console.warn('정적 지도 실패 — 움직이는 지도로 대체:', e);
-      _rsvDynMap(hit);
+      return _rsvNmapLoad().then(function(){ if(seq===window._rsvMapSeq) _rsvDynMap(hit); });
     });
   }).catch(function(e){
     if(seq!==window._rsvMapSeq) return;

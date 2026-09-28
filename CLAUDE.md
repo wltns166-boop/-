@@ -1187,6 +1187,12 @@
   리뷰 반영: 계정당 **하루 60회 상한**(`kakao_private/cfg.rsvDaily`, KST 날짜) 추가 · `ok`는 글·사진 **전부** 도착일 때만(옛 판정은 글만 보고 사진 실패를 성공으로 보고) ·
   일부만 도착하면 클라이언트가 "n/m통 도착 — 다시 보내면 앞부분 중복" 안내(글이 다 갔으면 발송 내역 기록). 명함 칸 밖 드롭은 문서 캐치올에 `pg_rsv` 추가(첨부 칸 `.rsvatt` 안은 제외 — 지도 칸 uni 드롭 유지).
   모의 실행 `rsvsend-sim`(URL 화이트리스트·200자 분할·5통 상한) 통과.
+- **지도 안 뜸 실사고 (2026-09-28 — v2026.09.28-4)**: PC 화면에 "Cannot read properties of undefined (reading 'geocode')" — Maps JS의 `submodules=geocoder`는
+  maps.js onload **뒤에 따로** 불러와져 onload 직후엔 `naver.maps.Service`가 없음. 수정: ① **주소 검색을 서버로** — functions `_geocodeHandle`(`/api/geocode`,
+  `body.geocode`, NCP Geocoding `map-geocode/v2/geocode` — Static Map과 같은 `NCP_MAP_KEY`·신규→구 게이트웨이 순, 분당 60회). **functions 수정 — 자동 배포.**
+  ② 서버 실패 시에만 `_rsvNmapLoad`→`_rsvGeocodeJs`(브라우저 geocoder) — `_rsvNmapLoad`는 onload 뒤 `naver.maps.Service.geocode`가 생길 때까지 최대 8초 대기.
+  ③ 움직이는 지도 대체(`_rsvDynMap`)도 그때 `_rsvNmapLoad` 후 실행(이제 Maps JS는 정적 지도 실패 때만 로드). 두 경로 다 실패하면 두 사유를 함께 표시.
+  ⚠️ NCP 콘솔 Application에 **Geocoding** API가 켜져 있어야 서버 경로가 동작(꺼져 있으면 401 사유가 화면에 나오고 브라우저 경로로 재시도). 모의 실행 `geocode-sim` 통과.
 - **직함 지정 (v-4, 관리자 전용)**: [설정] 모달 오른쪽 `#rsv_titlebox`(비관리자는 숨김) — 관리자 계정+구성원(사용정지 제외, 코드순) 목록에
   [팀장]/[지점장] 체크박스(한 줄에 하나만 `rsvTitleChk`, 둘 다 해제=직함 없이 이름만). 저장은 `tops_rsvcfg.title={키:'팀장'|'지점장'|''}`
   (키 규칙은 `_rsvKey`와 동일 — 'c_코드'/'n_관리자이름', 줄 식별은 data-rsvk 속성 — 함정 A), [저장] 시 **열 때 값(data-rsvo)과 달라진 줄만** merge(안 건드린 줄은 자동 규칙 유지).

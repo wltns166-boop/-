@@ -1132,6 +1132,38 @@ async function _staticMapHandle(body, res) {
   res.status(200).json({ error: { message: "네이버 Static Map 응답 실패 — " + last } });
 }
 
+// 예약문자발송 — 주소 → 좌표(네이버 Geocoding). 브라우저 Maps JS의 geocoder 하위 모듈이 늦게/안 불러와져
+//   "Cannot read properties of undefined (reading 'geocode')"로 지도가 안 뜨던 실사고(2026-09-28) — 서버에서 먼저 찾는다.
+const _gcHits = [];
+async function _geocodeHandle(body, res) {
+  const id = process.env.NCP_MAP_KEY_ID || "rnavzrwrfk";
+  const key = process.env.NCP_MAP_KEY || "";
+  if (!key) { res.status(200).json({ error: { message: "서버에 네이버 지도 키(NCP_MAP_KEY)가 설정되지 않았습니다" } }); return; }
+  const q = String(body.q || "").trim().slice(0, 80);
+  if (!q) { res.status(400).json({ error: { message: "주소가 없습니다" } }); return; }
+  const now = Date.now();
+  while (_gcHits.length && now - _gcHits[0] > 60000) _gcHits.shift();
+  if (_gcHits.length >= 60) { res.status(429).json({ error: { message: "잠시 후 다시 시도해 주세요" } }); return; }
+  _gcHits.push(now);
+  const hosts = ["https://maps.apigw.ntruss.com/map-geocode/v2/geocode", "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode"];
+  let last = "";
+  for (const h of hosts) {
+    try {
+      const r = await fetch(h + "?query=" + encodeURIComponent(q), { headers: { "x-ncp-apigw-api-key-id": id, "x-ncp-apigw-api-key": key, "Accept": "application/json" } });
+      const txt = await r.text();
+      let j = null; try { j = JSON.parse(txt); } catch (e) { j = null; }
+      if (r.ok && j && String(j.status || "").toUpperCase() === "OK") {
+        const a = Array.isArray(j.addresses) ? j.addresses : [];
+        const hit = a.length ? { lat: +a[0].y, lng: +a[0].x, addr: a[0].roadAddress || a[0].jibunAddress || q } : null;
+        res.status(200).json({ ok: 1, hit: (hit && isFinite(hit.lat) && isFinite(hit.lng)) ? hit : null });
+        return;
+      }
+      last = "HTTP " + r.status + " " + txt.slice(0, 160);
+    } catch (e) { last = String((e && e.message) || e); }
+  }
+  res.status(200).json({ error: { message: "네이버 주소 검색 응답 실패 — " + last } });
+}
+
 exports.api = onRequest(
   // memory 2GiB: 카카오 발송(sendnow)이 보고서 캡처용 헤드리스 크로미움을 띄우므로 필요
   { secrets: [ANTHROPIC_API_KEY], region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
@@ -1154,6 +1186,7 @@ exports.api = onRequest(
 
     // 예약문자발송 — 네이버 Static Map 지도 이미지
     if (body.staticmap) { await _staticMapHandle(body, res); return; }
+    if (body.geocode) { await _geocodeHandle(body, res); return; }
 
     // 드라이브(앱스크립트) 프록시 — 브라우저는 CORS로 앱스크립트 응답을 못 읽으므로
     // 같은 도메인의 이 함수가 대신 호출해 JSON을 그대로 돌려준다.
