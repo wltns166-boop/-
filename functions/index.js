@@ -806,7 +806,11 @@ async function _kkHandle(body, res) {
       if (!memberR) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
       const textR = String(body.text || "").replace(/\r\n/g, "\n").trim().slice(0, 1000);
       if (!textR) { res.json({ ok: false, error: "보낼 문구가 없습니다." }); return; }
-      const RSV_IMG_RE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Frsv_(cards|maps)%2F[^?#\s]+\?alt=media&token=[\w-]+$/;
+      const RSV_IMG_RE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Frsv_(cards|maps|sheets)%2F[^?#\s]+\?alt=media&token=[\w-]+$/;
+      // 한 장 모드(2026-09-28, 사용자 요청 — 일일보고서처럼): 문구·지도·명함을 합친 사진 한 장(rsv_sheets)을 카드 1통으로
+      const sheetR = (body.sheet && typeof body.sheet === "object") ? {
+        u: String(body.sheet.u || "").slice(0, 2048), t: String(body.sheet.t || "예약 안내").slice(0, 40),
+        d: String(body.sheet.d || "").slice(0, 60), w: Math.round(+body.sheet.w) || 0, h: Math.round(+body.sheet.h) || 0 } : null;
       const imgsR = (Array.isArray(body.imgs) ? body.imgs.slice(0, 2) : [])
         .map((m) => ({ t: String((m || {}).t || "사진").slice(0, 20), u: String((m || {}).u || "").slice(0, 2048) }))
         .filter((m) => RSV_IMG_RE.test(m.u));
@@ -838,6 +842,17 @@ async function _kkHandle(body, res) {
         return;
       }
       if (tR.upd) { Object.assign(uR, tR.upd); uR.needsRelink = false; await KK_TOK().set({ users: usersR }, { merge: true }).catch(() => {}); }
+      if (sheetR && /%2Frsv_sheets%2F/.test(sheetR.u) && RSV_IMG_RE.test(sheetR.u)) {
+        const siteS = KK_SITE + "/";
+        const cont = { title: sheetR.t, description: sheetR.d, image_url: sheetR.u, link: { web_url: sheetR.u, mobile_web_url: sheetR.u } };
+        if (sheetR.w > 0 && sheetR.h > 0 && sheetR.w <= 4000 && sheetR.h <= 12000) { cont.image_width = sheetR.w; cont.image_height = sheetR.h; }
+        const tplS = JSON.stringify({ object_type: "feed", content: cont,
+          buttons: [{ title: "크게 보기", link: { web_url: sheetR.u, mobile_web_url: sheetR.u } }, { title: "인트라넷 열기", link: { web_url: siteS, mobile_web_url: siteS } }] });
+        const ss = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplS }, tR.at);
+        if (ss.ok) res.json({ ok: true, sent: 1, total: 1, textParts: 1, nick: uR.nick || "" });
+        else res.json({ ok: false, sent: 0, total: 1, error: (ss.data && (ss.data.msg || ss.data.error_description)) || ("전송 실패 " + ss.status) });
+        return;
+      }
       // 텍스트 템플릿 200자 제한 — 줄 단위로 나눠 최대 5통(긴 줄은 200자 조각으로)
       const partsR = [];
       let curR = "";

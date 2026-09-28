@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-5</div>
   </div>
 </div>
 
@@ -5933,6 +5933,57 @@ function rsvSms(){
   _rsvLogAdd(_rsvLogSnap(),'sms');   // 문자 앱으로 넘어가기 전에 기록(돌아오지 않을 수 있음)
   location.href='sms:'+hp+(/iPhone|iPad|iPod/i.test(ua)?'&':'?')+'body='+encodeURIComponent(text);
 }
+// 한 장 안내문(2026-09-28, 사용자 요청 — 일일보고서처럼 한 장으로): 문구 말풍선 + 지도 + 명함을 세로로 합친 JPEG.
+//   이미지는 전부 blob(같은 출처 objectURL)로 그려 캔버스가 오염되지 않게 한다. 반환 {blob,w,h}.
+function _rsvImgFromBlob(b){
+  return new Promise(function(res,rej){
+    var u=URL.createObjectURL(b), im=new Image();
+    im.onload=function(){ res({im:im,u:u}); };
+    im.onerror=function(){ try{ URL.revokeObjectURL(u); }catch(e){} rej(new Error('사진을 읽지 못했습니다')); };
+    im.src=u;
+  });
+}
+async function _rsvSheetBuild(text, mapBlob, cardBlob){
+  var W=900, P=40, BP=34, FS=30, LH=Math.round(FS*1.62);
+  var font=FS+'px "Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  var cv=document.createElement('canvas'), cx=cv.getContext('2d');
+  cx.font=font;
+  var maxW=W-2*P-2*BP, lines=[];
+  String(text||'').split('\n').forEach(function(par){
+    if(!par){ lines.push(''); return; }
+    var cur='';
+    Array.from(par).forEach(function(ch){
+      if(cx.measureText(cur+ch).width>maxW&&cur){ lines.push(cur); cur=ch.trim()?ch:''; }
+      else cur+=ch;
+    });
+    lines.push(cur);
+  });
+  var bubbleH=BP*2+lines.length*LH;
+  var pics=[];
+  for(var b of [mapBlob, cardBlob]){ if(!b) continue; try{ pics.push(await _rsvImgFromBlob(b)); }catch(e){ console.warn('한 장 안내문 — 사진 제외:', e); } }
+  var innerW=W-2*P, y=P+bubbleH, H;
+  var hs=pics.map(function(p){ return Math.round(p.im.naturalHeight*innerW/Math.max(1,p.im.naturalWidth)); });
+  H=y+hs.reduce(function(a,h){ return a+24+h; },0)+P;
+  cv.width=W; cv.height=H;
+  cx=cv.getContext('2d');
+  cx.fillStyle='#e9edf3'; cx.fillRect(0,0,W,H);                           // 미리보기 말풍선과 같은 배경
+  var r=26, bx=P, by=P, bw=innerW, bh=bubbleH;
+  cx.fillStyle='#fff'; cx.beginPath();
+  cx.moveTo(bx+r,by); cx.arcTo(bx+bw,by,bx+bw,by+bh,r); cx.arcTo(bx+bw,by+bh,bx,by+bh,r); cx.arcTo(bx,by+bh,bx,by,r); cx.arcTo(bx,by,bx+bw,by,r); cx.closePath(); cx.fill();
+  cx.fillStyle='#1c1e26'; cx.font=font; cx.textBaseline='top';
+  lines.forEach(function(ln,i){ cx.fillText(ln, bx+BP, by+BP+i*LH+Math.round((LH-FS)/2)); });
+  pics.forEach(function(p,i){
+    y+=24;
+    cx.save(); cx.beginPath(); cx.rect(P,y,innerW,hs[i]); cx.clip();
+    cx.drawImage(p.im,P,y,innerW,hs[i]); cx.restore();
+    cx.strokeStyle='#d5dbe6'; cx.lineWidth=2; cx.strokeRect(P+1,y+1,innerW-2,hs[i]-2);
+    y+=hs[i];
+    try{ URL.revokeObjectURL(p.u); }catch(e){}
+  });
+  var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.9); });
+  if(!blob) throw new Error('안내문 사진을 만들지 못했습니다');
+  return {blob:blob, w:W, h:H, pics:pics.length};
+}
 // [내 카톡으로 보내기] — 완성된 문구(+지도·명함 사진)를 로그인한 본인의 카톡 '나와의 채팅'으로 보낸다(functions rsvsend).
 //   받은 메시지를 카톡에서 고객에게 전달하는 용도. 연동은 DB 정보 [카톡 알림 연동](팀원 이름 매핑·관리자 승인)과 같은 계정을 쓴다.
 //   지도는 메모리에만 있으므로 보낼 때 Storage claim_packages/rsv_maps/에 올려 주소를 넘긴다(같은 지도는 한 번만 올림).
@@ -5949,6 +6000,28 @@ async function rsvKakao(){
   window._rsvKkBusy=true;
   var btn=g('rsv_kkbtn'); if(btn) btn.disabled=true;
   try{
+    // ① 한 장 모드 — 문구·지도·명함을 사진 한 장으로 합쳐 카드 1통(실패하면 아래 ② 여러 통 방식으로 대체)
+    var cardBlob=null, c0=_rsvCard();
+    if(c0&&c0.u){
+      cardBlob=(window._rsvCardBlobU===c0.u&&window._rsvCardBlob)||null;
+      if(!cardBlob){ try{ var fr=await fetch(c0.u); if(fr.ok) cardBlob=await fr.blob(); }catch(e){} }
+    }
+    var sheet=null;
+    try{
+      var sh=await _rsvSheetBuild(text, useMap&&mi.blob?mi.blob:null, cardBlob);
+      try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+      var sref=firebase.storage().ref('claim_packages/rsv_sheets/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
+      await sref.put(sh.blob,{contentType:'image/jpeg'});
+      sheet={u:await sref.getDownloadURL(), w:sh.w, h:sh.h, t:'[예약 안내] '+(snap.name?snap.name+' 고객님':''), d:(_rsvLogWhen(snap)||'')+(snap.place?' · '+snap.place:'')};
+    }catch(e){ console.warn('한 장 안내문 실패 — 여러 통으로 보냄:', e); sheet=null; }
+    if(sheet){
+      if(key!==_rsvKey()) return;
+      var rs=await _kkApi('rsvsend',{member:me, text:text, sheet:sheet});
+      if(rs&&rs.ok){ _rsvLogAdd(snap,'kakao'); toast('내 카톡(나와의 채팅)으로 한 장으로 보냈습니다. 카톡에서 고객에게 전달하세요.'); }
+      else toast('카톡으로 보내지 못했습니다: '+((rs&&((rs.error&&rs.error.message)||rs.error))||'알 수 없는 오류'));
+      return;   // 발송 실패 시 여러 통 방식으로 자동 재시도하지 않음(카톡에 중복·혼란 방지)
+    }
+    // ② 여러 통 방식(기존) — 한 장 사진을 만들거나 올리지 못했을 때만
     var imgs=[];
     if(useMap&&mi.blob){
       if(!mi.su){
