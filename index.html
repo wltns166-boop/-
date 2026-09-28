@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-7</div>
   </div>
 </div>
 
@@ -2273,7 +2273,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div class="rsvg2"><input class="rsvi" id="rsv_date" type="date" oninput="rsvRender()" onchange="rsvRender()" aria-label="상담 날짜"><input class="rsvi" id="rsv_time" type="time" step="600" oninput="rsvRender()" onchange="rsvRender()" aria-label="상담 시각"></div>
           </div>
           <div class="rsvrow"><label class="rsvl" for="rsv_place">상담장소</label><input class="rsvi" id="rsv_place" maxlength="80" oninput="rsvRender()" placeholder="예: TOPS 지점 3층 상담실"></div>
-          <div class="rsvrow"><label class="rsvl" for="rsv_hp">고객 휴대폰 번호 <span style="font-weight:400;color:#8890a8">([문자 바로 보내기]·[문자 앱 열기]용)</span></label><input class="rsvi" id="rsv_hp" inputmode="numeric" maxlength="13" oninput="dqPhone(this)" placeholder="010-0000-0000"></div>
+          <div class="rsvrow"><label class="rsvl" for="rsv_hp">고객 휴대폰 번호 <span style="font-weight:400;color:#8890a8">([문자 앱 열기]용)</span></label><input class="rsvi" id="rsv_hp" inputmode="numeric" maxlength="13" oninput="dqPhone(this)" placeholder="010-0000-0000"></div>
           <div class="rsvrow"><label class="rsvl">지도 첨부</label>
             <div class="rsvatt">
               <div class="rsvattst" id="rsv_mapatt_st"></div>
@@ -2303,8 +2303,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div class="rsvmeta" id="rsv_meta"></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
               <button class="bp" onclick="rsvSms()"><i class="ti ti-message-forward"></i> 문자 앱 열기</button>
-              <button class="bp" onclick="rsvShare()" style="background:#1a9050;color:#fff;border-color:#1a9050"><i class="ti ti-share"></i> 공유하기로 보내기 (문구+지도+명함)</button>
-              <button class="bp" id="rsv_smsbtn" onclick="rsvSmsSend()" style="background:#3040aa;color:#fff;border-color:#3040aa"><i class="ti ti-send"></i> 문자 바로 보내기 (글+안내문 사진)</button>
+              <button class="bp" onclick="rsvShare()" style="background:#1a9050;color:#fff;border-color:#1a9050"><i class="ti ti-share"></i> 공유하기로 보내기 (문구+지도·명함 사진 1장)</button>
               <button class="bp" id="rsv_kkbtn" onclick="rsvKakao()" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00"><i class="ti ti-message-circle-2"></i> 내 카톡으로 보내기</button>
             </div>
           </div>
@@ -5577,8 +5576,23 @@ function _rsvCardPrefetch(){
   if(window._rsvCardBlobU===c.u) return;
   window._rsvCardBlobU=c.u; window._rsvCardBlob=null;
   fetch(c.u).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
-    .then(function(b){ if(window._rsvCardBlobU===c.u) window._rsvCardBlob=b; })
+    .then(function(b){ if(window._rsvCardBlobU===c.u){ window._rsvCardBlob=b; _rsvComboPrep(); } })
     .catch(function(e){ console.warn('명함 미리 받기 실패:', e); if(window._rsvCardBlobU===c.u) window._rsvCardBlobU=null; });
+}
+// 공유용 "지도+명함" 한 장 사진(2026-09-28 v-7, 사용자 요청 — 문자에는 글 + 지도·명함 사진 1장).
+//   navigator.share는 클릭 직후에만 허용되므로(iOS) 첨부가 바뀔 때마다 미리 만들어 둔다. {mb,cb,blob} — 재료 blob이 같을 때만 재사용.
+function _rsvComboPrep(){
+  var mi=window._rsvMapImg, mb=mi&&mi.blob, cb=window._rsvCardBlob;
+  if(!mb||!cb){ window._rsvCombo=null; return; }
+  var cur=window._rsvCombo;
+  if(cur&&cur.mb===mb&&cur.cb===cb) return;
+  var seq=window._rsvComboSeq=(window._rsvComboSeq||0)+1;
+  window._rsvCombo={mb:mb, cb:cb, blob:null};
+  _rsvSheetBuild('', mb, cb).then(function(sh){
+    if(seq!==window._rsvComboSeq) return;
+    if(sh.miss&&sh.miss.length){ window._rsvCombo=null; console.warn('지도+명함 사진 — 빠진 사진:', sh.miss); return; }
+    window._rsvCombo={mb:mb, cb:cb, blob:sh.blob};
+  }).catch(function(e){ if(seq===window._rsvComboSeq) window._rsvCombo=null; console.warn('지도+명함 사진 만들기 실패:', e); });
 }
 function _rsvAttDraw(){
   var ms=g('rsv_mapatt_st'), cs=g('rsv_cardatt_st');
@@ -5594,7 +5608,7 @@ function _rsvAttDraw(){
     var c=_rsvCard();
     cs.innerHTML=c?'<img src="'+_alertEsc(c.u)+'" alt="명함"><span class="ok">✓ 명함 등록됨</span><button class="rsvx" onclick="rsvCardDel()">✕ 삭제</button>':'등록된 명함 없음';
   }
-  _rsvCardPrefetch();
+  _rsvCardPrefetch(); _rsvComboPrep();
 }
 function rsvMapDel(){ _rsvMapImgSet(null); }
 function _rsvB64ToBlob(b64, mime){
@@ -5757,7 +5771,8 @@ function rsvCardDel(){
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
   _rsvAttDraw(); toast('명함을 삭제했습니다.');
 }
-// [공유하기로 보내기] — 휴대폰 공유 창 → 문자(메시지) 앱 선택 시 문구+지도+명함이 담긴 MMS 작성 화면.
+// [공유하기로 보내기] — 휴대폰 공유 창 → 문자(메시지) 앱 선택 시 문구 + 사진이 담긴 MMS 작성 화면.
+//   사진은 지도·명함이 둘 다 있으면 세로로 합친 1장(_rsvComboPrep — 2026-09-28 v-7), 하나뿐이면 그 1장.
 //   일부 기종·앱은 사진과 함께 온 글자를 버리므로 문구를 클립보드에도 복사해 둔다(붙여넣기 안내).
 function rsvShare(){
   var text=_rsvReadyText(); if(text==null) return;
@@ -5769,7 +5784,14 @@ function rsvShare(){
     useMap=false;
   }
   var files=[];
-  try{
+  if(useMap&&window._rsvCardBlob){
+    var cb=window._rsvCombo;
+    if(!cb||cb.mb!==window._rsvMapImg.blob||cb.cb!==window._rsvCardBlob||!cb.blob){
+      _rsvComboPrep(); toast('지도·명함 사진을 준비하는 중입니다. 잠시 후 다시 눌러 주세요.'); return;
+    }
+    try{ files.push(new File([cb.blob],'상담안내_지도_명함.jpg',{type:'image/jpeg'})); }catch(e){ files=[]; }
+  }
+  else try{
     if(useMap) files.push(new File([window._rsvMapImg.blob],'상담장소_지도.'+(/png/.test(window._rsvMapImg.blob.type)?'png':'jpg'),{type:window._rsvMapImg.blob.type||'image/jpeg'}));
     if(window._rsvCardBlob) files.push(new File([window._rsvCardBlob],'명함.jpg',{type:window._rsvCardBlob.type||'image/jpeg'}));
   }catch(e){ files=[]; }
@@ -5794,7 +5816,7 @@ function rRsv(){ rsvRender(); _rsvLogLoad(); }
 //   추가는 arrayUnion(두 기기 동시 기록에도 유실 없음), 삭제는 arrayRemove(저장된 객체 그대로). 최근 RSV_LOG_MAX건만 유지.
 //   화면은 최근 발송이 위, 지난 내역이 아래. 행 조작은 항목 id 기준(함정 A). 고객 성함·연락처가 담기므로 로그아웃 시 비움.
 var RSV_LOG_MAX=200;
-var RSV_LOG_VIA={share:'공유',sms:'문자 앱',copy:'복사',kakao:'내 카톡',mms:'문자 발송'};
+var RSV_LOG_VIA={share:'공유',sms:'문자 앱',copy:'복사',kakao:'내 카톡'};
 function _rsvLogRef(){ var k=_rsvKey(); return (k&&window.db)?window.db.collection('rsvlog').doc(k):null; }
 function _rsvLogSnap(){
   var v=function(id){ return String((g(id)||{}).value||'').trim(); };
@@ -5898,7 +5920,8 @@ function _rsvClear(){
   var _rim=g('rsv_mapimg'); if(_rim){ _rim.removeAttribute('src'); _rim.style.display='none'; }
   window._rsvStaticCache={}; window._rsvGeoCache={}; window._rsvStaticInflight={};
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
-  _rsvCardSel(false); window._rsvSmsBusy=false; window._rsvKkBusy=false;
+  _rsvCardSel(false); window._rsvKkBusy=false;
+  window._rsvCombo=null; window._rsvComboSeq=(window._rsvComboSeq||0)+1;   // 지도+명함 합친 사진(고객별)
   window._rsvLog=null; window._rsvLogSeq=(window._rsvLogSeq||0)+1;   // 발송 내역(고객 성함·연락처) — 다음 로그인 사용자에게 남지 않게
   var _rl=g('rsv_log'); if(_rl) _rl.innerHTML=''; var _rc=g('rsv_logcnt'); if(_rc) _rc.textContent='';
 }
@@ -5959,7 +5982,8 @@ async function _rsvSheetBuild(text, mapBlob, cardBlob){
     });
     lines.push(cur);
   });
-  var bubbleH=BP*2+lines.length*LH;
+  var hasText=!!String(text||'').trim();   // 글이 없으면(지도·명함만) 말풍선 없이 사진만
+  var bubbleH=hasText?BP*2+lines.length*LH:-24;
   var pics=[], miss=[];
   for(var it of [{b:mapBlob,l:'지도'},{b:cardBlob,l:'명함'}]){ if(!it.b) continue; try{ pics.push(await _rsvImgFromBlob(it.b)); }catch(e){ miss.push(it.l); console.warn('한 장 안내문 — 사진 제외:', e); } }
   var innerW=W-2*P, y=P+bubbleH, H;
@@ -5969,10 +5993,12 @@ async function _rsvSheetBuild(text, mapBlob, cardBlob){
   cx=cv.getContext('2d');
   cx.fillStyle='#e9edf3'; cx.fillRect(0,0,W,H);                           // 미리보기 말풍선과 같은 배경
   var r=26, bx=P, by=P, bw=innerW, bh=bubbleH;
+  if(hasText){
   cx.fillStyle='#fff'; cx.beginPath();
   cx.moveTo(bx+r,by); cx.arcTo(bx+bw,by,bx+bw,by+bh,r); cx.arcTo(bx+bw,by+bh,bx,by+bh,r); cx.arcTo(bx,by+bh,bx,by,r); cx.arcTo(bx,by,bx+bw,by,r); cx.closePath(); cx.fill();
   cx.fillStyle='#1c1e26'; cx.font=font; cx.textBaseline='top';
   lines.forEach(function(ln,i){ cx.fillText(ln, bx+BP, by+BP+i*LH+Math.round((LH-FS)/2)); });
+  }
   pics.forEach(function(p,i){
     y+=24;
     cx.save(); cx.beginPath(); cx.rect(P,y,innerW,hs[i]); cx.clip();
@@ -6049,68 +6075,6 @@ async function rsvKakao(){
     }
   }catch(e){ console.warn('rsv kakao err:', e); toast('카톡으로 보내지 못했습니다: '+((e&&e.message)||e)); }
   finally{ window._rsvKkBusy=false; if(btn) btn.disabled=false; }
-}
-// [문자 바로 보내기] (2026-09-28, 사용자 선택) — 서버(functions rsvsms → 네이버 클라우드 SENS)가 고객 휴대폰으로 MMS 발송.
-//   발신번호는 서버가 구성원 명단의 본인 번호로 정한다(화면 값은 안내용). 사진은 한 장 안내문을 MMS 규격(JPG ≤300KB·1500×1440 이내)으로 줄여 첨부.
-async function _rsvMmsJpeg(blob){
-  var p=await _rsvImgFromBlob(blob), im=p.im;
-  try{
-    var sc=Math.min(1, 1500/im.naturalWidth, 1440/im.naturalHeight), q=0.85;
-    for(var tries=0; tries<8; tries++){
-      var cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(im.naturalWidth*sc)); cv.height=Math.max(1,Math.round(im.naturalHeight*sc));
-      var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height);
-      var du=cv.toDataURL('image/jpeg',q), b64=du.split(',')[1]||'', size=Math.floor(b64.length*3/4);
-      if(size<=295*1024) return b64;
-      if(q>0.6) q-=0.1; else sc*=0.85;
-    }
-    throw new Error('사진을 300KB 이하로 줄이지 못했습니다');
-  } finally { try{ URL.revokeObjectURL(p.u); }catch(e){} }
-}
-async function rsvSmsSend(){
-  var me=_rsvMe(), key=_rsvKey(); if(!me||!key){ toast('로그인 후 이용해 주세요.'); return; }
-  if(window._rsvSmsBusy) return;
-  var hp=String((g('rsv_hp')||{}).value||'').replace(/\D/g,'');
-  if(!/^01[016789]\d{7,8}$/.test(hp)){ toast('고객 휴대폰 번호를 정확히 입력해 주세요.'); var h=g('rsv_hp'); if(h) h.focus(); return; }
-  var text=_rsvReadyText(); if(text==null) return;
-  var snap=_rsvLogSnap();
-  var mi=window._rsvMapImg, useMap=!!mi;
-  if(mi&&mi.q!==snap.place){
-    if(!confirm('첨부된 지도는 예전 장소('+(mi.q||'알 수 없음')+')입니다.\n지도를 빼고 보낼까요?\n(취소하면 멈춥니다 — [지도 캡처]로 다시 첨부하세요)')) return;
-    useMap=false;
-  }
-  var myHp=''; try{ myHp=_bdrMyInfo().phone||''; }catch(e){}
-  if(!confirm('고객 '+snap.hp+' 번호로 문자(글+안내문 사진)를 보냅니다.\n발신번호: '+(myHp||'구성원 관리에 등록된 내 번호')+'\n\n보낼까요? (문자 요금이 발생합니다)')) return;
-  window._rsvSmsBusy=true;
-  var btn=g('rsv_smsbtn'); if(btn) btn.disabled=true;
-  try{
-    var img='', miss=[];
-    try{
-      var cardBlob=null, c0=_rsvCard();
-      if(c0&&c0.u){
-        cardBlob=(window._rsvCardBlobU===c0.u&&window._rsvCardBlob)||null;
-        if(!cardBlob){ try{ var fr=await fetch(c0.u); if(fr.ok) cardBlob=await fr.blob(); }catch(e){} }
-        if(!cardBlob) miss.push('명함');
-      }
-      var sh=await _rsvSheetBuild(text, useMap&&mi.blob?mi.blob:null, cardBlob);
-      miss=miss.concat(sh.miss||[]);
-      img=await _rsvMmsJpeg(sh.blob);
-    }catch(e){
-      console.warn('MMS 사진 만들기 실패:', e);
-      if(!confirm('안내문 사진을 만들지 못했습니다('+((e&&e.message)||e)+').\n사진 없이 글만(LMS) 보낼까요?')) return;
-      img='';
-    }
-    if(key!==_rsvKey()) return;   // 준비하는 사이 계정이 바뀌었으면 중단
-    var tok=null; try{ var u=firebase.auth&&firebase.auth().currentUser; tok=u?await u.getIdToken():null; }catch(e){}
-    var r=await fetch('/api/rsvsms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rsvsms:1, idToken:tok, key:key, name:me, to:hp, text:text, img:img})})
-      .then(function(x){ return x.json().catch(function(){ return {error:{message:'HTTP '+x.status}}; }); });
-    if(r&&r.ok){
-      _rsvLogAdd(snap,'mms');
-      toast((r.type==='MMS'?'문자(사진 포함)를':'문자(글만)를')+' 보냈습니다.'+(miss.length?' ⚠ '+miss.join('·')+'은(는) 불러오지 못해 빠졌습니다.':''));
-    }else{
-      toast('문자를 보내지 못했습니다: '+((r&&((r.error&&r.error.message)||r.error))||'알 수 없는 오류'));
-    }
-  }catch(e){ console.warn('rsv sms err:', e); toast('문자를 보내지 못했습니다: '+((e&&e.message)||e)); }
-  finally{ window._rsvSmsBusy=false; if(btn) btn.disabled=false; }
 }
 function rsvOpenSet(){
   if(!_rsvMe()){ toast('로그인 후 이용해 주세요.'); return; }
