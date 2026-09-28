@@ -499,7 +499,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.27-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-1</div>
   </div>
 </div>
 
@@ -12288,7 +12288,18 @@ function _mergeMedRowsByCode(rows){
     if(nk && !byName[nk]) byName[nk]=key;               // 먼저 등록된 그룹 우선(뒤집힘 방지)
     var g=groups[key];
     var d=dates(period); if(d[0] && (!g.start||d[0]<g.start)) g.start=d[0]; if(d[1]>g.end) g.end=d[1];
-    g.visit+=num(visit);
+    // 통원 횟수(사용자 확정, v-27): 하루짜리 행은 같은 날·같은 병원을 그룹당 1회로(두 상병·중복 명세서 행이 2회로 세지던 문제) — 그 날짜·병원의 최댓값만 산입.
+    // 행의 통원 값은 _medRowLine이 외래 내원일수만큼 넣는다(내원일수 2 이상인 행은 그 수만큼). 기간 행·병원 미상 행은 기존대로 합산.
+    // 병원 칸은 아래 hosps와 같은 기준(구분자 분리·공백 제거·약국 제외)으로 병원별 키 — "가나병원·다라병원" 행과 "가나병원" 행이 같은 날 겹치면 1회(리뷰 반영).
+    var vN=num(visit), vKeys=String(hospName||'').split(/[·,，]/).map(function(h){ return h.replace(/\s/g,''); })
+      .filter(function(h){ return h && h!=='-' && !/약국/.test(h); });
+    if(d[0] && d[0]===d[1] && vKeys.length){
+      g.vmap=g.vmap||{};
+      var vPrev=0;
+      vKeys.forEach(function(h){ vPrev=Math.max(vPrev, g.vmap[d[0]+'|'+h]||0); });
+      if(vN>vPrev) g.visit+=vN-vPrev;
+      vKeys.forEach(function(h){ var vk=d[0]+'|'+h; g.vmap[vk]=Math.max(g.vmap[vk]||0, vN); });
+    }else g.visit+=vN;
     if(name && (!g.name||g.name.length<name.length)) g.name=name; // 더 구체적인 이름 유지
     // 대표 코드는 같은 계열 안에서만 교체 — KCD 표준 형식(I48.9 등)을 원형(AI4890 등)보다 우선, 그다음 짧은 코드
     if(code && ck){
@@ -12774,19 +12785,20 @@ function _medRecsToRows(recs){
           // 물려받으면 엉뚱한 병원(라온내과의원)이 안과 상병에 붙는다. 빈 채로 두어 눈에 띄게 한다.
           if(o.act && o.tbl==='act') act=(act+' '+o.act).trim();
         });
-        rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act));
+        rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act, r.vdays));
       });
     }else{
       // 상병 없는 날짜: 병원별로 한 행. 세부진료(act 표)만 있는 날짜는 절제/수술 단어가 있을 때만 행을 만든다(진찰료·처치 나열은 행이 아님)
       var byH={};
       other.forEach(function(o){
         if(o.tbl==='act' && !_medSurgWord(o.act)) return;
-        var k=hospKey(o.hosp)||'-';
-        if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays), act:(o.tbl==='act'?o.act:'')});
-        else { var b=byH[k]; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act && o.tbl==='act') b.act=(b.act+' '+o.act).trim(); }
+        var k=String(o.hosp||'').replace(/\s/g,'')||'-';                      // 병원 이름 전체로 묶음(앞 4글자 절단은 "서울충무병원"·"서울충무한의원"을 합쳐 통원이 사라짐 — v-27 리뷰)
+        var ov=(o.tbl==='dx'?(o.vdays||0):0);                                  // 통원 횟수는 기본진료기록 행 자신의 내원일수만(v-27)
+        if(!byH[k]) byH[k]=Object.assign({},o,{ddays:(o.tbl==='act'?0:o.ddays), act:(o.tbl==='act'?o.act:''), ov:ov});
+        else { var b=byH[k]; if(ov>b.ov) b.ov=ov; if(o.tbl!=='act' && o.ddays>b.ddays) b.ddays=o.ddays; if(o.vdays>b.vdays) b.vdays=o.vdays; if(!b.kind&&o.kind) b.kind=o.kind; if(o.act && o.tbl==='act') b.act=(b.act+' '+o.act).trim(); }
       });
       Object.keys(byH).forEach(function(k){ var o=byH[k]; if(/약국/.test(String(o.hosp||''))||/조제/.test(String(o.kind||''))) return;   // 상병 없는 약국 행뿐인 날짜는 행을 만들지 않음(정보 없음 — v-16)
-        var h=o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act)); });
+        var h=o.hosp; rows.push(_medRowLine(d, '진단명 없음 · '+(h||'-')+(o.dept?'('+o.dept+')':''), '', h, o.kind, o.vdays, o.ddays, o.act, o.ov)); });
     }
   });
   return rows;
@@ -12797,10 +12809,13 @@ function _medSurgWord(act){
   var m=String(act||'').match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
   return m?m[0]:'';
 }
-function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act){
+function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act, ownVdays){
   var inpat=/입원/.test(String(kind||''));
   var pharm=/약국/.test(String(hosp||''))||/조제/.test(String(kind||''));
-  var visit=(inpat||pharm)?'0회':'1회';   // 약국 조제 행은 통원이 아님
+  // 외래 통원 = 그 행 자신의 내원일수(2 이상이면 그 수만큼, 없거나 0이면 1회 — 사용자 확정 v-27). 약국 조제·입원 행은 0회.
+  // 같은 날 다른 기록(처방·세부 행)에서 승계한 vdays는 쓰지 않는다(ownVdays만) — 세부 표의 일수 칸이 통원으로 새지 않게.
+  var ov=parseInt(ownVdays,10);
+  var visit=(inpat||pharm)?'0회':((ov>1?ov:1)+'회');
   var inD=inpat?((vdays||1)+'일'):'없음';
   var sw=_medSurgWord(act), surg=!!sw;
   var nm=String(name||'').replace(/\|/g,'/');
