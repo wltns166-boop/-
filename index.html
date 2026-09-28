@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-13</div>
   </div>
 </div>
 
@@ -5995,7 +5995,7 @@ function _rsvLogLoad(){
 }
 function _rsvLogWhen(x){
   if(!x.dv&&!x.tv) return '';
-  try{ return _rsvWhen(x.dv,x.tv)||((x.dv||'')+' '+(x.tv||'')); }catch(e){ return (x.dv||'')+' '+(x.tv||''); }
+  try{ var w=_rsvWhen(x.dv,x.tv); return (w&&w.s)||((x.dv||'')+' '+(x.tv||'')); }catch(e){ return (x.dv||'')+' '+(x.tv||''); }   // _rsvWhen은 {s,ok} 객체 — .s를 써야 함([object Object] 표시 버그)
 }
 function _rsvLogTs(ts){
   var d=new Date(ts||0); if(isNaN(d)) return '';
@@ -6006,7 +6006,7 @@ function _rsvLogDraw(msg){
   var box=g('rsv_log'), cnt=g('rsv_logcnt'); if(!box) return;
   var log=window._rsvLog||[];
   if(cnt) cnt.textContent=log.length?('('+log.length+'건)'):'';
-  if(msg||!log.length){ box.innerHTML='<div class="rsvlempty">'+_esc(msg||'아직 보낸 문자가 없습니다. [공유하기로 보내기]·[문자 앱 열기]·[문자 내용 복사]를 누르면 여기에 기록됩니다.')+'</div>'; return; }
+  if(msg||!log.length){ box.innerHTML='<div class="rsvlempty">'+_esc(msg||'아직 보낸 문자가 없습니다. [문자 바로 보내기]·[내 카톡으로 보내기]를 누르면 여기에 기록됩니다.')+'</div>'; return; }
   var h='<table><thead><tr><th>보낸 시각</th><th>성함</th><th>상담 일시</th><th class="rsvlhide">상담장소</th><th class="rsvlhide">휴대폰</th><th class="rsvlhide">방식</th><th></th></tr></thead><tbody>';
   log.forEach(function(x){
     var id=_alertEsc(x.id);
