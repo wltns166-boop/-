@@ -53,6 +53,18 @@ jobs:
             echo "::warning::NCP_MAP_KEY 시크릿이 없습니다 — 예약문자 [지도 캡처]가 서버 이미지 대신 화면 캡처로 대체됩니다"
           fi
 
+      # 예약문자 [문자 바로 보내기] — 네이버 클라우드 SENS(IAM 인증키·서비스 ID). 없으면 버튼이 "설정 없음"을 안내.
+      - name: Write SENS keys (.env)
+        run: |
+          if [ -n "${{ secrets.NCP_ACCESS_KEY }}" ] && [ -n "${{ secrets.NCP_SECRET_KEY }}" ] && [ -n "${{ secrets.SENS_SERVICE_ID }}" ]; then
+            printf 'NCP_ACCESS_KEY=%s\nNCP_SECRET_KEY=%s\nSENS_SERVICE_ID=%s\n' "${{ secrets.NCP_ACCESS_KEY }}" "${{ secrets.NCP_SECRET_KEY }}" "${{ secrets.SENS_SERVICE_ID }}" >> functions/.env
+            echo "SENS 키 주입 완료"
+            # 선택: 관리자 계정 발신번호("이름:번호;이름:번호") — 구성원 명단에 없는 관리자용
+            if [ -n "${{ secrets.SENS_FROM_MAP }}" ]; then printf 'SENS_FROM_MAP=%s\n' "${{ secrets.SENS_FROM_MAP }}" >> functions/.env; fi
+          else
+            echo "::warning::SENS 시크릿(NCP_ACCESS_KEY/NCP_SECRET_KEY/SENS_SERVICE_ID)이 없습니다 — 예약문자 [문자 바로 보내기]가 동작하지 않습니다"
+          fi
+
       - name: Deploy Cloud Functions
         run: npx -y firebase-tools@13 deploy --only functions --project team-tops-intranet --non-interactive --force
         env:
