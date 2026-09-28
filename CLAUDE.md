@@ -1138,7 +1138,17 @@
 - [설정] 모달 `m_rsvset`: 문구 틀 편집(토큰 삽입 버튼·[기본 문구로]). 저장 키 **`tops_rsvcfg` = {tpl:{`_rsvKey()`: 문구}}** — 키는 사원코드 `c_코드`(동명이인·개명 덮어쓰기 방지, v-2 리뷰), 코드 없는 관리자 계정만 `n_이름` (텍스트만 — 함정 B).
   빈 문구('')=기본 문구 `RSV_DEF_TPL`(기본과 같으면 ''로 저장 — 기본 문구 변경을 따라가게). 저장은 `sv('tops_rsvcfg',{tpl:{me:문구}})`로
   **본인 키만** 보내 Firestore merge가 다른 사용자 문구를 덮지 않게 하고, 로컬은 `_lsSet`으로 전체 캐시를 다시 씀. 클라우드 로드 두 곳에서 `rsvCfg` 반영.
-- 입력값(고객 성함·연락처)은 저장하지 않음 — 로그아웃 시 `_rsvClear`로 입력칸·미리보기·모달 정리(fp와 같은 이유).
+- 입력칸 값 자체는 저장하지 않음 — 로그아웃 시 `_rsvClear`로 입력칸·미리보기·모달·발송 내역 화면 정리(fp와 같은 이유). 단 아래 발송 내역은 저장됨.
+- **발송 내역 (2026-09-28 — v2026.09.28-2, 사용자 요청)**: 페이지 맨 아래 카드 `#rsv_logcard` — **최근 발송이 위, 지난 내역이 아래**(ts 내림차순).
+  [공유하기로 보내기] 성공·[문자 앱 열기]·[문자 내용 복사] 성공 시 `_rsvLogAdd(snap, via)`가 기록(snap=누른 시점 입력 `_rsvLogSnap` — 공유 창이 떠 있는 동안 입력이 바뀌어도 안전).
+  같은 내용 10분 내 재기록은 1건으로(복사 후 공유 등). 저장은 **별도 문서 `rsvlog/{_rsvKey()}` = {items:[{id('rl_..'),ts,name,dv,tv,place,hp,via,by}]}**
+  (tops/data 1MiB 한도와 분리 — 3.12 규칙, tops/usage 계열). 추가 `arrayUnion`(두 기기 동시 기록 유실 없음)·삭제 `arrayRemove`(저장된 객체 그대로),
+  불러올 때 `RSV_LOG_MAX`(200) 초과분만 arrayRemove로 정리. 본인 내역만(키=사원코드). 행 [다시 쓰기](`rsvLogUse` — 입력칸 채움, 지도는 다시 캡처)·[삭제](confirm) — 항목 id 기준(함정 A).
+  표시 전부 `_esc`/속성 `_alertEsc`. 늦은 응답·사용자 전환은 `_rsvLogSeq`+키 비교로 버림. [초기화](rsvReset)는 입력칸만 비우고 내역은 다시 불러옴.
+  ⚠️ 수용(기존 구조적 한계 계열): firestore.rules가 익명 인증만 요구해 고객 성함·연락처가 든 rsvlog를 인증 세션이면 읽을 수 있음(custs·claims와 같은 수준).
+  리뷰 반영(code-reviewer High): snap에 **누른 시점의 계정 키**를 담고 `_rsvLogAdd`가 현재 `_rsvKey()`와 다르면 기록 안 함 — 공유 창이 떠 있는 사이 공용 기기에서
+  계정이 바뀌면 앞 사람 고객정보가 다음 사람 rsvlog 문서에 영구 저장되던 경로. 입력이 전부 빈 스냅샷도 기록 안 함. ⚠️ 비동기 콜백 안에서 "누구에게 기록할지"를 다시 계산하지 말 것.
+  모의 실행 `rsvlog-sim`(중복 1건·문서 키·XSS 이스케이프·최신 위 정렬·200건 초과 정리·계정 전환 시 기록 안 함·빈 입력 제외) 통과.
 - **상담장소 지도 — 네이버 지도 (v-6, 2026-09-26 — v-5 구글 임베드 교체)**: 미리보기 오른쪽 `#rsv_map`(안에 `#rsv_nmap` 지도·`#rsv_mapph` 안내).
   Maps JS v3 `oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=rnavzrwrfk&submodules=geocoder`(`RSV_NMAP_ID` — **Client ID는 공개 값**,
   NCP 콘솔 Application의 Web 서비스 URL에 등록된 주소에서만 동작 — 인증 실패 시 `navermap_authFailure`가 화면에 안내).

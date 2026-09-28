@@ -437,6 +437,16 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #pg_rsv .rsvattbtn{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 #pg_rsv .rsvattbtn .bp{font-size:13px;padding:5px 10px}
 #rsv_maplink a{color:#3040aa;text-decoration:none}
+#rsv_log{max-height:460px;overflow:auto;border:1px solid #dde1ec;border-radius:8px}
+#rsv_log table{width:100%;border-collapse:collapse;font-size:13px;color:#1c1e26}
+#rsv_log th{position:sticky;top:0;background:#f3f5fa;color:#3a4468;font-weight:600;font-size:12px;text-align:left;padding:7px 8px;border-bottom:1px solid #dde1ec;white-space:nowrap}
+#rsv_log td{padding:7px 8px;border-bottom:1px solid #eef0f6;vertical-align:middle}
+#rsv_log tr:last-child td{border-bottom:none}
+#rsv_log .rsvlv{font-size:11.5px;padding:1px 7px;border-radius:10px;background:#eef2ff;color:#3040aa;white-space:nowrap}
+#rsv_log .rsvlb{font-size:12px;padding:3px 8px;border:1px solid #c5cbe8;border-radius:6px;background:#fff;color:#3040aa;cursor:pointer;font-family:inherit;white-space:nowrap}
+#rsv_log .rsvlb.del{color:#b03030;border-color:#e5c3c3}
+#rsv_log .rsvlempty{padding:18px;text-align:center;color:#8890a8;font-size:12.5px}
+@media(max-width:760px){#rsv_log .rsvlhide{display:none}}
 @media(max-width:1180px){#rsv_pv{display:block}#rsv_mapbox{margin-top:12px}}
 /* ── 3종서류 (pg_samdocs) — 흰 카드 위 검정 글씨(함정 D 역방향), sd_ 접두 스코프 ── */
 #pg_samdocs .sdl{display:block;font-size:12px;font-weight:600;color:#1f4e8c;margin-bottom:4px}
@@ -499,7 +509,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-2</div>
   </div>
 </div>
 
@@ -2296,6 +2306,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             </div>
           </div>
         </div>
+      </div>
+      <div class="card" id="rsv_logcard" style="margin-top:14px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#3040aa"><i class="ti ti-history"></i> 발송 내역</div>
+          <span id="rsv_logcnt" style="font-size:12px;color:#8890a8"></span>
+          <span style="font-size:11.5px;color:#8890a8;margin-left:auto">최근 보낸 것이 위, 지난 내역은 아래 · 본인 내역만 보입니다</span>
+        </div>
+        <div id="rsv_log"></div>
       </div>
     </div>
 
@@ -5687,14 +5705,113 @@ function rsvShare(){
     if(navigator.canShare&&!navigator.canShare({files:files})){ toast('이 브라우저는 사진 공유를 지원하지 않습니다. 문구는 복사해 두었습니다.'); return; }
     data.files=files;
   }
+  var logSnap=_rsvLogSnap();   // 공유 창이 떠 있는 동안 입력이 바뀌어도 누른 시점의 내용을 기록
   navigator.share(data).then(function(){
+    _rsvLogAdd(logSnap,'share');
     toast('보냈습니다. 문자에 글이 빠졌으면 붙여넣기 하세요(문구 복사됨).');
   }).catch(function(e){
     if(e&&e.name==='AbortError') return;
     toast(e&&e.name==='NotAllowedError'?'공유 창을 열지 못했습니다. 한 번 더 눌러 주세요.':'공유하지 못했습니다: '+((e&&e.message)||e));
   });
 }
-function rRsv(){ rsvRender(); }
+function rRsv(){ rsvRender(); _rsvLogLoad(); }
+// ── 발송 내역 (2026-09-28) — 사용자별 별도 문서 rsvlog/{_rsvKey()} = {items:[…]} (tops/data 1MiB 한도와 분리 — 3.12 규칙).
+//   추가는 arrayUnion(두 기기 동시 기록에도 유실 없음), 삭제는 arrayRemove(저장된 객체 그대로). 최근 RSV_LOG_MAX건만 유지.
+//   화면은 최근 발송이 위, 지난 내역이 아래. 행 조작은 항목 id 기준(함정 A). 고객 성함·연락처가 담기므로 로그아웃 시 비움.
+var RSV_LOG_MAX=200;
+var RSV_LOG_VIA={share:'공유',sms:'문자 앱',copy:'복사'};
+function _rsvLogRef(){ var k=_rsvKey(); return (k&&window.db)?window.db.collection('rsvlog').doc(k):null; }
+function _rsvLogSnap(){
+  var v=function(id){ return String((g(id)||{}).value||'').trim(); };
+  // key=누른 시점의 계정 — 공유 창이 떠 있는 사이 로그아웃·다른 계정 로그인이 일어나면 기록을 버린다(리뷰 반영: 남의 발송 내역에 고객정보가 섞이는 경로)
+  return {key:_rsvKey(), name:v('rsv_name').slice(0,30), dv:v('rsv_date').slice(0,10), tv:v('rsv_time').slice(0,5), place:v('rsv_place').slice(0,80), hp:v('rsv_hp').slice(0,13)};
+}
+function _rsvLogSort(arr){
+  return (Array.isArray(arr)?arr:[]).filter(function(x){ return x&&typeof x==='object'&&x.id; })
+    .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+}
+function _rsvLogAdd(snap, via){
+  try{
+    if(!snap||!snap.key||snap.key!==_rsvKey()) return;                 // 계정이 바뀌었으면 기록하지 않음
+    if(!(snap.name||snap.dv||snap.place||snap.hp)) return;              // 빈 입력은 기록하지 않음
+    var ref=_rsvLogRef(); if(!ref) return;
+    var now=Date.now(), log=window._rsvLog||[];
+    // 같은 내용을 10분 안에 다시 보낸 경우(복사 후 공유 등)는 한 번만 기록
+    var dup=log.some(function(x){ return now-(x.ts||0)<600000 && x.name===snap.name && x.dv===snap.dv && x.tv===snap.tv && x.place===snap.place && x.hp===snap.hp; });
+    if(dup) return;
+    var e={id:'rl_'+now+'_'+Math.random().toString(36).slice(2,7), ts:now, name:snap.name, dv:snap.dv, tv:snap.tv, place:snap.place, hp:snap.hp, via:RSV_LOG_VIA[via]?via:'copy', by:_rsvMe()};
+    window._rsvLog=_rsvLogSort([e].concat(log));
+    _rsvLogDraw();
+    ref.set({items:firebase.firestore.FieldValue.arrayUnion(e)},{merge:true}).catch(function(err){
+      console.warn('[rsvlog] 기록 실패', err); toast('발송 내역을 저장하지 못했습니다(네트워크 확인).');
+    });
+  }catch(err){ console.warn('[rsvlog]', err); }
+}
+function _rsvLogLoad(){
+  var ref=_rsvLogRef(); if(!ref){ window._rsvLog=[]; _rsvLogDraw(); return; }
+  var key=_rsvKey(), seq=window._rsvLogSeq=(window._rsvLogSeq||0)+1;
+  if(!window._rsvLog) _rsvLogDraw('불러오는 중…');
+  ref.get().then(function(d){
+    if(seq!==window._rsvLogSeq||key!==_rsvKey()) return;   // 늦게 온 응답·다른 사용자로 바뀐 뒤의 응답은 버림
+    var items=_rsvLogSort((d.exists&&d.data()&&d.data().items)||[]);
+    if(items.length>RSV_LOG_MAX){   // 오래된 것 정리 — 초과분만 arrayRemove(그 사이 다른 기기가 추가한 항목은 보존)
+      var old=items.slice(RSV_LOG_MAX); items=items.slice(0,RSV_LOG_MAX);
+      ref.update({items:firebase.firestore.FieldValue.arrayRemove.apply(null,old)}).catch(function(){});
+    }
+    window._rsvLog=items; _rsvLogDraw();
+  }).catch(function(err){
+    if(seq!==window._rsvLogSeq) return;
+    console.warn('[rsvlog] 불러오기 실패', err); _rsvLogDraw('발송 내역을 불러오지 못했습니다.');
+  });
+}
+function _rsvLogWhen(x){
+  if(!x.dv&&!x.tv) return '';
+  try{ return _rsvWhen(x.dv,x.tv)||((x.dv||'')+' '+(x.tv||'')); }catch(e){ return (x.dv||'')+' '+(x.tv||''); }
+}
+function _rsvLogTs(ts){
+  var d=new Date(ts||0); if(isNaN(d)) return '';
+  var p=function(n){ return String(n).padStart(2,'0'); };
+  return d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function _rsvLogDraw(msg){
+  var box=g('rsv_log'), cnt=g('rsv_logcnt'); if(!box) return;
+  var log=window._rsvLog||[];
+  if(cnt) cnt.textContent=log.length?('('+log.length+'건)'):'';
+  if(msg||!log.length){ box.innerHTML='<div class="rsvlempty">'+_esc(msg||'아직 보낸 문자가 없습니다. [공유하기로 보내기]·[문자 앱 열기]·[문자 내용 복사]를 누르면 여기에 기록됩니다.')+'</div>'; return; }
+  var h='<table><thead><tr><th>보낸 시각</th><th>성함</th><th>상담 일시</th><th class="rsvlhide">상담장소</th><th class="rsvlhide">휴대폰</th><th class="rsvlhide">방식</th><th></th></tr></thead><tbody>';
+  log.forEach(function(x){
+    var id=_alertEsc(x.id);
+    h+='<tr><td style="white-space:nowrap;color:#6b7390">'+_esc(_rsvLogTs(x.ts))+'</td>'
+      +'<td style="font-weight:600">'+_esc(x.name||'-')+'</td>'
+      +'<td>'+_esc(_rsvLogWhen(x)||'-')+'</td>'
+      +'<td class="rsvlhide">'+_esc(x.place||'-')+'</td>'
+      +'<td class="rsvlhide" style="white-space:nowrap">'+_esc(x.hp||'-')+'</td>'
+      +'<td class="rsvlhide"><span class="rsvlv">'+_esc(RSV_LOG_VIA[x.via]||'-')+'</span></td>'
+      +'<td style="white-space:nowrap;text-align:right"><button class="rsvlb" data-rsvlid="'+id+'" onclick="rsvLogUse(this.getAttribute(\'data-rsvlid\'))">다시 쓰기</button> '
+      +'<button class="rsvlb del" data-rsvlid="'+id+'" onclick="rsvLogDel(this.getAttribute(\'data-rsvlid\'))">삭제</button></td></tr>';
+  });
+  box.innerHTML=h+'</tbody></table>';
+}
+function _rsvLogFind(id){ return (window._rsvLog||[]).filter(function(x){ return x.id===id; })[0]||null; }
+// [다시 쓰기] — 그 내역의 성함·일시·장소·연락처를 입력칸에 다시 채운다(일정 변경 안내·재발송용)
+function rsvLogUse(id){
+  var x=_rsvLogFind(id); if(!x){ toast('내역을 찾지 못했습니다.'); _rsvLogLoad(); return; }
+  var cur=_rsvLogSnap();
+  if((cur.name||cur.place||cur.hp)&&!confirm('지금 입력한 내용을 이 내역으로 바꿀까요?')) return;
+  var set=function(k,v){ var el=g(k); if(el) el.value=v||''; };
+  set('rsv_name',x.name); set('rsv_date',x.dv); set('rsv_time',x.tv); set('rsv_place',x.place); set('rsv_hp',x.hp);
+  rsvRender();
+  try{ var t=g('rsv_in'); if(t&&t.scrollIntoView) t.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+  toast('내역을 불러왔습니다. 지도는 [지도 캡처]로 다시 첨부하세요.');
+}
+function rsvLogDel(id){
+  var x=_rsvLogFind(id), ref=_rsvLogRef(); if(!x||!ref){ toast('내역을 찾지 못했습니다.'); return; }
+  if(!confirm((x.name||'이름 없음')+' 님에게 보낸 내역을 삭제할까요?')) return;
+  ref.update({items:firebase.firestore.FieldValue.arrayRemove(x)}).then(function(){
+    window._rsvLog=(window._rsvLog||[]).filter(function(y){ return y.id!==id; });
+    _rsvLogDraw(); toast('삭제했습니다.');
+  }).catch(function(err){ console.warn('[rsvlog] 삭제 실패', err); toast('삭제하지 못했습니다(네트워크 확인).'); });
+}
 function _rsvClear(){
   ['rsv_name','rsv_date','rsv_time','rsv_place','rsv_hp'].forEach(function(k){ var el=g(k); if(el) el.value=''; });
   var bb=g('rsv_bubble'); if(bb) bb.innerHTML='';
@@ -5706,10 +5823,12 @@ function _rsvClear(){
   var _rim=g('rsv_mapimg'); if(_rim){ _rim.removeAttribute('src'); _rim.style.display='none'; }
   window._rsvStaticCache={}; window._rsvGeoCache={}; window._rsvStaticInflight={};
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
+  window._rsvLog=null; window._rsvLogSeq=(window._rsvLogSeq||0)+1;   // 발송 내역(고객 성함·연락처) — 다음 로그인 사용자에게 남지 않게
+  var _rl=g('rsv_log'); if(_rl) _rl.innerHTML=''; var _rc=g('rsv_logcnt'); if(_rc) _rc.textContent='';
 }
 function rsvReset(){
   if(!confirm('입력한 내용을 모두 지울까요?')) return;
-  _rsvClear(); rsvRender(); toast('초기화했습니다.');
+  _rsvClear(); rsvRender(); _rsvLogLoad(); toast('초기화했습니다.');   // 초기화는 입력칸만 — 발송 내역은 다시 불러옴
 }
 // 빈 칸이 있으면 한 번 확인(자리표시 ○○○가 그대로 고객에게 가는 것 방지)
 function _rsvReadyText(){
@@ -5719,13 +5838,15 @@ function _rsvReadyText(){
 }
 function rsvCopy(){
   var text=_rsvReadyText(); if(text==null) return;
+  var snap=_rsvLogSnap();   // 복사해서 카톡 등으로 보내는 경우도 발송으로 기록(복사 성공 시에만)
   var fallback=function(){
     try{ var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
       document.body.appendChild(ta); ta.select(); var ok=document.execCommand('copy'); document.body.removeChild(ta);
+      if(ok) _rsvLogAdd(snap,'copy');
       toast(ok?'문자 내용이 복사되었습니다.':'복사하지 못했습니다. 미리보기를 길게 눌러 복사해 주세요.');
     }catch(e){ toast('복사하지 못했습니다. 미리보기를 길게 눌러 복사해 주세요.'); }
   };
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ toast('문자 내용이 복사되었습니다.'); },fallback);
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ _rsvLogAdd(snap,'copy'); toast('문자 내용이 복사되었습니다.'); },fallback);
   else fallback();
 }
 // 휴대폰 기본 문자 앱을 본문이 채워진 채로 연다(PC는 문자 앱이 없어 안내만). iOS는 '&body=', 그 외 '?body='.
@@ -5734,6 +5855,7 @@ function rsvSms(){
   if(!/Android|iPhone|iPad|iPod/i.test(ua)){ toast('문자 앱은 휴대폰에서만 열립니다. [문자 내용 복사]를 이용해 주세요.'); return; }
   var text=_rsvReadyText(); if(text==null) return;
   var hp=String((g('rsv_hp')||{}).value||'').replace(/\D/g,'');
+  _rsvLogAdd(_rsvLogSnap(),'sms');   // 문자 앱으로 넘어가기 전에 기록(돌아오지 않을 수 있음)
   location.href='sms:'+hp+(/iPhone|iPad|iPod/i.test(ua)?'&':'?')+'body='+encodeURIComponent(text);
 }
 function rsvOpenSet(){
