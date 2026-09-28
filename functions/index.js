@@ -1184,10 +1184,11 @@ async function _geocodeHandle(body, res) {
 //   ⚠️ 발신번호는 클라이언트 값을 믿지 않고 서버가 tops/auth 구성원 명단(code→hp, 없으면 이름이 1명일 때만)에서 찾는다 — 남의 번호로 보내기 차단.
 //   발신번호는 솔라피 콘솔 [발신번호]에 등록(본인 인증 또는 타인 번호 위임)된 번호만 발송된다. 남용 방지: 발신번호당 10초 간격·하루 100건, 전체 하루 500건.
 async function _rsvSmsHandle(body, res) {
+  let uid = "";
   try {
     const tk = String(body.idToken || "");
     if (!tk) throw new Error("no token");
-    await admin.auth().verifyIdToken(tk);
+    uid = (await admin.auth().verifyIdToken(tk)).uid || "";
   } catch (e) { res.status(401).json({ error: { message: "인증이 필요합니다. 인트라넷 화면에서 다시 시도하세요." } }); return; }
   const ak = process.env.SOLAPI_API_KEY || "", sk = process.env.SOLAPI_API_SECRET || "";
   if (!ak || !sk) { res.json({ ok: false, error: "문자 발송 설정이 아직 없습니다(SOLAPI_API_KEY·SOLAPI_API_SECRET) — 관리자에게 문의하세요." }); return; }
@@ -1201,7 +1202,7 @@ async function _rsvSmsHandle(body, res) {
   let img = String(body.img || "");
   if (img) {
     img = img.replace(/^data:image\/jpe?g;base64,/, "");
-    if (!/^[A-Za-z0-9+/=]+$/.test(img) || img.length > 275000) { res.json({ ok: false, error: "첨부 사진이 올바르지 않거나 200KB를 넘습니다." }); return; }
+    if (!/^[A-Za-z0-9+/=]+$/.test(img) || img.length > 273066) { res.json({ ok: false, error: "첨부 사진이 올바르지 않거나 200KB를 넘습니다." }); return; }
   }
   // 발신번호 = 구성원 명단의 본인 번호(서버 조회)
   const authSnap = await admin.firestore().collection("tops").doc("auth").get();
@@ -1219,7 +1220,7 @@ async function _rsvSmsHandle(body, res) {
   if (!me) { res.json({ ok: false, error: "구성원 명단에서 내 정보를 찾지 못했습니다 — 구성원 관리에 이름·휴대폰 번호를 등록하세요(관리자 계정은 SOLAPI_FROM_MAP 설정 필요)." }); return; }
   if (me.sus) { res.json({ ok: false, error: "사용 정지된 계정입니다." }); return; }
   const from = String(me.hp || "").replace(/\D/g, "");
-  if (!/^0\d{8,10}$/.test(from)) { res.json({ ok: false, error: "구성원 관리에 내 휴대폰 번호가 없습니다 — 번호를 등록해야 발신번호로 쓸 수 있습니다." }); return; }
+  if (!/^01[016789]\d{7,8}$/.test(from)) { res.json({ ok: false, error: "구성원 관리에 내 휴대폰 번호가 없거나 휴대폰 번호가 아닙니다 — 번호를 등록해야 발신번호로 쓸 수 있습니다." }); return; }
   // 남용 방지 카운터(서버 전용 문서 — 규칙상 클라이언트 접근 불가)
   const dayK = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const cref = admin.firestore().collection("kakao_private").doc("smscnt");
@@ -1245,22 +1246,27 @@ async function _rsvSmsHandle(body, res) {
     const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) { j = null; }
     return { ok: r.ok, status: r.status, j, txt };
   };
+  // 감사 기록(서버 전용 컬렉션 — 규칙상 클라이언트 접근 불가): 실제 요청 세션 uid를 남겨 사고 시 추적(리뷰 반영). 받는 번호는 뒤 4자리만.
+  const audit = (ok, info) => admin.firestore().collection("kakao_private").doc("smslog").collection("items")
+    .add({ ts: Date.now(), uid, key, name: nm, from, to: "***" + to.slice(-4), ok: !!ok, info: String(info || "").slice(0, 200) })
+    .catch((e) => console.warn("smslog 기록 실패", e));
   const why = (x) => String((x.j && (x.j.errorMessage || x.j.statusMessage || x.j.errorCode)) || x.txt || "").slice(0, 200);
   try {
     let imageId = "";
     if (img) {
       const up = await call("/storage/v1/files", { file: img, type: "MMS", name: "reservation.jpg" });
-      if (!up.ok || !up.j || !up.j.fileId) { res.json({ ok: false, error: "사진 첨부 실패 — HTTP " + up.status + " " + why(up) }); return; }
+      if (!up.ok || !up.j || !up.j.fileId) { audit(false, "upload " + up.status); res.json({ ok: false, error: "사진 첨부 실패 — HTTP " + up.status + " " + why(up) }); return; }
       imageId = up.j.fileId;
     }
     const message = { to, from, text, subject: "상담 예약 안내" };
     if (imageId) message.imageId = imageId;
     const sr = await call("/messages/v4/send", { message });
     const sc = String((sr.j && sr.j.statusCode) || "");
-    if (sr.ok && /^2/.test(sc)) { res.json({ ok: true, type: imageId ? "MMS" : "LMS", id: (sr.j && (sr.j.messageId || sr.j.groupId)) || "" }); return; }
+    if (sr.ok && /^2/.test(sc)) { audit(true, imageId ? "MMS" : "LMS"); res.json({ ok: true, type: imageId ? "MMS" : "LMS", id: (sr.j && (sr.j.messageId || sr.j.groupId)) || "" }); return; }
     const m = why(sr);
+    audit(false, "send " + sr.status + " " + m);
     res.json({ ok: false, error: "문자 발송 실패 — HTTP " + sr.status + " " + m + (/sender|발신|from/i.test(m) ? " (이 발신번호(" + from + ")가 솔라피 [발신번호]에 등록됐는지 확인)" : /balance|잔액|point|포인트/i.test(m) ? " (솔라피 충전금 확인)" : "") });
-  } catch (e) { res.json({ ok: false, error: "문자 발송 오류: " + String((e && e.message) || e) }); }
+  } catch (e) { audit(false, "err " + String((e && e.message) || e)); res.json({ ok: false, error: "문자 발송 오류: " + String((e && e.message) || e) }); }
 }
 
 exports.api = onRequest(
