@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>경매 분석노트</title>
+<link rel="icon" href="app-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f2f4f7; --sheet:#ffffff; --ink:#15202e; --ink2:#4a5667; --mute:#7a8597;
+  --rule:#d9dee6; --rule2:#e9ecf1; --field:#f7f8fa;
+  --reg:#23459e; --reg-soft:#e7ecf8;
+  --seal:#b3261e; --seal-soft:#fbe9e7;
+  --ok:#1b7a4a; --ok-soft:#e3f3ea;
+  --warn:#9a6200; --warn-soft:#fbf1dc;
+  --shadow:0 1px 2px rgba(21,32,46,.06),0 4px 16px rgba(21,32,46,.05);
+  --serif:'Gowun Batang','Nanum Myeongjo','Batang',serif;
+  --sans:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#11161e; --sheet:#18202b; --ink:#e6eaf0; --ink2:#b3bccb; --mute:#8390a3;
+    --rule:#2c3747; --rule2:#222b38; --field:#1e2733;
+    --reg:#8fa9f0; --reg-soft:#1f2a45;
+    --seal:#ff8a80; --seal-soft:#3a1e1d;
+    --ok:#6fd3a0; --ok-soft:#173226;
+    --warn:#f0bf5e; --warn-soft:#352914;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#11161e; --sheet:#18202b; --ink:#e6eaf0; --ink2:#b3bccb; --mute:#8390a3;
+  --rule:#2c3747; --rule2:#222b38; --field:#1e2733;
+  --reg:#8fa9f0; --reg-soft:#1f2a45;
+  --seal:#ff8a80; --seal-soft:#3a1e1d;
+  --ok:#6fd3a0; --ok-soft:#173226;
+  --warn:#f0bf5e; --warn-soft:#352914;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{text-wrap:balance;margin:0}
+.num,td.n,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--reg);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--sheet);border-bottom:1px solid var(--rule)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px 0;display:flex;flex-direction:column;gap:8px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--serif);font-size:20px;font-weight:700;letter-spacing:-.2px}
+.brand .case{font-family:var(--mono);font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:0 -4px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{appearance:none;border:0;background:none;padding:9px 12px 10px;font-weight:600;color:var(--mute);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;font-size:14px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--reg)}
+.tab small{font-family:var(--mono);font-weight:500;color:var(--mute);margin-right:5px;font-size:11px}
+
+main{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 60px}
+.view{display:flex;flex-direction:column;gap:18px}
+
+/* sections */
+.sec{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--rule2)}
+.sec-h h2{font-family:var(--serif);font-size:17px;font-weight:700}
+.sec-h p{margin:0;color:var(--mute);font-size:12.5px}
+.sec-b{padding:16px 18px}
+.eyebrow{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mute);font-weight:600}
+.two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.two{grid-template-columns:minmax(0,1fr)}}
+
+/* form */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px 14px}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span{font-size:12px;color:var(--ink2);font-weight:500}
+.fld .in{display:flex;align-items:center;background:var(--field);border:1px solid var(--rule);border-radius:7px;min-width:0}
+.fld .in:focus-within{border-color:var(--reg)}
+.fld input,.fld select{border:0;background:transparent;padding:8px 10px;width:100%;min-width:0;outline:none}
+.fld input[type=number]{font-family:var(--mono);text-align:right}
+.fld em{font-style:normal;font-size:12px;color:var(--mute);padding-right:10px;white-space:nowrap}
+.fld.wide{grid-column:1/-1}
+.hint{font-size:12px;color:var(--mute);margin:0}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.chk{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--rule);border-radius:999px;background:var(--field);cursor:pointer;font-size:13px}
+.chk input{accent-color:var(--seal);margin:0}
+
+.btn{appearance:none;border:1px solid var(--rule);background:var(--sheet);border-radius:7px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+.btn:hover{border-color:var(--ink2)}
+.btn.pri{background:var(--reg);border-color:var(--reg);color:#fff}
+:root[data-theme="dark"] .btn.pri{color:#0d1422}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri{color:#0d1422}}
+.btn.danger{color:var(--seal);border-color:var(--seal)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mute);padding:5px 8px}
+.btn.ghost:hover{color:var(--seal)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* tables */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11.5px;font-weight:600;color:var(--mute);text-align:left;padding:8px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;letter-spacing:.2px}
+td{padding:7px 8px;border-bottom:1px solid var(--rule2);vertical-align:middle}
+td.n,th.n{text-align:right;white-space:nowrap}
+td.nw{white-space:nowrap}
+.two .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+tr.tot td{font-weight:700;border-top:1.5px solid var(--ink2);border-bottom:0}
+table.edit input,table.edit select{width:100%;min-width:92px;border:1px solid var(--rule);background:var(--field);border-radius:6px;padding:6px 7px;font-size:13px}
+table.edit input[type=number]{font-family:var(--mono);text-align:right;min-width:90px}
+table.edit input[type=checkbox]{width:auto;min-width:0}
+table.edit td{padding:5px 5px}
+
+/* stamps / pills */
+.stamp{display:inline-block;font-family:var(--serif);font-weight:700;font-size:12px;padding:2px 8px;border:1.5px solid currentColor;border-radius:4px;white-space:nowrap;line-height:1.5}
+.st-base{color:var(--reg);background:var(--reg-soft)}
+.st-gone{color:var(--mute)}
+.st-take{color:var(--seal);background:var(--seal-soft);transform:rotate(-2deg)}
+.st-warn{color:var(--warn);background:var(--warn-soft)}
+.st-ok{color:var(--ok);background:var(--ok-soft)}
+.grade{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:2.5px solid currentColor;font-family:var(--serif);font-weight:700;font-size:20px;flex:none;transform:rotate(-8deg)}
+.g-A{color:var(--ok)} .g-B{color:var(--warn)} .g-C{color:var(--seal)}
+.chip{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--reg-soft);color:var(--reg);white-space:nowrap}
+
+/* alerts */
+.alerts{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.alerts li{padding:9px 12px;border-radius:7px;font-size:13px;border-left:3px solid}
+.a-crit{background:var(--seal-soft);border-color:var(--seal)}
+.a-warn{background:var(--warn-soft);border-color:var(--warn)}
+.a-info{background:var(--reg-soft);border-color:var(--reg)}
+.a-ok{background:var(--ok-soft);border-color:var(--ok)}
+.alerts b{font-weight:700}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--rule2);border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2)}
+@media (max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--sheet);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .v{font-family:var(--mono);font-size:19px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .l{font-size:12px;color:var(--mute)}
+.kpi .s{font-size:11.5px;color:var(--ink2)}
+.pos{color:var(--ok)} .neg{color:var(--seal)}
+
+/* list cards */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.toolbar .fld{flex:1 1 160px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+@media (max-width:420px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;box-shadow:var(--shadow);text-align:left;transition:border-color .15s}
+.card:hover{border-color:var(--reg)}
+.card.sel{border-color:var(--reg);box-shadow:0 0 0 1px var(--reg)}
+.card-h{display:flex;gap:12px;align-items:flex-start}
+.card-h .t{flex:1;min-width:0}
+.card-h .cn{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+.card-h .ad{font-weight:600;font-size:14px;margin-top:2px;overflow-wrap:anywhere}
+.card dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0}
+.card dt{font-size:11px;color:var(--mute)}
+.card dd{margin:0;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.pricebar{height:6px;border-radius:3px;background:var(--rule2);position:relative;overflow:hidden}
+.pricebar i{position:absolute;inset:0 auto 0 0;background:var(--reg);border-radius:3px}
+.card-f{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.links a{display:flex;flex-direction:column;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;text-decoration:none;color:var(--ink);background:var(--field)}
+.links a:hover{border-color:var(--reg)}
+.links a b{font-size:13.5px}
+.links a span{font-size:12px;color:var(--mute)}
+
+/* scenario bars */
+.bar{height:8px;background:var(--rule2);border-radius:4px;position:relative;min-width:80px}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+tr.me td{background:var(--reg-soft)}
+
+/* report */
+.doc{max-width:860px;margin:0 auto;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);padding:36px 40px}
+@media (max-width:600px){.doc{padding:22px 18px}}
+.doc-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:14px}
+.doc-head h2{font-family:var(--serif);font-size:24px;letter-spacing:-.3px}
+.doc-head .meta{font-size:12.5px;color:var(--ink2);margin-top:6px;line-height:1.7}
+.doc h3{font-family:var(--serif);font-size:16px;margin:26px 0 10px;display:flex;gap:8px;align-items:baseline}
+.doc h3 small{font-family:var(--mono);font-size:12px;color:var(--mute);font-weight:400}
+.doc p{margin:0 0 8px;max-width:68ch}
+.verdict{display:flex;gap:16px;align-items:center;padding:14px 16px;background:var(--field);border:1px solid var(--rule);border-radius:8px;margin-top:16px}
+.verdict .grade{width:60px;height:60px;font-size:28px}
+.verdict b{font-family:var(--serif);font-size:17px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0;border-top:1px solid var(--rule2)}
+.kv div{display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-bottom:1px solid var(--rule2);font-size:13px}
+.kv div span{color:var(--mute)}
+.kv div b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.clist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.clist label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.clist input{margin-top:4px;accent-color:var(--ok)}
+.disc{font-size:11.5px;color:var(--mute);border-top:1px solid var(--rule2);margin-top:26px;padding-top:12px;line-height:1.7}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:8px;font-size:13px;z-index:50}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><h1>경매 분석노트</h1><span class="case" id="topcase"></span></div>
+    <nav class="tabs" role="tablist" aria-label="분석 단계">
+      <button class="tab" role="tab" data-tab="list" id="tab-list"><small>1</small>물건 찾기</button>
+      <button class="tab" role="tab" data-tab="rights" id="tab-rights"><small>2</small>권리분석</button>
+      <button class="tab" role="tab" data-tab="profit" id="tab-profit"><small>3</small>시세차익·수익</button>
+      <button class="tab" role="tab" data-tab="report" id="tab-report"><small>4</small>종합 보고서</button>
+    </nav>
+  </div>
+</header>
+<main id="main"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+/* ═══════════ 기준표 (참고용 — 입찰 전 최신 법령 확인) ═══════════ */
+// 주택임대차보호법 시행령: 소액임차인 범위 / 최우선변제액 (만원). 기준일 = 최초 담보물권 설정일
+const SMALL = {
+  '서울':         [['2010-07-26',7500,2500],['2014-01-01',9500,3200],['2016-03-31',10000,3400],['2018-09-18',11000,3700],['2021-05-11',15000,5000],['2023-02-21',16500,5500]],
+  '과밀억제권역': [['2010-07-26',6500,2200],['2014-01-01',8000,2700],['2016-03-31',8000,2700],['2018-09-18',10000,3400],['2021-05-11',13000,4300],['2023-02-21',14500,4800]],
+  '광역시':       [['2010-07-26',5500,1900],['2014-01-01',6000,2000],['2016-03-31',6000,2000],['2018-09-18',6000,2000],['2021-05-11',7000,2300],['2023-02-21',8500,2800]],
+  '그 밖의 지역': [['2010-07-26',4000,1400],['2014-01-01',4500,1500],['2016-03-31',5000,1700],['2018-09-18',5000,1700],['2021-05-11',6000,2000],['2023-02-21',7500,2500]],
+};
+const REGIONS = Object.keys(SMALL);
+const USES = ['아파트','다세대(빌라)','단독·다가구','오피스텔(주거)','근린상가','토지','기타'];
+const RESIDENTIAL = USES.slice(0,4);
+const RIGHT_TYPES = ['근저당','저당','가압류','압류','담보가등기','경매개시결정','전세권','임차권등기','지상권','지역권','가처분','소유권이전청구권가등기','환매등기'];
+const BASE_TYPES = ['근저당','저당','가압류','압류','담보가등기','경매개시결정'];
+const PAID_TYPES = ['근저당','저당','가압류','압류','담보가등기','경매개시결정','전세권','임차권등기'];
+const HOUSE_TAX = {h1:'주택 1주택·조정외 2주택 (1~3%)', h8:'주택 중과 8%', h12:'주택 중과 12%', nh:'주택 외 (상가·토지 4%)'};
+const SPECIALS = {lien:'유치권 신고', surface:'법정지상권 성립 여지', grave:'분묘기지권', share:'지분 경매', noLand:'대지권 미등기', landReg:'토지 별도등기', resale:'재매각 (보증금 20%)', violation:'위반건축물'};
+const CHECKLIST = ['매각물건명세서 최종본 확인 (매각기일 1주 전)','등기부 최신본 재열람 — 새 권리 없는지','전입세대 열람으로 숨은 임차인 확인','현장 방문: 실제 점유자·거주 상태 확인','관리사무소: 체납 관리비(공용분)와 연체 기간 확인','인근 중개업소 3곳 이상 시세·급매가 확인','국토부 실거래가로 최근 6개월 거래 확인','경락잔금대출 가능 금액·금리 사전 확인','누수·결로·균열 등 하자 확인 (가능 범위)','입찰보증금(최저가 10%) 수표 준비'];
+
+/* ═══════════ 예시 물건 (가상 데이터) ═══════════ */
+function samples(){
+  return [
+  { id:'s1', sample:true, caseNo:'2026타경10234', court:'서울남부지방법원', address:'서울 강서구 화곡동 ○○아파트 105동 12층', use:'아파트', region:'서울',
+    area:84.9, appraisal:62000, fails:1, reduce:20, minPrice:49600, saleDate:'2026-10-20', deadline:'2026-01-15', market:66000, memo:'역세권 대단지, 선순위 임차인이 확정일자·배당요구 모두 갖춤',
+    rights:[{date:'2019-03-12',type:'근저당',holder:'○○은행',amount:36000,claim:false},{date:'2021-05-20',type:'가압류',holder:'○○카드',amount:2000,claim:false},{date:'2025-10-15',type:'경매개시결정',holder:'○○은행(임의)',amount:0,claim:false}],
+    tenants:[{name:'김○○',moveIn:'2018-11-02',fixed:'2018-11-02',deposit:20000,monthly:0,claim:true}],
+    special:{}, c:{bid:52800,execCost:450,taxArrear:0,houseType:'h1',loanPct:60,rate:4.6,months:24,legal:180,evict:150,repair:600,mgmt:0,sell:66000,cgt:'tax',target:15}, check:{} },
+  { id:'s2', sample:true, caseNo:'2026타경5871', court:'수원지방법원', address:'경기 수원시 영통구 매탄동 ○○빌라 3층 302호', use:'다세대(빌라)', region:'과밀억제권역',
+    area:59.4, appraisal:28000, fails:2, reduce:30, minPrice:13720, saleDate:'2026-11-04', deadline:'2026-02-20', market:25000, memo:'반값처럼 보이지만 선순위 임차인이 배당요구를 하지 않음',
+    rights:[{date:'2020-07-01',type:'근저당',holder:'○○새마을금고',amount:19500,claim:false},{date:'2023-02-10',type:'압류',holder:'수원시',amount:800,claim:false},{date:'2025-12-01',type:'경매개시결정',holder:'○○새마을금고(임의)',amount:0,claim:false}],
+    tenants:[{name:'이○○',moveIn:'2020-06-15',fixed:'',deposit:16000,monthly:0,claim:false}],
+    special:{}, c:{bid:14000,execCost:300,taxArrear:0,houseType:'h1',loanPct:60,rate:5.2,months:24,legal:120,evict:0,repair:400,mgmt:180,sell:25000,cgt:'tax',target:15}, check:{} },
+  { id:'s3', sample:true, caseNo:'2026타경3312', court:'인천지방법원', address:'인천 미추홀구 주안동 ○○프라자 1층 105호', use:'근린상가', region:'광역시',
+    area:33.0, appraisal:21000, fails:3, reduce:30, minPrice:7203, saleDate:'2026-10-28', deadline:'2026-03-05', market:15000, memo:'3회 유찰, 선순위 가처분과 유치권 신고가 동시에 있음',
+    rights:[{date:'2017-04-02',type:'가처분',holder:'박○○',amount:0,claim:false},{date:'2018-09-10',type:'근저당',holder:'○○신협',amount:16000,claim:false},{date:'2025-09-22',type:'경매개시결정',holder:'○○신협(임의)',amount:0,claim:false}],
+    tenants:[], special:{lien:true}, c:{bid:7500,execCost:250,taxArrear:0,houseType:'nh',loanPct:50,rate:6.0,months:24,legal:100,evict:300,repair:300,mgmt:420,sell:15000,cgt:'tax',target:15}, check:{} },
+  ];
+}
+function blank(){
+  return { id:'p'+Date.now().toString(36), caseNo:'', court:'', address:'새 물건', use:'아파트', region:'서울', area:84, appraisal:0, fails:0, reduce:20, minPrice:0, saleDate:'', deadline:'', market:0, memo:'',
+    rights:[{date:'',type:'근저당',holder:'',amount:0,claim:false}], tenants:[], special:{},
+    c:{bid:0,execCost:300,taxArrear:0,houseType:'h1',loanPct:60,rate:4.8,months:24,legal:150,evict:300,repair:500,mgmt:0,sell:0,cgt:'tax',target:15}, check:{} };
+}
+
+/* ═══════════ 저장 (이 브라우저에만) ═══════════ */
+const KEY = 'auctionNote.v1';
+let db;
+try { db = JSON.parse(localStorage.getItem(KEY)); } catch(e) { db = null; }
+if (!db || !Array.isArray(db.items) || !db.items.length) db = { items: samples(), sel: 's1', tab: 'list' };
+let saveT;
+function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }, 250); }
+const cur = () => db.items.find(p => p.id === db.sel) || db.items[0];
+
+/* ═══════════ 유틸 ═══════════ */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N = v => { const x = Number(v); return isFinite(x) ? x : 0; };
+function won(v){ // 만원 단위 → "4억 9,600만"
+  v = Math.round(N(v)); if (!v) return '0';
+  const s = v < 0 ? '-' : ''; v = Math.abs(v);
+  const eok = Math.floor(v / 10000), man = v % 10000;
+  if (!eok) return s + man.toLocaleString('ko-KR') + '만';
+  return s + eok + '억' + (man ? ' ' + man.toLocaleString('ko-KR') + '만' : '');
+}
+const pct = (v, d=1) => (isFinite(v) ? (v*100).toFixed(d) : '—') + '%';
+const today = () => new Date().toISOString().slice(0,10);
+function addDay(d){ if(!d) return ''; const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+1); return t.toISOString().slice(0,10); }
+function dday(d){ if(!d) return ''; const diff = Math.round((new Date(d+'T00:00:00') - new Date(today()+'T00:00:00'))/864e5); return diff > 0 ? 'D-'+diff : diff === 0 ? 'D-DAY' : '종료'; }
+const bidOf = p => N(p.c.bid) || N(p.minPrice);
+
+/* ═══════════ 권리분석 ═══════════ */
+function smallLimit(region, date){
+  const t = SMALL[region] || SMALL['그 밖의 지역']; let r = t[0];
+  for (const row of t) if (date >= row[0]) r = row;
+  return { from:r[0], cap:r[1], prior:r[2], before: date < t[0][0] };
+}
+function findBase(p){
+  const rs = p.rights.map((r,i)=>({...r,i})).filter(r=>r.date).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.i-b.i);
+  return rs.find(r => BASE_TYPES.includes(r.type) || (r.type==='전세권' && r.claim)) || null;
+}
+function distribute(p, bid){
+  const c = p.c, base = findBase(p);
+  let pool = Math.max(0, bid - N(c.execCost));
+  const pool0 = pool, rows = [], tPaid = p.tenants.map(()=>0), rPaid = p.rights.map(()=>0);
+  rows.push({step:'0', name:'경매 집행비용', claim:N(c.execCost), paid:Math.min(bid, N(c.execCost))});
+  const mort = p.rights.filter(r=>r.date && ['근저당','저당','담보가등기'].includes(r.type)).map(r=>r.date).sort();
+  const std = mort[0] || today();
+  const lim = smallLimit(p.region, std);
+  const res = RESIDENTIAL.includes(p.use);
+  if (res){
+    const sm = p.tenants.map((t,i)=>({t,i})).filter(({t}) => t.claim && N(t.deposit)>0 && N(t.deposit)<=lim.cap && t.moveIn && (!p.deadline || t.moveIn<=p.deadline));
+    const want = sm.map(({t}) => Math.min(N(t.deposit), lim.prior));
+    const sum = want.reduce((a,b)=>a+b,0), half = Math.floor(bid/2);
+    const f = sum ? Math.min(1, half/sum, pool/sum) : 0;
+    sm.forEach(({t,i},k)=>{ const pd = Math.floor(want[k]*f); tPaid[i]+=pd; pool-=pd; rows.push({step:'1', name:`${t.name||'임차인'} · 소액임차인 최우선변제`, claim:want[k], paid:pd}); });
+  }
+  if (N(c.taxArrear)>0){ const pd = Math.min(pool, N(c.taxArrear)); pool-=pd; rows.push({step:'2', name:'당해세 (해당 부동산 조세)', claim:N(c.taxArrear), paid:pd}); }
+  const ent = [];
+  p.rights.forEach((r,i)=>{
+    if (!r.date || !N(r.amount) || !PAID_TYPES.includes(r.type)) return;
+    if (r.type==='전세권' && !r.claim && base && r.date < base.date) return; // 선순위 전세권 미배당요구 → 인수
+    ent.push({date:r.date, pri:1, name:`${r.holder||r.type} · ${r.type}`, claim:N(r.amount), kind:'r', i});
+  });
+  p.tenants.forEach((t,i)=>{
+    if (!t.claim || !t.fixed || !t.moveIn) return;
+    const eff = addDay(t.moveIn), d = t.fixed > eff ? t.fixed : eff;
+    const left = N(t.deposit) - tPaid[i]; if (left<=0) return;
+    ent.push({date:d, pri: d===eff ? 0 : 1, name:`${t.name||'임차인'} · 확정일자 임차인`, claim:left, kind:'t', i});
+  });
+  ent.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : a.pri-b.pri);
+  ent.forEach(e=>{ const pd = Math.min(pool, e.claim); pool-=pd; if(e.kind==='t') tPaid[e.i]+=pd; else rPaid[e.i]+=pd; rows.push({step:'3', name:e.name, date:e.date, claim:e.claim, paid:pd}); });
+  rows.push({step:'4', name:'잉여금 → 소유자(채무자)', claim:0, paid:pool});
+  return { rows, tPaid, rPaid, pool0, lim, std, res };
+}
+function analyze(p, bid){
+  bid = bid ?? bidOf(p);
+  const base = findBase(p), d = distribute(p, bid), alerts = [];
+  let take = 0;
+  const rights = p.rights.map((r,i)=>{
+    let st='gone', label='소멸', note='매각으로 말소';
+    if (!base){ st='warn'; label='판단보류'; note='말소기준권리를 찾을 수 없음'; }
+    else if (!r.date){ st='warn'; label='날짜 입력'; note='접수일을 입력하세요'; }
+    else if (i===base.i){ st='base'; label='말소기준'; note='이 권리 이후는 모두 소멸'; }
+    else if (r.date < base.date){
+      if (r.type==='전세권'){ st='take'; label='인수'; note='선순위 전세권, 배당요구 없음 → 전세금 인수'; take+=N(r.amount); }
+      else if (r.type==='임차권등기'){ const s = N(r.amount)-d.rPaid[i]; st = s>0?'take':'ok'; label = s>0?'부족분 인수':'전액 배당'; note = s>0?`배당 부족 ${won(s)} 인수`:'배당으로 전액 회수'; take+=Math.max(0,s); }
+      else if (['가처분','소유권이전청구권가등기','환매등기'].includes(r.type)){ st='take'; label='인수·위험'; note='본안 결과에 따라 소유권 상실 가능'; alerts.push(['crit',`선순위 <b>${r.type}</b>(${r.date}) — 낙찰받아도 소유권을 잃을 수 있습니다. 전문가 확인 전 입찰 보류 권장.`]); }
+      else if (['지상권','지역권'].includes(r.type)){ st='take'; label='인수'; note='사용·수익 제한이 그대로 남음'; alerts.push(['warn',`선순위 <b>${r.type}</b> 인수 — 건물·토지 사용에 제한이 남습니다.`]); }
+    } else if (r.type==='가처분'){ st='warn'; label='소멸(확인)'; note='건물철거·토지인도 가처분이면 후순위라도 인수'; alerts.push(['warn','후순위 가처분 — 피보전권리가 <b>건물철거·토지인도</b>이면 인수됩니다. 가처분 내용 확인 필요.']); }
+    return {st,label,note};
+  });
+  const tenants = p.tenants.map((t,i)=>{
+    if (!t.moveIn) return {opp:null, paid:d.tPaid[i], take:0, note:'전입일 확인 필요'};
+    const opp = !!(base && t.moveIn < base.date);
+    const paid = d.tPaid[i];
+    let tk = 0, note;
+    if (opp){
+      tk = Math.max(0, N(t.deposit) - paid);
+      note = !t.claim ? '대항력 O · 배당요구 없음 → 보증금 전액 인수' : tk>0 ? `대항력 O · 배당 부족분 ${won(tk)} 인수` : '대항력 O · 배당으로 전액 회수 → 인수 없음';
+    } else note = paid >= N(t.deposit) ? '대항력 X · 전액 배당, 명도 수월' : '대항력 X · 미배당분 소멸, 명도 협상 필요';
+    take += tk;
+    return {opp, paid, take:tk, note};
+  });
+  // 경고
+  p.tenants.forEach((t,i)=>{
+    const a = tenants[i];
+    if (a.opp && !t.claim) alerts.push(['crit',`선순위 임차인 <b>${esc(t.name||'임차인')}</b>이 배당요구를 하지 않아 보증금 <b>${won(t.deposit)}</b>을 낙찰자가 인수합니다.`]);
+    else if (a.opp && a.take>0) alerts.push(['warn',`선순위 임차인 <b>${esc(t.name||'임차인')}</b>의 배당 부족분 <b>${won(a.take)}</b>을 인수합니다.`]);
+    else if (a.opp && t.claim && !t.fixed) alerts.push(['warn',`임차인 ${esc(t.name||'')} 확정일자 없음 — 최우선변제 외에는 배당받지 못해 인수 금액이 생깁니다.`]);
+    if (a.opp && t.claim && p.deadline && t.moveIn && t.moveIn > p.deadline) alerts.push(['warn','배당요구종기 이후 전입 — 배당 순위 확인 필요']);
+    if (!t.moveIn) alerts.push(['warn',`임차인 ${esc(t.name||'')} 전입일 미입력 — 전입세대열람으로 확인하세요.`]);
+  });
+  const s = p.special || {};
+  if (s.lien) alerts.push(['crit','<b>유치권 신고</b> — 공사대금 등 성립 시 전액 인수. 점유 시점·공사 실체 확인 필요.']);
+  if (s.surface) alerts.push(['crit','<b>법정지상권</b> 성립 여지 — 토지만 낙찰 시 건물 철거가 어려울 수 있습니다.']);
+  if (s.grave) alerts.push(['crit','<b>분묘기지권</b> — 분묘 이전이 제한될 수 있습니다.']);
+  if (s.share) alerts.push(['warn','<b>지분 경매</b> — 공유자 우선매수권, 단독 사용·대출 제한.']);
+  if (s.noLand) alerts.push(['warn','<b>대지권 미등기</b> — 감정가에 대지권 포함 여부 확인.']);
+  if (s.landReg) alerts.push(['warn','<b>토지 별도등기</b> — 토지 저당권 인수 여부를 매각조건에서 확인.']);
+  if (s.resale) alerts.push(['info','<b>재매각</b> 사건 — 입찰보증금이 최저가의 20%입니다. 전 낙찰자가 포기한 이유 확인.']);
+  if (s.violation) alerts.push(['warn','<b>위반건축물</b> — 이행강제금·대출 제한 가능.']);
+  if (!base) alerts.push(['warn','말소기준권리가 없습니다. 등기부의 근저당·가압류·압류·경매개시결정을 입력하세요.']);
+  if (d.res && p.tenants.length) alerts.push(['info',`소액임차인 기준: ${p.region}, 담보물권 ${d.std} 기준 → 보증금 ${won(d.lim.cap)} 이하 최우선변제 ${won(d.lim.prior)}${d.lim.before?' (2010.7.26 이전 기준은 별도 확인)':''}`]);
+  if (!alerts.some(a=>a[0]!=='info')) alerts.push(['ok','입력된 등기·임차 정보로는 인수할 권리가 없습니다. (현장 확인은 별도)']);
+  const crit = alerts.some(a=>a[0]==='crit');
+  return { base, rights, tenants, dist:d, take, alerts, crit, bid };
+}
+
+/* ═══════════ 수익분석 ═══════════ */
+function acqTax(price, type, area){
+  let r, edu, farm = 0; const big = N(area) > 85;
+  if (type==='h1'){ r = price<=60000 ? 1 : price<=90000 ? (price/10000)*2/3 - 3 : 3; edu = r*0.1; farm = big?0.2:0; }
+  else if (type==='h8'){ r=8; edu=0.4; farm=big?0.6:0; }
+  else if (type==='h12'){ r=12; edu=0.4; farm=big?1.0:0; }
+  else { r=4; edu=0.4; farm=0.2; }
+  const rate = (r+edu+farm)/100;
+  return { rate, amt: Math.round(price*rate) };
+}
+function brokerage(price, house){
+  if (!house) return Math.round(price*0.009);
+  if (price<5000) return Math.min(25, Math.round(price*0.006));
+  if (price<20000) return Math.min(80, Math.round(price*0.005));
+  const r = price<90000?0.004 : price<120000?0.005 : price<150000?0.006 : 0.007;
+  return Math.round(price*r);
+}
+const BRACKETS = [[1400,.06,0],[5000,.15,126],[8800,.24,576],[15000,.35,1544],[30000,.38,1994],[50000,.40,2594],[100000,.42,3594],[Infinity,.45,6594]];
+function cgt(gain, months, house){
+  const tx = gain - 250; if (tx<=0) return {amt:0, how:'과세 대상 없음'};
+  let t, how;
+  if (months<12){ t = tx*(house?.7:.5); how = `단기 ${house?70:50}%`; }
+  else if (months<24){ t = tx*(house?.6:.4); how = `단기 ${house?60:40}%`; }
+  else { const b = BRACKETS.find(b=>tx<=b[0]); t = tx*b[1]-b[2]; how = `기본세율 ${b[1]*100}%`; }
+  return { amt: Math.round(t*1.1), how: how+' + 지방세' };
+}
+function profit(p, bid){
+  const c = p.c, a = analyze(p, bid), house = c.houseType!=='nh';
+  const tax = acqTax(bid + a.take, c.houseType, p.area);
+  const loan = Math.round(bid*N(c.loanPct)/100);
+  const months = Math.max(1, N(c.months));
+  const interest = Math.round(loan*N(c.rate)/100*months/12);
+  const sell = N(c.sell) || N(p.market);
+  const fee = brokerage(sell, house);
+  const cost = bid + tax.amt + N(c.legal) + N(c.evict) + N(c.repair) + N(c.mgmt) + a.take + interest;
+  const pre = sell - cost - fee;
+  const gain = sell - bid - a.take - tax.amt - N(c.legal) - N(c.repair) - fee;
+  const g = c.cgt==='exempt' ? {amt:0, how:'1세대 1주택 비과세 가정'} : cgt(gain, months, house);
+  const net = pre - g.amt;
+  const equity = Math.max(1, cost - loan);
+  const roe = net/equity;
+  const deposit = Math.round(N(p.minPrice) * (p.special?.resale ? .2 : .1));
+  return { a, bid, tax, loan, interest, sell, fee, cost, pre, gain, g, net, equity, roe, annual: roe*12/months, deposit, months, rate: bid/(N(p.appraisal)||1) };
+}
+function maxBid(p){
+  const t = N(p.c.target)/100, hi = Math.max(N(p.appraisal), N(p.market), N(p.minPrice))*1.3;
+  if (!hi) return null;
+  const step = Math.max(10, Math.round(hi/1500/10)*10);
+  const floor = N(p.minPrice);
+  for (let b = Math.floor(hi/10)*10; b >= floor && b > 0; b -= step){ if (profit(p,b).roe >= t) return b; }
+  return null;
+}
+function grade(p, pr){
+  const a = pr.a;
+  if (a.crit || pr.net < 0) return 'C';
+  if (a.take>0 || a.alerts.some(x=>x[0]==='warn') || pr.roe < N(p.c.target)/100) return 'B';
+  return 'A';
+}
+const GRADE_TXT = {A:'입찰 검토 권장', B:'조건부 검토 — 확인 후 결정', C:'입찰 보류 권장'};
+
+/* ═══════════ 공통 조각 ═══════════ */
+function fld(label, k, o={}){
+  const p = cur(); const v = k.startsWith('c.') ? p.c[k.slice(2)] : p[k];
+  const id = 'f-' + k.replace('.','-');
+  let ctl;
+  if (o.opts) ctl = `<select id="${id}" data-k="${k}">${o.opts.map(x=>{ const [val,txt] = Array.isArray(x)?x:[x,x]; return `<option value="${esc(val)}"${String(v)===String(val)?' selected':''}>${esc(txt)}</option>`; }).join('')}</select>`;
+  else ctl = `<input id="${id}" data-k="${k}" type="${o.type||'number'}" value="${esc(v)}"${o.step?` step="${o.step}"`:''}${(o.type||'number')==='number'?' inputmode="decimal"':''}>`;
+  return `<label class="fld${o.wide?' wide':''}" for="${id}"><span>${label}</span><div class="in">${ctl}${o.unit?`<em>${o.unit}</em>`:''}</div></label>`;
+}
+const STAMP = {base:'st-base', gone:'st-gone', take:'st-take', warn:'st-warn', ok:'st-ok'};
+const stamp = (st, label) => `<span class="stamp ${STAMP[st]}">${label}</span>`;
+function alertList(al){ return `<ul class="alerts">${al.map(([k,t])=>`<li class="a-${k}">${t}</li>`).join('')}</ul>`; }
+function distTable(d){
+  return `<div class="tw"><table><thead><tr><th>순위</th><th>배당 대상</th><th class="n">청구액</th><th class="n">배당액</th><th class="n">미배당</th></tr></thead><tbody>
+  ${d.rows.map(r=>`<tr><td class="nw">${{'0':'0 비용','1':'1 최우선','2':'2 당해세','3':'3 '+(r.date||''),'4':'잔여'}[r.step]}</td><td>${esc(r.name)}</td><td class="n">${r.claim?won(r.claim):'—'}</td><td class="n">${won(r.paid)}</td><td class="n ${r.claim-r.paid>0?'neg':''}">${r.claim?won(r.claim-r.paid):'—'}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(()=>t.hidden=true, 2000); }
+
+/* ═══════════ 1. 물건 찾기 ═══════════ */
+let filt = {q:'', use:'', sort:'sale'};
+let pendingDel = null;
+function viewList(){
+  return `<div class="view">
+  <section class="sec"><div class="sec-h"><div><h2>관심 물건</h2><p>물건을 누르면 권리분석으로 이동합니다. 입력한 내용은 이 브라우저에만 저장됩니다.</p></div>
+    <div class="row"><button class="btn pri" data-act="add">＋ 새 물건 추가</button><button class="btn" data-act="restore">예시 물건 다시 넣기</button></div></div>
+    <div class="sec-b" style="display:flex;flex-direction:column;gap:14px">
+      <div class="toolbar">
+        <label class="fld" for="q"><span>검색 (주소·사건번호·법원)</span><div class="in"><input id="q" type="search" value="${esc(filt.q)}" placeholder="예: 강서구"></div></label>
+        <label class="fld" for="fu"><span>용도</span><div class="in"><select id="fu"><option value="">전체</option>${USES.map(u=>`<option${filt.use===u?' selected':''}>${u}</option>`).join('')}</select></div></label>
+        <label class="fld" for="fs"><span>정렬</span><div class="in"><select id="fs">${[['sale','매각기일 빠른 순'],['disc','최저가율 낮은 순'],['roe','예상 수익률 높은 순'],['grade','안전 등급 순']].map(([v,t])=>`<option value="${v}"${filt.sort===v?' selected':''}>${t}</option>`).join('')}</select></div></label>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div></section>
+  <section class="sec"><div class="sec-h"><div><h2>물건 검색 · 자료 확인 사이트</h2><p>실제 경매 물건과 서류는 아래 공식 사이트에서 확인한 뒤 이곳에 입력하세요.</p></div></div>
+    <div class="sec-b"><div class="links">
+      ${[['https://www.courtauction.go.kr','법원경매정보','물건 검색·매각물건명세서·현황조사서'],['https://www.onbid.co.kr','온비드','공매(캠코) 물건 검색'],['http://www.iros.go.kr','인터넷등기소','등기부등본 열람 (권리 확인)'],['https://rt.molit.go.kr','국토부 실거래가','최근 거래가로 시세 확인'],['https://kbland.kr','KB부동산','KB시세 (대출 기준 시세)'],['https://www.gov.kr','정부24','전입세대 열람 (매각물건 소재지)'],['https://www.eum.go.kr','토지이음','용도지역·토지이용계획'],['https://www.wetax.go.kr','위택스','취득세 계산·납부']].map(([u,b,s])=>`<a href="${u}" target="_blank" rel="noopener"><b>${b} ↗</b><span>${s}</span></a>`).join('')}
+    </div></div></section>
+  </div>`;
+}
+function renderCards(){
+  const el = document.getElementById('cards'); if (!el) return;
+  const q = filt.q.trim().toLowerCase();
+  let items = db.items.map(p=>{ const pr = profit(p, bidOf(p)); return {p, pr, g:grade(p,pr)}; })
+    .filter(({p})=> (!filt.use || p.use===filt.use) && (!q || [p.address,p.caseNo,p.court].join(' ').toLowerCase().includes(q)));
+  const by = {sale:(a,b)=>(a.p.saleDate||'9')<(b.p.saleDate||'9')?-1:1, disc:(a,b)=>N(a.p.minPrice)/(N(a.p.appraisal)||1)-N(b.p.minPrice)/(N(b.p.appraisal)||1), roe:(a,b)=>b.pr.roe-a.pr.roe, grade:(a,b)=>a.g<b.g?-1:a.g>b.g?1:0};
+  items.sort(by[filt.sort]);
+  if (!items.length){ el.innerHTML = `<p class="hint">조건에 맞는 물건이 없습니다.</p>`; return; }
+  el.innerHTML = items.map(({p,pr,g})=>{
+    const r = N(p.minPrice)/(N(p.appraisal)||1);
+    return `<article class="card${p.id===db.sel?' sel':''}" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.address)} 열기">
+      <div class="card-h"><div class="t"><div class="cn">${esc(p.caseNo||'사건번호 미입력')} · ${esc(p.court||'법원')}</div><div class="ad">${esc(p.address)}</div></div><span class="grade g-${g}" title="${GRADE_TXT[g]}">${g}</span></div>
+      <div class="row"><span class="chip">${esc(p.use)}</span>${p.sample?'<span class="chip" style="background:var(--warn-soft);color:var(--warn)">예시</span>':''}${pr.a.take?`<span class="chip" style="background:var(--seal-soft);color:var(--seal)">인수 ${won(pr.a.take)}</span>`:''}</div>
+      <dl><div><dt>감정가</dt><dd>${won(p.appraisal)}</dd></div><div><dt>최저가 (${p.fails}회 유찰)</dt><dd>${won(p.minPrice)}</dd></div><div><dt>예상 수익률</dt><dd class="${pr.roe>=0?'pos':'neg'}">${pct(pr.roe)}</dd></div></dl>
+      <div class="pricebar" title="감정가 대비 최저가 ${pct(r,0)}"><i style="width:${Math.min(100,r*100)}%"></i></div>
+      <div class="card-f"><span>최저가율 ${pct(r,0)} · 매각기일 ${esc(p.saleDate||'—')} ${p.saleDate?`<b>${dday(p.saleDate)}</b>`:''}</span>
+        ${pendingDel===p.id ? `<span class="row"><button class="btn danger" data-del="${p.id}">삭제 확인</button><button class="btn" data-cancel>취소</button></span>` : `<button class="btn ghost" data-askdel="${p.id}" aria-label="삭제">삭제</button>`}</div>
+    </article>`;
+  }).join('');
+}
+
+/* ═══════════ 2. 권리분석 ═══════════ */
+function viewRights(){
+  const p = cur();
+  return `<div class="view">
+  <section class="sec"><div class="sec-h"><div><h2>물건 개요</h2><p>법원경매정보의 물건 상세·매각물건명세서를 보고 입력하세요. 금액 단위는 만원입니다.</p></div></div>
+   <div class="sec-b" style="display:flex;flex-direction:column;gap:14px"><div class="grid">
+    ${fld('사건번호','caseNo',{type:'text'})}${fld('관할 법원','court',{type:'text'})}
+    ${fld('소재지','address',{type:'text',wide:true})}
+    ${fld('용도','use',{opts:USES})}${fld('소액임차인 지역 구분','region',{opts:REGIONS})}
+    ${fld('전용면적','area',{unit:'㎡',step:'0.01'})}${fld('감정가','appraisal',{unit:'만원'})}
+    ${fld('유찰 횟수','fails',{unit:'회'})}${fld('저감률','reduce',{opts:[['20','20% (서울 등)'],['30','30% (수원·인천 등)']]})}
+    ${fld('최저매각가격','minPrice',{unit:'만원'})}${fld('현재 시세','market',{unit:'만원'})}
+    ${fld('매각기일','saleDate',{type:'date'})}${fld('배당요구종기','deadline',{type:'date'})}
+    ${fld('메모','memo',{type:'text',wide:true})}
+   </div>
+   <div class="row"><button class="btn" data-act="calcmin">최저가 자동 계산 (감정가 × (1−저감률)<sup>유찰</sup>)</button><span class="hint" id="minhint"></span></div>
+   <div><div class="eyebrow" style="margin-bottom:8px">특수 권리 · 주의 사항 (매각물건명세서 비고란)</div>
+   <div class="checks">${Object.entries(SPECIALS).map(([k,t])=>`<label class="chk"><input type="checkbox" data-sp="${k}"${p.special?.[k]?' checked':''}> ${t}</label>`).join('')}</div></div>
+  </div></section>
+
+  <section class="sec"><div class="sec-h"><div><h2>등기부 권리 (갑구·을구)</h2><p>접수일 순서와 상관없이 입력하면 자동으로 정렬해 판정합니다. 근저당은 채권최고액을 입력하세요.</p></div><button class="btn" data-act="addRight">＋ 권리 추가</button></div>
+   <div class="sec-b tw"><table class="edit"><thead><tr><th>접수일</th><th>권리 종류</th><th>권리자</th><th class="n">금액(만원)</th><th title="전세권: 배당요구 또는 경매신청">배당요구</th><th>판정</th><th></th></tr></thead><tbody>
+   ${p.rights.map((r,i)=>`<tr>
+     <td><input type="date" data-row="rights" data-i="${i}" data-f="date" value="${esc(r.date)}" aria-label="접수일"></td>
+     <td><select data-row="rights" data-i="${i}" data-f="type" aria-label="권리 종류">${RIGHT_TYPES.map(t=>`<option${t===r.type?' selected':''}>${t}</option>`).join('')}</select></td>
+     <td><input type="text" data-row="rights" data-i="${i}" data-f="holder" value="${esc(r.holder)}" aria-label="권리자"></td>
+     <td><input type="number" inputmode="decimal" data-row="rights" data-i="${i}" data-f="amount" value="${esc(r.amount)}" aria-label="금액"></td>
+     <td style="text-align:center"><input type="checkbox" data-row="rights" data-i="${i}" data-f="claim"${r.claim?' checked':''} aria-label="배당요구"></td>
+     <td id="rb-${i}"></td>
+     <td><button class="btn ghost" data-delrow="rights" data-i="${i}" aria-label="행 삭제">✕</button></td></tr>`).join('')}
+   </tbody></table></div></section>
+
+  <section class="sec"><div class="sec-h"><div><h2>임차인 현황</h2><p>현황조사서·매각물건명세서의 점유자 정보를 입력하세요.</p></div><button class="btn" data-act="addTenant">＋ 임차인 추가</button></div>
+   <div class="sec-b tw">${p.tenants.length ? `<table class="edit"><thead><tr><th>임차인</th><th>전입일</th><th>확정일자</th><th class="n">보증금(만원)</th><th class="n">월세</th><th>배당요구</th><th>대항력</th><th class="n">예상 배당</th><th class="n">인수액</th><th></th></tr></thead><tbody>
+   ${p.tenants.map((t,i)=>`<tr>
+     <td><input type="text" data-row="tenants" data-i="${i}" data-f="name" value="${esc(t.name)}" aria-label="임차인"></td>
+     <td><input type="date" data-row="tenants" data-i="${i}" data-f="moveIn" value="${esc(t.moveIn)}" aria-label="전입일"></td>
+     <td><input type="date" data-row="tenants" data-i="${i}" data-f="fixed" value="${esc(t.fixed)}" aria-label="확정일자"></td>
+     <td><input type="number" inputmode="decimal" data-row="tenants" data-i="${i}" data-f="deposit" value="${esc(t.deposit)}" aria-label="보증금"></td>
+     <td><input type="number" inputmode="decimal" data-row="tenants" data-i="${i}" data-f="monthly" value="${esc(t.monthly)}" aria-label="월세"></td>
+     <td style="text-align:center"><input type="checkbox" data-row="tenants" data-i="${i}" data-f="claim"${t.claim?' checked':''} aria-label="배당요구"></td>
+     <td id="to-${i}"></td><td class="n" id="tp-${i}"></td><td class="n" id="tt-${i}"></td>
+     <td><button class="btn ghost" data-delrow="tenants" data-i="${i}" aria-label="행 삭제">✕</button></td></tr>`).join('')}
+   </tbody></table>` : '<p class="hint">등록된 임차인이 없습니다. 소유자 점유이거나 공실이면 비워 두세요.</p>'}</div></section>
+
+  <section class="sec" id="rights-out"></section>
+  </div>`;
+}
+function updRights(){
+  const p = cur(), a = analyze(p);
+  a.rights.forEach((r,i)=>{ const el = document.getElementById('rb-'+i); if (el) el.innerHTML = `${stamp(r.st, r.label)}<div class="hint" style="margin-top:3px">${r.note}</div>`; });
+  a.tenants.forEach((t,i)=>{
+    const o = document.getElementById('to-'+i); if (!o) return;
+    o.innerHTML = t.opp===null ? stamp('warn','확인') : t.opp ? stamp('take','있음') : stamp('gone','없음');
+    document.getElementById('tp-'+i).textContent = won(t.paid);
+    document.getElementById('tt-'+i).innerHTML = t.take ? `<b class="neg">${won(t.take)}</b>` : '0';
+  });
+  const mh = document.getElementById('minhint');
+  if (mh){ const m = Math.floor(N(p.appraisal)*Math.pow(1-N(p.reduce)/100, N(p.fails))); mh.textContent = m ? `→ ${won(m)}` : ''; }
+  const out = document.getElementById('rights-out'); if (!out) return;
+  out.innerHTML = `<div class="sec-h"><div><h2>권리분석 결과</h2><p>입찰 예정가 ${won(a.bid)} 기준 모의 배당입니다.</p></div></div>
+   <div class="kpis"><div class="kpi"><span class="l">말소기준권리</span><span class="v" style="font-size:15px">${a.base?`${a.base.date}`:'없음'}</span><span class="s">${a.base?esc(a.base.type+' · '+(a.base.holder||'')):'입력 필요'}</span></div>
+   <div class="kpi"><span class="l">낙찰자 인수 금액</span><span class="v ${a.take?'neg':'pos'}">${won(a.take)}</span><span class="s">입찰가와 별도로 추가 부담</span></div>
+   <div class="kpi"><span class="l">대항력 있는 임차인</span><span class="v">${a.tenants.filter(t=>t.opp).length}명</span><span class="s">전체 ${p.tenants.length}명</span></div>
+   <div class="kpi"><span class="l">위험 신호</span><span class="v ${a.crit?'neg':''}">${a.alerts.filter(x=>x[0]==='crit').length}건 / 주의 ${a.alerts.filter(x=>x[0]==='warn').length}건</span><span class="s">${a.crit?'입찰 보류 검토':'치명적 위험 없음'}</span></div></div>
+   <div class="sec-b two"><div><div class="eyebrow" style="margin-bottom:8px">판단 메모</div>${alertList(a.alerts)}</div>
+   <div><div class="eyebrow" style="margin-bottom:8px">예상 배당표</div>${distTable(a.dist)}<p class="hint" style="margin-top:6px">가압류·압류 간 안분배당은 단순화해 접수일 순으로 계산했습니다.</p></div></div>`;
+}
+
+/* ═══════════ 3. 수익분석 ═══════════ */
+function viewProfit(){
+  return `<div class="view"><div class="two">
+  <section class="sec"><div class="sec-h"><div><h2>입찰·비용 조건</h2><p>단위 만원. 입찰가를 비우면 최저가로 계산합니다.</p></div></div>
+   <div class="sec-b grid">
+    ${fld('입찰 예정가','c.bid',{unit:'만원'})}${fld('매도 예상가 (시세)','c.sell',{unit:'만원'})}
+    ${fld('취득세 구분','c.houseType',{opts:Object.entries(HOUSE_TAX)})}${fld('양도세','c.cgt',{opts:[['tax','과세 (개인)'],['exempt','1세대 1주택 비과세 가정']]})}
+    ${fld('경락잔금 대출','c.loanPct',{unit:'% of 낙찰가'})}${fld('대출 금리','c.rate',{unit:'연 %',step:'0.1'})}
+    ${fld('보유 기간','c.months',{unit:'개월'})}${fld('목표 수익률','c.target',{unit:'% (자기자본)'})}
+    ${fld('경매 집행비용','c.execCost',{unit:'만원'})}${fld('당해세 체납','c.taxArrear',{unit:'만원'})}
+    ${fld('법무·등기비','c.legal',{unit:'만원'})}${fld('명도비 (이사비)','c.evict',{unit:'만원'})}
+    ${fld('수리·인테리어','c.repair',{unit:'만원'})}${fld('체납 관리비 (공용)','c.mgmt',{unit:'만원'})}
+   </div></section>
+  <section class="sec" id="profit-out"></section>
+  </div>
+  <section class="sec" id="scen-out"></section></div>`;
+}
+function costTable(pr, p){
+  const c = p.c;
+  const rows = [['낙찰가 (입찰가)',pr.bid],['취득세 등 ('+pct(pr.tax.rate,2)+')',pr.tax.amt],['법무·등기비',N(c.legal)],['명도비',N(c.evict)],['수리비',N(c.repair)],['체납 관리비',N(c.mgmt)],['인수 금액 (권리분석)',pr.a.take],[`대출 이자 (${pr.months}개월)`,pr.interest]];
+  return `<div class="tw"><table><tbody>${rows.map(([l,v])=>`<tr><td>${l}</td><td class="n">${won(v)}</td></tr>`).join('')}
+   <tr class="tot"><td>총 투자비</td><td class="n">${won(pr.cost)}</td></tr>
+   <tr><td>− 경락잔금 대출 (${N(c.loanPct)}%)</td><td class="n">${won(pr.loan)}</td></tr>
+   <tr class="tot"><td>실제 필요 현금</td><td class="n">${won(pr.equity)}</td></tr>
+   <tr><td>매도가</td><td class="n">${won(pr.sell)}</td></tr><tr><td>− 매도 중개보수</td><td class="n">${won(pr.fee)}</td></tr>
+   <tr><td>세전 차익</td><td class="n ${pr.pre>=0?'pos':'neg'}">${won(pr.pre)}</td></tr>
+   <tr><td>− 양도소득세 (${pr.g.how})</td><td class="n">${won(pr.g.amt)}</td></tr>
+   <tr class="tot"><td>세후 순이익</td><td class="n ${pr.net>=0?'pos':'neg'}">${won(pr.net)}</td></tr></tbody></table></div>`;
+}
+function scenarios(p){
+  const min = N(p.minPrice), app = N(p.appraisal), mine = bidOf(p);
+  const set = new Set([min, Math.round(min*1.05), Math.round(min*1.1), Math.round(min*1.15), Math.round(min*1.2), Math.round(app*0.9), app, mine].filter(v=>v>0));
+  return [...set].sort((a,b)=>a-b).map(b=>({b, pr:profit(p,b)}));
+}
+function updProfit(){
+  const p = cur(), pr = profit(p, bidOf(p)), mb = maxBid(p), g = grade(p, pr);
+  const out = document.getElementById('profit-out');
+  if (out) out.innerHTML = `<div class="sec-h"><div><h2>수익 계산</h2><p>입찰가 ${won(pr.bid)} · 감정가 대비 ${pct(pr.rate,0)}</p></div><span class="grade g-${g}" title="${GRADE_TXT[g]}">${g}</span></div>
+   <div class="kpis"><div class="kpi"><span class="l">실제 필요 현금</span><span class="v">${won(pr.equity)}</span><span class="s">보증금 ${won(pr.deposit)} 포함</span></div>
+   <div class="kpi"><span class="l">세후 순이익</span><span class="v ${pr.net>=0?'pos':'neg'}">${won(pr.net)}</span><span class="s">시세차익 ${won(pr.sell-pr.bid)}</span></div>
+   <div class="kpi"><span class="l">자기자본 수익률</span><span class="v ${pr.roe>=N(p.c.target)/100?'pos':'neg'}">${pct(pr.roe)}</span><span class="s">연 환산 ${pct(pr.annual)}</span></div>
+   <div class="kpi"><span class="l">목표 ${N(p.c.target)}% 최대 입찰가</span><span class="v">${mb?won(mb):'없음'}</span><span class="s">${mb?'감정가 대비 '+pct(mb/(N(p.appraisal)||1),0):'최저가로도 목표 미달'}</span></div></div>
+   <div class="sec-b">${costTable(pr,p)}</div>`;
+  const so = document.getElementById('scen-out'); if (!so) return;
+  const sc = scenarios(p), maxAbs = Math.max(0.01, ...sc.map(s=>Math.abs(s.pr.roe)));
+  so.innerHTML = `<div class="sec-h"><div><h2>입찰가별 시나리오</h2><p>입찰가를 올릴수록 수익률이 얼마나 줄어드는지 비교합니다. 파란 줄이 현재 입찰 예정가입니다.</p></div></div>
+   <div class="sec-b tw"><table><thead><tr><th class="n">입찰가</th><th class="n">감정가 대비</th><th class="n">인수액</th><th class="n">필요 현금</th><th class="n">세후 순이익</th><th class="n">수익률</th><th style="width:26%">수익률</th></tr></thead><tbody>
+   ${sc.map(({b,pr})=>{ const w = Math.abs(pr.roe)/maxAbs*50; return `<tr class="${b===pr.bid&&b===bidOf(p)?'me':''}"><td class="n">${won(b)}</td><td class="n">${pct(b/(N(p.appraisal)||1),0)}</td><td class="n">${won(pr.a.take)}</td><td class="n">${won(pr.equity)}</td><td class="n ${pr.net>=0?'pos':'neg'}">${won(pr.net)}</td><td class="n ${pr.roe>=0?'pos':'neg'}">${pct(pr.roe)}</td>
+   <td><div class="bar"><i style="left:${pr.roe>=0?50:50-w}%;width:${w}%;background:${pr.roe>=0?'var(--ok)':'var(--seal)'}"></i><i style="left:50%;width:1px;background:var(--mute)"></i></div></td></tr>`; }).join('')}
+   </tbody></table><p class="hint" style="margin-top:8px">양도세는 ${p.c.cgt==='exempt'?'비과세 가정':'보유 '+N(p.c.months)+'개월 기준'} · 장기보유특별공제·다주택 중과는 반영하지 않았습니다.</p></div>`;
+}
+
+/* ═══════════ 4. 종합 보고서 ═══════════ */
+function opinion(p, pr, g, mb){
+  const a = pr.a, s = [];
+  s.push(`본 물건은 ${esc(p.address)} 소재 ${esc(p.use)}(전용 ${N(p.area)}㎡)으로, 감정가 ${won(p.appraisal)}에서 ${N(p.fails)}회 유찰되어 최저가가 ${won(p.minPrice)}(감정가의 ${pct(N(p.minPrice)/(N(p.appraisal)||1),0)})입니다.`);
+  s.push(a.base ? `말소기준권리는 ${a.base.date} ${esc(a.base.type)}(${esc(a.base.holder||'')})이며, ${a.take ? `낙찰자가 인수할 금액은 약 ${won(a.take)}입니다.` : '입력된 자료상 낙찰자가 인수할 금액은 없습니다.'}` : '말소기준권리를 확인할 수 없어 권리분석이 완료되지 않았습니다.');
+  if (a.crit) s.push('소유권 상실 또는 큰 추가 부담으로 이어질 수 있는 위험 요소가 있어, 전문가 검토 전에는 입찰을 보류하는 것이 좋습니다.');
+  s.push(`입찰 예정가 ${won(pr.bid)} 기준으로 실제 필요 현금은 ${won(pr.equity)}, 세후 순이익은 ${won(pr.net)}(자기자본 수익률 ${pct(pr.roe)})로 예상됩니다.`);
+  s.push(mb ? `목표 수익률 ${N(p.c.target)}%를 지키려면 입찰가를 ${won(mb)} 이하로 제한하는 것을 권합니다.` : `현재 조건에서는 최저가로 낙찰받아도 목표 수익률 ${N(p.c.target)}%에 미치지 못합니다.`);
+  return s;
+}
+function viewReport(){
+  const p = cur(), pr = profit(p, bidOf(p)), a = pr.a, g = grade(p, pr), mb = maxBid(p);
+  const done = CHECKLIST.filter((_,i)=>p.check?.[i]).length;
+  return `<div class="view">
+  <div class="row" style="justify-content:flex-end;max-width:860px;width:100%;margin:0 auto"><button class="btn" data-act="copy">보고서 텍스트 복사 (카톡·메일 붙여넣기용)</button></div>
+  <article class="doc">
+   <div class="doc-head"><div><div class="eyebrow">부동산 경매 물건 분석 보고서${p.sample?' · 예시 데이터':''}</div><h2>${esc(p.address)}</h2>
+    <div class="meta"><span class="mono">${esc(p.caseNo||'사건번호 미입력')}</span> · ${esc(p.court||'')} · 매각기일 ${esc(p.saleDate||'—')} ${p.saleDate?dday(p.saleDate):''}<br>작성일 ${today()}</div></div>
+    <span class="grade g-${g}" style="width:60px;height:60px;font-size:28px">${g}</span></div>
+   <div class="verdict"><div><b>${GRADE_TXT[g]}</b><p style="margin:4px 0 0;color:var(--ink2)">인수 금액 ${won(a.take)} · 세후 순이익 ${won(pr.net)} · 수익률 ${pct(pr.roe)} · 권장 최대 입찰가 ${mb?won(mb):'없음'}</p></div></div>
+
+   <h3>1. 물건 개요</h3>
+   <div class="kv">${[['용도',p.use],['전용면적',N(p.area)+'㎡'],['감정가',won(p.appraisal)],['최저매각가격',won(p.minPrice)],['유찰',N(p.fails)+'회 (저감 '+N(p.reduce)+'%)'],['최저가율',pct(N(p.minPrice)/(N(p.appraisal)||1),0)],['현재 시세',won(p.market)],['입찰보증금',won(pr.deposit)],['배당요구종기',p.deadline||'—']].map(([k,v])=>`<div><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>
+   ${p.memo?`<p style="margin-top:10px;color:var(--ink2)">메모: ${esc(p.memo)}</p>`:''}
+
+   <h3>2. 권리분석 <small>말소기준 ${a.base?a.base.date+' '+esc(a.base.type):'없음'}</small></h3>
+   <div class="tw"><table><thead><tr><th>접수일</th><th>권리</th><th>권리자</th><th class="n">금액</th><th>판정</th></tr></thead><tbody>
+   ${p.rights.map((r,i)=>({r,i})).sort((x,y)=>(x.r.date||'9')<(y.r.date||'9')?-1:1).map(({r,i})=>`<tr><td class="mono">${esc(r.date||'—')}</td><td>${esc(r.type)}</td><td>${esc(r.holder)}</td><td class="n">${N(r.amount)?won(r.amount):'—'}</td><td>${stamp(a.rights[i].st,a.rights[i].label)}</td></tr>`).join('')}
+   </tbody></table></div>
+   ${p.tenants.length?`<div class="tw" style="margin-top:12px"><table><thead><tr><th>임차인</th><th>전입 / 확정</th><th class="n">보증금</th><th>배당요구</th><th>대항력</th><th class="n">예상 배당</th><th class="n">인수</th></tr></thead><tbody>
+   ${p.tenants.map((t,i)=>`<tr><td>${esc(t.name)}</td><td class="mono">${esc(t.moveIn||'—')} / ${esc(t.fixed||'없음')}</td><td class="n">${won(t.deposit)}${N(t.monthly)?' / 월 '+N(t.monthly):''}</td><td>${t.claim?'O':'X'}</td><td>${a.tenants[i].opp===null?'확인':a.tenants[i].opp?'<b class="neg">있음</b>':'없음'}</td><td class="n">${won(a.tenants[i].paid)}</td><td class="n ${a.tenants[i].take?'neg':''}">${won(a.tenants[i].take)}</td></tr>`).join('')}
+   </tbody></table></div>`:'<p style="margin-top:10px">등록된 임차인 없음 (소유자 점유 또는 공실로 가정)</p>'}
+   <div style="margin-top:12px">${alertList(a.alerts)}</div>
+
+   <h3>3. 예상 배당표 <small>낙찰가 ${won(pr.bid)}</small></h3>
+   ${distTable(a.dist)}
+
+   <h3>4. 수익 분석</h3>
+   ${costTable(pr,p)}
+
+   <h3>5. 입찰가별 시나리오</h3>
+   <div class="tw"><table><thead><tr><th class="n">입찰가</th><th class="n">감정가 대비</th><th class="n">필요 현금</th><th class="n">세후 순이익</th><th class="n">수익률</th></tr></thead><tbody>
+   ${scenarios(p).map(({b,pr})=>`<tr class="${b===bidOf(p)?'me':''}"><td class="n">${won(b)}</td><td class="n">${pct(b/(N(p.appraisal)||1),0)}</td><td class="n">${won(pr.equity)}</td><td class="n ${pr.net>=0?'pos':'neg'}">${won(pr.net)}</td><td class="n ${pr.roe>=0?'pos':'neg'}">${pct(pr.roe)}</td></tr>`).join('')}
+   </tbody></table></div>
+
+   <h3>6. 현장·서류 확인 체크리스트 <small>${done}/${CHECKLIST.length} 완료</small></h3>
+   <ul class="clist">${CHECKLIST.map((t,i)=>`<li><label><input type="checkbox" data-chk="${i}"${p.check?.[i]?' checked':''}> <span>${t}</span></label></li>`).join('')}</ul>
+
+   <h3>7. 종합 의견</h3>
+   ${opinion(p,pr,g,mb).map(s=>`<p>${s}</p>`).join('')}
+
+   <div class="disc">이 보고서는 입력된 자료를 바탕으로 자동 계산한 참고용 분석이며 법률·세무 자문이 아닙니다. 소액임차인 기준, 취득세·양도세율은 작성 시점의 일반 규정을 단순화해 반영했고 장기보유특별공제, 다주택 중과, 조정대상지역, 상가임대차 최우선변제, 가압류 안분배당 등은 반영하지 않았습니다. 입찰 전 매각물건명세서·등기부·현장을 반드시 직접 확인하고, 위험 신호가 있으면 법무사·변호사·세무사와 상담하세요.</div>
+  </article></div>`;
+}
+function reportText(){
+  const p = cur(), pr = profit(p, bidOf(p)), a = pr.a, g = grade(p, pr), mb = maxBid(p);
+  const L = [];
+  L.push(`[경매 분석 보고서] ${p.caseNo} ${p.court}`, p.address, `등급 ${g} — ${GRADE_TXT[g]}`, '');
+  L.push('■ 물건 개요', `감정가 ${won(p.appraisal)} / 최저가 ${won(p.minPrice)} (${N(p.fails)}회 유찰, ${pct(N(p.minPrice)/(N(p.appraisal)||1),0)})`, `시세 ${won(p.market)} / 매각기일 ${p.saleDate||'—'}`, '');
+  L.push('■ 권리분석', `말소기준권리: ${a.base?a.base.date+' '+a.base.type+' '+(a.base.holder||''):'없음'}`, `인수 금액: ${won(a.take)}`);
+  a.alerts.forEach(([,t])=>L.push('- '+t.replace(/<[^>]+>/g,'')));
+  L.push('', '■ 수익 분석', `입찰 예정가 ${won(pr.bid)} / 필요 현금 ${won(pr.equity)}`, `세후 순이익 ${won(pr.net)} / 수익률 ${pct(pr.roe)} (연 ${pct(pr.annual)})`, `목표 ${N(p.c.target)}% 최대 입찰가: ${mb?won(mb):'없음'}`, '');
+  L.push('■ 종합 의견'); opinion(p,pr,g,mb).forEach(s=>L.push(s));
+  L.push('', '※ 참고용 자동 분석 — 입찰 전 서류·현장 직접 확인 필수');
+  return L.join('\n');
+}
+
+/* ═══════════ 화면 전환 · 이벤트 ═══════════ */
+const main = document.getElementById('main');
+function render(){
+  const tab = db.tab || 'list';
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected', b.dataset.tab===tab));
+  main.innerHTML = {list:viewList, rights:viewRights, profit:viewProfit, report:viewReport}[tab]();
+  refresh();
+}
+function refresh(){
+  const p = cur();
+  document.getElementById('topcase').textContent = `${p.caseNo||'사건번호 미입력'} · ${p.address}`;
+  renderCards(); updRights(); updProfit();
+}
+document.querySelector('.tabs').addEventListener('click', e=>{
+  const b = e.target.closest('.tab'); if (!b) return;
+  db.tab = b.dataset.tab; pendingDel = null; save(); render(); window.scrollTo(0,0);
+});
+main.addEventListener('input', e=>{
+  const t = e.target, p = cur();
+  if (t.id==='q'){ filt.q = t.value; renderCards(); return; }
+  if (t.dataset.k){
+    const k = t.dataset.k, isNum = t.type==='number' || ['reduce'].includes(k);
+    const v = isNum ? N(t.value) : t.value;
+    if (k.startsWith('c.')) p.c[k.slice(2)] = v; else p[k] = v;
+  } else if (t.dataset.row){
+    const r = p[t.dataset.row][+t.dataset.i], f = t.dataset.f;
+    r[f] = t.type==='checkbox' ? t.checked : t.type==='number' ? N(t.value) : t.value;
+  } else if (t.dataset.sp){ p.special = p.special || {}; p.special[t.dataset.sp] = t.checked; }
+  else if (t.dataset.chk!==undefined){ p.check = p.check || {}; p.check[t.dataset.chk] = t.checked; save(); render(); return; }
+  else return;
+  save(); refresh();
+});
+main.addEventListener('change', e=>{
+  const t = e.target;
+  if (t.id==='fu'){ filt.use = t.value; renderCards(); }
+  else if (t.id==='fs'){ filt.sort = t.value; renderCards(); }
+});
+function openItem(id){ db.sel = id; db.tab = 'rights'; save(); render(); window.scrollTo(0,0); }
+main.addEventListener('keydown', e=>{ const c = e.target.closest?.('[data-open]'); if (c && (e.key==='Enter'||e.key===' ') && e.target===c){ e.preventDefault(); openItem(c.dataset.open); } });
+main.addEventListener('click', e=>{
+  const t = e.target.closest('button,[data-open]'); if (!t) return;
+  const p = cur();
+  if (t.dataset.askdel){ e.stopPropagation(); pendingDel = t.dataset.askdel; renderCards(); return; }
+  if (t.dataset.cancel!==undefined){ e.stopPropagation(); pendingDel = null; renderCards(); return; }
+  if (t.dataset.del){ e.stopPropagation(); db.items = db.items.filter(x=>x.id!==t.dataset.del); pendingDel = null;
+    if (!db.items.length) db.items = [blank()];
+    if (!db.items.some(x=>x.id===db.sel)) db.sel = db.items[0].id; save(); render(); toast('삭제했습니다'); return; }
+  if (t.dataset.open){ openItem(t.dataset.open); return; }
+  if (t.dataset.delrow){ p[t.dataset.delrow].splice(+t.dataset.i,1); save(); render(); return; }
+  switch (t.dataset.act){
+    case 'add': { const b = blank(); db.items.unshift(b); openItem(b.id); toast('새 물건을 만들었습니다'); break; }
+    case 'restore': { const have = new Set(db.items.map(x=>x.id)); const add = samples().filter(s=>!have.has(s.id)); db.items.push(...add); save(); render(); toast(add.length?`예시 ${add.length}건을 추가했습니다`:'예시 물건이 이미 모두 있습니다'); break; }
+    case 'calcmin': p.minPrice = Math.floor(N(p.appraisal)*Math.pow(1-N(p.reduce)/100, N(p.fails))); save(); render(); break;
+    case 'addRight': p.rights.push({date:'',type:'근저당',holder:'',amount:0,claim:false}); save(); render(); break;
+    case 'addTenant': p.tenants.push({name:'',moveIn:'',fixed:'',deposit:0,monthly:0,claim:true}); save(); render(); break;
+    case 'copy': {
+      const txt = reportText();
+      const fallback = ()=>{ const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText='position:fixed;inset:10% 5%;width:90%;height:70%;z-index:60'; document.body.appendChild(ta); ta.select(); toast('선택된 글을 복사하세요 (바깥을 누르면 닫힘)'); ta.addEventListener('blur',()=>ta.remove()); };
+      try { navigator.clipboard.writeText(txt).then(()=>toast('보고서를 복사했습니다'), fallback); } catch(err){ fallback(); }
+      break; }
+  }
+});
+render();
+</script>
+</body>
+</html>

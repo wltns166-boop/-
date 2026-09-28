@@ -192,7 +192,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, version: db.version })
 ═══════════════════════════════════════ */
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'insurance-intranet-v2.html')));
 // PWA 관련 파일만 명시적으로 노출 (.git, server 등은 비공개)
-for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
+for (const f of ['insurance-intranet-v2.html', 'auction-report.html', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
   app.get('/' + f, (req, res) => res.sendFile(path.join(ROOT, f)));
 }
 
