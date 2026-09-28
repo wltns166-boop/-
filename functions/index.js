@@ -797,6 +797,78 @@ async function _kkHandle(body, res) {
       res.json({ ok: true, member: memberM });
       return;
     }
+    if (action === "rsvsend") {
+      // 예약문자발송 [내 카톡으로 보내기] — 로그인한 팀원 본인의 '나와의 채팅'으로 예약 문구(+지도·명함 사진) 발송.
+      //   매칭은 dbassign과 동일: 연동 계정의 member(팀원 이름) 정확 일치만, 중복 매핑이면 보류.
+      //   사진은 이 프로젝트 버킷의 claim_packages/rsv_cards·rsv_maps 경로만 허용(외부 이미지 주입 차단).
+      //   ⚠️ 구조적 한계(dbassign 계열): 서버는 요청자 신원을 검증할 수 없어 익명 토큰으로 다른 팀원 채팅에도 보낼 수 있음 — 10초 간격 상한으로 완화.
+      const memberR = String(body.member || "").trim();
+      if (!memberR) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
+      const textR = String(body.text || "").replace(/\r\n/g, "\n").trim().slice(0, 1000);
+      if (!textR) { res.json({ ok: false, error: "보낼 문구가 없습니다." }); return; }
+      const RSV_IMG_RE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Frsv_(cards|maps)%2F[^?#\s]+\?alt=media&token=[\w-]+$/;
+      const imgsR = (Array.isArray(body.imgs) ? body.imgs.slice(0, 2) : [])
+        .map((m) => ({ t: String((m || {}).t || "사진").slice(0, 20), u: String((m || {}).u || "").slice(0, 2048) }))
+        .filter((m) => RSV_IMG_RE.test(m.u));
+      const [cfgSnapR, tokSnapR] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgR = cfgSnapR.exists ? (cfgSnapR.data() || {}) : {};
+      const usersR = (tokSnapR.exists && (tokSnapR.data() || {}).users) || {};
+      if (!cfgR.restKey) { res.json({ ok: false, error: "카톡 연동 설정(REST API 키)이 없습니다 — 관리자에게 문의하세요." }); return; }
+      const matchedR = Object.keys(usersR).filter((id) => usersR[id] && usersR[id].approved && String(usersR[id].member || "") === memberR);
+      if (!matchedR.length) { res.json({ ok: false, error: "카톡 미연동/미승인(" + memberR + ") — DB 정보 [카톡 알림 연동]으로 연동한 뒤 관리자 승인을 받으세요." }); return; }
+      if (matchedR.length > 1) { res.json({ ok: false, error: "'" + memberR + "' 매핑 계정이 " + matchedR.length + "개입니다 — 중복 연동을 정리한 뒤 다시 시도하세요." }); return; }
+      const kidR = matchedR[0];
+      const ldr = (cfgR.lastRsvSend && typeof cfgR.lastRsvSend === "object") ? cfgR.lastRsvSend : {};
+      if (ldr[kidR] && Date.now() - ldr[kidR] < 10 * 1000) { res.status(429).json({ error: { message: "10초에 1회만 보낼 수 있습니다." } }); return; }
+      // 하루 상한(계정당 60회) — 요청자 신원을 검증할 수 없는 구조에서 스팸 반복 발송량을 묶는다(리뷰 반영)
+      const dayR = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const dcr = (cfgR.rsvDaily && typeof cfgR.rsvDaily === "object") ? cfgR.rsvDaily : {};
+      const dc = (dcr[kidR] && dcr[kidR].d === dayR) ? dcr[kidR] : { d: dayR, n: 0 };
+      if (dc.n >= 60) { res.status(429).json({ error: { message: "오늘 보낼 수 있는 횟수(60회)를 넘었습니다." } }); return; }
+      dc.n++; dcr[kidR] = dc;
+      Object.keys(dcr).forEach((k) => { if (!dcr[k] || dcr[k].d !== dayR) delete dcr[k]; });
+      ldr[kidR] = Date.now();
+      Object.keys(ldr).forEach((k) => { if (Date.now() - ldr[k] > 3600 * 1000) delete ldr[k]; });
+      await KK_CFG().set({ lastRsvSend: ldr, rsvDaily: dcr }, { merge: true }).catch(() => {});
+      const uR = usersR[kidR];
+      const tR = await _kkAccessToken(cfgR, uR);
+      if (!tR.at) {
+        if (tR.relink) { uR.needsRelink = true; await KK_TOK().set({ users: usersR }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 카톡 재연동이 필요합니다." });
+        return;
+      }
+      if (tR.upd) { Object.assign(uR, tR.upd); uR.needsRelink = false; await KK_TOK().set({ users: usersR }, { merge: true }).catch(() => {}); }
+      // 텍스트 템플릿 200자 제한 — 줄 단위로 나눠 최대 5통(긴 줄은 200자 조각으로)
+      const partsR = [];
+      let curR = "";
+      textR.split("\n").forEach((ln) => {
+        const pieces = ln.length > 200 ? ln.match(/[\s\S]{1,200}/g) : [ln];
+        pieces.forEach((pc) => {
+          const nx = curR ? curR + "\n" + pc : pc;
+          if (nx.length > 200) { if (curR) partsR.push(curR); curR = pc; }
+          else curR = nx;
+        });
+      });
+      if (curR) partsR.push(curR);
+      let cutR = false;
+      while (partsR.length > 5) { partsR.pop(); cutR = true; }
+      if (cutR) partsR[4] = partsR[4].slice(0, 170) + "\n…(이하 생략)";
+      const siteR = KK_SITE + "/";
+      const msgsR = partsR.map((pc) => JSON.stringify({ object_type: "text", text: pc, link: { web_url: siteR, mobile_web_url: siteR }, button_title: "인트라넷 열기" }));
+      imgsR.forEach((m) => msgsR.push(JSON.stringify({
+        object_type: "feed",
+        content: { title: m.t, description: "예약 안내 첨부", image_url: m.u, link: { web_url: siteR, mobile_web_url: siteR } }
+      })));
+      let sentR = 0, lastErrR = "";
+      for (const tpl of msgsR) {
+        const sr = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, tR.at);
+        if (sr.ok) sentR++;
+        else { lastErrR = (sr.data && (sr.data.msg || sr.data.error_description)) || ("전송 실패 " + sr.status); break; }
+      }
+      // ok=글·사진 전부 도착. 일부만 갔으면 sent/total로 알려 재발송 시 중복을 사용자가 판단하게 한다(리뷰 반영)
+      res.json({ ok: sentR >= msgsR.length, sent: sentR, total: msgsR.length, textParts: partsR.length, nick: uR.nick || "", error: lastErrR || (cutR ? "문구가 길어 뒷부분이 생략됨" : undefined) });
+      return;
+    }
     if (action === "kktest") {
       // 연동 관리 화면 [테스트] — 해당 계정의 카톡으로 간단한 확인 메시지 발송 (보고서 캡처 없음)
       const kidT = String(body.id || "");
