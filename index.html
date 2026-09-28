@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-11</div>
   </div>
 </div>
 
@@ -2341,6 +2341,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <div style="font-size:13px;font-weight:700;color:#3040aa;margin-bottom:4px">직함 지정 <span style="font-weight:400;font-size:11.5px;color:#8890a8">(관리자 — {직함}에 들어갈 글자)</span></div>
           <div style="font-size:11.5px;color:#8890a8;margin-bottom:6px">둘 다 해제하면 이름만 들어갑니다.</div>
           <div id="rsv_titles"></div>
+          <div style="font-size:13px;font-weight:700;color:#3040aa;margin:14px 0 4px">관리자 발신번호 <span style="font-weight:400;font-size:11.5px;color:#8890a8">(관리자 전용 — [문자 바로 보내기]용)</span></div>
+          <div style="font-size:11.5px;color:#8890a8;margin-bottom:6px">팀원 번호는 구성원 관리의 휴대폰 번호를 씁니다. 여기 번호도 솔라피 [발신번호]에 등록돼 있어야 발송됩니다.</div>
+          <div id="rsv_admph"></div>
         </div>
       </div>
       <div style="display:flex;gap:6px;justify-content:space-between;flex-wrap:wrap;margin-top:12px">
@@ -5336,10 +5339,37 @@ function _rsvTitleRows(){
     .forEach(function(m){ var k=m.code?'c_'+m.code:'n_'+m.name; rows.push({key:k, name:m.name, sub:m.rank||'', auto:_rsvTitleAuto(false,m.rank)}); });
   return rows;
 }
+// 관리자 발신번호(2026-09-28 v-11, 사용자 요청 — 관리자만 보고 수정): 관리자 계정은 구성원 명단에 없으므로
+//   [문자 바로 보내기] 발신번호를 admov[이름].phone(구성원 관리 [관리자 정보 수정]과 같은 칸)에 둔다. 서버 rsvsms가 tops/data admov에서 읽음.
+function _rsvAdmPhDraw(){
+  var el=g('rsv_admph'); if(!el) return;
+  if(!_isAdmin()){ el.innerHTML=''; return; }
+  el.innerHTML=ADMINS.map(function(a){
+    var ph=String((_admOv(a.name)||{}).phone||'');
+    return '<div class="rsvtr"><span class="rsvtn">'+_esc(a.name)+'<small>'+_esc(a.role||'')+'</small></span>'+
+      '<input class="rsvi" data-rsvap="'+_alertEsc(a.name)+'" data-orig="'+_alertEsc(ph)+'" value="'+_alertEsc(ph)+'" inputmode="numeric" maxlength="13" oninput="dqPhone(this)" placeholder="010-0000-0000" style="flex:1;min-width:0;padding:6px 8px;font-size:13px"></div>';
+  }).join('');
+}
+// admov 한 사람 키만 서버에 병합 저장(openAdmEdit 저장과 같은 패턴 — 동시 수정 경합 방지)
+function _admovPut(name, o){
+  admov[name]=o;
+  _lsSet('tops_admov', JSON.stringify(admov));
+  var merged=false;
+  try{
+    if(window.FS_DOC && typeof firebase!=='undefined' && firebase.firestore && firebase.firestore.FieldPath){
+      window.FS_DOC.update(new firebase.firestore.FieldPath('admov', name), o)
+        .catch(function(){ try{ sv('tops_admov',admov); }catch(e){} });
+      merged=true;
+      try{ _authDocSync(); }catch(e){}
+    }
+  }catch(e){}
+  if(!merged) sv('tops_admov',admov);
+}
 function _rsvTitlesDraw(){
   var box=g('rsv_titlebox'), el=g('rsv_titles'); if(!box||!el) return;
-  if(!_isAdmin()){ box.style.display='none'; el.innerHTML=''; return; }
+  if(!_isAdmin()){ box.style.display='none'; el.innerHTML=''; var ap=g('rsv_admph'); if(ap) ap.innerHTML=''; return; }
   box.style.display='';
+  _rsvAdmPhDraw();
   var rows=_rsvTitleRows();
   if(!rows.length){ el.innerHTML='<div style="padding:10px;font-size:12.5px;color:#8890a8">구성원이 없습니다.</div>'; return; }
   el.innerHTML=rows.map(function(r){
@@ -6218,11 +6248,23 @@ function rsvSaveSet(){
       });
     }
   }
+  var phBad='', phSaved=0;
+  if(_isAdmin()){
+    document.querySelectorAll('#rsv_admph input[data-rsvap]').forEach(function(inp){
+      var nm=inp.getAttribute('data-rsvap'), v=String(inp.value||'').trim();
+      if(v===inp.getAttribute('data-orig')) return;                      // 바꾼 칸만 저장
+      if(!ADMINS.some(function(a){ return a.name===nm; })) return;
+      if(v&&!/^01[016789]\d{7,8}$/.test(v.replace(/\D/g,''))){ phBad=nm; return; }
+      var o=Object.assign({}, _admOv(nm)||{}); o.phone=v;                 // 아이디·비밀번호 등 기존 오버라이드 보존
+      _admovPut(nm, o); phSaved++;
+    });
+    if(phBad){ toast(phBad+' 번호가 휴대폰 번호 형식이 아닙니다(010-0000-0000). 그 칸은 저장하지 않았습니다.'); }
+  }
   sv('tops_rsvcfg', one);                            // 클라우드: 본인 키만 merge(다른 사용자 문구 보존)
   _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg));      // 로컬: 전체 캐시로 다시 덮어씀(sv가 본인 키만 쓴 것 보정)
   g('m_rsvset').classList.remove('open');
   rsvRender();
-  toast(_isAdmin()?'문구와 직함 지정을 저장했습니다.':'문구를 저장했습니다.');
+  if(!phBad) toast(_isAdmin()?'문구와 직함 지정'+(phSaved?'·관리자 발신번호':'')+'를 저장했습니다.':'문구를 저장했습니다.');
 }
 // ===== 지급지연 요청서 (delayreq) — 입력→미리보기 자동 완성, 인쇄는 새 창(SPA 전체 인쇄 방지) =====
 // 저장·동기화 없음(입력은 이 화면에서만 유효) — 함정 B 무관. 모든 id는 dq_ 접두(함정 E).
@@ -24301,6 +24343,7 @@ function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 
   try{
     var m=(mem||[]).filter(function(x){ return x&&((cu.code&&x.code===cu.code)||x.name===cu.name); })[0];
     if(m){ out.phone=m.phone||''; out.addr=m.address||''; }
+    else if(cu&&cu.admin){ var ov=_admOv(cu.name)||{}; out.phone=ov.phone||''; out.addr=ov.addr||''; }   // 관리자 계정은 admov 연락처
   }catch(e){}
   return out;
 }

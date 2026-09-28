@@ -1210,14 +1210,24 @@ async function _rsvSmsHandle(body, res) {
   let me = null;
   if (/^c_/.test(key)) me = memList.find((m) => m && String(m.code || "") === key.slice(2)) || null;
   if (!me && nm) { const byName = memList.filter((m) => m && String(m.name || "") === nm); if (byName.length === 1) me = byName[0]; }
-  // 관리자 계정(ADMINS)은 구성원 명단에 없을 수 있다 — GitHub Secrets SOLAPI_FROM_MAP("이름:번호;이름:번호")로 보충(선택 설정)
+  // 관리자 계정(ADMINS)은 구성원 명단에 없다 — 인트라넷에서 관리자가 입력한 admov[이름].phone(tops/data)을 쓴다(2026-09-28 v-11).
+  //   문서 전체를 읽지 않게 admov 필드만 select. 이름은 관리자 3인으로 제한(별칭 '이영현 총무' 포함).
+  const ADM_KEYS = { "백동현": ["백동현"], "박지순": ["박지순"], "이영현": ["이영현", "이영현 총무"] };
+  if (!me && nm && /^n_/.test(key) && ADM_KEYS[nm]) {
+    try {
+      const qs = await admin.firestore().collection("tops").where(admin.firestore.FieldPath.documentId(), "==", "data").select("admov").get();
+      const av = (!qs.empty && (qs.docs[0].data() || {}).admov) || {};
+      for (const k of ADM_KEYS[nm]) { const ph = av[k] && av[k].phone; if (ph) { me = { name: nm, hp: String(ph) }; break; } }
+    } catch (e) { console.warn("admov 조회 실패", e); }
+  }
+  // 보충: GitHub Secrets SOLAPI_FROM_MAP("이름:번호;이름:번호") — 선택 설정
   if (!me && nm && /^n_/.test(key)) {
     String(process.env.SOLAPI_FROM_MAP || "").split(/[;,\n]/).forEach((pair) => {
       const i = pair.indexOf(":"); if (i < 0) return;
       if (pair.slice(0, i).trim() === nm) me = { name: nm, hp: pair.slice(i + 1).trim() };
     });
   }
-  if (!me) { res.json({ ok: false, error: "구성원 명단에서 내 정보를 찾지 못했습니다 — 구성원 관리에 이름·휴대폰 번호를 등록하세요(관리자 계정은 SOLAPI_FROM_MAP 설정 필요)." }); return; }
+  if (!me) { res.json({ ok: false, error: "구성원 명단에서 내 번호를 찾지 못했습니다 — 팀원은 구성원 관리에 휴대폰 번호를, 관리자는 예약문자발송 [설정]의 \"관리자 발신번호\"에 번호를 입력하세요." }); return; }
   if (me.sus) { res.json({ ok: false, error: "사용 정지된 계정입니다." }); return; }
   const from = String(me.hp || "").replace(/\D/g, "");
   if (!/^01[016789]\d{7,8}$/.test(from)) { res.json({ ok: false, error: "구성원 관리에 내 휴대폰 번호가 없거나 휴대폰 번호가 아닙니다 — 번호를 등록해야 발신번호로 쓸 수 있습니다." }); return; }
