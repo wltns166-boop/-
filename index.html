@@ -5959,8 +5959,8 @@ async function _rsvSheetBuild(text, mapBlob, cardBlob){
     lines.push(cur);
   });
   var bubbleH=BP*2+lines.length*LH;
-  var pics=[];
-  for(var b of [mapBlob, cardBlob]){ if(!b) continue; try{ pics.push(await _rsvImgFromBlob(b)); }catch(e){ console.warn('한 장 안내문 — 사진 제외:', e); } }
+  var pics=[], miss=[];
+  for(var it of [{b:mapBlob,l:'지도'},{b:cardBlob,l:'명함'}]){ if(!it.b) continue; try{ pics.push(await _rsvImgFromBlob(it.b)); }catch(e){ miss.push(it.l); console.warn('한 장 안내문 — 사진 제외:', e); } }
   var innerW=W-2*P, y=P+bubbleH, H;
   var hs=pics.map(function(p){ return Math.round(p.im.naturalHeight*innerW/Math.max(1,p.im.naturalWidth)); });
   H=y+hs.reduce(function(a,h){ return a+24+h; },0)+P;
@@ -5982,7 +5982,7 @@ async function _rsvSheetBuild(text, mapBlob, cardBlob){
   });
   var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.9); });
   if(!blob) throw new Error('안내문 사진을 만들지 못했습니다');
-  return {blob:blob, w:W, h:H, pics:pics.length};
+  return {blob:blob, w:W, h:H, pics:pics.length, miss:miss};
 }
 // [내 카톡으로 보내기] — 완성된 문구(+지도·명함 사진)를 로그인한 본인의 카톡 '나와의 채팅'으로 보낸다(functions rsvsend).
 //   받은 메시지를 카톡에서 고객에게 전달하는 용도. 연동은 DB 정보 [카톡 알림 연동](팀원 이름 매핑·관리자 승인)과 같은 계정을 쓴다.
@@ -6006,9 +6006,11 @@ async function rsvKakao(){
       cardBlob=(window._rsvCardBlobU===c0.u&&window._rsvCardBlob)||null;
       if(!cardBlob){ try{ var fr=await fetch(c0.u); if(fr.ok) cardBlob=await fr.blob(); }catch(e){} }
     }
-    var sheet=null;
+    var sheet=null, sheetMiss=[];
+    if(c0&&c0.u&&!cardBlob) sheetMiss.push('명함');   // 명함을 받지 못함 — 빠진 채 보내면 알려 준다(조용한 누락 금지, 리뷰 반영)
     try{
       var sh=await _rsvSheetBuild(text, useMap&&mi.blob?mi.blob:null, cardBlob);
+      sheetMiss=sheetMiss.concat(sh.miss||[]);
       try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
       var sref=firebase.storage().ref('claim_packages/rsv_sheets/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg');
       await sref.put(sh.blob,{contentType:'image/jpeg'});
@@ -6017,7 +6019,7 @@ async function rsvKakao(){
     if(sheet){
       if(key!==_rsvKey()) return;
       var rs=await _kkApi('rsvsend',{member:me, text:text, sheet:sheet});
-      if(rs&&rs.ok){ _rsvLogAdd(snap,'kakao'); toast('내 카톡(나와의 채팅)으로 한 장으로 보냈습니다. 카톡에서 고객에게 전달하세요.'); }
+      if(rs&&rs.ok){ _rsvLogAdd(snap,'kakao'); toast('내 카톡(나와의 채팅)으로 한 장으로 보냈습니다'+(sheetMiss.length?' — ⚠ '+sheetMiss.join('·')+'은(는) 불러오지 못해 빠졌습니다':'')+'. 카톡에서 고객에게 전달하세요.'); }
       else toast('카톡으로 보내지 못했습니다: '+((rs&&((rs.error&&rs.error.message)||rs.error))||'알 수 없는 오류'));
       return;   // 발송 실패 시 여러 통 방식으로 자동 재시도하지 않음(카톡에 중복·혼란 방지)
     }
