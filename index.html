@@ -510,7 +510,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-9</div>
   </div>
 </div>
 
@@ -2304,6 +2304,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
               <button class="bp" onclick="rsvSms()"><i class="ti ti-message-forward"></i> 문자 앱 열기</button>
               <button class="bp" onclick="rsvShare()" style="background:#1a9050;color:#fff;border-color:#1a9050"><i class="ti ti-share"></i> 공유하기로 보내기 (문구+지도·명함 사진 1장)</button>
+              <button class="bp" id="rsv_imgbtn" onclick="rsvShareImg()" style="background:#fff7c2;color:#3a1d1d;border-color:#e6cf00"><i class="ti ti-photo"></i> 안내문 사진으로 공유 (카톡 등)</button>
               <button class="bp" id="rsv_kkbtn" onclick="rsvKakao()" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00"><i class="ti ti-message-circle-2"></i> 내 카톡으로 보내기</button>
             </div>
           </div>
@@ -5812,12 +5813,49 @@ function rsvShare(){
     toast(e&&e.name==='NotAllowedError'?'공유 창을 열지 못했습니다. 한 번 더 눌러 주세요.':'공유하지 못했습니다: '+((e&&e.message)||e));
   });
 }
+// [안내문 사진으로 공유] (2026-09-28 v-9, 사용자 요청) — '나와의 채팅' 카드는 카톡에서 다시 전달하면 링크로 가므로,
+//   한 장 안내문(말풍선+지도+명함 — _rsvSheetBuild) JPEG를 휴대폰 공유 창으로 바로 넘긴다 → 카톡에서 고객을 고르면 사진으로 전송.
+//   공유는 클릭 직후에만 허용(iOS)되므로 만든 사진을 {text,mb,cb}가 같을 때 재사용하고, 만들다 허용 시간이 지나면 "한 번 더 눌러 주세요".
+function rsvShareImg(){
+  if(!_rsvMe()){ toast('로그인 후 이용해 주세요.'); return; }
+  if(!navigator.share){ toast('이 브라우저는 공유하기를 지원하지 않습니다. 휴대폰(크롬·사파리)에서 이용해 주세요.'); return; }
+  if(window._rsvImgBusy) return;
+  var text=_rsvReadyText(); if(text==null) return;
+  if(_rsvCard()&&!window._rsvCardBlob){ _rsvCardPrefetch(); toast('명함을 불러오는 중입니다. 잠시 후 다시 눌러 주세요.'); return; }
+  var mi=window._rsvMapImg, curQ=String((g('rsv_place')||{}).value||'').trim().slice(0,80), useMap=!!mi;
+  if(mi&&mi.q!==curQ){
+    if(!confirm('첨부된 지도는 예전 장소('+(mi.q||'알 수 없음')+')입니다.\n지도를 빼고 보낼까요?\n(취소하면 멈춥니다 — [지도 캡처]로 다시 첨부하세요)')) return;
+    useMap=false;
+  }
+  var mb=useMap?mi.blob:null, cb=window._rsvCardBlob||null, snap=_rsvLogSnap();
+  var doShare=function(blob, miss){
+    var f; try{ f=new File([blob],'상담예약_안내.jpg',{type:'image/jpeg'}); }catch(e){ toast('사진 파일을 만들지 못했습니다.'); return; }
+    if(navigator.canShare&&!navigator.canShare({files:[f]})){ toast('이 브라우저는 사진 공유를 지원하지 않습니다.'); return; }
+    navigator.share({files:[f]}).then(function(){
+      _rsvLogAdd(snap,'img'); toast('안내문 사진을 공유했습니다.'+(miss&&miss.length?' ⚠ '+miss.join('·')+' 사진은 읽지 못해 빠졌습니다.':''));
+    }).catch(function(e){
+      if(e&&e.name==='AbortError') return;
+      toast(e&&e.name==='NotAllowedError'?'사진이 준비됐습니다. 한 번 더 눌러 주세요.':'공유하지 못했습니다: '+((e&&e.message)||e));
+    });
+  };
+  var c=window._rsvImgShare;
+  if(c&&c.text===text&&c.mb===mb&&c.cb===cb&&c.blob){ doShare(c.blob, c.miss); return; }
+  window._rsvImgBusy=true;
+  var seq=window._rsvImgSeq=(window._rsvImgSeq||0)+1;
+  var btn=g('rsv_imgbtn'); if(btn) btn.disabled=true;
+  _rsvSheetBuild(text, mb, cb).then(function(sh){
+    if(seq!==window._rsvImgSeq) return;   // 그 사이 로그아웃 등으로 버려진 요청
+    window._rsvImgShare={text:text, mb:mb, cb:cb, blob:sh.blob, miss:sh.miss||[]};
+    doShare(sh.blob, sh.miss);   // 만드는 동안 허용 시간이 지났으면 NotAllowedError → "한 번 더 눌러 주세요"(캐시 재사용)
+  }).catch(function(e){ toast('안내문 사진을 만들지 못했습니다: '+((e&&e.message)||e)); })
+    .then(function(){ if(seq===window._rsvImgSeq){ window._rsvImgBusy=false; if(btn) btn.disabled=false; } });
+}
 function rRsv(){ rsvRender(); _rsvLogLoad(); }
 // ── 발송 내역 (2026-09-28) — 사용자별 별도 문서 rsvlog/{_rsvKey()} = {items:[…]} (tops/data 1MiB 한도와 분리 — 3.12 규칙).
 //   추가는 arrayUnion(두 기기 동시 기록에도 유실 없음), 삭제는 arrayRemove(저장된 객체 그대로). 최근 RSV_LOG_MAX건만 유지.
 //   화면은 최근 발송이 위, 지난 내역이 아래. 행 조작은 항목 id 기준(함정 A). 고객 성함·연락처가 담기므로 로그아웃 시 비움.
 var RSV_LOG_MAX=200;
-var RSV_LOG_VIA={share:'공유',sms:'문자 앱',copy:'복사',kakao:'내 카톡'};
+var RSV_LOG_VIA={share:'공유',sms:'문자 앱',copy:'복사',kakao:'내 카톡',img:'사진 공유'};
 function _rsvLogRef(){ var k=_rsvKey(); return (k&&window.db)?window.db.collection('rsvlog').doc(k):null; }
 function _rsvLogSnap(){
   var v=function(id){ return String((g(id)||{}).value||'').trim(); };
@@ -5923,6 +5961,7 @@ function _rsvClear(){
   window._rsvCardBlob=null; window._rsvCardBlobU=null;
   _rsvCardSel(false); window._rsvKkBusy=false;
   window._rsvCombo=null; window._rsvComboSeq=(window._rsvComboSeq||0)+1;   // 지도+명함 합친 사진(고객별)
+  window._rsvImgShare=null; window._rsvImgBusy=false; window._rsvImgSeq=(window._rsvImgSeq||0)+1;   // 한 장 안내문 공유 캐시(고객 정보 — 다음 사용자에게 남지 않게)
   window._rsvLog=null; window._rsvLogSeq=(window._rsvLogSeq||0)+1;   // 발송 내역(고객 성함·연락처) — 다음 로그인 사용자에게 남지 않게
   var _rl=g('rsv_log'); if(_rl) _rl.innerHTML=''; var _rc=g('rsv_logcnt'); if(_rc) _rc.textContent='';
 }
