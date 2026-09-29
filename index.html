@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-8</div>
   </div>
 </div>
 
@@ -13514,13 +13514,66 @@ function _medRecsToRows(recs){
   });
   return rows;
 }
+// 수술 낱말 보조 스캔(2026-09-29 v-8): 표 열 인식과 무관하게 좌표 줄을 직접 훑어 수술 낱말과 그 행의 날짜·병원을 찾는다.
+// 세부진료기록 머리글이 서식 차이로 진료행위 열로 인식되지 않으면 수술이 통째로 빠지던 실사고(박종학 건 폴립절제술) 안전망.
+// 행 나누기는 _medParseTables와 같은 원리 — 날짜 있는 줄=행의 기준 줄(세로 가운데), 기준 줄 사이는 줄 간격이 가장 큰 곳에서 나눔.
+// 한 행 안에서 x가 겹치는 조각끼리 위→아래로 이어 한 칸 글자로 만든 뒤 판정("수술-폴립"+"절제술"). 머리글 줄은 행 구분자.
+function _medSurgScan(lines){
+  var out=[], seen={}, byPg={};
+  (lines||[]).forEach(function(l){ (byPg[l.pg]=byPg[l.pg]||[]).push(l); });
+  var HOSP_RE=/(의원|병원|센터|클리닉|보건소|보건지소)$/;
+  Object.keys(byPg).sort(function(a,b){ return a-b; }).forEach(function(pg){
+    var ls=byPg[pg].slice().sort(function(a,b){ return b.y-a.y; }).map(function(l){
+      var toks=_medTokens(l.items).map(function(t){ return {x:t.x, w:t.w, t:String(t.s).trim()}; }).filter(function(t){ return t.t; });
+      var date=''; toks.some(function(t){ var d=_medDateNorm(t.t); if(d){ date=d; return true; } return false; });
+      var hk=0; toks.forEach(function(t){ if(_medColOf(t.t)) hk++; });
+      return {y:l.y, toks:toks, date:date, hdr:hk>=2};
+    });
+    // 머리글 줄로 구역을 나눠 구역마다 행 블록 재구성
+    var segs=[], cur=[];
+    ls.forEach(function(l){ if(l.hdr){ if(cur.length) segs.push(cur); cur=[]; } else cur.push(l); });
+    if(cur.length) segs.push(cur);
+    segs.forEach(function(sg){
+      var anc=[]; sg.forEach(function(l,i){ if(l.date) anc.push(i); });
+      if(!anc.length) return;
+      var owner=new Array(sg.length).fill(-1);
+      anc.forEach(function(a){ owner[a]=a; });
+      for(var k=0;k<anc.length-1;k++){                                    // 기준 줄 사이: 가장 큰 간격에서 나눔
+        var a=anc[k], b=anc[k+1], cut=a, mg=-1;
+        for(var q=a;q<b;q++){ var gp=sg[q].y-sg[q+1].y; if(gp>mg){ mg=gp; cut=q; } }
+        for(var q2=a+1;q2<b;q2++) owner[q2]=(q2<=cut)?a:b;
+      }
+      var FAR=24;                                                         // 첫 기준 줄 위·마지막 아래 조각은 가까운 것만(각주·안내문 제외)
+      for(var u=anc[0]-1;u>=0 && sg[u].y-sg[u+1].y<=FAR;u--) owner[u]=anc[0];
+      var la=anc[anc.length-1];
+      for(var d=la+1;d<sg.length && sg[d-1].y-sg[d].y<=FAR;d++) owner[d]=la;
+      anc.forEach(function(a){
+        var groups=[];                                                    // 칸 묶음: x가 겹치는 조각을 위→아래로 이어붙임
+        sg.forEach(function(l,i){ if(owner[i]!==a) return;
+          l.toks.forEach(function(t){
+            if(_medDateNorm(t.t)) return;                                   // 머리글 줄은 위에서 구역 구분자로 빠짐(병원명 "…병원"이 열 이름 정규식에 걸리므로 _medColOf로 거르지 말 것)
+            var g=groups.filter(function(G){ return t.x<G.x1 && t.x+t.w>G.x0; })[0];
+            if(g){ g.t+=t.t; g.x0=Math.min(g.x0,t.x); g.x1=Math.max(g.x1,t.x+t.w); }
+            else groups.push({x0:t.x, x1:t.x+t.w, t:t.t});
+          });
+        });
+        var hosp=''; groups.some(function(G){ if(HOSP_RE.test(G.t) && !/약국/.test(G.t)){ hosp=G.t; return true; } return false; });
+        var sw=''; groups.some(function(G){ sw=_medSurgWord(G.t); return !!sw; });
+        if(!sw) return;
+        var key=sg[a].date+'|'+hosp; if(seen[key]) return; seen[key]=1;   // 같은 날·같은 병원은 1건(수술 1회 판정엔 충분)
+        out.push({date:sg[a].date, hosp:hosp, dept:'', kind:'', code:'', codeRaw:'', name:'', vdays:0, ddays:0, drug:'', act:sw, act2:'', tbl:'act', pg:+pg, scan:1});
+      });
+    });
+  });
+  return out;
+}
 // 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
 function _medSurgWord(act){
   // 사용자 확정 규칙(2026-09-23, v-22·v-23): 수술 판정 글자는 세부진료기록에서만 보되, 낱말은 절제술·수술·적출·절개술·성형술("…술 후"=과거 수술 뒤 상태, "수술 전/후/실/동의…" 부대 항목은 제외).
   // 세부진료정보 진료내역 칸의 분류명 "처치 및 수술/처치 및 수술(양방)"은 수술 낱말이 아님 — 이 분류의 모든 행(생검 FORCEPS·처치 등)이
   // 수술로 잡히고, 괄호 표기가 실제 수술명("폴립절제술") 대신 "수술"이 되던 문제(2026-09-29). 분류명을 지운 뒤 판정한다.
   var src=String(act||'').replace(/처치\s*및\s*수\s*술(\s*\((?:양방|한방|치과|한의)\))?/g,' ');
-  var m=src.match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
+  var m=src.match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후|술용)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기|용|및)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act, ownVdays){
@@ -13733,7 +13786,7 @@ async function analyzeMedical(){
     var chunks = [];
     var srcNote = '';
     var parsedRecs = [], parsedTables = 0, parsedDropped = 0, okFiles = [], aiFiles = [], hdrDiag = [];
-    var seqDiag = [], surgDiag = [];
+    var seqDiag = [], surgDiag = [], scanRecs = [];
     medFileData.forEach(function(f){
       var pr = null;
       try{ pr = _medParseTables(f.lines); }catch(pe){ console.warn('서식 파서 오류('+f.label+'):', pe); }
@@ -13741,10 +13794,17 @@ async function analyzeMedical(){
       if(pr && pr.recs.length){ var acts=pr.recs.filter(function(r){ return r.tbl==='act'; }); if(acts.length){ var sw=acts.filter(function(r){ return _medSurgWord(r.act); }); surgDiag.push(f.label+' 진료행위 '+acts.length+'건 중 수술 낱말 '+sw.length+'건'+(sw.length?' ('+sw.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'-')+' '+_medSurgWord(r.act); }).join(', ')+(sw.length>4?' 외':'')+')':'')); } }
       if(pr && pr.recs.length){ parsedRecs = parsedRecs.concat(pr.recs); parsedTables += pr.tables; parsedDropped += pr.dropped; okFiles.push(f.label+' '+pr.recs.length+'건'); }
       else aiFiles.push(f);
+      // 수술 낱말 보조 스캔(v-8): 표에서 이미 잡힌 날짜의 수술은 건너뛰고, 못 잡은 것만 보충(열 인식 실패·AI 폴백 파일 포함)
+      try{
+        var hadSurg={}; (pr&&pr.recs||[]).forEach(function(r){ if(r.tbl==='act' && _medSurgWord(r.act)) hadSurg[r.date]=1; });
+        var sc=(f.label==='세부기록'?_medSurgScan(f.lines):[]).filter(function(r){ return !hadSurg[r.date]; });
+        if(sc.length){ scanRecs=scanRecs.concat(sc); surgDiag.push(f.label+' 줄 직접 스캔 보충 '+sc.length+'건 ('+sc.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'병원 미상')+' '+r.act; }).join(', ')+(sc.length>4?' 외':'')+')'); }
+      }catch(se){ console.warn('수술 보조 스캔 오류('+f.label+'):', se); }
       if(pr && pr.hdrInfo && pr.hdrInfo.length) hdrDiag.push(f.label+': ['+pr.hdrInfo[0]+']');   // 열 인식 진단(첫 표) — 서식이 달라 열이 어긋날 때 원인 확인용
       // 완전성 자가 점검(v-19): 원문 순번 최대값(=원문 행 수)과 정리된 기록 수를 파일별로 표시 — 원본 없이도 빠진 행 유무를 화면에서 확인
       if(pr && pr.seqMax){ Object.keys(pr.seqMax).forEach(function(k){ var mx=pr.seqMax[k], cnt=pr.seqCnt[k]||0; if(mx>0) seqDiag.push(f.label+' 원문 순번 최대 '+mx+' / 정리 기록 '+cnt+'건'+(cnt>=mx?' ✓':' ⚠ '+(mx-cnt)+'건 차이')); }); }
     });
+    if(parsedRecs.length && scanRecs.length){ parsedRecs = parsedRecs.concat(scanRecs); scanRecs = []; }   // 표 기록과 함께 정리(같은 날 상병 행에 수술 부착)
     if(parsedRecs.length){
       loadEl.textContent = '📋 표 서식 정리 중...';
       allRows = _medRecsToRows(parsedRecs);
@@ -13833,6 +13893,7 @@ async function analyzeMedical(){
     }catch(ae){ codeAudit=''; }
 
     // 같은 상병코드끼리 묶어 기간(최초~최근)·통원 횟수 합산, 약 처방일수는 최장값(합산 금지 — 확정 규칙)
+    if(scanRecs.length){ try{ allRows = allRows.concat(_medRecsToRows(scanRecs)); }catch(se){ console.warn('수술 보조 스캔 반영 오류:', se); } }   // 표 파서 결과가 없을 때(전부 AI 전사)도 보충분을 버리지 않음
     var mergedRows = _mergeMedRowsByCode(allRows);
 
     var finalLines = [
