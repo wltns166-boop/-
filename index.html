@@ -83,16 +83,12 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .nt{color:#2a2a4a;font-size:15px;}
 .nd{font-size:13px;color:#8080b0;margin-top:2px;}
 .bnew{background:rgba(70,90,220,.18);color:#6878ee;font-size:12px;padding:2px 6px;border-radius:4px;margin-left:6px;}
-/* 공지 분류(시책/교육/프로모션) 탭·배지 · 팝업 기간 배지 (2026-09-29) */
+/* 공지 분류(시책/교육/프로모션) 탭 · 팝업 기간 배지 (2026-09-29) — 제목 앞 분류 배지는 v2026.09.29-3에서 제거(사용자 요청) */
 .ntabs{display:flex;gap:6px;flex-wrap:wrap}
 .ntab{padding:6px 16px;border:1px solid rgba(80,90,180,.3);border-radius:18px;background:#fff;color:#4a5690;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .ntab.on{background:#4858cc;border-color:#4858cc;color:#fff}
 body:has(#notpop_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
 .ntabs.sm .ntab{padding:3px 12px;font-size:12.5px}
-.ncat{display:inline-block;flex:none;font-size:11.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:5px;vertical-align:1px;white-space:nowrap}
-.ncat.c1{background:#fff1e0;color:#b85c00;border:1px solid #f3cf9e}
-.ncat.c2{background:#e6f5ec;color:#1a7a40;border:1px solid #a9dcbc}
-.ncat.c3{background:#fde8f1;color:#b8286a;border:1px solid #f2b3cf}
 .npop{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
 .npop.on{background:rgba(72,88,204,.1);color:#3848b8;border:1px solid rgba(72,88,204,.3)}
 .npop.off{background:#f2f3f7;color:#9aa0b8;border:1px solid #dde0ea}
@@ -523,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-3</div>
   </div>
 </div>
 
@@ -7653,7 +7649,7 @@ function rNotices(){
     const rowClick=pinMode?'notPinRowClick(event,this)':`openNoticeDetail(${i})`;
     return `<div style="border-bottom:1px solid rgba(80,80,180,.1);padding:8px 0;cursor:pointer${(n.pin&&!pinMode)?';background:rgba(192,48,64,.045)':''}" onclick="${rowClick}" title="${pinMode?'클릭하면 고정 대상으로 선택/해제됩니다':'클릭하면 새 창에서 봅니다'}">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="nt" style="display:flex;align-items:center;min-width:0">${chk}${pinBadge}${_notCatBadge(n)}<span style="overflow:hidden;text-overflow:ellipsis">${_esc(n.title)}</span>${i===newestI?'<span class="bnew">NEW</span>':''}${n.files&&n.files.length?' <i class="ti ti-paperclip" style="font-size:12px;color:#8090bb"></i>':''}</div>
+        <div class="nt" style="display:flex;align-items:center;min-width:0">${chk}${pinBadge}<span style="overflow:hidden;text-overflow:ellipsis">${_esc(n.title)}</span>${i===newestI?'<span class="bnew">NEW</span>':''}${n.files&&n.files.length?' <i class="ti ti-paperclip" style="font-size:12px;color:#8090bb"></i>':''}</div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="nd">${n.date}</span>
           ${cu&&cu.admin&&!pinMode?`<button class="be" onclick="event.stopPropagation();openNoticeEdit(${i})" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>`:''}
@@ -7671,7 +7667,6 @@ function rNotices(){
 //   (동기화 안 함, 텍스트 소량 — 함정 B 무관, 저장은 _lsSet). 식별은 nid(함정 A). id는 notpop_ 접두(함정 E).
 var NOTICE_CATS=['시책','교육','프로모션'];
 function _notCatOf(n){ var c=n&&n.cat; return NOTICE_CATS.indexOf(c)>=0?c:''; }
-function _notCatBadge(n){ var c=_notCatOf(n); return c?'<span class="ncat c'+(NOTICE_CATS.indexOf(c)+1)+'">'+c+'</span>':''; }
 function _notPopActive(n,today){ return !!(n&&n.popup&&n.nid&&n.popS&&n.popE&&today>=n.popS&&today<=n.popE); }
 function _notPopBadge(n){
   if(!n||!n.popup||!n.popS||!n.popE) return '';
@@ -7774,7 +7769,7 @@ function _notPopup(){
       var imgs=_notPopImgs(n);
       var fcnt=Array.isArray(n.files)?n.files.length:0;
       g('notpop_body').innerHTML=''
-        +'<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:4px">'+_notCatBadge(n)+_esc(n.title)+'</div>'
+        +'<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:4px">'+_esc(n.title)+'</div>'
         +'<div style="font-size:12.5px;color:#8088aa;margin-bottom:12px">'+_esc(n.author||'')+(n.author?' · ':'')+_esc(n.datetime||n.date||'')+'</div>'
         +(n.content?'<div style="font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word">'+_esc(n.content)+'</div>':'')
         +imgs.map(function(u){ return '<img src="'+_esc(u)+'" alt="" style="display:block;max-width:100%;margin:12px auto 0;border:1px solid #e2e4ee;border-radius:6px">'; }).join('')
@@ -16708,7 +16703,7 @@ function rNoticePage(){
     return '<tr style="cursor:pointer" onclick="openNoticeDetail('+i+')">'
       +'<td style="font-size:14px;white-space:nowrap">'+_esc(dt)+'</td>'
       +'<td style="font-size:14px">'+_esc(author)+'</td>'
-      +'<td>'+(n.pin?'<i class="ti ti-pin-filled" style="color:#c03040;font-size:13px;margin-right:3px"></i>':'')+_notCatBadge(n)+'<span style="font-weight:500">'+_esc(n.title)+'</span>'+(i===not.length-1&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
+      +'<td>'+(n.pin?'<i class="ti ti-pin-filled" style="color:#c03040;font-size:13px;margin-right:3px"></i>':'')+'<span style="font-weight:500">'+_esc(n.title)+'</span>'+(i===not.length-1&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
       +(cu&&cu.admin?_notPopBadge(n):'')
       +(n.files&&n.files.length?'<i class="ti ti-paperclip" style="font-size:13px;color:#8090bb;margin-left:4px"></i>':'')+'</td>'
       +'<td>'+(cu&&cu.admin?'<div style="display:flex;gap:5px;justify-content:flex-end">'
