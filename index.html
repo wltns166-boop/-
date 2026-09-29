@@ -83,7 +83,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .nt{color:#2a2a4a;font-size:15px;}
 .nd{font-size:13px;color:#8080b0;margin-top:2px;}
 .bnew{background:rgba(70,90,220,.18);color:#6878ee;font-size:12px;padding:2px 6px;border-radius:4px;margin-left:6px;}
-/* 공지 분류(시책/교육) 탭·배지 · 팝업 기간 배지 (2026-09-29) */
+/* 공지 분류(시책/교육/프로모션) 탭·배지 · 팝업 기간 배지 (2026-09-29) */
 .ntabs{display:flex;gap:6px;flex-wrap:wrap}
 .ntab{padding:6px 16px;border:1px solid rgba(80,90,180,.3);border-radius:18px;background:#fff;color:#4a5690;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .ntab.on{background:#4858cc;border-color:#4858cc;color:#fff}
@@ -92,6 +92,7 @@ body:has(#notpop_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서�
 .ncat{display:inline-block;flex:none;font-size:11.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:5px;vertical-align:1px;white-space:nowrap}
 .ncat.c1{background:#fff1e0;color:#b85c00;border:1px solid #f3cf9e}
 .ncat.c2{background:#e6f5ec;color:#1a7a40;border:1px solid #a9dcbc}
+.ncat.c3{background:#fde8f1;color:#b8286a;border:1px solid #f2b3cf}
 .npop{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
 .npop.on{background:rgba(72,88,204,.1);color:#3848b8;border:1px solid rgba(72,88,204,.3)}
 .npop.off{background:#f2f3f7;color:#9aa0b8;border:1px solid #dde0ea}
@@ -522,7 +523,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-2</div>
   </div>
 </div>
 
@@ -699,6 +700,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             <button class="ntab on" data-ncat="" onclick="notSetCat('home','')">전체</button>
             <button class="ntab" data-ncat="시책" onclick="notSetCat('home','시책')">시책</button>
             <button class="ntab" data-ncat="교육" onclick="notSetCat('home','교육')">교육</button>
+            <button class="ntab" data-ncat="프로모션" onclick="notSetCat('home','프로모션')">프로모션</button>
           </div>
           <div id="notice_list"></div>
         </div>
@@ -1240,11 +1242,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div class="st"><i class="ti ti-bell"></i>공지사항</div>
         <button class="bp ao" onclick="openNoticeAddPage()"><i class="ti ti-plus"></i> 공지사항 등록</button>
       </div>
-      <!-- 분류 탭(2026-09-29) — 전체/시책/교육 -->
+      <!-- 분류 탭(2026-09-29) — 전체/시책/교육/프로모션 -->
       <div class="ntabs" id="notice_tabs" style="margin-bottom:10px">
         <button class="ntab on" data-ncat="" onclick="notSetCat('page','')">전체</button>
         <button class="ntab" data-ncat="시책" onclick="notSetCat('page','시책')">시책</button>
         <button class="ntab" data-ncat="교육" onclick="notSetCat('page','교육')">교육</button>
+        <button class="ntab" data-ncat="프로모션" onclick="notSetCat('page','프로모션')">프로모션</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <select id="notice_year" onchange="rNoticePage()" title="연도" style="padding:8px 10px;border:1px solid rgba(80,90,180,.3);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;color:#334;cursor:pointer"></select>
@@ -2939,12 +2942,13 @@ function rSchedulePage(){
 <div class="mb" id="m_notice"><div class="mo" style="width:560px;background:#fff;border:1px solid rgba(45,65,170,.18)">
   <div class="mth" style="color:#1a1a2e"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()" style="color:#555">×</span></div>
   <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500;border:1px solid #c9cfec"></div>
-  <!-- 공지 분류(2026-09-29) — 일반은 [전체] 탭에만, 시책·교육은 해당 탭에도 표시 -->
+  <!-- 공지 분류(2026-09-29) — 일반은 [전체] 탭에만, 시책·교육·프로모션은 해당 탭에도 표시 -->
   <div class="fg"><div style="display:flex;align-items:center;gap:14px;font-size:14px;color:#31419e;flex-wrap:wrap">
     <span style="font-weight:600">분류</span>
     <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="" checked style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">일반</label>
     <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="시책" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">시책</label>
     <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="교육" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">교육</label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="프로모션" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">프로모션</label>
   </div></div>
   <!-- 메인화면 공지 팝업(2026-09-29) — 체크 시 기간 동안 로그인한 사람의 홈 화면에 팝업. 종료일이 지나면 자동으로 안 뜸 -->
   <div class="fg" style="background:#f5f6ff;border:1px solid #d8ddf3;border-radius:9px;padding:10px 12px">
@@ -7658,16 +7662,16 @@ function rNotices(){
     </div>`;
   }).join('');
 }
-// ===== 공지 분류(시책/교육) · 메인화면 공지 팝업 (2026-09-29) =====
-// 분류: not[].cat = '시책'|'교육'(일반은 필드 없음 — [전체] 탭에만). 홈 카드·공지 페이지 각각 탭(전체/시책/교육) 필터.
+// ===== 공지 분류(시책/교육/프로모션) · 메인화면 공지 팝업 (2026-09-29) =====
+// 분류: not[].cat = '시책'|'교육'|'프로모션'(일반은 필드 없음 — [전체] 탭에만). 홈 카드·공지 페이지 각각 탭(전체/시책/교육/프로모션) 필터.
 //   탭 상태는 화면 필터일 뿐 저장 안 함(_notHomeCat/_notPageCat). 목록은 원본 인덱스 보존(함정 A).
 // 팝업: not[].popup=1 + popS/popE('YYYY-MM-DD'). 오늘(td(), KST)이 기간 안이면 로그인한 모든 사람의 홈에 팝업 —
 //   종료일이 지나면 조건에서 빠져 자동으로 안 뜸. 접속(로그인)당 1회(_notPopShown, logout에서 리셋).
 //   [오늘 하루 보지 않음] = 기기·사용자별 로컬 `tops_notpop_hide` {이름:{d:오늘, nids:[...]}} — 날짜가 바뀌면 자동 무효
 //   (동기화 안 함, 텍스트 소량 — 함정 B 무관, 저장은 _lsSet). 식별은 nid(함정 A). id는 notpop_ 접두(함정 E).
-var NOTICE_CATS=['시책','교육'];
+var NOTICE_CATS=['시책','교육','프로모션'];
 function _notCatOf(n){ var c=n&&n.cat; return NOTICE_CATS.indexOf(c)>=0?c:''; }
-function _notCatBadge(n){ var c=_notCatOf(n); return c?'<span class="ncat '+(c==='시책'?'c1':'c2')+'">'+c+'</span>':''; }
+function _notCatBadge(n){ var c=_notCatOf(n); return c?'<span class="ncat c'+(NOTICE_CATS.indexOf(c)+1)+'">'+c+'</span>':''; }
 function _notPopActive(n,today){ return !!(n&&n.popup&&n.nid&&n.popS&&n.popE&&today>=n.popS&&today<=n.popE); }
 function _notPopBadge(n){
   if(!n||!n.popup||!n.popS||!n.popE) return '';
@@ -14589,7 +14593,7 @@ async function saveNotice(){
   if(idx!==''&&not[+idx]&&not[+idx].pin) obj.pin=1;
   // 첨부 이미지 보기 방식(2026-09-08) — 'swipe'(좌우, 자료실 스타일)|'scroll'(위아래)
   try{ var _vmR=document.querySelector('input[name="mn_vm"]:checked'); obj.vm=(_vmR&&_vmR.value==='scroll')?'scroll':'swipe'; }catch(e){ obj.vm='swipe'; }
-  // 분류(2026-09-29) — '시책'|'교육', 일반은 필드 없음
+  // 분류(2026-09-29) — '시책'|'교육'|'프로모션', 일반은 필드 없음
   try{ var _cR=document.querySelector('input[name="mn_cat"]:checked'); var _cv=_cR?_cR.value:''; if(NOTICE_CATS.indexOf(_cv)>=0) obj.cat=_cv; }catch(e){}
   // 메인화면 팝업(2026-09-29) — 기간(YYYY-MM-DD, KST 기준 td()와 비교)
   if(popOn){ obj.popup=1; obj.popS=popS; obj.popE=popE; }
