@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-5</div>
   </div>
 </div>
 
@@ -11099,10 +11099,31 @@ function viewMedNotice(i){
     +'th,td{border:1px solid #dde;padding:7px 9px;text-align:left}'
     +'th{background:#f2f3fa}'
     +'.hl{font-weight:700;color:#c03030}'
-    +'.note{font-size:12.5px;color:#888;margin-top:16px;line-height:1.7}';
+    +'.note{font-size:12.5px;color:#888;margin-top:16px;line-height:1.7}'
+    // 표 칸 클릭 복사(2026-09-29) — 열람 창 전용(PDF·출력용 _medNoticeSectionsHtml 자체는 무변경)
+    +'td{cursor:copy;transition:background .12s}td:hover{background:#eef1ff}td.cp{background:#d9f2e2!important}'
+    +'#mn_cptoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1a7a40;color:#fff;font-size:13.5px;padding:7px 16px;border-radius:18px;opacity:0;transition:opacity .15s;pointer-events:none;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'#mn_cptoast.on{opacity:1}'
+    +'.cphint{font-size:12.5px;color:#5a68a8;margin:2px 0 8px}';
+  // 복사 스크립트 — 문자열 조립이라 일반 문법 검사가 못 봄(4.48 규칙): 수정 시 new Function으로 따로 검증할 것
+  var cpScript='<scr'+'ipt>(function(){'
+    +'var t=document.getElementById("mn_cptoast"),tm=0;'
+    +'function show(msg,ok){t.textContent=msg;t.style.background=ok?"#1a7a40":"#c03030";t.classList.add("on");clearTimeout(tm);tm=setTimeout(function(){t.classList.remove("on");},1400);}'
+    +'function fb(v){var a=document.createElement("textarea");a.value=v;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();var ok=false;try{ok=document.execCommand("copy");}catch(e){}a.remove();return ok;}'
+    +'document.addEventListener("click",function(e){'
+      +'var td=e.target&&e.target.closest&&e.target.closest("td");if(!td)return;'
+      +'var sel=window.getSelection&&String(window.getSelection());if(sel)return;'
+      +'var v=(td.innerText||td.textContent||"").replace(/\\s*\\n\\s*/g," ").replace(/\\s{2,}/g," ").trim();if(!v)return;'
+      +'td.classList.add("cp");setTimeout(function(){td.classList.remove("cp");},500);'
+      +'var done=function(){show("복사됨: "+v,true);},fail=function(){if(fb(v))done();else show("복사하지 못했습니다",false);};'
+      +'try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(v).then(done,fail);}else fail();}catch(err){fail();}'
+    +'});'
+  +'})();</scr'+'ipt>';
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>고지사항 · '+esc(m.cust)+'</title><style>'+css+'</style></head><body>'
     +'<h2>📋 고지사항 확인 — '+esc(m.cust)+'</h2>'
+    +'<div class="cphint">표의 칸을 클릭하면 그 내용이 복사됩니다.</div>'
     +_medNoticeSectionsHtml(m)
+    +'<div id="mn_cptoast"></div>'+cpScript
     +'</body></html>';
   w.document.write(body); w.document.close();
 }
