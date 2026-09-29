@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-12</div>
   </div>
 </div>
 
@@ -13535,20 +13535,22 @@ async function _medSurgOcr(file, pw, onProg){
     finally{ cv.width=cv.height=0; try{ pg.cleanup(); }catch(_){} }
   }
   var mdl=(function(){ try{ return localStorage.getItem('tops_ai_medocr_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+  // v-33: AI는 거르지 않고 **모든 행을 옮겨 적기만** 한다 — "절제 행만 골라라"는 AI 판단에 맡겨 한 건도 안 나오던 실사고(박종학 건).
+  // 절제 판정·집계는 전부 코드(_medSurgWord). 행 수·순번 최대값으로 빠진 행을 화면에서 확인.
   var prompt='사진은 건강보험심사평가원 "세부진료정보" 표입니다(열: 순번|진료시작일|병·의원&약국|진료내역|코드명|1회투약량|1일투여횟수|총투약일수).\n'
-    +'코드명 칸에 "절제"라는 글자가 들어 있는 행만 골라 JSON 배열로만 출력하세요(설명·코드펜스 금지).\n'
-    +'진료내역 칸("처치 및 수술" 등 분류명)은 보지 말고 코드명 칸만 보세요. 해당 행이 없으면 [] 만 출력.\n'
-    +'형식: [{"seq":"순번","date":"YYYY-MM-DD","hosp":"병·의원&약국 칸 그대로","act":"진료내역 칸 그대로","code":"코드명 칸 그대로"}]\n'
-    +'칸이 여러 줄로 줄바꿈된 글자는 이어 붙여 한 칸으로 적고, 사진에 없는 글자를 만들지 마세요.';
+    +'사진 속 표의 **모든 행**을 빠짐없이 위에서 아래 순서로 옮겨 적으세요. 고르거나 판단하지 말고 전부 적습니다.\n'
+    +'각 행은 ["순번","진료시작일(YYYY-MM-DD)","병·의원&약국 칸","코드명 칸"] 네 칸 배열이고, 전체는 JSON 배열 하나로만 출력하세요(설명·코드펜스 금지).\n'
+    +'예: [["398","2024-01-06","연세든든내과의원","결장경하 종양 수술-폴립절제술"],["399","2024-01-06","연세든든내과의원","진찰료"]]\n'
+    +'칸 안에서 여러 줄로 줄바꿈된 글자는 이어 붙여 한 칸으로 적고, 사진에 없는 글자를 만들지 마세요. 표가 없으면 [] 만 출력.';
   var batches=[]; for(var i=1;i<=n;i+=4){ var b=[]; for(var k=i;k<i+4&&k<=n;k++) b.push(k); batches.push(b); }
-  var seen={};
+  var seen={}; res.rows=0; res.seqMax=0; res.seqs={}; res.cut=0; res.near=[];
   async function runBatch(b){
     var imgs=[]; for(var q=0;q<b.length;q++) imgs.push(await pageJpeg(b[q]));
     var tag=b[0]+'~'+b[b.length-1]+'쪽', data=null, lastErr='';
     for(var att=0; att<3 && !data; att++){
       try{
-        var ac=(typeof AbortController!=='undefined')?new AbortController():null, tmo=setTimeout(function(){ try{ ac&&ac.abort(); }catch(_){} },90000);   // 응답 없는 요청이 분석 전체를 멈추지 않게
-        var r; try{ r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:mdl, prompt:prompt, images:imgs, max_tokens:4000}),signal:ac?ac.signal:undefined}); } finally { clearTimeout(tmo); }
+        var ac=(typeof AbortController!=='undefined')?new AbortController():null, tmo=setTimeout(function(){ try{ ac&&ac.abort(); }catch(_){} },120000);   // 응답 없는 요청이 분석 전체를 멈추지 않게
+        var r; try{ r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:mdl, prompt:prompt, images:imgs, max_tokens:16000}),signal:ac?ac.signal:undefined}); } finally { clearTimeout(tmo); }
         var j=null; try{ j=await r.json(); }catch(_){}
         if(!r.ok){ lastErr=(j&&j.error&&j.error.message)||('서버 오류 '+r.status); if(/429|503|500|overload|rate|exceed/i.test(lastErr+r.status)){ await new Promise(function(z){ setTimeout(z,(att+1)*8000); }); continue; } break; }
         data=j;
@@ -13556,15 +13558,30 @@ async function _medSurgOcr(file, pw, onProg){
     }
     res.done+=b.length; if(onProg) onProg(res.done, n);                         // 처리한 쪽 수(성공·실패 무관 — 실패는 errs로 따로 표시)
     if(!data){ res.errs.push(tag+': '+(lastErr||'실패')); return; }
-    var text=(data.content&&data.content[0]&&data.content[0].text)||''; var m=/\[[\s\S]*\]/.exec(text);
-    if(!m){ res.errs.push(tag+': 응답 형식 오류'); return; }
-    var arr=[]; try{ arr=JSON.parse(m[0]); }catch(pe){ res.errs.push(tag+': 응답 해석 실패'); return; }
+    if(/max_tokens|MAX_TOKENS/.test(String(data.stop||''))) res.cut++;
+    var text=(data.content&&data.content[0]&&data.content[0].text)||''; var st=text.indexOf('[');
+    if(st<0){ res.errs.push(tag+': 응답 형식 오류'); return; }
+    var body=text.slice(st), arr=null; var en=body.lastIndexOf(']');
+    try{ arr=JSON.parse(body.slice(0,en+1)); }catch(pe){
+      // 출력이 잘려 배열이 닫히지 않았으면 마지막 완전한 행까지만 살리고 잘림으로 표시
+      var lk=body.lastIndexOf('"]'); if(lk<0){ res.errs.push(tag+': 응답 해석 실패(출력 잘림)'); return; }
+      try{ arr=JSON.parse(body.slice(0,lk+2)+']'); res.errs.push(tag+': 출력이 잘려 일부 행만 읽음'); }catch(_){ res.errs.push(tag+': 응답 해석 실패'); return; }
+    }
+    var cl=function(v){ return String(v==null?'':v).replace(/[|\r\n\t]+/g,' ').trim(); };   // 표 칸 구분자·줄바꿈 제거(마크다운 칸 수 어긋남 방지)
+    var pd='', ph='';
     (Array.isArray(arr)?arr:[]).forEach(function(o){
-      o=o||{}; var cl=function(v){ return String(v||'').replace(/[|\r\n\t]+/g,' ').trim(); };   // 표 칸 구분자·줄바꿈 제거(마크다운 칸 수 어긋남 방지)
-      var d=_medDateNorm(cl(o.date)); var act=cl(o.code);   // 판정은 코드명 칸만(v-32) — 진료내역(분류명)은 보지 않음
-      var sw=_medSurgWord(act); if(!d || !sw) return;                        // 판정은 코드 — AI가 넣은 행이라도 수술 낱말 규칙을 통과해야 함
-      var hosp=cl(o.hosp).replace(/\s+/g,''); var key=d+'|'+hosp+'|'+sw; if(seen[key]) return; seen[key]=1;
-      res.recs.push({date:d, hosp:hosp, dept:'', kind:'', code:'', codeRaw:'', name:'', vdays:0, ddays:0, drug:'', act:act, act2:'', tbl:'act', pg:0, scan:1, ocr:1});
+      if(!o) return;
+      var seq, dt, hs, code;
+      if(Array.isArray(o)){ seq=o[0]; dt=o[1]; hs=o[2]; code=o[3]; } else { seq=o.seq; dt=o.date; hs=o.hosp; code=o.code; }
+      seq=cl(seq); code=cl(code); var d=_medDateNorm(cl(dt))||pd; var hosp=cl(hs).replace(/\s+/g,'')||ph;
+      if(d) pd=d; if(hosp) ph=hosp;
+      res.rows++; var sn=parseInt(seq.replace(/\D/g,''),10); if(sn>0){ res.seqs[sn]=1; if(sn>res.seqMax) res.seqMax=sn; }
+      code=code.replace(/절\s+제/g,'절제').replace(/\s+(?=절제)/g,'');           // 사진 인식이 띄어 쓴 "폴립 절제술"·"절 제"도 한 낱말로
+      var sw=_medSurgWord(code);                            // 판정은 코드명 칸만(v-32) — 공백으로 갈라진 "절 제"도 잡도록 공백 제거 후
+      if(!sw){ if(/폴립|절개|적출|술$/.test(code) && res.near.length<5) res.near.push((d||'?')+' '+code); return; }   // 진단용: 수술 비슷한 코드명(절제 아님)
+      if(!d) return;
+      var key=d+'|'+hosp+'|'+sw; if(seen[key]) return; seen[key]=1;
+      res.recs.push({date:d, hosp:hosp, dept:'', kind:'', code:'', codeRaw:'', name:'', vdays:0, ddays:0, drug:'', act:code, act2:'', tbl:'act', pg:0, scan:1, ocr:1});
     });
   }
   var qi=0; async function worker(){ while(qi<batches.length){ var b=batches[qi++]; try{ await runBatch(b); }catch(be){ res.errs.push(b[0]+'쪽~: '+be.message); } } }
@@ -13872,8 +13889,11 @@ async function analyzeMedical(){
         loadEl.textContent = '📷 세부기록이 글자 없는 PDF라 사진으로 수술 행을 찾는 중... (쪽을 그리는 중)';
         var oc = await _medSurgOcr(ocrFile, pw, function(dn,tot){ loadEl.textContent='📷 세부기록 사진 인식 중... ('+dn+'/'+tot+'쪽)'; });
         scanRecs = scanRecs.concat(oc.recs);
-        surgDiag.push('세부기록: 글자 없는 PDF(도형 글자) — 사진 인식 '+oc.done+'/'+oc.pages+'쪽, 수술 낱말 '+oc.recs.length+'건'
+        var ocSeqN=Object.keys(oc.seqs||{}).length;
+        surgDiag.push('세부기록: 글자 없는 PDF(도형 글자) — 사진 인식 '+oc.done+'/'+oc.pages+'쪽, 읽은 행 '+(oc.rows||0)+' (원문 순번 최대 '+(oc.seqMax||0)+(oc.seqMax&&ocSeqN<oc.seqMax?' ⚠ '+(oc.seqMax-ocSeqN)+'개 순번 못 읽음':'')+')'
+          +(oc.cut?' ⚠ 출력 잘림 '+oc.cut+'회':'')+', 코드명 절제 '+oc.recs.length+'건'
           +(oc.recs.length?' ('+oc.recs.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'-')+' '+_medSurgWord(r.act); }).join(', ')+(oc.recs.length>4?' 외':'')+')':'')
+          +(!oc.recs.length&&oc.near&&oc.near.length?' · 절제 아닌 수술 비슷한 코드명: '+oc.near.join(', '):'')
           +(oc.errs.length?' ⚠ 실패 '+oc.errs.length+'건: '+oc.errs.slice(0,3).join(' / '):''));
       }catch(oe){ surgDiag.push('세부기록: 글자 없는 PDF — 사진 인식 실패('+((oe&&oe.message)||oe)+'). 수술 내역이 빠졌을 수 있습니다.'); }
     }
