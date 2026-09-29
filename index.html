@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-13</div>
   </div>
 </div>
 
@@ -13486,6 +13486,7 @@ function _medRecsToRows(recs){
     var other=list.filter(function(r){ return !(r.code || r.name) || isPharm(r); });
     if(!dis.length){ dis=list.filter(function(r){ return (r.code||r.name) && isPharm(r); }); other=list.filter(function(r){ return dis.indexOf(r)===-1; }); }   // 그날 약국 행뿐이면 그 상병으로(통원 0회)
     if(dis.length){
+      var usedAct=[];                                                        // 상병 행에 붙은 세부진료(act) 기록 — 못 붙은 수술 기록은 아래에서 따로 행을 만든다
       dis.forEach(function(r){
         var dd=r.ddays, vd=r.vdays, kind=r.kind, hosp=r.hosp, act=(r.tbl==='act'?r.act:'');   // 수술 판정 글자는 세부진료기록(act 표)에서만(v-22 사용자 규칙)
         other.forEach(function(o){
@@ -13495,10 +13496,16 @@ function _medRecsToRows(recs){
           if(!kind && o.kind && !isPharm(o)) kind=o.kind;                    // 약국 행의 '처방조제' 구분은 진료 행에 복사하지 않음(통원 0회 회귀 방지)
           // 병원명 폴백 폐지(v-15): 기본진료정보 행은 병원명이 항상 있으므로 못 읽었다면 파싱 문제 — 같은 날 다른 병원(처방·세부 행)의 이름을
           // 물려받으면 엉뚱한 병원(라온내과의원)이 안과 상병에 붙는다. 빈 채로 두어 눈에 띄게 한다.
-          if(o.act && o.tbl==='act') act=(act+' '+o.act).trim();
+          if(o.act && o.tbl==='act'){ act=(act+' '+o.act).trim(); if(usedAct.indexOf(o)<0) usedAct.push(o); }
         });
         rows.push(_medRowLine(d, r.name||('진단명 없음 · '+(hosp||'-')+(r.dept?'('+r.dept+')':'')), r.code, hosp, kind, vd, dd, act, r.vdays));
       });
+      // v-34: 그날 다른 병원에만 상병 행이 있으면 수술(세부진료) 기록이 어느 행에도 못 붙고 조용히 사라지던 경로 —
+      // 박종학 건 폴립절제술(2024-01-06 연세든든내과의원) 미표시의 유력 원인. 못 붙은 수술 기록은 병원별로 "진단명 없음" 행을 만든다.
+      var lost={};
+      other.forEach(function(o){ if(o.tbl!=='act' || usedAct.indexOf(o)>=0 || !_medSurgWord(o.act)) return;
+        var k=String(o.hosp||'').replace(/\s/g,'')||'-'; if(!lost[k]) lost[k]={hosp:o.hosp, act:''}; lost[k].act=(lost[k].act+' '+o.act).trim(); });
+      Object.keys(lost).forEach(function(k){ var o=lost[k]; rows.push(_medRowLine(d, '진단명 없음 · '+(o.hosp||'-'), '', o.hosp, '', 0, 0, o.act, 0)); });
     }else{
       // 상병 없는 날짜: 병원별로 한 행. 세부진료(act 표)만 있는 날짜는 절제/수술 단어가 있을 때만 행을 만든다(진찰료·처치 나열은 행이 아님)
       var byH={};
