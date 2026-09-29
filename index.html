@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-11</div>
   </div>
 </div>
 
@@ -13396,7 +13396,7 @@ function _medParseTables(lines){
       }
       if(pend) mergeFrag(extra.length?extra[extra.length-1]:rec, pend, false);   // 코드 줄 없이 끝나면(마지막 기록 등) 기존대로 꼬리에
       rec.hosp=_medHospNorm(rec.hosp);
-      if(rec.act2) rec.act=(rec.act?rec.act+' / ':'')+rec.act2;
+      if(rec.act2) rec.act=rec.act2;   // 코드명 열이 있으면 수술 판정은 코드명만(v-32 사용자 규칙 — 진료내역 분류명은 판정에서 제외)
       // 원문 순번(완전성 자가 점검용) — 기준 줄에 없으면 위·아래 조각 줄의 숫자 조각("123"+"4")을 이어붙인다(두 줄 줄바꿈 순번)
       var sq=String(c._0||'').replace(/\D/g,'');
       if(!sq){ var ups=[], dns=[]; for(var s1=ab[0];s1<ab[1];s1++){ var v1=String(b[s1].cells._0||'').trim(); if(/^\d{1,4}$/.test(v1)) ups.push(v1); } for(var s2=bl[0];s2<bl[1];s2++){ var v2=String(b[s2].cells._0||'').trim(); if(/^\d{1,4}$/.test(v2)) dns.push(v2); } if(ups.length===1 && dns.length===1) sq=ups[0]+dns[0]; }   // 두 줄 순번은 위·아래 조각이 정확히 하나씩일 때만(리뷰)
@@ -13536,8 +13536,8 @@ async function _medSurgOcr(file, pw, onProg){
   }
   var mdl=(function(){ try{ return localStorage.getItem('tops_ai_medocr_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
   var prompt='사진은 건강보험심사평가원 "세부진료정보" 표입니다(열: 순번|진료시작일|병·의원&약국|진료내역|코드명|1회투약량|1일투여횟수|총투약일수).\n'
-    +'코드명 칸에 "수술", "절제", "적출", "절개술", "성형술" 중 하나라도 들어 있는 행만 골라 JSON 배열로만 출력하세요(설명·코드펜스 금지).\n'
-    +'진료내역 칸의 분류명 "처치 및 수술"만 있고 코드명에 위 낱말이 없는 행은 넣지 마세요. 해당 행이 없으면 [] 만 출력.\n'
+    +'코드명 칸에 "절제"라는 글자가 들어 있는 행만 골라 JSON 배열로만 출력하세요(설명·코드펜스 금지).\n'
+    +'진료내역 칸("처치 및 수술" 등 분류명)은 보지 말고 코드명 칸만 보세요. 해당 행이 없으면 [] 만 출력.\n'
     +'형식: [{"seq":"순번","date":"YYYY-MM-DD","hosp":"병·의원&약국 칸 그대로","act":"진료내역 칸 그대로","code":"코드명 칸 그대로"}]\n'
     +'칸이 여러 줄로 줄바꿈된 글자는 이어 붙여 한 칸으로 적고, 사진에 없는 글자를 만들지 마세요.';
   var batches=[]; for(var i=1;i<=n;i+=4){ var b=[]; for(var k=i;k<i+4&&k<=n;k++) b.push(k); batches.push(b); }
@@ -13561,7 +13561,7 @@ async function _medSurgOcr(file, pw, onProg){
     var arr=[]; try{ arr=JSON.parse(m[0]); }catch(pe){ res.errs.push(tag+': 응답 해석 실패'); return; }
     (Array.isArray(arr)?arr:[]).forEach(function(o){
       o=o||{}; var cl=function(v){ return String(v||'').replace(/[|\r\n\t]+/g,' ').trim(); };   // 표 칸 구분자·줄바꿈 제거(마크다운 칸 수 어긋남 방지)
-      var d=_medDateNorm(cl(o.date)); var act=(cl(o.act)+' / '+cl(o.code)).trim();
+      var d=_medDateNorm(cl(o.date)); var act=cl(o.code);   // 판정은 코드명 칸만(v-32) — 진료내역(분류명)은 보지 않음
       var sw=_medSurgWord(act); if(!d || !sw) return;                        // 판정은 코드 — AI가 넣은 행이라도 수술 낱말 규칙을 통과해야 함
       var hosp=cl(o.hosp).replace(/\s+/g,''); var key=d+'|'+hosp+'|'+sw; if(seen[key]) return; seen[key]=1;
       res.recs.push({date:d, hosp:hosp, dept:'', kind:'', code:'', codeRaw:'', name:'', vdays:0, ddays:0, drug:'', act:act, act2:'', tbl:'act', pg:0, scan:1, ocr:1});
@@ -13625,13 +13625,12 @@ function _medSurgScan(lines){
   });
   return out;
 }
-// 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
+// 수술 판정 단어 — 세부진료정보 **코드명에 "절제"가 있을 때만** 수술(사용자 확정 규칙 v-32, 2026-09-29). 일치 조각을 돌려준다.
 function _medSurgWord(act){
-  // 사용자 확정 규칙(2026-09-23, v-22·v-23): 수술 판정 글자는 세부진료기록에서만 보되, 낱말은 절제술·수술·적출·절개술·성형술("…술 후"=과거 수술 뒤 상태, "수술 전/후/실/동의…" 부대 항목은 제외).
-  // 세부진료정보 진료내역 칸의 분류명 "처치 및 수술/처치 및 수술(양방)"은 수술 낱말이 아님 — 이 분류의 모든 행(생검 FORCEPS·처치 등)이
-  // 수술로 잡히고, 괄호 표기가 실제 수술명("폴립절제술") 대신 "수술"이 되던 문제(2026-09-29). 분류명을 지운 뒤 판정한다.
-  var src=String(act||'').replace(/처치\s*및\s*수\s*술(\s*\((?:양방|한방|치과|한의)\))?/g,' ');
-  var m=src.match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후|술용)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기|용|및)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
+  // v-32(사용자 확정): "수술"·적출·절개술·성형술 낱말 판정은 폐지 — 진료내역 분류명 "처치 및 수술"이 표 칸 줄바꿈·사진 인식에서
+  // 조각나면 전립선맛사지·위탁검사 행까지 "(수술)"로 잡혔다(박종학 건 실사고). 코드명 글자에 "절제"가 있어야만 수술.
+  // "절제후/절제술 후"(과거 수술 뒤 상태 진단명)·"절제술용"(재료 FORCEP 등)은 제외.
+  var m=String(act||'').match(/[^\s\/·,()]*절제(?!\s*후|술\s*후|술\s*용)[^\s\/·,()]*/);
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act, ownVdays){
@@ -13703,7 +13702,7 @@ function _medAiPrompt(chunk, part, total){
   pl.push('1) 원문에 적힌 값만 옮깁니다. 원문에 없는 병명·상병코드·횟수·일수를 만들어 넣지 마세요. 없으면 빈칸(-)으로 둡니다.');
   pl.push('2) 상병코드는 원문 글자 그대로 씁니다(변환·보정·자릿수 추가 금지). 약 이름으로 병명이나 코드를 추정하지 마세요.');
   pl.push('3) 약품명·주사·재료·검사 항목은 병명이 아니므로 행으로 만들지 마세요. 처방조제 행은 그 날짜의 총투약일수만 "약 처방일수"에 적습니다.');
-  pl.push('4) 진료구분이 입원이면 입원일수에 내원일수를, 외래면 통원 1회로 적습니다. 수술횟수는 세부진료정보의 진료내역·코드명에 "절제술"·"수술"·"적출"·"절개술"·"성형술"이 있을 때만 1회("수술 전/후/실" 같은 부대 항목·"…술 후"는 제외, 병명만으로 판정하지 말 것).');
+  pl.push('4) 진료구분이 입원이면 입원일수에 내원일수를, 외래면 통원 1회로 적습니다. 수술횟수는 세부진료정보의 코드명에 "절제"가 있을 때만 1회("절제후"·"절제술 후"·"절제술용" 재료는 제외, 진료내역 분류명 "처치 및 수술"이나 병명만으로 판정하지 말 것).');
   pl.push('5) 한 줄 = 한 진료일. 날짜별로 합치거나 나누지 말고 원문 행 그대로 옮깁니다.');
   pl.push('6) 상병명·상병코드가 없는 진료는 병명 칸에 "진단명 없음 · 병원명" 형식으로 병원별로 적습니다(여러 병원을 하나의 미상 행으로 뭉치지 말 것). 표만 출력하고 다른 설명은 쓰지 마세요.');
   pl.push('| 진료기간 | 병력(질병명) | 상병코드 | 병원명 | 통원치료횟수 | 입원일수 | 수술횟수 | 약 처방일수 |');
