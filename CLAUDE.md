@@ -11,7 +11,9 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
+- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.29-16 커밋 2e133c3. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+  ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
+  (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
   **세션은 한 번에 하나만, 항상 이 브랜치의 원격 최신 위에서** 시작할 것.) (이전 이력: `claude/tims-intranet-continuation-1kupar` 2026-09-08부터 — 세션 접미사 브랜치. 이전: claude/tims-intranet-continuation-q1rowj(219dba8) → claude/tims-gs-auto-deploy-ih0edz-g13v3j(12d1e53) → claude/tims-gs-auto-deploy-ih0edz(fe1d72b에서 분기, 그 이전: claude/insurance-customer-registration-button-c909l6 → claude/team-tops-intranet-continue-ozkg5p → claude/team-tops-handoff-prompt-o9j855 → claude/insurance-claim-document-reuse-fdje8i))
   ⚠️ 새 세션은 **원격 `claude/tims-intranet-continuation-1kupar`의 최신 커밋** 위에서 시작할 것 — `claude/**` 푸시는 즉시 라이브 배포되므로 낡은 브랜치(q1rowj의 219dba8, g13v3j의 12d1e53 등)에서 푸시하면 옛 코드가 배포된다.
