@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-7</div>
   </div>
 </div>
 
@@ -13412,6 +13412,19 @@ function _medParseTables(lines){
     if(cols && hdrPg!==ln.pg){ flush(); }                                              // 쪽이 바뀌면 행 블록도 끊는다(머리글은 쪽마다 반복)
     var toks=_medTokens(ln.items);
     if(!toks.length) return;
+    // 머리글 낱말이 글자 간격 때문에 두 토큰으로 갈라진 서식("진료"+"내역", "코드"+"명") — 각각은 열 이름이 아니고 합치면 열 이름이 되는
+    // 이웃 토큰(간격 14pt 이내 — 낱말 사이 공백 1~2자)을 합친 판을 머리글 판정에 쓴다(2026-09-29 — 세부진료기록 진료내역 열 미인식으로 수술 판정이 통째로 빠지는 경로 차단).
+    // 데이터 줄에는 적용하지 않는다(머리글로 판정된 줄만 합친 토큰을 사용).
+    var htoks=(function(ts){
+      var out=[]; ts.forEach(function(t){
+        var last=out[out.length-1];
+        if(last && t.x-(last.x+last.w)<=14 && !_medColOf(last.t) && !_medColOf(t.t) && _medColOf(last.t+t.t)){
+          out[out.length-1]={x:last.x, w:(t.x+t.w)-last.x, s:last.s+t.s, t:last.t+t.t};
+        } else out.push(t);
+      });
+      return out;
+    })(toks);
+    if(htoks.length!==toks.length && isHeader(htoks) && !hasDate(htoks)) toks=htoks;
     if(isHeader(toks) && !hasDate(toks)){
       // 세 줄 머리글(2026-09-23 실서식): 한 줄짜리 머리글은 세로 가운데, 두 줄짜리 머리글의 윗줄은 그 위에 있다.
       // 직전 줄이 같은 쪽·가까운 y·날짜 없음이고 이 줄의 머리글 사이 빈 x에 놓여 있으면 머리글 윗줄로 합친다.
@@ -13504,7 +13517,10 @@ function _medRecsToRows(recs){
 // 수술 판정 단어 — 세부진료정보 진료내역·코드명에서 "절제(술)"(사용자 확정 규칙) + "수술"(부대 항목 제외). 일치 조각을 돌려준다.
 function _medSurgWord(act){
   // 사용자 확정 규칙(2026-09-23, v-22·v-23): 수술 판정 글자는 세부진료기록에서만 보되, 낱말은 절제술·수술·적출·절개술·성형술("…술 후"=과거 수술 뒤 상태, "수술 전/후/실/동의…" 부대 항목은 제외).
-  var m=String(act||'').match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
+  // 세부진료정보 진료내역 칸의 분류명 "처치 및 수술/처치 및 수술(양방)"은 수술 낱말이 아님 — 이 분류의 모든 행(생검 FORCEPS·처치 등)이
+  // 수술로 잡히고, 괄호 표기가 실제 수술명("폴립절제술") 대신 "수술"이 되던 문제(2026-09-29). 분류명을 지운 뒤 판정한다.
+  var src=String(act||'').replace(/처치\s*및\s*수\s*술(\s*\((?:양방|한방|치과|한의)\))?/g,' ');
+  var m=src.match(/[^\s\/·,()]*(절제(?!\s*후|술\s*후)|적출(?:술)?(?!\s*후)|절개술(?!\s*후)|성형술(?!\s*후)|수술(?!\s*(전|후|실|동의|준비|부위|료|보험|대기)))[^\s\/·,()]*/);   // "부분절제"처럼 '술' 없는 표기도 수술(리뷰 반영, v-25)
   return m?m[0]:'';
 }
 function _medRowLine(date, name, code, hosp, kind, vdays, ddays, act, ownVdays){
@@ -13717,10 +13733,12 @@ async function analyzeMedical(){
     var chunks = [];
     var srcNote = '';
     var parsedRecs = [], parsedTables = 0, parsedDropped = 0, okFiles = [], aiFiles = [], hdrDiag = [];
-    var seqDiag = [];
+    var seqDiag = [], surgDiag = [];
     medFileData.forEach(function(f){
       var pr = null;
       try{ pr = _medParseTables(f.lines); }catch(pe){ console.warn('서식 파서 오류('+f.label+'):', pe); }
+      // 수술 판정 진단(2026-09-29): 세부진료기록(act 표)에서 수술 낱말이 잡힌 기록 — 결과 하단에 표시해 누락 원인(표 미인식/낱말 없음)을 화면에서 확인
+      if(pr && pr.recs.length){ var acts=pr.recs.filter(function(r){ return r.tbl==='act'; }); if(acts.length){ var sw=acts.filter(function(r){ return _medSurgWord(r.act); }); surgDiag.push(f.label+' 진료행위 '+acts.length+'건 중 수술 낱말 '+sw.length+'건'+(sw.length?' ('+sw.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'-')+' '+_medSurgWord(r.act); }).join(', ')+(sw.length>4?' 외':'')+')':'')); } }
       if(pr && pr.recs.length){ parsedRecs = parsedRecs.concat(pr.recs); parsedTables += pr.tables; parsedDropped += pr.dropped; okFiles.push(f.label+' '+pr.recs.length+'건'); }
       else aiFiles.push(f);
       if(pr && pr.hdrInfo && pr.hdrInfo.length) hdrDiag.push(f.label+': ['+pr.hdrInfo[0]+']');   // 열 인식 진단(첫 표) — 서식이 달라 열이 어긋날 때 원인 확인용
@@ -13827,6 +13845,9 @@ async function analyzeMedical(){
     if(codeAudit) finalLines.push(codeAudit);
     if(seqDiag.length) finalLines.push('※ 완전성: ' + seqDiag.join(' / ') + ' (원문 순번 최대값=원문 행 수)');
     if(hdrDiag.length) finalLines.push('※ 열 인식: ' + hdrDiag.join(' / '));
+    finalLines.push('※ 수술 판정: ' + (surgDiag.length ? surgDiag.join(' / ')
+      : (medFileData.some(function(f){ return /세부/.test(f.label); }) ? '세부진료기록에서 진료행위(진료내역·코드명) 표를 읽지 못함 — 수술 판정 누락 가능, [추출원문]·원본과 대조해 주세요'
+                                                                   : '세부진료기록 파일이 없어 수술 판정을 하지 않았습니다')));
     if(badRows) finalLines.push('⚠ 칸 수가 맞지 않아 제외된 행 ' + badRows + '개 — [추출원문]과 대조해 주세요.');
     if(chunkErrors.length) finalLines.push('⚠ 일부 구간 처리 실패: ' + chunkErrors.join(', '));
     var text = finalLines.join('\n');
