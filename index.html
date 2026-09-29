@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-10</div>
   </div>
 </div>
 
@@ -4541,6 +4541,7 @@ function login(){
   });
 }
 function logout(){
+  try{ window._medLastPw=''; }catch(_){}
   cu=null;
   sessionStorage.removeItem('tops_session');
   try{ localStorage.removeItem('tops_session_keep'); }catch(e){}   // '로그인 유지' 해제
@@ -13514,6 +13515,63 @@ function _medRecsToRows(recs){
   });
   return rows;
 }
+// 글자 없는 세부진료기록 PDF의 수술 행 사진 인식(2026-09-29 v-31): 실제 심평원 세부진료정보 PDF가 글자를 도형으로 그려
+// 텍스트 층이 전혀 없는 서식(90쪽·글자 0개 실측) — 표 파서·줄 스캔이 한 글자도 못 읽어 수술이 통째로 빠졌다.
+// 쪽을 JPEG로 그려 4쪽씩 Gemini에 보내 "수술 낱말이 있는 행"만 받아 오고, 최종 판정은 코드(_medSurgWord)가 한다(AI는 옮겨 적기만).
+async function _medSurgOcr(file, pw, onProg){
+  var res={recs:[], pages:0, done:0, errs:[]};
+  if(typeof pdfjsLib==='undefined'){ res.errs.push('PDF.js 미로드'); return res; }
+  var buf=new Uint8Array(await file.arrayBuffer());
+  var lt=pdfjsLib.getDocument({data:buf, password:pw||window._medLastPw||''});
+  lt.onPassword=function(upd,reason){ var p2=window.prompt('세부기록 PDF 비밀번호를 입력해주세요 (보통 생년월일 6자리)',''); if(p2){ window._medLastPw=p2; upd(p2); } else { try{ lt.destroy(); }catch(_){} } };
+  var doc=await lt.promise;
+  var n=Math.min(doc.numPages, 200); res.pages=doc.numPages;
+  if(doc.numPages>200) res.errs.push('앞 200쪽만 확인(전체 '+doc.numPages+'쪽)');
+  async function pageJpeg(i){
+    var pg=await doc.getPage(i); var vp0=pg.getViewport({scale:1}); var sc=Math.min(2, 1300/Math.max(vp0.width,1));
+    var vp=pg.getViewport({scale:sc}); var cv=document.createElement('canvas'); cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
+    var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+    try{ await pg.render({canvasContext:cx, viewport:vp}).promise; return cv.toDataURL('image/jpeg',0.8); }
+    finally{ cv.width=cv.height=0; try{ pg.cleanup(); }catch(_){} }
+  }
+  var mdl=(function(){ try{ return localStorage.getItem('tops_ai_medocr_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+  var prompt='사진은 건강보험심사평가원 "세부진료정보" 표입니다(열: 순번|진료시작일|병·의원&약국|진료내역|코드명|1회투약량|1일투여횟수|총투약일수).\n'
+    +'코드명 칸에 "수술", "절제", "적출", "절개술", "성형술" 중 하나라도 들어 있는 행만 골라 JSON 배열로만 출력하세요(설명·코드펜스 금지).\n'
+    +'진료내역 칸의 분류명 "처치 및 수술"만 있고 코드명에 위 낱말이 없는 행은 넣지 마세요. 해당 행이 없으면 [] 만 출력.\n'
+    +'형식: [{"seq":"순번","date":"YYYY-MM-DD","hosp":"병·의원&약국 칸 그대로","act":"진료내역 칸 그대로","code":"코드명 칸 그대로"}]\n'
+    +'칸이 여러 줄로 줄바꿈된 글자는 이어 붙여 한 칸으로 적고, 사진에 없는 글자를 만들지 마세요.';
+  var batches=[]; for(var i=1;i<=n;i+=4){ var b=[]; for(var k=i;k<i+4&&k<=n;k++) b.push(k); batches.push(b); }
+  var seen={};
+  async function runBatch(b){
+    var imgs=[]; for(var q=0;q<b.length;q++) imgs.push(await pageJpeg(b[q]));
+    var tag=b[0]+'~'+b[b.length-1]+'쪽', data=null, lastErr='';
+    for(var att=0; att<3 && !data; att++){
+      try{
+        var ac=(typeof AbortController!=='undefined')?new AbortController():null, tmo=setTimeout(function(){ try{ ac&&ac.abort(); }catch(_){} },90000);   // 응답 없는 요청이 분석 전체를 멈추지 않게
+        var r; try{ r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:mdl, prompt:prompt, images:imgs, max_tokens:4000}),signal:ac?ac.signal:undefined}); } finally { clearTimeout(tmo); }
+        var j=null; try{ j=await r.json(); }catch(_){}
+        if(!r.ok){ lastErr=(j&&j.error&&j.error.message)||('서버 오류 '+r.status); if(/429|503|500|overload|rate|exceed/i.test(lastErr+r.status)){ await new Promise(function(z){ setTimeout(z,(att+1)*8000); }); continue; } break; }
+        data=j;
+      }catch(ne){ lastErr='네트워크 오류: '+ne.message; await new Promise(function(z){ setTimeout(z,(att+1)*5000); }); }
+    }
+    res.done+=b.length; if(onProg) onProg(res.done, n);                         // 처리한 쪽 수(성공·실패 무관 — 실패는 errs로 따로 표시)
+    if(!data){ res.errs.push(tag+': '+(lastErr||'실패')); return; }
+    var text=(data.content&&data.content[0]&&data.content[0].text)||''; var m=/\[[\s\S]*\]/.exec(text);
+    if(!m){ res.errs.push(tag+': 응답 형식 오류'); return; }
+    var arr=[]; try{ arr=JSON.parse(m[0]); }catch(pe){ res.errs.push(tag+': 응답 해석 실패'); return; }
+    (Array.isArray(arr)?arr:[]).forEach(function(o){
+      o=o||{}; var cl=function(v){ return String(v||'').replace(/[|\r\n\t]+/g,' ').trim(); };   // 표 칸 구분자·줄바꿈 제거(마크다운 칸 수 어긋남 방지)
+      var d=_medDateNorm(cl(o.date)); var act=(cl(o.act)+' / '+cl(o.code)).trim();
+      var sw=_medSurgWord(act); if(!d || !sw) return;                        // 판정은 코드 — AI가 넣은 행이라도 수술 낱말 규칙을 통과해야 함
+      var hosp=cl(o.hosp).replace(/\s+/g,''); var key=d+'|'+hosp+'|'+sw; if(seen[key]) return; seen[key]=1;
+      res.recs.push({date:d, hosp:hosp, dept:'', kind:'', code:'', codeRaw:'', name:'', vdays:0, ddays:0, drug:'', act:act, act2:'', tbl:'act', pg:0, scan:1, ocr:1});
+    });
+  }
+  var qi=0; async function worker(){ while(qi<batches.length){ var b=batches[qi++]; try{ await runBatch(b); }catch(be){ res.errs.push(b[0]+'쪽~: '+be.message); } } }
+  await Promise.all([worker(),worker(),worker()]);
+  try{ doc.destroy(); }catch(_){}
+  return res;
+}
 // 수술 낱말 보조 스캔(2026-09-29 v-8): 표 열 인식과 무관하게 좌표 줄을 직접 훑어 수술 낱말과 그 행의 날짜·병원을 찾는다.
 // 세부진료기록 머리글이 서식 차이로 진료행위 열로 인식되지 않으면 수술이 통째로 빠지던 실사고(박종학 건 폴립절제술) 안전망.
 // 행 나누기는 _medParseTables와 같은 원리 — 날짜 있는 줄=행의 기준 줄(세로 가운데), 기준 줄 사이는 줄 간격이 가장 큰 곳에서 나눔.
@@ -13670,7 +13728,7 @@ async function extractPdfText(file, password, linesOut){
               ? '비밀번호가 올바르지 않습니다. PDF 비밀번호를 다시 입력해주세요.\n(보통 생년월일 6자리 또는 주민번호 앞 6자리)'
               : '이 PDF는 비밀번호로 보호되어 있습니다.\nPDF 비밀번호를 입력해주세요.\n(보통 생년월일 6자리 또는 주민번호 앞 6자리)';
             var pw = window.prompt(msg, '');
-            if(pw){ updatePassword(pw); }
+            if(pw){ window._medLastPw = pw; updatePassword(pw); }
             else { try{ loadingTask.destroy(); }catch(_){} resolve('PDF잠김: 비밀번호가 입력되지 않았습니다.'); }
           };
           loadingTask.promise.then(function(pdf){
@@ -13752,6 +13810,7 @@ async function analyzeMedical(){
     // 텍스트 추출
     var pw = document.getElementById('pdf_pw').value;
     var combinedText = '';
+    var ocrFile = null; window._medLastPw = '';   // 이번 분석에서 창으로 입력한 PDF 비밀번호만(이전 고객 것 재사용 금지)
     var medFileData = [];   // 파일별 {label, text(정리본), lines(좌표 줄)} — 파일 단위로 파서/AI 경로를 나눈다
     for(var fi=0; fi<files.length; fi++){
       var id = files[fi][0];
@@ -13766,13 +13825,15 @@ async function analyzeMedical(){
         var cleaned = _cleanMedText(extracted);
         combinedText += '\n\n=== ' + labels[id] + ' ('+cleaned.length+'자) ===\n' + cleaned;
         medFileData.push({label:labels[id], text:cleaned, raw:extracted, lines:fileLines});   // raw=정리 전 원문(코드 대조용 — 정리본은 홑공백이 지워져 토큰이 붙음)
+      } else if(id==='f3' && !isErr && (!extracted || extracted.length <= 10)){
+        ocrFile = file;   // 글자 층 없는 세부진료기록(도형 글자 PDF) — 아래에서 사진 인식으로 수술 행만 확인(v-31)
       } else if(extracted.indexOf('PDF잠김') === 0){
         throw new Error(labels[id]+': 비밀번호로 보호된 PDF입니다. 안내창 또는 \'PDF 비밀번호\' 칸에 비밀번호(보통 생년월일 6자리 또는 주민번호 앞 6자리)를 입력 후 다시 시도해주세요.');
       } else if(extracted){
         throw new Error(labels[id]+' 오류: '+extracted);
       }
     }
-    if(!combinedText.trim()){
+    if(!combinedText.trim() && !ocrFile){
       throw new Error('PDF에서 텍스트를 읽을 수 없습니다. 스캔 이미지 PDF이거나 비밀번호가 틀렸을 수 있습니다.');
     }
     try{ window._lastMedRaw = combinedText; }catch(e){}
@@ -13797,8 +13858,9 @@ async function analyzeMedical(){
       // 수술 낱말 보조 스캔(v-8): 표에서 이미 잡힌 날짜의 수술은 건너뛰고, 못 잡은 것만 보충(열 인식 실패·AI 폴백 파일 포함)
       try{
         var hadSurg={}; (pr&&pr.recs||[]).forEach(function(r){ if(r.tbl==='act' && _medSurgWord(r.act)) hadSurg[r.date]=1; });
-        // 세부진료기록 판정: 세부기록 칸이거나, 다른 칸에 올렸어도 내용이 세부진료정보(세부내역서)면 — 파일을 칸을 바꿔 올리는 경우 대비
-        var isDetail = f.label==='세부기록' || /세\s*부\s*(진\s*료|내\s*역)|진\s*료\s*내\s*역|코\s*드\s*명/.test(String(f.raw||f.text||'').slice(0,20000));
+        // 세부진료기록 판정: 세부기록 칸만, 그리고 표 파서가 기본진료 표(상병코드·상병명 열)를 읽은 파일은 제외 —
+        // "진료내역" 같은 낱말로 내용 판정하면 기본진료 파일까지 훑어 모든 상병에 (수술)이 붙던 실사고(v2026.09.29-9, v-31에서 폐기)
+        var isDetail = f.label==='세부기록' && !(pr&&pr.recs||[]).some(function(r){ return r.tbl==='dx'; });
         var sc=(isDetail?_medSurgScan(f.lines):[]).filter(function(r){ return !hadSurg[r.date]; });
         if(sc.length){ scanRecs=scanRecs.concat(sc); surgDiag.push(f.label+' 줄 직접 스캔 보충 '+sc.length+'건 ('+sc.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'병원 미상')+' '+r.act; }).join(', ')+(sc.length>4?' 외':'')+')'); }
       }catch(se){ console.warn('수술 보조 스캔 오류('+f.label+'):', se); }
@@ -13806,6 +13868,16 @@ async function analyzeMedical(){
       // 완전성 자가 점검(v-19): 원문 순번 최대값(=원문 행 수)과 정리된 기록 수를 파일별로 표시 — 원본 없이도 빠진 행 유무를 화면에서 확인
       if(pr && pr.seqMax){ Object.keys(pr.seqMax).forEach(function(k){ var mx=pr.seqMax[k], cnt=pr.seqCnt[k]||0; if(mx>0) seqDiag.push(f.label+' 원문 순번 최대 '+mx+' / 정리 기록 '+cnt+'건'+(cnt>=mx?' ✓':' ⚠ '+(mx-cnt)+'건 차이')); }); }
     });
+    if(ocrFile){
+      try{
+        loadEl.textContent = '📷 세부기록이 글자 없는 PDF라 사진으로 수술 행을 찾는 중... (쪽을 그리는 중)';
+        var oc = await _medSurgOcr(ocrFile, pw, function(dn,tot){ loadEl.textContent='📷 세부기록 사진 인식 중... ('+dn+'/'+tot+'쪽)'; });
+        scanRecs = scanRecs.concat(oc.recs);
+        surgDiag.push('세부기록: 글자 없는 PDF(도형 글자) — 사진 인식 '+oc.done+'/'+oc.pages+'쪽, 수술 낱말 '+oc.recs.length+'건'
+          +(oc.recs.length?' ('+oc.recs.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'-')+' '+_medSurgWord(r.act); }).join(', ')+(oc.recs.length>4?' 외':'')+')':'')
+          +(oc.errs.length?' ⚠ 실패 '+oc.errs.length+'건: '+oc.errs.slice(0,3).join(' / '):''));
+      }catch(oe){ surgDiag.push('세부기록: 글자 없는 PDF — 사진 인식 실패('+((oe&&oe.message)||oe)+'). 수술 내역이 빠졌을 수 있습니다.'); }
+    }
     if(parsedRecs.length && scanRecs.length){ parsedRecs = parsedRecs.concat(scanRecs); scanRecs = []; }   // 표 기록과 함께 정리(같은 날 상병 행에 수술 부착)
     if(parsedRecs.length){
       loadEl.textContent = '📋 표 서식 정리 중...';
@@ -13876,6 +13948,7 @@ async function analyzeMedical(){
       srcNote += (srcNote?' ':'') + '⚠ '+af.label+': 표 서식을 인식하지 못해 AI가 원문을 옮겨 적음(추정 없음, '+verified.length+'행'+(verified.flagged?', 원문 미확인 코드 '+verified.flagged+'건 ⚠표시':'')+').';
     }
 
+    if(scanRecs.length){ try{ allRows = allRows.concat(_medRecsToRows(scanRecs)); }catch(se){ console.warn('수술 보조 스캔 반영 오류:', se); } }   // 표 파서 결과가 없을 때(전부 AI 전사)도 보충분을 버리지 않음
     if(!allRows.length){
       throw new Error('정리할 진료 내역을 찾지 못했습니다. ' + (chunkErrors.join(' / ') || '(표 머리글·날짜가 있는 줄이 없음 — [추출원문]으로 확인해 주세요)'));
     }
@@ -13895,7 +13968,6 @@ async function analyzeMedical(){
     }catch(ae){ codeAudit=''; }
 
     // 같은 상병코드끼리 묶어 기간(최초~최근)·통원 횟수 합산, 약 처방일수는 최장값(합산 금지 — 확정 규칙)
-    if(scanRecs.length){ try{ allRows = allRows.concat(_medRecsToRows(scanRecs)); }catch(se){ console.warn('수술 보조 스캔 반영 오류:', se); } }   // 표 파서 결과가 없을 때(전부 AI 전사)도 보충분을 버리지 않음
     var mergedRows = _mergeMedRowsByCode(allRows);
 
     var finalLines = [
