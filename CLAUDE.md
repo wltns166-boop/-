@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.29-16 커밋 2e133c3. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.29-17. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
@@ -581,6 +581,9 @@
   ① 3개월 이내 **통원 내역**(v-16 사용자 정정 — 입원·수술 아님, 건강체 0번과 같은 `nt.recent` 목록) ② N년 이내 입원·수술(창 안 버튼 2·5·10년, 기본 5년 — 세 벌을 미리 그려 `data-mny`로 전환) ③ 5년 이내 암(백혈병 포함)·뇌졸중·심근경색·협심증·심장판막증·간경화.
   목록은 `_medNoticeItems(...).simple`(hosp[2|5|10]·six) — 입원·수술 판정은 건강체와 같은 `hospIncl`(표의 입원·수술 칸), 날짜 미상은 포함(안전).
   PDF(_medPdfDocHtml)·목록 [전체]는 건강체만(무변경). 헤드리스 렌더로 탭·기간 전환·창 스크립트 new Function 검증.
+  **v2026.09.29-17 (사용자 요청)**: 간편체도 `_medPdfDocHtml`에 포함 — 목록 [전체]·[치과 제외]·인쇄·드라이브 자동 저장 PDF 모두
+  건강체(1.) 다음 쪽에 "2. 간편체 고지사항". 문서판은 `_medSimpleSectionsHtml(m,{doc:true,excludeDental})` — 버튼 없이 2-1(2년)·2-2(5년)·2-3(10년) 세 벌을 모두 펼침,
+  치과 제외는 건강체와 같은 `_isDentalRow`. 열람 창(opts 없음)은 기존 버튼 전환 그대로.
 - **고지사항 창 칸 클릭 복사 (2026-09-29 — v2026.09.29-5, 사용자 요청)**: `viewMedNotice` 열람 창의 표 칸(td — 진료기간·병력·상병코드·병원명·내용)을 클릭하면
   그 칸 글자를 클립보드로 복사(줄바꿈은 공백으로, 드래그 선택 중엔 무시) + 하단 초록 알림 `#mn_cptoast`. navigator.clipboard 실패 시 execCommand 폴백.
   스크립트·CSS는 **열람 창에만** 주입 — `_medNoticeSectionsHtml`(PDF·목록 [전체] 공용)은 무변경. 팝업 스크립트는 문자열 조립이라 수정 시 `new Function`으로 따로 검증할 것(4.48 규칙).
