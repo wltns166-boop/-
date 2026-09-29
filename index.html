@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-15</div>
   </div>
 </div>
 
@@ -11010,7 +11010,17 @@ function _medNoticeItems(note){
     hosp:  rows.filter(function(r){ return in5y(r) && hospIncl(r); }),
     visit: rows.filter(function(r){ return in5y(r) && r.visit>=7; }),
     drug:  rows.filter(function(r){ return in5y(r) && r.drug>=30; }),
-    major: rows.filter(function(r){ return in5y(r) && r.major; })                 // 5년 내 10대 질병(상병코드 범위·병명 키워드)
+    major: rows.filter(function(r){ return in5y(r) && r.major; }),                // 5년 내 10대 질병(상병코드 범위·병명 키워드)
+    simple: (function(){                                                          // 간편체(3·N·5) 고지사항 — 2026-09-29 사용자 요청
+      function inY(r,y){ if(r.noDate) return true; var d=new Date(); d.setFullYear(d.getFullYear()-y); d.setHours(0,0,0,0); return latestDate(r.period)>=d; }
+      var SIX=/^(암|백혈병|뇌졸중|심근경색|협심증|심장판막증|간경화)$/;          // 간편 3번 문항: 암·뇌졸중·심근경색·협심증·심장판막증·간경화(백혈병은 암)
+      var hy={}; [2,5,10].forEach(function(y){ hy[y]=rows.filter(function(r){ return inY(r,y) && hospIncl(r); }); });
+      return {
+        h3m: rows.filter(function(r){ return in3m(r) && hospIncl(r); }),        // 1. 3개월 이내 입원·수술(추가검사 소견은 기록으로 판정 불가)
+        hosp: hy,                                                                  // 2. N년 이내 입원·수술(2·5·10년)
+        six: rows.filter(function(r){ return in5y(r) && SIX.test(r.major||''); })  // 3. 5년 이내 6대 질병
+      };
+    })()
   };
 }
 // 계약 전 알릴의무 "10대 질병" 판정 — 상병코드 범위 우선, 없으면 병명 키워드. 해당 없으면 ''.
@@ -11084,6 +11094,36 @@ function _medNoticeSectionsHtml(m, opts){
                +([].concat(hospL,visitL,drugL,majorL).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
              : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [병력정리]로 원문을 확인해 주세요.</div>');
 }
+// 간편체(간편심사 3·N·5) 고지사항 섹션 — 고지사항 창의 [간편체 고지사항] 탭(2026-09-29 사용자 요청).
+// 2번 문항 기간(2·5·10년)은 상품마다 달라 세 벌을 미리 그려 두고 창 안 버튼으로 바꿔 본다(data-mny). 표 칸 모양은 건강체와 같다.
+function _medSimpleSectionsHtml(m){
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var nt=_medNoticeItems(m.note), sp=nt.simple;
+  var sec=function(title, list, valFn){
+    var h='<h3>'+title+' <span class="cnt '+(list.length?'y':'n')+'">'+(list.length?list.length+'건':'해당 없음')+'</span></h3>';
+    if(list.length){
+      h+='<table><tr><th>진료기간</th><th>병력(질병명)</th><th>상병코드</th><th>병원명</th><th>내용</th></tr>'
+        +list.map(function(r){ return '<tr><td>'+esc(r.period)+'</td><td>'+esc(r.disease)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.hospital||'-')+'</td><td class="hl" style="white-space:nowrap">'+esc(valFn(r))+'</td></tr>'; }).join('')
+        +'</table>';
+    }
+    return h;
+  };
+  var hv=function(r){ return r.hosp; };
+  var h='<div class="meta">병력정리 작성일 '+esc(m.dt||'-')+' &nbsp;|&nbsp; 간편심사(3·N·5) 문항 기준</div>'
+    +'<div class="mnyb">2번 문항 기간: '
+    +[2,5,10].map(function(y){ return '<button type="button" class="mny'+(y===5?' on':'')+'" data-mny="'+y+'">3·'+y+'·5 ('+y+'년)</button>'; }).join('')
+    +'</div>'
+    +sec('1. 최근 3개월 이내 입원·수술', sp.h3m, hv)
+    +[2,5,10].map(function(y){ return '<div class="mnysec" data-mnysec="'+y+'"'+(y===5?'':' style="display:none"')+'>'+sec('2. 최근 '+y+'년 이내 입원·수술', sp.hosp[y], hv)+'</div>'; }).join('')
+    +sec('3. 최근 5년 이내 암·뇌졸중·심근경색·협심증·심장판막증·간경화 진단·입원·수술', sp.six, function(r){ return r.major; });
+  h+= nt.parsed
+    ? '<div class="note">※ 정리된 병력정리 표에서 자동 추출한 참고 자료입니다. 상품마다 문항(기간·질병 범위)이 다르니 청약서 문항과 대조해 주세요.'
+      +' 1번의 "추가검사(재검사) 필요 소견"은 기록만으로 판정할 수 없어 표시하지 않습니다 — 고객에게 직접 확인해 주세요.'
+      +(nt.recent.length?' 참고: 최근 3개월 이내 진료 기록 '+nt.recent.length+'건([건강체 고지사항] 0번).':'')
+      +([].concat(sp.hosp[10],sp.six).some(function(r){return r.noDate;})?' 진료기간 날짜가 없는 항목은 안전을 위해 포함했습니다.':'')+'</div>'
+    : '<div class="note">⚠ 이 병력정리에는 표 형식 데이터가 없어 자동 추출을 하지 못했습니다. [병력정리]로 원문을 확인해 주세요.</div>';
+  return h;
+}
 // 고지사항 상세보기 — 새 창
 function viewMedNotice(i){
   var m=mhx[i];
@@ -11106,13 +11146,26 @@ function viewMedNotice(i){
     +'td{cursor:copy;transition:background .12s}td:hover{background:#eef1ff}td.cp{background:#d9f2e2!important}'
     +'#mn_cptoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1a7a40;color:#fff;font-size:13.5px;padding:7px 16px;border-radius:18px;opacity:0;transition:opacity .15s;pointer-events:none;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     +'#mn_cptoast.on{opacity:1}'
-    +'.cphint{font-size:12.5px;color:#5a68a8;margin:2px 0 8px}';
+    +'.cphint{font-size:12.5px;color:#5a68a8;margin:2px 0 8px}'
+    // 건강체/간편체 탭(2026-09-29)
+    +'.mntabs{display:flex;gap:6px;margin:10px 0 4px;border-bottom:2px solid #2a3a8a}'
+    +'.mntab{border:1px solid #c9cde6;border-bottom:none;background:#f2f3fa;color:#44507a;font:inherit;font-size:14.5px;font-weight:700;padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer}'
+    +'.mntab.on{background:#2a3a8a;border-color:#2a3a8a;color:#fff}'
+    +'.mnyb{font-size:13.5px;color:#44507a;margin:4px 0 2px}'
+    +'.mny{border:1px solid #c9cde6;background:#fff;color:#44507a;font:inherit;font-size:13px;padding:3px 10px;border-radius:14px;margin-left:6px;cursor:pointer}'
+    +'.mny.on{background:#2a3a8a;border-color:#2a3a8a;color:#fff}';
   // 복사 스크립트 — 문자열 조립이라 일반 문법 검사가 못 봄(4.48 규칙): 수정 시 new Function으로 따로 검증할 것
   var cpScript='<scr'+'ipt>(function(){'
     +'var t=document.getElementById("mn_cptoast"),tm=0;'
     +'function show(msg,ok){t.textContent=msg;t.style.background=ok?"#1a7a40":"#c03030";t.classList.add("on");clearTimeout(tm);tm=setTimeout(function(){t.classList.remove("on");},1400);}'
     +'function fb(v){var a=document.createElement("textarea");a.value=v;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();var ok=false;try{ok=document.execCommand("copy");}catch(e){}a.remove();return ok;}'
     +'document.addEventListener("click",function(e){'
+      +'var tb=e.target&&e.target.closest&&e.target.closest("[data-mntab]");'
+      +'if(tb){var k=tb.getAttribute("data-mntab");document.querySelectorAll("[data-mntab]").forEach(function(b){b.classList.toggle("on",b===tb);});'
+        +'document.querySelectorAll("[data-mnpage]").forEach(function(p){p.style.display=(p.getAttribute("data-mnpage")===k)?"":"none";});return;}'
+      +'var yb=e.target&&e.target.closest&&e.target.closest("[data-mny]");'
+      +'if(yb){var y=yb.getAttribute("data-mny");document.querySelectorAll("[data-mny]").forEach(function(b){b.classList.toggle("on",b===yb);});'
+        +'document.querySelectorAll("[data-mnysec]").forEach(function(p){p.style.display=(p.getAttribute("data-mnysec")===y)?"":"none";});return;}'
       +'var td=e.target&&e.target.closest&&e.target.closest("td");if(!td)return;'
       +'var sel=window.getSelection&&String(window.getSelection());if(sel)return;'
       +'var v=(td.innerText||td.textContent||"").replace(/\\s*\\n\\s*/g," ").replace(/\\s{2,}/g," ").trim();if(!v)return;'
@@ -11123,8 +11176,10 @@ function viewMedNotice(i){
   +'})();</scr'+'ipt>';
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>고지사항 · '+esc(m.cust)+'</title><style>'+css+'</style></head><body>'
     +'<h2>📋 고지사항 확인 — '+esc(m.cust)+'</h2>'
+    +'<div class="mntabs"><button type="button" class="mntab on" data-mntab="h">1. 건강체 고지사항</button><button type="button" class="mntab" data-mntab="s">2. 간편체 고지사항</button></div>'
     +'<div class="cphint">표의 칸을 클릭하면 그 내용이 복사됩니다.</div>'
-    +_medNoticeSectionsHtml(m)
+    +'<div data-mnpage="h">'+_medNoticeSectionsHtml(m)+'</div>'
+    +'<div data-mnpage="s" style="display:none">'+_medSimpleSectionsHtml(m)+'</div>'
     +'<div id="mn_cptoast"></div>'+cpScript
     +'</body></html>';
   w.document.write(body); w.document.close();
