@@ -83,6 +83,18 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .nt{color:#2a2a4a;font-size:15px;}
 .nd{font-size:13px;color:#8080b0;margin-top:2px;}
 .bnew{background:rgba(70,90,220,.18);color:#6878ee;font-size:12px;padding:2px 6px;border-radius:4px;margin-left:6px;}
+/* 공지 분류(시책/교육) 탭·배지 · 팝업 기간 배지 (2026-09-29) */
+.ntabs{display:flex;gap:6px;flex-wrap:wrap}
+.ntab{padding:6px 16px;border:1px solid rgba(80,90,180,.3);border-radius:18px;background:#fff;color:#4a5690;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.ntab.on{background:#4858cc;border-color:#4858cc;color:#fff}
+body:has(#notpop_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
+.ntabs.sm .ntab{padding:3px 12px;font-size:12.5px}
+.ncat{display:inline-block;flex:none;font-size:11.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:5px;vertical-align:1px;white-space:nowrap}
+.ncat.c1{background:#fff1e0;color:#b85c00;border:1px solid #f3cf9e}
+.ncat.c2{background:#e6f5ec;color:#1a7a40;border:1px solid #a9dcbc}
+.npop{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
+.npop.on{background:rgba(72,88,204,.1);color:#3848b8;border:1px solid rgba(72,88,204,.3)}
+.npop.off{background:#f2f3f7;color:#9aa0b8;border:1px solid #dde0ea}
 .cn{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:14px;color:#4858a0;}
 .cn button{background:none;border:none;color:#484888;cursor:pointer;font-size:18px;padding:2px 5px;transition:.15s;}
 .cn button:hover{color:#8888ff;}
@@ -510,7 +522,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.28-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-1</div>
   </div>
 </div>
 
@@ -683,6 +695,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="hg">
         <div class="hc">
           <div class="hct"><span><i class="ti ti-bell"></i> 공지사항</span><span style="display:inline-flex;align-items:center;gap:8px"><button class="bp bsm ao" id="btn_notice_pin" onclick="notPinToggle()" style="background:#fff;color:#c03040;border:1px solid rgba(192,48,64,.45)"><i class="ti ti-pin"></i> 상단고정</button><button class="bp bsm ao" id="btn_notice_add" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 공지등록</button></span></div>
+          <div class="ntabs sm" id="notice_home_tabs" style="margin:-4px 0 6px">
+            <button class="ntab on" data-ncat="" onclick="notSetCat('home','')">전체</button>
+            <button class="ntab" data-ncat="시책" onclick="notSetCat('home','시책')">시책</button>
+            <button class="ntab" data-ncat="교육" onclick="notSetCat('home','교육')">교육</button>
+          </div>
           <div id="notice_list"></div>
         </div>
         <div class="hc">
@@ -1222,6 +1239,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       <div class="sh">
         <div class="st"><i class="ti ti-bell"></i>공지사항</div>
         <button class="bp ao" onclick="openNoticeAddPage()"><i class="ti ti-plus"></i> 공지사항 등록</button>
+      </div>
+      <!-- 분류 탭(2026-09-29) — 전체/시책/교육 -->
+      <div class="ntabs" id="notice_tabs" style="margin-bottom:10px">
+        <button class="ntab on" data-ncat="" onclick="notSetCat('page','')">전체</button>
+        <button class="ntab" data-ncat="시책" onclick="notSetCat('page','시책')">시책</button>
+        <button class="ntab" data-ncat="교육" onclick="notSetCat('page','교육')">교육</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <select id="notice_year" onchange="rNoticePage()" title="연도" style="padding:8px 10px;border:1px solid rgba(80,90,180,.3);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;color:#334;cursor:pointer"></select>
@@ -2916,6 +2939,26 @@ function rSchedulePage(){
 <div class="mb" id="m_notice"><div class="mo" style="width:560px;background:#fff;border:1px solid rgba(45,65,170,.18)">
   <div class="mth" style="color:#1a1a2e"><span id="m_not_title">공지사항 등록</span><span class="mc" onclick="closeNoticeModal()" style="color:#555">×</span></div>
   <div class="fg"><div class="fl">등록일시</div><input class="fi" id="mn_date" readonly style="background:#f5f6ff;color:#5060aa;font-weight:500;border:1px solid #c9cfec"></div>
+  <!-- 공지 분류(2026-09-29) — 일반은 [전체] 탭에만, 시책·교육은 해당 탭에도 표시 -->
+  <div class="fg"><div style="display:flex;align-items:center;gap:14px;font-size:14px;color:#31419e;flex-wrap:wrap">
+    <span style="font-weight:600">분류</span>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="" checked style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">일반</label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="시책" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">시책</label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#16203c"><input type="radio" name="mn_cat" value="교육" style="width:15px;height:15px;accent-color:#4858cc;cursor:pointer">교육</label>
+  </div></div>
+  <!-- 메인화면 공지 팝업(2026-09-29) — 체크 시 기간 동안 로그인한 사람의 홈 화면에 팝업. 종료일이 지나면 자동으로 안 뜸 -->
+  <div class="fg" style="background:#f5f6ff;border:1px solid #d8ddf3;border-radius:9px;padding:10px 12px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#31419e;font-weight:600;padding:2px 0">
+      <input type="checkbox" id="mn_pop" onchange="_mnPopToggle()" style="width:17px;height:17px;accent-color:#4858cc;cursor:pointer">메인화면 팝업으로 띄우기 <span style="font-weight:400;color:#5a68a8;font-size:13px">(로그인하면 홈 화면에 표시)</span>
+    </label>
+    <div id="mn_pop_range" style="display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:#31419e">
+      <span style="font-weight:600">팝업 기간</span>
+      <input type="date" class="fi" id="mn_pop_s" style="width:auto;padding:6px 8px">
+      <span>~</span>
+      <input type="date" class="fi" id="mn_pop_e" style="width:auto;padding:6px 8px">
+      <span style="font-size:12.5px;color:#7a84b0;width:100%">종료일이 지나면 자동으로 팝업이 뜨지 않습니다.</span>
+    </div>
+  </div>
   <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14.5px;color:#31419e;font-weight:600;padding:2px 0">
     <input type="checkbox" id="mn_track" style="width:17px;height:17px;accent-color:#4858cc;cursor:pointer">열람내역 확인 <span style="font-weight:400;color:#5a68a8;font-size:13px">(누가 언제 읽었는지 기록)</span>
   </label></div>
@@ -4505,6 +4548,8 @@ function logout(){
   // 다른 관리자가 로그인해도 요청 현황·총무휴가 팝업이 다시 뜨게 함
   window._reqStatShown=false; window._cwVacShown=false;
   try{ var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }catch(e){}
+  window._notPopShown=false; window._notHomeCat=''; window._notPageCat='';   // 공지 팝업·분류 탭(2026-09-29)
+  try{ var _npp=g('notpop_pop'); if(_npp) _npp.remove(); }catch(e){}
   // 업무 현황 팝업 설정 편집 초안 리셋 — 같은 탭에서 다른 관리자 로그인 시 미저장 편집이 넘어가는 것 방지(2026-09-10 리뷰)
   window._rsWork=null; window._rsOrder=null; window._rsAddOpen=null;
   // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
@@ -7576,6 +7621,8 @@ function rHome(){
   // 업무 요청 현황 팝업(2026-09-08, 2026-09-10 전 역할 확대) — 팀원/팀장/지점장/총무 역할별 구성(reqstatcfg), 홈 진입 시마다 표시.
   // 클라우드 수신 후 홈 재렌더 때는 열려 있는 팝업의 건수만 갱신된다(_reqStatPopup 내부 처리).
   try{ _reqStatPopup(); }catch(e){}
+  // 공지 팝업(2026-09-29) — 팝업 기간 중인 공지를 로그인(접속)당 1회 표시, [오늘 하루 보지 않음] 지원
+  try{ _notPopup(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -7585,12 +7632,16 @@ function rNotices(){
   if(pinMode && el.querySelector('[data-pinchk]')) return;
   if(!not.length){el.innerHTML='<div class="em">공지사항이 없습니다.</div>';return;}
   const newestI=not.length-1;   // NEW 배지는 정렬 위치와 무관하게 "가장 최근 등록" 기준
+  // 분류 탭(2026-09-29) — 고정 편집 중엔 필터 무시(체크박스가 안 그려진 공지는 [고정 저장] 때 고정이 풀리므로 전부 표시)
+  const cat=pinMode?'':(window._notHomeCat||'');
+  _notTabsSync('notice_home_tabs', pinMode?'':cat);
   // 상단고정(pin) 우선 + 각 그룹 최신순 — 원본 인덱스 i를 함께 보존(함정 A)
-  const items=not.map((n,i)=>({n:n,i:i})).sort((a,b)=>{
+  const items=not.map((n,i)=>({n:n,i:i})).filter(o=>!cat||_notCatOf(o.n)===cat).sort((a,b)=>{
     const pa=a.n&&a.n.pin?1:0, pb=b.n&&b.n.pin?1:0;
     if(pa!==pb) return pb-pa;
     return b.i-a.i;
   });
+  if(!items.length){ el.innerHTML='<div class="em">'+_esc(cat)+' 공지가 없습니다.</div>'; return; }
   el.innerHTML=items.map(o=>{
     const n=o.n, i=o.i;
     const chk=pinMode?`<input type="checkbox" data-pinchk="${_esc(_notPinFp(n))}" ${n.pin?'checked':''} style="width:16px;height:16px;accent-color:#c03040;margin-right:8px;flex:none;cursor:pointer">`:'';
@@ -7598,7 +7649,7 @@ function rNotices(){
     const rowClick=pinMode?'notPinRowClick(event,this)':`openNoticeDetail(${i})`;
     return `<div style="border-bottom:1px solid rgba(80,80,180,.1);padding:8px 0;cursor:pointer${(n.pin&&!pinMode)?';background:rgba(192,48,64,.045)':''}" onclick="${rowClick}" title="${pinMode?'클릭하면 고정 대상으로 선택/해제됩니다':'클릭하면 새 창에서 봅니다'}">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="nt" style="display:flex;align-items:center;min-width:0">${chk}${pinBadge}<span style="overflow:hidden;text-overflow:ellipsis">${_esc(n.title)}</span>${i===newestI?'<span class="bnew">NEW</span>':''}${n.files&&n.files.length?' <i class="ti ti-paperclip" style="font-size:12px;color:#8090bb"></i>':''}</div>
+        <div class="nt" style="display:flex;align-items:center;min-width:0">${chk}${pinBadge}${_notCatBadge(n)}<span style="overflow:hidden;text-overflow:ellipsis">${_esc(n.title)}</span>${i===newestI?'<span class="bnew">NEW</span>':''}${n.files&&n.files.length?' <i class="ti ti-paperclip" style="font-size:12px;color:#8090bb"></i>':''}</div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="nd">${n.date}</span>
           ${cu&&cu.admin&&!pinMode?`<button class="be" onclick="event.stopPropagation();openNoticeEdit(${i})" style="padding:2px 7px;font-size:13px"><i class="ti ti-edit"></i></button>`:''}
@@ -7606,6 +7657,147 @@ function rNotices(){
       </div>
     </div>`;
   }).join('');
+}
+// ===== 공지 분류(시책/교육) · 메인화면 공지 팝업 (2026-09-29) =====
+// 분류: not[].cat = '시책'|'교육'(일반은 필드 없음 — [전체] 탭에만). 홈 카드·공지 페이지 각각 탭(전체/시책/교육) 필터.
+//   탭 상태는 화면 필터일 뿐 저장 안 함(_notHomeCat/_notPageCat). 목록은 원본 인덱스 보존(함정 A).
+// 팝업: not[].popup=1 + popS/popE('YYYY-MM-DD'). 오늘(td(), KST)이 기간 안이면 로그인한 모든 사람의 홈에 팝업 —
+//   종료일이 지나면 조건에서 빠져 자동으로 안 뜸. 접속(로그인)당 1회(_notPopShown, logout에서 리셋).
+//   [오늘 하루 보지 않음] = 기기·사용자별 로컬 `tops_notpop_hide` {이름:{d:오늘, nids:[...]}} — 날짜가 바뀌면 자동 무효
+//   (동기화 안 함, 텍스트 소량 — 함정 B 무관, 저장은 _lsSet). 식별은 nid(함정 A). id는 notpop_ 접두(함정 E).
+var NOTICE_CATS=['시책','교육'];
+function _notCatOf(n){ var c=n&&n.cat; return NOTICE_CATS.indexOf(c)>=0?c:''; }
+function _notCatBadge(n){ var c=_notCatOf(n); return c?'<span class="ncat '+(c==='시책'?'c1':'c2')+'">'+c+'</span>':''; }
+function _notPopActive(n,today){ return !!(n&&n.popup&&n.nid&&n.popS&&n.popE&&today>=n.popS&&today<=n.popE); }
+function _notPopBadge(n){
+  if(!n||!n.popup||!n.popS||!n.popE) return '';
+  var t=td(), on=t>=n.popS&&t<=n.popE, f=function(d){ return (+d.slice(5,7))+'/'+(+d.slice(8,10)); };
+  var lbl=on?'팝업중':(t<n.popS?'팝업예정':'팝업종료');
+  return '<span class="npop '+(on||t<n.popS?'on':'off')+'" title="메인화면 팝업 기간 '+_esc(n.popS)+' ~ '+_esc(n.popE)+'"><i class="ti ti-message-2"></i> '+lbl+' '+f(n.popS)+'~'+f(n.popE)+'</span>';
+}
+function _notTabsSync(id,cat){
+  var w=g(id); if(!w) return;
+  w.querySelectorAll('[data-ncat]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-ncat')===cat); });
+}
+function notSetCat(where,cat){
+  cat=NOTICE_CATS.indexOf(cat)>=0?cat:'';
+  if(where==='home'){
+    if(window._notPinMode){ toast('상단고정 편집 중에는 분류를 바꿀 수 없습니다. [고정 저장] 후 이용하세요.'); return; }
+    window._notHomeCat=cat; rNotices();
+  } else { window._notPageCat=cat; rNoticePage(); }
+}
+function _mnCatSet(cat){
+  try{ var r=document.querySelector('input[name="mn_cat"][value="'+(NOTICE_CATS.indexOf(cat)>=0?cat:'')+'"]'); if(r) r.checked=true; }catch(e){}
+}
+function _mnPopToggle(){
+  var on=!!(g('mn_pop')&&g('mn_pop').checked), w=g('mn_pop_range');
+  if(w) w.style.display=on?'flex':'none';
+  if(on){   // 기간이 비어 있으면 오늘~6일 뒤로 채움
+    if(!g('mn_pop_s').value) g('mn_pop_s').value=td();
+    if(!g('mn_pop_e').value) g('mn_pop_e').value=_cwDayShift(g('mn_pop_s').value,6);
+  }
+}
+function _mnPopLoad(n){
+  var on=!!(n&&n.popup);
+  g('mn_pop').checked=on;
+  g('mn_pop_s').value=on?(n.popS||''):'';
+  g('mn_pop_e').value=on?(n.popE||''):'';
+  _mnPopToggle();
+}
+function _notPopHideMap(){ try{ var v=JSON.parse(localStorage.getItem('tops_notpop_hide')||'{}'); if(v&&typeof v==='object'&&!Array.isArray(v)) return v; }catch(e){} return {}; }
+function _notPopHiddenNids(){
+  try{ var r=_notPopHideMap()[cu&&cu.name]; if(r&&r.d===td()&&Array.isArray(r.nids)) return r.nids; }catch(e){}
+  return [];
+}
+function _notPopHideSet(on,nids){
+  try{
+    var nm=cu&&cu.name; if(!nm) return;
+    var mp=_notPopHideMap(), cur=_notPopHiddenNids().slice();
+    nids.forEach(function(id){ var k=cur.indexOf(id); if(on&&k<0) cur.push(id); if(!on&&k>=0) cur.splice(k,1); });
+    if(cur.length) mp[nm]={d:td(), nids:cur}; else delete mp[nm];
+    _lsSet('tops_notpop_hide', JSON.stringify(mp));
+  }catch(e){}
+}
+// 팝업 본문 첨부 미리보기 — https 이미지(이미지 파일·PDF 변환 페이지)만, 최대 10장. 나머지는 [자세히 보기]로.
+function _notPopImgs(n){
+  var out=[];
+  (Array.isArray(n.files)?n.files:[]).forEach(function(f){
+    if(!f||typeof f==='string') return;
+    if(Array.isArray(f.pages)&&f.pages.length) f.pages.forEach(function(u){ out.push(u); });
+    else if(/^image\//i.test(f.type||'')||/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name||'')) out.push(f.url);
+  });
+  return out.filter(function(u){ return /^https:\/\//i.test(String(u||'')); }).slice(0,10);
+}
+function _notPopup(){
+  try{
+    if(!cu) return;
+    if(/[?&]rr=1/.test(location.search)) return;          // 서버 캡처 화면 제외
+    if(window._notPopShown||g('notpop_pop')) return;     // 접속당 1회(닫은 뒤 클라우드 재렌더로 다시 뜨지 않게)
+    var today=td(), hidden=_notPopHiddenNids();
+    var list=not.filter(function(n){ return _notPopActive(n,today)&&hidden.indexOf(n.nid)<0; })
+      .sort(function(a,b){ return (b.pin?1:0)-(a.pin?1:0); });   // 상단고정 공지 먼저(같으면 등록 순서 유지)
+    if(!list.length) return;                              // 없으면 플래그 안 세움 — 클라우드 수신 후 재시도(cwvac 패턴)
+    window._notPopShown=true;
+    var nids=list.map(function(n){ return n.nid; }), cur=0;
+    var ov=document.createElement('div');
+    ov.id='notpop_pop';
+    // 총무휴가(99999)·업무현황(99998)보다 위 — 공지를 먼저 보여주고 닫으면 뒤 팝업이 보임
+    ov.style.cssText='position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(3,8,30,.55);padding:16px';
+    ov.innerHTML='<div id="notpop_card" style="background:#fff;border-radius:10px;border-top:4px solid #4858cc;max-width:480px;width:100%;box-shadow:0 16px 48px rgba(4,10,40,.45);display:flex;flex-direction:column;max-height:88vh">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid #e8eaf2">'
+        +'<div style="font-size:16px;font-weight:800;color:#181c2e"><i class="ti ti-bell" style="color:#4858cc"></i> 공지사항</div>'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<span id="notpop_nav" style="display:'+(list.length>1?'inline-flex':'none')+';align-items:center;gap:6px;font-size:13px;color:#5a6488">'
+            +'<button id="notpop_prev" style="padding:2px 9px;border:1px solid #ccd0e8;border-radius:5px;background:#fff;color:#4858cc;cursor:pointer;font-family:inherit">‹</button>'
+            +'<span id="notpop_cnt"></span>'
+            +'<button id="notpop_next" style="padding:2px 9px;border:1px solid #ccd0e8;border-radius:5px;background:#fff;color:#4858cc;cursor:pointer;font-family:inherit">›</button>'
+          +'</span>'
+          +'<span id="notpop_close" style="font-size:22px;line-height:1;color:#8a92ac;cursor:pointer;padding:2px 4px">&times;</span>'
+        +'</div>'
+      +'</div>'
+      +'<div id="notpop_body" style="padding:16px 18px;overflow-y:auto;color:#1a1a2e"></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-top:1px solid #e8eaf2;flex-wrap:wrap">'
+        +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#5a6488;cursor:pointer;user-select:none;margin:0">'
+          +'<input type="checkbox" id="notpop_hide_cb" style="width:16px;height:16px;accent-color:#4858cc;cursor:pointer;margin:0">오늘 하루 보지 않음</label>'
+        +'<span style="display:flex;gap:6px">'
+          +'<button id="notpop_more" style="padding:6px 14px;border:1px solid #4858cc;border-radius:6px;background:#fff;color:#4858cc;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer">자세히 보기</button>'
+          +'<button id="notpop_ok" style="padding:6px 16px;border:none;border-radius:6px;background:#4858cc;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">닫기</button>'
+        +'</span>'
+      +'</div>'
+      +'</div>';
+    function draw(){
+      var n=list[cur]; if(!n) return;
+      var imgs=_notPopImgs(n);
+      var fcnt=Array.isArray(n.files)?n.files.length:0;
+      g('notpop_body').innerHTML=''
+        +'<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:4px">'+_notCatBadge(n)+_esc(n.title)+'</div>'
+        +'<div style="font-size:12.5px;color:#8088aa;margin-bottom:12px">'+_esc(n.author||'')+(n.author?' · ':'')+_esc(n.datetime||n.date||'')+'</div>'
+        +(n.content?'<div style="font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word">'+_esc(n.content)+'</div>':'')
+        +imgs.map(function(u){ return '<img src="'+_esc(u)+'" alt="" style="display:block;max-width:100%;margin:12px auto 0;border:1px solid #e2e4ee;border-radius:6px">'; }).join('')
+        +(fcnt?'<div style="margin-top:12px;font-size:13px;color:#5a6488"><i class="ti ti-paperclip"></i> 첨부파일 '+fcnt+'개 — [자세히 보기]에서 확인하세요.</div>':'');
+      g('notpop_body').scrollTop=0;
+      var c=g('notpop_cnt'); if(c) c.textContent=(cur+1)+' / '+list.length;
+      var pv=g('notpop_prev'), nx=g('notpop_next');
+      if(pv) pv.disabled=cur===0; if(nx) nx.disabled=cur===list.length-1;
+    }
+    function close(){ ov.remove(); }
+    ov.addEventListener('click',close);                  // 바깥(어두운 영역) 클릭 시 닫힘
+    document.body.appendChild(ov);
+    g('notpop_card').addEventListener('click',function(ev){ ev.stopPropagation(); });
+    g('notpop_close').onclick=close;
+    g('notpop_ok').onclick=close;
+    g('notpop_prev').onclick=function(){ if(cur>0){ cur--; draw(); } };
+    g('notpop_next').onclick=function(){ if(cur<list.length-1){ cur++; draw(); } };
+    g('notpop_more').onclick=function(){
+      var n=list[cur]; if(!n) return;
+      var i=-1; not.forEach(function(x,k){ if(x&&x.nid===n.nid) i=k; });   // 클릭 시점에 nid로 재탐색(함정 A)
+      if(i<0){ toast('삭제된 공지입니다.'); return; }
+      openNoticeDetail(i);
+    };
+    var hc=g('notpop_hide_cb');
+    if(hc) hc.addEventListener('change',function(){ _notPopHideSet(hc.checked, nids); });   // 지금 보이는 공지 전부 오늘 숨김
+    draw();
+  }catch(e){ console.warn('notice popup err:', e); }
 }
 // ===== 공지 상단고정 (2026-09-08, 관리자 전용) =====
 // [상단고정] 클릭 → 목록에 체크박스(현재 고정 상태 반영) → 다시 클릭([고정 저장]) → 체크된 공지에 pin:1 기록.
@@ -14165,6 +14357,9 @@ function openNoticeAddPage(){
   g('mn_edit_idx').value='';
   var tk=g('mn_track'); if(tk) tk.checked=false;
   try{ var _vr=document.querySelector('input[name="mn_vm"][value="swipe"]'); if(_vr) _vr.checked=true; }catch(e){}   // 보기 방식 기본=좌우
+  // 분류 기본값 — 지금 보고 있는 탭(공지 페이지면 페이지 탭, 그 외(홈)는 홈 카드 탭)
+  _mnCatSet((g('pg_notice')&&g('pg_notice').classList.contains('active'))?(window._notPageCat||''):(window._notHomeCat||''));
+  _mnPopLoad(null);                    // 팝업 — 기본 꺼짐(기간 기본값: 오늘~6일 뒤)
   g('mn_del_btn').style.display='none';
   g('m_not_title').textContent='공지사항 등록';
   g('m_notice').classList.add('open');
@@ -14348,6 +14543,13 @@ async function saveNotice(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   const t=g('mn_title').value.trim();
   if(!t){toast('제목을 입력하세요.');return;}
+  // 메인화면 팝업 기간 검증(2026-09-29) — 첨부 업로드 전에 막아야 재시도 시 중복 업로드가 안 생김
+  const popOn=!!(g('mn_pop')&&g('mn_pop').checked);
+  const popS=popOn?String(g('mn_pop_s').value||''):'', popE=popOn?String(g('mn_pop_e').value||''):'';
+  if(popOn){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(popS)||!/^\d{4}-\d{2}-\d{2}$/.test(popE)){ toast('팝업 기간(시작일·종료일)을 입력하세요.'); return; }
+    if(popS>popE){ toast('팝업 종료일이 시작일보다 빠릅니다.'); return; }
+  }
   const idx=g('mn_edit_idx').value;
   const fileInput=g('mn_file');
   const picked=fileInput?Array.from(fileInput.files):[];
@@ -14387,6 +14589,10 @@ async function saveNotice(){
   if(idx!==''&&not[+idx]&&not[+idx].pin) obj.pin=1;
   // 첨부 이미지 보기 방식(2026-09-08) — 'swipe'(좌우, 자료실 스타일)|'scroll'(위아래)
   try{ var _vmR=document.querySelector('input[name="mn_vm"]:checked'); obj.vm=(_vmR&&_vmR.value==='scroll')?'scroll':'swipe'; }catch(e){ obj.vm='swipe'; }
+  // 분류(2026-09-29) — '시책'|'교육', 일반은 필드 없음
+  try{ var _cR=document.querySelector('input[name="mn_cat"]:checked'); var _cv=_cR?_cR.value:''; if(NOTICE_CATS.indexOf(_cv)>=0) obj.cat=_cv; }catch(e){}
+  // 메인화면 팝업(2026-09-29) — 기간(YYYY-MM-DD, KST 기준 td()와 비교)
+  if(popOn){ obj.popup=1; obj.popS=popS; obj.popE=popE; }
   if(idx!=='') not[+idx]=obj; else { not.push(obj); try{ pushNotify('ALL', '새 공지사항', t, '/'); }catch(e){} }
   sv('tops_not',not);
   closeNoticeModal();
@@ -14417,6 +14623,8 @@ function openNoticeEdit(i){
   g('mn_cont').value=n.content||'';
   var tk=g('mn_track'); if(tk) tk.checked=!!n.trackRead;
   try{ var _vr=document.querySelector('input[name="mn_vm"][value="'+((n.vm==='scroll')?'scroll':'swipe')+'"]'); if(_vr) _vr.checked=true; }catch(e){}   // 보기 방식 로드(기본 좌우)
+  _mnCatSet(_notCatOf(n));
+  _mnPopLoad(n);
   g('mn_edit_idx').value=i;
   g('mn_del_btn').style.display=cu&&cu.admin?'inline-flex':'none';
   g('m_not_title').textContent='공지사항 수정';
@@ -16471,8 +16679,11 @@ function rNoticePage(){
     msel._init=true;
   }
   var fy=ysel?ysel.value:'', fm=msel?msel.value:'';
+  var fc=window._notPageCat||'';   // 분류 탭(2026-09-29)
+  _notTabsSync('notice_tabs', fc);
   // 필터 적용(원본 인덱스 유지)
   var items=not.map(function(n,i){return {n:n,i:i};}).filter(function(o){
+    if(fc && _notCatOf(o.n)!==fc) return false;
     if(!fy && !fm) return true;
     var k=ym(o.n); if(!k) return false;
     if(fy && k.y!==fy) return false;
@@ -16480,7 +16691,7 @@ function rNoticePage(){
     return true;
   });
   if(!items.length){
-    tb.innerHTML='<tr><td colspan="4" class="em">'+((fy||fm)?'해당 기간 공지가 없습니다.':'등록된 공지사항이 없습니다.')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="4" class="em">'+((fy||fm)?'해당 기간 공지가 없습니다.':(fc?_esc(fc)+' 공지가 없습니다.':'등록된 공지사항이 없습니다.'))+'</td></tr>';
     return;
   }
   // 열람 배지 집계 대상 = 현재 인원(관리자+이름 등록 팀원) — 열람 현황 팝업과 동일 기준
@@ -16493,7 +16704,8 @@ function rNoticePage(){
     return '<tr style="cursor:pointer" onclick="openNoticeDetail('+i+')">'
       +'<td style="font-size:14px;white-space:nowrap">'+_esc(dt)+'</td>'
       +'<td style="font-size:14px">'+_esc(author)+'</td>'
-      +'<td>'+(n.pin?'<i class="ti ti-pin-filled" style="color:#c03040;font-size:13px;margin-right:3px"></i>':'')+'<span style="font-weight:500">'+_esc(n.title)+'</span>'+(ri===0&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
+      +'<td>'+(n.pin?'<i class="ti ti-pin-filled" style="color:#c03040;font-size:13px;margin-right:3px"></i>':'')+_notCatBadge(n)+'<span style="font-weight:500">'+_esc(n.title)+'</span>'+(i===not.length-1&&!fy&&!fm?'<span class="bnew" style="margin-left:6px">NEW</span>':'')
+      +(cu&&cu.admin?_notPopBadge(n):'')
       +(n.files&&n.files.length?'<i class="ti ti-paperclip" style="font-size:13px;color:#8090bb;margin-left:4px"></i>':'')+'</td>'
       +'<td>'+(cu&&cu.admin?'<div style="display:flex;gap:5px;justify-content:flex-end">'
           +(n.trackRead&&n.nid?'<button onclick="event.stopPropagation();openNoticeReads('+i+')" title="열람 현황" style="padding:2px 9px;font-size:12.5px;background:rgba(30,140,80,.1);border:1px solid rgba(30,140,80,.32);border-radius:6px;color:#1a7a40;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-eye-check"></i> 열람 '+(function(){var s={};notreads.forEach(function(r){if(r&&r.nid===n.nid&&_rdNames[r.name])s[r.name]=1;});return Object.keys(s).length;})()+'</button>':'')
