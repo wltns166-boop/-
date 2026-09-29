@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-14</div>
   </div>
 </div>
 
@@ -13472,6 +13472,12 @@ function _medParseTables(lines){
 // 기록(recs) → _mergeMedRowsByCode가 읽는 8칸 마크다운 행.
 // 상병(코드) 행에 같은 날짜·같은 병원의 처방(총투약일수)·진료형태(입원/외래·내원일수)를 붙이고,
 // 상병이 전혀 없는 날짜의 진료·처방은 병명 "진단명 없음 · 병원명"으로 남긴다(추정 금지 — 원문에 없는 병명을 만들지 않는다).
+// 사진 인식이 병원 칸 앞에 옆 칸(진료내역 분류명 "처치"·"처치 및 수술"·"검사" 등)을 붙여 읽는 경우 정리(v-35 — "처치연세든든내과의원" 실사고)
+function _medHospClean(h){
+  var s=String(h||'').replace(/\s+/g,''), prev;
+  do{ prev=s; s=s.replace(/^(?:\((?:양방|한방|치과)\)|처치및수술|수술및처치|처치및|처치|수술|검사료|검사|진찰료|진찰|영상진단|마취료|마취|주사료|주사|투약료|투약|입원료|기타|[·,:\-])/,''); }while(s!==prev && s);
+  return s;
+}
 function _medRecsToRows(recs){
   var byDate={};
   recs.forEach(function(r){ (byDate[r.date]=byDate[r.date]||[]).push(r); });
@@ -13479,7 +13485,9 @@ function _medRecsToRows(recs){
   function hospKey(h){ return String(h||'').replace(/\s/g,'').slice(0,4); }
   function isPharm(o){ return /약국/.test(String(o.hosp||'')) || /조제/.test(String(o.kind||'')); }
   // 약국·처방조제 행은 병원 이름이 달라도 그 날짜의 진료에 속한다(처방일수 전달) — 병원 일치는 진료 행끼리만 검사
-  function sameHosp(o,hosp){ if(isPharm(o)) return true; var x=hospKey(o.hosp), y=hospKey(hosp); return !x||!y||x===y; }
+  function sameHosp(o,hosp){ if(isPharm(o)) return true; var x=hospKey(o.hosp), y=hospKey(hosp); if(!x||!y||x===y) return true;
+    var X=String(o.hosp||'').replace(/\s/g,''), Y=String(hosp||'').replace(/\s/g,'');   // 앞 글자가 어긋나도 한쪽 이름이 다른 쪽에 통째로 들어 있으면 같은 병원(사진 인식 앞붙음 — v-35)
+    return (Y.length>=4 && X.indexOf(Y)>=0) || (X.length>=4 && Y.indexOf(X)>=0); }
   Object.keys(byDate).sort().forEach(function(d){
     var list=byDate[d];
     var dis=list.filter(function(r){ return (r.code || r.name) && !isPharm(r); });
@@ -13548,6 +13556,7 @@ async function _medSurgOcr(file, pw, onProg){
     +'사진 속 표의 **모든 행**을 빠짐없이 위에서 아래 순서로 옮겨 적으세요. 고르거나 판단하지 말고 전부 적습니다.\n'
     +'각 행은 ["순번","진료시작일(YYYY-MM-DD)","병·의원&약국 칸","코드명 칸"] 네 칸 배열이고, 전체는 JSON 배열 하나로만 출력하세요(설명·코드펜스 금지).\n'
     +'예: [["398","2024-01-06","연세든든내과의원","결장경하 종양 수술-폴립절제술"],["399","2024-01-06","연세든든내과의원","진찰료"]]\n'
+    +'병·의원&약국 칸에는 병원 이름만 적고 옆 진료내역 칸의 글자(처치·검사·수술 등)를 섞지 마세요.\n'
     +'칸 안에서 여러 줄로 줄바꿈된 글자는 이어 붙여 한 칸으로 적고, 사진에 없는 글자를 만들지 마세요. 표가 없으면 [] 만 출력.';
   var batches=[]; for(var i=1;i<=n;i+=4){ var b=[]; for(var k=i;k<i+4&&k<=n;k++) b.push(k); batches.push(b); }
   var seen={}; res.rows=0; res.seqMax=0; res.seqs={}; res.cut=0; res.near=[];
@@ -13580,7 +13589,7 @@ async function _medSurgOcr(file, pw, onProg){
       if(!o) return;
       var seq, dt, hs, code;
       if(Array.isArray(o)){ seq=o[0]; dt=o[1]; hs=o[2]; code=o[3]; } else { seq=o.seq; dt=o.date; hs=o.hosp; code=o.code; }
-      seq=cl(seq); code=cl(code); var d=_medDateNorm(cl(dt))||pd; var hosp=cl(hs).replace(/\s+/g,'')||ph;
+      seq=cl(seq); code=cl(code); var d=_medDateNorm(cl(dt))||pd; var hosp=_medHospClean(cl(hs))||ph;
       if(d) pd=d; if(hosp) ph=hosp;
       res.rows++; var sn=parseInt(seq.replace(/\D/g,''),10); if(sn>0){ res.seqs[sn]=1; if(sn>res.seqMax) res.seqMax=sn; }
       code=code.replace(/절\s+제/g,'절제').replace(/\s+(?=절제)/g,'');           // 사진 인식이 띄어 쓴 "폴립 절제술"·"절 제"도 한 낱말로
