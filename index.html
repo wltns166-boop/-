@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-9</div>
   </div>
 </div>
 
@@ -13797,7 +13797,9 @@ async function analyzeMedical(){
       // 수술 낱말 보조 스캔(v-8): 표에서 이미 잡힌 날짜의 수술은 건너뛰고, 못 잡은 것만 보충(열 인식 실패·AI 폴백 파일 포함)
       try{
         var hadSurg={}; (pr&&pr.recs||[]).forEach(function(r){ if(r.tbl==='act' && _medSurgWord(r.act)) hadSurg[r.date]=1; });
-        var sc=(f.label==='세부기록'?_medSurgScan(f.lines):[]).filter(function(r){ return !hadSurg[r.date]; });
+        // 세부진료기록 판정: 세부기록 칸이거나, 다른 칸에 올렸어도 내용이 세부진료정보(세부내역서)면 — 파일을 칸을 바꿔 올리는 경우 대비
+        var isDetail = f.label==='세부기록' || /세\s*부\s*(진\s*료|내\s*역)|진\s*료\s*내\s*역|코\s*드\s*명/.test(String(f.raw||f.text||'').slice(0,20000));
+        var sc=(isDetail?_medSurgScan(f.lines):[]).filter(function(r){ return !hadSurg[r.date]; });
         if(sc.length){ scanRecs=scanRecs.concat(sc); surgDiag.push(f.label+' 줄 직접 스캔 보충 '+sc.length+'건 ('+sc.slice(0,4).map(function(r){ return r.date+' '+(r.hosp||'병원 미상')+' '+r.act; }).join(', ')+(sc.length>4?' 외':'')+')'); }
       }catch(se){ console.warn('수술 보조 스캔 오류('+f.label+'):', se); }
       if(pr && pr.hdrInfo && pr.hdrInfo.length) hdrDiag.push(f.label+': ['+pr.hdrInfo[0]+']');   // 열 인식 진단(첫 표) — 서식이 달라 열이 어긋날 때 원인 확인용
