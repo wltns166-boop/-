@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.29-17. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.30-1. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
@@ -1543,6 +1543,9 @@
   (`data-bdzoomarea` — 휠은 preventDefault로 줌 전용, 영역 밖은 평소 스크롤. 문서 위임 1회 등록·passive:false).
   배율은 게시물별 `window._bdZoom[pid]` 40~300%(100% 근처 스냅), 세로 나열=전체 폭(z>1 가로 스크롤), 스와이프=가운데만
   (`bdzc` — 가운데 칸 overflow 스크롤, 재렌더 시 z 유지). 저장·동기화 없음(함정 B 무관), 게시물 id 기준(함정 A).
+  **v2026.09.30-1 (사용자 요청)**: ① 휠 줌은 **그림(`img.bdzi`) 바로 위에서만** — 그림 옆 빈 곳(줌 영역 안이라도)은 평소 페이지 스크롤.
+  ② **세로 나열 기본 배율 44%**(`BD_ZOOM_DEF_SCROLL`, 렌더 시 `window._bdZoomDef[pid]` 기록 → `_bdZoomOf` 폴백), 스와이프 가운데 칸은 기본 100% 유지(44%면 너무 작음).
+  [원래대로]는 그 기본 배율로 돌아감(`_bdZoomDefOf`).
   **열람자 워터마크 (2026-08-11)**: 팀원(비관리자) 열람 화면(사진·PDF 페이지·동영상·스와이프 뷰어 전체)에
   `_bdWmDiv()` — "이름 코드 · 날짜 시각" SVG 타일 오버레이(2겹 색으로 밝은/어두운 배경 모두 시인, pointer-events:none).
   이름은 XML 이스케이프+encodeURIComponent 이중 처리(리뷰 검증됨), CSS background의 SVG라 스크립트 실행 불가.

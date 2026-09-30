@@ -519,7 +519,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.29-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.30-1</div>
   </div>
 </div>
 
@@ -23171,6 +23171,7 @@ function _bdFilesHtml(p){
       fh+=_bdSwipeHtml(p);
     } else {
       // 확대/축소(2026-09-08) — 줌 바 + 휠 줌 영역(data-bdzoomarea). z>1이면 가로 스크롤로 이동
+      window._bdZoomDef=window._bdZoomDef||{}; window._bdZoomDef[p.id]=BD_ZOOM_DEF_SCROLL;   // 세로 나열 기본 배율 44%(2026-09-30 사용자 요청)
       var z=_bdZoomOf(p.id);
       fh+=_bdZoomBar(p.id)
         +'<div'+noCtx+' data-bdzoomarea="'+_esc(p.id)+'" style="overflow-x:auto">'+imgs.map(function(f){
@@ -23300,6 +23301,7 @@ function _bdSwipeHtml(p){
       +'<img src="'+_esc(imgs[i].u)+'" alt=""'+drg+' style="width:100%;border-radius:8px;display:block;'+BD_IMG_NOCOPY+'"></div>';
   }
   // 확대/축소(2026-09-08) — 가운데 이미지만 줌(bdzc), z>1이면 가운데 칸 안에서 스크롤로 이동
+  window._bdZoomDef=window._bdZoomDef||{}; window._bdZoomDef[p.id]=1;   // 스와이프 가운데 칸은 기본 100%(칸 폭에 맞춤 — 44%면 너무 작음)
   var z=_bdZoomOf(p.id);
   var cim='<img class="bdzi bdzc" src="'+_esc(imgs[idx].u)+'" alt=""'+drg+' style="'
     +(z===1?'width:100%;max-height:72vh;object-fit:contain':'width:'+Math.round(z*100)+'%;max-width:none;max-height:none')
@@ -23327,7 +23329,10 @@ function _bdSwipeHtml(p){
 // 줌 바(－/배율/＋/원래대로) + 이미지 영역(data-bdzoomarea) 위 마우스 휠 줌. 배율은 게시물별(window._bdZoom[pid]) 40~300%.
 // 세로 나열=전체 이미지 폭 조절(z>1이면 가로 스크롤), 스와이프=가운데 이미지만(bdzc — 가운데 칸 안 스크롤).
 // 저장·동기화 없음(함정 B 무관), 조작은 게시물 id 기준(함정 A). 스와이프 재렌더(_bdSwipeRefresh)는 렌더 시 z를 다시 읽어 유지.
-function _bdZoomOf(pid){ var z=(window._bdZoom&&window._bdZoom[pid]); return (typeof z==='number'&&z>0)?z:1; }
+// 기본 배율: 세로 나열 44%(2026-09-30 사용자 요청), 스와이프 100%. 게시물별 기본값은 렌더 시 window._bdZoomDef[pid]에 기록.
+var BD_ZOOM_DEF_SCROLL=0.44;
+function _bdZoomDefOf(pid){ var d=(window._bdZoomDef&&window._bdZoomDef[pid]); return (typeof d==='number'&&d>0)?d:1; }
+function _bdZoomOf(pid){ var z=(window._bdZoom&&window._bdZoom[pid]); return (typeof z==='number'&&z>0)?z:_bdZoomDefOf(pid); }
 function _bdZoomBar(pid){
   var z=_bdZoomOf(pid);
   var bs='padding:4px 13px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;line-height:1.3;';
@@ -23336,7 +23341,7 @@ function _bdZoomBar(pid){
     +'<span data-bdzlbl="'+_esc(pid)+'" style="font-size:13px;color:#555;font-weight:700;min-width:44px;text-align:center">'+Math.round(z*100)+'%</span>'
     +'<button type="button" data-bdzbtn="'+_esc(pid)+'|+" title="확대" style="'+bs+'">＋</button>'
     +'<button type="button" data-bdzbtn="'+_esc(pid)+'|0" style="'+bs+'font-weight:600;font-size:12.5px">원래대로</button>'
-    +'<span style="font-size:11.5px;color:#aab">이미지 위에서 마우스 휠로도 확대/축소</span>'
+    +'<span style="font-size:11.5px;color:#aab">그림 위에서 마우스 휠로도 확대/축소</span>'
     +'</div>';
 }
 function _bdZoomSet(pid, z){
@@ -23366,12 +23371,14 @@ try{
     var b=ev.target&&ev.target.closest?ev.target.closest('[data-bdzbtn]'):null; if(!b) return;
     var pr=b.getAttribute('data-bdzbtn').split('|'); if(pr.length<2) return;
     var z=_bdZoomOf(pr[0]);
-    if(pr[1]==='+') z+=0.2; else if(pr[1]==='-') z-=0.2; else z=1;
+    if(pr[1]==='+') z+=0.2; else if(pr[1]==='-') z-=0.2; else z=_bdZoomDefOf(pr[0]);   // 원래대로 = 기본 배율(세로 나열 44%)
     _bdZoomSet(pr[0], z);
   });
   document.addEventListener('wheel', function(ev){
-    var area=ev.target&&ev.target.closest?ev.target.closest('[data-bdzoomarea]'):null; if(!area) return;
-    ev.preventDefault();   // 이미지 영역 위 휠은 페이지 스크롤 대신 줌(요청 사양) — 영역 밖에선 평소대로 스크롤
+    // 그림(img.bdzi) 바로 위에서만 줌 — 그림 옆 빈 곳에서는 평소대로 페이지 스크롤(2026-09-30 사용자 요청: 영역 전체가 줌이라 불편)
+    var im=ev.target&&ev.target.closest?ev.target.closest('img.bdzi'):null; if(!im) return;
+    var area=im.closest('[data-bdzoomarea]'); if(!area) return;
+    ev.preventDefault();
     var pid=area.getAttribute('data-bdzoomarea');
     _bdZoomSet(pid, _bdZoomOf(pid)*(ev.deltaY<0?1.1:1/1.1));
   }, {passive:false});
