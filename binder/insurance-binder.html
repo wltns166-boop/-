@@ -349,6 +349,25 @@ table.cmp td.b { background: var(--daily-bg); }
 .vs .side.r { box-shadow: 0 0 0 0.5mm var(--c1) inset; }
 .tipbig { background: linear-gradient(100deg, var(--b2), var(--b1)); box-shadow: 0 0 0 0.5mm var(--c2) inset; }
 .tipbig svg, .tipbig b.t { color: var(--c2); }
+
+/* ===== 바인더 제작 화면 연동 ===== */
+[hidden] { display: none !important; }
+.custline { font-size: 9.5pt; font-weight: 700; color: var(--c1, var(--c)); margin-top: 1mm; }
+.custline b { font-size: 11pt; }
+.amtline { display: block; font-style: normal; font-size: 8.8pt; color: var(--c); font-weight: 700; margin-top: 0.8mm; }
+.big3 .amtline { margin-top: 1.5mm; }
+.line b { font-weight: 800; color: inherit; margin-right: 0.5mm; font-size: 10.5pt; }
+.amts .line span b { color: var(--ink); }
+.stairs .st .line b { font-size: 11pt; color: #fff; }
+.cov-no { display: none !important; }
+.not-cov .cov-ok { display: none !important; }
+.not-cov .cov-no { display: inline-flex !important; }
+.not-cov svg.cov-no { display: block !important; }
+.not-cov { opacity: 0.6; }
+.amts .tag.no { color: var(--no); background: #fee2e2; }
+body.embedded { padding: 12px; }
+body.embedded .page { margin-bottom: 12px; box-shadow: 0 2px 10px rgba(15,31,61,.12); }
+@media print { body.embedded { padding: 0; } .page { zoom: 1 !important; box-shadow: none !important; margin: 0 !important; } }
 </style>
 </head>
 <body>
@@ -401,11 +420,11 @@ table.cmp td.b { background: var(--daily-bg); }
 <!-- 병원 건물 그림 템플릿 (색은 currentColor) -->
 
 <!-- ===================== 2. 간병인 지원 ===================== -->
-<section class="page care">
+<section class="page care" data-key="care">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge"><svg><use href="#i-care"/></svg></div>
-    <div><div class="no">01 · 간병 보장</div><h1>간병인 지원</h1></div>
+    <div><div class="no">01 · 간병 보장</div><h1>간병인 지원</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">입원하면 <b>보험사가 간병인을 직접 보내드립니다.</b><br>간병비를 내가 낼 필요가 없어요.</div>
   </div>
 
@@ -425,25 +444,25 @@ table.cmp td.b { background: var(--daily-bg); }
   <div>
     <h2><span class="q">1</span>어느 병원에 입원하면 보상되나요?</h2>
     <div class="hosp">
-      <div class="card is-ok">
+      <div class="card is-ok" data-cov="care.cov1">
         <svg class="b" viewBox="0 0 80 64"><rect x="8" y="10" width="64" height="50" rx="2" style="fill:var(--c)"/><rect x="2" y="56" width="76" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><rect x="31" y="2" width="18" height="14" rx="2" fill="#fff" style="stroke:var(--c)" stroke-width="2"/><path d="M40 5v8M36 9h8" stroke="#dc2626" stroke-width="2.6"/><g style="fill:var(--bg)"><rect x="14" y="20" width="8" height="7"/><rect x="26" y="20" width="8" height="7"/><rect x="46" y="20" width="8" height="7"/><rect x="58" y="20" width="8" height="7"/><rect x="14" y="31" width="8" height="7"/><rect x="26" y="31" width="8" height="7"/><rect x="46" y="31" width="8" height="7"/><rect x="58" y="31" width="8" height="7"/><rect x="14" y="42" width="8" height="7"/><rect x="58" y="42" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
         <b>대학병원</b><small>상급종합병원<br>(서울대·세브란스 등)</small>
-        <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
+        <div class="mark ok cov-ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div><div class="mark no cov-no"><svg width="12" height="12" style="color:var(--no)"><use href="#i-x"/></svg>미보장</div>
       </div>
-      <div class="card is-ok">
+      <div class="card is-ok" data-cov="care.cov2">
         <svg class="b" viewBox="0 0 80 64"><rect x="12" y="16" width="56" height="44" rx="2" style="fill:var(--c)"/><rect x="4" y="56" width="72" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><rect x="32" y="6" width="16" height="13" rx="2" fill="#fff" style="stroke:var(--c)" stroke-width="2"/><path d="M40 9v7M36.5 12.5h7" stroke="#dc2626" stroke-width="2.4"/><g style="fill:var(--bg)"><rect x="18" y="24" width="8" height="7"/><rect x="30" y="24" width="8" height="7"/><rect x="42" y="24" width="8" height="7"/><rect x="54" y="24" width="8" height="7"/><rect x="18" y="35" width="8" height="7"/><rect x="54" y="35" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
         <b>종합병원</b><small>병상 100개 이상<br>지역 중대형 병원</small>
-        <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
+        <div class="mark ok cov-ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div><div class="mark no cov-no"><svg width="12" height="12" style="color:var(--no)"><use href="#i-x"/></svg>미보장</div>
       </div>
-      <div class="card is-ok">
+      <div class="card is-ok" data-cov="care.cov3">
         <svg class="b" viewBox="0 0 80 64"><rect x="18" y="26" width="44" height="34" rx="2" style="fill:var(--c)"/><path d="M14 28l26-16 26 16z" style="fill:var(--c)"/><rect x="10" y="56" width="60" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><circle cx="40" cy="22" r="5" fill="#fff"/><path d="M40 19.5v5M37.5 22h5" stroke="#dc2626" stroke-width="2"/><g style="fill:var(--bg)"><rect x="23" y="34" width="9" height="8"/><rect x="48" y="34" width="9" height="8"/></g><rect x="34" y="44" width="12" height="16" fill="#fff"/></svg>
         <b>병원 · 의원</b><small>동네 병원·의원<br>(입원 가능한 곳)</small>
-        <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
+        <div class="mark ok cov-ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div><div class="mark no cov-no"><svg width="12" height="12" style="color:var(--no)"><use href="#i-x"/></svg>미보장</div>
       </div>
-      <div class="card is-ok">
+      <div class="card is-ok" data-cov="care.cov4">
         <svg class="b" viewBox="0 0 80 64"><rect x="10" y="20" width="60" height="40" rx="2" style="fill:var(--c)"/><rect x="4" y="56" width="72" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><path d="M6 22l34-14 34 14z" style="fill:var(--c)"/><g style="fill:var(--bg)"><rect x="16" y="28" width="9" height="8"/><rect x="55" y="28" width="9" height="8"/><rect x="16" y="40" width="9" height="8"/><rect x="55" y="40" width="9" height="8"/></g><rect x="31" y="40" width="18" height="20" fill="#fff"/><path d="M33 34a7 7 0 0 1 14 0" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="40" cy="29" r="3" fill="#fff"/></svg>
         <b>요양병원</b><small>장기 요양·재활<br>목적 입원</small>
-        <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
+        <div class="mark ok cov-ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div><div class="mark no cov-no"><svg width="12" height="12" style="color:var(--no)"><use href="#i-x"/></svg>미보장</div>
       </div>
     </div>
   </div>
@@ -451,8 +470,8 @@ table.cmp td.b { background: var(--daily-bg); }
   <div>
     <h2><span class="q">2</span>간병인은 며칠 동안 쓸 수 있나요?</h2>
     <div class="timeline">
-      <div class="tl-bar"><span>입원 첫날부터</span><span>1회 입원당 최대 365일</span></div>
-      <div class="tl-ticks"><span><b>1일째</b> 바로 이용</span><span>90일</span><span>180일</span><span>270일</span><span><b>365일</b> 한도</span></div>
+      <div class="tl-bar"><span>입원 첫날부터</span><span>1회 입원당 최대 <span data-f="care.days" data-default="365">365</span>일</span></div>
+      <div class="tl-ticks"><span><b>1일째</b> 바로 이용</span><span data-tick="care.days" data-frac="0.25">90일</span><span data-tick="care.days" data-frac="0.5">180일</span><span data-tick="care.days" data-frac="0.75">270일</span><span><b><span data-f="care.days" data-default="365">365</span>일</b> 한도</span></div>
     </div>
     <div class="row c3" style="margin-top:3mm">
       <div class="box">
@@ -473,11 +492,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 3. 간병인 사용일당 ===================== -->
-<section class="page daily">
+<section class="page daily" data-key="daily">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge"><svg><use href="#i-coin"/></svg></div>
-    <div><div class="no">02 · 간병 보장</div><h1>간병인 사용일당</h1></div>
+    <div><div class="no">02 · 간병 보장</div><h1>간병인 사용일당</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">간병인을 <b>내가 직접 구해서 쓰면</b>,<br>쓴 날 수만큼 <b>현금으로</b> 드립니다.</div>
   </div>
 
@@ -509,15 +528,15 @@ table.cmp td.b { background: var(--daily-bg); }
     <h2><span class="q">1</span>보상되는 병원 · 금액 · 기간</h2>
     <div class="box">
       <div class="amts">
-          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>대학병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
-          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>종합병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
-          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>병원·의원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
-          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>요양병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
+          <div class="amt" data-cov="daily.cov1"><svg class="cov-ok" width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><svg class="cov-no" width="26" height="26" style="color:var(--no);margin:0 auto 1mm"><use href="#i-x"/></svg><b>대학병원</b><span class="tag cov-ok">보장</span><span class="tag no cov-no">미보장</span><div class="line cov-ok"><small>1일 보상금액</small><span><b data-f="daily.a1" data-unit></b>원</span></div></div>
+          <div class="amt" data-cov="daily.cov2"><svg class="cov-ok" width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><svg class="cov-no" width="26" height="26" style="color:var(--no);margin:0 auto 1mm"><use href="#i-x"/></svg><b>종합병원</b><span class="tag cov-ok">보장</span><span class="tag no cov-no">미보장</span><div class="line cov-ok"><small>1일 보상금액</small><span><b data-f="daily.a2" data-unit></b>원</span></div></div>
+          <div class="amt" data-cov="daily.cov3"><svg class="cov-ok" width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><svg class="cov-no" width="26" height="26" style="color:var(--no);margin:0 auto 1mm"><use href="#i-x"/></svg><b>병원·의원</b><span class="tag cov-ok">보장</span><span class="tag no cov-no">미보장</span><div class="line cov-ok"><small>1일 보상금액</small><span><b data-f="daily.a3" data-unit></b>원</span></div></div>
+          <div class="amt" data-cov="daily.cov4"><svg class="cov-ok" width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><svg class="cov-no" width="26" height="26" style="color:var(--no);margin:0 auto 1mm"><use href="#i-x"/></svg><b>요양병원</b><span class="tag cov-ok">보장</span><span class="tag no cov-no">미보장</span><div class="line cov-ok"><small>1일 보상금액</small><span><b data-f="daily.a4" data-unit></b>원</span></div></div>
       </div>
     </div>
     <div class="box" style="margin-top:3mm">
       <div style="display:flex;align-items:center;gap:3mm">
-        <div style="background:var(--daily);color:#fff;border-radius:3mm;padding:2mm 3mm;text-align:center;line-height:1.15;flex:none"><small style="font-size:8pt;font-weight:700">1회 입원당</small><br><b style="font-size:17pt">365일</b></div>
+        <div style="background:var(--daily);color:#fff;border-radius:3mm;padding:2mm 3mm;text-align:center;line-height:1.15;flex:none"><small style="font-size:8pt;font-weight:700">1회 입원당</small><br><b style="font-size:17pt"><span data-f="daily.days" data-default="365">365</span>일</b></div>
         <p style="font-size:9.3pt;line-height:1.45">입원 첫날부터, 간병인을 <b>실제로 쓴 날</b>만큼 계산합니다. 통원·외래 치료는 해당되지 않아요.</p>
       </div>
     </div>
@@ -538,11 +557,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 4. 화재보험 ===================== -->
-<section class="page fire">
+<section class="page fire" data-key="fire">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:var(--fire)"><svg><use href="#i-fire"/></svg></div>
-    <div><div class="no">03 · 재물 보장</div><h1>화재보험</h1></div>
+    <div><div class="no">03 · 재물 보장</div><h1>화재보험</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">불이 나서 생긴 <b>우리 집 피해</b>는 물론,<br><b>남에게 끼친 피해</b>까지 보상합니다.</div>
   </div>
 
@@ -587,10 +606,10 @@ table.cmp td.b { background: var(--daily-bg); }
         </g>
       </svg>
       <div class="legend">
-        <div class="it"><div class="num">1</div><div><b>건물 화재 손해</b><span>불·벼락·폭발로 집 건물이 타거나 부서진 손해</span></div></div>
-        <div class="it"><div class="num">2</div><div><b>가재도구 손해</b><span>가구·가전·옷 등 집 안 살림살이 피해</span></div></div>
-        <div class="it"><div class="num">3</div><div><b>화재 배상책임</b><span>우리 집 불이 <b>옆집·아랫집</b>으로 번져 생긴 피해</span></div></div>
-        <div class="it"><div class="num">4</div><div><b>누수 (급배수 누출)</b><span>배관이 터져 생긴 <b>우리 집 손해</b>를 보상</span></div></div>
+        <div class="it"><div class="num">1</div><div><b>건물 화재 손해</b><span>불·벼락·폭발로 집 건물이 타거나 부서진 손해</span><em class="amtline" data-show="fire.a1" hidden>가입금액 <b data-f="fire.a1" data-money></b></em></div></div>
+        <div class="it"><div class="num">2</div><div><b>가재도구 손해</b><span>가구·가전·옷 등 집 안 살림살이 피해</span><em class="amtline" data-show="fire.a2" hidden>가입금액 <b data-f="fire.a2" data-money></b></em></div></div>
+        <div class="it"><div class="num">3</div><div><b>화재 배상책임</b><span>우리 집 불이 <b>옆집·아랫집</b>으로 번져 생긴 피해</span><em class="amtline" data-show="fire.a3" hidden>가입금액 <b data-f="fire.a3" data-money></b></em></div></div>
+        <div class="it"><div class="num">4</div><div><b>누수 (급배수 누출)</b><span>배관이 터져 생긴 <b>우리 집 손해</b>를 보상</span><em class="amtline" data-show="fire.a4" hidden>가입금액 <b data-f="fire.a4" data-money></b></em></div></div>
       </div>
     </div>
   </div>
@@ -636,11 +655,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 5. 운전자보험 ===================== -->
-<section class="page drive">
+<section class="page drive" data-key="drive">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:var(--drive)"><svg><use href="#i-car"/></svg></div>
-    <div><div class="no">04 · 운전 보장</div><h1>운전자보험</h1></div>
+    <div><div class="no">04 · 운전 보장</div><h1>운전자보험</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">자동차보험이 해주지 않는<br><b>형사·법률 비용</b>을 책임집니다.</div>
   </div>
 
@@ -662,9 +681,9 @@ table.cmp td.b { background: var(--daily-bg); }
   <div>
     <h2><span class="q">1</span>핵심 보장 3가지</h2>
     <div class="big3">
-      <div class="k"><svg style="color:var(--drive)"><use href="#i-hand"/></svg><span class="alias">형사합의금</span><b>교통사고<br>처리지원금</b><p>피해자가 크게 다치거나 사망했을 때 피해자와 <b>합의하는 비용</b></p></div>
-      <div class="k"><svg style="color:var(--drive)"><use href="#i-gavel"/></svg><span class="alias">벌금</span><b>자동차사고<br>벌금</b><p>법원에서 받은 벌금<br>대인 최대 <b>2,000만원</b><br>스쿨존 어린이 사고 최대 <b>3,000만원</b></p></div>
-      <div class="k"><svg style="color:var(--drive)"><use href="#i-lawyer"/></svg><span class="alias">변호사 비용</span><b>변호사<br>선임비용</b><p>사고로 재판을 받게 되어 <b>변호사를 선임</b>할 때 드는 비용</p></div>
+      <div class="k"><svg style="color:var(--drive)"><use href="#i-hand"/></svg><span class="alias">형사합의금</span><b>교통사고<br>처리지원금</b><p>피해자가 크게 다치거나 사망했을 때 피해자와 <b>합의하는 비용</b></p><div class="amtline" data-show="drive.a1" hidden>가입금액 <b data-f="drive.a1" data-money></b></div></div>
+      <div class="k"><svg style="color:var(--drive)"><use href="#i-gavel"/></svg><span class="alias">벌금</span><b>자동차사고<br>벌금</b><p>법원에서 받은 벌금<br>대인 최대 <b data-f="drive.fine" data-money data-default="2,000만원">2,000만원</b><br>스쿨존 어린이 사고 최대 <b data-f="drive.school" data-money data-default="3,000만원">3,000만원</b></p></div>
+      <div class="k"><svg style="color:var(--drive)"><use href="#i-lawyer"/></svg><span class="alias">변호사 비용</span><b>변호사<br>선임비용</b><p>사고로 재판을 받게 되어 <b>변호사를 선임</b>할 때 드는 비용</p><div class="amtline" data-show="drive.a3" hidden>가입금액 <b data-f="drive.a3" data-money></b></div></div>
     </div>
     <p class="note" style="margin-top:2mm">※ 금액은 가입한 한도 안에서 실제 낸 비용을 보상합니다. 이 밖에 <b>자동차사고 부상치료비</b>(부상 등급별 정액) 등이 있을 수 있어요.</p>
   </div>
@@ -704,11 +723,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 치아보험 ===================== -->
-<section class="page tooth">
+<section class="page tooth" data-key="tooth">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:#fff"><svg><use href="#i-tooth"/></svg></div>
-    <div><div class="no">05 · 치아 보장</div><h1>치아보험</h1></div>
+    <div><div class="no">05 · 치아 보장</div><h1>치아보험</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">충치 치료부터 <b>임플란트·틀니</b>까지,<br>비싼 <b>치과 치료비</b>를 보장합니다.</div>
   </div>
 
@@ -716,10 +735,10 @@ table.cmp td.b { background: var(--daily-bg); }
     <h2><span class="q">?</span>어떤 치료를 보장하나요</h2>
     <div class="box">
       <div class="amts">
-        <div class="amt"><svg class="ic"><use href="#i-tooth-fill"/></svg><b>충전 치료</b><span class="tag c">때우기</span><small class="d">충치를 긁어내고<br>레진 등으로 메우는 치료</small><div class="line"><small>1개당 보상금액</small><span>원</span></div></div>
-        <div class="amt"><svg class="ic"><use href="#i-tooth-crown"/></svg><b>크라운</b><span class="tag c">씌우기</span><small class="d">손상된 치아 전체를<br>덮어 씌우는 치료</small><div class="line"><small>1개당 보상금액</small><span>원</span></div></div>
-        <div class="amt"><svg class="ic"><use href="#i-implant"/></svg><b>임플란트</b><span class="tag c">심기</span><small class="d">빠진 자리에<br>인공 치아를 심는 치료</small><div class="line"><small>1개당 보상금액</small><span>원</span></div></div>
-        <div class="amt"><svg class="ic"><use href="#i-denture"/></svg><b>틀니 · 브릿지</b><span class="tag c">대신하기</span><small class="d">여러 개 빠진 치아를<br>한 번에 대신하는 보철</small><div class="line"><small>1회(1개)당 보상금액</small><span>원</span></div></div>
+        <div class="amt"><svg class="ic"><use href="#i-tooth-fill"/></svg><b>충전 치료</b><span class="tag c">때우기</span><small class="d">충치를 긁어내고<br>레진 등으로 메우는 치료</small><div class="line"><small>1개당 보상금액</small><span><b data-f="tooth.a1" data-unit></b>원</span></div></div>
+        <div class="amt"><svg class="ic"><use href="#i-tooth-crown"/></svg><b>크라운</b><span class="tag c">씌우기</span><small class="d">손상된 치아 전체를<br>덮어 씌우는 치료</small><div class="line"><small>1개당 보상금액</small><span><b data-f="tooth.a2" data-unit></b>원</span></div></div>
+        <div class="amt"><svg class="ic"><use href="#i-implant"/></svg><b>임플란트</b><span class="tag c">심기</span><small class="d">빠진 자리에<br>인공 치아를 심는 치료</small><div class="line"><small>1개당 보상금액</small><span><b data-f="tooth.a3" data-unit></b>원</span></div></div>
+        <div class="amt"><svg class="ic"><use href="#i-denture"/></svg><b>틀니 · 브릿지</b><span class="tag c">대신하기</span><small class="d">여러 개 빠진 치아를<br>한 번에 대신하는 보철</small><div class="line"><small>1회(1개)당 보상금액</small><span><b data-f="tooth.a4" data-unit></b>원</span></div></div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:2mm;margin-top:2.5mm;flex-wrap:wrap">
@@ -740,9 +759,9 @@ table.cmp td.b { background: var(--daily-bg); }
             <div style="flex:4;background:var(--c)">100% 보장</div>
           </div>
           <div class="seg-t">
-            <span style="flex:1"><b>가입</b> ~ 90일</span>
-            <span style="flex:2">91일 ~ 1년</span>
-            <span style="flex:4">1년 이후</span>
+            <span style="flex:1"><b>가입</b> ~ <span data-f="tooth.ex1" data-default="90">90</span>일</span>
+            <span style="flex:2"><span data-plus1="tooth.ex1">91</span>일 ~ <span data-f="tooth.red1" data-default="1년">1년</span></span>
+            <span style="flex:4"><span data-f="tooth.red1" data-default="1년">1년</span> 이후</span>
           </div>
         </div>
       </div>
@@ -755,9 +774,9 @@ table.cmp td.b { background: var(--daily-bg); }
             <div style="flex:2;background:var(--c)">100% 보장</div>
           </div>
           <div class="seg-t">
-            <span style="flex:1"><b>가입</b> ~ 90일</span>
-            <span style="flex:4">91일 ~ 2년</span>
-            <span style="flex:2">2년 이후</span>
+            <span style="flex:1"><b>가입</b> ~ <span data-f="tooth.ex2" data-default="90">90</span>일</span>
+            <span style="flex:4"><span data-plus1="tooth.ex2">91</span>일 ~ <span data-f="tooth.red2" data-default="2년">2년</span></span>
+            <span style="flex:2"><span data-f="tooth.red2" data-default="2년">2년</span> 이후</span>
           </div>
         </div>
       </div>
@@ -780,18 +799,18 @@ table.cmp td.b { background: var(--daily-bg); }
         <li class="x">가입 전에 이미 빠졌거나 치료가 필요했던 치아</li>
         <li class="x">교정 · 미백 등 미용 목적의 치료</li>
         <li class="x">마모로 인한 충전 치료</li>
-        <li class="x">보장 안 되는 기간(가입 후 90일) 안의 진단</li>
+        <li class="x">보장 안 되는 기간(가입 후 <span data-f="tooth.ex1" data-default="90">90</span>일) 안의 진단</li>
       </ul>
     </div>
   </div>
 </section>
 
 <!-- ===================== 치매보험 ===================== -->
-<section class="page brain">
+<section class="page brain" data-key="brain">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:#fff"><svg><use href="#i-brain"/></svg></div>
-    <div><div class="no">06 · 치매 보장</div><h1>치매보험</h1></div>
+    <div><div class="no">06 · 치매 보장</div><h1>치매보험</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one">치매로 진단받으면 <b>단계(중증도)에 따라</b><br><b>진단금</b>을 드립니다.</div>
   </div>
 
@@ -800,15 +819,15 @@ table.cmp td.b { background: var(--daily-bg); }
     <div class="stairs">
       <div class="st" style="height:44mm;background:color-mix(in srgb, var(--c) 55%, #fff)">
         <span class="cdr">CDR 1점</span><b>경도 치매</b><p>깜빡하는 일이 잦고<br>일상에 약간의 도움이 필요</p>
-        <div class="line"><span>진단금</span><span>원</span></div>
+        <div class="line"><span>진단금</span><span><b data-f="brain.a1" data-unit></b>원</span></div>
       </div>
       <div class="st" style="height:54mm;background:color-mix(in srgb, var(--c) 78%, #fff)">
         <span class="cdr">CDR 2점</span><b>중등도 치매</b><p>혼자 외출·집안일이 어렵고<br>상당한 도움이 필요</p>
-        <div class="line"><span>진단금</span><span>원</span></div>
+        <div class="line"><span>진단금</span><span><b data-f="brain.a2" data-unit></b>원</span></div>
       </div>
       <div class="st" style="height:64mm;background:var(--c)">
         <span class="cdr">CDR 3점 이상</span><b>중증 치매</b><p>식사·옷 입기 등<br>대부분 도움이 필요</p>
-        <div class="line"><span>진단금</span><span>원</span></div>
+        <div class="line"><span>진단금</span><span><b data-f="brain.a3" data-unit></b>원</span></div>
       </div>
     </div>
     <p class="note" style="margin-top:2mm">※ <b>CDR</b>은 치매가 얼마나 진행됐는지 재는 검사 점수예요. 점수가 높을수록 중증이고, 진단금도 커집니다.</p>
@@ -846,11 +865,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 재가급여 ===================== -->
-<section class="page home">
+<section class="page home" data-key="home">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:#fff"><svg><use href="#i-home"/></svg></div>
-    <div><div class="no">07 · 장기요양 보장</div><h1>재가급여</h1></div>
+    <div><div class="no">07 · 장기요양 보장</div><h1>재가급여</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one"><b>장기요양등급</b>을 받고 <b>집에서</b><br>요양 서비스를 이용하면 보험금을 드립니다.</div>
   </div>
 
@@ -897,10 +916,10 @@ table.cmp td.b { background: var(--daily-bg); }
     <h2><span class="q">₩</span>등급별 보상금액</h2>
     <div class="box">
       <div class="amts c4">
-        <div class="amt"><b>1 ~ 2등급</b><div class="line"><small>월 보상금액</small><span>원</span></div></div>
-        <div class="amt"><b>3 ~ 4등급</b><div class="line"><small>월 보상금액</small><span>원</span></div></div>
-        <div class="amt"><b>5등급</b><div class="line"><small>월 보상금액</small><span>원</span></div></div>
-        <div class="amt"><b>인지지원등급</b><div class="line"><small>월 보상금액</small><span>원</span></div></div>
+        <div class="amt"><b>1 ~ 2등급</b><div class="line"><small>월 보상금액</small><span><b data-f="home.a1" data-unit></b>원</span></div></div>
+        <div class="amt"><b>3 ~ 4등급</b><div class="line"><small>월 보상금액</small><span><b data-f="home.a2" data-unit></b>원</span></div></div>
+        <div class="amt"><b>5등급</b><div class="line"><small>월 보상금액</small><span><b data-f="home.a3" data-unit></b>원</span></div></div>
+        <div class="amt"><b>인지지원등급</b><div class="line"><small>월 보상금액</small><span><b data-f="home.a4" data-unit></b>원</span></div></div>
       </div>
     </div>
   </div>
@@ -916,11 +935,11 @@ table.cmp td.b { background: var(--daily-bg); }
 </section>
 
 <!-- ===================== 장기요양등급 ===================== -->
-<section class="page home">
+<section class="page home" data-key="grade">
   <div class="holes"><i></i><i></i><i></i></div>
   <div class="head">
     <div class="badge" style="color:#fff"><svg><use href="#i-receipt"/></svg></div>
-    <div><div class="no">07 · 장기요양 보장</div><h1>장기요양등급</h1></div>
+    <div><div class="no">07 · 장기요양 보장</div><h1>장기요양등급</h1><div class="custline" data-show="cust" hidden><b data-f="cust"></b> 고객님<span data-show="fc" hidden> · 담당 <span data-f="fc"></span></span><span data-show="tel" hidden> · <span data-f="tel"></span></span></div></div>
     <div class="one"><b>국민건강보험공단</b>이 어르신에게<br><b>돌봄이 얼마나 필요한지</b> 판정한 등급이에요.</div>
   </div>
 
@@ -977,5 +996,49 @@ table.cmp td.b { background: var(--daily-bg); }
   </div>
 </section>
 
+<div id="bd-empty" hidden style="padding:60px 20px;text-align:center;color:#6b7280;font-size:15px">위에서 넣을 안내지를 선택해 주세요.</div>
+<script>
+/* 증권바인더 제작 화면(인트라넷)과 연결: 선택한 페이지만 보이고, 입력값을 채움 */
+(function () {
+  var embedded = window.parent !== window;
+  function fmt(v, won) {
+    v = String(v || '').trim().replace(/원$/, '').trim();
+    if (!v) return '';
+    if (/^[0-9,]+$/.test(v)) v = Number(v.replace(/,/g, '')).toLocaleString('ko-KR');
+    return won ? v + '원' : v;
+  }
+  function num(v, d) { var n = parseInt(String(v || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? d : n; }
+  function apply(st) {
+    var sel = st.selected, val = st.values || {};
+    document.querySelectorAll('section[data-key]').forEach(function (s) { s.hidden = sel ? sel.indexOf(s.dataset.key) < 0 : false; });
+    document.querySelectorAll('[data-f]').forEach(function (el) {
+      var v = String(val[el.dataset.f] || '').trim();
+      if ('money' in el.dataset) v = fmt(v, true); else if ('unit' in el.dataset) v = fmt(v, false);
+      el.textContent = v || el.dataset.default || '';
+    });
+    document.querySelectorAll('[data-show]').forEach(function (el) { el.hidden = !String(val[el.dataset.show] || '').trim(); });
+    document.querySelectorAll('[data-plus1]').forEach(function (el) { el.textContent = num(val[el.dataset.plus1], 90) + 1; });
+    document.querySelectorAll('[data-tick]').forEach(function (el) { el.textContent = Math.round(num(val[el.dataset.tick], 365) * parseFloat(el.dataset.frac)) + '일'; });
+    document.querySelectorAll('[data-cov]').forEach(function (el) { el.classList.toggle('not-cov', val[el.dataset.cov] === '미보장'); });
+    var empty = document.getElementById('bd-empty');
+    if (empty) empty.hidden = !(sel && sel.length === 0);
+  }
+  function fit() {
+    var z = Math.min(1, (document.documentElement.clientWidth - 24) / 794);
+    document.querySelectorAll('.page').forEach(function (p) { p.style.zoom = z; });
+  }
+  window.addEventListener('message', function (e) {
+    var m = e.data;
+    if (!m || m.app !== 'binder') return;
+    if (m.type === 'state') apply(m.state);
+    if (m.type === 'print') window.print();
+  });
+  if (embedded) {
+    document.body.classList.add('embedded');
+    fit(); window.addEventListener('resize', fit);
+    window.parent.postMessage({ app: 'binder', type: 'ready' }, '*');
+  }
+})();
+</script>
 </body>
 </html>

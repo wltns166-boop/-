@@ -2,7 +2,7 @@
    - 앱 셸을 캐시해 오프라인에서도 화면이 뜨도록 함
    - API 요청(/api/)은 항상 네트워크 우선 (실시간 데이터)
 */
-const CACHE = 'insurenet-v1';
+const CACHE = 'insurenet-v2';
 const SHELL = [
   './',
   './insurance-intranet-v2.html',
@@ -35,6 +35,18 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (e.request.method !== 'GET') return;
+
+  // 증권바인더 속지: 수정이 바로 반영되도록 네트워크 우선, 오프라인이면 캐시
+  if (url.pathname.startsWith('/binder/')) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
 
   // 앱 셸: 캐시 우선, 없으면 네트워크 후 캐시에 저장
   e.respondWith(
