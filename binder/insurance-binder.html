@@ -114,10 +114,11 @@ h2 .q { display: inline-grid; place-items: center; width: 6mm; height: 6mm; bord
 .foot { font-size: 7.5pt; color: var(--muted); display: flex; justify-content: space-between; border-top: 0.3mm solid var(--line); padding-top: 2mm; }
 
 /* 비교표 */
-table.cmp { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 9.5pt; }
+table.cmp { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 9.5pt; }
 table.cmp th, table.cmp td { padding: 2.2mm 3mm; text-align: center; border-bottom: 0.3mm solid var(--line); }
 table.cmp th { font-size: 10.5pt; }
 table.cmp td:first-child, table.cmp th:first-child { text-align: left; color: var(--sub); font-weight: 700; width: 26mm; }
+table.cmp th.h1, table.cmp th.h2 { width: calc((100% - 26mm) / 2); }
 table.cmp .h1 { background: var(--care); color: #fff; border-radius: 3mm 0 0 0; }
 table.cmp .h2 { background: var(--daily); color: #fff; border-radius: 0 3mm 0 0; }
 table.cmp td.a { background: var(--care-bg); }
@@ -130,6 +131,13 @@ table.cmp td.b { background: var(--daily-bg); }
 .calc .op { color: var(--c); font-size: 16pt; }
 .calc .res { background: var(--c); color: #fff; box-shadow: none; }
 .calc .res small { color: #fff; opacity: 0.85; }
+
+.amts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; text-align: center; }
+.amts .amt > b { display: block; font-size: 10.5pt; }
+.amts .tag { display: inline-block; margin-top: 0.8mm; font-size: 8.5pt; font-weight: 800; color: var(--ok); background: #dcfce7; border-radius: 10mm; padding: 0.2mm 2.5mm; }
+.amts .line { margin-top: 2.5mm; text-align: left; border-bottom: 0.35mm solid #9ca3af; padding-bottom: 0.5mm; display: flex; flex-direction: column; }
+.amts .line small { font-size: 7.5pt; color: var(--sub); font-weight: 700; }
+.amts .line span { align-self: flex-end; font-size: 9pt; font-weight: 700; color: var(--sub); margin-top: 3.5mm; }
 
 /* 화재 집 그림 */
 .house-wrap { display: grid; grid-template-columns: 78mm 1fr; gap: 4mm; align-items: center; }
@@ -334,22 +342,19 @@ table.cmp td.b { background: var(--daily-bg); }
   </div>
 
   <div>
-    <h2><span class="q">1</span>보상되는 병원 · 기간</h2>
-    <div class="row c2">
-      <div class="box">
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.5mm;text-align:center;font-size:9pt;font-weight:700">
-          <div><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg>대학병원</div>
-          <div><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg>종합병원</div>
-          <div><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg>병원·의원</div>
-          <div><svg width="26" height="26" style="color:var(--mid);display:block;margin:0 auto 1mm"><use href="#i-warn"/></svg>요양병원</div>
-        </div>
-        <p class="note" style="margin-top:2mm">요양병원은 상품에 따라 제외되거나 금액이 줄어들 수 있어요.</p>
+    <h2><span class="q">1</span>보상되는 병원 · 금액 · 기간</h2>
+    <div class="box">
+      <div class="amts">
+          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>대학병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
+          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>종합병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
+          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>병원·의원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
+          <div class="amt"><svg width="26" height="26" style="color:var(--ok);display:block;margin:0 auto 1mm"><use href="#i-check"/></svg><b>요양병원</b><span class="tag">보장</span><div class="line"><small>1일 보상금액</small><span>원</span></div></div>
       </div>
-      <div class="box">
-        <div style="display:flex;align-items:center;gap:3mm">
-          <div style="background:var(--daily);color:#fff;border-radius:3mm;padding:2mm 3mm;text-align:center;line-height:1.15;flex:none"><small style="font-size:8pt;font-weight:700">1회 입원당</small><br><b style="font-size:17pt">180일</b></div>
-          <p style="font-size:9.3pt;line-height:1.45">입원 첫날부터, 간병인을 <b>실제로 쓴 날</b>만큼 계산합니다. 통원·외래 치료는 해당되지 않아요.</p>
-        </div>
+    </div>
+    <div class="box" style="margin-top:3mm">
+      <div style="display:flex;align-items:center;gap:3mm">
+        <div style="background:var(--daily);color:#fff;border-radius:3mm;padding:2mm 3mm;text-align:center;line-height:1.15;flex:none"><small style="font-size:8pt;font-weight:700">1회 입원당</small><br><b style="font-size:17pt">365일</b></div>
+        <p style="font-size:9.3pt;line-height:1.45">입원 첫날부터, 간병인을 <b>실제로 쓴 날</b>만큼 계산합니다. 통원·외래 치료는 해당되지 않아요.</p>
       </div>
     </div>
   </div>
@@ -366,13 +371,6 @@ table.cmp td.b { background: var(--daily-bg); }
     </table>
   </div>
 
-  <div class="mine">
-    <div class="t"><svg><use href="#i-pen"/></svg>나의 가입 내용</div>
-    <div class="f">1일 가입금액</div>
-    <div class="f">요양병원 보장 여부</div>
-    <div class="f">보장 기간 (만기)</div>
-  </div>
-  <div class="foot"><span>간병인 사용일당</span><span>※ 세부 보장 내용은 가입 상품의 약관을 따릅니다.</span><span>2</span></div>
 </section>
 
 <!-- ===================== 4. 화재보험 ===================== -->
@@ -475,13 +473,6 @@ table.cmp td.b { background: var(--daily-bg); }
     <p style="font-size:9.5pt"><b>아파트 관리비에 포함된 단체 화재보험</b>은 주로 <b>건물</b>을 보장해요. 우리 집 <b>살림살이(가재도구)</b>와 <b>이웃에게 준 피해·누수 배상</b>은 개인 화재보험으로 챙기는 것이 좋습니다.</p>
   </div>
 
-  <div class="mine">
-    <div class="t"><svg><use href="#i-pen"/></svg>나의 가입 내용</div>
-    <div class="f">보험 대상 주소</div>
-    <div class="f">건물 / 가재도구 금액</div>
-    <div class="f">배상책임 한도</div>
-  </div>
-  <div class="foot"><span>화재보험</span><span>※ 세부 보장 내용은 가입 상품의 약관을 따릅니다.</span><span>3</span></div>
 </section>
 
 <!-- ===================== 5. 운전자보험 ===================== -->
@@ -550,13 +541,6 @@ table.cmp td.b { background: var(--daily-bg); }
     </div>
   </div>
 
-  <div class="mine">
-    <div class="t"><svg><use href="#i-pen"/></svg>나의 가입 내용</div>
-    <div class="f">처리지원금 한도</div>
-    <div class="f">벌금 한도</div>
-    <div class="f">변호사비용 한도</div>
-  </div>
-  <div class="foot"><span>운전자보험</span><span>※ 세부 보장 내용은 가입 상품의 약관을 따릅니다.</span><span>4</span></div>
 </section>
 
 <!-- ===================== 6. 청구 체크리스트 ===================== -->
