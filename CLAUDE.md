@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.09.30-1. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.10.01-1. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
@@ -918,6 +918,18 @@
   **2026-09-15 `gsheet-17` 배포도 같은 수동 경로로 완료** — raw.githubusercontent.com의 gs 파일을 열어 전체 복사 →
   편집기 Code.gs에 Ctrl+A/Ctrl+V → 저장 → [배포] > [배포 관리] > ✏️ > 버전 **"새 버전"** > [배포] → `?ping=1&v=N` 확인.
   ⚠️ [새 배포]를 누르면 /exec 주소가 바뀌어 인트라넷이 옛 주소를 계속 본다 — 반드시 [배포 관리] > ✏️ 경로로.
+
+## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
+
+- 업무관리 > [증권바인더 제작](`n_binder` → `pg_binder`, 전원). 원본 양식 **`binder/insurance-guide.pdf`**(사용자 제공 8쪽 — 속지 1장=1쪽:
+  간병인 지원·간병인 사용일당·화재보험·운전자보험·치아보험·치매보험·재가급여·장기요양등급)을 배경으로, 빈칸("○○ 보상금액 ____원")에 입력값을 찍는다.
+- 왼쪽: 고객명(파일 이름용) → [1. 넣을 속지 선택](체크) → [2. 선택한 속지·입력](선택 순서 목록·▲▼·✕, 빈칸 있는 속지만 입력칸 — 사용일당 4·치아 4·치매 3·재가급여 4).
+  오른쪽: 실시간 미리보기 — pdf.js로 쪽을 JPEG로 그려 캐시(`window._bndImgs`) + 입력값을 % 좌표 HTML로 겹침(`_bndOverlay`, 글씨 크기 cqw),
+  ‹ ›·속지 칩·←→ 키·터치 밀기로 넘김, 입력칸에 포커스하면 그 쪽으로 이동.
+- 좌표의 유일한 출처는 `BND_PAGES[].f`(원본 PDF pt, 왼쪽 위 원점 — 밑줄 시작 x0 ~ '원' 앞 x1, 글자 세로 y0~y1). 양식을 바꾸면 PyMuPDF로 '원' 글자·밑줄 위치를 다시 뽑아 고칠 것.
+- [PDF 저장]/[출력]: `_bndBuild` — pdf-lib `copyPages`로 원본 쪽을 선택 순서대로 복사 + 값은 `_sdTextToPng` PNG를 칸 오른쪽 정렬(긴 값은 축소). [출력]은 sdPrint 패턴(새 탭 먼저).
+- 저장·동기화 없음(함정 B 무관) — 메모리 `window._bndSt={sel,vals,cur}`만, **logout에서 `_bndClear`**(입력칸·미리보기 DOM까지). id·속성은 `bnd_`/`data-bnd*` 접두, 조작은 속지 키 기준(함정 A).
+- 숫자만 입력하면 천 단위 쉼표, "5만"처럼 글자가 섞이면 그대로. 헤드리스 검증: 미리보기 겹침·PDF 3쪽 출력 위치 확인.
 
 ## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
 

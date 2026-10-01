@@ -317,6 +317,7 @@ table.dt tr:last-child td{border-bottom:none;}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
 .bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
 @media(max-width:900px){.bdgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:980px){#bnd_wrap{grid-template-columns:1fr!important}#bnd_wrap>div:last-child{position:static!important}}
 .bdcard{cursor:pointer}
 .bdthumb{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#eef0f6;border:1px solid #e2e4ee;display:flex;align-items:center;justify-content:center;transition:.15s}
 .bdthumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -519,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.09.30-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.01-1</div>
   </div>
 </div>
 
@@ -1102,8 +1103,44 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 증권바인더 제작 -->
     <div class="pg" id="pg_binder">
-      <div class="sh"><div class="st"><i class="ti ti-folders"></i>증권바인더 제작</div></div>
-      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다.</div></div>
+      <div class="sh"><div class="st"><i class="ti ti-folders"></i>증권바인더 제작</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="bp" onclick="bndReset()" style="background:#fff;color:#555;border:1px solid #ccd"><i class="ti ti-refresh"></i> 초기화</button>
+          <button class="bp" onclick="bndPrint()" style="background:#fff;color:#3a48cc;border:1px solid rgba(72,88,204,.4)"><i class="ti ti-printer"></i> 출력</button>
+          <button class="bp" onclick="bndDownload()" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-download"></i> PDF 저장</button>
+        </div>
+      </div>
+      <!-- 증권바인더 속지 작성(2026-10-01) — 왼쪽: 속지 선택·선택 목록·항목별 입력 / 오른쪽: 실시간 미리보기(좌우 넘김). 저장·동기화 없음 -->
+      <div id="bnd_wrap" style="display:grid;grid-template-columns:minmax(300px,400px) 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px">
+            <div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:6px">고객명 <span style="font-weight:400;color:#8890aa;font-size:12px">(PDF 파일 이름에만 쓰여요)</span></div>
+            <input class="fi" id="bnd_cust" placeholder="예: 홍길동" style="background:#fff;color:#1c2140;border:1px solid #ccd">
+          </div>
+          <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px">
+            <div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:8px">1. 넣을 속지 선택</div>
+            <div id="bnd_pick" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button type="button" onclick="bndPickAll(true)" style="flex:1;padding:6px;border:1px solid #ccd;border-radius:7px;background:#fff;color:#444;cursor:pointer;font-family:inherit;font-size:12.5px">전체 선택</button>
+              <button type="button" onclick="bndPickAll(false)" style="flex:1;padding:6px;border:1px solid #ccd;border-radius:7px;background:#fff;color:#444;cursor:pointer;font-family:inherit;font-size:12.5px">전체 해제</button>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px">
+            <div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:8px">2. 선택한 속지 · 입력 <span style="font-weight:400;color:#8890aa;font-size:12px">(▲▼로 순서 변경)</span></div>
+            <div id="bnd_list"></div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px;position:sticky;top:12px">
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
+            <button type="button" id="bnd_prev" onclick="bndGo(-1)" style="width:38px;height:34px;border:1px solid #ccd;border-radius:8px;background:#fff;color:#444;cursor:pointer;font-size:18px">‹</button>
+            <div id="bnd_cnt" style="font-size:14px;font-weight:700;color:#333;min-width:180px;text-align:center">-</div>
+            <button type="button" id="bnd_next" onclick="bndGo(1)" style="width:38px;height:34px;border:1px solid #ccd;border-radius:8px;background:#fff;color:#444;cursor:pointer;font-size:18px">›</button>
+          </div>
+          <div id="bnd_view" style="max-width:640px;margin:0 auto"></div>
+          <div id="bnd_thumbs" style="display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding:4px 2px;justify-content:center"></div>
+          <div style="font-size:11.5px;color:#9aa;text-align:center;margin-top:4px">← → 키·화면 밀기로도 넘길 수 있어요</div>
+        </div>
+      </div>
     </div>
 
     <!-- 병력정리 -->
@@ -4560,6 +4597,7 @@ function logout(){
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
   window._dvState=null;  // 내 자료함 탐색 상태(팀원·경로) 리셋 — 다른 사용자가 이어받지 않게
   try{ if(typeof _rsvClear==='function') _rsvClear(); }catch(e){}   // 예약문자 — 고객 성함·연락처가 다음 로그인 사용자에게 남지 않게
+  try{ if(typeof _bndClear==='function') _bndClear(); }catch(e){}   // 증권바인더 — 입력값·미리보기 비움(고객 가입금액 잔존 차단)
   try{ if(typeof _fpClear==='function') _fpClear(); }catch(e){}   // 재무상담 포토폴리오 — 버퍼뿐 아니라 입력칸·미리보기 DOM까지 초기화(고객 소득·자산 잔존 차단, v-2 리뷰)
   try{ var _sgp=g('ssg_pop'); if(_sgp) _sgp.remove(); }catch(e){}   // 설명서 모달이 로그인 화면 위에 남지 않게
   window._bdrUp=null; try{ var _buo=g('bdrup_overlay'); if(_buo) _buo.remove(); }catch(e){}   // 업로드 모달도 정리(로그인 화면 위 잔존 방지)
@@ -7209,6 +7247,266 @@ async function _sdDtx(page,doc,text,x,y,fontSize,maxWidth){
   }catch(e){console.warn('sdDtx',text,e);}
 }
 
+// ===== 증권바인더 속지 작성 (binder, 2026-10-01) =====
+// 원본 양식 binder/insurance-guide.pdf(8쪽 — 속지 1장=1쪽)를 배경으로 쓰고, 빈칸("○○ 보상금액 ____원")에만 입력값을 겹쳐 찍는다.
+// 좌표는 원본 PDF의 pt 좌표(왼쪽 위 원점, A4 594.96×841.92) — 빈칸 밑줄 시작 x0 ~ '원' 글자 앞 x1, 글자 세로 범위 y0~y1.
+// 미리보기: pdf.js로 쪽을 그림으로 그려 캐시(_bndImgs) + 입력값을 % 좌표로 겹쳐 표시. 출력: pdf-lib로 원본 쪽 복사 + 한글은 캔버스 PNG(_sdTextToPng).
+// 저장·동기화 없음(함정 B 무관) — 선택·입력은 메모리(window._bndSt)뿐, logout에서 _bndClear. 조작은 속지 키(k) 기준(함정 A).
+var BND_TPL_URL='binder/insurance-guide.pdf';
+var BND_PW=594.96, BND_PH=841.92;
+function _bndF(k,lb,x0,x1,y0,y1){ return {k:k,lb:lb,x0:x0,x1:x1,y0:y0,y1:y1}; }
+var BND_PAGES=[
+  {k:'care',   nm:'간병인 지원',     pg:1, f:[]},
+  {k:'careday',nm:'간병인 사용일당', pg:2, f:[
+    _bndF('h1','대학병원 1일 보상금액',76.5,163,469.9,480.7), _bndF('h2','종합병원 1일 보상금액',201.8,289,469.9,480.7),
+    _bndF('h3','병원·의원 1일 보상금액',327.8,414,469.9,480.7), _bndF('h4','요양병원 1일 보상금액',453,540,469.9,480.7)]},
+  {k:'fire',   nm:'화재보험',        pg:3, f:[]},
+  {k:'driver', nm:'운전자보험',      pg:4, f:[]},
+  {k:'dental', nm:'치아보험',        pg:5, f:[
+    _bndF('d1','충전 치료 1개당 보상금액',76.5,163,283.9,294.7), _bndF('d2','크라운 1개당 보상금액',201.8,289,283.9,294.7),
+    _bndF('d3','임플란트 1개당 보상금액',327.8,414,283.9,294.7), _bndF('d4','틀니·브릿지 1회당 보상금액',453,540,283.9,294.7)]},
+  {k:'dementia',nm:'치매보험',       pg:6, f:[
+    _bndF('m1','경도 치매 진단금',100,208,300.6,310.2), _bndF('m2','중등도 치매 진단금',266,374,300.6,310.2),
+    _bndF('m3','중증 치매 진단금',432,540,300.6,310.2)]},
+  {k:'homecare',nm:'재가급여',       pg:7, f:[
+    _bndF('g1','1~2등급 월 보상금액',76.5,163,589.2,599.9), _bndF('g2','3~4등급 월 보상금액',201.8,289,589.2,599.9),
+    _bndF('g3','5등급 월 보상금액',327.8,414,589.2,599.9), _bndF('g4','인지지원등급 월 보상금액',453,540,589.2,599.9)]},
+  {k:'ltcgrade',nm:'장기요양등급',   pg:8, f:[]}
+];
+function _bndPage(k){ for(var i=0;i<BND_PAGES.length;i++) if(BND_PAGES[i].k===k) return BND_PAGES[i]; return null; }
+function _bndState(){ if(!window._bndSt) window._bndSt={sel:[],vals:{},cur:0}; return window._bndSt; }
+// 숫자만 입력하면 천 단위 쉼표("50000"→"50,000"), 글자가 섞이면("5만") 그대로
+function _bndFmt(v){ v=String(v==null?'':v).trim(); if(/^[\d,]+$/.test(v)){ var n=v.replace(/,/g,''); return n?Number(n).toLocaleString('ko-KR'):''; } return v; }
+function _bndVal(pk,fk){ var st=_bndState(); return _bndFmt((st.vals[pk]||{})[fk]); }
+
+function rBinder(){
+  var st=_bndState();
+  var pick=g('bnd_pick'); if(!pick) return;
+  pick.innerHTML=BND_PAGES.map(function(p){
+    var on=st.sel.indexOf(p.k)>=0;
+    return '<label style="display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid '+(on?'#4858cc':'#dde')+';border-radius:8px;background:'+(on?'#eef0ff':'#fff')+';cursor:pointer;font-size:13.5px;color:#1c2140">'
+      +'<input type="checkbox" data-bndpick="'+p.k+'"'+(on?' checked':'')+' style="width:15px;height:15px;accent-color:#4858cc">'
+      +'<span>'+p.nm+'</span>'+(p.f.length?'<span style="margin-left:auto;font-size:11px;color:#4858cc">입력 '+p.f.length+'</span>':'')+'</label>';
+  }).join('');
+  pick.onchange=function(ev){
+    var cb=ev.target; if(!cb||!cb.getAttribute) return; var k=cb.getAttribute('data-bndpick'); if(!k) return;
+    bndToggle(k, cb.checked);
+  };
+  _bndListDraw(); _bndView();
+  if(!window._bndKeyOn){
+    window._bndKeyOn=1;
+    document.addEventListener('keydown',function(ev){
+      var pg=g('pg_binder'); if(!pg||!pg.classList.contains('active')) return;
+      var t=ev.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+      if(ev.key==='ArrowLeft') bndGo(-1); else if(ev.key==='ArrowRight') bndGo(1);
+    });
+  }
+}
+function bndToggle(k, on){
+  var st=_bndState(), i=st.sel.indexOf(k);
+  if(on&&i<0){ st.sel.push(k); st.cur=st.sel.length-1; }      // 새로 고른 속지를 바로 보여줌
+  if(!on&&i>=0){ st.sel.splice(i,1); if(st.cur>=st.sel.length) st.cur=Math.max(0,st.sel.length-1); }
+  rBinder();
+}
+function bndPickAll(on){
+  var st=_bndState();
+  if(on){ BND_PAGES.forEach(function(p){ if(st.sel.indexOf(p.k)<0) st.sel.push(p.k); }); }
+  else { st.sel=[]; st.cur=0; }
+  rBinder();
+}
+function bndMove(k, d){
+  var st=_bndState(), i=st.sel.indexOf(k), j=i+d; if(i<0||j<0||j>=st.sel.length) return;
+  var t=st.sel[i]; st.sel[i]=st.sel[j]; st.sel[j]=t; st.cur=j; _bndListDraw(); _bndView();
+}
+function _bndListDraw(){
+  var st=_bndState(), box=g('bnd_list'); if(!box) return;
+  if(!st.sel.length){ box.innerHTML='<div style="font-size:13px;color:#99a;padding:14px 0;text-align:center">위에서 넣을 속지를 골라 주세요.</div>'; return; }
+  var bs='width:26px;height:24px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-size:11px;padding:0';
+  box.innerHTML=st.sel.map(function(k,i){
+    var p=_bndPage(k); if(!p) return '';
+    var vals=st.vals[k]||{};
+    var cur=(i===st.cur);
+    return '<div data-bndrow="'+k+'" style="border:1px solid '+(cur?'#4858cc':'#e3e5f0')+';border-radius:9px;padding:10px;margin-bottom:8px;background:'+(cur?'#f6f7ff':'#fff')+'">'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<span style="font-size:12px;font-weight:700;color:#fff;background:#4858cc;border-radius:10px;padding:1px 8px">'+(i+1)+'</span>'
+      +'<b data-bndshow="'+k+'" style="font-size:14px;color:#1c2140;cursor:pointer">'+p.nm+'</b>'
+      +'<span style="margin-left:auto;display:flex;gap:4px">'
+      +'<button type="button" data-bndmv="'+k+'|-1" style="'+bs+'"'+(i===0?' disabled':'')+'>▲</button>'
+      +'<button type="button" data-bndmv="'+k+'|1" style="'+bs+'"'+(i===st.sel.length-1?' disabled':'')+'>▼</button>'
+      +'<button type="button" data-bnddel="'+k+'" style="'+bs+';color:#c33">✕</button></span></div>'
+      +(p.f.length? '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;margin-top:8px">'+p.f.map(function(f){
+          return '<label style="display:block;min-width:0;font-size:11.5px;color:#667">'+f.lb
+            +'<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><input data-bndin="'+k+'|'+f.k+'" value="'+_alertEsc(vals[f.k]||'')+'" inputmode="numeric" placeholder="0"'
+            +' style="flex:1;min-width:0;padding:6px 8px;border:1px solid #ccd;border-radius:6px;font-size:13.5px;text-align:right;color:#1c2140;background:#fff;font-family:inherit"><span style="font-size:12.5px;color:#556">원</span></div></label>';
+        }).join('')+'</div>'
+       : '<div style="font-size:12px;color:#99a;margin-top:6px">입력할 칸이 없는 속지예요(그대로 들어갑니다).</div>')
+      +'</div>';
+  }).join('');
+  box.oninput=function(ev){
+    var t=ev.target, a=t&&t.getAttribute&&t.getAttribute('data-bndin'); if(!a) return;
+    var pr=a.split('|'), st2=_bndState();
+    var f=_bndFmt(t.value);
+    if(/^[\d,]+$/.test(String(t.value).trim()) && f!==t.value){   // 쉼표 정형 — 커서는 끝 기준 상대 위치 유지
+      var back=t.value.length-(t.selectionStart||0); t.value=f; try{ var pos=Math.max(0,f.length-back); t.setSelectionRange(pos,pos); }catch(e){}
+    }
+    st2.vals[pr[0]]=st2.vals[pr[0]]||{}; st2.vals[pr[0]][pr[1]]=t.value;
+    var i=st2.sel.indexOf(pr[0]); if(i>=0&&i!==st2.cur){ st2.cur=i; _bndHighlight(); _bndView(); } else _bndOverlay();
+  };
+  box.onfocusin=function(ev){
+    var t=ev.target, a=t&&t.getAttribute&&t.getAttribute('data-bndin'); if(!a) return;
+    var st2=_bndState(), i=st2.sel.indexOf(a.split('|')[0]); if(i>=0&&i!==st2.cur){ st2.cur=i; _bndHighlight(); _bndView(); }
+  };
+  box.onclick=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var mv=t.closest('[data-bndmv]'); if(mv){ var pr=mv.getAttribute('data-bndmv').split('|'); bndMove(pr[0],+pr[1]); return; }
+    var dl=t.closest('[data-bnddel]'); if(dl){ bndToggle(dl.getAttribute('data-bnddel'),false); return; }
+    var sh=t.closest('[data-bndshow]'); if(sh){ var st2=_bndState(), i=st2.sel.indexOf(sh.getAttribute('data-bndshow')); if(i>=0){ st2.cur=i; _bndHighlight(); _bndView(); } }
+  };
+}
+function _bndHighlight(){
+  var st=_bndState();
+  document.querySelectorAll('#bnd_list [data-bndrow]').forEach(function(r){
+    var on=st.sel.indexOf(r.getAttribute('data-bndrow'))===st.cur;
+    r.style.borderColor=on?'#4858cc':'#e3e5f0'; r.style.background=on?'#f6f7ff':'#fff';
+  });
+}
+function bndGo(d){
+  var st=_bndState(); if(!st.sel.length) return;
+  var n=Math.min(st.sel.length-1, Math.max(0, st.cur+d)); if(n===st.cur) return;
+  st.cur=n; _bndHighlight(); _bndView();
+}
+// 원본 양식 PDF — 한 번 받아 메모리에 둔다(ArrayBuffer 원본은 보존하고 pdf.js·pdf-lib에는 사본을 넘김: pdf.js가 버퍼를 넘겨받아 비우기 때문)
+function _bndTpl(){
+  if(window._bndTplP) return window._bndTplP;
+  window._bndTplP=fetch(BND_TPL_URL,{cache:'no-cache'}).then(function(r){ if(!r.ok) throw new Error('양식 파일을 불러오지 못했습니다 ('+r.status+')'); return r.arrayBuffer(); })
+    .catch(function(e){ window._bndTplP=null; throw e; });
+  return window._bndTplP;
+}
+function _bndImg(pg){
+  window._bndImgs=window._bndImgs||{};
+  if(window._bndImgs[pg]) return window._bndImgs[pg];
+  window._bndImgs[pg]=_bndTpl().then(function(buf){
+    if(!window._bndPdfP) window._bndPdfP=pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+    return window._bndPdfP;
+  }).then(function(pdf){ return pdf.getPage(pg); }).then(function(page){
+    var vp=page.getViewport({scale:2});
+    var cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+    return page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){ return cv.toDataURL('image/jpeg',0.9); });
+  }).catch(function(e){ delete window._bndImgs[pg]; window._bndPdfP=null; throw e; });
+  return window._bndImgs[pg];
+}
+function _bndView(){
+  var st=_bndState(), view=g('bnd_view'), cnt=g('bnd_cnt'), th=g('bnd_thumbs'); if(!view) return;
+  if(g('bnd_prev')) g('bnd_prev').disabled=st.cur<=0;
+  if(g('bnd_next')) g('bnd_next').disabled=st.cur>=st.sel.length-1;
+  if(!st.sel.length){
+    view.innerHTML='<div style="aspect-ratio:594.96/841.92;border:2px dashed #dde;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#99a;font-size:14px">왼쪽에서 속지를 선택하면 여기에 보입니다</div>';
+    if(cnt) cnt.textContent='-'; if(th) th.innerHTML=''; return;
+  }
+  var p=_bndPage(st.sel[st.cur]);
+  if(cnt) cnt.textContent=(st.cur+1)+' / '+st.sel.length+' · '+p.nm;
+  if(th) th.innerHTML=st.sel.map(function(k,i){ var q=_bndPage(k);
+    return '<button type="button" data-bndgo="'+i+'" style="flex:0 0 auto;padding:4px 9px;border-radius:14px;border:1px solid '+(i===st.cur?'#4858cc':'#dde')+';background:'+(i===st.cur?'#4858cc':'#fff')+';color:'+(i===st.cur?'#fff':'#556')+';font-size:12px;cursor:pointer;font-family:inherit">'+(i+1)+'. '+q.nm+'</button>'; }).join('');
+  if(th) th.onclick=function(ev){ var b=ev.target.closest&&ev.target.closest('[data-bndgo]'); if(!b) return; st.cur=+b.getAttribute('data-bndgo'); _bndHighlight(); _bndView(); };
+  view.innerHTML='<div id="bnd_sheet" data-bndk="'+p.k+'" style="position:relative;aspect-ratio:594.96/841.92;container-type:inline-size;box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:4px;overflow:hidden;background:#fff;touch-action:pan-y">'
+    +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#99a;font-size:13px">불러오는 중…</div></div>';
+  var seq=window._bndViewSeq=(window._bndViewSeq||0)+1;
+  _bndImg(p.pg).then(function(url){
+    if(seq!==window._bndViewSeq) return;   // 그 사이 다른 쪽으로 넘김 — 늦은 결과는 버림
+    var sh=g('bnd_sheet'); if(!sh) return;
+    sh.innerHTML='<img src="'+url+'" alt="" draggable="false" style="width:100%;height:100%;display:block;user-select:none"><div id="bnd_ov" style="position:absolute;inset:0;pointer-events:none"></div>';
+    _bndOverlay(); _bndSwipeBind(sh);
+  }).catch(function(e){
+    if(seq!==window._bndViewSeq) return;
+    var sh=g('bnd_sheet'); if(sh) sh.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#c33;font-size:13px;padding:20px;text-align:center">양식을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.<br>'+_esc(e.message||String(e))+'</div>';
+  });
+}
+// 입력값 겹쳐 그리기 — 칸 오른쪽('원' 글자 앞) 정렬, 글씨 크기는 미리보기 폭에 비례(cqw)
+function _bndOverlay(){
+  var st=_bndState(), ov=g('bnd_ov'), sh=g('bnd_sheet'); if(!ov||!sh) return;
+  var p=_bndPage(sh.getAttribute('data-bndk')); if(!p) return;
+  ov.innerHTML=p.f.map(function(f){
+    var v=_bndVal(p.k,f.k); if(!v) return '';
+    var fs=11/BND_PW*100;
+    return '<div style="position:absolute;left:'+(f.x0/BND_PW*100)+'%;width:'+((f.x1-f.x0)/BND_PW*100)+'%;top:'+((f.y0-1.5)/BND_PH*100)+'%;'
+      +'font-size:'+fs+'cqw;line-height:1.25;font-weight:700;color:#1c2140;text-align:right;white-space:nowrap;overflow:visible">'+_esc(v)+'</div>';
+  }).join('');
+}
+function _bndSwipeBind(el){
+  var x0=null;
+  el.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; },{passive:true});
+  el.addEventListener('touchend',function(e){ if(x0==null) return; var dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>45) bndGo(dx<0?1:-1); },{passive:true});
+}
+// PDF 만들기 — 원본 쪽을 선택 순서대로 복사하고 입력값을 PNG 글자로 찍는다(쪽 크기·벡터 품질 그대로)
+async function _bndBuild(){
+  var st=_bndState();
+  if(!st.sel.length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return null; }
+  var buf=await _bndTpl();
+  var src=await PDFLib.PDFDocument.load(buf.slice(0));
+  var out=await PDFLib.PDFDocument.create();
+  var idx=st.sel.map(function(k){ return _bndPage(k).pg-1; });
+  var pages=await out.copyPages(src, idx);
+  for(var i=0;i<pages.length;i++){
+    var pg=out.addPage(pages[i]);
+    var p=_bndPage(st.sel[i]), H=pg.getHeight();
+    for(var j=0;j<p.f.length;j++){
+      var f=p.f[j], v=_bndVal(p.k,f.k); if(!v) continue;
+      var png=_sdTextToPng(v,11); if(!png) continue;
+      var arr=Uint8Array.from(atob(png.split(',')[1]),function(ch){return ch.charCodeAt(0);});
+      var img=await out.embedPng(arr);
+      var natW=img.width/3, natH=img.height/3, maxW=f.x1-f.x0;
+      var sc=natW>maxW?maxW/natW:1;                     // 칸보다 긴 값은 잘라내지 않고 축소(_sdDtx 규칙)
+      var w=natW*sc, h=natH*sc;
+      var yTop=f.y0-2.5;                                  // 칸 글자 높이에 맞춤(PDF 좌표는 아래가 원점)
+      pg.drawImage(img,{x:f.x1-w, y:H-yTop-h, width:w, height:h});
+    }
+  }
+  return await out.save();
+}
+function _bndFileName(){
+  var nm=_sdVal('bnd_cust').replace(/[\\/:*?"<>|]/g,'_').slice(0,30)||'고객';
+  return '증권바인더_'+nm+'_'+tds().replace(/\./g,'')+'.pdf';
+}
+async function bndDownload(){
+  if(window._bndBusy){ toast('PDF를 만드는 중입니다. 잠시만 기다려 주세요.'); return; }
+  window._bndBusy=true;
+  try{
+    var bytes=await _bndBuild(); if(!bytes) return;
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    var a=document.createElement('a'); a.href=url; a.download=_bndFileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },10000);
+    toast('증권바인더 PDF를 저장했습니다.');
+  }catch(e){ toast('PDF 저장 실패: '+(e.message||e)); }
+  finally{ window._bndBusy=false; }
+}
+// [출력] — 새 탭을 클릭 제스처 안에서 먼저 열고 PDF를 실은 뒤 인쇄 시도(sdPrint 패턴 — 팝업 차단·무통보 실패 방지)
+async function bndPrint(){
+  if(window._bndBusy){ toast('PDF를 만드는 중입니다. 잠시만 기다려 주세요.'); return; }
+  if(!_bndState().sel.length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return; }
+  var w=null; try{ w=window.open('about:blank'); }catch(e){}
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
+  window._bndBusy=true;
+  try{
+    var bytes=await _bndBuild(); if(!bytes){ w.close(); return; }
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    w.location=url;
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },800);
+    toast('출력 창을 열었습니다. 인쇄 대화상자가 뜨지 않으면 그 화면의 인쇄(🖨) 버튼을 눌러 주세요.');
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },120000);
+  }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
+  finally{ window._bndBusy=false; }
+}
+function _bndClear(){
+  window._bndSt=null;
+  var c=g('bnd_cust'); if(c) c.value='';
+  ['bnd_list','bnd_view','bnd_thumbs'].forEach(function(id){ var el=g(id); if(el) el.innerHTML=''; });
+}
+function bndReset(){
+  if(!confirm('선택한 속지와 입력한 금액을 모두 지울까요?')) return;
+  _bndClear(); rBinder();
+}
+
 function _sdVal(id){ var el=g(id); return el?String(el.value||'').trim():''; }
 
 // 계약(줄)마다 문서 세트를 채워 한 PDF로 병합 — 기본 세트는 개인정보처리동의서+고지의무확인서,
@@ -7451,7 +7749,7 @@ function showPage(name){
   try{ window.scrollTo(0,0); var _tbEl=g('tb'); if(_tbEl)_tbEl.classList.remove('tb-hide'); }catch(e){}
   g('tbt').textContent=(typeof _ptitle==='function')?_ptitle(name):(PTITLES[name]||name);
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
