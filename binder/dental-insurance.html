@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>치아보험 보장 안내</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  /* 바인더 속지: A4, 왼쪽에 펀치 구멍 여백 */
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #1d3557; --ink: #22303f; --muted: #6b7a8c; --line: #d7dee7;
+    --cons: #2a7de1; --cons-bg: #eaf3fd;   /* 보존치료 */
+    --pros: #8b5cf6; --pros-bg: #f3eefe;   /* 보철치료 */
+    --care: #11a37f; --care-bg: #e7f7f2;   /* 예방·기타 */
+    --warn: #e5533d; --half: #f2a516; --ok: #11a37f;
+    --gum: #f4a7b4; --gum-d: #e47f92; --tooth: #ffffff; --tooth-l: #9aa8b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: 'Noto Sans KR', sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; padding: 12mm 12mm 11mm 24mm; position: relative; overflow: hidden; page-break-after: always; display: flex; flex-direction: column; }
+  .page:last-child { page-break-after: auto; }
+  .holes { position: absolute; left: 8mm; top: 0; bottom: 0; width: 8mm; display: flex; flex-direction: column; justify-content: center; gap: 70mm; }
+  .holes i { display: block; width: 6mm; height: 6mm; border-radius: 50%; border: .3mm dashed #c5ced9; }
+
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: .8mm solid var(--navy); padding-bottom: 3mm; margin-bottom: 5mm; }
+  header.top h1 { margin: 0; font-size: 20pt; font-weight: 900; color: var(--navy); letter-spacing: -.5px; }
+  header.top h1 small { display: block; font-size: 9pt; font-weight: 700; color: var(--muted); letter-spacing: 0; margin-bottom: 1mm; }
+  .chip { display: inline-block; padding: 1mm 3mm; border-radius: 10mm; font-size: 8.5pt; font-weight: 700; color: #fff; }
+  .note { font-size: 7.5pt; color: var(--muted); }
+
+  /* ---------- 1쪽: 표지 ---------- */
+  .cover-title { background: var(--navy); color: #fff; border-radius: 5mm; padding: 9mm 9mm 8mm; display: flex; align-items: center; gap: 7mm; }
+  .cover-title h1 { margin: 0; font-size: 28pt; font-weight: 900; letter-spacing: -1px; }
+  .cover-title p { margin: 2mm 0 0; font-size: 10.5pt; opacity: .85; }
+  .info { display: grid; grid-template-columns: 1fr 1fr; margin-top: 6mm; border: .3mm solid var(--line); border-radius: 3mm; overflow: hidden; }
+  .info div { display: flex; border-bottom: .3mm solid var(--line); min-height: 11mm; }
+  .info div:nth-child(odd) { border-right: .3mm solid var(--line); }
+  .info div:nth-last-child(-n+2) { border-bottom: 0; }
+  .info b { width: 27mm; flex: none; background: #f3f6f9; font-size: 9pt; display: flex; align-items: center; padding: 0 3mm; color: var(--navy); }
+  .info span { flex: 1; display: flex; align-items: center; padding: 0 3mm; font-size: 10pt; font-weight: 700; }
+  h2.sec { font-size: 12.5pt; font-weight: 900; color: var(--navy); margin: 7mm 0 3mm; display: flex; align-items: center; gap: 2mm; }
+  h2.sec::before { content: ""; width: 1.4mm; height: 5mm; background: var(--navy); border-radius: 1mm; }
+
+  .tl { border: .3mm solid var(--line); border-radius: 3mm; padding: 5mm 5mm 4mm; }
+  .tl-row { display: grid; grid-template-columns: 22mm 1fr; align-items: center; gap: 3mm; margin-bottom: 3.5mm; }
+  .tl-row:last-of-type { margin-bottom: 0; }
+  .tl-row > b { font-size: 9.5pt; text-align: center; padding: 1.6mm 0; border-radius: 2mm; color: #fff; }
+  .bar { display: flex; height: 11mm; border-radius: 2mm; overflow: hidden; font-size: 8.5pt; font-weight: 700; color: #fff; }
+  .bar > div { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; text-align: center; }
+  .bar small { font-weight: 400; font-size: 7.5pt; opacity: .95; }
+  .s0 { background: var(--warn); } .s1 { background: var(--half); } .s2 { background: var(--ok); }
+  .legend { display: flex; gap: 5mm; margin-top: 4mm; font-size: 8pt; color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 3mm; height: 3mm; border-radius: .6mm; margin-right: 1.2mm; vertical-align: -.4mm; background: var(--c); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .box { border: .3mm solid var(--line); border-radius: 3mm; padding: 4mm 4.5mm; font-size: 9pt; line-height: 1.6; }
+  .box h3 { margin: 0 0 2mm; font-size: 10pt; color: var(--navy); }
+  .box ol, .box ul { margin: 0; padding-left: 4.5mm; }
+  .box.warn { background: #fff6f4; border-color: #f6c9c1; }
+  .box.warn h3 { color: var(--warn); }
+  .agent { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); border-top: .3mm solid var(--line); padding-top: 4mm; gap: 4mm; font-size: 9pt; }
+  .agent div { border-bottom: .3mm solid #9aa8b8; padding-bottom: 1.5mm; }
+  .agent b { color: var(--navy); margin-right: 2mm; }
+
+  /* ---------- 치료 카드 ---------- */
+  .group-title { display: flex; align-items: center; gap: 2.5mm; margin: 0 0 3mm; font-size: 12pt; font-weight: 900; }
+  .group-title .note { font-weight: 400; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .card { border: .35mm solid var(--line); border-radius: 3.5mm; overflow: hidden; display: flex; flex-direction: column; height: 71mm; }
+  .card .head { display: flex; gap: 3mm; padding: 3mm 3.5mm 2.5mm; background: var(--bg); align-items: center; flex: 1; }
+  .card .pic { width: 31mm; height: 31mm; flex: none; background: #fff; border-radius: 3mm; display: flex; align-items: center; justify-content: center; }
+  .card .pic svg { width: 29mm; height: 29mm; }
+  .card .num { font-size: 7.5pt; font-weight: 700; color: var(--c); }
+  .card h3 { margin: .3mm 0 1.2mm; font-size: 13pt; font-weight: 900; letter-spacing: -.4px; color: var(--ink); }
+  .card h3 em { font-style: normal; font-size: 8.5pt; font-weight: 700; color: var(--muted); margin-left: 1mm; }
+  .card p { margin: 0; font-size: 8pt; line-height: 1.5; color: #4a5868; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; border-top: .35mm solid var(--line); }
+  .f { padding: 1.6mm 3mm 1.8mm; border-right: .3mm solid var(--line); border-bottom: .3mm solid var(--line); min-height: 12.5mm; }
+  .f:nth-child(2n) { border-right: 0; }
+  .f:nth-last-child(-n+2) { border-bottom: 0; }
+  .f label { display: flex; align-items: center; gap: 1.2mm; font-size: 7.3pt; font-weight: 700; color: var(--muted); }
+  .f label i { width: 2.2mm; height: 2.2mm; border-radius: 50%; background: var(--dot); }
+  .f .v { font-size: 10pt; font-weight: 700; margin-top: .6mm; line-height: 1.3; }
+  .f .v.big { font-size: 12pt; font-weight: 900; color: var(--c); }
+  .blank .f .v { border-bottom: .3mm dotted #9aa8b8; height: 5.5mm; }
+  .foot { margin-top: auto; padding-top: 3mm; font-size: 7.3pt; color: var(--muted); display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+/* ===================================================================
+   여기 값만 바꾸면 속지 내용이 바뀝니다.
+   - 금액·기간은 상품마다 다르므로 반드시 고객 증권 기준으로 입력하세요.
+   - URL 끝에 ?blank 를 붙이면 손으로 적는 '빈칸 버전'이 됩니다.
+   =================================================================== */
+const CUSTOMER = {
+  고객명: '', 상품명: '', 보험회사: '', 증권번호: '',
+  계약일: '', 보장개시일: '', 보험기간: '', 월납보험료: ''
+};
+const PERIOD = {   // 보장 개시 타임라인 (예시)
+  보존: { 면책: '90일', 감액: '1년', 감액률: '50%' },
+  보철: { 면책: '1년',  감액: '2년', 감액률: '50%' },
+};
+const AGENT = { 담당자: '', 연락처: '', 사무실: '' };
+
+const TREATMENTS = [
+  // ---------- 보존치료 ----------
+  { g:'cons', pic:'amalgam', name:'아말감 충전', sub:'GI 포함', desc:'충치를 긁어내고 은색 아말감·글래스아이오노머로 메우는 기본 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 1만원', 한도:'제한 없음' },
+  { g:'cons', pic:'resin', name:'레진 충전', sub:'복합레진', desc:'치아 색과 같은 레진으로 충치 부위를 메우는 치료 (앞니·작은 충치)',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 10만원', 한도:'연간 3개' },
+  { g:'cons', pic:'inlay', name:'인레이 · 온레이', sub:'금·세라믹', desc:'본을 떠서 만든 조각(금·세라믹)을 충치 부위에 끼워 붙이는 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 15만원', 한도:'연간 3개' },
+  { g:'cons', pic:'crown', name:'크라운', sub:'씌우기', desc:'손상이 큰 치아 전체를 금·지르코니아 등의 덮개로 씌우는 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 20만원', 한도:'연간 3개' },
+  { g:'cons', pic:'canal', name:'신경치료', sub:'근관치료', desc:'염증이 생긴 치아 속 신경을 제거하고 소독 후 채우는 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 2만원', 한도:'제한 없음' },
+  { g:'cons', pic:'extract', name:'영구치 발거', sub:'발치', desc:'충치·잇몸병 등으로 회복이 어려운 영구치를 뽑는 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'치아당 1만원', 한도:'제한 없음' },
+  // ---------- 보철치료 ----------
+  { g:'pros', pic:'implant', name:'임플란트', sub:'인공치아', desc:'잇몸뼈에 인공 뿌리(나사)를 심고 그 위에 치아를 올리는 치료',
+    면책:'1년', 감액:'2년 내 50%', 금액:'치아당 100만원', 한도:'연간 3개' },
+  { g:'pros', pic:'bridge', name:'브릿지', sub:'고정성 가공의치', desc:'빠진 치아 양옆 치아를 기둥 삼아 다리처럼 연결해 씌우는 치료',
+    면책:'1년', 감액:'2년 내 50%', 금액:'치아당 75만원', 한도:'연간 3개' },
+  { g:'pros', pic:'partial', name:'부분틀니', sub:'국소의치', desc:'일부 치아가 빠졌을 때 남은 치아에 고리로 걸어 쓰는 틀니',
+    면책:'1년', 감액:'2년 내 50%', 금액:'1악당 150만원', 한도:'연간 1회' },
+  { g:'pros', pic:'full', name:'전체틀니', sub:'완전의치', desc:'위 또는 아래 치아가 모두 없을 때 잇몸 전체에 끼우는 틀니',
+    면책:'1년', 감액:'2년 내 50%', 금액:'1악당 150만원', 한도:'연간 1회' },
+  // ---------- 예방·기타 ----------
+  { g:'care', pic:'scaling', name:'스케일링', sub:'치석 제거', desc:'치아와 잇몸 사이에 쌓인 치석·치태를 기구로 제거하는 치료',
+    면책:'90일', 감액:'없음', 금액:'1회당 1만원', 한도:'연간 1회' },
+  { g:'care', pic:'gum', name:'잇몸치료', sub:'치주질환', desc:'잇몸 염증·출혈, 잇몸뼈가 내려앉는 치주질환을 치료',
+    면책:'90일', 감액:'1년 내 50%', 금액:'1회당 2만원', 한도:'연간 1회' },
+];
+
+/* ---------------- 그림 (SVG) ---------------- */
+const MOLAR = 'M30 40 C30 20 45 17 50 24 C55 17 65 17 70 24 C75 17 90 20 90 40 C90 54 87 62 85 70 L80 102 C79 108 72 108 71 102 L66 80 C64 73 56 73 54 80 L49 102 C48 108 41 108 40 102 L35 70 C33 62 30 54 30 40 Z';
+const ST = 'stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"';
+const tooth = (tf='', fill='#fff') => `<path d="${MOLAR}" fill="${fill}" ${ST} transform="${tf}"/>`;
+const gum = (y=72) => `<path d="M4 ${y} Q20 ${y-6} 35 ${y} Q60 ${y+5} 85 ${y} Q100 ${y-6} 116 ${y} L116 116 L4 116 Z" fill="#f4a7b4" stroke="#e47f92" stroke-width="2"/>`;
+const shine = `<path d="M38 34 Q40 27 46 27" fill="none" stroke="#c9d3de" stroke-width="3" stroke-linecap="round"/>`;
+const small = (x, s=.42) => `translate(${x} 34) scale(${s})`;
+
+const PICS = {
+  amalgam: `${tooth()}${gum()}<path d="M44 28 Q52 22 60 30 Q68 22 76 28 L74 42 Q60 48 46 42 Z" fill="#9aa4ae" stroke="#5d6873" stroke-width="2"/>${shine}`,
+  resin:   `${tooth()}${gum()}<path d="M44 28 Q52 22 60 30 Q68 22 76 28 L74 42 Q60 48 46 42 Z" fill="#d9f0ff" stroke="#2a7de1" stroke-width="2.4" stroke-dasharray="4 3"/>${shine}<path d="M95 14 l3 6 6 3 -6 3 -3 6 -3 -6 -6 -3 6 -3 z" fill="#2a7de1"/>`,
+  inlay:   `${tooth()}${gum()}<path d="M42 26 L78 26 L74 46 L46 46 Z" fill="#f5c542" stroke="#b8860b" stroke-width="2.2"/><path d="M48 30 L60 30" stroke="#fff3c4" stroke-width="3" stroke-linecap="round"/>`,
+  crown:   `${tooth()}${gum()}<path d="M26 44 C26 18 44 13 50 21 C55 13 65 13 70 21 C76 13 94 18 94 44 L92 58 Q60 66 28 58 Z" fill="#f5c542" stroke="#b8860b" stroke-width="2.4"/><path d="M34 34 Q37 25 45 24" fill="none" stroke="#fff3c4" stroke-width="3.2" stroke-linecap="round"/><path d="M60 0 L60 9 M52 4 L60 11 L68 4" fill="none" stroke="#2a7de1" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  canal:   `${tooth()}<path d="M50 34 Q60 30 70 34 L69 48 Q66 52 64 60 L62 98 M56 60 Q54 52 51 48 Z" fill="#ff8a80" stroke="#e5533d" stroke-width="2"/><path d="M54 52 L44 98 M66 52 L76 98" stroke="#e5533d" stroke-width="3.2" stroke-linecap="round"/><path d="M96 4 L72 40" stroke="#5d6873" stroke-width="3" stroke-linecap="round"/><path d="M92 2 h10 v8" fill="none" stroke="#2a7de1" stroke-width="5" stroke-linecap="round"/>`,
+  extract: `${gum(86)}<path d="M60 108 l0 -6" stroke="#e47f92" stroke-width="2"/>${tooth('translate(0 -14)')}<path d="M60 112 Q50 100 60 92 Q70 100 60 112" fill="#e47f92"/><path d="M104 60 L104 22 M96 30 L104 20 L112 30" fill="none" stroke="#e5533d" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  implant: `<rect x="4" y="66" width="112" height="50" fill="#f4a7b4"/><path d="M4 66 Q60 58 116 66" fill="none" stroke="#e47f92" stroke-width="2"/><path d="M50 108 L48 74 L72 74 L70 108 Q60 116 50 108 Z" fill="#c9d3de" stroke="#5d6873" stroke-width="2.2"/>${[80,88,96,104].map(y=>`<path d="M47 ${y} L73 ${y-3}" stroke="#5d6873" stroke-width="2"/>`).join('')}<rect x="53" y="58" width="14" height="16" rx="2" fill="#9aa4ae" stroke="#5d6873" stroke-width="2"/><path d="M32 44 C32 22 46 18 52 25 C56 19 64 19 68 25 C74 18 88 22 88 44 Q86 58 60 60 Q34 58 32 44 Z" fill="#fff" ${ST}/>${shine}`,
+  bridge:  `<path d="M9 58 L13 98 Q20 104 27 98 L31 58 Z" fill="#fff" stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"/><path d="M89 58 L93 98 Q100 104 107 98 L111 58 Z" fill="#fff" stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"/><path d="M2 72 Q22 66 44 72 Q60 80 76 72 Q98 66 118 72 L118 116 L2 116 Z" fill="#f4a7b4" fill-opacity=".9" stroke="#e47f92" stroke-width="2"/><path d="M4 46 C4 30 10 26 20 30 C30 26 36 30 36 46 L34 60 Q20 64 6 60 Z" fill="#fff" stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"/><path d="M44 46 C44 30 50 26 60 30 C70 26 76 30 76 46 L74 60 Q60 64 46 60 Z" fill="#fff" stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"/><path d="M84 46 C84 30 90 26 100 30 C110 26 116 30 116 46 L114 60 Q100 64 86 60 Z" fill="#fff" stroke="#4f5f72" stroke-width="2.4" stroke-linejoin="round"/><path d="M36 44 L48 44 M76 44 L88 44" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round"/><path d="M44 66 L76 66" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="3 3"/><text x="60" y="96" font-size="11" text-anchor="middle" fill="#8b5cf6" font-weight="700">빠진 자리</text>`,
+  partial: `<path d="M14 92 Q14 30 60 26 Q106 30 106 92 L88 92 Q86 48 60 46 Q34 48 32 92 Z" fill="#f4a7b4" stroke="#e47f92" stroke-width="2.2"/>${[[24,74],[30,50],[90,50],[96,74]].map(([x,y])=>`<rect x="${x-7}" y="${y-8}" width="14" height="14" rx="4" fill="#fff" stroke="#4f5f72" stroke-width="2"/>`).join('')}<path d="M44 30 Q60 20 76 30" fill="none" stroke="#9aa4ae" stroke-width="4"/>${[[52,31],[60,28],[68,31]].map(([x,y])=>`<rect x="${x-5}" y="${y-7}" width="10" height="11" rx="3" fill="#fff" stroke="#4f5f72" stroke-width="2"/>`).join('')}<path d="M24 66 a7 7 0 0 1 12 6 M84 72 a7 7 0 0 1 12 -6" fill="none" stroke="#5d6873" stroke-width="2.6"/>`,
+  full:    `<path d="M12 96 Q10 26 60 22 Q110 26 108 96 L90 96 Q88 46 60 44 Q32 46 30 96 Z" fill="#f4a7b4" stroke="#e47f92" stroke-width="2.2"/>${[[21,82],[22,64],[28,47],[38,35],[49,28],[60,26],[71,28],[82,35],[92,47],[98,64],[99,82]].map(([x,y])=>`<rect x="${x-6}" y="${y-7}" width="12" height="13" rx="3.5" fill="#fff" stroke="#4f5f72" stroke-width="2"/>`).join('')}`,
+  scaling: `${tooth()}${gum()}<path d="M36 70 Q42 62 48 68 Q54 62 60 70 Q66 62 72 68 Q78 62 84 70 L84 76 L36 76 Z" fill="#d9b44a" stroke="#a7832a" stroke-width="1.8"/><path d="M110 8 L82 52" stroke="#5d6873" stroke-width="5" stroke-linecap="round"/><path d="M82 52 Q76 62 84 66" fill="none" stroke="#5d6873" stroke-width="3" stroke-linecap="round"/>${[[96,64],[102,72],[92,74]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.4" fill="#2a7de1"/>`).join('')}`,
+  gum:     `${tooth()}<path d="M4 78 Q20 70 35 76 Q60 86 85 76 Q100 70 116 78 L116 116 L4 116 Z" fill="#f08a9c" stroke="#d6566f" stroke-width="2"/><path d="M38 76 Q36 88 40 94 M82 76 Q84 88 80 94" fill="none" stroke="#d6566f" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="90" r="3" fill="#d6566f"/><circle cx="86" cy="92" r="2.6" fill="#d6566f"/><path d="M18 60 L26 66 M102 60 L94 66 M60 116 L60 106" stroke="#e5533d" stroke-width="2.4" stroke-linecap="round"/>${shine}`,
+};
+const svg = k => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">${PICS[k]}</svg>`;
+
+/* ---------------- 렌더링 ---------------- */
+const BLANK = location.search.includes('blank');
+const GROUPS = {
+  cons: { label:'보존치료', c:'var(--cons)', bg:'var(--cons-bg)', hint:'내 치아를 살려서 치료' },
+  pros: { label:'보철치료', c:'var(--pros)', bg:'var(--pros-bg)', hint:'빠진 치아를 인공치아로 대체' },
+  care: { label:'예방 · 기타', c:'var(--care)', bg:'var(--care-bg)', hint:'치석 제거와 잇몸 관리' },
+};
+const val = v => BLANK ? '' : (v || '');
+const holes = '<div class="holes"><i></i><i></i></div>';
+const head = (t, s) => `<header class="top"><h1><small>치아보험 보장 안내</small>${t}</h1>${s}</header>`;
+const foot = p => `<div class="foot"><span>※ 위 금액·기간은 ${BLANK ? '가입하신 증권' : '예시이며, 실제 보장은 가입하신 증권 및 약관'} 기준으로 확인하세요.</span><span>${p}</span></div>`;
+
+function card(t, i) {
+  const G = GROUPS[t.g];
+  const f = (label, dot, v, big) => `<div class="f"><label><i style="--dot:${dot}"></i>${label}</label><div class="v${big ? ' big' : ''}">${val(v)}</div></div>`;
+  return `<div class="card" style="--c:${G.c};--bg:${G.bg}">
+    <div class="head"><div class="pic">${svg(t.pic)}</div>
+      <div><div class="num">${G.label} ${String(i + 1).padStart(2, '0')}</div>
+      <h3>${t.name}<em>${t.sub}</em></h3><p>${t.desc}</p></div></div>
+    <div class="fields">
+      ${f('면책기간', 'var(--warn)', t.면책)}${f('감액기간', 'var(--half)', t.감액)}
+      ${f('보상금액', G.c, t.금액, true)}${f('보상한도', 'var(--navy)', t.한도)}
+    </div></div>`;
+}
+const groupTitle = g => `<div class="group-title" style="color:${GROUPS[g].c}"><span class="chip" style="background:${GROUPS[g].c}">${GROUPS[g].label}</span><span class="note">${GROUPS[g].hint}</span></div>`;
+const cards = (g, off = 0) => TREATMENTS.filter(t => t.g === g).map((t, i) => card(t, i + off)).join('');
+
+function timeline(label, color, p) {
+  const z = BLANK ? { 면책: '　　', 감액: '　　', 감액률: '　　' } : p;
+  return `<div class="tl-row"><b style="background:${color}">${label}</b><div class="bar">
+    <div class="s0" style="flex:1">보장 안 됨<small>계약일 ~ ${z.면책}</small></div>
+    <div class="s1" style="flex:1.4">${z.감액률} 지급<small>${z.면책} ~ ${z.감액}</small></div>
+    <div class="s2" style="flex:1.6">100% 지급<small>${z.감액} 이후</small></div></div></div>`;
+}
+
+const cover = `<section class="page">${holes}
+  <div class="cover-title">
+    <svg viewBox="0 0 120 120" style="width:30mm;height:30mm;flex:none"><circle cx="60" cy="60" r="58" fill="#fff"/><g transform="translate(6 2) scale(.9)">${tooth()}${shine}</g><path d="M78 80 l8 8 16 -18" fill="none" stroke="#11a37f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><h1>치아보험 보장 안내</h1><p>어떤 치료를, 언제부터, 얼마나 받을 수 있는지 한눈에 확인하세요.</p></div>
+  </div>
+  <div class="info">${Object.entries(CUSTOMER).map(([k, v]) => `<div><b>${k}</b><span>${val(v)}</span></div>`).join('')}</div>
+
+  <h2 class="sec">언제부터 보장되나요?</h2>
+  <div class="tl">
+    ${timeline('보존치료', 'var(--cons)', PERIOD.보존)}
+    ${timeline('보철치료', 'var(--pros)', PERIOD.보철)}
+    <div class="legend"><span style="--c:var(--warn)">면책기간: 치료해도 보험금 없음</span><span style="--c:var(--half)">감액기간: 일부만 지급</span><span style="--c:var(--ok)">정상 보장</span></div>
+  </div>
+
+  <h2 class="sec">용어 쉽게 보기</h2>
+  <div class="two">
+    <div class="box"><h3>보존치료 · 보철치료</h3><ul>
+      <li><b>보존치료</b> — 충전, 크라운, 신경치료처럼 <b>내 치아를 살리는</b> 치료</li>
+      <li><b>보철치료</b> — 임플란트, 브릿지, 틀니처럼 <b>빠진 치아를 대신</b>하는 치료</li></ul></div>
+    <div class="box"><h3>면책 · 감액 · 한도</h3><ul>
+      <li><b>면책</b> — 이 기간 안의 치료는 보장되지 않아요</li>
+      <li><b>감액</b> — 이 기간 안에는 정해진 비율만 지급돼요</li>
+      <li><b>한도</b> — 1년 동안 받을 수 있는 최대 개수·횟수예요</li></ul></div>
+    <div class="box"><h3>보험금 청구 서류</h3><ol>
+      <li>보험금 청구서 · 신분증 사본</li>
+      <li>치과치료확인서 (치료 부위·내용 기재)</li>
+      <li>진료비 영수증 · 세부내역서</li>
+      <li>보철치료 시 X-ray 등 영상자료</li></ol></div>
+    <div class="box warn"><h3>꼭 확인하세요</h3><ul>
+      <li>가입 전부터 빠져 있던 치아, 치료 중이던 치아는 보장되지 않을 수 있어요</li>
+      <li>미용 목적(미백·교정 등)은 보장 대상이 아니에요</li>
+      <li>치료 전 <b>담당자에게 먼저 문의</b>해 주세요</li></ul></div>
+  </div>
+  <div class="agent">${Object.entries(AGENT).map(([k, v]) => `<div><b>${k}</b>${val(v)}</div>`).join('')}</div>
+</section>`;
+
+const page2 = `<section class="page">${holes}${head('치료별 보장 한눈에 보기 ①', `<span class="chip" style="background:var(--cons)">보존치료</span>`)}
+  ${groupTitle('cons')}<div class="grid">${cards('cons')}</div>${foot('2')}</section>`;
+const page3 = `<section class="page">${holes}${head('치료별 보장 한눈에 보기 ②', `<span class="chip" style="background:var(--pros)">보철 · 예방</span>`)}
+  ${groupTitle('pros')}<div class="grid">${cards('pros')}</div>
+  <div style="height:4mm"></div>${groupTitle('care')}<div class="grid">${cards('care')}</div>${foot('3')}</section>`;
+
+document.getElementById('root').innerHTML = cover + page2 + page3;
+if (BLANK) document.body.classList.add('blank');
+</script>
+</body>
+</html>
