@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.01-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.01-2</div>
   </div>
 </div>
 
@@ -7276,7 +7276,7 @@ var BND_PAGES=[
 function _bndPage(k){ for(var i=0;i<BND_PAGES.length;i++) if(BND_PAGES[i].k===k) return BND_PAGES[i]; return null; }
 function _bndState(){ if(!window._bndSt) window._bndSt={sel:[],vals:{},cur:0}; return window._bndSt; }
 // 숫자만 입력하면 천 단위 쉼표("50000"→"50,000"), 글자가 섞이면("5만") 그대로
-function _bndFmt(v){ v=String(v==null?'':v).trim(); if(/^[\d,]+$/.test(v)){ var n=v.replace(/,/g,''); return n?Number(n).toLocaleString('ko-KR'):''; } return v; }
+function _bndFmt(v){ v=String(v==null?'':v).trim(); if(/^[\d,]+$/.test(v)){ var n=v.replace(/,/g,'').replace(/^0+(?=\d)/,''); return n.replace(/\B(?=(\d{3})+(?!\d))/g,','); } return v; }
 function _bndVal(pk,fk){ var st=_bndState(); return _bndFmt((st.vals[pk]||{})[fk]); }
 
 function rBinder(){
@@ -7297,7 +7297,8 @@ function rBinder(){
     window._bndKeyOn=1;
     document.addEventListener('keydown',function(ev){
       var pg=g('pg_binder'); if(!pg||!pg.classList.contains('active')) return;
-      var t=ev.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+      var t=ev.target; if(t&&((t.tagName==='INPUT'&&t.type!=='checkbox')||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
+      if(document.querySelector('.mb.open')) return;   // 모달이 열려 있으면 넘기지 않음
       if(ev.key==='ArrowLeft') bndGo(-1); else if(ev.key==='ArrowRight') bndGo(1);
     });
   }
@@ -7336,7 +7337,7 @@ function _bndListDraw(){
       +'<button type="button" data-bnddel="'+k+'" style="'+bs+';color:#c33">✕</button></span></div>'
       +(p.f.length? '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;margin-top:8px">'+p.f.map(function(f){
           return '<label style="display:block;min-width:0;font-size:11.5px;color:#667">'+f.lb
-            +'<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><input data-bndin="'+k+'|'+f.k+'" value="'+_alertEsc(vals[f.k]||'')+'" inputmode="numeric" placeholder="0"'
+            +'<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><input data-bndin="'+k+'|'+f.k+'" value="'+_alertEsc(vals[f.k]||'')+'" inputmode="numeric" maxlength="20" placeholder="0"'
             +' style="flex:1;min-width:0;padding:6px 8px;border:1px solid #ccd;border-radius:6px;font-size:13.5px;text-align:right;color:#1c2140;background:#fff;font-family:inherit"><span style="font-size:12.5px;color:#556">원</span></div></label>';
         }).join('')+'</div>'
        : '<div style="font-size:12px;color:#99a;margin-top:6px">입력할 칸이 없는 속지예요(그대로 들어갑니다).</div>')
@@ -7408,6 +7409,8 @@ function _bndView(){
   if(th) th.innerHTML=st.sel.map(function(k,i){ var q=_bndPage(k);
     return '<button type="button" data-bndgo="'+i+'" style="flex:0 0 auto;padding:4px 9px;border-radius:14px;border:1px solid '+(i===st.cur?'#4858cc':'#dde')+';background:'+(i===st.cur?'#4858cc':'#fff')+';color:'+(i===st.cur?'#fff':'#556')+';font-size:12px;cursor:pointer;font-family:inherit">'+(i+1)+'. '+q.nm+'</button>'; }).join('');
   if(th) th.onclick=function(ev){ var b=ev.target.closest&&ev.target.closest('[data-bndgo]'); if(!b) return; st.cur=+b.getAttribute('data-bndgo'); _bndHighlight(); _bndView(); };
+  var old=g('bnd_sheet');
+  if(old&&old.getAttribute('data-bndk')===p.k&&g('bnd_ov')){ _bndOverlay(); return; }   // 같은 쪽 — 이미지 유지, 겹친 값만 갱신
   view.innerHTML='<div id="bnd_sheet" data-bndk="'+p.k+'" style="position:relative;aspect-ratio:594.96/841.92;container-type:inline-size;box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:4px;overflow:hidden;background:#fff;touch-action:pan-y">'
     +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#99a;font-size:13px">불러오는 중…</div></div>';
   var seq=window._bndViewSeq=(window._bndViewSeq||0)+1;
@@ -7429,8 +7432,10 @@ function _bndOverlay(){
     var v=_bndVal(p.k,f.k); if(!v) return '';
     var fs=11/BND_PW*100;
     return '<div style="position:absolute;left:'+(f.x0/BND_PW*100)+'%;width:'+((f.x1-f.x0)/BND_PW*100)+'%;top:'+((f.y0-1.5)/BND_PH*100)+'%;'
-      +'font-size:'+fs+'cqw;line-height:1.25;font-weight:700;color:#1c2140;text-align:right;white-space:nowrap;overflow:visible">'+_esc(v)+'</div>';
+      +'font-size:'+fs+'cqw;line-height:1.25;color:#000;text-align:right;white-space:nowrap;font-family:\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif"><span style="display:inline-block;transform-origin:right center">'+_esc(v)+'</span></div>';
   }).join('');
+  // 칸보다 긴 값은 PDF(_bndBuild)와 같이 비율 축소해 보여줌
+  ov.querySelectorAll('div>span').forEach(function(sp){ var bw=sp.parentNode.clientWidth, w=sp.scrollWidth; if(bw>0&&w>bw) sp.style.transform='scale('+(bw/w)+')'; });
 }
 function _bndSwipeBind(el){
   var x0=null;
@@ -7498,7 +7503,7 @@ async function bndPrint(){
   finally{ window._bndBusy=false; }
 }
 function _bndClear(){
-  window._bndSt=null;
+  window._bndSt=null; window._bndViewSeq=(window._bndViewSeq||0)+1;
   var c=g('bnd_cust'); if(c) c.value='';
   ['bnd_list','bnd_view','bnd_thumbs'].forEach(function(id){ var el=g(id); if(el) el.innerHTML=''; });
 }

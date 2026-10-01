@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.10.01-1. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.10.01-2. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
@@ -930,6 +930,8 @@
 - [PDF 저장]/[출력]: `_bndBuild` — pdf-lib `copyPages`로 원본 쪽을 선택 순서대로 복사 + 값은 `_sdTextToPng` PNG를 칸 오른쪽 정렬(긴 값은 축소). [출력]은 sdPrint 패턴(새 탭 먼저).
 - 저장·동기화 없음(함정 B 무관) — 메모리 `window._bndSt={sel,vals,cur}`만, **logout에서 `_bndClear`**(입력칸·미리보기 DOM까지). id·속성은 `bnd_`/`data-bnd*` 접두, 조작은 속지 키 기준(함정 A).
 - 숫자만 입력하면 천 단위 쉼표, "5만"처럼 글자가 섞이면 그대로. 헤드리스 검증: 미리보기 겹침·PDF 3쪽 출력 위치 확인.
+- **v-2 리뷰 반영**: 쉼표는 문자열 정규식(긴 숫자 정밀도 손실 없음·maxlength 20), 미리보기 글자를 PDF와 같게(보통 굵기·검정) + 칸보다 긴 값은 미리보기도 축소,
+  같은 쪽 재표시는 이미지 유지(깜박임 제거), 체크박스 포커스에서도 ←→ 넘김·모달(.mb.open) 열림 땐 무시, logout 시 늦은 미리보기 결과 폐기.
 
 ## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
 
