@@ -257,6 +257,98 @@ table.cmp td.b { background: var(--daily-bg); }
 .checks label::before { content: ""; flex: none; width: 3.2mm; height: 3.2mm; margin-top: 0.4mm; border: 0.35mm solid var(--c); border-radius: 0.7mm; background: #fff; }
 .memo { flex: 1; border: 0.4mm solid var(--line); border-radius: 3mm; padding: 3mm 4mm; background-image: repeating-linear-gradient(transparent 0 8.4mm, #e5e7eb 8.4mm 8.7mm); background-position: 0 10mm; }
 .memo b { font-size: 10.5pt; }
+
+/* ===== 페이지별 다색 구성 ===== */
+.page.care  { --c1:#0f9d8a; --c2:#3b7ddd; --c3:#f0643c; --c4:#e8a200; --c5:#8b5cf6; }
+.page.daily { --c1:#7c4dcc; --c2:#e64980; --c3:#1c8fd6; --c4:#2f9e44; --c5:#f08c00; }
+.page.fire  { --c1:#e8590c; --c2:#d6336c; --c3:#1c7ed6; --c4:#0ca678; --c5:#f59f00; }
+.page.drive { --c1:#1c6fd1; --c2:#f76707; --c3:#2b8a3e; --c4:#7048e8; --c5:#e64980; }
+.page.tooth { --c1:#d6336c; --c2:#1098ad; --c3:#7950f2; --c4:#f08c00; --c5:#2f9e44; }
+.page.brain { --c1:#e67700; --c2:#4263eb; --c3:#c92a2a; --c4:#0ca678; --c5:#ae3ec9; }
+.page.home  { --c1:#2f9e44; --c2:#1c7ed6; --c3:#f76707; --c4:#ae3ec9; --c5:#e64980; }
+.page {
+  --b1: color-mix(in srgb, var(--c1) 12%, #fff); --b2: color-mix(in srgb, var(--c2) 12%, #fff);
+  --b3: color-mix(in srgb, var(--c3) 12%, #fff); --b4: color-mix(in srgb, var(--c4) 12%, #fff);
+  --b5: color-mix(in srgb, var(--c5) 12%, #fff);
+}
+
+/* 머리: 두 색 그라데이션 띠 */
+.page .head { background: linear-gradient(100deg, var(--b1) 0%, var(--b2) 100%); border-bottom: none; border-radius: 4mm; padding: 4mm 5mm; }
+.page .head .badge { background: linear-gradient(135deg, var(--c1), var(--c2)); box-shadow: 0 1.5mm 4mm color-mix(in srgb, var(--c1) 35%, transparent); }
+.page .head .no { color: var(--c1); }
+.page .head .one b { color: var(--c1); }
+
+/* 섹션 번호 원: 섹션마다 다른 색 */
+.page > :nth-child(3) h2 .q { background: var(--c1); }
+.page > :nth-child(4) h2 .q, .page > :nth-child(4) > h2 .q { background: var(--c2); }
+.page > :nth-child(5) h2 .q { background: var(--c3); }
+.page > :nth-child(6) h2 .q { background: var(--c4); }
+.page > :nth-child(7) h2 .q { background: var(--c5); }
+
+/* 반복 요소에 색 순환 */
+.flow .step:nth-child(1), .hosp .card:nth-child(1), .amts .amt:nth-child(1), .big3 .k:nth-child(1), .svc .s:nth-child(1), .dis .d:nth-child(5n+1), .row > .box:nth-child(1), .legend .it:nth-child(1), .segrow:nth-child(1) { --c: var(--c1); --bg: var(--b1); }
+.flow .step:nth-child(3), .hosp .card:nth-child(2), .amts .amt:nth-child(2), .big3 .k:nth-child(2), .svc .s:nth-child(2), .dis .d:nth-child(5n+2), .row > .box:nth-child(2), .legend .it:nth-child(2), .segrow:nth-child(2) { --c: var(--c2); --bg: var(--b2); }
+.flow .step:nth-child(5), .hosp .card:nth-child(3), .amts .amt:nth-child(3), .big3 .k:nth-child(3), .svc .s:nth-child(3), .dis .d:nth-child(5n+3), .row > .box:nth-child(3), .legend .it:nth-child(3) { --c: var(--c3); --bg: var(--b3); }
+.flow .step:nth-child(7), .hosp .card:nth-child(4), .amts .amt:nth-child(4), .svc .s:nth-child(4), .dis .d:nth-child(5n+4), .legend .it:nth-child(4) { --c: var(--c4); --bg: var(--b4); }
+.svc .s:nth-child(5), .dis .d:nth-child(5n+5) { --c: var(--c5); --bg: var(--b5); }
+
+.flow .step svg, .big3 .k svg, .svc .s svg, .dis .d svg, .amts svg { color: var(--c) !important; }
+.flow .step b { color: var(--c); }
+.flow .arrow svg { color: #b0b7c3; }
+
+.hosp .card { background: var(--bg); border-color: transparent !important; border-style: solid !important; }
+.hosp .card b { color: var(--c); }
+
+.box:has(> .amts) { border: none; padding: 0; }
+.amts .amt { background: var(--bg); border-radius: 3mm; padding: 3mm 3mm 3.5mm; }
+.amts .amt > b { color: var(--c); }
+.amts .line { border-color: var(--c); }
+.amts .line small, .amts .line span { color: var(--c); }
+
+.big3 .k b, .svc .s b { color: var(--c); }
+.dis .d { border-color: color-mix(in srgb, var(--c) 35%, #fff); }
+.dis .d b { color: var(--c); }
+
+.row > .box:not(.tint) { border-color: color-mix(in srgb, var(--c) 40%, #fff); }
+.box h3 svg { color: var(--c) !important; }
+.box h3 svg[style*="--no"] { color: var(--no) !important; }
+
+/* 간병인 지원 기간 막대 */
+.tl-bar { background: linear-gradient(90deg, var(--c1), var(--c2)); }
+
+/* 계산 예시 */
+.calc .chip:nth-child(1) { box-shadow: 0 0 0 0.5mm var(--c2); color: var(--c2); }
+.calc .chip:nth-child(3) { box-shadow: 0 0 0 0.5mm var(--c3); color: var(--c3); }
+.calc .res { background: linear-gradient(135deg, var(--c1), var(--c2)); color: #fff; }
+
+/* 칩 */
+.chips span:nth-child(4n+1) { border-color: var(--c1); color: var(--c1); }
+.chips span:nth-child(4n+2) { border-color: var(--c2); color: var(--c2); }
+.chips span:nth-child(4n+3) { border-color: var(--c3); color: var(--c3); }
+.chips span:nth-child(4n+4) { border-color: var(--c4); color: var(--c4); }
+
+/* 치매 단계: 노랑 → 주황 → 빨강 */
+.stairs .st:nth-child(1) { background: #f08c00 !important; }
+.stairs .st:nth-child(2) { background: #e8590c !important; }
+.stairs .st:nth-child(3) { background: #c92a2a !important; }
+
+/* 장기요양 조건 */
+.who .w:nth-child(1) { --c: var(--c2); --bg: var(--b2); }
+.who .w:nth-child(3) { --c: var(--c3); --bg: var(--b3); }
+.who .w.must { background: linear-gradient(135deg, var(--c1), color-mix(in srgb, var(--c1) 70%, var(--c2))); }
+
+/* 등급 막대: 무거울수록 붉게 */
+.grades .g:nth-child(1) { --gc: #c92a2a; } .grades .g:nth-child(2) { --gc: #e8590c; }
+.grades .g:nth-child(3) { --gc: #f08c00; } .grades .g:nth-child(4) { --gc: #c99a00; }
+.grades .g:nth-child(5) { --gc: #2f9e44; } .grades .g:nth-child(6) { --gc: #1098ad; }
+.grades .bar { background: color-mix(in srgb, var(--gc) 12%, #fff); }
+.grades .bar i { background: var(--gc); }
+.grades .n { color: var(--gc); }
+
+/* 재가 vs 시설 / 치매 TIP */
+.vs .side.r { box-shadow: 0 0 0 0.5mm var(--c1) inset; }
+.tipbig { background: linear-gradient(100deg, var(--b2), var(--b1)); box-shadow: 0 0 0 0.5mm var(--c2) inset; }
+.tipbig svg, .tipbig b.t { color: var(--c2); }
 </style>
 </head>
 <body>
@@ -334,22 +426,22 @@ table.cmp td.b { background: var(--daily-bg); }
     <h2><span class="q">1</span>어느 병원에 입원하면 보상되나요?</h2>
     <div class="hosp">
       <div class="card is-ok">
-        <svg class="b" viewBox="0 0 80 64"><rect x="8" y="10" width="64" height="50" rx="2" fill="#0f9d8a"/><rect x="2" y="56" width="76" height="6" rx="1" fill="#0b7568"/><rect x="31" y="2" width="18" height="14" rx="2" fill="#fff" stroke="#0f9d8a" stroke-width="2"/><path d="M40 5v8M36 9h8" stroke="#dc2626" stroke-width="2.6"/><g fill="#d6f3ee"><rect x="14" y="20" width="8" height="7"/><rect x="26" y="20" width="8" height="7"/><rect x="46" y="20" width="8" height="7"/><rect x="58" y="20" width="8" height="7"/><rect x="14" y="31" width="8" height="7"/><rect x="26" y="31" width="8" height="7"/><rect x="46" y="31" width="8" height="7"/><rect x="58" y="31" width="8" height="7"/><rect x="14" y="42" width="8" height="7"/><rect x="58" y="42" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
+        <svg class="b" viewBox="0 0 80 64"><rect x="8" y="10" width="64" height="50" rx="2" style="fill:var(--c)"/><rect x="2" y="56" width="76" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><rect x="31" y="2" width="18" height="14" rx="2" fill="#fff" style="stroke:var(--c)" stroke-width="2"/><path d="M40 5v8M36 9h8" stroke="#dc2626" stroke-width="2.6"/><g style="fill:var(--bg)"><rect x="14" y="20" width="8" height="7"/><rect x="26" y="20" width="8" height="7"/><rect x="46" y="20" width="8" height="7"/><rect x="58" y="20" width="8" height="7"/><rect x="14" y="31" width="8" height="7"/><rect x="26" y="31" width="8" height="7"/><rect x="46" y="31" width="8" height="7"/><rect x="58" y="31" width="8" height="7"/><rect x="14" y="42" width="8" height="7"/><rect x="58" y="42" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
         <b>대학병원</b><small>상급종합병원<br>(서울대·세브란스 등)</small>
         <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
       </div>
       <div class="card is-ok">
-        <svg class="b" viewBox="0 0 80 64"><rect x="12" y="16" width="56" height="44" rx="2" fill="#2bb5a2"/><rect x="4" y="56" width="72" height="6" rx="1" fill="#0b7568"/><rect x="32" y="6" width="16" height="13" rx="2" fill="#fff" stroke="#2bb5a2" stroke-width="2"/><path d="M40 9v7M36.5 12.5h7" stroke="#dc2626" stroke-width="2.4"/><g fill="#e1f6f2"><rect x="18" y="24" width="8" height="7"/><rect x="30" y="24" width="8" height="7"/><rect x="42" y="24" width="8" height="7"/><rect x="54" y="24" width="8" height="7"/><rect x="18" y="35" width="8" height="7"/><rect x="54" y="35" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
+        <svg class="b" viewBox="0 0 80 64"><rect x="12" y="16" width="56" height="44" rx="2" style="fill:var(--c)"/><rect x="4" y="56" width="72" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><rect x="32" y="6" width="16" height="13" rx="2" fill="#fff" style="stroke:var(--c)" stroke-width="2"/><path d="M40 9v7M36.5 12.5h7" stroke="#dc2626" stroke-width="2.4"/><g style="fill:var(--bg)"><rect x="18" y="24" width="8" height="7"/><rect x="30" y="24" width="8" height="7"/><rect x="42" y="24" width="8" height="7"/><rect x="54" y="24" width="8" height="7"/><rect x="18" y="35" width="8" height="7"/><rect x="54" y="35" width="8" height="7"/></g><rect x="32" y="44" width="16" height="16" fill="#fff"/></svg>
         <b>종합병원</b><small>병상 100개 이상<br>지역 중대형 병원</small>
         <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
       </div>
       <div class="card is-ok">
-        <svg class="b" viewBox="0 0 80 64"><rect x="18" y="26" width="44" height="34" rx="2" fill="#5fcbbb"/><path d="M14 28l26-16 26 16z" fill="#0f9d8a"/><rect x="10" y="56" width="60" height="6" rx="1" fill="#0b7568"/><circle cx="40" cy="22" r="5" fill="#fff"/><path d="M40 19.5v5M37.5 22h5" stroke="#dc2626" stroke-width="2"/><g fill="#eafaf7"><rect x="23" y="34" width="9" height="8"/><rect x="48" y="34" width="9" height="8"/></g><rect x="34" y="44" width="12" height="16" fill="#fff"/></svg>
+        <svg class="b" viewBox="0 0 80 64"><rect x="18" y="26" width="44" height="34" rx="2" style="fill:var(--c)"/><path d="M14 28l26-16 26 16z" style="fill:var(--c)"/><rect x="10" y="56" width="60" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><circle cx="40" cy="22" r="5" fill="#fff"/><path d="M40 19.5v5M37.5 22h5" stroke="#dc2626" stroke-width="2"/><g style="fill:var(--bg)"><rect x="23" y="34" width="9" height="8"/><rect x="48" y="34" width="9" height="8"/></g><rect x="34" y="44" width="12" height="16" fill="#fff"/></svg>
         <b>병원 · 의원</b><small>동네 병원·의원<br>(입원 가능한 곳)</small>
         <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
       </div>
       <div class="card is-ok">
-        <svg class="b" viewBox="0 0 80 64"><rect x="10" y="20" width="60" height="40" rx="2" fill="#8ad8cc"/><rect x="4" y="56" width="72" height="6" rx="1" fill="#0b7568"/><path d="M6 22l34-14 34 14z" fill="#0f9d8a"/><g fill="#eafaf7"><rect x="16" y="28" width="9" height="8"/><rect x="55" y="28" width="9" height="8"/><rect x="16" y="40" width="9" height="8"/><rect x="55" y="40" width="9" height="8"/></g><rect x="31" y="40" width="18" height="20" fill="#fff"/><path d="M33 34a7 7 0 0 1 14 0" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="40" cy="29" r="3" fill="#fff"/></svg>
+        <svg class="b" viewBox="0 0 80 64"><rect x="10" y="20" width="60" height="40" rx="2" style="fill:var(--c)"/><rect x="4" y="56" width="72" height="6" rx="1" style="fill:color-mix(in srgb, var(--c) 65%, #000)"/><path d="M6 22l34-14 34 14z" style="fill:var(--c)"/><g style="fill:var(--bg)"><rect x="16" y="28" width="9" height="8"/><rect x="55" y="28" width="9" height="8"/><rect x="16" y="40" width="9" height="8"/><rect x="55" y="40" width="9" height="8"/></g><rect x="31" y="40" width="18" height="20" fill="#fff"/><path d="M33 34a7 7 0 0 1 14 0" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="40" cy="29" r="3" fill="#fff"/></svg>
         <b>요양병원</b><small>장기 요양·재활<br>목적 입원</small>
         <div class="mark ok"><svg width="12" height="12" style="color:var(--ok)"><use href="#i-check"/></svg>보장</div>
       </div>
@@ -488,10 +580,10 @@ table.cmp td.b { background: var(--daily-bg); }
         <rect x="0" y="230" width="300" height="4" fill="#9ca3af"/>
         <!-- 번호 -->
         <g font-family="Pretendard" font-weight="800" font-size="13" fill="#fff" text-anchor="middle">
-          <circle cx="120" cy="72" r="11" fill="#7c2d12"/><text x="120" y="77">1</text>
-          <circle cx="124" cy="126" r="11" fill="#7c2d12"/><text x="124" y="131">2</text>
-          <circle cx="263" cy="166" r="11" fill="#7c2d12"/><text x="263" y="171">3</text>
-          <circle cx="92" cy="200" r="11" fill="#7c2d12"/><text x="92" y="205">4</text>
+          <circle cx="120" cy="72" r="11" fill="#fff" style="stroke:var(--c1)" stroke-width="3"/><text x="120" y="77" style="fill:var(--c1)">1</text>
+          <circle cx="124" cy="126" r="11" style="fill:var(--c2)" stroke="#fff" stroke-width="2"/><text x="124" y="131">2</text>
+          <circle cx="263" cy="166" r="11" style="fill:var(--c3)" stroke="#fff" stroke-width="2"/><text x="263" y="171">3</text>
+          <circle cx="92" cy="200" r="11" style="fill:var(--c4)" stroke="#fff" stroke-width="2"/><text x="92" y="205">4</text>
         </g>
       </svg>
       <div class="legend">
