@@ -195,8 +195,6 @@ app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'insurance-intranet-v2.h
 for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
   app.get('/' + f, (req, res) => res.sendFile(path.join(ROOT, f)));
 }
-// 증권바인더 속지 템플릿·글꼴·PDF (binder 폴더만 노출)
-app.use('/binder', express.static(path.join(ROOT, 'binder'), { index: false, dotfiles: 'deny' }));
 
 /* ═══════════════════════════════════════
    시작
