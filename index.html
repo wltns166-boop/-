@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-3</div>
   </div>
 </div>
 
@@ -2651,6 +2651,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">페이지</span>
     <div id="cc_tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <button class="bp" id="cc_delpage_btn" onclick="ccDeletePage()" title="지금 보고 있는 페이지를 양식 PDF에서 삭제" style="font-size:13px;padding:5px 10px;background:#fff0f0;border-color:rgba(200,50,50,.35);color:#c03030"><i class="ti ti-trash"></i> 이 페이지 삭제</button>
     <span style="flex:1"></span>
     <span id="cc_data_lbl" style="font-size:13px;color:#6070aa;font-weight:600">미리보기 데이터</span>
     <select id="cc_data_sel" onchange="ccSelectData()" title="작성된 청구건을 선택하면 실제 값으로 미리보기" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:200px"><option value="">샘플 (홍길동)</option></select>
@@ -30008,6 +30009,7 @@ async function ccPopulateInsurers(){
   if(cur&&names.indexOf(cur)>=0) sel.value=cur;
 }
 function ccSelectInsurer(){
+  if(window._ccDelBusy){ g('cc_insurer').value=window._ccInsurer; toast('페이지 삭제 처리 중입니다. 잠시 후 바꿔주세요.'); return; }
   window._ccInsurer=g('cc_insurer').value;
   window._ccWork=claimCoordsFor(window._ccInsurer);
   window._ccPdf=null;
@@ -30107,6 +30109,63 @@ function ccBuildTabs(){
       +(on?'background:#4858cc;color:#fff;font-weight:700':'background:#fff;color:#4858cc')+'">'+i+'페이지</button>';
   }
   t.innerHTML=h;
+}
+// 양식 PDF에서 지금 보고 있는 페이지를 삭제(2026-10-06 — 샘플·불필요 페이지 제거용).
+// 그 페이지에 배치된 항목은 숨김(on:false), 뒤 페이지 항목은 한 장씩 당긴 뒤 좌표를 바로 저장(saveClaimCal) —
+// 양식만 바뀌고 좌표가 그대로면 뒤 페이지 칸들이 한 장씩 어긋나 찍히기 때문(저장 시 이 보험사 청구파일 자동 재생성).
+async function ccDeletePage(){
+  if(typeof _isAdmin==='function'&&!_isAdmin()){ toast('관리자만 페이지를 삭제할 수 있습니다.'); return; }
+  if(window._ccDelBusy) return;
+  var ins=window._ccInsurer; if(!ins){ toast('보험사를 먼저 선택하세요.'); return; }
+  // 대리발급 양식은 서류별 원본(bdrtpls parts)을 합친 것이라 합본만 고치면 다음 [양식 업로드] 때 지운 페이지가 되살아나고 좌표가 어긋남
+  if(typeof _isDaeriSlot==='function'&&_isDaeriSlot(ins)){ toast('대리발급 양식은 [양식 업로드] 창에서 해당 서류를 빼고 다시 등록해주세요.'); return; }
+  var tpl=''; try{ tpl=await claimTemplateFor(ins); }catch(e){}
+  if(!tpl){ toast('삭제할 양식이 없습니다.'); return; }
+  if(typeof PDFLib==='undefined'){ toast('PDF 라이브러리가 아직 로드되지 않았습니다.'); return; }
+  var n=ccTotalPages(), pn=window._ccPage||1;
+  if(n<=1){ toast('페이지가 1장뿐이라 삭제할 수 없습니다.'); return; }
+  var onCnt=0;
+  Object.keys(window._ccWork||{}).forEach(function(k){ var w=window._ccWork[k]; if(w&&w.on!==false&&w.page===pn-1) onCnt++; });
+  if(!confirm(pn+'페이지를 양식에서 삭제할까요? (전체 '+n+'장 → '+(n-1)+'장)\n\n'
+    +(onCnt?'· 이 페이지에 배치된 항목 '+onCnt+'개는 숨김 처리됩니다.\n':'')
+    +'· 뒤 페이지 항목 좌표는 한 장씩 앞으로 당겨집니다.\n'
+    +'· 좌표가 바로 저장되고 이 보험사 청구파일이 다시 만들어집니다(저장 안 한 칩 이동도 함께 저장).\n\n'
+    +'되돌리려면 원본 양식 PDF를 다시 업로드해야 합니다.')) return;
+  window._ccDelBusy=true;   // 처리 중엔 ccSelectInsurer가 보험사 전환을 막음 — 양식은 A사, 좌표 이동은 B사에 적용되는 반쪽 상태 방지
+  var work=window._ccWork;
+  try{
+    var bytes=Uint8Array.from(atob(tpl),function(ch){return ch.charCodeAt(0);});
+    var doc=await PDFLib.PDFDocument.load(bytes);   // ignoreEncryption 금지(6장 — 암호화 PDF가 깨진 채 저장될 수 있음)
+    if(doc.getPageCount()!==n){ toast('양식 페이지 수가 화면과 다릅니다. 다시 열어서 시도해주세요.'); return; }
+    doc.removePage(pn-1);
+    var b64=await doc.saveAsBase64();
+    if(window._ccInsurer!==ins){ toast('보험사가 바뀌어 삭제를 중단했습니다.'); return; } // 처리 중 다른 보험사로 전환된 경우 남의 좌표를 건드리지 않음
+    if(window._ccInsurer!==ins||window._ccWork!==work){ toast('보험사가 바뀌어 삭제를 중단했습니다.'); return; }
+    await idbSetTpl('tpl_'+ins, b64);
+    // 여기부터 양식은 바뀐 상태 — 좌표도 반드시 함께 당겨 저장한다
+    var del=pn-1, last=n-2;
+    Object.keys(work||{}).forEach(function(k){
+      var w=work[k]; if(!w) return;
+      var p=(typeof w.page==='number')?w.page:0;
+      if(p===del){ w.on=false; w.page=Math.min(del,last); } // 사라진 페이지의 항목은 숨김 — 나중에 다시 켜도 범위 안 페이지에 나오게
+      else if(p>del) w.page=p-1;       // 뒤 페이지는 한 장씩 당김
+    });
+    window._ccSelKey=null; window._ccSelKeys=[];
+    window._ccPdf=null;
+    await ccRenderPage(Math.min(pn, n-1));
+    // 팀 공유본(Storage) 교체 — 실패하면 다른 기기는 옛 양식에 새 좌표를 쓰게 되므로 결과를 확인해 알림
+    var shareOk=true;
+    try{
+      if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
+      var ref=firebase.storage().ref('claim_templates/'+encodeURIComponent(ins)+'.pdf');
+      await ref.put(Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),{contentType:'application/pdf'});
+    }catch(e){ shareOk=false; console.warn('cc delete page share', e); }
+    toast(pn+'페이지를 삭제했습니다. 좌표 저장 중...');
+    try{ await saveClaimCal(); }
+    catch(e){ console.warn('cc delete page save', e); toast('페이지는 삭제됐지만 좌표 저장·재생성 중 오류: '+((e&&e.message)||e)+' — [저장]을 다시 눌러주세요.'); }
+    if(!shareOk) setTimeout(function(){ toast('⚠ 이 기기에서는 삭제됐지만 팀 공유 양식 교체에 실패했습니다. 네트워크 확인 후 다시 시도해주세요(다른 기기는 옛 양식 사용 중).'); }, 2600);
+  }catch(e){ console.warn('cc delete page', e); toast('페이지 삭제 실패: '+((e&&e.message)||e)); }
+  finally{ window._ccDelBusy=false; }
 }
 function ccBuildAddField(){
   var sel=g('cc_addfield'); if(!sel) return;

@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1713,6 +1713,14 @@
   ⚠️ 비동기 생성·업로드 코드에서 `claims[idx]`를 await 너머로 들고 가지 말 것 — 기록 직전에 id로 다시 찾는다(_claimAttachStore의 cur 패턴과 같음).
   이전에 등록된 건은 공유 주소가 비어 있으므로 담당자 기기에서 [전체 재생성] 1회면 공유본이 생긴다.
   v-2 리뷰 반영: 교체된 객체에서도 packageDate를 항상 갱신, [전체 재생성](rebuildClaimPackage)도 `_claimGenRun` 진행 중이면 겹쳐 돌리지 않음.
+- **좌표 편집기 — [이 페이지 삭제] (2026-10-06 — v2026.10.06-3, 사용자 요청 "샘플 페이지 없애기")**: 페이지 탭 옆 빨간 버튼(`cc_delpage_btn`, `ccDeletePage`).
+  지금 보고 있는 페이지를 양식 PDF에서 빼고(pdf-lib removePage → idb `tpl_<보험사>` + Storage `claim_templates/` 재업로드),
+  그 페이지에 배치된 항목은 숨김(on:false), **뒤 페이지 항목은 page-1로 당긴 뒤 바로 `saveClaimCal`**(좌표 저장 + 이 보험사 청구파일 재생성).
+  ⚠️ 양식만 바꾸고 좌표를 안 당기면 뒤 페이지 칸이 한 장씩 어긋나 찍힌다 — 둘을 떼어 놓지 말 것. 1장뿐이면 삭제 불가, 관리자 가드·연타 가드(`_ccDelBusy`),
+  처리 중엔 보험사 셀렉트 전환을 막고(ccSelectInsurer), 되돌리기는 원본 양식 재업로드뿐(confirm에 안내). 3종서류 편집기에서도 동작.
+  리뷰 반영: **대리발급 슬롯은 삭제 거부**(합본이 bdrtpls parts에서 다시 만들어져 지운 페이지가 되살아나고 좌표가 어긋남 — [양식 업로드] 창에서 서류를 빼도록 안내),
+  팀 공유본(Storage) 교체는 await해 실패를 따로 경고, 좌표 저장 실패는 "페이지는 삭제됨"으로 구분 안내, 지운 페이지의 숨김 항목은 page를 범위 안으로 보정,
+  pdf-lib 로드에 ignoreEncryption 미사용(6장 규칙).
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
