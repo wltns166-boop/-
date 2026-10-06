@@ -11,7 +11,9 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — 최신 v2026.10.01-2. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+  ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
+  (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/compassionate-mendel-p9ufls`** (2026-09-23부터 — 이전 `claude/tims-intranet-continuation-1kupar`의 9f81004까지 병합 완료.
   ⚠️ 2026-09-23 실사고: 두 세션이 서로 다른 claude/** 브랜치에 푸시해 라이브가 번갈아 덮였음(원본 업로드 기능 v-1·-2가 잠시 빠진 코드가 배포됨).
@@ -1699,6 +1701,17 @@
   `_claimsCloudApply`가 로컬을 유지(+토스트). 단 `_persistClaims`가 0건 저장 시 남기는
   `claimsClearedAt` 표식이 "아직 처리 안 한 새 값"이면 의도된 전체 삭제로 보고 정상 반영
   (기기별 처리 표식: `tops_claims_seenclear`). → 청구 등록 직후 사라지던 증상·삭제 부활 둘 다 방지.
+- **공유 주소 유실 경쟁 수정 (2026-10-06 — v2026.10.06-1, 실사용 제보 "신청 직후 미리보기가 안 나오고 [수정]에서 서류를 다시 올려야 됨")**:
+  generateClaimPackage가 `claims[idx]`(옛 객체)의 pkgUrls 맵에 업로드 결과를 적었는데, 업로드(await) 동안 실시간 수신 재렌더·
+  원본 보관(_claimAttachStore → _persistClaims → 스냅샷)·미리보기 클릭이 `_reloadClaims`로 배열을 새 객체로 교체 —
+  공유 주소가 버려진 객체에만 남아 **클라우드 pkgUrls가 항상 비어** 있었음(가짜 Firebase 모의 실행으로 재현: `pkgUrls:{}`).
+  그래서 새로고침·다른 기기(총무)는 매번 원본 서류로 재생성해야 했고, 원본 보관이 늦거나 실패하면 열리지 않았다.
+  수정: ① 업로드 결과를 지역 맵(`_urlMap`)에 모으고 **업로드가 끝난 뒤 id로 현재 배열의 실제 객체(`_claimNow`)를 다시 찾아** 병합·도장 기록
+  (업로드 중 삭제된 건은 되살리지 않고 중단). ② `_reloadClaims`가 저장 전인 pkgId·pkgStamp·packageDate·attachUrls·attachMeta도
+  메모리에서 이어받음(저장본에 값이 있으면 저장본 우선). ③ saveClaim이 생성 약속을 `window._claimGenRun[청구id]`에 기록 —
+  생성이 끝나기 전에 [미리보기]/[다운로드]를 누르면 `_ensureClaimPkg`가 두 번째 생성을 겹쳐 돌리지 않고 그 생성을 기다렸다가 연다.
+  ⚠️ 비동기 생성·업로드 코드에서 `claims[idx]`를 await 너머로 들고 가지 말 것 — 기록 직전에 id로 다시 찾는다(_claimAttachStore의 cur 패턴과 같음).
+  이전에 등록된 건은 공유 주소가 비어 있으므로 담당자 기기에서 [전체 재생성] 1회면 공유본이 생긴다.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
