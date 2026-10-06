@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1712,6 +1712,7 @@
   생성이 끝나기 전에 [미리보기]/[다운로드]를 누르면 `_ensureClaimPkg`가 두 번째 생성을 겹쳐 돌리지 않고 그 생성을 기다렸다가 연다.
   ⚠️ 비동기 생성·업로드 코드에서 `claims[idx]`를 await 너머로 들고 가지 말 것 — 기록 직전에 id로 다시 찾는다(_claimAttachStore의 cur 패턴과 같음).
   이전에 등록된 건은 공유 주소가 비어 있으므로 담당자 기기에서 [전체 재생성] 1회면 공유본이 생긴다.
+  v-2 리뷰 반영: 교체된 객체에서도 packageDate를 항상 갱신, [전체 재생성](rebuildClaimPackage)도 `_claimGenRun` 진행 중이면 겹쳐 돌리지 않음.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던

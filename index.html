@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-2</div>
   </div>
 </div>
 
@@ -29138,7 +29138,7 @@ async function generateClaimPackage(idx) {
   if(!_now){ _gfSet('nodata','청구 데이터가 생성 중에 바뀌었습니다(삭제 등). 새로고침 후 다시 시도해주세요.'); return false; } // 업로드 중 삭제된 건 — 되살리지 않음
   _cc=_now.c;
   _cc.packagePDFs = packagePDFs; // 교체된 객체에도 이 기기의 병합본 유지
-  _cc.packageDate = _cc.packageDate||tds();
+  _cc.packageDate = tds();
   _cc.pkgId = _cc.pkgId||_pkgId;
   _cc.pkgUrls = Object.assign({}, _cc.pkgUrls||{}, _urlMap);
   // 생성 시각 도장 — 다른 기기가 이 도장을 보고 자기 옛 캐시(반쪽 파일 등)를 버리고 새 공유본을 받게 함
@@ -29181,6 +29181,8 @@ async function generateClaimPackage(idx) {
 function rebuildClaimPackage(idx){
   _reloadClaims();
   if(!claims[idx]){ toast('해당 청구건을 찾을 수 없습니다.'); return; }
+  // 방금 [저장]한 건을 아직 만드는 중이면 겹쳐 돌리지 않음(saveClaim의 _claimGenRun)
+  if(claims[idx].id&&window._claimGenRun&&window._claimGenRun[claims[idx].id]){ toast('방금 저장한 청구파일을 만드는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
   toast('청구파일 생성 중...');
   generateClaimPackage(idx).then(function(ok){
     if(ok){
