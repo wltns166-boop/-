@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1724,6 +1724,18 @@
   **v-4 (v2026.10.06-4, 사용자 요청) — 여러 장 한 번에**: 버튼 이름 [페이지 삭제] → 선택 창 `#cc_delpg_pop`(`ccDelPick` — 페이지별 작은 그림(열린 `_ccPdf`로 렌더)+체크박스,
   지금 페이지 기본 체크, 전체 선택은 불가·최소 1장 남김) → `ccDeletePagesDo(ins,n,pages)`. PDF는 **뒤쪽부터** removePage(앞 번호 안 밀리게),
   좌표는 `shift(p)`=p−(p보다 앞에서 지운 장 수), 지운 페이지 항목은 숨김+page를 범위 안으로. 모의 실행 `del.js`(5장 중 2·4 삭제 → 3장, 좌표 당김·숨김 정확) 통과.
+- **좌표 편집기 — [양식 관리] + 양식 도장 (2026-10-06 — v2026.10.06-5, 사용자 요청)**: [양식 PDF 업로드] 옆 `cc_tplmgr_btn` → 창 `#cc_tplmgr_pop`
+  (`ccTplMgrOpen` — 청구서 모드=보험사 36개, 3종 모드=문서 3종, 대리발급 모드는 버튼 숨김(합본이라 [양식 업로드] 창에서 관리)).
+  행마다 상태(팀 공유 양식/이 기기에만 있음/내장 기본 양식/양식 없음)와 [보기](`ccTplView` — 새 탭 먼저 열기)·[새로 올리기](`ccTplReplace` — PDF 검증·25MB·confirm)·
+  [삭제](`ccTplDelete` — Storage·idb·DB 레거시 로컬 사본 삭제, 내장 양식 있는 보험사는 내장으로 복귀). **좌표는 건드리지 않음**(양식만 관리).
+  **양식 도장 `tops_tplver`={이름:시각}**(sv 동기화·로드 2곳 `window._tplVer`): 공유 양식을 바꾸거나 지우면 `_tplBump`로 기록 —
+  `claimTemplateFor`가 기기 캐시(idb `tpl_`)의 `ver_` 도장이 이보다 오래되면 캐시를 버리고 Storage에서 다시 받는다(없으면 내장/없음).
+  ⚠️ 이전엔 idb 캐시를 영구히 믿어서 **다른 기기는 페이지 삭제·교체 뒤에도 옛 양식에 새 좌표를 찍었다** — 도장 확인을 빼지 말 것.
+  도장은 uploadTemplateToStorage·페이지 삭제·관리 창 올리기·삭제 모두 **Storage 반영 성공 후에만** 찍는다(실패한 교체를 남이 받으려다 빈 양식이 되지 않게).
+  모의 실행 `tm.js`(도장 없음=캐시 사용·도장 수신=재수신·삭제 후 없음·목록 36행) 통과.
+  리뷰 반영: ① `idbSetTpl`이 `tpl_`를 쓸 때 `ver_`도 지금 시각으로(감싼 함수) — 공유 업로드 실패 시 방금 올린 양식이 낡은 캐시로 오인돼 버려지던 경로.
+  ② 낡은 캐시는 **다시 받기 성공** 또는 **공유본 삭제(object-not-found)** 확인 때만 버림 — 네트워크 실패 땐 낡은 캐시라도 사용(오프라인에서 양식 증발 방지).
+  ③ `_tplBump`는 sv 뒤에 로컬 전체 맵을 다시 씀(sv가 로컬 키를 한 항목짜리로 덮음). ④ DB 레거시 `tops_db_pdf_tpl`은 도장이 있으면 무시.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던

@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-5</div>
   </div>
 </div>
 
@@ -2644,6 +2644,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
     <span id="cc_ins_lbl" style="font-size:13px;color:#6070aa;font-weight:600">보험사</span>
     <select id="cc_insurer" onchange="ccSelectInsurer()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:220px"></select>
     <button class="bp" onclick="ccUploadTemplate()" style="font-size:13px;padding:5px 10px"><i class="ti ti-upload"></i> 양식 PDF 업로드</button>
+    <button class="bp" id="cc_tplmgr_btn" onclick="ccTplMgrOpen()" style="font-size:13px;padding:5px 10px;background:#eef6ff;border-color:rgba(40,110,200,.35);color:#1f5fae" title="등록된 양식 보기·새로 올리기·삭제"><i class="ti ti-files"></i> 양식 관리</button>
     <button class="bp" id="cc_multi_btn" onclick="ccUploadMultiple()" style="font-size:13px;padding:5px 10px;background:#fff4d8;border-color:rgba(180,140,40,.4);color:#8a6a10" title="파일명이 '01_보험사명.pdf' 형식이면 자동으로 각 보험사로 업로드"><i class="ti ti-upload"></i> 여러개 한꺼번에 업로드</button>
     <span style="flex:1"></span>
     <select id="cc_addfield" onchange="ccAddFieldToPage()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:230px"><option value="">+ 이 페이지에 항목 추가</option></select>
@@ -4039,6 +4040,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.tplver && typeof d.tplver==='object' && !Array.isArray(d.tplver)){ window._tplVer=d.tplver; _lsSet('tops_tplver', JSON.stringify(d.tplver)); }   // 양식 교체·삭제 도장(2026-10-06 — 다른 기기의 옛 양식 캐시 무효화)
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
@@ -4133,6 +4135,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.tplver && typeof d.tplver==='object' && !Array.isArray(d.tplver)){ window._tplVer=d.tplver; _lsSet('tops_tplver', JSON.stringify(d.tplver)); }   // 양식 교체·삭제 도장(2026-10-06 — 다른 기기의 옛 양식 캐시 무효화)
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
@@ -4580,7 +4583,7 @@ function login(){
 }
 function logout(){
   try{ window._medLastPw=''; }catch(_){}
-  try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
+  try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
   cu=null;
   sessionStorage.removeItem('tops_session');
   try{ localStorage.removeItem('tops_session_keep'); }catch(e){}   // '로그인 유지' 해제
@@ -28590,7 +28593,7 @@ function uploadTemplateToStorage(insurer, b64){
     for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
     var ref=firebase.storage().ref('claim_templates/'+encodeURIComponent(insurer)+'.pdf');
     ref.put(u,{contentType:'application/pdf'})
-      .then(function(){ toast(insurer+' 양식이 전체 팀에 공유되었습니다.'); })
+      .then(function(){ _tplBump(insurer); toast(insurer+' 양식이 전체 팀에 공유되었습니다.'); })
       .catch(function(e){ console.warn('storage upload err:',e); toast('팀 공유 실패: '+e.message+' (본인만 사용 가능)'); });
   }catch(e){ console.warn(e); toast('팀 공유 실패: '+e.message); }
 }
@@ -29817,17 +29820,31 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
 
 // 보험사별 템플릿(IndexedDB). DB손해보험은 내장 PDF로 폴백
 async function claimTemplateFor(insurer){
-  // 1. 로컬 IndexedDB 캐시
-  try{ var t=await idbGetTpl('tpl_'+insurer); if(t) return t; }catch(e){}
-  // 2. DB손해보험 — localStorage 레거시 (옛 업로드 흔적)
-  if(insurer==='DB손해보험'){
+  // 1. 로컬 IndexedDB 캐시 — 단, 다른 기기에서 양식을 바꾸거나 지웠으면(도장 _tplVer가 이 기기 캐시의 ver_보다 새로움) 공유본을 다시 받는다(2026-10-06).
+  //    도장 없이 캐시만 믿으면 페이지 삭제·교체 뒤에도 다른 기기는 옛 양식+새 좌표로 찍어 칸이 어긋났다.
+  //    ⚠️ 낡은 캐시는 "다시 받기 성공" 또는 "공유본이 삭제됨(object-not-found)"이 확인될 때만 버린다 — 네트워크 실패 땐 낡은 캐시라도 쓴다(리뷰 반영).
+  var _want=_tplVerOf(insurer);
+  var stale='';
+  try{
+    var t=await idbGetTpl('tpl_'+insurer);
+    if(t){
+      var _have=0; try{ _have=+(await idbGetTpl('ver_'+insurer))||0; }catch(e){}
+      if(!_want||_have>=_want) return t;
+      stale=t;
+    }
+  }catch(e){}
+  // 2. DB손해보험 — localStorage 레거시 (옛 업로드 흔적). 도장이 있으면(관리 창에서 교체·삭제된 적 있음) 레거시는 무시
+  if(insurer==='DB손해보험'&&!_want&&!stale){
     var ls=''; try{ls=localStorage.getItem('tops_db_pdf_tpl')||'';}catch(e){}
     if(ls) return ls;
   }
   // 3. Firebase Storage (팀 공유 양식) — 받으면 로컬에 캐시
+  var gone=false;
   try{
     if(typeof firebase!=='undefined' && firebase.storage){
-      var url = await firebase.storage().ref('claim_templates/'+encodeURIComponent(insurer)+'.pdf').getDownloadURL();
+      var url;
+      try{ url = await firebase.storage().ref('claim_templates/'+encodeURIComponent(insurer)+'.pdf').getDownloadURL(); }
+      catch(e0){ if(/object-not-found/.test(String((e0&&(e0.code||e0.message))||''))) gone=true; throw e0; }
       var resp = await fetch(url);
       if(resp.ok){
         var ab = await resp.arrayBuffer();
@@ -29835,11 +29852,15 @@ async function claimTemplateFor(insurer){
         var chunks=[]; var cs=8192;
         for(var i=0;i<arr.length;i+=cs) chunks.push(String.fromCharCode.apply(null, arr.subarray(i,i+cs)));
         var b64fromStorage = btoa(chunks.join(''));
-        try{ await idbSetTpl('tpl_'+insurer, b64fromStorage); }catch(e){}
+        try{ await idbSetTpl('tpl_'+insurer, b64fromStorage); await idbSetTpl('ver_'+insurer, _want||Date.now()); }catch(e){}
         return b64fromStorage;
       }
     }
   }catch(e){ /* not in storage, fall through */ }
+  if(stale){
+    if(!gone){ console.warn('양식 공유본을 받지 못해 이 기기의 이전 양식을 사용합니다:', insurer); return stale; }
+    try{ await idbDelTpl('tpl_'+insurer); }catch(e){}   // 공유본이 삭제됨 — 낡은 캐시도 버림
+  }
   // 4. 내장 기본 양식
   if(insurer==='DB손해보험'){
     return (typeof DB_PDF_B64!=='undefined')?DB_PDF_B64:'';
@@ -29938,6 +29959,25 @@ function idbDB(){
 }
 function idbGetTpl(key){ return idbDB().then(function(db){ return new Promise(function(res,rej){ var rq=db.transaction('tpl','readonly').objectStore('tpl').get(key); rq.onsuccess=function(){res(rq.result||'');}; rq.onerror=function(){rej(rq.error);}; }); }); }
 function idbSetTpl(key,val){ return idbDB().then(function(db){ return new Promise(function(res,rej){ var rq=db.transaction('tpl','readwrite').objectStore('tpl').put(val,key); rq.onsuccess=function(){res(true);}; rq.onerror=function(){rej(rq.error);}; }); }); }
+// 양식 본문(tpl_)을 이 기기에 새로 저장할 때는 ver_도 지금 시각으로 — 공유 업로드가 실패해도 방금 올린 양식이
+// "도장보다 오래된 캐시"로 오인돼 버려지고 옛 공유본으로 되돌아가는 경로 차단(2026-10-06 리뷰). 공유본 수신 경로는 뒤에서 ver_=도장으로 덮음.
+(function(){ var _orig=idbSetTpl; idbSetTpl=function(key,val){ var p=_orig(key,val); if(/^tpl_/.test(String(key))) return p.then(function(r){ return _orig('ver_'+String(key).slice(4), Date.now()).then(function(){ return r; },function(){ return r; }); }); return p; }; })();
+function idbDelTpl(key){ return idbDB().then(function(db){ return new Promise(function(res,rej){ var rq=db.transaction('tpl','readwrite').objectStore('tpl').delete(key); rq.onsuccess=function(){res(true);}; rq.onerror=function(){rej(rq.error);}; }); }); }
+// 양식 도장(tplver — 2026-10-06): 팀 공유 양식을 바꾸거나 지울 때마다 {이름: 시각}을 기록(sv 동기화, 맵 병합이라 이름별로만 갱신).
+// claimTemplateFor가 이 도장보다 오래된 기기 캐시(idb tpl_)를 버리고 다시 받는다. 텍스트·숫자만(함정 B 무관).
+function _tplVerOf(n){
+  try{ if(!window._tplVer) window._tplVer=JSON.parse(localStorage.getItem('tops_tplver')||'{}')||{}; }catch(e){ window._tplVer={}; }
+  return +((window._tplVer||{})[n])||0;
+}
+function _tplBump(n){
+  try{
+    var ts=Date.now(); _tplVerOf(n); window._tplVer[n]=ts;
+    _lsSet('tops_tplver', JSON.stringify(window._tplVer));
+    var o={}; o[n]=ts; sv('tops_tplver', o);
+    _lsSet('tops_tplver', JSON.stringify(window._tplVer));   // sv()가 로컬 키를 한 항목짜리 값으로 덮으므로 전체 맵을 다시 씀(리뷰 반영)
+    idbSetTpl('ver_'+n, ts).catch(function(){});   // 바꾼 기기 자신은 다시 받을 필요 없음
+  }catch(e){ console.warn('tpl bump', e); }
+}
 function idbListTpl(){ return idbDB().then(function(db){ return new Promise(function(res){ var keys=[]; var rq=db.transaction('tpl','readonly').objectStore('tpl').openKeyCursor(); rq.onsuccess=function(e){ var cur=e.target.result; if(cur){ keys.push(String(cur.key)); cur.continue(); } else res(keys); }; rq.onerror=function(){res(keys);}; }); }); }
 
 // ===== 좌표 설정 모달 (보험사 인식) =====
@@ -29953,7 +29993,9 @@ function openClaimCal(){
   window._ccDaeriSlot=_daeri?window._ccPresetInsurer:null;   // ccPopulateInsurers가 목록으로 사용(진입 슬롯 1개, 타 모드 진입 시 리셋 — 잔존 방지)
   var _t=g('cc_title');    if(_t)  _t.textContent=_sam?'3종서류 좌표 설정':(_daeri?'대리발급 서류 좌표 설정':'청구서 좌표 직접설정');
   var _il=g('cc_ins_lbl'); if(_il) _il.textContent=(_sam||_daeri)?'문서':'보험사';
-  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri)?'none':'';   // 파일명→보험사 일괄 업로드는 청구서 전용
+  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri)?'none':'';
+  var _tm=g('cc_tplmgr_btn'); if(_tm) _tm.style.display=_daeri?'none':'';   // 대리발급 양식은 서류별 합본이라 [양식 업로드] 창에서 관리
+  try{ var _tp=g('cc_tplmgr_pop'); if(_tp) _tp.remove(); }catch(e){}   // 파일명→보험사 일괄 업로드는 청구서 전용
   var _dl=g('cc_data_lbl'); if(_dl) _dl.style.display=(_sam||_daeri)?'none':'';    // 청구건 미리보기 데이터는 청구서 전용
   var _ds=g('cc_data_sel'); if(_ds){ _ds.style.display=(_sam||_daeri)?'none':''; if(_sam||_daeri){ _ds.value=''; window._ccDataClaim=null; } }
   g('m_claimcal').classList.add('open');
@@ -30111,6 +30153,126 @@ function ccBuildTabs(){
   }
   t.innerHTML=h;
 }
+// ===== 양식 관리 창 (2026-10-06 — v2026.10.06-5, 사용자 요청) =====
+// 좌표 편집기 [양식 관리] → 현재 모드의 양식 목록(청구서=보험사, 3종=문서 3종)과 상태(팀 공유본·내장 기본·없음),
+// 행별 [보기]/[새로 올리기]/[삭제]. 행 식별은 data-cctm(이름 — 함정 A), 흰 카드(함정 D 역방향), id는 cc_tplmgr_ 접두(함정 E).
+// 새로 올리기·삭제는 _tplBump로 도장을 찍어 다른 기기의 옛 캐시를 무효화한다. 좌표는 건드리지 않는다(양식만 관리).
+function _ccTplNames(){
+  var _sam=(window._ccMode==='samdocs');
+  return _sam?(typeof SAMDOC_LIST!=='undefined'?SAMDOC_LIST:[]).map(function(d){return {n:d.tpl,lb:d.nm};})
+    :CLAIM_INSURERS.map(function(n){return {n:n,lb:n};});
+}
+async function ccTplMgrOpen(){
+  if(typeof _isAdmin==='function'&&!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(window._ccMode==='daeri'){ toast('대리발급 양식은 [양식 업로드] 창에서 관리해주세요.'); return; }
+  var old=g('cc_tplmgr_pop'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='cc_tplmgr_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,40,.55);z-index:100005;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;color:#1c2140;border-radius:12px;max-width:720px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px"><b style="font-size:16px">'+(window._ccMode==='samdocs'?'3종서류':'청구서')+' 양식 관리</b>'
+    +'<span style="font-size:12.5px;color:#667">보기 · 새로 올리기 · 삭제 (배치한 좌표는 그대로 유지)</span><span style="flex:1"></span><span data-cctmx style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
+    +'<div id="cc_tplmgr_list" style="padding:10px 18px;overflow:auto"><div style="color:#889;font-size:13px;padding:20px;text-align:center">양식 목록을 불러오는 중…</div></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(ev){
+    var t=ev.target;
+    if(t===ov||(t.closest&&t.closest('[data-cctmx]'))){ ov.remove(); return; }
+    var b=t.closest&&t.closest('[data-cctma]'); if(!b) return;
+    var n=b.getAttribute('data-cctm'), a=b.getAttribute('data-cctma');
+    if(a==='view') ccTplView(n);
+    else if(a==='up') ccTplReplace(n);
+    else if(a==='del') ccTplDelete(n);
+  });
+  await _ccTplMgrDraw();
+}
+async function _ccTplMgrDraw(){
+  var box=g('cc_tplmgr_list'); if(!box) return;
+  var shared={};
+  try{
+    if(typeof firebase!=='undefined'&&firebase.storage){
+      var res=await firebase.storage().ref('claim_templates').listAll();
+      (res.items||[]).forEach(function(it){ var b=String(it.name||'').replace(/\.pdf$/i,''); shared[b]=1; try{ shared[decodeURIComponent(b)]=1; }catch(e){} });
+    }
+  }catch(e){ console.warn('tplmgr list', e); }
+  var local={}; try{ (await idbListTpl()).forEach(function(k){ if(/^tpl_/.test(k)) local[String(k).slice(4)]=1; }); }catch(e){}
+  if(!g('cc_tplmgr_list')) return;
+  var btn=function(n,a,lb,css){ return '<button class="bp" data-cctm="'+_alertEsc(n)+'" data-cctma="'+a+'" style="font-size:12.5px;padding:4px 10px;'+(css||'')+'">'+lb+'</button>'; };
+  box.innerHTML=_ccTplNames().map(function(o){
+    var n=o.n, baked=!!bakedTplFor(n)||(n==='DB손해보험'&&typeof DB_PDF_B64!=='undefined');
+    var st=shared[n]?'<span style="color:#1a8a4a;font-weight:600">팀 공유 양식</span>'
+      :(local[n]?'<span style="color:#b07010;font-weight:600">이 기기에만 있음</span>'
+      :(baked?'<span style="color:#4858cc">내장 기본 양식</span>':'<span style="color:#aaa">양식 없음</span>'));
+    var has=shared[n]||local[n]||baked;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #f0f0f4">'
+      +'<span style="flex:1;min-width:0;font-size:14px;font-weight:600">'+_esc(o.lb)+'</span>'
+      +'<span style="font-size:12.5px;width:110px">'+st+'</span>'
+      +(has?btn(n,'view','보기',''):'<span style="width:44px"></span>')
+      +btn(n,'up',has?'새로 올리기':'올리기','background:#eef6ff;border-color:rgba(40,110,200,.35);color:#1f5fae')
+      +((shared[n]||local[n])?btn(n,'del','삭제','background:#fff0f0;border-color:rgba(200,50,50,.35);color:#c03030'):'<span style="width:48px"></span>')
+      +'</div>';
+  }).join('');
+}
+async function ccTplView(n){
+  var w=window.open('','_blank'); // 클릭 제스처 안에서 먼저 열기(팝업 차단 대비 — sdPrint 패턴)
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.'); return; }
+  try{ w.document.title='양식 불러오는 중…'; w.document.body.innerHTML='<p style="font-family:sans-serif;color:#666;padding:20px">양식을 불러오는 중…</p>'; }catch(e){}
+  try{
+    var t=await claimTemplateFor(n);
+    if(!t){ w.close(); toast('등록된 양식이 없습니다.'); return; }
+    var u8=Uint8Array.from(atob(t),function(ch){return ch.charCodeAt(0);});
+    w.location.href=URL.createObjectURL(new Blob([u8],{type:'application/pdf'}));
+  }catch(e){ try{ w.close(); }catch(_){} toast('양식을 열지 못했습니다: '+((e&&e.message)||e)); }
+}
+function ccTplReplace(n){
+  if(window._ccDelBusy||window._ccTplBusy){ toast('처리 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='application/pdf,.pdf';
+  inp.onchange=async function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    if(f.size>25*1024*1024){ toast('25MB 이하 PDF만 올릴 수 있습니다.'); return; }
+    window._ccTplBusy=true;
+    try{
+      var b64=await new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result).split(',')[1]||''); }; rd.onerror=function(){ rej(rd.error); }; rd.readAsDataURL(f); });
+      var u8=Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);});
+      var pc=0; try{ pc=(await PDFLib.PDFDocument.load(u8,{ignoreEncryption:true})).getPageCount(); }catch(e){ toast('PDF를 읽을 수 없습니다. 다른 파일을 올려주세요.'); return; } // 손상·비PDF 차단
+      if(!confirm(n+' 양식을 이 파일('+pc+'쪽)로 바꿀까요?\n\n· 배치해 둔 좌표는 그대로 남습니다(쪽 구성이 달라졌으면 좌표를 다시 맞춰주세요).\n· 다른 기기에도 새 양식이 적용됩니다.')) return;
+      await idbSetTpl('tpl_'+n, b64);
+      var ok=true;
+      try{
+        if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
+        await firebase.storage().ref('claim_templates/'+encodeURIComponent(n)+'.pdf').put(u8,{contentType:'application/pdf'});
+        _tplBump(n);
+      }catch(e){ ok=false; console.warn('tpl replace share', e); }
+      toast(ok?(n+' 양식을 새로 올렸습니다(팀 공유 완료).'):('⚠ 이 기기에는 저장됐지만 팀 공유에 실패했습니다. 네트워크 확인 후 다시 올려주세요.'));
+      if(window._ccInsurer===n){ window._ccPdf=null; await ccRenderPage(1); }
+      try{ await ccPopulateInsurers(); var sel=g('cc_insurer'); if(sel&&window._ccInsurer) sel.value=window._ccInsurer; }catch(e){}
+      await _ccTplMgrDraw();
+    }catch(e){ toast('올리기 실패: '+((e&&e.message)||e)); }
+    finally{ window._ccTplBusy=false; }
+  };
+  inp.click();
+}
+async function ccTplDelete(n){
+  if(window._ccDelBusy||window._ccTplBusy){ toast('처리 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  var baked=!!bakedTplFor(n)||(n==='DB손해보험'&&typeof DB_PDF_B64!=='undefined');
+  if(!confirm(n+' 양식을 삭제할까요?\n\n· 팀 공유 양식과 이 기기 저장본을 지웁니다(다른 기기에도 반영).\n· 배치해 둔 좌표는 남겨 둡니다(같은 양식을 다시 올리면 그대로 사용).\n'
+    +(baked?'· 이 보험사는 내장 기본 양식으로 돌아갑니다.\n':'· 이후 이 보험사 청구파일은 양식을 다시 올릴 때까지 만들 수 없습니다.\n')
+    +'\n되돌리려면 양식 PDF를 다시 올려야 합니다.')) return;
+  window._ccTplBusy=true;
+  try{
+    var ok=true;
+    try{
+      if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
+      await firebase.storage().ref('claim_templates/'+encodeURIComponent(n)+'.pdf').delete();
+    }catch(e){ if(!(e&&/object-not-found/.test(String(e.code||e.message||'')))){ ok=false; console.warn('tpl delete share', e); } }
+    try{ await idbDelTpl('tpl_'+n); }catch(e){}
+    if(n==='DB손해보험'){ try{ localStorage.removeItem('tops_db_pdf_tpl'); }catch(e){} }  // 레거시 로컬 사본도 정리(안 지우면 그대로 되살아남)
+    if(ok) _tplBump(n);   // 다른 기기의 캐시도 버리게
+    toast(ok?(n+' 양식을 삭제했습니다.'+(baked?' (내장 기본 양식 사용)':'')):'⚠ 이 기기에서는 지웠지만 팀 공유 양식 삭제에 실패했습니다. 네트워크 확인 후 다시 시도해주세요.');
+    if(window._ccInsurer===n){ window._ccPdf=null; await ccRenderPage(1); }
+    try{ await ccPopulateInsurers(); var sel=g('cc_insurer'); if(sel&&window._ccInsurer) sel.value=window._ccInsurer; }catch(e){}
+    await _ccTplMgrDraw();
+  }catch(e){ toast('삭제 실패: '+((e&&e.message)||e)); }
+  finally{ window._ccTplBusy=false; }
+}
 // 양식 PDF에서 페이지 삭제(2026-10-06 — 샘플·불필요 페이지 제거용, v-4부터 여러 장 한 번에).
 // [페이지 삭제] → 선택 창(ccDelPick: 페이지별 작은 그림+체크, 지금 페이지 기본 체크) → ccDeletePagesDo(선택 쪽 번호들).
 // 지운 페이지에 배치된 항목은 숨김(on:false), 뒤 페이지 항목은 지운 장 수만큼 당긴 뒤 좌표를 바로 저장(saveClaimCal) —
@@ -30222,6 +30384,7 @@ async function ccDeletePagesDo(ins, n, pages){
       if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
       var ref=firebase.storage().ref('claim_templates/'+encodeURIComponent(ins)+'.pdf');
       await ref.put(Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),{contentType:'application/pdf'});
+      _tplBump(ins);   // 다른 기기의 옛 양식 캐시 무효화 — 안 하면 옛 양식에 당겨진 좌표가 찍혀 어긋남
     }catch(e){ shareOk=false; console.warn('cc delete page share', e); }
     toast(pages.length+'장을 삭제했습니다. 좌표 저장 중...');
     try{ await saveClaimCal(); }
