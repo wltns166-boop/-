@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1721,6 +1721,9 @@
   리뷰 반영: **대리발급 슬롯은 삭제 거부**(합본이 bdrtpls parts에서 다시 만들어져 지운 페이지가 되살아나고 좌표가 어긋남 — [양식 업로드] 창에서 서류를 빼도록 안내),
   팀 공유본(Storage) 교체는 await해 실패를 따로 경고, 좌표 저장 실패는 "페이지는 삭제됨"으로 구분 안내, 지운 페이지의 숨김 항목은 page를 범위 안으로 보정,
   pdf-lib 로드에 ignoreEncryption 미사용(6장 규칙).
+  **v-4 (v2026.10.06-4, 사용자 요청) — 여러 장 한 번에**: 버튼 이름 [페이지 삭제] → 선택 창 `#cc_delpg_pop`(`ccDelPick` — 페이지별 작은 그림(열린 `_ccPdf`로 렌더)+체크박스,
+  지금 페이지 기본 체크, 전체 선택은 불가·최소 1장 남김) → `ccDeletePagesDo(ins,n,pages)`. PDF는 **뒤쪽부터** removePage(앞 번호 안 밀리게),
+  좌표는 `shift(p)`=p−(p보다 앞에서 지운 장 수), 지운 페이지 항목은 숨김+page를 범위 안으로. 모의 실행 `del.js`(5장 중 2·4 삭제 → 3장, 좌표 당김·숨김 정확) 통과.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
