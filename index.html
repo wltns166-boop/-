@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-6</div>
   </div>
 </div>
 
@@ -1421,7 +1421,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 고객등록 현황 -->
     <div class="pg" id="pg_cust_status">
-      <div class="sh"><div class="st"><i class="ti ti-user-plus"></i>고객등록 현황</div></div>
+      <div class="sh"><div class="st" style="display:flex;align-items:center;gap:10px"><span><i class="ti ti-user-plus"></i>고객등록 현황</span><button class="bp" onclick="insCodeOpen()" style="font-size:13px;padding:5px 12px;background:#fff;color:#4858cc;border:1px solid rgba(72,88,204,.45)">🔑 보험사 코드 관리</button></div></div>
       <div class="card">
         <table class="dt">
           <thead><tr><th style="width:80px">담당자</th><th style="width:250px">고객명 · 고객정보</th><th>고객등록 진행여부</th><th style="width:100px">특이사항</th><th style="width:50px">추가</th><th style="width:50px">삭제</th></tr></thead>
@@ -4592,6 +4592,7 @@ function login(){
 }
 function logout(){
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
+  try{ var _icp=g('ic_pop'); if(_icp) _icp.remove(); window._icSt=null; }catch(e){}   // 보험사 코드 창 닫기(비밀번호 잔존 방지)
   try{ window._medLastPw=''; }catch(_){}
   try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
   cu=null;
@@ -19562,6 +19563,154 @@ function addCustReqFromStatus(name, agentKey){
   requestCustReg(idx, famIdx, {agent:agentKey, name:name, exclude:exclude});
 }
 
+// ===== 보험사 코드·비밀번호 관리 (inscode, 2026-10-07 — 사용자 요청, 고객등록 현황 제목 옆 버튼) =====
+// 저장: Firestore 'inscode/{키}' = {nm, son:[{id,ins,code,pw,ts}], life:[…], ts} — 키는 _rsvKey 규칙('c_코드' / 코드 없는 관리자 'n_이름').
+//   tops/data와 분리(1MiB 한도·전원 실시간 수신 제외), localStorage 캐시 없음(비밀번호가 기기에 남지 않게 — 함정 B 계열).
+//   팀원은 본인 문서만, 관리자(_isAdmin)는 사람을 골라 열람·수정. 행 조작은 행 id 기준(함정 A), 저장 직전 클라우드 최신본을 다시 읽어 그 행만 교체.
+//   ⚠️ 구조적 한계: firestore.rules가 인증 세션이면 읽기 허용 — 고객 주민번호(custs)와 같은 수준의 보호.
+function _icKeyOf(p){ return (p&&p.code)?'c_'+String(p.code):'n_'+String((p&&p.name)||''); }
+function _icPeople(){
+  var out=[], seen={};
+  try{ _admList().forEach(function(a){ if(a&&a.name&&!seen['n_'+a.name]){ seen['n_'+a.name]=1; out.push({key:'n_'+a.name, nm:a.name, lb:a.name+' (관리자)'}); } }); }catch(e){}
+  (Array.isArray(mem)?mem:[]).filter(function(m){ return m&&m.name&&!m.suspended; })
+    .sort(function(a,b){ return String(a.code||'').localeCompare(String(b.code||'')); })
+    .forEach(function(m){ var k=_icKeyOf(m); if(seen[k]) return; seen[k]=1; out.push({key:k, nm:m.name, lb:m.name+(m.code?' ('+m.code+')':'')}); });
+  return out;
+}
+function _icClean(d){
+  var side=function(a){ return (Array.isArray(a)?a:[]).filter(function(r){ return r&&typeof r==='object'; }).slice(0,100).map(function(r){
+    return {id:String(r.id||'').replace(/[^\w-]/g,'').slice(0,40)||('ic_'+Math.random().toString(36).slice(2,9)), ins:String(r.ins||'').slice(0,40), code:String(r.code||'').slice(0,60), pw:String(r.pw||'').slice(0,80), ts:+r.ts||0}; }); };
+  return {son:side(d&&d.son), life:side(d&&d.life)};
+}
+function _icDocRef(key){ return (window.db&&key)?window.db.collection('inscode').doc(key):null; }
+function insCodeOpen(){
+  if(!cu){ toast('로그인 후 이용해 주세요.'); return; }
+  var old=g('ic_pop'); if(old) old.remove();
+  var me=_rsvKey();
+  window._icSt={key:me, nm:cu.name, data:{son:[],life:[]}, edit:null, show:{}, seq:0, loading:true};
+  var ov=document.createElement('div'); ov.id='ic_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,40,.55);z-index:100005;display:flex;align-items:center;justify-content:center;padding:16px';
+  var who='';
+  if(_isAdmin()){
+    who='<select id="ic_who" style="padding:6px 8px;border:1px solid #ccd;border-radius:7px;background:#fff;color:#1c2140;font-size:13px;font-family:inherit">'
+      +_icPeople().map(function(p){ return '<option value="'+_alertEsc(p.key)+'" data-nm="'+_alertEsc(p.nm)+'"'+(p.key===me?' selected':'')+'>'+_esc(p.lb)+'</option>'; }).join('')+'</select>';
+  }
+  ov.innerHTML='<div style="background:#fff;color:#1c2140;border-radius:12px;max-width:1100px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">🔑 보험사 코드 · 비밀번호</b>'
+    +(who?'<span style="font-size:12.5px;color:#667">팀원 선택</span>'+who:'<span style="font-size:12.5px;color:#667">'+_esc(cu.name)+' 님 본인 정보 (관리자도 볼 수 있어요)</span>')
+    +'<span style="flex:1"></span><span data-ica="x" style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
+    +'<div id="ic_body" style="padding:14px 18px;overflow:auto"></div>'
+    +'<div style="padding:8px 18px 12px;font-size:11.5px;color:#99a">코드·비밀번호를 누르면 복사됩니다. 비밀번호는 👁 를 눌러야 보입니다. 공용 PC에서는 사용 후 창을 닫아 주세요.</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(ev){
+    var t=ev.target; if(t===ov){ ov.remove(); return; }
+    var b=t.closest&&t.closest('[data-ica]'); if(!b) return;
+    var a=b.getAttribute('data-ica'), side=b.getAttribute('data-ics'), id=b.getAttribute('data-icid'), st=window._icSt; if(!st) return;
+    if(a==='x'){ ov.remove(); window._icSt=null; return; }
+    if(st.loading) return;
+    if(a==='add'){ if(st.edit&&!_icLeaveEdit()) return; var nid='ic_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); st.data[side].push({id:nid, ins:'', code:'', pw:'', ts:0, isNew:1}); st.edit={side:side,id:nid}; _icDraw(); var f=document.querySelector('#ic_body [data-icf="ins"]'); if(f) f.focus(); }
+    else if(a==='edit'){ if(st.edit&&!_icLeaveEdit()) return; st.edit={side:side,id:id}; _icDraw(); }
+    else if(a==='cancel'){ _icLeaveEdit(true); }
+    else if(a==='save'){ _icSave(side,id); }
+    else if(a==='del'){ _icDel(side,id); }
+    else if(a==='eye'){ if(st.edit) return; st.show[id]=!st.show[id]; _icDraw(); }   // 수정 중엔 다시 그리지 않음(입력 보존)
+  });
+  ov.addEventListener('change',function(ev){ if(ev.target&&ev.target.id==='ic_who'){ var st=window._icSt; if(!st) return;
+    if(st.busy){ ev.target.value=st.key; toast('저장 중입니다. 잠시 후 바꿔 주세요.'); return; }
+    if(st.edit&&!_icLeaveEdit()){ ev.target.value=st.key; return; }
+    var o=ev.target.options[ev.target.selectedIndex]; _icLoad(ev.target.value, o?o.getAttribute('data-nm'):''); } });
+  ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.getAttribute&&/^(code|pw)$/.test(ev.target.getAttribute('data-icf')||'')){ var st=window._icSt; if(st&&st.edit){ ev.preventDefault(); _icSave(st.edit.side, st.edit.id); } } });
+  _icLoad(me, cu.name);
+}
+// 편집 중인 행에서 나가기 — 입력이 남아 있으면 확인(force면 묻지 않음). 새 행은 버림.
+function _icLeaveEdit(force){
+  var st=window._icSt; if(!st||!st.edit) return true;
+  if(!force){ var dirty=false; document.querySelectorAll('#ic_body [data-icf]').forEach(function(f){ if(f.value!==f.getAttribute('data-orig')) dirty=true; });
+    if(dirty&&!confirm('수정 중인 내용이 저장되지 않았습니다. 버릴까요?')) return false; }
+  var arr=st.data[st.edit.side]; for(var i=arr.length-1;i>=0;i--) if(arr[i].isNew&&arr[i].id===st.edit.id) arr.splice(i,1);
+  st.edit=null; _icDraw(); return true;
+}
+async function _icLoad(key, nm){
+  var st=window._icSt; if(!st) return;
+  if(!_isAdmin()&&key!==_rsvKey()){ toast('본인 정보만 볼 수 있습니다.'); return; }
+  var seq=++st.seq; st.key=key; st.nm=nm||''; st.loading=true; st.edit=null; st.show={}; st.data={son:[],life:[]}; _icDraw();
+  try{
+    var ref=_icDocRef(key); if(!ref) throw new Error('클라우드에 연결된 뒤 다시 시도해 주세요.');
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var snap=await ref.get();
+    if(!window._icSt||seq!==window._icSt.seq) return;   // 그 사이 다른 사람을 고름 — 늦은 결과 버림
+    st.data=_icClean(snap.exists?snap.data():null); st.loading=false; _icDraw();
+  }catch(e){ if(!window._icSt||seq!==window._icSt.seq) return; st.loading=false; st.err=(e&&e.message)||String(e); _icDraw(); st.err=''; }
+}
+function _icDraw(){
+  var st=window._icSt, box=g('ic_body'); if(!st||!box) return;
+  if(st.loading){ box.innerHTML='<div style="padding:30px;text-align:center;color:#889">불러오는 중…</div>'; return; }
+  if(st.err){ box.innerHTML='<div style="padding:30px;text-align:center;color:#c03030">불러오지 못했습니다: '+_esc(st.err)+'</div>'; return; }
+  var L=_reqInsLists();
+  var inp='width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #b9c0e6;border-radius:6px;background:#fff;color:#1c2140;font-size:13px;font-family:inherit';
+  var btn=function(a,side,id,lb,css){ return '<button type="button" data-ica="'+a+'" data-ics="'+side+'" data-icid="'+_alertEsc(id)+'" style="padding:3px 9px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#444;cursor:pointer;font-size:12px;font-family:inherit;'+(css||'')+'">'+lb+'</button>'; };
+  var th='background:#f3f5fc;color:#5060aa;font-weight:600;padding:7px 8px;border:1px solid #e3e6f3;font-size:12.5px;text-align:left';
+  var td='padding:6px 8px;border:1px solid #e3e6f3;font-size:13.5px;vertical-align:middle';
+  var col=function(side, title, list){
+    var rows=st.data[side];
+    return '<div style="flex:1;min-width:320px">'
+      +'<div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:14.5px;color:'+(side==='son'?'#1f5fae':'#2f8a57')+'">'+title+'</b><span style="font-size:12px;color:#99a;margin-left:6px">'+rows.filter(function(r){return !r.isNew;}).length+'곳</span><span style="flex:1"></span>'
+      +btn('add',side,'','＋ 추가','background:'+(side==='son'?'#eef4ff;color:#1f5fae;border-color:rgba(40,110,200,.35)':'#eefaf2;color:#2f8a57;border-color:rgba(47,138,87,.35)')+';font-weight:600')+'</div>'
+      +'<datalist id="ic_dl_'+side+'">'+list.map(function(n){ return '<option value="'+_alertEsc(n)+'">'; }).join('')+'</datalist>'
+      +'<table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:30%">보험사</th><th style="'+th+';width:27%">코드</th><th style="'+th+';width:27%">비밀번호</th><th style="'+th+'"></th></tr>'
+      +(rows.length?rows.map(function(r){
+        var ed=st.edit&&st.edit.side===side&&st.edit.id===r.id;
+        if(ed) return '<tr style="background:#f8f9ff"><td style="'+td+'"><input data-icf="ins" list="ic_dl_'+side+'" value="'+_alertEsc(r.ins)+'" data-orig="'+_alertEsc(r.ins)+'" placeholder="보험사" maxlength="40" style="'+inp+'"></td>'
+          +'<td style="'+td+'"><input data-icf="code" value="'+_alertEsc(r.code)+'" data-orig="'+_alertEsc(r.code)+'" placeholder="코드" maxlength="60" autocomplete="off" style="'+inp+'"></td>'
+          +'<td style="'+td+'"><input data-icf="pw" value="'+_alertEsc(r.pw)+'" data-orig="'+_alertEsc(r.pw)+'" placeholder="비밀번호" maxlength="80" autocomplete="off" style="'+inp+'"></td>'
+          +'<td style="'+td+';white-space:nowrap">'+btn('save',side,r.id,'저장','background:#4858cc;color:#fff;border-color:#4858cc')+' '+btn('cancel',side,r.id,'취소')+'</td></tr>';
+        var sh=!!st.show[r.id];
+        return '<tr><td style="'+td+';font-weight:600">'+_esc(r.ins||'-')+'</td>'
+          +'<td style="'+td+';cursor:pointer" onclick="_csrCopyVal(this)" data-copy="'+_alertEsc(r.code)+'" data-cplb="코드" title="클릭하면 복사">'+_esc(r.code||'-')+'</td>'
+          +'<td style="'+td+'"><span style="cursor:pointer" onclick="_csrCopyVal(this)" data-copy="'+_alertEsc(r.pw)+'" data-cplb="비밀번호" title="클릭하면 복사">'+(r.pw?(sh?_esc(r.pw):'••••••'):'-')+'</span>'
+          +(r.pw?' <span data-ica="eye" data-ics="'+side+'" data-icid="'+_alertEsc(r.id)+'" style="cursor:pointer;font-size:13px;opacity:.7" title="보기/숨기기">'+(sh?'🙈':'👁')+'</span>':'')+'</td>'
+          +'<td style="'+td+';white-space:nowrap">'+btn('edit',side,r.id,'수정')+' '+btn('del',side,r.id,'삭제','color:#c03030;border-color:rgba(200,50,50,.35)')+'</td></tr>';
+      }).join(''):'<tr><td colspan="4" style="'+td+';text-align:center;color:#99a;padding:16px">[＋ 추가]로 보험사를 등록하세요.</td></tr>')
+      +'</table></div>';
+  };
+  box.innerHTML=(_isAdmin()&&st.key!==_rsvKey()?'<div style="margin-bottom:10px;font-size:13px;color:#a05a10;background:#fdf6ec;border:1px solid #f0e3cc;border-radius:8px;padding:7px 10px">'+_esc(st.nm)+' 님의 정보를 보고 있습니다.</div>':'')
+    +'<div style="display:flex;gap:18px;flex-wrap:wrap">'+col('son','손해보험사',L.son)+col('life','생명보험사',L.life)+'</div>';
+}
+async function _icSave(side, id){
+  var st=window._icSt; if(!st||st.busy) return;
+  if(!_isAdmin()&&st.key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
+  var v={}; document.querySelectorAll('#ic_body [data-icf]').forEach(function(f){ v[f.getAttribute('data-icf')]=String(f.value||'').trim(); });
+  if(!v.ins){ toast('보험사를 입력해 주세요.'); return; }
+  var ref=_icDocRef(st.key); if(!ref){ toast('클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
+  var key=st.key, seq=st.seq, nm=st.nm||''; st.busy=true;
+  try{
+    var snap=await ref.get(), d=_icClean(snap.exists?snap.data():null);   // 최신본에서 이 행만 교체·추가 — 다른 기기 변경 보존
+    var row={id:id, ins:v.ins.slice(0,40), code:(v.code||'').slice(0,60), pw:(v.pw||'').slice(0,80), ts:Date.now()};
+    var arr=d[side], i=-1; for(var k=0;k<arr.length;k++) if(arr[k].id===id) i=k;
+    if(i>=0) arr[i]=row; else arr.push(row);
+    await ref.set({nm:nm, son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    st.data=d; st.edit=null; st.show={}; _icDraw(); toast('저장했습니다.');
+  }catch(e){ toast('저장 실패: '+((e&&e.message)||e)); }
+  finally{ if(window._icSt) window._icSt.busy=false; }
+}
+async function _icDel(side, id){
+  var st=window._icSt; if(!st||st.busy) return;
+  if(!_isAdmin()&&st.key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
+  var r=(st.data[side]||[]).find(function(x){ return x.id===id; }); if(!r) return;
+  if(r.isNew){ _icLeaveEdit(true); return; }
+  if(!confirm('"'+(r.ins||'보험사')+'" 코드를 삭제할까요?')) return;
+  var ref=_icDocRef(st.key); if(!ref){ toast('클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
+  var key=st.key, seq=st.seq, nm=st.nm||''; st.busy=true;
+  try{
+    var snap=await ref.get(), d=_icClean(snap.exists?snap.data():null);
+    d[side]=d[side].filter(function(x){ return x.id!==id; });
+    await ref.set({nm:nm, son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    st.data=d; if(st.edit&&st.edit.id===id) st.edit=null; _icDraw(); toast('삭제했습니다.');
+  }catch(e){ toast('삭제 실패: '+((e&&e.message)||e)); }
+  finally{ if(window._icSt) window._icSt.busy=false; }
+}
 // ===== 고객정보 보기 (고객등록 현황 → 고객명 클릭) =====
 function _custBirthGender(rrn){
   rrn=String(rrn||'').replace(/[^0-9]/g,'');
@@ -19622,7 +19771,7 @@ function _fullRrn(rrn){ rrn=String(rrn||'').replace(/[^0-9]/g,''); if(!rrn) retu
 function _csrCopyVal(el){
   var v=(el&&el.getAttribute('data-copy'))||''; if(!v) return;
   var lb=(el&&el.getAttribute('data-cplb'))||'값';
-  var done=function(){ toast(lb+' 복사 완료: '+v); };
+  var done=function(){ toast(lb+' 복사 완료'+(lb==='비밀번호'?'':': '+v)); };   // 비밀번호는 알림에 값 표시 안 함
   var fallback=function(){
     try{
       var ta=document.createElement('textarea'); ta.value=v; ta.style.position='fixed'; ta.style.opacity='0';
@@ -19794,8 +19943,26 @@ function _renderCustInfoModal(c, fm){
       }).join('')
       +'</table>';
   }
+  // 고객등록 신청한 보험사(2026-10-07, 사용자 요청) — 등록요청 큐(custReqs)에서 이 고객(가족이면 "이름 (고객님 관계)")·같은 담당자 건만.
+  //   담당자 미기록 고객은 동명이인 오표시 위험이라 생략(법정대리인 폴백과 같은 규칙). 큐는 총무가 정리하면 사라질 수 있음(안내 문구).
+  var insHtml='';
+  try{
+    var _rqName=fm?(fm.name+' ('+c.name+'님 '+(fm.rel||'가족')+')'):c.name;
+    var _rqAll=Array.isArray(window.custReqs)?window.custReqs:JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]');
+    var _rqs=c.m?_rqAll.filter(function(r){ return r&&r.ins&&r.name===_rqName&&_agentReal(r.agent||'')===_agentReal(c.m); }):[];
+    _rqs.sort(function(a,b){ return (a.regTs||0)-(b.regTs||0); });
+    var _th='background:#eef1fb;border:1px solid #e3e6f3;padding:6px;font-size:12px';
+    var _td='border:1px solid #e3e6f3;padding:6px;font-size:13px;text-align:center';
+    insHtml='<div style="font-weight:700;color:#2a2a4a;margin:14px 0 6px;font-size:14px"><i class="ti ti-building-bank"></i> 고객등록 신청 보험사'+(_rqs.length?' <span style="font-weight:400;color:#8890aa;font-size:12px">'+_rqs.length+'곳</span>':'')+'</div>'
+      +(_rqs.length?'<table style="border-collapse:collapse;width:100%"><tr><th style="'+_th+'">보험사</th><th style="'+_th+'">신청일</th><th style="'+_th+'">진행</th></tr>'
+        +_rqs.map(function(r){
+          var st=r.done?'<span style="color:#1a8a4a;font-weight:700">완료</span>':'<span style="color:#c03030;font-weight:700">미완료</span>'+(r.reason?'<div style="font-size:11px;color:#a06060;margin-top:2px">'+esc(r.reason)+'</div>':'');
+          return '<tr><td style="'+_td+';font-weight:600">'+esc(r.ins)+'</td><td style="'+_td+'">'+esc(r.regDate||'-')+'</td><td style="'+_td+'">'+st+'</td></tr>';
+        }).join('')+'</table>'
+       :'<div style="border:1px dashed #d8dcf0;border-radius:8px;padding:12px;text-align:center;color:#8890aa;font-size:13px">신청한 보험사가 없습니다.</div>');
+  }catch(e){ insHtml=''; }
   var ttl=(who.name||'고객')+' 고객정보';
-  var inner='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+grdHtml+famHtml;
+  var inner='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+insHtml+grdHtml+famHtml;
   // 새 창(팝업)으로 띄움(2026-10-07, 사용자 요청) — 마우스로 원하는 곳에 옮기고 크기 조절, 고객마다 창 하나씩.
   //   팝업이 차단되면 기존 모달로 표시. 내용은 위에서 전부 이스케이프됨(about:blank 같은 출처 창이라 XSS 규칙 동일).
   var _ck=(Array.isArray(custs)?custs.indexOf(c):-1)+'_'+(fm&&Array.isArray(c.family)?c.family.indexOf(fm):'m');   // 고객 위치 기준 — 동명이인도 창이 따로
