@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.06-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -934,6 +934,14 @@
 - 숫자만 입력하면 천 단위 쉼표, "5만"처럼 글자가 섞이면 그대로. 헤드리스 검증: 미리보기 겹침·PDF 3쪽 출력 위치 확인.
 - **v-2 리뷰 반영**: 쉼표는 문자열 정규식(긴 숫자 정밀도 손실 없음·maxlength 20), 미리보기 글자를 PDF와 같게(보통 굵기·검정) + 칸보다 긴 값은 미리보기도 축소,
   같은 쪽 재표시는 이미지 유지(깜박임 제거), 체크박스 포커스에서도 ←→ 넘김·모달(.mb.open) 열림 땐 무시, logout 시 늦은 미리보기 결과 폐기.
+- **v2026.10.07-1 [설정] 파일 관리(관리자 전용)**: [PDF 저장] 오른쪽 `bnd_setbtn`(관리자만 보임) → `bndCfgOpen` 창(흰 배경 — 함정 D).
+  PDF 추가(`bndCfgUpload` → Storage `claim_templates/binder/<id>.pdf`, storage.rules 무변경) · 이름 변경 · 앞/뒤 위치 · ▲▼ 순서 · 보기 · 삭제.
+  메타는 동기화 키 **`tops_bndcfg` = {files:[{id,nm,u,path,pos,np,sz,f,ts,by}]}**(URL·좌표만 — 함정 B), 배열째 저장(삭제 전파). 로드 2곳(초기·실시간 — JSON이 바뀐 때만 rBinder, 입력 포커스 보호).
+  - **이름 자리 자동 인식 `_bndDetect`**: pdf.js 글자 위치를 줄 단위로 모아 `ㅇㅇㅇ`/`○○○`를 찾음. 같은 줄에 '담당'이 있으면 담당자명(mgr), 아니면 고객명(cust) — 설정 창에서 고객명/담당자명/그대로 두기로 변경 가능.
+    줄 맨 앞 자리는 왼쪽 맞춤(다음 글자 앞까지 폭), 문장 중간은 가운데 맞춤(폭 ×1.4), 넘치면 축소. 바탕색은 자리 위·아래 픽셀의 최빈색(`_bndBgPick`).
+  - 생성: 'ㅇㅇㅇ'을 바탕색 사각형으로 덮고 굵은 글씨 PNG(`_bndNamePng`)를 원래 바닥선에 찍음. 미리보기도 같은 규칙(HTML 겹침). 이름이 비면 덮지 않음 → [PDF 저장]/[출력] 때 확인창.
+  - 화면: 고객명 옆에 **담당자명(`bnd_mgr`, 로그인 이름 자동 채움)**. 추가 파일은 선택 목록에 '앞/뒤·N쪽'으로 표시되고 처음 보면 자동 선택(앞 파일은 맨 앞, 뒤 파일은 맨 끝, 기본 속지는 그 사이 — `_bndIns`). 미리보기는 쪽 단위(`_bndSeq`).
+  - 첫 등록 파일: 사용자 제공 '보험증권바인더'(6쪽 — 1쪽 '○○○ 고객님을 위한', 3쪽 '고객님의 담당자 ○○○ 전문가 입니다') — 관리자가 [설정]에서 직접 올림.
 
 ## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
 

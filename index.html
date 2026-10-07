@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.06-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-1</div>
   </div>
 </div>
 
@@ -1108,14 +1108,20 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <button class="bp" onclick="bndReset()" style="background:#fff;color:#555;border:1px solid #ccd"><i class="ti ti-refresh"></i> 초기화</button>
           <button class="bp" onclick="bndPrint()" style="background:#fff;color:#3a48cc;border:1px solid rgba(72,88,204,.4)"><i class="ti ti-printer"></i> 출력</button>
           <button class="bp" onclick="bndDownload()" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-download"></i> PDF 저장</button>
+          <button class="bp" id="bnd_setbtn" onclick="bndCfgOpen()" style="display:none;background:#fff;color:#555;border:1px solid #ccd"><i class="ti ti-settings"></i> 설정</button>
         </div>
       </div>
       <!-- 증권바인더 속지 작성(2026-10-01) — 왼쪽: 속지 선택·선택 목록·항목별 입력 / 오른쪽: 실시간 미리보기(좌우 넘김). 저장·동기화 없음 -->
       <div id="bnd_wrap" style="display:grid;grid-template-columns:minmax(300px,400px) 1fr;gap:16px;align-items:start">
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px">
-            <div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:6px">고객명 <span style="font-weight:400;color:#8890aa;font-size:12px">(PDF 파일 이름에만 쓰여요)</span></div>
-            <input class="fi" id="bnd_cust" placeholder="예: 홍길동" style="background:#fff;color:#1c2140;border:1px solid #ccd">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div><div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:6px">고객명</div>
+                <input class="fi" id="bnd_cust" placeholder="예: 홍길동" maxlength="20" style="background:#fff;color:#1c2140;border:1px solid #ccd"></div>
+              <div><div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:6px">담당자명</div>
+                <input class="fi" id="bnd_mgr" placeholder="예: 김설계" maxlength="20" style="background:#fff;color:#1c2140;border:1px solid #ccd"></div>
+            </div>
+            <div style="font-size:12px;color:#8890aa;margin-top:6px">표지의 ㅇㅇㅇ 자리와 PDF 파일 이름에 쓰여요</div>
           </div>
           <div style="background:#fff;border:1px solid rgba(60,80,200,.18);border-radius:12px;padding:16px">
             <div style="font-size:14px;font-weight:700;color:#1c2140;margin-bottom:8px">1. 넣을 속지 선택</div>
@@ -4055,6 +4061,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); }
     if(Array.isArray(d.mcreq)){ mcReqs=d.mcreq; _lsSet('tops_mcreq', JSON.stringify(mcReqs)); }   // 모바일 계약 반영 요청(2026-09-14) — 빈 배열도 반영(삭제 전파)
     if(d.rsvcfg && typeof d.rsvcfg==='object' && !Array.isArray(d.rsvcfg)){ rsvCfg=d.rsvcfg; _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg)); }   // 예약문자 문구 틀(사용자별)
+    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ bndCfg=d.bndcfg; window._bndCfgJson=JSON.stringify(d.bndcfg); _lsSet('tops_bndcfg', window._bndCfgJson); }   // 증권바인더 추가 파일(관리자 설정, 2026-10-07)
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -4149,6 +4156,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); changed=true; }
     if(Array.isArray(d.mcreq)){ mcReqs=d.mcreq; _lsSet('tops_mcreq', JSON.stringify(mcReqs)); changed=true; }   // 모바일 계약 반영 요청(2026-09-14)
     if(d.rsvcfg && typeof d.rsvcfg==='object' && !Array.isArray(d.rsvcfg)){ rsvCfg=d.rsvcfg; _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg)); try{ if(window._curPage==='rsv') rsvRender(); }catch(e){} }   // 예약문자 문구 틀 — 입력칸을 건드리지 않게 미리보기만 갱신
+    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ var _bj=JSON.stringify(d.bndcfg); if(_bj!==window._bndCfgJson){ window._bndCfgJson=_bj; bndCfg=d.bndcfg; _lsSet('tops_bndcfg', _bj); try{ if(window._curPage==='binder') rBinder(); if(g('bnd_cfg_pop')) _bndCfgDraw(); }catch(e){} } }   // 증권바인더 추가 파일 — 바뀌었을 때만 다시 그림(입력 중 포커스 보호)
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -7278,187 +7286,311 @@ var BND_PAGES=[
     _bndF('g3','5등급 월 보상금액',327.8,414,589.2,599.9), _bndF('g4','인지지원등급 월 보상금액',453,540,589.2,599.9)]},
   {k:'ltcgrade',nm:'장기요양등급',   pg:8, f:[]}
 ];
-function _bndPage(k){ for(var i=0;i<BND_PAGES.length;i++) if(BND_PAGES[i].k===k) return BND_PAGES[i]; return null; }
-function _bndState(){ if(!window._bndSt) window._bndSt={sel:[],vals:{},cur:0}; return window._bndSt; }
+// ── 관리자 추가 파일(2026-10-07) — 동기화 키 tops_bndcfg = {files:[{id,nm,u,path,pos:'front'|'back',np,sz:[[w,h]..],f:[이름칸],ts,by}]}
+//    원본 PDF는 Storage claim_templates/binder/ (URL만 저장 — 함정 B). 이름칸 f = {pg,x0,x1,base,fs,top,bot,al:'l'|'c',mw,kind:'cust'|'mgr'|'off',bg}
+//    (pt, 왼쪽 위 원점) — 올릴 때 pdf.js 글자 위치로 'ㅇㅇㅇ'(○○○)를 자동으로 찾고, 같은 줄에 '담당'이 있으면 담당자명, 아니면 고객명.
+//    선택 목록 키: 기본 속지는 BND_PAGES.k, 추가 파일은 'f:'+id (함정 A — 키 기준 조작).
+var bndCfg={files:[]};
+try{ var _bc=JSON.parse(localStorage.getItem('tops_bndcfg')||'null'); if(_bc&&typeof _bc==='object'&&Array.isArray(_bc.files)) bndCfg=_bc; }catch(e){}
+function _bndFiles(){ return (bndCfg&&Array.isArray(bndCfg.files))?bndCfg.files.filter(function(f){ return f&&f.id&&f.u; }):[]; }
+function _bndFile(id){ var a=_bndFiles(); for(var i=0;i<a.length;i++) if(a[i].id===id) return a[i]; return null; }
+function _bndPage(k){
+  if(/^f:/.test(String(k))){ var fl=_bndFile(String(k).slice(2)); return fl?{k:k,nm:fl.nm,file:fl,f:[]}:null; }
+  for(var i=0;i<BND_PAGES.length;i++) if(BND_PAGES[i].k===k) return BND_PAGES[i]; return null;
+}
+function _bndState(){ if(!window._bndSt) window._bndSt={sel:[],vals:{},cur:0,seen:{}}; return window._bndSt; }
+// 미리보기 순서 = 선택 목록을 쪽 단위로 펼친 것(추가 파일은 여러 쪽)
+function _bndSeq(){
+  var out=[];
+  _bndState().sel.forEach(function(k){
+    var p=_bndPage(k); if(!p) return;
+    if(p.file){ var n=Math.max(1,+p.file.np||1); for(var i=1;i<=n;i++) out.push({k:k,src:p.file.id,pg:i,nm:p.nm+(n>1?' '+i+'/'+n:'')}); }
+    else out.push({k:k,src:'guide',pg:p.pg,nm:p.nm});
+  });
+  return out;
+}
+function _bndFirstIdx(k){ var s=_bndSeq(); for(var i=0;i<s.length;i++) if(s[i].k===k) return i; return 0; }
+function _bndCurK(){ var s=_bndSeq(), st=_bndState(); return s[st.cur]?s[st.cur].k:''; }
 // 숫자만 입력하면 천 단위 쉼표("50000"→"50,000"), 글자가 섞이면("5만") 그대로
 function _bndFmt(v){ v=String(v==null?'':v).trim(); if(/^[\d,]+$/.test(v)){ var n=v.replace(/,/g,'').replace(/^0+(?=\d)/,''); return n.replace(/\B(?=(\d{3})+(?!\d))/g,','); } return v; }
 function _bndVal(pk,fk){ var st=_bndState(); return _bndFmt((st.vals[pk]||{})[fk]); }
+function _bndNameOf(kind){ return kind==='mgr'?_sdVal('bnd_mgr'):(kind==='cust'?_sdVal('bnd_cust'):''); }
+// 새 항목을 넣을 자리 — '앞' 파일은 앞 파일들 끝, '뒤' 파일은 맨 끝, 기본 속지는 '뒤' 파일들 앞
+function _bndIns(k){
+  var st=_bndState(); if(st.sel.indexOf(k)>=0) return;
+  var p=_bndPage(k); if(!p) return;
+  var isBack=function(x){ var q=_bndPage(x); return !!(q&&q.file&&q.file.pos==='back'); };
+  var isFront=function(x){ var q=_bndPage(x); return !!(q&&q.file&&q.file.pos!=='back'); };
+  if(p.file&&p.file.pos!=='back'){ var j=0; st.sel.forEach(function(x,i){ if(isFront(x)) j=i+1; }); st.sel.splice(j,0,k); return; }
+  if(p.file){ st.sel.push(k); return; }
+  for(var i=0;i<st.sel.length;i++) if(isBack(st.sel[i])){ st.sel.splice(i,0,k); return; }
+  st.sel.push(k);
+}
 
 function rBinder(){
   var st=_bndState();
   var pick=g('bnd_pick'); if(!pick) return;
-  pick.innerHTML=BND_PAGES.map(function(p){
-    var on=st.sel.indexOf(p.k)>=0;
-    return '<label style="display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid '+(on?'#4858cc':'#dde')+';border-radius:8px;background:'+(on?'#eef0ff':'#fff')+';cursor:pointer;font-size:13.5px;color:#1c2140">'
-      +'<input type="checkbox" data-bndpick="'+p.k+'"'+(on?' checked':'')+' style="width:15px;height:15px;accent-color:#4858cc">'
-      +'<span>'+p.nm+'</span>'+(p.f.length?'<span style="margin-left:auto;font-size:11px;color:#4858cc">입력 '+p.f.length+'</span>':'')+'</label>';
-  }).join('');
+  var sb=g('bnd_setbtn'); if(sb) sb.style.display=_isAdmin()?'':'none';
+  var mg=g('bnd_mgr'); if(mg&&!st.mgrInit){ st.mgrInit=1; if(!mg.value&&typeof cu!=='undefined'&&cu&&cu.name) mg.value=cu.name; }
+  // 삭제된 파일은 선택에서 빼고, 처음 보는 파일은 자동으로 넣는다(한 번 ✕로 뺀 파일은 다시 넣지 않음)
+  st.sel=st.sel.filter(function(k){ return !!_bndPage(k); });
+  _bndFiles().forEach(function(fl){ if(!st.seen[fl.id]){ st.seen[fl.id]=1; _bndIns('f:'+fl.id); } });
+  var nSeq=_bndSeq().length; if(st.cur>=nSeq) st.cur=Math.max(0,nSeq-1);
+  var item=function(k,nm,badge){
+    var on=st.sel.indexOf(k)>=0;
+    return '<label style="display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid '+(on?'#4858cc':'#dde')+';border-radius:8px;background:'+(on?'#eef0ff':'#fff')+';cursor:pointer;font-size:13.5px;color:#1c2140;min-width:0">'
+      +'<input type="checkbox" data-bndpick="'+_alertEsc(k)+'"'+(on?' checked':'')+' style="width:15px;height:15px;accent-color:#4858cc;flex:0 0 auto">'
+      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(nm)+'</span>'+(badge?'<span style="margin-left:auto;font-size:11px;color:#4858cc;flex:0 0 auto">'+badge+'</span>':'')+'</label>';
+  };
+  pick.innerHTML=_bndFiles().map(function(fl){ return item('f:'+fl.id, fl.nm, (fl.pos==='back'?'뒤 · ':'앞 · ')+(fl.np||1)+'쪽'); }).join('')
+    +BND_PAGES.map(function(p){ return item(p.k, p.nm, p.f.length?'입력 '+p.f.length:''); }).join('');
   pick.onchange=function(ev){
     var cb=ev.target; if(!cb||!cb.getAttribute) return; var k=cb.getAttribute('data-bndpick'); if(!k) return;
     bndToggle(k, cb.checked);
   };
+  ['bnd_cust','bnd_mgr'].forEach(function(id){ var el=g(id); if(el&&!el._bndOn){ el._bndOn=1; el.addEventListener('input',function(){ _bndOverlay(); }); } });
   _bndListDraw(); _bndView();
   if(!window._bndKeyOn){
     window._bndKeyOn=1;
     document.addEventListener('keydown',function(ev){
       var pg=g('pg_binder'); if(!pg||!pg.classList.contains('active')) return;
       var t=ev.target; if(t&&((t.tagName==='INPUT'&&t.type!=='checkbox')||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-      if(document.querySelector('.mb.open')) return;   // 모달이 열려 있으면 넘기지 않음
+      if(document.querySelector('.mb.open')||g('bnd_cfg_pop')) return;   // 모달·설정 창이 열려 있으면 넘기지 않음
       if(ev.key==='ArrowLeft') bndGo(-1); else if(ev.key==='ArrowRight') bndGo(1);
     });
   }
 }
 function bndToggle(k, on){
   var st=_bndState(), i=st.sel.indexOf(k);
-  if(on&&i<0){ st.sel.push(k); st.cur=st.sel.length-1; }      // 새로 고른 속지를 바로 보여줌
-  if(!on&&i>=0){ st.sel.splice(i,1); if(st.cur>=st.sel.length) st.cur=Math.max(0,st.sel.length-1); }
+  if(on&&i<0){ _bndIns(k); st.cur=_bndFirstIdx(k); }      // 새로 고른 속지를 바로 보여줌
+  if(!on&&i>=0){ st.sel.splice(i,1); var n=_bndSeq().length; if(st.cur>=n) st.cur=Math.max(0,n-1); }
   rBinder();
 }
 function bndPickAll(on){
   var st=_bndState();
-  if(on){ BND_PAGES.forEach(function(p){ if(st.sel.indexOf(p.k)<0) st.sel.push(p.k); }); }
+  if(on){ _bndFiles().forEach(function(fl){ _bndIns('f:'+fl.id); }); BND_PAGES.forEach(function(p){ _bndIns(p.k); }); }
   else { st.sel=[]; st.cur=0; }
   rBinder();
 }
 function bndMove(k, d){
   var st=_bndState(), i=st.sel.indexOf(k), j=i+d; if(i<0||j<0||j>=st.sel.length) return;
-  var t=st.sel[i]; st.sel[i]=st.sel[j]; st.sel[j]=t; st.cur=j; _bndListDraw(); _bndView();
+  var t=st.sel[i]; st.sel[i]=st.sel[j]; st.sel[j]=t; st.cur=_bndFirstIdx(k); _bndListDraw(); _bndView();
 }
 function _bndListDraw(){
   var st=_bndState(), box=g('bnd_list'); if(!box) return;
   if(!st.sel.length){ box.innerHTML='<div style="font-size:13px;color:#99a;padding:14px 0;text-align:center">위에서 넣을 속지를 골라 주세요.</div>'; return; }
   var bs='width:26px;height:24px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-size:11px;padding:0';
+  var curK=_bndCurK();
   box.innerHTML=st.sel.map(function(k,i){
     var p=_bndPage(k); if(!p) return '';
     var vals=st.vals[k]||{};
-    var cur=(i===st.cur);
-    return '<div data-bndrow="'+k+'" style="border:1px solid '+(cur?'#4858cc':'#e3e5f0')+';border-radius:9px;padding:10px;margin-bottom:8px;background:'+(cur?'#f6f7ff':'#fff')+'">'
+    var cur=(k===curK), ka=_alertEsc(k);
+    var body;
+    if(p.file){
+      var nc=0, nm=0; (p.file.f||[]).forEach(function(f){ if(f.kind==='cust') nc++; else if(f.kind==='mgr') nm++; });
+      body='<div style="font-size:12px;color:#667;margin-top:6px">'+(p.file.np||1)+'쪽 파일'
+        +(nc||nm?' · 위의 '+[nc?'고객명':'',nm?'담당자명':''].filter(Boolean).join('·')+'이 자동으로 들어갑니다.':' · 그대로 들어갑니다.')+'</div>';
+    } else if(p.f.length){
+      body='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;margin-top:8px">'+p.f.map(function(f){
+          return '<label style="display:block;min-width:0;font-size:11.5px;color:#667">'+f.lb
+            +'<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><input data-bndin="'+ka+'|'+f.k+'" value="'+_alertEsc(vals[f.k]||'')+'" inputmode="numeric" maxlength="20" placeholder="0"'
+            +' style="flex:1;min-width:0;padding:6px 8px;border:1px solid #ccd;border-radius:6px;font-size:13.5px;text-align:right;color:#1c2140;background:#fff;font-family:inherit"><span style="font-size:12.5px;color:#556">원</span></div></label>';
+        }).join('')+'</div>';
+    } else body='<div style="font-size:12px;color:#99a;margin-top:6px">입력할 칸이 없는 속지예요(그대로 들어갑니다).</div>';
+    return '<div data-bndrow="'+ka+'" style="border:1px solid '+(cur?'#4858cc':'#e3e5f0')+';border-radius:9px;padding:10px;margin-bottom:8px;background:'+(cur?'#f6f7ff':'#fff')+'">'
       +'<div style="display:flex;align-items:center;gap:6px">'
       +'<span style="font-size:12px;font-weight:700;color:#fff;background:#4858cc;border-radius:10px;padding:1px 8px">'+(i+1)+'</span>'
-      +'<b data-bndshow="'+k+'" style="font-size:14px;color:#1c2140;cursor:pointer">'+p.nm+'</b>'
-      +'<span style="margin-left:auto;display:flex;gap:4px">'
-      +'<button type="button" data-bndmv="'+k+'|-1" style="'+bs+'"'+(i===0?' disabled':'')+'>▲</button>'
-      +'<button type="button" data-bndmv="'+k+'|1" style="'+bs+'"'+(i===st.sel.length-1?' disabled':'')+'>▼</button>'
-      +'<button type="button" data-bnddel="'+k+'" style="'+bs+';color:#c33">✕</button></span></div>'
-      +(p.f.length? '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;margin-top:8px">'+p.f.map(function(f){
-          return '<label style="display:block;min-width:0;font-size:11.5px;color:#667">'+f.lb
-            +'<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><input data-bndin="'+k+'|'+f.k+'" value="'+_alertEsc(vals[f.k]||'')+'" inputmode="numeric" maxlength="20" placeholder="0"'
-            +' style="flex:1;min-width:0;padding:6px 8px;border:1px solid #ccd;border-radius:6px;font-size:13.5px;text-align:right;color:#1c2140;background:#fff;font-family:inherit"><span style="font-size:12.5px;color:#556">원</span></div></label>';
-        }).join('')+'</div>'
-       : '<div style="font-size:12px;color:#99a;margin-top:6px">입력할 칸이 없는 속지예요(그대로 들어갑니다).</div>')
-      +'</div>';
+      +'<b data-bndshow="'+ka+'" style="font-size:14px;color:#1c2140;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(p.nm)+'</b>'
+      +'<span style="margin-left:auto;display:flex;gap:4px;flex:0 0 auto">'
+      +'<button type="button" data-bndmv="'+ka+'|-1" style="'+bs+'"'+(i===0?' disabled':'')+'>▲</button>'
+      +'<button type="button" data-bndmv="'+ka+'|1" style="'+bs+'"'+(i===st.sel.length-1?' disabled':'')+'>▼</button>'
+      +'<button type="button" data-bnddel="'+ka+'" style="'+bs+';color:#c33">✕</button></span></div>'
+      +body+'</div>';
   }).join('');
+  // 키에 '|'가 없으므로 마지막 '|' 기준으로 나눈다(파일 키 'f:id'도 안전)
+  var split=function(a){ var j=a.lastIndexOf('|'); return [a.slice(0,j), a.slice(j+1)]; };
   box.oninput=function(ev){
     var t=ev.target, a=t&&t.getAttribute&&t.getAttribute('data-bndin'); if(!a) return;
-    var pr=a.split('|'), st2=_bndState();
+    var pr=split(a), st2=_bndState();
     var f=_bndFmt(t.value);
     if(/^[\d,]+$/.test(String(t.value).trim()) && f!==t.value){   // 쉼표 정형 — 커서는 끝 기준 상대 위치 유지
       var back=t.value.length-(t.selectionStart||0); t.value=f; try{ var pos=Math.max(0,f.length-back); t.setSelectionRange(pos,pos); }catch(e){}
     }
     st2.vals[pr[0]]=st2.vals[pr[0]]||{}; st2.vals[pr[0]][pr[1]]=t.value;
-    var i=st2.sel.indexOf(pr[0]); if(i>=0&&i!==st2.cur){ st2.cur=i; _bndHighlight(); _bndView(); } else _bndOverlay();
+    if(_bndCurK()!==pr[0]){ st2.cur=_bndFirstIdx(pr[0]); _bndHighlight(); _bndView(); } else _bndOverlay();
   };
   box.onfocusin=function(ev){
     var t=ev.target, a=t&&t.getAttribute&&t.getAttribute('data-bndin'); if(!a) return;
-    var st2=_bndState(), i=st2.sel.indexOf(a.split('|')[0]); if(i>=0&&i!==st2.cur){ st2.cur=i; _bndHighlight(); _bndView(); }
+    var k=split(a)[0], st2=_bndState(); if(_bndCurK()!==k){ st2.cur=_bndFirstIdx(k); _bndHighlight(); _bndView(); }
   };
   box.onclick=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
-    var mv=t.closest('[data-bndmv]'); if(mv){ var pr=mv.getAttribute('data-bndmv').split('|'); bndMove(pr[0],+pr[1]); return; }
+    var mv=t.closest('[data-bndmv]'); if(mv){ var pr=split(mv.getAttribute('data-bndmv')); bndMove(pr[0],+pr[1]); return; }
     var dl=t.closest('[data-bnddel]'); if(dl){ bndToggle(dl.getAttribute('data-bnddel'),false); return; }
-    var sh=t.closest('[data-bndshow]'); if(sh){ var st2=_bndState(), i=st2.sel.indexOf(sh.getAttribute('data-bndshow')); if(i>=0){ st2.cur=i; _bndHighlight(); _bndView(); } }
+    var sh=t.closest('[data-bndshow]'); if(sh){ var k=sh.getAttribute('data-bndshow'), st2=_bndState(); if(st2.sel.indexOf(k)>=0){ st2.cur=_bndFirstIdx(k); _bndHighlight(); _bndView(); } }
   };
 }
 function _bndHighlight(){
-  var st=_bndState();
+  var curK=_bndCurK();
   document.querySelectorAll('#bnd_list [data-bndrow]').forEach(function(r){
-    var on=st.sel.indexOf(r.getAttribute('data-bndrow'))===st.cur;
+    var on=r.getAttribute('data-bndrow')===curK;
     r.style.borderColor=on?'#4858cc':'#e3e5f0'; r.style.background=on?'#f6f7ff':'#fff';
   });
 }
 function bndGo(d){
-  var st=_bndState(); if(!st.sel.length) return;
-  var n=Math.min(st.sel.length-1, Math.max(0, st.cur+d)); if(n===st.cur) return;
-  st.cur=n; _bndHighlight(); _bndView();
+  var st=_bndState(), n=_bndSeq().length; if(!n) return;
+  var c=Math.min(n-1, Math.max(0, st.cur+d)); if(c===st.cur) return;
+  st.cur=c; _bndHighlight(); _bndView();
 }
-// 원본 양식 PDF — 한 번 받아 메모리에 둔다(ArrayBuffer 원본은 보존하고 pdf.js·pdf-lib에는 사본을 넘김: pdf.js가 버퍼를 넘겨받아 비우기 때문)
-function _bndTpl(){
-  if(window._bndTplP) return window._bndTplP;
-  window._bndTplP=fetch(BND_TPL_URL,{cache:'no-cache'}).then(function(r){ if(!r.ok) throw new Error('양식 파일을 불러오지 못했습니다 ('+r.status+')'); return r.arrayBuffer(); })
-    .catch(function(e){ window._bndTplP=null; throw e; });
-  return window._bndTplP;
+// 원본 PDF — 출처별로 한 번 받아 메모리에 둔다(ArrayBuffer 원본은 보존하고 pdf.js·pdf-lib에는 사본을 넘김: pdf.js가 버퍼를 넘겨받아 비우기 때문)
+//   src: 'guide'(기본 속지) | 추가 파일 id
+function _bndBuf(src){
+  window._bndBufs=window._bndBufs||{};
+  if(window._bndBufs[src]) return window._bndBufs[src];
+  var url=src==='guide'?BND_TPL_URL:((_bndFile(src)||{}).u||'');
+  if(!url) return Promise.reject(new Error('파일을 찾지 못했습니다(삭제되었을 수 있어요).'));
+  window._bndBufs[src]=fetch(url,{cache:'no-cache'}).then(function(r){ if(!r.ok) throw new Error('양식 파일을 불러오지 못했습니다 ('+r.status+')'); return r.arrayBuffer(); })
+    .catch(function(e){ delete window._bndBufs[src]; throw e; });
+  return window._bndBufs[src];
 }
-function _bndImg(pg){
+function _bndPdf(src){
+  window._bndPdfs=window._bndPdfs||{};
+  if(!window._bndPdfs[src]) window._bndPdfs[src]=_bndBuf(src).then(function(buf){ return pdfjsLib.getDocument({data:buf.slice(0)}).promise; })
+    .catch(function(e){ delete window._bndPdfs[src]; throw e; });
+  return window._bndPdfs[src];
+}
+function _bndImg(src,pg){
   window._bndImgs=window._bndImgs||{};
-  if(window._bndImgs[pg]) return window._bndImgs[pg];
-  window._bndImgs[pg]=_bndTpl().then(function(buf){
-    if(!window._bndPdfP) window._bndPdfP=pdfjsLib.getDocument({data:buf.slice(0)}).promise;
-    return window._bndPdfP;
-  }).then(function(pdf){ return pdf.getPage(pg); }).then(function(page){
+  var key=src+'|'+pg;
+  if(window._bndImgs[key]) return window._bndImgs[key];
+  window._bndImgs[key]=_bndPdf(src).then(function(pdf){ return pdf.getPage(pg); }).then(function(page){
     var vp=page.getViewport({scale:2});
     var cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
-    return page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(function(){ return cv.toDataURL('image/jpeg',0.9); });
-  }).catch(function(e){ delete window._bndImgs[pg]; window._bndPdfP=null; throw e; });
-  return window._bndImgs[pg];
+    var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+    return page.render({canvasContext:cx,viewport:vp}).promise.then(function(){ return cv.toDataURL('image/jpeg',0.9); });
+  }).catch(function(e){ delete window._bndImgs[key]; throw e; });
+  return window._bndImgs[key];
+}
+function _bndDropCache(src){
+  ['_bndBufs','_bndPdfs'].forEach(function(n){ if(window[n]) delete window[n][src]; });
+  if(window._bndImgs) Object.keys(window._bndImgs).forEach(function(k){ if(k.indexOf(src+'|')===0) delete window._bndImgs[k]; });
+}
+function _bndPgSize(it){
+  if(it.src==='guide') return [BND_PW,BND_PH];
+  var fl=_bndFile(it.src), s=fl&&fl.sz&&fl.sz[it.pg-1];
+  return (s&&s[0]>0&&s[1]>0)?s:[BND_PW,BND_PH];
 }
 function _bndView(){
   var st=_bndState(), view=g('bnd_view'), cnt=g('bnd_cnt'), th=g('bnd_thumbs'); if(!view) return;
+  var seq=_bndSeq();
+  if(st.cur>=seq.length) st.cur=Math.max(0,seq.length-1);
   if(g('bnd_prev')) g('bnd_prev').disabled=st.cur<=0;
-  if(g('bnd_next')) g('bnd_next').disabled=st.cur>=st.sel.length-1;
-  if(!st.sel.length){
+  if(g('bnd_next')) g('bnd_next').disabled=st.cur>=seq.length-1;
+  if(!seq.length){
     view.innerHTML='<div style="aspect-ratio:594.96/841.92;border:2px dashed #dde;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#99a;font-size:14px">왼쪽에서 속지를 선택하면 여기에 보입니다</div>';
     if(cnt) cnt.textContent='-'; if(th) th.innerHTML=''; return;
   }
-  var p=_bndPage(st.sel[st.cur]);
-  if(cnt) cnt.textContent=(st.cur+1)+' / '+st.sel.length+' · '+p.nm;
-  if(th) th.innerHTML=st.sel.map(function(k,i){ var q=_bndPage(k);
-    return '<button type="button" data-bndgo="'+i+'" style="flex:0 0 auto;padding:4px 9px;border-radius:14px;border:1px solid '+(i===st.cur?'#4858cc':'#dde')+';background:'+(i===st.cur?'#4858cc':'#fff')+';color:'+(i===st.cur?'#fff':'#556')+';font-size:12px;cursor:pointer;font-family:inherit">'+(i+1)+'. '+q.nm+'</button>'; }).join('');
+  var it=seq[st.cur];
+  if(cnt) cnt.textContent=(st.cur+1)+' / '+seq.length+' · '+it.nm;
+  if(th) th.innerHTML=seq.map(function(q,i){
+    return '<button type="button" data-bndgo="'+i+'" style="flex:0 0 auto;padding:4px 9px;border-radius:14px;border:1px solid '+(i===st.cur?'#4858cc':'#dde')+';background:'+(i===st.cur?'#4858cc':'#fff')+';color:'+(i===st.cur?'#fff':'#556')+';font-size:12px;cursor:pointer;font-family:inherit">'+(i+1)+'. '+_esc(q.nm)+'</button>'; }).join('');
   if(th) th.onclick=function(ev){ var b=ev.target.closest&&ev.target.closest('[data-bndgo]'); if(!b) return; st.cur=+b.getAttribute('data-bndgo'); _bndHighlight(); _bndView(); };
-  var old=g('bnd_sheet');
-  if(old&&old.getAttribute('data-bndk')===p.k&&g('bnd_ov')){ _bndOverlay(); return; }   // 같은 쪽 — 이미지 유지, 겹친 값만 갱신
-  view.innerHTML='<div id="bnd_sheet" data-bndk="'+p.k+'" style="position:relative;aspect-ratio:594.96/841.92;container-type:inline-size;box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:4px;overflow:hidden;background:#fff;touch-action:pan-y">'
+  var key=it.src+'|'+it.pg, old=g('bnd_sheet');
+  if(old&&old.getAttribute('data-bndkey')===key&&g('bnd_ov')){ _bndOverlay(); return; }   // 같은 쪽 — 이미지 유지, 겹친 값만 갱신
+  var sz=_bndPgSize(it);
+  view.innerHTML='<div id="bnd_sheet" data-bndkey="'+_alertEsc(key)+'" style="position:relative;aspect-ratio:'+sz[0]+'/'+sz[1]+';container-type:inline-size;box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:4px;overflow:hidden;background:#fff;touch-action:pan-y">'
     +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#99a;font-size:13px">불러오는 중…</div></div>';
-  var seq=window._bndViewSeq=(window._bndViewSeq||0)+1;
-  _bndImg(p.pg).then(function(url){
-    if(seq!==window._bndViewSeq) return;   // 그 사이 다른 쪽으로 넘김 — 늦은 결과는 버림
+  var seqN=window._bndViewSeq=(window._bndViewSeq||0)+1;
+  _bndImg(it.src,it.pg).then(function(url){
+    if(seqN!==window._bndViewSeq) return;   // 그 사이 다른 쪽으로 넘김 — 늦은 결과는 버림
     var sh=g('bnd_sheet'); if(!sh) return;
     sh.innerHTML='<img src="'+url+'" alt="" draggable="false" style="width:100%;height:100%;display:block;user-select:none"><div id="bnd_ov" style="position:absolute;inset:0;pointer-events:none"></div>';
     _bndOverlay(); _bndSwipeBind(sh);
   }).catch(function(e){
-    if(seq!==window._bndViewSeq) return;
+    if(seqN!==window._bndViewSeq) return;
     var sh=g('bnd_sheet'); if(sh) sh.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#c33;font-size:13px;padding:20px;text-align:center">양식을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.<br>'+_esc(e.message||String(e))+'</div>';
   });
 }
-// 입력값 겹쳐 그리기 — 칸 오른쪽('원' 글자 앞) 정렬, 글씨 크기는 미리보기 폭에 비례(cqw)
+var BND_NAME_FONT='"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","나눔고딕",sans-serif';
+// 입력값 겹쳐 그리기 — 기본 속지: 칸 오른쪽('원' 글자 앞) 정렬 / 추가 파일: 'ㅇㅇㅇ'을 바탕색으로 덮고 이름을 그 자리에
 function _bndOverlay(){
-  var st=_bndState(), ov=g('bnd_ov'), sh=g('bnd_sheet'); if(!ov||!sh) return;
-  var p=_bndPage(sh.getAttribute('data-bndk')); if(!p) return;
-  ov.innerHTML=p.f.map(function(f){
-    var v=_bndVal(p.k,f.k); if(!v) return '';
-    var fs=11/BND_PW*100;
-    return '<div style="position:absolute;left:'+(f.x0/BND_PW*100)+'%;width:'+((f.x1-f.x0)/BND_PW*100)+'%;top:'+((f.y0-1.5)/BND_PH*100)+'%;'
-      +'font-size:'+fs+'cqw;line-height:1.25;color:#000;text-align:right;white-space:nowrap;font-family:\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif"><span style="display:inline-block;transform-origin:right center">'+_esc(v)+'</span></div>';
-  }).join('');
+  var ov=g('bnd_ov'), sh=g('bnd_sheet'); if(!ov||!sh) return;
+  var key=sh.getAttribute('data-bndkey')||'', j=key.lastIndexOf('|'), src=key.slice(0,j), pg=+key.slice(j+1);
+  if(src!=='guide'){
+    var fl=_bndFile(src); if(!fl){ ov.innerHTML=''; return; }
+    var sz=_bndPgSize({src:src,pg:pg}), W=sz[0], H=sz[1];
+    ov.innerHTML=(fl.f||[]).filter(function(f){ return f.pg===pg; }).map(function(f){
+      var v=_bndNameOf(f.kind); if(!v) return '';
+      var bx=_bndNameBox(f);
+      return '<div style="position:absolute;left:'+((f.x0-1.5)/W*100)+'%;width:'+((f.x1-f.x0+3)/W*100)+'%;top:'+(f.top/H*100)+'%;height:'+((f.bot-f.top)/H*100)+'%;background:'+_alertEsc(f.bg||'#ffffff')+'"></div>'
+        +'<div style="position:absolute;left:'+(bx.l/W*100)+'%;width:'+(bx.w/W*100)+'%;top:'+((f.base-f.fs*1.08)/H*100)+'%;'
+        +'font-size:'+(f.fs/W*100)+'cqw;line-height:1.35;color:#000;font-weight:700;text-align:'+(f.al==='l'?'left':'center')+';white-space:nowrap;font-family:'+BND_NAME_FONT.replace(/"/g,"'")+'">'
+        +'<span style="display:inline-block;transform-origin:'+(f.al==='l'?'left':'center')+' center">'+_esc(v)+'</span></div>';
+    }).join('');
+  } else {
+    var p=null; for(var i=0;i<BND_PAGES.length;i++) if(BND_PAGES[i].pg===pg) p=BND_PAGES[i];
+    if(!p){ ov.innerHTML=''; return; }
+    ov.innerHTML=p.f.map(function(f){
+      var v=_bndVal(p.k,f.k); if(!v) return '';
+      var fs=11/BND_PW*100;
+      return '<div style="position:absolute;left:'+(f.x0/BND_PW*100)+'%;width:'+((f.x1-f.x0)/BND_PW*100)+'%;top:'+((f.y0-1.5)/BND_PH*100)+'%;'
+        +'font-size:'+fs+'cqw;line-height:1.25;color:#000;text-align:right;white-space:nowrap;font-family:\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif"><span style="display:inline-block;transform-origin:right center">'+_esc(v)+'</span></div>';
+    }).join('');
+  }
   // 칸보다 긴 값은 PDF(_bndBuild)와 같이 비율 축소해 보여줌
   ov.querySelectorAll('div>span').forEach(function(sp){ var bw=sp.parentNode.clientWidth, w=sp.scrollWidth; if(bw>0&&w>bw) sp.style.transform='scale('+(bw/w)+')'; });
+}
+// 이름이 들어갈 가로 범위(pt) — 줄 맨 앞 자리는 왼쪽 맞춤, 문장 중간 자리는 'ㅇㅇㅇ' 가운데 기준
+function _bndNameBox(f){
+  var mw=Math.max(f.mw||0, f.x1-f.x0);
+  if(f.al==='l') return {l:f.x0, w:mw};
+  return {l:(f.x0+f.x1)/2-mw/2, w:mw};
+}
+// 이름 글자 PNG(3배 해상도) — 글자 바닥선은 캔버스 높이의 0.78 지점
+function _bndNamePng(text,fs){
+  var sc=3, cv=document.createElement('canvas'), ctx=cv.getContext('2d'), font='bold '+(fs*sc)+'px '+BND_NAME_FONT;
+  ctx.font=font; var tw=ctx.measureText(String(text)).width;
+  cv.width=Math.max(1,Math.min(Math.ceil(tw)+6,6000)); cv.height=Math.round(fs*sc*1.6);
+  ctx=cv.getContext('2d'); ctx.font=font; ctx.fillStyle='#000'; ctx.textBaseline='alphabetic';
+  ctx.fillText(String(text),3,cv.height*0.78);
+  return cv.toDataURL('image/png');
 }
 function _bndSwipeBind(el){
   var x0=null;
   el.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; },{passive:true});
   el.addEventListener('touchend',function(e){ if(x0==null) return; var dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>45) bndGo(dx<0?1:-1); },{passive:true});
 }
+function _bndHex(c){ var m=/^#?([0-9a-f]{6})$/i.exec(String(c||'')); var n=m?parseInt(m[1],16):0xffffff; return PDFLib.rgb(((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255); }
 // PDF 만들기 — 원본 쪽을 선택 순서대로 복사하고 입력값을 PNG 글자로 찍는다(쪽 크기·벡터 품질 그대로)
 async function _bndBuild(){
   var st=_bndState();
-  if(!st.sel.length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return null; }
-  var buf=await _bndTpl();
-  var src=await PDFLib.PDFDocument.load(buf.slice(0));
+  if(!_bndSeq().length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return null; }
   var out=await PDFLib.PDFDocument.create();
-  var idx=st.sel.map(function(k){ return _bndPage(k).pg-1; });
-  var pages=await out.copyPages(src, idx);
-  for(var i=0;i<pages.length;i++){
-    var pg=out.addPage(pages[i]);
-    var p=_bndPage(st.sel[i]), H=pg.getHeight();
+  var docs={};
+  var srcDoc=async function(src){ if(!docs[src]) docs[src]=await PDFLib.PDFDocument.load((await _bndBuf(src)).slice(0)); return docs[src]; };
+  for(var s=0;s<st.sel.length;s++){
+    var p=_bndPage(st.sel[s]); if(!p) continue;
+    if(p.file){
+      var fd=await srcDoc(p.file.id);
+      var cps=await out.copyPages(fd, fd.getPageIndices());
+      for(var q=0;q<cps.length;q++){
+        var fp=out.addPage(cps[q]), FH=fp.getHeight();
+        var fs=(p.file.f||[]).filter(function(f){ return f.pg===q+1; });
+        for(var r=0;r<fs.length;r++){
+          var ff=fs[r], nm=_bndNameOf(ff.kind); if(!nm) continue;
+          fp.drawRectangle({x:ff.x0-1.5, y:FH-ff.bot, width:ff.x1-ff.x0+3, height:ff.bot-ff.top, color:_bndHex(ff.bg)});
+          var npng=_bndNamePng(nm,ff.fs);
+          var nimg=await out.embedPng(Uint8Array.from(atob(npng.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
+          var bx=_bndNameBox(ff), nw=nimg.width/3, nh=nimg.height/3, nsc=nw>bx.w?bx.w/nw:1;
+          var w2=nw*nsc, h2=nh*nsc, x2=ff.al==='l'?bx.l:bx.l+(bx.w-w2)/2;
+          var top2=ff.base-h2*0.78;                           // 글자 바닥선을 원래 'ㅇㅇㅇ' 바닥선에 맞춤
+          fp.drawImage(nimg,{x:x2-3/3*nsc, y:FH-top2-h2, width:w2, height:h2});
+        }
+      }
+      continue;
+    }
+    var gd=await srcDoc('guide');
+    var pg=out.addPage((await out.copyPages(gd,[p.pg-1]))[0]), H=pg.getHeight();
     for(var j=0;j<p.f.length;j++){
       var f=p.f[j], v=_bndVal(p.k,f.k); if(!v) continue;
       var png=_sdTextToPng(v,11); if(!png) continue;
@@ -7473,12 +7605,20 @@ async function _bndBuild(){
   }
   return await out.save();
 }
+// 고객명·담당자명이 필요한 파일이 들어갔는데 비어 있으면 확인(비우면 'ㅇㅇㅇ'이 그대로 나감)
+function _bndNameCheck(){
+  var need={};
+  _bndState().sel.forEach(function(k){ var p=_bndPage(k); if(p&&p.file) (p.file.f||[]).forEach(function(f){ if(f.kind==='cust'||f.kind==='mgr') need[f.kind]=1; }); });
+  var miss=[]; if(need.cust&&!_sdVal('bnd_cust')) miss.push('고객명'); if(need.mgr&&!_sdVal('bnd_mgr')) miss.push('담당자명');
+  return !miss.length||confirm(miss.join('·')+'이 비어 있어 표지의 \'ㅇㅇㅇ\'이 그대로 나갑니다. 계속할까요?');
+}
 function _bndFileName(){
   var nm=_sdVal('bnd_cust').replace(/[\\/:*?"<>|]/g,'_').slice(0,30)||'고객';
   return '증권바인더_'+nm+'_'+tds().replace(/\./g,'')+'.pdf';
 }
 async function bndDownload(){
   if(window._bndBusy){ toast('PDF를 만드는 중입니다. 잠시만 기다려 주세요.'); return; }
+  if(_bndSeq().length&&!_bndNameCheck()) return;
   window._bndBusy=true;
   try{
     var bytes=await _bndBuild(); if(!bytes) return;
@@ -7493,7 +7633,8 @@ async function bndDownload(){
 // [출력] — 새 탭을 클릭 제스처 안에서 먼저 열고 PDF를 실은 뒤 인쇄 시도(sdPrint 패턴 — 팝업 차단·무통보 실패 방지)
 async function bndPrint(){
   if(window._bndBusy){ toast('PDF를 만드는 중입니다. 잠시만 기다려 주세요.'); return; }
-  if(!_bndState().sel.length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return; }
+  if(!_bndSeq().length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return; }
+  if(!_bndNameCheck()) return;
   var w=null; try{ w=window.open('about:blank'); }catch(e){}
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
   window._bndBusy=true;
@@ -7510,11 +7651,182 @@ async function bndPrint(){
 function _bndClear(){
   window._bndSt=null; window._bndViewSeq=(window._bndViewSeq||0)+1;
   var c=g('bnd_cust'); if(c) c.value='';
+  var m=g('bnd_mgr'); if(m) m.value='';
+  var pop=g('bnd_cfg_pop'); if(pop) pop.remove();
   ['bnd_list','bnd_view','bnd_thumbs'].forEach(function(id){ var el=g(id); if(el) el.innerHTML=''; });
 }
 function bndReset(){
-  if(!confirm('선택한 속지와 입력한 금액을 모두 지울까요?')) return;
+  if(!confirm('선택한 속지와 입력한 내용을 모두 지울까요?')) return;
   _bndClear(); rBinder();
+}
+
+// ── [설정] 증권바인더 파일 관리(관리자 전용, 2026-10-07) ──
+function _bndCfgSave(){
+  if(!bndCfg||typeof bndCfg!=='object') bndCfg={files:[]};
+  window._bndCfgJson=JSON.stringify(bndCfg);
+  sv('tops_bndcfg', bndCfg);   // 관리자만 쓰는 작은 메타데이터(URL·좌표) — 배열째 저장(삭제 전파)
+}
+function bndCfgOpen(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var old=g('bnd_cfg_pop'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='bnd_cfg_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,40,.55);z-index:100005;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;color:#1c2140;border-radius:12px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">증권바인더 파일 설정</b>'
+    +'<span style="font-size:12.5px;color:#667">바인더에 넣을 PDF 추가 · 삭제 (관리자 전용)</span><span style="flex:1"></span><span data-bndcx style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
+    +'<div style="padding:12px 18px;border-bottom:1px solid #f0f0f4;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<label class="bp" style="cursor:pointer;background:#4858cc;color:#fff;border:1px solid #4858cc;font-size:13px;padding:6px 14px"><i class="ti ti-file-plus"></i> PDF 추가'
+    +'<input type="file" accept="application/pdf,.pdf" data-bndcup style="display:none"></label>'
+    +'<span id="bnd_cfg_st" style="font-size:12.5px;color:#4858cc"></span>'
+    +'<div style="flex-basis:100%;font-size:12px;color:#667;line-height:1.6">PDF 안의 <b>ㅇㅇㅇ</b>(또는 ○○○) 자리를 자동으로 찾아, 바인더를 만들 때 <b>고객명</b>·<b>담당자명</b>으로 바꿔 넣습니다. 같은 줄에 \'담당\'이 있으면 담당자명, 아니면 고객명으로 정해지며 아래에서 바꿀 수 있어요.</div></div>'
+    +'<div id="bnd_cfg_list" style="padding:10px 18px;overflow:auto"></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(ev){
+    var t=ev.target;
+    if(t===ov||(t.closest&&t.closest('[data-bndcx]'))){ ov.remove(); return; }
+    var b=t.closest&&t.closest('[data-bndca]'); if(!b) return;
+    var id=b.getAttribute('data-bndcid'), a=b.getAttribute('data-bndca');
+    if(a==='view'){ var fl=_bndFile(id); if(fl) window.open(fl.u,'_blank'); }
+    else if(a==='up'||a==='down') _bndCfgMove(id, a==='up'?-1:1);
+    else if(a==='del') _bndCfgDel(id);
+  });
+  ov.addEventListener('change',function(ev){
+    var t=ev.target; if(!t||!t.getAttribute) return;
+    if(t.hasAttribute('data-bndcup')){ var f=t.files&&t.files[0]; t.value=''; if(f) bndCfgUpload(f); return; }
+    var id=t.getAttribute('data-bndcid'), fl=id&&_bndFile(id); if(!fl) return;
+    if(t.hasAttribute('data-bndcnm')){ var v=String(t.value||'').trim().slice(0,40); if(!v){ t.value=fl.nm; return; } fl.nm=v; }
+    else if(t.hasAttribute('data-bndcpos')) fl.pos=t.value==='back'?'back':'front';
+    else if(t.hasAttribute('data-bndcfk')){ var fi=+t.getAttribute('data-bndcfk'); if(fl.f&&fl.f[fi]) fl.f[fi].kind=/^(cust|mgr|off)$/.test(t.value)?t.value:'cust'; }
+    else return;
+    _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
+  });
+  _bndCfgDraw();
+}
+function _bndCfgDraw(){
+  var box=g('bnd_cfg_list'); if(!box) return;
+  var files=_bndFiles();
+  var btn=function(id,a,lb,css,dis){ return '<button type="button" class="bp" data-bndcid="'+_alertEsc(id)+'" data-bndca="'+a+'"'+(dis?' disabled':'')+' style="font-size:12px;padding:4px 9px;'+(css||'')+'">'+lb+'</button>'; };
+  var sel='padding:4px 6px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#1c2140;font-size:12.5px;font-family:inherit';
+  box.innerHTML=(files.length?files.map(function(fl,i){
+    var ida=_alertEsc(fl.id);
+    var fields=(fl.f||[]).map(function(f,fi){
+      return '<span style="display:inline-flex;align-items:center;gap:4px;margin:3px 10px 0 0;font-size:12px;color:#556">'+f.pg+'쪽 ㅇㅇㅇ →'
+        +'<select data-bndcid="'+ida+'" data-bndcfk="'+fi+'" style="'+sel+'">'
+        +'<option value="cust"'+(f.kind==='cust'?' selected':'')+'>고객명</option><option value="mgr"'+(f.kind==='mgr'?' selected':'')+'>담당자명</option><option value="off"'+(f.kind==='off'?' selected':'')+'>그대로 두기</option></select></span>';
+    }).join('');
+    return '<div style="padding:10px 4px;border-bottom:1px solid #f0f0f4">'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      +'<input data-bndcid="'+ida+'" data-bndcnm value="'+_alertEsc(fl.nm)+'" maxlength="40" style="flex:1;min-width:150px;padding:6px 8px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#1c2140;font-size:13.5px;font-weight:600;font-family:inherit">'
+      +'<span style="font-size:12px;color:#889">'+(fl.np||1)+'쪽</span>'
+      +'<select data-bndcid="'+ida+'" data-bndcpos style="'+sel+'"><option value="front"'+(fl.pos!=='back'?' selected':'')+'>앞에 넣기</option><option value="back"'+(fl.pos==='back'?' selected':'')+'>뒤에 넣기</option></select>'
+      +btn(fl.id,'up','▲','',i===0)+btn(fl.id,'down','▼','',i===files.length-1)
+      +btn(fl.id,'view','보기','')
+      +btn(fl.id,'del','삭제','background:#fff0f0;border-color:rgba(200,50,50,.35);color:#c03030')+'</div>'
+      +'<div style="margin-top:4px">'+(fields||'<span style="font-size:12px;color:#99a">이름 자리(ㅇㅇㅇ) 없음 — 그대로 들어갑니다.</span>')+'</div></div>';
+  }).join(''):'<div style="color:#889;font-size:13px;padding:18px;text-align:center">추가한 파일이 없습니다. [PDF 추가]로 올려 주세요.</div>')
+    +'<div style="padding:10px 4px;font-size:12px;color:#889">기본 속지 '+BND_PAGES.length+'장(간병인 지원 ~ 장기요양등급)은 항상 고를 수 있습니다.</div>';
+}
+function _bndCfgApplied(){ try{ if(window._curPage==='binder') rBinder(); }catch(e){} }
+function _bndCfgMove(id,d){
+  var a=bndCfg.files, i=-1; for(var k=0;k<a.length;k++) if(a[k]&&a[k].id===id) i=k;
+  var j=i+d; if(i<0||j<0||j>=a.length) return;
+  var t=a[i]; a[i]=a[j]; a[j]=t;
+  _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
+}
+function _bndCfgDel(id){
+  var fl=_bndFile(id); if(!fl) return;
+  if(!confirm('"'+fl.nm+'" 파일을 증권바인더에서 삭제할까요?\n(모든 팀원 화면에서 빠집니다)')) return;
+  bndCfg.files=bndCfg.files.filter(function(x){ return !(x&&x.id===id); });
+  _bndCfgSave();
+  try{ if(fl.path) firebase.storage().ref(fl.path).delete().catch(function(){}); }catch(e){}   // 원본 정리(최선 노력)
+  _bndDropCache(id);
+  _bndCfgDraw(); _bndCfgApplied(); toast('파일을 삭제했습니다.');
+}
+// 'ㅇㅇㅇ' 이름 자리 찾기 — pdf.js 글자 위치를 줄 단위로 모아 찾고, 바탕색은 그 자리 위·아래 줄의 가장 흔한 색
+async function _bndDetect(buf){
+  var pdf=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+  var res={np:pdf.numPages, sz:[], f:[]};
+  try{
+    for(var pn=1;pn<=pdf.numPages;pn++){
+      var page=await pdf.getPage(pn), vp=page.getViewport({scale:1});
+      res.sz.push([Math.round(vp.width*100)/100, Math.round(vp.height*100)/100]);
+      var tc=await page.getTextContent(), lines=[];
+      tc.items.forEach(function(it){
+        var s=String(it.str||''); if(!s) return;
+        var tr=it.transform, pt=vp.convertToViewportPoint(tr[4],tr[5]);
+        var fs=it.height>0?it.height:Math.hypot(tr[2],tr[3]); if(!(fs>0)) return;
+        var ln=null; for(var i=0;i<lines.length;i++) if(Math.abs(lines[i].base-pt[1])<fs*0.3){ ln=lines[i]; break; }
+        if(!ln){ ln={base:pt[1], fs:fs, ch:[]}; lines.push(ln); }
+        for(var c=0;c<s.length;c++) ln.ch.push({c:s[c], x0:pt[0]+it.width*c/s.length, x1:pt[0]+it.width*(c+1)/s.length, fs:fs});
+      });
+      var found=[];
+      lines.forEach(function(ln){
+        ln.ch.sort(function(a,b){ return a.x0-b.x0; });
+        var str=ln.ch.map(function(o){ return o.c; }).join(''), re=/[ㅇ○◯〇](?:\s*[ㅇ○◯〇]){1,5}/g, m;
+        while((m=re.exec(str))){
+          var a=ln.ch[m.index], b=ln.ch[m.index+m[0].length-1], fs=a.fs;
+          var before=str.slice(0,m.index), after=str.slice(m.index+m[0].length);
+          var nxt=null; for(var q=m.index+m[0].length;q<ln.ch.length;q++) if(/\S/.test(ln.ch[q].c)){ nxt=ln.ch[q].x0; break; }
+          var al=/\S/.test(before)?'c':'l';
+          var mw=al==='l'?(nxt!=null?Math.max(b.x1-a.x0, nxt-a.x0-fs*0.4):(b.x1-a.x0)*2.5):(b.x1-a.x0)*1.4;
+          found.push({pg:pn, x0:r2(a.x0), x1:r2(b.x1), base:r2(ln.base), fs:r2(fs), top:r2(ln.base-fs*0.98), bot:r2(ln.base+fs*0.24),
+            al:al, mw:r2(Math.min(mw, vp.width-a.x0-4)), kind:/담당/.test(before+after)?'mgr':'cust', bg:'#ffffff'});
+        }
+      });
+      if(found.length){
+        var sc=2, v2=page.getViewport({scale:sc}), cv=document.createElement('canvas');
+        cv.width=Math.round(v2.width); cv.height=Math.round(v2.height);
+        var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+        await page.render({canvasContext:cx, viewport:v2}).promise;
+        found.forEach(function(f){ f.bg=_bndBgPick(cx, cv, f, sc); res.f.push(f); });
+      }
+    }
+  } finally { try{ pdf.destroy(); }catch(e){} }
+  return res;
+  function r2(v){ return Math.round(v*100)/100; }
+}
+function _bndBgPick(cx, cv, f, sc){
+  var cnt={}, best='#ffffff', bn=0;
+  var add=function(x,y){
+    x=Math.round(x*sc); y=Math.round(y*sc); if(x<0||y<0||x>=cv.width||y>=cv.height) return;
+    var d=cx.getImageData(x,y,1,1).data;
+    var h='#'+[d[0],d[1],d[2]].map(function(n){ return ('0'+(n&0xf8).toString(16)).slice(-2); }).join('');
+    cnt[h]=(cnt[h]||0)+1; if(cnt[h]>bn){ bn=cnt[h]; best='#'+[d[0],d[1],d[2]].map(function(n){ return ('0'+n.toString(16)).slice(-2); }).join(''); }
+  };
+  for(var i=0;i<=20;i++){ var x=f.x0-1+(f.x1-f.x0+2)*i/20; add(x,f.top-1.5); add(x,f.bot+1.5); }
+  for(var j=0;j<=6;j++){ var y=f.top+(f.bot-f.top)*j/6; add(f.x0-3,y); }
+  return best;
+}
+async function bndCfgUpload(file){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(!/pdf/i.test(file.type||'')&&!/\.pdf$/i.test(file.name||'')){ toast('PDF 파일만 올릴 수 있습니다.'); return; }
+  if(file.size>30*1024*1024){ toast('30MB 이하 PDF만 올릴 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  if(window._bndCfgBusy){ toast('올리는 중입니다. 잠시만 기다려 주세요.'); return; }
+  window._bndCfgBusy=true;
+  var stEl=g('bnd_cfg_st'), say=function(t){ var e=g('bnd_cfg_st'); if(e) e.textContent=t; };
+  try{
+    say('파일 읽는 중…');
+    var buf=await file.arrayBuffer();
+    try{ await PDFLib.PDFDocument.load(buf.slice(0)); }catch(e){ throw new Error('PDF를 열 수 없습니다(암호가 걸렸거나 손상된 파일).'); }
+    say('이름 자리(ㅇㅇㅇ) 찾는 중…');
+    var det=await _bndDetect(buf);
+    say('클라우드에 올리는 중…');
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var path='claim_templates/binder/'+id+'.pdf', ref=firebase.storage().ref(path);
+    await ref.put(new Uint8Array(buf),{contentType:'application/pdf'});
+    var url=await ref.getDownloadURL();
+    if(!_isAdmin()){ try{ ref.delete().catch(function(){}); }catch(e){} return; }   // 업로드 중 로그아웃 — 버림
+    var nm=String(file.name||'바인더 파일').replace(/\.pdf$/i,'').replace(/[_\s]+/g,' ').trim().slice(0,40)||'바인더 파일';
+    if(!bndCfg||!Array.isArray(bndCfg.files)) bndCfg={files:[]};
+    bndCfg.files.push({id:id, nm:nm, u:url, path:path, pos:'front', np:det.np, sz:det.sz, f:det.f, ts:Date.now(), by:(cu&&cu.name)||''});
+    _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
+    var nc=det.f.filter(function(f){ return f.kind==='cust'; }).length, nmg=det.f.filter(function(f){ return f.kind==='mgr'; }).length;
+    say('');
+    toast('추가했습니다 — '+det.np+'쪽, 이름 자리 '+det.f.length+'곳(고객명 '+nc+' · 담당자명 '+nmg+')');
+  }catch(e){ console.warn('bnd upload', e); say(''); toast('파일 추가 실패: '+((e&&e.message)||e)); }
+  finally{ window._bndCfgBusy=false; }
 }
 
 function _sdVal(id){ var el=g(id); return el?String(el.value||'').trim():''; }
