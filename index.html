@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-5</div>
   </div>
 </div>
 
@@ -4591,6 +4591,7 @@ function login(){
   });
 }
 function logout(){
+  try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
   try{ window._medLastPw=''; }catch(_){}
   try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
   cu=null;
@@ -19793,9 +19794,58 @@ function _renderCustInfoModal(c, fm){
       }).join('')
       +'</table>';
   }
-  if(t) t.textContent=(who.name||'고객')+' 고객정보';
-  body.innerHTML='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+grdHtml+famHtml;
+  var ttl=(who.name||'고객')+' 고객정보';
+  var inner='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+grdHtml+famHtml;
+  // 새 창(팝업)으로 띄움(2026-10-07, 사용자 요청) — 마우스로 원하는 곳에 옮기고 크기 조절, 고객마다 창 하나씩.
+  //   팝업이 차단되면 기존 모달로 표시. 내용은 위에서 전부 이스케이프됨(about:blank 같은 출처 창이라 XSS 규칙 동일).
+  var _ck=(Array.isArray(custs)?custs.indexOf(c):-1)+'_'+(fm&&Array.isArray(c.family)?c.family.indexOf(fm):'m');   // 고객 위치 기준 — 동명이인도 창이 따로
+  if(_custInfoPopup(ttl, inner, _ck)) return;
+  if(t) t.textContent=ttl;
+  body.innerHTML=inner;
   mb.classList.add('open');
+}
+// 고객정보 새 창 — 창 이름을 고객별로 달리해 여러 고객을 나란히 띄울 수 있음(같은 고객은 같은 창을 다시 씀).
+//   창 안의 값 클릭 복사는 창 자체 스크립트(_csrCopyVal 같은 이름)로 처리. 로그아웃 시 _custInfoCloseAll로 모두 닫음(개인정보 잔존 방지).
+function _custInfoPopup(ttl, inner, ck){
+  var key='custinfo_'+String(ck||'x').replace(/[^0-9A-Za-z_-]/g,'').slice(0,30);
+  var w=null;
+  try{
+    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-680), T=(window.screenY||0)+90;
+    w=window.open('', key, 'width=600,height=720,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
+  }catch(e){ w=null; }
+  if(!w) return false;
+  var sc='<scr'+'ipt>'
+    +'function _ciToast(m){var t=document.getElementById("ci_toast");t.textContent=m;t.style.opacity="1";clearTimeout(window._ciT);window._ciT=setTimeout(function(){t.style.opacity="0";},1600);}'
+    +'function _csrCopyVal(el){var v=el.getAttribute("data-copy")||"";if(!v)return;var lb=el.getAttribute("data-cplb")||"값";'
+    +'var ok=function(){_ciToast(lb+" 복사 완료: "+v);};'
+    +'var fb=function(){try{var ta=document.createElement("textarea");ta.value=v;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy")?ok():_ciToast("복사에 실패했습니다.");ta.remove();}catch(e){_ciToast("복사에 실패했습니다.");}};'
+    +'if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(ok,fb);else fb();}'
+    // 메인 창이 닫히거나 새로고침·로그아웃되면 스스로 닫힘(공용 PC 개인정보 잔존 방지 — 리뷰 반영)
+    +'setInterval(function(){try{var o=window.opener;if(!o||o.closed||!o.cu||!o._custInfoWins||!o._custInfoWins[window.name])window.close();}catch(e){window.close();}},1500);'
+    +'</scr'+'ipt>';
+  var html='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>'+_alertEsc(ttl)+'</title>'
+    +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">'
+    +'<style>body{margin:0;padding:18px 18px 70px;background:#fff;color:#1a1a2e;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}'
+    +'h1{font-size:19px;margin:0 0 14px}td[onclick]:hover{background:#f4f6ff}'
+    +'#ci_bar{position:fixed;left:0;right:0;bottom:0;padding:10px 18px;background:#fff;border-top:1px solid #e3e6f3;text-align:right}'
+    +'#ci_bar button{padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}'
+    +'#ci_toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);background:#1c2140;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}</style>'
+    +sc+'</head><body><h1>'+_alertEsc(ttl)+'</h1>'+inner
+    +'<div id="ci_toast"></div><div id="ci_bar"><button onclick="window.close()">닫기</button></div></body></html>';
+  try{
+    w.document.open(); w.document.write(html); w.document.close();
+    try{ w.focus(); }catch(e){}
+  }catch(e){ try{ w.close(); }catch(_e){} return false; }
+  window._custInfoWins=window._custInfoWins||{};
+  window._custInfoWins[key]=w;
+  return true;
+}
+try{ window.addEventListener('pagehide', function(){ try{ _custInfoCloseAll(); }catch(e){} }); }catch(e){}   // 메인 탭 새로고침·닫기 때도 창 닫기
+function _custInfoCloseAll(){
+  var m=window._custInfoWins||{};
+  Object.keys(m).forEach(function(k){ try{ if(m[k]&&!m[k].closed) m[k].close(); }catch(e){} });
+  window._custInfoWins={};
 }
 function closeCustInfo(){ var mb=g('m_custinfo'); if(mb) mb.classList.remove('open'); }
 

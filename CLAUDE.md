@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -96,6 +96,14 @@
   - 고객 목록(`rCustList`)·고객등록 현황(`rCustStatus`) 모두 이 규칙.
   - 고객등록 현황은 고객명 아래 **상세 인라인 표시**(주민번호/연락처/주소/키·몸무게/직업/운전여부 — 2026-08-26):
     모달(openCustInfo)과 동일한 조회(`_findCustByReqName`)·권한식(총무 또는 담당자 본인) 재사용, 값 전부 `_esc`.
+
+### 3.3 고객정보 창 — 새 창(팝업)으로 (2026-10-07 — v2026.10.07-5, 사용자 요청)
+
+- 고객명 클릭으로 여는 고객정보(`_renderCustInfoModal`)는 **브라우저 새 창**(`_custInfoPopup` — about:blank에 document.write)으로 뜬다 — 원하는 곳으로 옮기고 크기 조절.
+  창 이름 `custinfo_<고객 원본 인덱스>_<가족 인덱스|m>`(동명이인도 창이 따로, 같은 고객은 같은 창 재사용). 팝업이 차단되면 기존 모달 `m_custinfo`로 폴백.
+- 창 안 값 클릭 복사는 창 자체 스크립트(같은 이름 `_csrCopyVal` + `#ci_toast`). 내용은 기존과 같은 `_alertEsc` 이스케이프(같은 출처 창 — XSS 규칙 동일).
+- ⚠️ 개인정보 잔존 방지 3중: `logout()` 첫 줄 `_custInfoCloseAll()`, 메인 탭 `pagehide`(새로고침·닫기)에서도 닫기, 창 스스로 1.5초마다
+  opener가 없거나 닫힘·`cu` 없음·창 목록에서 빠졌으면 `window.close()`. 헤드리스 검증(동명이인 2창·새로고침 시 닫힘·로그인 정보 사라지면 닫힘·차단 시 모달).
 
 ### 3.4 고객 목록 — 같은 내용 합치기 · 청구신청 바로가기 (2026-09-15, v2026.09.15-14)
 
