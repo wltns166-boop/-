@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-8</div>
   </div>
 </div>
 
@@ -3056,7 +3056,7 @@ function rSchedulePage(){
   </div>
 </div></div>
 
-<div class="mb" id="m_custinfo"><div class="mo" style="width:560px;max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+<div class="mb" id="m_custinfo"><div class="mo" style="width:min(1000px,96vw);max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
   <div class="mth" style="color:#1a1a2e"><span id="m_custinfo_t">고객정보</span><span class="mc" onclick="closeCustInfo()" style="color:#555">×</span></div>
   <div id="m_custinfo_body" style="color:#1a1a2e"></div>
   <div class="mf"><button onclick="closeCustInfo()" style="padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button></div>
@@ -19953,42 +19953,85 @@ function _renderCustInfoModal(c, fm){
     _rqs.sort(function(a,b){ return (a.regTs||0)-(b.regTs||0); });
     var _th='background:#eef1fb;border:1px solid #e3e6f3;padding:6px;font-size:12px';
     var _td='border:1px solid #e3e6f3;padding:6px;font-size:13px;text-align:center';
-    insHtml='<div style="font-weight:700;color:#2a2a4a;margin:14px 0 6px;font-size:14px"><i class="ti ti-building-bank"></i> 고객등록 신청 보험사'+(_rqs.length?' <span style="font-weight:400;color:#8890aa;font-size:12px">'+_rqs.length+'곳</span>':'')+'</div>'
-      +(_rqs.length?'<table style="border-collapse:collapse;width:100%"><tr><th style="'+_th+'">보험사</th><th style="'+_th+'">신청일</th><th style="'+_th+'">진행</th></tr>'
+    // 코드·비밀번호 칸은 담당자의 [보험사 코드 관리](inscode) 값을 창을 연 뒤 채움(_ciFillCodes — 비동기, 처음엔 …)
+    insHtml='<div style="font-weight:700;color:#2a2a4a;margin:0 0 6px;font-size:14px"><i class="ti ti-building-bank"></i> 고객등록 신청 보험사'+(_rqs.length?' <span style="font-weight:400;color:#8890aa;font-size:12px">'+_rqs.length+'곳</span>':'')+'</div>'
+      +(_rqs.length?'<table style="border-collapse:collapse;width:100%"><tr><th style="'+_th+'">보험사</th><th style="'+_th+'">코드</th><th style="'+_th+'">비밀번호</th><th style="'+_th+'">진행여부</th></tr>'
         +_rqs.map(function(r){
           var st=r.done?'<span style="color:#1a8a4a;font-weight:700">완료</span>':'<span style="color:#c03030;font-weight:700">미완료</span>'+(r.reason?'<div style="font-size:11px;color:#a06060;margin-top:2px">'+esc(r.reason)+'</div>':'');
-          return '<tr><td style="'+_td+';font-weight:600">'+esc(r.ins)+'</td><td style="'+_td+'">'+esc(r.regDate||'-')+'</td><td style="'+_td+'">'+st+'</td></tr>';
+          return '<tr><td style="'+_td+';font-weight:600">'+esc(r.ins)+'</td>'
+            +'<td style="'+_td+'" data-ciins="'+esc(r.ins)+'" data-cik="code"><span style="color:#b0b4c8">…</span></td>'
+            +'<td style="'+_td+'" data-ciins="'+esc(r.ins)+'" data-cik="pw"><span style="color:#b0b4c8">…</span></td>'
+            +'<td style="'+_td+'">'+st+'</td></tr>';
         }).join('')+'</table>'
+        +'<div style="font-size:11px;color:#99a;margin-top:4px">코드·비밀번호는 담당자('+esc(c.m||'-')+')의 [보험사 코드 관리] 값입니다. 누르면 복사돼요.</div>'
        :'<div style="border:1px dashed #d8dcf0;border-radius:8px;padding:12px;text-align:center;color:#8890aa;font-size:13px">신청한 보험사가 없습니다.</div>');
   }catch(e){ insHtml=''; }
   var ttl=(who.name||'고객')+' 고객정보';
-  var inner='<table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table>'+insHtml+grdHtml+famHtml;
+  // 왼쪽 고객 정보 · 오른쪽 신청 보험사 나란히(좁으면 아래로)
+  var inner='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div style="flex:1 1 360px;min-width:0"><table style="border-collapse:collapse;width:100%">'+rowsArr.join('')+'</table></div>'
+    +(insHtml?'<div style="flex:1 1 380px;min-width:0">'+insHtml+'</div>':'')+'</div>'+grdHtml+famHtml;
   // 새 창(팝업)으로 띄움(2026-10-07, 사용자 요청) — 마우스로 원하는 곳에 옮기고 크기 조절, 고객마다 창 하나씩.
   //   팝업이 차단되면 기존 모달로 표시. 내용은 위에서 전부 이스케이프됨(about:blank 같은 출처 창이라 XSS 규칙 동일).
   var _ck=(Array.isArray(custs)?custs.indexOf(c):-1)+'_'+(fm&&Array.isArray(c.family)?c.family.indexOf(fm):'m');   // 고객 위치 기준 — 동명이인도 창이 따로
-  if(_custInfoPopup(ttl, inner, _ck)) return;
+  if(_custInfoPopup(ttl, inner, _ck, c.m)) return;   // 새 창은 자기 화면이 다 그려진 뒤 스스로 _ciFillCodes를 부름
   if(t) t.textContent=ttl;
   body.innerHTML=inner;
   mb.classList.add('open');
+  _ciFillCodes(window, c.m);
+}
+// 신청 보험사 표의 코드·비밀번호 채우기 — 담당자 이름 → 계정 키(_icKeyOf, 관리자는 'n_이름') → inscode 문서.
+//   보험사 이름은 공백 무시 일치 우선, 없으면 한쪽이 다른 쪽을 포함하면 같은 보험사로 봄. 권한은 고객정보 창과 동일(총무·담당자 본인만 여는 창).
+//   비밀번호는 •••••• + 👁(보기), 클릭 복사(알림에 값 미표시). 창이 닫혔거나 다른 고객으로 바뀌었으면 손대지 않음.
+//   ⚠️ 창(win)을 받아 데이터를 받은 뒤의 win.document를 씀 — 새 창은 열린 직후 document 객체가 바뀔 수 있어 미리 잡아 두면 빈 문서에 채움(v-8 실측).
+async function _ciFillCodes(win, agent){
+  var doc=null;
+  try{
+    var gen=(win._ciGen=(win._ciGen||0)+1);
+    var nm=_agentReal(agent||''), m=(Array.isArray(mem)?mem:[]).find(function(x){ return x&&x.name&&_agentReal(x.name)===nm; });
+    var key=m?_icKeyOf(m):(nm?'n_'+nm:''), ref=_icDocRef(key), data=null;
+    if(ref){ try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+      var snap=await Promise.race([ref.get(), new Promise(function(_,rj){ setTimeout(function(){ rj(new Error('timeout')); },10000); })]);   // 응답이 없으면 "…"에 멈추지 않게
+      data=_icClean(snap.exists?snap.data():null); }
+    if(win.closed||win._ciGen!==gen) return;   // 창이 닫혔거나 그 사이 다른 고객을 다시 띄움
+    doc=win.document;
+    var all=data?data.son.concat(data.life):[];
+    var norm=function(x){ return String(x||'').replace(/\s+/g,''); };
+    // 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
+    var pick=function(ins){ var n=norm(ins); if(!n) return null;
+      var ex=all.find(function(r){ return norm(r.ins)===n; }); if(ex) return ex;
+      var part=all.filter(function(r){ var q=norm(r.ins); return q&&(q.indexOf(n)>=0||n.indexOf(q)>=0); });
+      return part.length===1?part[0]:(part.length>1?'many':null); };
+    doc.querySelectorAll('[data-ciins]').forEach(function(td){
+      var r=pick(td.getAttribute('data-ciins')), k=td.getAttribute('data-cik');
+      if(r==='many'){ td.innerHTML='<span style="color:#b07010;font-size:12px" title="비슷한 이름의 보험사가 여러 개 등록돼 있습니다 — [보험사 코드 관리]에서 이름을 맞춰 주세요">확인 필요</span>'; return; }
+      var v=r?(k==='pw'?r.pw:r.code):'';
+      if(!v){ td.innerHTML='<span style="color:#b0b4c8">-</span>'; return; }
+      var ev=_alertEsc(v);
+      if(k==='code') td.innerHTML='<span onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="코드" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>';
+      else td.innerHTML='<span class="cipw" onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="비밀번호" style="cursor:pointer" title="클릭하면 복사">••••••</span>'
+        +' <span onclick="var s=this.parentNode.querySelector(\'.cipw\');var h=s.textContent===\'••••••\';s.textContent=h?s.getAttribute(\'data-copy\'):\'••••••\';this.textContent=h?\'🙈\':\'👁\';" style="cursor:pointer;font-size:12px;opacity:.7" title="보기/숨기기">👁</span>';
+    });
+  }catch(e){ try{ if(!win.closed&&win._ciGen===gen) (doc||win.document).querySelectorAll('[data-ciins]').forEach(function(td){ td.innerHTML='<span style="color:#c08080;font-size:12px">조회 실패</span>'; }); }catch(_e){} }
 }
 // 고객정보 새 창 — 창 이름을 고객별로 달리해 여러 고객을 나란히 띄울 수 있음(같은 고객은 같은 창을 다시 씀).
 //   창 안의 값 클릭 복사는 창 자체 스크립트(_csrCopyVal 같은 이름)로 처리. 로그아웃 시 _custInfoCloseAll로 모두 닫음(개인정보 잔존 방지).
-function _custInfoPopup(ttl, inner, ck){
+function _custInfoPopup(ttl, inner, ck, agent){
   var key='custinfo_'+String(ck||'x').replace(/[^0-9A-Za-z_-]/g,'').slice(0,30);
   var w=null;
   try{
-    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-680), T=(window.screenY||0)+90;
-    w=window.open('', key, 'width=600,height=720,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
+    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-1080), T=(window.screenY||0)+90;
+    w=window.open('', key, 'width=1000,height=720,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
   }catch(e){ w=null; }
   if(!w) return false;
   var sc='<scr'+'ipt>'
     +'function _ciToast(m){var t=document.getElementById("ci_toast");t.textContent=m;t.style.opacity="1";clearTimeout(window._ciT);window._ciT=setTimeout(function(){t.style.opacity="0";},1600);}'
     +'function _csrCopyVal(el){var v=el.getAttribute("data-copy")||"";if(!v)return;var lb=el.getAttribute("data-cplb")||"값";'
-    +'var ok=function(){_ciToast(lb+" 복사 완료: "+v);};'
+    +'var ok=function(){_ciToast(lb+" 복사 완료"+(lb==="비밀번호"?"":": "+v));};'
     +'var fb=function(){try{var ta=document.createElement("textarea");ta.value=v;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy")?ok():_ciToast("복사에 실패했습니다.");ta.remove();}catch(e){_ciToast("복사에 실패했습니다.");}};'
     +'if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(ok,fb);else fb();}'
     // 메인 창이 닫히거나 새로고침·로그아웃되면 스스로 닫힘(공용 PC 개인정보 잔존 방지 — 리뷰 반영)
-    +'setInterval(function(){try{var o=window.opener;if(!o||o.closed||!o.cu||!o._custInfoWins||!o._custInfoWins[window.name])window.close();}catch(e){window.close();}},1500);'
+    +'setInterval(function(){try{var o=window.opener;if(!o||o.closed||typeof o._ciAlive!=="function"||!o._ciAlive(window.name))window.close();}catch(e){window.close();}},1500);'
     +'</scr'+'ipt>';
   var html='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
     +'<title>'+_alertEsc(ttl)+'</title>'
@@ -19999,16 +20042,22 @@ function _custInfoPopup(ttl, inner, ck){
     +'#ci_bar button{padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}'
     +'#ci_toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);background:#1c2140;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}</style>'
     +sc+'</head><body><h1>'+_alertEsc(ttl)+'</h1>'+inner
-    +'<div id="ci_toast"></div><div id="ci_bar"><button onclick="window.close()">닫기</button></div></body></html>';
+    +'<div id="ci_toast"></div><div id="ci_bar"><button onclick="window.close()">닫기</button></div>'
+    // 코드·비밀번호 채우기는 창 자신이 요청 — 부모가 미리 잡은 document는 창이 열리며 바뀔 수 있어 빈 문서에 채워지던 문제(v-8 실측)
+    +'<scr'+'ipt>try{var o=window.opener;if(o&&typeof o._ciFillCodes==="function")o._ciFillCodes(window,'+JSON.stringify(String(agent||'')).replace(/</g,'\\u003c')+');}catch(e){}</scr'+'ipt>'
+    +'</body></html>';
   try{
     w.document.open(); w.document.write(html); w.document.close();
     try{ w.focus(); }catch(e){}
   }catch(e){ try{ w.close(); }catch(_e){} return false; }
   window._custInfoWins=window._custInfoWins||{};
   window._custInfoWins[key]=w;
-  return true;
+  return w;
 }
 try{ window.addEventListener('pagehide', function(){ try{ _custInfoCloseAll(); }catch(e){} }); }catch(e){}   // 메인 탭 새로고침·닫기 때도 창 닫기
+// 새 창이 1.5초마다 묻는 생존 확인 — 로그인 중이고 그 창이 목록에 있을 때만 true.
+//   ⚠️ cu는 let 전역이라 window.cu로는 안 보임(v-5에서 창이 1.5초 만에 닫히던 원인) — 반드시 이 함수로 확인.
+window._ciAlive=function(name){ try{ return !!cu && !!(window._custInfoWins&&window._custInfoWins[name]); }catch(e){ return false; } };
 function _custInfoCloseAll(){
   var m=window._custInfoWins||{};
   Object.keys(m).forEach(function(k){ try{ if(m[k]&&!m[k].closed) m[k].close(); }catch(e){} });
