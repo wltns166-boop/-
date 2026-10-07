@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -942,6 +942,10 @@
   - 생성: 'ㅇㅇㅇ'을 바탕색 사각형으로 덮고 굵은 글씨 PNG(`_bndNamePng`)를 원래 바닥선에 찍음. 미리보기도 같은 규칙(HTML 겹침). 이름이 비면 덮지 않음 → [PDF 저장]/[출력] 때 확인창.
   - 화면: 고객명 옆에 **담당자명(`bnd_mgr`, 로그인 이름 자동 채움)**. 추가 파일은 선택 목록에 '앞/뒤·N쪽'으로 표시되고 처음 보면 자동 선택(앞 파일은 맨 앞, 뒤 파일은 맨 끝, 기본 속지는 그 사이 — `_bndIns`). 미리보기는 쪽 단위(`_bndSeq`).
   - 첫 등록 파일: 사용자 제공 '보험증권바인더'(6쪽 — 1쪽 '○○○ 고객님을 위한', 3쪽 '고객님의 담당자 ○○○ 전문가 입니다') — 관리자가 [설정]에서 직접 올림.
+  - **v-2 리뷰 반영**: 받은 설정은 `_bndCfgClean`으로 정규화 — 주소는 `BND_URL_RE`(우리 Storage `claim_templates%2Fbinder%2F`만), np·pg·좌표는 숫자, bg는 #rrggbb, kind는 cust/mgr/off
+    (Firestore 문서는 인증 사용자 누구나 쓸 수 있어 XSS·외부 주소 차단). 설정 변경(추가·삭제·순서·이름·위치·종류) 직전 `_bndCfgFresh`로 클라우드 최신본을 다시 읽어 다른 관리자 변경 덮어쓰기 방지.
+    회전된 쪽은 이름 자리 찾기 생략, 출력 좌표는 CropBox 원점 반영. 원격 변경 수신 시 금액 입력 중이면 입력이 끝난 뒤 다시 그림(`_bndCfgApplied`). [출력]은 새 탭을 확인창보다 먼저 연다.
+    앞/뒤 파일끼리는 체크한 순서와 상관없이 설정 순서대로 들어감.
 
 ## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
 

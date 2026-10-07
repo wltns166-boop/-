@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-2</div>
   </div>
 </div>
 
@@ -4061,7 +4061,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); }
     if(Array.isArray(d.mcreq)){ mcReqs=d.mcreq; _lsSet('tops_mcreq', JSON.stringify(mcReqs)); }   // 모바일 계약 반영 요청(2026-09-14) — 빈 배열도 반영(삭제 전파)
     if(d.rsvcfg && typeof d.rsvcfg==='object' && !Array.isArray(d.rsvcfg)){ rsvCfg=d.rsvcfg; _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg)); }   // 예약문자 문구 틀(사용자별)
-    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ bndCfg=d.bndcfg; window._bndCfgJson=JSON.stringify(d.bndcfg); _lsSet('tops_bndcfg', window._bndCfgJson); }   // 증권바인더 추가 파일(관리자 설정, 2026-10-07)
+    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ bndCfg=_bndCfgClean(d.bndcfg); window._bndCfgJson=JSON.stringify(d.bndcfg); _lsSet('tops_bndcfg', window._bndCfgJson); }   // 증권바인더 추가 파일(관리자 설정, 2026-10-07)
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -4156,7 +4156,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.cardreq)){ cardReqs=d.cardreq; _lsSet('tops_cardreq', JSON.stringify(cardReqs)); changed=true; }
     if(Array.isArray(d.mcreq)){ mcReqs=d.mcreq; _lsSet('tops_mcreq', JSON.stringify(mcReqs)); changed=true; }   // 모바일 계약 반영 요청(2026-09-14)
     if(d.rsvcfg && typeof d.rsvcfg==='object' && !Array.isArray(d.rsvcfg)){ rsvCfg=d.rsvcfg; _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg)); try{ if(window._curPage==='rsv') rsvRender(); }catch(e){} }   // 예약문자 문구 틀 — 입력칸을 건드리지 않게 미리보기만 갱신
-    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ var _bj=JSON.stringify(d.bndcfg); if(_bj!==window._bndCfgJson){ window._bndCfgJson=_bj; bndCfg=d.bndcfg; _lsSet('tops_bndcfg', _bj); try{ if(window._curPage==='binder') rBinder(); if(g('bnd_cfg_pop')) _bndCfgDraw(); }catch(e){} } }   // 증권바인더 추가 파일 — 바뀌었을 때만 다시 그림(입력 중 포커스 보호)
+    if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ var _bj=JSON.stringify(d.bndcfg); if(_bj!==window._bndCfgJson){ window._bndCfgJson=_bj; bndCfg=_bndCfgClean(d.bndcfg); _lsSet('tops_bndcfg', _bj); try{ _bndCfgApplied(); if(g('bnd_cfg_pop')) _bndCfgDraw(); }catch(e){} } }   // 증권바인더 추가 파일 — 바뀌었을 때만, 입력 중이면 입력이 끝난 뒤 다시 그림
     try{ if(d.mem) _cuFixName(); }catch(e){}   // 문서 변경 수신 시 세션 이름 보정(쓰기 없음 — 루프 위험 없음)
     // 현재 열려있는 페이지 자동 갱신
     if(changed && window._curPage){
@@ -7290,9 +7290,31 @@ var BND_PAGES=[
 //    원본 PDF는 Storage claim_templates/binder/ (URL만 저장 — 함정 B). 이름칸 f = {pg,x0,x1,base,fs,top,bot,al:'l'|'c',mw,kind:'cust'|'mgr'|'off',bg}
 //    (pt, 왼쪽 위 원점) — 올릴 때 pdf.js 글자 위치로 'ㅇㅇㅇ'(○○○)를 자동으로 찾고, 같은 줄에 '담당'이 있으면 담당자명, 아니면 고객명.
 //    선택 목록 키: 기본 속지는 BND_PAGES.k, 추가 파일은 'f:'+id (함정 A — 키 기준 조작).
+//    받은 설정은 _bndCfgClean으로 정규화(주소는 우리 Storage binder 폴더만, 숫자·색·종류는 형식 검사) — 문서는 누구나 쓸 수 있어 XSS·엉뚱한 주소 차단.
+var BND_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_templates%2Fbinder%2F[^"'<>\s]+$/;
+function _bndNum(v,d){ v=+v; return isFinite(v)?Math.round(v*100)/100:d; }
+function _bndCfgClean(raw){
+  var out={files:[]}, seen={};
+  ((raw&&Array.isArray(raw.files))?raw.files:[]).forEach(function(fl){
+    if(!fl||typeof fl!=='object'||!BND_URL_RE.test(String(fl.u||''))) return;
+    var id=String(fl.id||'').replace(/[^\w-]/g,'').slice(0,40); if(!id||seen[id]) return; seen[id]=1;
+    var np=Math.max(1,Math.min(500,Math.floor(_bndNum(fl.np,1))));
+    out.files.push({id:id, nm:String(fl.nm||'바인더 파일').slice(0,40), u:String(fl.u), path:/^claim_templates\/binder\/[\w-]+\.pdf$/.test(String(fl.path||''))?String(fl.path):'',
+      pos:fl.pos==='back'?'back':'front', np:np,
+      sz:(Array.isArray(fl.sz)?fl.sz:[]).slice(0,np).map(function(z){ return [Math.max(1,_bndNum(z&&z[0],BND_PW)), Math.max(1,_bndNum(z&&z[1],BND_PH))]; }),
+      f:(Array.isArray(fl.f)?fl.f:[]).filter(function(f){ return f&&typeof f==='object'; }).slice(0,50).map(function(f){
+        return {pg:Math.max(1,Math.floor(_bndNum(f.pg,1))), x0:_bndNum(f.x0,0), x1:_bndNum(f.x1,0), base:_bndNum(f.base,0), fs:Math.max(1,Math.min(200,_bndNum(f.fs,12))),
+          top:_bndNum(f.top,0), bot:_bndNum(f.bot,0), al:f.al==='l'?'l':'c', mw:_bndNum(f.mw,0), kind:/^(cust|mgr|off)$/.test(f.kind)?f.kind:'off',
+          bg:/^#[0-9a-f]{6}$/i.test(String(f.bg||''))?String(f.bg):'#ffffff'};
+      }),
+      ts:_bndNum(fl.ts,0), by:String(fl.by||'').slice(0,20)});
+  });
+  return out;
+}
 var bndCfg={files:[]};
-try{ var _bc=JSON.parse(localStorage.getItem('tops_bndcfg')||'null'); if(_bc&&typeof _bc==='object'&&Array.isArray(_bc.files)) bndCfg=_bc; }catch(e){}
-function _bndFiles(){ return (bndCfg&&Array.isArray(bndCfg.files))?bndCfg.files.filter(function(f){ return f&&f.id&&f.u; }):[]; }
+try{ bndCfg=_bndCfgClean(JSON.parse(localStorage.getItem('tops_bndcfg')||'null')); }catch(e){}
+function _bndFiles(){ return (bndCfg&&Array.isArray(bndCfg.files))?bndCfg.files:[]; }
+function _bndCfgIdx(id){ var a=_bndFiles(); for(var i=0;i<a.length;i++) if(a[i].id===id) return i; return -1; }
 function _bndFile(id){ var a=_bndFiles(); for(var i=0;i<a.length;i++) if(a[i].id===id) return a[i]; return null; }
 function _bndPage(k){
   if(/^f:/.test(String(k))){ var fl=_bndFile(String(k).slice(2)); return fl?{k:k,nm:fl.nm,file:fl,f:[]}:null; }
@@ -7321,8 +7343,12 @@ function _bndIns(k){
   var p=_bndPage(k); if(!p) return;
   var isBack=function(x){ var q=_bndPage(x); return !!(q&&q.file&&q.file.pos==='back'); };
   var isFront=function(x){ var q=_bndPage(x); return !!(q&&q.file&&q.file.pos!=='back'); };
-  if(p.file&&p.file.pos!=='back'){ var j=0; st.sel.forEach(function(x,i){ if(isFront(x)) j=i+1; }); st.sel.splice(j,0,k); return; }
-  if(p.file){ st.sel.push(k); return; }
+  var my=p.file?_bndCfgIdx(p.file.id):-1, idxOf=function(x){ var q=_bndPage(x); return q&&q.file?_bndCfgIdx(q.file.id):-1; };
+  if(p.file&&p.file.pos!=='back'){   // 앞 파일끼리는 설정 순서대로
+    for(var a=0;a<st.sel.length;a++) if(!(isFront(st.sel[a])&&idxOf(st.sel[a])<my)){ st.sel.splice(a,0,k); return; }
+    st.sel.push(k); return;
+  }
+  if(p.file){ for(var b=0;b<st.sel.length;b++) if(isBack(st.sel[b])&&idxOf(st.sel[b])>my){ st.sel.splice(b,0,k); return; } st.sel.push(k); return; }
   for(var i=0;i<st.sel.length;i++) if(isBack(st.sel[i])){ st.sel.splice(i,0,k); return; }
   st.sel.push(k);
 }
@@ -7574,17 +7600,17 @@ async function _bndBuild(){
       var fd=await srcDoc(p.file.id);
       var cps=await out.copyPages(fd, fd.getPageIndices());
       for(var q=0;q<cps.length;q++){
-        var fp=out.addPage(cps[q]), FH=fp.getHeight();
+        var fp=out.addPage(cps[q]), cb=fp.getCropBox(), OX=cb.x, FH=cb.y+cb.height;   // 좌표는 pdf.js 화면(CropBox) 기준 — 원점이 0이 아닌 PDF도 맞춤
         var fs=(p.file.f||[]).filter(function(f){ return f.pg===q+1; });
         for(var r=0;r<fs.length;r++){
           var ff=fs[r], nm=_bndNameOf(ff.kind); if(!nm) continue;
-          fp.drawRectangle({x:ff.x0-1.5, y:FH-ff.bot, width:ff.x1-ff.x0+3, height:ff.bot-ff.top, color:_bndHex(ff.bg)});
+          fp.drawRectangle({x:OX+ff.x0-1.5, y:FH-ff.bot, width:ff.x1-ff.x0+3, height:ff.bot-ff.top, color:_bndHex(ff.bg)});
           var npng=_bndNamePng(nm,ff.fs);
           var nimg=await out.embedPng(Uint8Array.from(atob(npng.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
           var bx=_bndNameBox(ff), nw=nimg.width/3, nh=nimg.height/3, nsc=nw>bx.w?bx.w/nw:1;
           var w2=nw*nsc, h2=nh*nsc, x2=ff.al==='l'?bx.l:bx.l+(bx.w-w2)/2;
           var top2=ff.base-h2*0.78;                           // 글자 바닥선을 원래 'ㅇㅇㅇ' 바닥선에 맞춤
-          fp.drawImage(nimg,{x:x2-3/3*nsc, y:FH-top2-h2, width:w2, height:h2});
+          fp.drawImage(nimg,{x:OX+x2-1*nsc, y:FH-top2-h2, width:w2, height:h2});
         }
       }
       continue;
@@ -7634,9 +7660,9 @@ async function bndDownload(){
 async function bndPrint(){
   if(window._bndBusy){ toast('PDF를 만드는 중입니다. 잠시만 기다려 주세요.'); return; }
   if(!_bndSeq().length){ toast('먼저 왼쪽에서 속지를 선택해 주세요.'); return; }
-  if(!_bndNameCheck()) return;
-  var w=null; try{ w=window.open('about:blank'); }catch(e){}
+  var w=null; try{ w=window.open('about:blank'); }catch(e){}   // 확인창보다 먼저 열어야 클릭 제스처가 유지됨(팝업 차단 방지)
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
+  if(!_bndNameCheck()){ try{ w.close(); }catch(e){} return; }
   window._bndBusy=true;
   try{
     var bytes=await _bndBuild(); if(!bytes){ w.close(); return; }
@@ -7690,10 +7716,12 @@ function bndCfgOpen(){
     else if(a==='up'||a==='down') _bndCfgMove(id, a==='up'?-1:1);
     else if(a==='del') _bndCfgDel(id);
   });
-  ov.addEventListener('change',function(ev){
+  ov.addEventListener('change',async function(ev){
     var t=ev.target; if(!t||!t.getAttribute) return;
     if(t.hasAttribute('data-bndcup')){ var f=t.files&&t.files[0]; t.value=''; if(f) bndCfgUpload(f); return; }
-    var id=t.getAttribute('data-bndcid'), fl=id&&_bndFile(id); if(!fl) return;
+    var id=t.getAttribute('data-bndcid'); if(!id) return;
+    try{ await _bndCfgFresh(); }catch(e){ toast(e.message||String(e)); return; }
+    var fl=_bndFile(id); if(!fl){ _bndCfgDraw(); return; }
     if(t.hasAttribute('data-bndcnm')){ var v=String(t.value||'').trim().slice(0,40); if(!v){ t.value=fl.nm; return; } fl.nm=v; }
     else if(t.hasAttribute('data-bndcpos')) fl.pos=t.value==='back'?'back':'front';
     else if(t.hasAttribute('data-bndcfk')){ var fi=+t.getAttribute('data-bndcfk'); if(fl.f&&fl.f[fi]) fl.f[fi].kind=/^(cust|mgr|off)$/.test(t.value)?t.value:'cust'; }
@@ -7726,16 +7754,37 @@ function _bndCfgDraw(){
   }).join(''):'<div style="color:#889;font-size:13px;padding:18px;text-align:center">추가한 파일이 없습니다. [PDF 추가]로 올려 주세요.</div>')
     +'<div style="padding:10px 4px;font-size:12px;color:#889">기본 속지 '+BND_PAGES.length+'장(간병인 지원 ~ 장기요양등급)은 항상 고를 수 있습니다.</div>';
 }
-function _bndCfgApplied(){ try{ if(window._curPage==='binder') rBinder(); }catch(e){} }
-function _bndCfgMove(id,d){
+// 다시 그리기 — 금액 입력 중이면 입력칸이 새로 그려져 커서를 잃지 않게, 입력이 끝난 뒤에 그림
+function _bndCfgApplied(){
+  try{
+    if(window._curPage!=='binder') return;
+    var lb=g('bnd_list'), a=document.activeElement;
+    if(lb&&a&&a.tagName==='INPUT'&&lb.contains(a)){
+      if(!lb._bndDefer){ lb._bndDefer=1;
+        var h=function(){ setTimeout(function(){ var a2=document.activeElement; if(a2&&a2.tagName==='INPUT'&&lb.contains(a2)) return; lb.removeEventListener('focusout',h); lb._bndDefer=0; if(window._curPage==='binder') rBinder(); },0); };
+        lb.addEventListener('focusout',h); }
+      return;
+    }
+    rBinder();
+  }catch(e){}
+}
+// 고치기 직전에 클라우드 최신본을 다시 읽음 — 다른 관리자·기기의 변경을 덮어쓰지 않게(배열째 저장이므로)
+async function _bndCfgFresh(){
+  if(!window.FS_DOC) throw new Error('클라우드에 연결된 뒤 다시 시도해 주세요.');
+  var s=await window.FS_DOC.get(), d=s&&s.exists?(s.data()||{}).bndcfg:null;
+  if(d&&typeof d==='object'&&Array.isArray(d.files)) bndCfg=_bndCfgClean(d);
+}
+async function _bndCfgMove(id,d){
+  try{ await _bndCfgFresh(); }catch(e){ toast(e.message||String(e)); return; }
   var a=bndCfg.files, i=-1; for(var k=0;k<a.length;k++) if(a[k]&&a[k].id===id) i=k;
   var j=i+d; if(i<0||j<0||j>=a.length) return;
   var t=a[i]; a[i]=a[j]; a[j]=t;
   _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
 }
-function _bndCfgDel(id){
+async function _bndCfgDel(id){
   var fl=_bndFile(id); if(!fl) return;
   if(!confirm('"'+fl.nm+'" 파일을 증권바인더에서 삭제할까요?\n(모든 팀원 화면에서 빠집니다)')) return;
+  try{ await _bndCfgFresh(); }catch(e){ toast(e.message||String(e)); return; }
   bndCfg.files=bndCfg.files.filter(function(x){ return !(x&&x.id===id); });
   _bndCfgSave();
   try{ if(fl.path) firebase.storage().ref(fl.path).delete().catch(function(){}); }catch(e){}   // 원본 정리(최선 노력)
@@ -7750,6 +7799,7 @@ async function _bndDetect(buf){
     for(var pn=1;pn<=pdf.numPages;pn++){
       var page=await pdf.getPage(pn), vp=page.getViewport({scale:1});
       res.sz.push([Math.round(vp.width*100)/100, Math.round(vp.height*100)/100]);
+      if(((page.rotate||0)%360)!==0){ res.rot=(res.rot||0)+1; continue; }   // 회전된 쪽은 좌표가 어긋나므로 이름 자리 찾기 생략(쪽은 그대로 들어감)
       var tc=await page.getTextContent(), lines=[];
       tc.items.forEach(function(it){
         var s=String(it.str||''); if(!s) return;
@@ -7801,7 +7851,7 @@ async function bndCfgUpload(file){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   if(!/pdf/i.test(file.type||'')&&!/\.pdf$/i.test(file.name||'')){ toast('PDF 파일만 올릴 수 있습니다.'); return; }
   if(file.size>30*1024*1024){ toast('30MB 이하 PDF만 올릴 수 있습니다.'); return; }
-  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  if(typeof firebase==='undefined'||!firebase.storage||!window.FS_DOC){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
   if(window._bndCfgBusy){ toast('올리는 중입니다. 잠시만 기다려 주세요.'); return; }
   window._bndCfgBusy=true;
   var stEl=g('bnd_cfg_st'), say=function(t){ var e=g('bnd_cfg_st'); if(e) e.textContent=t; };
@@ -7818,13 +7868,14 @@ async function bndCfgUpload(file){
     await ref.put(new Uint8Array(buf),{contentType:'application/pdf'});
     var url=await ref.getDownloadURL();
     if(!_isAdmin()){ try{ ref.delete().catch(function(){}); }catch(e){} return; }   // 업로드 중 로그아웃 — 버림
+    try{ await _bndCfgFresh(); }catch(e){ try{ ref.delete().catch(function(){}); }catch(_e){} throw e; }
     var nm=String(file.name||'바인더 파일').replace(/\.pdf$/i,'').replace(/[_\s]+/g,' ').trim().slice(0,40)||'바인더 파일';
     if(!bndCfg||!Array.isArray(bndCfg.files)) bndCfg={files:[]};
     bndCfg.files.push({id:id, nm:nm, u:url, path:path, pos:'front', np:det.np, sz:det.sz, f:det.f, ts:Date.now(), by:(cu&&cu.name)||''});
     _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
     var nc=det.f.filter(function(f){ return f.kind==='cust'; }).length, nmg=det.f.filter(function(f){ return f.kind==='mgr'; }).length;
     say('');
-    toast('추가했습니다 — '+det.np+'쪽, 이름 자리 '+det.f.length+'곳(고객명 '+nc+' · 담당자명 '+nmg+')');
+    toast('추가했습니다 — '+det.np+'쪽, 이름 자리 '+det.f.length+'곳(고객명 '+nc+' · 담당자명 '+nmg+')'+(det.rot?' · 회전된 '+det.rot+'쪽은 이름 자리를 찾지 않았어요':''));
   }catch(e){ console.warn('bnd upload', e); say(''); toast('파일 추가 실패: '+((e&&e.message)||e)); }
   finally{ window._bndCfgBusy=false; }
 }
