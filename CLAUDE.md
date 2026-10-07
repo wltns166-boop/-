@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.07-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -952,6 +952,10 @@
     ⚠️ 기본 파일 키는 st.sel에 넣지 않는다(`_bndIns`·`bndToggle`·`bndPickAll`·rBinder 필터). 화면 왼쪽엔 초록 '기본 · 항상 포함'(체크 고정).
     미리보기 위치는 쪽 키(`st.curKey`='키|쪽')로 보존 — 설정이 바뀌어 앞쪽 쪽 수가 달라져도 보던 쪽 유지, 새로 고른 속지는 bndToggle이 키로 고정.
     업로드 실패는 창 상단 `bnd_cfg_st`에 **단계·오류코드**를 빨간 글씨로 남김(첫 실사용 "파일 선택하니 오류" 제보 — 원인 미확정. 모의 클라우드로는 정상 동작 확인).
+  - **v-4 실사고 원인 확정**: 오류 문구 `[설정 저장 단계 · invalid-argument] Nested arrays are not supported` — 쪽 크기 `sz`를 `[[w,h],…]`로 저장해
+    **Firestore가 배열 안의 배열을 거부**(set()이 동기 예외를 던져 sv 밖으로 전파). `sz`는 `[{w,h},…]`로 변경(`_bndCfgClean`이 옛 [w,h]도 변환).
+    ⚠️ tops/data에 넣는 새 데이터에 **배열 안의 배열 금지**. 저장 거부 시 업로드는 방금 넣은 항목·Storage 파일을 되돌림, 초기 로드 때 클라우드에 bndcfg가 없으면 로컬 잔여 항목 정리.
+    모의 실행: 중첩 배열을 거부하는 가짜 FS_DOC로 업로드→저장 통과.
 
 ## 4.95 지급지연 요청서 (delayreq, 2026-08-18)
 

@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-4</div>
   </div>
 </div>
 
@@ -4062,6 +4062,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.mcreq)){ mcReqs=d.mcreq; _lsSet('tops_mcreq', JSON.stringify(mcReqs)); }   // 모바일 계약 반영 요청(2026-09-14) — 빈 배열도 반영(삭제 전파)
     if(d.rsvcfg && typeof d.rsvcfg==='object' && !Array.isArray(d.rsvcfg)){ rsvCfg=d.rsvcfg; _lsSet('tops_rsvcfg', JSON.stringify(rsvCfg)); }   // 예약문자 문구 틀(사용자별)
     if(d.bndcfg && typeof d.bndcfg==='object' && Array.isArray(d.bndcfg.files)){ bndCfg=_bndCfgClean(d.bndcfg); window._bndCfgJson=JSON.stringify(d.bndcfg); _lsSet('tops_bndcfg', window._bndCfgJson); }   // 증권바인더 추가 파일(관리자 설정, 2026-10-07)
+    else if(!d.bndcfg && _bndFiles().length){ bndCfg={files:[]}; window._bndCfgJson=''; _lsSet('tops_bndcfg', JSON.stringify(bndCfg)); }   // 클라우드에 없는데 이 기기에만 남은 항목(저장 거부된 반쪽 — v-4 실사고) 정리
     try{ _cuFixName(); }catch(e){}        // 최신 mem 기준으로 세션 이름 보정
     // '(코드)' 주마감보고 마이그레이션: 전체 배열을 다시 쓰므로 관리자 기기에서만 실행해
     //   여러 기기가 동시에 로드하며 서로 덮어쓰는 경합 창을 최소화한다(변경 없으면 저장 안 함 — 멱등).
@@ -7286,7 +7287,8 @@ var BND_PAGES=[
     _bndF('g3','5등급 월 보상금액',327.8,414,589.2,599.9), _bndF('g4','인지지원등급 월 보상금액',453,540,589.2,599.9)]},
   {k:'ltcgrade',nm:'장기요양등급',   pg:8, f:[]}
 ];
-// ── 관리자 추가 파일(2026-10-07) — 동기화 키 tops_bndcfg = {files:[{id,nm,u,path,pos:'front'|'back',np,sz:[[w,h]..],f:[이름칸],ts,by}]}
+// ── 관리자 추가 파일(2026-10-07) — 동기화 키 tops_bndcfg = {files:[{id,nm,u,path,pos:'front'|'back',np,sz:[{w,h}..],f:[이름칸],ts,by}]}
+//    ⚠️ Firestore는 배열 안의 배열을 저장하지 못함(invalid-argument "Nested arrays are not supported" — 2026-10-07 실사고) — 쪽 크기는 {w,h} 객체로.
 //    원본 PDF는 Storage claim_templates/binder/ (URL만 저장 — 함정 B). 이름칸 f = {pg,x0,x1,base,fs,top,bot,al:'l'|'c',mw,kind:'cust'|'mgr'|'off',bg}
 //    (pt, 왼쪽 위 원점) — 올릴 때 pdf.js 글자 위치로 'ㅇㅇㅇ'(○○○)를 자동으로 찾고, 같은 줄에 '담당'이 있으면 담당자명, 아니면 고객명.
 //    선택 목록 키: 기본 속지는 BND_PAGES.k, 추가 파일은 'f:'+id (함정 A — 키 기준 조작).
@@ -7301,7 +7303,8 @@ function _bndCfgClean(raw){
     var np=Math.max(1,Math.min(500,Math.floor(_bndNum(fl.np,1))));
     out.files.push({id:id, nm:String(fl.nm||'바인더 파일').slice(0,40), u:String(fl.u), path:/^claim_templates\/binder\/[\w-]+\.pdf$/.test(String(fl.path||''))?String(fl.path):'',
       pos:fl.pos==='back'?'back':'front', grp:fl.grp==='base'?'base':'extra', np:np,
-      sz:(Array.isArray(fl.sz)?fl.sz:[]).slice(0,np).map(function(z){ return [Math.max(1,_bndNum(z&&z[0],BND_PW)), Math.max(1,_bndNum(z&&z[1],BND_PH))]; }),
+      sz:(Array.isArray(fl.sz)?fl.sz:[]).slice(0,np).map(function(z){ var a=Array.isArray(z);   // 옛 [w,h] 형식도 받아 {w,h}로
+        return {w:Math.max(1,_bndNum(z&&(a?z[0]:z.w),BND_PW)), h:Math.max(1,_bndNum(z&&(a?z[1]:z.h),BND_PH))}; }),
       f:(Array.isArray(fl.f)?fl.f:[]).filter(function(f){ return f&&typeof f==='object'; }).slice(0,50).map(function(f){
         return {pg:Math.max(1,Math.floor(_bndNum(f.pg,1))), x0:_bndNum(f.x0,0), x1:_bndNum(f.x1,0), base:_bndNum(f.base,0), fs:Math.max(1,Math.min(200,_bndNum(f.fs,12))),
           top:_bndNum(f.top,0), bot:_bndNum(f.bot,0), al:f.al==='l'?'l':'c', mw:_bndNum(f.mw,0), kind:/^(cust|mgr|off)$/.test(f.kind)?f.kind:'off',
@@ -7525,7 +7528,7 @@ function _bndDropCache(src){
 }
 function _bndPgSize(it){
   if(it.src==='guide') return [BND_PW,BND_PH];
-  var fl=_bndFile(it.src), s=fl&&fl.sz&&fl.sz[it.pg-1];
+  var fl=_bndFile(it.src), z=fl&&fl.sz&&fl.sz[it.pg-1], s=z?[z.w,z.h]:null;
   return (s&&s[0]>0&&s[1]>0)?s:[BND_PW,BND_PH];
 }
 function _bndView(){
@@ -7838,7 +7841,7 @@ async function _bndDetect(buf){
   try{
     for(var pn=1;pn<=pdf.numPages;pn++){
       var page=await pdf.getPage(pn), vp=page.getViewport({scale:1});
-      res.sz.push([Math.round(vp.width*100)/100, Math.round(vp.height*100)/100]);
+      res.sz.push({w:Math.round(vp.width*100)/100, h:Math.round(vp.height*100)/100});
       if(((page.rotate||0)%360)!==0){ res.rot=(res.rot||0)+1; continue; }   // 회전된 쪽은 좌표가 어긋나므로 이름 자리 찾기 생략(쪽은 그대로 들어감)
       var tc=await page.getTextContent(), lines=[];
       tc.items.forEach(function(it){
@@ -7913,7 +7916,13 @@ async function bndCfgUpload(file, grp){
     var nm=String(file.name||'바인더 파일').replace(/\.pdf$/i,'').replace(/[_\s]+/g,' ').trim().slice(0,40)||'바인더 파일';
     if(!bndCfg||!Array.isArray(bndCfg.files)) bndCfg={files:[]};
     bndCfg.files.push({id:id, nm:nm, u:url, path:path, pos:'front', grp:grp==='base'?'base':'extra', np:det.np, sz:det.sz, f:det.f, ts:Date.now(), by:(cu&&cu.name)||''});
-    _bndCfgSave(); _bndCfgDraw(); _bndCfgApplied();
+    try{ _bndCfgSave(); }
+    catch(e){   // 저장이 거부되면 이 기기에만 남는 반쪽 항목·클라우드 고아 파일을 되돌림
+      bndCfg.files=bndCfg.files.filter(function(x){ return x.id!==id; }); window._bndCfgJson=JSON.stringify(bndCfg); _lsSet('tops_bndcfg', window._bndCfgJson);
+      try{ ref.delete().catch(function(){}); }catch(_e){}
+      throw e;
+    }
+    _bndCfgDraw(); _bndCfgApplied();
     var nc=det.f.filter(function(f){ return f.kind==='cust'; }).length, nmg=det.f.filter(function(f){ return f.kind==='mgr'; }).length;
     say('');
     toast('추가했습니다 — '+det.np+'쪽, 이름 자리 '+det.f.length+'곳(고객명 '+nc+' · 담당자명 '+nmg+')'+(det.rot?' · 회전된 '+det.rot+'쪽은 이름 자리를 찾지 않았어요':''));
