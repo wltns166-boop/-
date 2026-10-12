@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-7</div>
   </div>
 </div>
 
@@ -20203,7 +20203,7 @@ function _ciPwEdit(win, el){
       +' <button type="button" onclick="_ciCall(\'_ciPwSave\',this)" style="padding:2px 7px;border:1px solid #4858cc;border-radius:5px;background:#4858cc;color:#fff;font-size:11.5px;cursor:pointer">저장</button>'
       +' <button type="button" onclick="_ciCall(\'_ciPwCancel\',this)" style="padding:2px 7px;border:1px solid #ccd;border-radius:5px;background:#fff;color:#555;font-size:11.5px;cursor:pointer">취소</button>';
     var inp=td.querySelector('input'); inp.value=v; inp.focus(); inp.select();
-    inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); _ciPwSave(win, inp); } else if(ev.key==='Escape'){ ev.preventDefault(); _ciPwCancel(win, inp); } };
+    inp.onkeydown=function(ev){ if(ev.isComposing||ev.keyCode===229) return; if(ev.key==='Enter'){ ev.preventDefault(); _ciPwSave(win, inp); } else if(ev.key==='Escape'){ ev.preventDefault(); _ciPwCancel(win, inp); } };
   }catch(e){ _ciMsg(win,'수정 칸을 열지 못했습니다: '+((e&&e.message)||e)); }
 }
 function _ciPwCancel(win){ if(win._ciBusy) return; _ciFillCodes(win, win._ciAgent); }
@@ -20216,7 +20216,9 @@ async function _ciPwSave(win, el){
   var ref=_icDocRef(key); if(!ref){ _ciMsg(win,'클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
   win._ciBusy=true; var keep=false;   // keep=입력칸을 그대로 둠(다시 입력하게)
   try{
-    var snap=await ref.get(), raw=snap.exists?snap.data():null, d=_icClean(raw);   // 최신본 기준 — 다른 기기 변경 보존
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var snap=await Promise.race([ref.get(), new Promise(function(_,rj){ setTimeout(function(){ rj(new Error('응답 없음 — 잠시 후 다시 저장해 주세요')); },10000); })]);
+    var raw=snap.exists?snap.data():null, d=_icClean(raw);   // 최신본 기준 — 다른 기기 변경 보존
     var hit=_ciPick(d.son.concat(d.life), ins);
     if(hit==='many'){ _ciMsg(win,'비슷한 이름의 보험사가 여러 개입니다 — [보험사 코드 관리]에서 수정해 주세요.'); return; }
     if(hit){
