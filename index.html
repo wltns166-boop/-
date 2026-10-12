@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-2</div>
   </div>
 </div>
 
@@ -19805,6 +19805,7 @@ function _icMatchIns(nm){
 }
 async function _icUpRun(src, locked){
   var st=window._icSt; if(!st) return;
+  if(st.loading){ toast('불러오는 중입니다. 잠시 후 다시 해 주세요.'); return; }
   if(!locked){ if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; } window._icUpBusy=true; }
   var key=st.key, seq=st.seq;
   try{
@@ -19863,8 +19864,8 @@ async function _icUpApply(rows, unk, label, key, seq){
     msg+='\nAI가 읽은 값이라 틀릴 수 있습니다. 저장 후 표에서 한 번 확인해 주세요.\n저장할까요?';
     if(!confirm(msg)){ _icUpStat('취소됨'); return; }
     if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
-    var snap2=await ref.get(), d2=_icClean(snap2.exists?snap2.data():null);   // 확인창을 보는 사이 바뀐 것이 있으면 다시 병합
-    if(JSON.stringify(d2)!==JSON.stringify(_icClean(snap.exists?snap.data():null))){ toast('그 사이 다른 곳에서 수정됐습니다. 파일을 다시 올려 주세요.'); _icUpStat('다시 시도'); return; }
+    var snap2=await ref.get();   // 확인창을 보는 사이 바뀐 것이 있으면 중단 — 원본 그대로 비교(_icClean은 id 없는 옛 행에 매번 새 id를 붙여 비교가 항상 달라짐)
+    if(JSON.stringify(snap2.exists?snap2.data():null)!==JSON.stringify(snap.exists?snap.data():null)){ toast('그 사이 다른 곳에서 수정됐습니다. 파일을 다시 올려 주세요.'); _icUpStat('다시 시도'); return; }
     await ref.set({nm:st.nm||'', son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
     if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
     st.data=_icClean(d); st.edit=null; st.show={}; _icDraw();
