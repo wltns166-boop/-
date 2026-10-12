@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-6</div>
   </div>
 </div>
 
@@ -20166,22 +20166,73 @@ async function _ciFillCodes(win, agent){
     if(win.closed||win._ciGen!==gen) return;   // 창이 닫혔거나 그 사이 다른 고객을 다시 띄움
     doc=win.document;
     var all=data?data.son.concat(data.life):[];
-    var norm=_icNameKey;   // 줄임말까지 같은 이름으로(DB손보=DB손해보험)
-    // 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
-    var pick=function(ins){ var n=norm(ins); if(!n) return null;
-      var ex=all.find(function(r){ return norm(r.ins)===n; }); if(ex) return ex;
-      var part=all.filter(function(r){ var q=norm(r.ins); return q&&(q.indexOf(n)>=0||n.indexOf(q)>=0); });
-      return part.length===1?part[0]:(part.length>1?'many':null); };
+    var pick=function(ins){ return _ciPick(all, ins); };
+    win._ciAgent=agent; win._ciKey=key; win._ciNm=nm;
+    var canEdit=!!key&&(_isAdmin()||key===_rsvKey());   // 비밀번호 수정 — 관리자 또는 담당자 본인(코드 관리 창과 같은 권한)
+    var pen=canEdit?' <span onclick="_ciCall(\'_ciPwEdit\',this)" style="cursor:pointer;font-size:12px;opacity:.65;margin-left:2px" title="비밀번호 수정">✏</span>':'';
     doc.querySelectorAll('[data-ciins]').forEach(function(td){
+      td.removeAttribute('data-cipwed');   // 수정 중 표시 해제(다시 그리면 수정 칸은 닫힘)
       var r=pick(td.getAttribute('data-ciins')), k=td.getAttribute('data-cik');
       if(r==='many'){ td.innerHTML='<span style="color:#b07010;font-size:12px" title="비슷한 이름의 보험사가 여러 개 등록돼 있습니다 — [보험사 코드 관리]에서 이름을 맞춰 주세요">확인 필요</span>'; return; }
       var v=r?(k==='pw'?r.pw:r.code):'';
-      if(!v){ td.innerHTML='<span style="color:#b0b4c8">-</span>'; return; }
+      if(!v){ td.innerHTML='<span style="color:#b0b4c8">-</span>'+(k==='pw'?pen:''); return; }
       var ev=_alertEsc(v);
       if(k==='code') td.innerHTML='<span onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="코드" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>';
-      else td.innerHTML='<span class="cipw" onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="비밀번호" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>';   // 그대로 표시(2026-10-12 사용자 요청)
+      else td.innerHTML='<span class="cipw" onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="비밀번호" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>'+pen;   // 그대로 표시(2026-10-12 사용자 요청)
     });
   }catch(e){ try{ if(!win.closed&&win._ciGen===gen) (doc||win.document).querySelectorAll('[data-ciins]').forEach(function(td){ td.innerHTML='<span style="color:#c08080;font-size:12px">조회 실패</span>'; }); }catch(_e){} }
+}
+// 신청 보험사 이름 → 담당자 inscode 행. 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
+function _ciPick(all, ins){ var n=_icNameKey(ins); if(!n) return null;
+  var ex=all.find(function(r){ return _icNameKey(r.ins)===n; }); if(ex) return ex;
+  var part=all.filter(function(r){ var q=_icNameKey(r.ins); return q&&(q.indexOf(n)>=0||n.indexOf(q)>=0); });
+  return part.length===1?part[0]:(part.length>1?'many':null); }
+// 고객정보 창에서 비밀번호 수정 (2026-10-12 — v2026.10.12-6, 사용자 요청). 새 창은 자기 스크립트의 _ciCall이 opener의 같은 이름 함수를 부름,
+//   모달(같은 창)은 아래 _ciCall이 직접 부름. 저장은 _icSave와 같이 최신본을 다시 읽어 그 행 비밀번호만 바꾼다(없으면 새 행 — 코드 칸은 비움).
+function _ciCall(n, el){ if(typeof window[n]==='function') return window[n](window, el); }
+function _ciMsg(win, m){ try{ if(win!==window&&typeof win._ciToast==='function'){ win._ciToast(m); return; } }catch(e){} toast(m); }
+function _ciPwEdit(win, el){
+  try{
+    if(win._ciBusy) return;
+    var key=win._ciKey; if(!key||!(_isAdmin()||key===_rsvKey())){ _ciMsg(win,'담당자 본인 또는 관리자만 수정할 수 있습니다.'); return; }
+    var doc=win.document, td=el.closest('td'); if(!td) return;
+    var open=doc.querySelector('[data-cipwed]'); if(open&&open!==td){ _ciMsg(win,'수정 중인 칸을 먼저 저장하거나 취소해 주세요.'); return; }
+    var cur=td.querySelector('.cipw'), v=cur?cur.getAttribute('data-copy')||'':'';
+    td.setAttribute('data-cipwed','1');
+    td.innerHTML='<input type="text" maxlength="80" autocomplete="off" style="width:96px;padding:3px 5px;border:1px solid #8a96e0;border-radius:5px;font-size:12.5px;font-family:inherit;color:#1c2140;background:#fff">'
+      +' <button type="button" onclick="_ciCall(\'_ciPwSave\',this)" style="padding:2px 7px;border:1px solid #4858cc;border-radius:5px;background:#4858cc;color:#fff;font-size:11.5px;cursor:pointer">저장</button>'
+      +' <button type="button" onclick="_ciCall(\'_ciPwCancel\',this)" style="padding:2px 7px;border:1px solid #ccd;border-radius:5px;background:#fff;color:#555;font-size:11.5px;cursor:pointer">취소</button>';
+    var inp=td.querySelector('input'); inp.value=v; inp.focus(); inp.select();
+    inp.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); _ciPwSave(win, inp); } else if(ev.key==='Escape'){ ev.preventDefault(); _ciPwCancel(win, inp); } };
+  }catch(e){ _ciMsg(win,'수정 칸을 열지 못했습니다: '+((e&&e.message)||e)); }
+}
+function _ciPwCancel(win){ if(win._ciBusy) return; _ciFillCodes(win, win._ciAgent); }
+async function _ciPwSave(win, el){
+  if(win._ciBusy) return;
+  var td=el&&el.closest?el.closest('td'):null; if(!td) return;
+  var key=win._ciKey, agent=win._ciAgent, ins=td.getAttribute('data-ciins')||'';
+  if(!key||!(_isAdmin()||key===_rsvKey())){ _ciMsg(win,'담당자 본인 또는 관리자만 수정할 수 있습니다.'); return; }
+  var inp=td.querySelector('input'), v=String(inp?inp.value:'').trim().slice(0,80);
+  var ref=_icDocRef(key); if(!ref){ _ciMsg(win,'클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
+  win._ciBusy=true; var keep=false;   // keep=입력칸을 그대로 둠(다시 입력하게)
+  try{
+    var snap=await ref.get(), raw=snap.exists?snap.data():null, d=_icClean(raw);   // 최신본 기준 — 다른 기기 변경 보존
+    var hit=_ciPick(d.son.concat(d.life), ins);
+    if(hit==='many'){ _ciMsg(win,'비슷한 이름의 보험사가 여러 개입니다 — [보험사 코드 관리]에서 수정해 주세요.'); return; }
+    if(hit){
+      if(hit.pw===v){ _ciMsg(win,'바뀐 내용이 없습니다.'); return; }
+      if(!v&&!win.confirm('"'+hit.ins+'" 비밀번호를 지울까요?')){ keep=true; return; }
+      hit.pw=v; hit.ts=Date.now();
+    } else {
+      if(!v){ _ciMsg(win,'비밀번호를 입력해 주세요.'); keep=true; return; }
+      var mt=_icMatchIns(ins), side=mt?mt.s:(/생명|라이프/.test(ins)?'life':'son');
+      d[side].push({id:'ic_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), ins:(mt?mt.n:ins).slice(0,40), code:'', pw:v, ts:Date.now()});
+    }
+    await ref.set({nm:(raw&&raw.nm)||win._ciNm||'', son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
+    _ciMsg(win, hit?'비밀번호를 저장했습니다.':'새 보험사로 저장했습니다 (코드는 [보험사 코드 관리]에서 입력).');
+    try{ var st=window._icSt; if(st&&st.key===key&&!st.edit&&!st.busy) _icLoad(st.key, st.nm); }catch(e){}   // 코드 관리 창이 같은 사람을 보고 있으면 새로 고침
+  }catch(e){ _ciMsg(win,'저장 실패: '+((e&&e.message)||e)); keep=true; }
+  finally{ win._ciBusy=false; if(!keep){ try{ if(!win.closed) _ciFillCodes(win, agent); }catch(e){} } }
 }
 // 고객정보 새 창 — 창 이름을 고객별로 달리해 여러 고객을 나란히 띄울 수 있음(같은 고객은 같은 창을 다시 씀).
 //   창 안의 값 클릭 복사는 창 자체 스크립트(_csrCopyVal 같은 이름)로 처리. 로그아웃 시 _custInfoCloseAll로 모두 닫음(개인정보 잔존 방지).
@@ -20194,6 +20245,7 @@ function _custInfoPopup(ttl, inner, ck, agent){
   }catch(e){ w=null; }
   if(!w) return false;
   var sc='<scr'+'ipt>'
+    +'function _ciCall(n,el){try{var o=window.opener;if(o&&typeof o[n]==="function")return o[n](window,el);}catch(e){}alert("인트라넷 창이 닫혀 수정할 수 없습니다.");}'
     +'function _ciToast(m){var t=document.getElementById("ci_toast");t.textContent=m;t.style.opacity="1";clearTimeout(window._ciT);window._ciT=setTimeout(function(){t.style.opacity="0";},1600);}'
     +'function _csrCopyVal(el){var v=el.getAttribute("data-copy")||"";if(!v)return;var lb=el.getAttribute("data-cplb")||"값";'
     +'var ok=function(){_ciToast(lb+" 복사 완료"+(lb==="비밀번호"?"":": "+v));};'
