@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.07-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-1</div>
   </div>
 </div>
 
@@ -19598,6 +19598,10 @@ function insCodeOpen(){
   ov.innerHTML='<div style="background:#fff;color:#1c2140;border-radius:12px;max-width:1100px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">🔑 보험사 코드 · 비밀번호</b>'
     +(who?'<span style="font-size:12.5px;color:#667">팀원 선택</span>'+who:'<span style="font-size:12.5px;color:#667">'+_esc(cu.name)+' 님 본인 정보 (관리자도 볼 수 있어요)</span>')
+    +'<div id="ic_up" title="클릭하면 초록색으로 선택 — 그 상태에서 Ctrl+V로 붙여넣기, 또는 파일을 끌어다 놓기" style="display:flex;align-items:center;gap:8px;padding:5px 10px;border:2px dashed #b9c0e6;border-radius:9px;background:#f7f8fd;cursor:pointer;font-size:12.5px;color:#4858cc;user-select:none">'
+    +'<span>📎 <b>사진·PDF·엑셀로 입력</b> <span id="ic_up_st" style="color:#778">클릭 후 붙여넣기 · 끌어다 놓기</span></span>'
+    +'<button type="button" data-icup="pick" style="padding:3px 9px;border:1px solid #4858cc;border-radius:6px;background:#4858cc;color:#fff;cursor:pointer;font-size:12px;font-family:inherit">파일 선택</button>'
+    +'<input type="file" id="ic_up_file" multiple accept="image/*,.pdf,application/pdf,.xlsx,.xls,.csv" style="display:none"></div>'
     +'<span style="flex:1"></span><span data-ica="x" style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
     +'<div id="ic_body" style="padding:14px 18px;overflow:auto"></div>'
     +'<div style="padding:8px 18px 12px;font-size:11.5px;color:#99a">코드·비밀번호를 누르면 복사됩니다. 비밀번호는 👁 를 눌러야 보입니다. 공용 PC에서는 사용 후 창을 닫아 주세요.</div></div>';
@@ -19620,6 +19624,7 @@ function insCodeOpen(){
     if(st.edit&&!_icLeaveEdit()){ ev.target.value=st.key; return; }
     var o=ev.target.options[ev.target.selectedIndex]; _icLoad(ev.target.value, o?o.getAttribute('data-nm'):''); } });
   ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.getAttribute&&/^(code|pw)$/.test(ev.target.getAttribute('data-icf')||'')){ var st=window._icSt; if(st&&st.edit){ ev.preventDefault(); _icSave(st.edit.side, st.edit.id); } } });
+  _icUpBind();
   _icLoad(me, cu.name);
 }
 // 편집 중인 행에서 나가기 — 입력이 남아 있으면 확인(force면 묻지 않음). 새 행은 버림.
@@ -19709,6 +19714,162 @@ async function _icDel(side, id){
     if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
     st.data=d; if(st.edit&&st.edit.id===id) st.edit=null; _icDraw(); toast('삭제했습니다.');
   }catch(e){ toast('삭제 실패: '+((e&&e.message)||e)); }
+  finally{ if(window._icSt) window._icSt.busy=false; }
+}
+// ===== 보험사 코드 — 사진·PDF·엑셀로 자동 입력 (2026-10-12 — 사용자 요청) =====
+//   업로드 칸(#ic_up)을 누르면 초록색 선택 → Ctrl+V 붙여넣기 / 끌어다 놓기 / [파일 선택].
+//   사진·글자 없는 PDF는 쪽 그림을, 글자 있는 PDF·엑셀은 글자를 /api/analyze(Gemini)에 보내 [{보험사,코드,비밀번호}]만 받는다(옮겨 적기만).
+//   손보/생보 구분은 코드가 보험사 목록(_reqInsLists)으로 먼저 판정, 목록에 없으면 AI 판정. 저장은 _icSave와 같이 최신본을 다시 읽어 병합.
+//   같은 보험사가 이미 있으면 인식된 칸만 갱신(빈 값으로 덮지 않음). 확인창에서 추가·변경 내역을 보여 준 뒤 저장.
+//   ⚠️ 원본 파일은 저장하지 않음(메모리에서만 처리). 코드·비밀번호가 AI 서버로 전송됨 — 3.85.5·mcreq OCR과 같은 계열의 수용 사항.
+var IC_UP_MAX=20*1024*1024;
+function _icUpSel(on){ var b=g('ic_up'); if(!b) return; window._icUpOn=!!on;
+  b.style.borderColor=on?'#2f9e44':'#b9c0e6'; b.style.background=on?'#e9f9ee':'#f7f8fd'; b.style.color=on?'#1f7a3a':'#4858cc'; }
+function _icUpStat(t){ var e=g('ic_up_st'); if(e) e.textContent=t; }
+function _icUpBind(){
+  var b=g('ic_up'), fi=g('ic_up_file'); if(!b||!fi) return;
+  window._icUpOn=false;
+  b.addEventListener('click',function(ev){ ev.stopPropagation(); _icUpSel(true);
+    if(ev.target&&ev.target.getAttribute&&ev.target.getAttribute('data-icup')==='pick') fi.click(); });
+  fi.addEventListener('click',function(ev){ ev.stopPropagation(); });
+  fi.addEventListener('change',function(){ var fs=Array.prototype.slice.call(fi.files||[]); fi.value=''; if(fs.length) _icUpFiles(fs); });
+  b.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); _icUpSel(true); });
+  b.addEventListener('dragleave',function(e){ e.stopPropagation(); });
+  b.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); _icUpSel(true);
+    var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]); if(fs.length) _icUpFiles(fs); });
+  var pop=g('ic_pop');
+  if(pop) pop.addEventListener('mousedown',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); });
+}
+// 붙여넣기 — 창이 떠 있고 업로드 칸이 선택(초록)일 때만. 캡처 단계에서 받아 공용 uni 처리보다 먼저(4.8 규칙).
+document.addEventListener('paste',function(ev){
+  if(!g('ic_pop')||!window._icUpOn) return;
+  var items=(ev.clipboardData&&ev.clipboardData.items)||[], fs=[];
+  for(var i=0;i<items.length;i++){ var it=items[i]; if(it.kind==='file'){ var f=it.getAsFile(); if(f) fs.push(f); } }
+  if(!fs.length){ var tx=ev.clipboardData&&ev.clipboardData.getData('text/plain'); if(tx&&tx.trim()){ ev.preventDefault(); ev.stopPropagation(); _icUpRun({text:tx.slice(0,60000), label:'붙여넣은 글'}); } return; }
+  ev.preventDefault(); ev.stopPropagation(); _icUpFiles(fs);
+},true);
+function _icUpKind(f){
+  var n=String(f&&f.name||'').toLowerCase(), t=String(f&&f.type||'');
+  if(/^image\//.test(t)||/\.(png|jpe?g|gif|webp|bmp)$/.test(n)) return 'img';
+  if(t==='application/pdf'||/\.pdf$/.test(n)) return 'pdf';
+  if(/\.(xlsx|xls|csv)$/.test(n)||/spreadsheet|ms-excel|text\/csv/.test(t)) return 'xls';
+  return '';
+}
+async function _icUpFiles(files){
+  var st=window._icSt; if(!st){ return; }
+  if(st.loading){ toast('불러오는 중입니다. 잠시 후 다시 해 주세요.'); return; }
+  if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; }
+  var ok=[], bad=[];
+  files.slice(0,6).forEach(function(f){ var k=_icUpKind(f); if(!k) bad.push(f.name||'파일'); else if(f.size>IC_UP_MAX) bad.push((f.name||'파일')+'(20MB 초과)'); else ok.push({f:f,k:k}); });
+  if(!ok.length){ toast('사진·PDF·엑셀 파일만 올릴 수 있습니다.'+(bad.length?' ('+bad.join(', ')+')':'')); return; }
+  window._icUpBusy=true; var key=st.key, seq=st.seq;
+  try{
+    var imgs=[], texts=[];
+    for(var i=0;i<ok.length;i++){ var o=ok[i];
+      _icUpStat('읽는 중… '+(i+1)+'/'+ok.length);
+      if(o.k==='img'){ if(imgs.length<8) imgs.push(await _dbKkImgShrink(o.f)); }
+      else if(o.k==='xls'){
+        if(typeof XLSX==='undefined') throw new Error('엑셀 읽기 도구를 불러오지 못했습니다. 새로고침 후 다시 해 주세요.');
+        var wb=XLSX.read(await o.f.arrayBuffer(),{type:'array'});
+        wb.SheetNames.slice(0,10).forEach(function(sn){ texts.push('['+(o.f.name||'엑셀')+' · '+sn+']\n'+XLSX.utils.sheet_to_csv(wb.Sheets[sn],{blankrows:false})); });
+      } else {
+        var pdf=await pdfjsLib.getDocument({data:await o.f.arrayBuffer()}).promise, tx='', np=Math.min(pdf.numPages,20);
+        for(var p=1;p<=np;p++){ var pg=await pdf.getPage(p), tc=await pg.getTextContent(), line='', lastY=null;
+          tc.items.forEach(function(it){ var y=Math.round(it.transform[5]); if(lastY!==null&&Math.abs(y-lastY)>3){ tx+=line+'\n'; line=''; } line+=(line?' ':'')+it.str; lastY=y; });
+          tx+=line+'\n'; }
+        if(tx.replace(/\s/g,'').length>=20) texts.push('['+(o.f.name||'PDF')+']\n'+tx);
+        else {   // 글자 없는(스캔) PDF — 앞 4쪽을 그림으로
+          for(var q=1;q<=Math.min(pdf.numPages,4)&&imgs.length<8;q++){ var pg2=await pdf.getPage(q), vp=pg2.getViewport({scale:1}), sc=Math.min(2, 1600/Math.max(vp.width,vp.height));
+            var v2=pg2.getViewport({scale:sc}), cv=document.createElement('canvas'); cv.width=Math.round(v2.width); cv.height=Math.round(v2.height);
+            var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); await pg2.render({canvasContext:cx,viewport:v2}).promise;
+            imgs.push(cv.toDataURL('image/jpeg',0.88)); } }
+      }
+    }
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    var text=texts.join('\n\n').slice(0,60000);
+    if(!imgs.length&&!text.trim()) throw new Error('파일에서 내용을 읽지 못했습니다.');
+    await _icUpRun({imgs:imgs, text:text, label:ok.map(function(o){ return o.f.name||'파일'; }).join(', ')+(bad.length?' (제외: '+bad.join(', ')+')':'')}, true);
+  }catch(e){ var em=(e&&e.message)||String(e); _icUpStat('실패: '+em); toast('인식 실패: '+em); }
+  finally{ window._icUpBusy=false; }
+}
+// 이름 비교용 — 공백·괄호·(주) 제거, 소문자
+function _icNameKey(s){ return String(s||'').replace(/\(주\)|㈜|주식회사/g,'').replace(/[\s()\[\]·.,-]/g,'').toLowerCase(); }
+// 보험사 이름을 등록 목록 이름으로 맞추고 손보/생보 판정 — 정확 일치 → 한쪽이 다른 쪽을 포함(후보 1곳일 때만)
+function _icMatchIns(nm){
+  var L=_reqInsLists(), k=_icNameKey(nm), all=[];
+  L.son.forEach(function(n){ all.push({n:n,s:'son'}); }); L.life.forEach(function(n){ all.push({n:n,s:'life'}); });
+  if(!k) return null;
+  var ex=all.filter(function(x){ return _icNameKey(x.n)===k; }); if(ex.length===1) return ex[0];
+  var pa=all.filter(function(x){ var xk=_icNameKey(x.n); return xk.length>=2&&(xk.indexOf(k)>=0||k.indexOf(xk)>=0); });
+  return pa.length===1?pa[0]:null;
+}
+async function _icUpRun(src, locked){
+  var st=window._icSt; if(!st) return;
+  if(!locked){ if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; } window._icUpBusy=true; }
+  var key=st.key, seq=st.seq;
+  try{
+    _icUpStat('AI가 읽는 중… (수 초~수십 초)');
+    var prompt='아래 '+(src.imgs&&src.imgs.length?'사진':'자료')+'은 보험설계사의 보험사별 전산 아이디(코드)·비밀번호 목록이야. 적힌 내용을 그대로 옮겨 적어 JSON 배열만 출력해. 설명·코드펜스 없이.\n'
+      +'각 항목: {"insurer":"보험사 이름","code":"코드 또는 아이디·사번·설계사번호","pw":"비밀번호(없으면 빈문자)","type":"손보 또는 생보 또는 모름"}\n'
+      +'규칙: 원문에 없는 값은 만들지 말 것. 글자·숫자·특수문자는 대소문자까지 그대로. 보험사 이름이 없는 줄은 빼. 표 제목·머리글은 넣지 마.'
+      +(src.text?'\n\n[자료]\n'+src.text:'');
+    var mdl=(function(){ try{ return localStorage.getItem('tops_ai_ic_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+    var body={model:mdl, prompt:prompt, max_tokens:8000}; if(src.imgs&&src.imgs.length) body.images=src.imgs;
+    var res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var data=null; try{ data=await res.json(); }catch(e){}
+    if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('서버 오류 '+res.status));
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;   // 그 사이 다른 사람을 골랐거나 창을 닫음
+    var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'', m=/\[[\s\S]*\]/.exec(text);
+    if(!m) throw new Error('AI 응답에서 보험사 목록을 찾지 못했습니다.');
+    var arr=JSON.parse(m[0]); if(!Array.isArray(arr)) throw new Error('AI 응답 형식 오류');
+    var rows=[], unk=[];
+    arr.slice(0,100).forEach(function(o){ o=o||{};
+      var nm=String(o.insurer||'').replace(/[\r\n|]/g,' ').trim().slice(0,40); if(!nm) return;
+      var code=String(o.code||'').replace(/[\r\n]/g,'').trim().slice(0,60), pw=String(o.pw||'').replace(/[\r\n]/g,'').trim().slice(0,80);
+      if(!code&&!pw) return;
+      var mt=_icMatchIns(nm), side=mt?mt.s:(/생보|생명/.test(String(o.type||'')+nm)?'life':(/손보|화재|손해|해상/.test(String(o.type||'')+nm)?'son':''));
+      if(!side){ side='son'; unk.push(nm); }
+      rows.push({side:side, ins:mt?mt.n:nm, code:code, pw:pw});
+    });
+    if(!rows.length){ _icUpStat('찾지 못함'); toast('파일에서 보험사·코드를 찾지 못했습니다. 내용이 선명한지 확인해 주세요.'); return; }
+    await _icUpApply(rows, unk, src.label||'', key, seq);
+  }catch(e){ var em=(e&&e.message)||String(e); _icUpStat('실패: '+em); toast('인식 실패: '+em); }
+  finally{ if(!locked) window._icUpBusy=false; }
+}
+async function _icUpApply(rows, unk, label, key, seq){
+  var st=window._icSt; if(!st||st.key!==key||st.seq!==seq) return;
+  if(!_isAdmin()&&key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
+  if(st.edit&&!_icLeaveEdit()) { _icUpStat('취소됨'); return; }
+  var ref=_icDocRef(key); if(!ref){ toast('클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
+  if(st.busy){ toast('저장 중입니다. 잠시 후 다시 해 주세요.'); return; }
+  st.busy=true;
+  try{
+    var snap=await ref.get(), d=_icClean(snap.exists?snap.data():null);   // 최신본 기준 병합(다른 기기 변경 보존)
+    var add=[], chg=[], same=0, now=Date.now();
+    rows.forEach(function(r){
+      var k=_icNameKey(r.ins), hit=null, hs=null;
+      ['son','life'].forEach(function(sd){ d[sd].forEach(function(x){ if(!hit&&_icNameKey(x.ins)===k){ hit=x; hs=sd; } }); });
+      if(!hit){ var nr={id:'ic_'+now.toString(36)+Math.random().toString(36).slice(2,7), ins:r.ins, code:r.code, pw:r.pw, ts:now}; d[r.side].push(nr); add.push(nr); return; }
+      var nc=r.code||hit.code, np=r.pw||hit.pw;   // 인식 안 된 칸은 기존 값 유지
+      if(nc===hit.code&&np===hit.pw){ same++; return; }
+      chg.push({ins:hit.ins, oc:hit.code, nc:nc, pwc:np!==hit.pw}); hit.code=nc; hit.pw=np; hit.ts=now;
+    });
+    if(!add.length&&!chg.length){ _icUpStat('변경 없음'); toast('인식한 '+rows.length+'건이 이미 모두 같게 등록돼 있습니다.'); return; }
+    var msg='['+(st.nm||'')+'] 님 보험사 코드 — 파일 인식 결과\n'+(label?'('+label+')\n':'')+'\n';
+    if(add.length) msg+='＋ 새로 추가 '+add.length+'곳\n'+add.map(function(x){ return '   '+x.ins+'  코드 '+(x.code||'-')+(x.pw?'  비밀번호 있음':''); }).join('\n')+'\n';
+    if(chg.length) msg+='✎ 바뀜 '+chg.length+'곳\n'+chg.map(function(x){ return '   '+x.ins+'  코드 '+(x.oc||'-')+' → '+(x.nc||'-')+(x.pwc?'  · 비밀번호 바뀜':''); }).join('\n')+'\n';
+    if(same) msg+='(이미 같은 값 '+same+'곳은 그대로)\n';
+    if(unk.length) msg+='\n⚠ 손보/생보를 알 수 없어 손해보험사 쪽에 넣음: '+unk.join(', ')+'\n';
+    msg+='\nAI가 읽은 값이라 틀릴 수 있습니다. 저장 후 표에서 한 번 확인해 주세요.\n저장할까요?';
+    if(!confirm(msg)){ _icUpStat('취소됨'); return; }
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    var snap2=await ref.get(), d2=_icClean(snap2.exists?snap2.data():null);   // 확인창을 보는 사이 바뀐 것이 있으면 다시 병합
+    if(JSON.stringify(d2)!==JSON.stringify(_icClean(snap.exists?snap.data():null))){ toast('그 사이 다른 곳에서 수정됐습니다. 파일을 다시 올려 주세요.'); _icUpStat('다시 시도'); return; }
+    await ref.set({nm:st.nm||'', son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    st.data=_icClean(d); st.edit=null; st.show={}; _icDraw();
+    _icUpStat('저장 완료 — 추가 '+add.length+' · 변경 '+chg.length); toast('저장했습니다 — 추가 '+add.length+'곳, 변경 '+chg.length+'곳');
+  }catch(e){ toast('저장 실패: '+((e&&e.message)||e)); _icUpStat('저장 실패'); }
   finally{ if(window._icSt) window._icSt.busy=false; }
 }
 // ===== 고객정보 보기 (고객등록 현황 → 고객명 클릭) =====
@@ -27874,8 +28035,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if((w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if((w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
