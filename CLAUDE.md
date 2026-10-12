@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.12-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.12-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -130,6 +130,8 @@
   [파일 선택](`#ic_up_file`). 사진=`_dbKkImgShrink`, PDF=pdf.js 글자(20쪽) — 글자 없으면 앞 4쪽 그림, 엑셀/CSV=XLSX→csv. `/api/analyze`(gemini-2.5-flash, 오버라이드 `tops_ai_ic_model`)는
   **옮겨 적기만**({insurer,code,pw,type}). 손보/생보는 `_icMatchIns`(보험사 목록 정확 일치 → 포함 일치는 후보 1곳일 때만 — 이름도 목록 이름으로 맞춤), 목록에 없으면 AI type, 모르면 손보 쪽+확인창 경고.
   `_icUpApply`: 최신본 기준 병합 — 같은 보험사(`_icNameKey` 공백·(주) 무시)는 인식된 칸만 갱신(빈 값으로 덮지 않음), 없으면 추가. 확인창에 추가·변경 내역 → 저장 직전 다시 읽어
+  v-3 리뷰: 입력칸(input·select 등)에 붙여넣는 글은 가로채지 않고 포커스가 칸 밖으로 가면 선택 해제(비밀번호가 AI로 새는 경로 차단), 같은 보험사는 코드까지 같은 행에만 맞춤 —
+  파일에 그 보험사가 1줄·기존도 1줄일 때만 코드 변경으로 보고, 아니면 새 행(여러 코드 보존), 파일 안 (보험사,코드) 중복 제거.
   그 사이 바뀌었으면 저장 중단(재업로드 안내 — v-2: 비교는 원본 그대로, _icClean은 id 없는 행에 새 id를 붙여 항상 달라짐). 원본 파일은 저장 안 함. ⚠️ 코드·비밀번호가 AI 서버로 전송됨(mcreq OCR 계열 수용).
 
 ### 3.4 고객 목록 — 같은 내용 합치기 · 청구신청 바로가기 (2026-09-15, v2026.09.15-14)

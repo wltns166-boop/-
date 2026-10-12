@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-3</div>
   </div>
 </div>
 
@@ -19738,11 +19738,14 @@ function _icUpBind(){
   b.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); _icUpSel(true);
     var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]); if(fs.length) _icUpFiles(fs); });
   var pop=g('ic_pop');
-  if(pop) pop.addEventListener('mousedown',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); });
+  if(pop){ pop.addEventListener('mousedown',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); });
+    pop.addEventListener('focusin',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); }); }   // Tab으로 입력칸에 가면 선택 해제
 }
 // 붙여넣기 — 창이 떠 있고 업로드 칸이 선택(초록)일 때만. 캡처 단계에서 받아 공용 uni 처리보다 먼저(4.8 규칙).
 document.addEventListener('paste',function(ev){
   if(!g('ic_pop')||!window._icUpOn) return;
+  var tg=ev.target;   // 입력칸에 붙여넣는 글(비밀번호 등)은 가로채지 않음 — 외부 AI로 새는 경로 차단(리뷰)
+  if(tg&&(/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName||'')||tg.isContentEditable)) return;
   var items=(ev.clipboardData&&ev.clipboardData.items)||[], fs=[];
   for(var i=0;i<items.length;i++){ var it=items[i]; if(it.kind==='file'){ var f=it.getAsFile(); if(f) fs.push(f); } }
   if(!fs.length){ var tx=ev.clipboardData&&ev.clipboardData.getData('text/plain'); if(tx&&tx.trim()){ ev.preventDefault(); ev.stopPropagation(); _icUpRun({text:tx.slice(0,60000), label:'붙여넣은 글'}); } return; }
@@ -19846,11 +19849,15 @@ async function _icUpApply(rows, unk, label, key, seq){
   st.busy=true;
   try{
     var snap=await ref.get(), d=_icClean(snap.exists?snap.data():null);   // 최신본 기준 병합(다른 기기 변경 보존)
-    var add=[], chg=[], same=0, now=Date.now();
+    var add=[], chg=[], same=0, now=Date.now(), seen={}, cnt={}, newIds={};
+    rows=rows.filter(function(r){ var sk=_icNameKey(r.ins)+'|'+r.code; if(seen[sk]) return false; seen[sk]=1; cnt[_icNameKey(r.ins)]=(cnt[_icNameKey(r.ins)]||0)+1; return true; });   // 파일 안 같은 (보험사,코드) 중복 제거
     rows.forEach(function(r){
-      var k=_icNameKey(r.ins), hit=null, hs=null;
-      ['son','life'].forEach(function(sd){ d[sd].forEach(function(x){ if(!hit&&_icNameKey(x.ins)===k){ hit=x; hs=sd; } }); });
-      if(!hit){ var nr={id:'ic_'+now.toString(36)+Math.random().toString(36).slice(2,7), ins:r.ins, code:r.code, pw:r.pw, ts:now}; d[r.side].push(nr); add.push(nr); return; }
+      var k=_icNameKey(r.ins), hit=null, ex=[];
+      ['son','life'].forEach(function(sd){ d[sd].forEach(function(x){ if(_icNameKey(x.ins)===k&&!newIds[x.id]) ex.push(x); }); });
+      // 같은 보험사·같은 코드 행이 있으면 그 행. 없으면 — 파일에 그 보험사가 1줄뿐이고 기존 행도 1줄이면 코드 변경으로 보고 그 행, 아니면 새 행(여러 코드 보존)
+      ex.forEach(function(x){ if(!hit&&r.code&&x.code===r.code) hit=x; });
+      if(!hit&&ex.length===1&&cnt[k]===1) hit=ex[0];
+      if(!hit){ var nr={id:'ic_'+now.toString(36)+Math.random().toString(36).slice(2,7), ins:r.ins, code:r.code, pw:r.pw, ts:now}; d[r.side].push(nr); add.push(nr); newIds[nr.id]=1; return; }
       var nc=r.code||hit.code, np=r.pw||hit.pw;   // 인식 안 된 칸은 기존 값 유지
       if(nc===hit.code&&np===hit.pw){ same++; return; }
       chg.push({ins:hit.ins, oc:hit.code, nc:nc, pwc:np!==hit.pw}); hit.code=nc; hit.pw=np; hit.ts=now;
