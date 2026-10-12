@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-5</div>
   </div>
 </div>
 
@@ -19794,7 +19794,10 @@ async function _icUpFiles(files){
   finally{ window._icUpBusy=false; }
 }
 // 이름 비교용 — 공백·괄호·(주) 제거, 소문자
-function _icNameKey(s){ return String(s||'').replace(/\(주\)|㈜|주식회사/g,'').replace(/[\s()\[\]·.,-]/g,'').toLowerCase(); }
+// 보험사 이름 비교 키 — 공백·(주) 무시 + 줄임말 통일(손해보험=손보, 생명보험=생명, 화재보험=화재, 끝의 '보험' 생략).
+//   2026-10-12 실사용: 코드는 "DB손보"로, 고객등록 신청은 "DB손해보험"으로 적혀 고객정보 창에 코드가 안 붙던 문제.
+function _icNameKey(s){ return String(s||'').replace(/\(주\)|㈜|주식회사/g,'').replace(/[\s()\[\]·.,-]/g,'').toLowerCase()
+  .replace(/손해보험/g,'손보').replace(/생명보험/g,'생명').replace(/(화재|해상)(해상|화재)?보험/g,'$1$2').replace(/보험$/,''); }
 // 보험사 이름을 등록 목록 이름으로 맞추고 손보/생보 판정 — 정확 일치 → 한쪽이 다른 쪽을 포함(후보 1곳일 때만)
 function _icMatchIns(nm){
   var L=_reqInsLists(), k=_icNameKey(nm), all=[];
@@ -20163,7 +20166,7 @@ async function _ciFillCodes(win, agent){
     if(win.closed||win._ciGen!==gen) return;   // 창이 닫혔거나 그 사이 다른 고객을 다시 띄움
     doc=win.document;
     var all=data?data.son.concat(data.life):[];
-    var norm=function(x){ return String(x||'').replace(/\s+/g,''); };
+    var norm=_icNameKey;   // 줄임말까지 같은 이름으로(DB손보=DB손해보험)
     // 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
     var pick=function(ins){ var n=norm(ins); if(!n) return null;
       var ex=all.find(function(r){ return norm(r.ins)===n; }); if(ex) return ex;
