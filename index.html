@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-4</div>
   </div>
 </div>
 
@@ -19604,7 +19604,7 @@ function insCodeOpen(){
     +'<input type="file" id="ic_up_file" multiple accept="image/*,.pdf,application/pdf,.xlsx,.xls,.csv" style="display:none"></div>'
     +'<span style="flex:1"></span><span data-ica="x" style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
     +'<div id="ic_body" style="padding:14px 18px;overflow:auto"></div>'
-    +'<div style="padding:8px 18px 12px;font-size:11.5px;color:#99a">코드·비밀번호를 누르면 복사됩니다. 비밀번호는 👁 를 눌러야 보입니다. 공용 PC에서는 사용 후 창을 닫아 주세요.</div></div>';
+    +'<div style="padding:8px 18px 12px;font-size:11.5px;color:#99a">코드·비밀번호를 누르면 복사됩니다. 공용 PC에서는 사용 후 창을 닫아 주세요.</div></div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',function(ev){
     var t=ev.target; if(t===ov){ ov.remove(); return; }
@@ -19669,11 +19669,9 @@ function _icDraw(){
           +'<td style="'+td+'"><input data-icf="code" value="'+_alertEsc(r.code)+'" data-orig="'+_alertEsc(r.code)+'" placeholder="코드" maxlength="60" autocomplete="off" style="'+inp+'"></td>'
           +'<td style="'+td+'"><input data-icf="pw" value="'+_alertEsc(r.pw)+'" data-orig="'+_alertEsc(r.pw)+'" placeholder="비밀번호" maxlength="80" autocomplete="off" style="'+inp+'"></td>'
           +'<td style="'+td+';white-space:nowrap">'+btn('save',side,r.id,'저장','background:#4858cc;color:#fff;border-color:#4858cc')+' '+btn('cancel',side,r.id,'취소')+'</td></tr>';
-        var sh=!!st.show[r.id];
         return '<tr><td style="'+td+';font-weight:600">'+_esc(r.ins||'-')+'</td>'
           +'<td style="'+td+';cursor:pointer" onclick="_csrCopyVal(this)" data-copy="'+_alertEsc(r.code)+'" data-cplb="코드" title="클릭하면 복사">'+_esc(r.code||'-')+'</td>'
-          +'<td style="'+td+'"><span style="cursor:pointer" onclick="_csrCopyVal(this)" data-copy="'+_alertEsc(r.pw)+'" data-cplb="비밀번호" title="클릭하면 복사">'+(r.pw?(sh?_esc(r.pw):'••••••'):'-')+'</span>'
-          +(r.pw?' <span data-ica="eye" data-ics="'+side+'" data-icid="'+_alertEsc(r.id)+'" style="cursor:pointer;font-size:13px;opacity:.7" title="보기/숨기기">'+(sh?'🙈':'👁')+'</span>':'')+'</td>'
+          +'<td style="'+td+'"><span style="cursor:pointer" onclick="_csrCopyVal(this)" data-copy="'+_alertEsc(r.pw)+'" data-cplb="비밀번호" title="클릭하면 복사">'+(r.pw?_esc(r.pw):'-')+'</span></td>'   // 비밀번호는 그대로 표시(2026-10-12 사용자 요청 — 가림·👁 폐지)
           +'<td style="'+td+';white-space:nowrap">'+btn('edit',side,r.id,'수정')+' '+btn('del',side,r.id,'삭제','color:#c03030;border-color:rgba(200,50,50,.35)')+'</td></tr>';
       }).join(''):'<tr><td colspan="4" style="'+td+';text-align:center;color:#99a;padding:16px">[＋ 추가]로 보험사를 등록하세요.</td></tr>')
       +'</table></div>';
@@ -20178,8 +20176,7 @@ async function _ciFillCodes(win, agent){
       if(!v){ td.innerHTML='<span style="color:#b0b4c8">-</span>'; return; }
       var ev=_alertEsc(v);
       if(k==='code') td.innerHTML='<span onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="코드" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>';
-      else td.innerHTML='<span class="cipw" onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="비밀번호" style="cursor:pointer" title="클릭하면 복사">••••••</span>'
-        +' <span onclick="var s=this.parentNode.querySelector(\'.cipw\');var h=s.textContent===\'••••••\';s.textContent=h?s.getAttribute(\'data-copy\'):\'••••••\';this.textContent=h?\'🙈\':\'👁\';" style="cursor:pointer;font-size:12px;opacity:.7" title="보기/숨기기">👁</span>';
+      else td.innerHTML='<span class="cipw" onclick="_csrCopyVal(this)" data-copy="'+ev+'" data-cplb="비밀번호" style="cursor:pointer" title="클릭하면 복사">'+ev+'</span>';   // 그대로 표시(2026-10-12 사용자 요청)
     });
   }catch(e){ try{ if(!win.closed&&win._ciGen===gen) (doc||win.document).querySelectorAll('[data-ciins]').forEach(function(td){ td.innerHTML='<span style="color:#c08080;font-size:12px">조회 실패</span>'; }); }catch(_e){} }
 }
