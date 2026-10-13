@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1540,6 +1540,12 @@
   (값 200자·줄 200개 상한, 빈 줄 제외 — 줄 삭제는 칸을 비우는 것), `s.ets/s.eBy` 기록, sv + 드라이브 표 + 리쿠르팅 카드 연동. 저장 성공 시 창의 ets 기준 갱신(연속 저장 가능).
   [저장](xls)은 `.no-print` 전부 숨기고 contenteditable 속성 제거. 팀원·출력·카톡 캡처는 edit 없음(무변경).
   ⚠️ 수용: 팀원이 양식을 이미 열어 둔 기기에서 다시 제출하면 관리자 수정분을 덮음(제출 경로는 ets를 보지 않음), 클라우드 읽기 실패 시 기준 비교는 로컬 값.
+- **자동 저장 (2026-10-13 — v2026.10.13-3, 사용자 요청)**: 수정 창은 입력 1.2초 뒤·칸을 벗어날 때 `save('auto')`로 자동 저장(상태 `#bz_edst` "자동 저장됨 HH:MM:SS"),
+  창을 닫을 때(pagehide) 미저장분은 `'close'`로 마지막 저장, 버튼은 [✏ 지금 저장](`'manual'` — 알림 포함). 데이터는 **JSON 문자열**로 opener에 넘김(닫힌 창 객체 접근 방지).
+  메인 `_bizAdminEditSave`는 `_bizEdChain`으로 직렬화, 창 토큰 `wid`+`_bizEdOwn`으로 **같은 창의 연속 저장은 ets 충돌로 보지 않음**(다른 관리자·팀원 재제출은 그대로 차단).
+  auto 저장은 데이터(sv)만 — 드라이브 표·리쿠르팅 연동은 `_bizEdUnsynced`로 미뤄 창 닫힘·[지금 저장]·마지막 자동 저장 1분 뒤(`_bizEdSyncT`) 한 번에(`_bizAdminEditSync`).
+  충돌이면 자동 저장 멈춤+알림, 예외 실패는 5초 뒤 재시도 최대 3회 후 멈춤. 멈췄거나 인트라넷 창이 닫힌 상태에서 미저장 입력이 있으면 창 닫기 전 경고(beforeunload).
+  ⚠️ 수용: 연동 대기 중 메인 창을 새로고침·로그아웃하면 그 회차 드라이브·리쿠르팅 연동은 빠짐(데이터는 저장됨).
 
 ## 5.5 리쿠르팅 리스트 (recruit, 2026-08-05)
 

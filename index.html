@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-3</div>
   </div>
 </div>
 
@@ -21961,9 +21961,9 @@ function _bizFormDoc(name, opts){
     ? '<div class="no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px">'
       +'<button onclick="window.print()" style="'+btn+'background:#4858cc;color:#fff;border:none">🖨 출력</button>'
       +'<button onclick="saveDoc()" style="'+btn+'background:#1a9050;color:#fff;border:none">💾 저장</button>'
-      +(ED?'<button id="bz_edsave" onclick="bzEdSave()" style="'+btn+'background:#d43a3a;color:#fff;border:none">✏ 수정 저장</button>':'')
+      +(ED?'<span id="bz_edst" style="align-self:center;font-size:12.5px;color:#555;margin-right:4px"></span><button id="bz_edsave" onclick="bzEdSave()" style="'+btn+'background:#d43a3a;color:#fff;border:none">✏ 지금 저장</button>':'')
       +'</div>'
-      +(ED?'<div class="no-print" style="background:#fff7e0;border:1px solid #f0d27a;border-radius:8px;padding:8px 12px;font-size:13px;color:#6a5200;margin-bottom:12px">관리자 수정 모드 — 칸을 눌러 바로 입력하고, 줄이 모자라면 [＋ 줄 추가]를 누르세요. 다 고친 뒤 <b>[✏ 수정 저장]</b>을 눌러야 반영됩니다. (내용을 모두 지운 줄은 저장 때 빠집니다)</div>':'')
+      +(ED?'<div class="no-print" style="background:#fff7e0;border:1px solid #f0d27a;border-radius:8px;padding:8px 12px;font-size:13px;color:#6a5200;margin-bottom:12px">관리자 수정 모드 — 칸을 눌러 바로 입력하고, 줄이 모자라면 [＋ 줄 추가]를 누르세요. <b>입력하면 자동으로 저장됩니다</b>(오른쪽 위에 저장 상태 표시). 내용을 모두 지운 줄은 저장 때 빠집니다.</div>':'')
     : '';
   var saveScript='<scr'+'ipt>function saveDoc(){'
     +'var tbs=[].slice.call(document.querySelectorAll(".no-print"));tbs.forEach(function(t){t.style.display="none";});'
@@ -22023,26 +22023,68 @@ function _bizEdScript(name, s){
     +'[].forEach.call(nr.querySelectorAll("[data-bzk]"),function(c){c.textContent="";});last.parentNode.insertBefore(nr,last.nextSibling);renum(sec);var f=nr.querySelector("[data-bzk]");if(f)f.focus();};'
     +'function tx(el){return (el.textContent||"").replace(/\\s+/g," ").trim();}'
     +'function rows(sec){return [].map.call(document.querySelectorAll("tr[data-bzsec=\\""+sec+"\\"]"),function(tr){var o={};[].forEach.call(tr.querySelectorAll("[data-bzk]"),function(c){o[c.getAttribute("data-bzk")]=tx(c);});return o;});}'
-    +'var busy=false;'
-    +'window.bzEdSave=function(){if(busy)return;var op=window.opener;'
-    +'if(!op||op.closed||typeof op._bizAdminEditSave!=="function"){alert("인트라넷 창이 닫혀 저장할 수 없습니다. 인트라넷에서 [보기]를 다시 열어 주세요.");return;}'
-    +'var g={};[].forEach.call(document.querySelectorAll("[data-bzg]"),function(c){g[c.getAttribute("data-bzg")]=tx(c);});'
-    +'var ip=document.querySelector("[data-bzi]");'
-    +'var d={goals:g,ipgwaja:ip?tx(ip):"",prospects:rows("p"),meets:rows("m"),recruits:rows("r")};'
-    +'var b=document.getElementById("bz_edsave");busy=true;if(b){b.disabled=true;b.textContent="저장 중…";}'
-    +'Promise.resolve(op._bizAdminEditSave(NM,d,BT,BE)).then(function(r){'
-    +'if(r&&r.ok){BE=r.ets;alert("수정 내용이 저장되었습니다.");}else{alert((r&&r.msg)||"저장하지 못했습니다.");}'
-    +'}).catch(function(e){alert("저장 중 오류: "+((e&&e.message)||e));}).then(function(){busy=false;if(b){b.disabled=false;b.textContent="✏ 수정 저장";}});};'
+    +'var WID="w"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);'
+    +'function collect(){var g={};[].forEach.call(document.querySelectorAll("[data-bzg]"),function(c){g[c.getAttribute("data-bzg")]=tx(c);});'
+    +'var ip=document.querySelector("[data-bzi]");return {goals:g,ipgwaja:ip?tx(ip):"",prospects:rows("p"),meets:rows("m"),recruits:rows("r")};}'
+    +'function snap(d){return JSON.stringify(d);}'
+    +'var last=snap(collect()),busy=false,again=false,againManual=false,stopped=false,changed=false,tm=null,fails=0;'
+    +'function st(t,c){var e=document.getElementById("bz_edst");if(e){e.textContent=t;e.style.color=c||"#555";}}'
+    +'function hm(){var n=new Date();return ("0"+n.getHours()).slice(-2)+":"+("0"+n.getMinutes()).slice(-2)+":"+("0"+n.getSeconds()).slice(-2);}'
+    +'function opOk(){var op=window.opener;return op&&!op.closed&&typeof op._bizAdminEditSave==="function"?op:null;}'
+    +'function save(mode){var op=opOk();'
+    +'if(!op){st("인트라넷 창이 닫혀 저장할 수 없습니다","#c62828");if(mode==="manual")alert("인트라넷 창이 닫혀 저장할 수 없습니다. 인트라넷에서 [보기]를 다시 열어 주세요.");return;}'
+    +'if(stopped&&mode!=="manual")return;'
+    +'if(busy){again=true;if(mode==="manual")againManual=true;return;}'
+    +'var d=collect(),sn=snap(d);if(sn===last&&mode!=="manual"){st(changed?"자동 저장됨 "+hm():"");return;}'
+    +'busy=true;st("저장 중…","#3a40cc");'
+    +'Promise.resolve(op._bizAdminEditSave(NM,sn,BT,BE,mode,WID)).then(function(r){fails=0;'
+    +'if(r&&r.ok){BE=r.ets;last=sn;changed=true;stopped=false;st((mode==="manual"?"저장됨 ":"자동 저장됨 ")+hm(),"#1a7a3a");if(mode==="manual")alert("수정 내용이 저장되었습니다.");}'
+    +'else{stopped=true;st("자동 저장 멈춤 — 창을 다시 열어 주세요","#c62828");alert((r&&r.msg)||"저장하지 못했습니다.");}'
+    +'}).catch(function(e){fails++;if(mode==="manual"){st("저장 실패","#c62828");alert("저장 중 오류: "+((e&&e.message)||e));}'
+    +'else if(fails>=3){stopped=true;st("자동 저장 멈춤 — [지금 저장]을 눌러 주세요","#c62828");alert("자동 저장이 3번 연속 실패했습니다.\\n인터넷 연결을 확인한 뒤 [지금 저장]을 눌러 주세요.");}'
+    +'else{st("저장 실패 — 잠시 뒤 다시 시도합니다","#c62828");clearTimeout(tm);tm=setTimeout(function(){save("auto");},5000);}})'
+    +'.then(function(){busy=false;if(again){var m=againManual?"manual":"auto";again=false;againManual=false;save(m);}});}'
+    +'function later(ms){clearTimeout(tm);tm=setTimeout(function(){save("auto");},ms);}'
+    +'document.addEventListener("input",function(e){var t=e.target;while(t&&t.nodeType!==1)t=t.parentNode;if(!t||!t.closest||!t.closest("[contenteditable]"))return;if(!stopped)st("입력 중…","#8a6d00");later(1200);});'
+    +'document.addEventListener("focusout",function(e){var t=e.target;if(t&&t.isContentEditable)later(150);});'
+    +'window.bzEdSave=function(){clearTimeout(tm);save("manual");};'
+    +'window.addEventListener("beforeunload",function(e){if((stopped||!opOk())&&snap(collect())!==last){e.preventDefault();e.returnValue="";}});'
+    +'window.addEventListener("pagehide",function(){var op=opOk();if(!op||stopped)return;clearTimeout(tm);var d=collect(),sn=snap(d);'
+    +'try{if(sn!==last||busy){op._bizAdminEditSave(NM,sn,BT,BE,"close",WID);}else if(changed&&typeof op._bizAdminEditSync==="function"){op._bizAdminEditSync(NM);}}catch(e){}});'
     +'})();<\/scr'+'ipt>';
 }
 // [수정 저장] — 관리자 전용. 최신본을 다시 읽어 기준값이 같을 때만 그 팀원 제출본(form)의 목표·입과자·표 3개를 교체.
-async function _bizAdminEditSave(name, d, baseTs, baseEts){
+// mode: 'manual'([✏ 지금 저장] — 드라이브·리쿠르팅 연동+알림) | 'auto'(입력 자동 저장 — 데이터만, 연동은 창을 닫을 때) | 'close'(창 닫힘 — 마지막 저장+연동)
+// wid: 창마다 다른 토큰 — 같은 창의 앞선 저장이 ets를 바꾼 것은 충돌로 보지 않는다(자동 저장이 연달아 와도 서로 막지 않게).
+// 같은 기기 안 저장은 _bizEdChain으로 한 줄로 세워 최신본 읽기·쓰기가 겹치지 않게 한다.
+var _bizEdChain=Promise.resolve(), _bizEdOwn={}, _bizEdUnsynced={}, _bizEdSyncT={};
+function _bizAdminEditSave(name, d, baseTs, baseEts, mode, wid){
+  var p=_bizEdChain.then(function(){ return _bizAdminEditSave1(name, d, baseTs, baseEts, mode||'manual', wid||''); });
+  _bizEdChain=p.catch(function(){});
+  return p;
+}
+// 자동 저장만 하고 창을 닫았을 때 드라이브 표·리쿠르팅 카드 연동을 한 번에 처리
+function _bizAdminEditSync(name){
+  _bizEdChain=_bizEdChain.then(async function(){
+    if(!_isAdmin()||!_bizEdUnsynced[name]) return;
+    delete _bizEdUnsynced[name];
+    var s=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===name;}):null;
+    if(!s||!s.form) return;
+    try{ _driveSaveBizForm(name, s.form, s.ts||Date.now()); }catch(e){ console.warn('biz form drive err:', e); }
+    try{ await _bizRecruitToCards(name, s.form.recruits||[]); }catch(e){ console.warn('리쿠르팅 리스트 연동 오류:', e); }
+  }).catch(function(){});
+}
+async function _bizAdminEditSave1(name, d, baseTs, baseEts, mode, wid){
   if(!_isAdmin()) return {ok:false, msg:'관리자만 수정할 수 있습니다.'};
+  // 창은 JSON 문자열로 보낸다 — 창이 닫힌 뒤에도 그 창의 객체를 읽지 않게(브라우저에 따라 닫힌 창 객체 접근이 오류)
+  if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ d=null; } }
   if(!d||typeof d!=='object') return {ok:false, msg:'입력 내용을 읽지 못했습니다.'};
   var s=await _bizFreshSub(name);
   if(!s||!s.form) return {ok:false, msg:'제출된 사업계획서를 찾을 수 없습니다(그 사이 삭제되었을 수 있습니다).'};
   if((s.ts||0)!==baseTs) return {ok:false, msg:name+'님이 그 사이 사업계획서를 다시 제출했습니다.\n이 창을 닫고 [보기]를 다시 열어 최신 내용에서 수정해 주세요.'};
-  if((s.ets||0)!==baseEts) return {ok:false, msg:'다른 관리자가 그 사이 이 사업계획서를 수정했습니다.\n이 창을 닫고 [보기]를 다시 열어 최신 내용에서 수정해 주세요.'};
+  var own=_bizEdOwn[name];
+  var mine=!!(wid&&own&&own.wid===wid&&own.ets===(s.ets||0));
+  if((s.ets||0)!==baseEts&&!mine) return {ok:false, msg:'다른 관리자가 그 사이 이 사업계획서를 수정했습니다.\n이 창을 닫고 [보기]를 다시 열어 최신 내용에서 수정해 주세요.'};
   var str=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,200); };
   var pick=function(list, keys, blank){ return (Array.isArray(list)?list:[]).slice(0,200).map(function(r){ var o=blank(); keys.forEach(function(k){ o[k]=str(r&&r[k]); }); return o; }); };
   var gIn=(d.goals&&typeof d.goals==='object')?d.goals:{};
@@ -22057,11 +22099,18 @@ async function _bizAdminEditSave(name, d, baseTs, baseEts){
   });
   var ets=Date.now();
   s.form=form; s.ets=ets; s.eBy=(cu&&cu.name)||'';
+  if(wid) _bizEdOwn[name]={wid:wid, ets:ets};
   sv('tops_bizplan',bizplan);
-  try{ _driveSaveBizForm(name, form, s.ts||ets); }catch(e){ console.warn('biz form drive err:', e); }
-  try{ await _bizRecruitToCards(name, form.recruits||[]); }catch(e){ console.warn('리쿠르팅 리스트 연동 오류:', e); }
+  if(mode==='auto'){
+    _bizEdUnsynced[name]=true;   // 드라이브·리쿠르팅 연동은 창을 닫거나 [지금 저장] 때 한 번에 — 또는 마지막 자동 저장 1분 뒤
+    clearTimeout(_bizEdSyncT[name]); _bizEdSyncT[name]=setTimeout(function(){ _bizAdminEditSync(name); }, 60000);
+  } else {
+    delete _bizEdUnsynced[name]; clearTimeout(_bizEdSyncT[name]);
+    try{ _driveSaveBizForm(name, form, s.ts||ets); }catch(e){ console.warn('biz form drive err:', e); }
+    try{ await _bizRecruitToCards(name, form.recruits||[]); }catch(e){ console.warn('리쿠르팅 리스트 연동 오류:', e); }
+  }
   try{ rBizPlan(true); }catch(e){}
-  toast(name+'님 사업계획서 수정 내용이 저장되었습니다.');
+  if(mode==='manual') toast(name+'님 사업계획서 수정 내용이 저장되었습니다.');
   return {ok:true, ets:ets};
 }
 // 출력: 새 창에서 바로 인쇄 대화상자. 성공 여부 반환(팝업 차단 등 실패 시 false — 출력완료 오표시 방지용)
