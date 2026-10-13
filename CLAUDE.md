@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.12-8. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1530,6 +1530,9 @@
   수신자는 서버에서 `KK_REPORT_ADMINS`로 강제, 전역 30초 간격 제한. 양식(form) 제출 건만 캡처 가능.
   `_bzDeepLink`는 **관리자 가드 필수**(일반 팀원이 ?rr=1&bz=이름 으로 남의 계획서를 여는 것 차단).
   ⚠️ 구조적 한계: bizsend도 요청자 관리자 검증은 없음(익명 토큰 + 수신자 제한으로 완화) — claimsend와 동일 계열.
+- **현재 참석중인 모임 (2026-10-13 — v2026.10.13-1, 사용자 요청)**: 가망고객 리스트와 리쿠르팅 대상자 사이에 표 추가 — `form.meets=[{kind,joinDate,lastDate,count,ageRange}]`
+  (모임종류·가입일·최근 참석일·모임인원·모임 연령대). 기본 3줄·[줄 추가]·줄 삭제(`bizFMt`/`bizAddMeetRow`/`bizDelMeetRow`, 키는 `BIZ_MEET_KEYS`만 허용),
+  제출 시 빈 줄 제외(`_bizMeetNonEmpty`), 미리보기·출력·다운로드·카톡 캡처(`_bizFormDoc`)와 드라이브 표에도 반영. 지난달 가져오기 대상은 아님(제출본이 그대로 다시 불러와지므로 유지됨).
 
 ## 5.5 리쿠르팅 리스트 (recruit, 2026-08-05)
 

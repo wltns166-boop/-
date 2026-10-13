@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.12-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-1</div>
   </div>
 </div>
 
@@ -21550,7 +21550,11 @@ var BIZ_GOAL_FIELDS=[
 ];
 function _bizBlankProspect(){ return {name:'',age:'',goal:'',ta:'',meetDate:'',meetYn:'',consultDate:'',consultYn:'',signYn:''}; }
 function _bizBlankRecruit(){ return {name:'',age:'',job:'',ta:'',meetDate:'',meetYn:'',joinYn:''}; }
-function _bizDefaultForm(){ return {month:(new Date().getMonth()+1),name:'',rank:'',goals:{op:'',consult:'',count:'',premium:'',perf:'',custCount:''},ipgwaja:'',prospects:[],recruits:[]}; }
+// 현재 참석중인 모임 (2026-10-13 — v2026.10.13-1): 모임종류·가입일·최근 참석일·모임인원·모임 연령대
+function _bizBlankMeet(){ return {kind:'',joinDate:'',lastDate:'',count:'',ageRange:''}; }
+var BIZ_MEET_KEYS=['kind','joinDate','lastDate','count','ageRange'];
+function _bizMeetNonEmpty(p){ if(!p) return false; return BIZ_MEET_KEYS.some(function(k){ return p[k]!=null && (''+p[k]).trim()!==''; }); }
+function _bizDefaultForm(){ return {month:(new Date().getMonth()+1),name:'',rank:'',goals:{op:'',consult:'',count:'',premium:'',perf:'',custCount:''},ipgwaja:'',prospects:[],meets:[],recruits:[]}; }
 function _bizProspectNonEmpty(p){ if(!p) return false; return ['name','age','goal','ta','meetDate','meetYn','consultDate','consultYn','signYn'].some(function(k){ return p[k]!=null && (''+p[k]).trim()!==''; }); }
 function _bizRecruitNonEmpty(p){ if(!p) return false; return ['name','age','job','ta','meetDate','meetYn','joinYn'].some(function(k){ return p[k]!=null && (''+p[k]).trim()!==''; }); }
 function _bizLoadForm(myName){
@@ -21560,10 +21564,12 @@ function _bizLoadForm(myName){
   if(!f.month) f.month=(new Date().getMonth()+1);
   if(!Array.isArray(f.prospects)) f.prospects=[];
   if(!Array.isArray(f.recruits)) f.recruits=[];
+  if(!Array.isArray(f.meets)) f.meets=[];
   if(!f.name) f.name=myName;
   if(!f.rank){ var me=mem.find(function(m){return m.name===myName;}); f.rank=(me&&me.rank)||'FA'; }
   while(f.prospects.length<10) f.prospects.push(_bizBlankProspect());
   while(f.recruits.length<5) f.recruits.push(_bizBlankRecruit());
+  while(f.meets.length<3) f.meets.push(_bizBlankMeet());
   // ③ 리쿠르팅 리스트에 등록된 내 카드의 대상자(이름·나이·직업)를 양식에 자동 채움 — 이름이 이미 있으면 건너뜀.
   //    대상자를 양식에서 빼려면 리쿠르팅 리스트에서 카드를 삭제해야 함(카드가 남아 있으면 다시 채워짐).
   try{
@@ -21582,6 +21588,9 @@ function bizFM(field,val){ if(_bizForm) _bizForm[field]=val; }
 function bizFP(i,field,val){ if(_bizForm&&_bizForm.prospects[i]) _bizForm.prospects[i][field]=val; }
 function bizAddRow(){ if(!_bizForm) _bizLoadForm(cu?cu.name:''); _bizForm.prospects.push(_bizBlankProspect()); rBizPlan(true); }
 function bizDelRow(i){ if(!_bizForm) return; _bizForm.prospects.splice(i,1); if(!_bizForm.prospects.length) _bizForm.prospects.push(_bizBlankProspect()); rBizPlan(true); }
+function bizFMt(i,field,val){ if(_bizForm&&Array.isArray(_bizForm.meets)&&_bizForm.meets[i]&&BIZ_MEET_KEYS.indexOf(field)>=0) _bizForm.meets[i][field]=val; }
+function bizAddMeetRow(){ if(!_bizForm) _bizLoadForm(cu?cu.name:''); if(!Array.isArray(_bizForm.meets)) _bizForm.meets=[]; _bizForm.meets.push(_bizBlankMeet()); rBizPlan(true); }
+function bizDelMeetRow(i){ if(!_bizForm||!Array.isArray(_bizForm.meets)) return; _bizForm.meets.splice(i,1); if(!_bizForm.meets.length) _bizForm.meets.push(_bizBlankMeet()); rBizPlan(true); }
 function bizFR(i,field,val){ if(_bizForm&&_bizForm.recruits[i]) _bizForm.recruits[i][field]=val; }
 function bizAddRecRow(){ if(!_bizForm) _bizLoadForm(cu?cu.name:''); _bizForm.recruits.push(_bizBlankRecruit()); rBizPlan(true); }
 function bizDelRecRow(i){ if(!_bizForm) return; _bizForm.recruits.splice(i,1); if(!_bizForm.recruits.length) _bizForm.recruits.push(_bizBlankRecruit()); rBizPlan(true); }
@@ -21670,6 +21679,26 @@ function _bizFormHtml(){
     +rowsHtml
     +'</table></div>'
     +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
+  // 현재 참석중인 모임 — 리쿠르팅 대상자 위 (2026-10-13)
+  var mHeads=['구분','모임종류','가입일','최근 참석일','모임인원','모임 연령대'];
+  var meetHtml=(f.meets||[]).map(function(p,i){
+    var inp=function(field,extra,ph){ return '<td style="'+cell+'"><input value="'+_esc(p[field])+'" oninput="bizFMt('+i+',\''+field+'\',this.value)"'+((ph&&i===0)?' placeholder="'+ph+'"':'')+' style="'+ist+(extra||'')+'"></td>'; };
+    return '<tr>'
+      +'<td style="'+cap+';width:46px">'+(i+1)+'</td>'
+      +inp('kind','','예: 조기축구회')
+      +inp('joinDate',';text-align:center')
+      +inp('lastDate',';text-align:center')
+      +inp('count',';text-align:center','예: 20명')
+      +inp('ageRange',';text-align:center','예: 30~40대')
+      +'<td style="border:1px solid rgba(45,65,170,.22);text-align:center;width:42px"><button class="be bsm" onclick="bizDelMeetRow('+i+')" title="줄 삭제"><i class="ti ti-trash"></i></button></td>'
+      +'</tr>';
+  }).join('');
+  var gMeet='<div style="font-weight:700;color:#2a2a4a;margin:18px 0 6px"><i class="ti ti-caret-right-filled" style="font-size:12px"></i> 현재 참석중인 모임</div>'
+    +'<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:700px">'
+    +'<tr>'+mHeads.map(function(h2){return '<td style="'+cap+'">'+h2+'</td>';}).join('')+'<td style="'+cap+';width:42px"></td></tr>'
+    +meetHtml
+    +'</table></div>'
+    +'<div style="margin-top:8px"><button class="bp bsm bpd" onclick="bizAddMeetRow()"><i class="ti ti-plus"></i> 줄 추가</button></div>';
   var rHeads=['구분','이름','나이','직업','TA 일시','만남 일시','만남 여부','입과 여부'];
   var recHtml=f.recruits.map(function(p,i){
     var inp=function(field,extra){ return '<td style="'+cell+'"><input value="'+_esc(p[field])+'" oninput="bizFR('+i+',\''+field+'\',this.value)" style="'+ist+(extra||'')+'"></td>'; };
@@ -21705,7 +21734,7 @@ function _bizFormHtml(){
         ?'<div style="border:1px solid rgba(45,65,170,.22);border-radius:8px;padding:12px 14px;background:#f8f9ff;color:#1a1a2e;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word">'+_esc(fbSub.fb)+'</div>'
         :'<div style="border:1px dashed rgba(45,65,170,.25);border-radius:8px;padding:12px 14px;color:#9898b0;font-size:13.5px">아직 작성된 관리자 피드백이 없습니다. (팀원 제출 현황에서 작성)</div>');
   }
-  return h+g1+g2+g3+g4;
+  return h+g1+g2+gMeet+g3+g4;
 }
 // 계획월(1~12) → 'YYYY-MM' — 지금 시점 기준으로 해를 보정(연말에 다음 해 1월 계획 제출 등)
 function _bizYmFor(fm){
@@ -21876,6 +21905,14 @@ function _driveSaveBizForm(member, form, ts){
   (form.prospects||[]).forEach(function(p,i){
     grid.push([i+1,p.name||'',p.age||'',p.goal||'',p.ta||'',p.meetDate||'',p.meetYn||'',p.consultDate||'',p.consultYn||'',p.signYn||'']);
   });
+  if((form.meets||[]).length){
+    grid.push(['']);
+    grid.push(['현재 참석중인 모임']);
+    grid.push(['구분','모임종류','가입일','최근 참석일','모임인원','모임 연령대']);
+    (form.meets||[]).forEach(function(p,i){
+      grid.push([i+1,p.kind||'',p.joinDate||'',p.lastDate||'',p.count||'',p.ageRange||'']);
+    });
+  }
   if((form.recruits||[]).length){
     grid.push(['']);
     grid.push(['리쿠르팅 대상자']);
@@ -21907,6 +21944,8 @@ function _bizFormDoc(name, opts){
   var goalLabels=['OP(초회상담)','상담','건수','월납보험료','인정업적','고객수'];
   var prospects=(f.prospects||[]).filter(_bizProspectNonEmpty);
   var pr=prospects.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.goal)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.consultDate)+'</td><td>'+esc(p.consultYn)+'</td><td>'+esc(p.signYn)+'</td></tr>'; }).join('');
+  var meets=(f.meets||[]).filter(_bizMeetNonEmpty);
+  var mt=meets.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.joinDate)+'</td><td>'+esc(p.lastDate)+'</td><td>'+esc(p.count)+'</td><td>'+esc(p.ageRange)+'</td></tr>'; }).join('');
   var recruits=(f.recruits||[]).filter(_bizRecruitNonEmpty);
   var rc=recruits.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.job)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.joinYn)+'</td></tr>'; }).join('');
   var fileBase=_krDateStr(new Date(s.ts||Date.now()))+' '+name+'사업계획서';
@@ -21940,6 +21979,8 @@ function _bizFormDoc(name, opts){
     +'<table><tr><th style="background:#ffe1a8;width:90px">입과자</th><td colspan="5" style="text-align:left">'+esc(f.ipgwaja)+'</td></tr></table>'
     +'<h2>가망고객 리스트</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>목표</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>상담 일시</th><th>상담 여부</th><th>청약여부</th></tr>'
     +(pr||'<tr><td colspan="10">작성된 가망고객이 없습니다.</td></tr>')+'</table>'
+    +'<h2>현재 참석중인 모임</h2><table><tr><th>구분</th><th>모임종류</th><th>가입일</th><th>최근 참석일</th><th>모임인원</th><th>모임 연령대</th></tr>'
+    +(mt||'<tr><td colspan="6">작성된 모임이 없습니다.</td></tr>')+'</table>'
     +'<h2>리쿠르팅 대상자</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>직업</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>입과 여부</th></tr>'
     +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'
     +(_bizFbVisible(s,name)?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
@@ -22248,6 +22289,7 @@ async function saveBizForm(){
   if(!form.name) form.name=myName;
   form.prospects=(form.prospects||[]).filter(_bizProspectNonEmpty);  // 빈 줄 제외 저장
   form.recruits=(form.recruits||[]).filter(_bizRecruitNonEmpty);
+  form.meets=(form.meets||[]).filter(_bizMeetNonEmpty);
   // 폼의 월이 이번 달과 다르면 확인 — 지난 제출 때 입력한 월이 남아 엉뚱한 달로 제출되는 사고 방지
   var fm=+form.month, curM=new Date().getMonth()+1;
   if(fm>=1&&fm<=12&&fm!==curM){
