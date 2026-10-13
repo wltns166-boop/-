@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-2</div>
   </div>
 </div>
 
@@ -21942,24 +21942,33 @@ function _bizFormDoc(name, opts){
   var esc=function(v){ return (v==null?'':String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var goalCells=['op','consult','count','premium','perf','custCount'];
   var goalLabels=['OP(초회상담)','상담','건수','월납보험료','인정업적','고객수'];
+  // 관리자 수정 모드(opts.edit, 2026-10-13 — v2026.10.13-2): 칸을 눌러 바로 입력(contenteditable) + 줄 추가 + [수정 저장].
+  //   행은 data-bzsec(p|m|r), 칸은 data-bzk(필드명)로 표시 — 저장 때 창의 표 전체를 다시 모으므로 인덱스를 쓰지 않는다(함정 A).
+  var ED=!!opts.edit;
+  var ce=function(k,v){ return '<td contenteditable="true" data-bzk="'+k+'">'+esc(v)+'</td>'; };
+  var edRow=function(sec,keys,p,i){ return '<tr data-bzsec="'+sec+'"><td class="bzno">'+(i+1)+'</td>'+keys.map(function(k){ return ce(k,p[k]); }).join('')+'</tr>'; };
+  var edRows=function(sec,keys,list){ var l=list.length?list:[{}]; return l.map(function(p,i){ return edRow(sec,keys,p,i); }).join(''); };
+  var edAdd=function(sec,txt){ return ED?'<div class="no-print" style="margin:-2px 0 10px"><button onclick="bzAddRow(\''+sec+'\')" style="padding:4px 12px;border-radius:6px;border:1px solid #4858cc;background:#eef0ff;color:#3a40cc;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer">＋ '+txt+' 줄 추가</button></div>':''; };
   var prospects=(f.prospects||[]).filter(_bizProspectNonEmpty);
-  var pr=prospects.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.goal)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.consultDate)+'</td><td>'+esc(p.consultYn)+'</td><td>'+esc(p.signYn)+'</td></tr>'; }).join('');
+  var pr=ED?edRows('p',['name','age','goal','ta','meetDate','meetYn','consultDate','consultYn','signYn'],prospects):prospects.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.goal)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.consultDate)+'</td><td>'+esc(p.consultYn)+'</td><td>'+esc(p.signYn)+'</td></tr>'; }).join('');
   var meets=(f.meets||[]).filter(_bizMeetNonEmpty);
-  var mt=meets.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.joinDate)+'</td><td>'+esc(p.lastDate)+'</td><td>'+esc(p.count)+'</td><td>'+esc(p.ageRange)+'</td></tr>'; }).join('');
+  var mt=ED?edRows('m',BIZ_MEET_KEYS,meets):meets.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.kind)+'</td><td>'+esc(p.joinDate)+'</td><td>'+esc(p.lastDate)+'</td><td>'+esc(p.count)+'</td><td>'+esc(p.ageRange)+'</td></tr>'; }).join('');
   var recruits=(f.recruits||[]).filter(_bizRecruitNonEmpty);
-  var rc=recruits.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.job)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.joinYn)+'</td></tr>'; }).join('');
+  var rc=ED?edRows('r',['name','age','job','ta','meetDate','meetYn','joinYn'],recruits):recruits.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.age)+'</td><td>'+esc(p.job)+'</td><td>'+esc(p.ta)+'</td><td>'+esc(p.meetDate)+'</td><td>'+esc(p.meetYn)+'</td><td>'+esc(p.joinYn)+'</td></tr>'; }).join('');
   var fileBase=_krDateStr(new Date(s.ts||Date.now()))+' '+name+'사업계획서';
   var btn='padding:7px 16px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;';
   var toolbar=opts.toolbar
     ? '<div class="no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px">'
       +'<button onclick="window.print()" style="'+btn+'background:#4858cc;color:#fff;border:none">🖨 출력</button>'
       +'<button onclick="saveDoc()" style="'+btn+'background:#1a9050;color:#fff;border:none">💾 저장</button>'
+      +(ED?'<button id="bz_edsave" onclick="bzEdSave()" style="'+btn+'background:#d43a3a;color:#fff;border:none">✏ 수정 저장</button>':'')
       +'</div>'
+      +(ED?'<div class="no-print" style="background:#fff7e0;border:1px solid #f0d27a;border-radius:8px;padding:8px 12px;font-size:13px;color:#6a5200;margin-bottom:12px">관리자 수정 모드 — 칸을 눌러 바로 입력하고, 줄이 모자라면 [＋ 줄 추가]를 누르세요. 다 고친 뒤 <b>[✏ 수정 저장]</b>을 눌러야 반영됩니다. (내용을 모두 지운 줄은 저장 때 빠집니다)</div>':'')
     : '';
   var saveScript='<scr'+'ipt>function saveDoc(){'
-    +'var tb=document.querySelector(".no-print");if(tb)tb.style.display="none";'
-    +'var html="<!DOCTYPE html>"+document.documentElement.outerHTML;'
-    +'if(tb)tb.style.display="";'
+    +'var tbs=[].slice.call(document.querySelectorAll(".no-print"));tbs.forEach(function(t){t.style.display="none";});'
+    +'var html="<!DOCTYPE html>"+document.documentElement.outerHTML.replace(/ contenteditable="true"/g,"");'
+    +'tbs.forEach(function(t){t.style.display="";});'
     +'var blob=new Blob(["\\ufeff",html],{type:"application/vnd.ms-excel"});'
     +'var a=document.createElement("a");a.href=URL.createObjectURL(blob);'
     +'a.download='+JSON.stringify(fileBase)+'+".xls";'
@@ -21971,30 +21980,89 @@ function _bizFormDoc(name, opts){
     +'h1{font-size:24px;text-align:center;border:2px solid #1a1a2e;border-radius:8px;padding:14px;margin:0 0 18px}'
     +'h2{font-size:16px;margin:18px 0 6px}table{border-collapse:collapse;width:100%;margin-bottom:8px}'
     +'td,th{border:1px solid #aab;padding:6px 8px;font-size:13px;text-align:center}th{background:#e8eaf6}'
-    +'@media print{.no-print{display:none!important}body{padding:0}}</style></head><body>'
+    +'@media print{.no-print{display:none!important}body{padding:0}}'
+    +(ED?'td[contenteditable]{cursor:text;min-width:30px}td[contenteditable]:hover{background:#f4f6ff}td[contenteditable]:focus{outline:2px solid #4858cc;outline-offset:-2px;background:#fffef0}@media print{td[contenteditable]:hover,td[contenteditable]:focus{background:none;outline:none}}':'')
+    +'</style></head><body>'
     +toolbar
     +'<h1>'+esc(f.name||name)+'  '+esc(f.rank||'')+'  '+esc(month)+'월  사업계획서</h1>'
     +'<h2>'+esc(month)+'월 목표</h2><table><tr>'+goalLabels.map(function(l){return '<th>'+l+'</th>';}).join('')+'</tr>'
-    +'<tr>'+goalCells.map(function(k){return '<td>'+esc(gg[k])+'</td>';}).join('')+'</tr></table>'
-    +'<table><tr><th style="background:#ffe1a8;width:90px">입과자</th><td colspan="5" style="text-align:left">'+esc(f.ipgwaja)+'</td></tr></table>'
+    +'<tr>'+goalCells.map(function(k){return ED?'<td contenteditable="true" data-bzg="'+k+'">'+esc(gg[k])+'</td>':'<td>'+esc(gg[k])+'</td>';}).join('')+'</tr></table>'
+    +'<table><tr><th style="background:#ffe1a8;width:90px">입과자</th><td colspan="5" style="text-align:left"'+(ED?' contenteditable="true" data-bzi="1"':'')+'>'+esc(f.ipgwaja)+'</td></tr></table>'
     +'<h2>가망고객 리스트</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>목표</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>상담 일시</th><th>상담 여부</th><th>청약여부</th></tr>'
-    +(pr||'<tr><td colspan="10">작성된 가망고객이 없습니다.</td></tr>')+'</table>'
+    +(pr||'<tr><td colspan="10">작성된 가망고객이 없습니다.</td></tr>')+'</table>'+edAdd('p','가망고객')
     +'<h2>현재 참석중인 모임</h2><table><tr><th>구분</th><th>모임종류</th><th>가입일</th><th>최근 참석일</th><th>모임인원</th><th>모임 연령대</th></tr>'
-    +(mt||'<tr><td colspan="6">작성된 모임이 없습니다.</td></tr>')+'</table>'
+    +(mt||'<tr><td colspan="6">작성된 모임이 없습니다.</td></tr>')+'</table>'+edAdd('m','모임')
     +'<h2>리쿠르팅 대상자</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>직업</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>입과 여부</th></tr>'
-    +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'
+    +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'+edAdd('r','리쿠르팅 대상자')
     +(_bizFbVisible(s,name)?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
       +(s.fbBy?'<div style="font-size:12px;color:#555;margin-top:4px;text-align:right">— '+esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:''))+'</div>':'')):'')
-    +saveScript+printScript
+    +saveScript+printScript+(ED?_bizEdScript(name, s):'')
     +'</body></html>';
   return {html:html, fileBase:fileBase};
 }
 function openBizFormPreview(name){
-  var doc=_bizFormDoc(name, {toolbar:true});
+  var doc=_bizFormDoc(name, {toolbar:true, edit:_isAdmin()});
   if(!doc){ toast('작성된 사업계획서가 없습니다.'); return; }
   var w=window.open('','_blank','width=1020,height=860');
   if(!w){ toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
   w.document.write(doc.html); w.document.close();
+}
+// 관리자 수정 모드 창 스크립트 — 줄 추가·Enter 막기·글자만 붙여넣기·[수정 저장](opener._bizAdminEditSave 호출).
+//   기준값(제출 ts·마지막 수정 ets)을 함께 보내 그 사이 팀원이 다시 제출했거나 다른 관리자가 고쳤으면 저장을 막는다.
+function _bizEdScript(name, s){
+  var js=function(v){ return JSON.stringify(v).replace(/</g,'\\u003c'); };
+  return '<scr'+'ipt>(function(){'
+    +'var NM='+js(name)+',BT='+js(s.ts||0)+',BE='+js(s.ets||0)+';'
+    +'document.addEventListener("keydown",function(e){var t=e.target;if(t&&t.isContentEditable&&e.key==="Enter"){e.preventDefault();}});'
+    +'document.addEventListener("paste",function(e){var t=e.target;while(t&&t.nodeType!==1)t=t.parentNode;if(!t||!t.closest||!t.closest("[contenteditable]"))return;e.preventDefault();'
+    +'var x=((e.clipboardData||window.clipboardData).getData("text")||"").replace(/[\\r\\n\\t]+/g," ");document.execCommand("insertText",false,x);});'
+    +'document.addEventListener("drop",function(e){var t=e.target;while(t&&t.nodeType!==1)t=t.parentNode;if(!t||!t.closest||!t.closest("[contenteditable]"))return;e.preventDefault();'
+    +'var x=((e.dataTransfer&&e.dataTransfer.getData("text"))||"").replace(/[\\r\\n\\t]+/g," ");if(!x)return;t.closest("[contenteditable]").focus();document.execCommand("insertText",false,x);});'
+    +'function renum(sec){var rs=document.querySelectorAll("tr[data-bzsec=\\""+sec+"\\"]");for(var i=0;i<rs.length;i++){var n=rs[i].querySelector(".bzno");if(n)n.textContent=i+1;}}'
+    +'window.bzAddRow=function(sec){var rs=document.querySelectorAll("tr[data-bzsec=\\""+sec+"\\"]");if(!rs.length)return;var last=rs[rs.length-1];var nr=last.cloneNode(true);'
+    +'[].forEach.call(nr.querySelectorAll("[data-bzk]"),function(c){c.textContent="";});last.parentNode.insertBefore(nr,last.nextSibling);renum(sec);var f=nr.querySelector("[data-bzk]");if(f)f.focus();};'
+    +'function tx(el){return (el.textContent||"").replace(/\\s+/g," ").trim();}'
+    +'function rows(sec){return [].map.call(document.querySelectorAll("tr[data-bzsec=\\""+sec+"\\"]"),function(tr){var o={};[].forEach.call(tr.querySelectorAll("[data-bzk]"),function(c){o[c.getAttribute("data-bzk")]=tx(c);});return o;});}'
+    +'var busy=false;'
+    +'window.bzEdSave=function(){if(busy)return;var op=window.opener;'
+    +'if(!op||op.closed||typeof op._bizAdminEditSave!=="function"){alert("인트라넷 창이 닫혀 저장할 수 없습니다. 인트라넷에서 [보기]를 다시 열어 주세요.");return;}'
+    +'var g={};[].forEach.call(document.querySelectorAll("[data-bzg]"),function(c){g[c.getAttribute("data-bzg")]=tx(c);});'
+    +'var ip=document.querySelector("[data-bzi]");'
+    +'var d={goals:g,ipgwaja:ip?tx(ip):"",prospects:rows("p"),meets:rows("m"),recruits:rows("r")};'
+    +'var b=document.getElementById("bz_edsave");busy=true;if(b){b.disabled=true;b.textContent="저장 중…";}'
+    +'Promise.resolve(op._bizAdminEditSave(NM,d,BT,BE)).then(function(r){'
+    +'if(r&&r.ok){BE=r.ets;alert("수정 내용이 저장되었습니다.");}else{alert((r&&r.msg)||"저장하지 못했습니다.");}'
+    +'}).catch(function(e){alert("저장 중 오류: "+((e&&e.message)||e));}).then(function(){busy=false;if(b){b.disabled=false;b.textContent="✏ 수정 저장";}});};'
+    +'})();<\/scr'+'ipt>';
+}
+// [수정 저장] — 관리자 전용. 최신본을 다시 읽어 기준값이 같을 때만 그 팀원 제출본(form)의 목표·입과자·표 3개를 교체.
+async function _bizAdminEditSave(name, d, baseTs, baseEts){
+  if(!_isAdmin()) return {ok:false, msg:'관리자만 수정할 수 있습니다.'};
+  if(!d||typeof d!=='object') return {ok:false, msg:'입력 내용을 읽지 못했습니다.'};
+  var s=await _bizFreshSub(name);
+  if(!s||!s.form) return {ok:false, msg:'제출된 사업계획서를 찾을 수 없습니다(그 사이 삭제되었을 수 있습니다).'};
+  if((s.ts||0)!==baseTs) return {ok:false, msg:name+'님이 그 사이 사업계획서를 다시 제출했습니다.\n이 창을 닫고 [보기]를 다시 열어 최신 내용에서 수정해 주세요.'};
+  if((s.ets||0)!==baseEts) return {ok:false, msg:'다른 관리자가 그 사이 이 사업계획서를 수정했습니다.\n이 창을 닫고 [보기]를 다시 열어 최신 내용에서 수정해 주세요.'};
+  var str=function(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,200); };
+  var pick=function(list, keys, blank){ return (Array.isArray(list)?list:[]).slice(0,200).map(function(r){ var o=blank(); keys.forEach(function(k){ o[k]=str(r&&r[k]); }); return o; }); };
+  var gIn=(d.goals&&typeof d.goals==='object')?d.goals:{};
+  var goals=Object.assign({}, s.form.goals||{});
+  BIZ_GOAL_FIELDS.forEach(function(gf){ if(gIn[gf.k]!==undefined) goals[gf.k]=str(gIn[gf.k]); });
+  var form=Object.assign({}, s.form, {
+    goals:goals,
+    ipgwaja:str(d.ipgwaja),
+    prospects:pick(d.prospects,['name','age','goal','ta','meetDate','meetYn','consultDate','consultYn','signYn'],_bizBlankProspect).filter(_bizProspectNonEmpty),
+    meets:pick(d.meets,BIZ_MEET_KEYS,_bizBlankMeet).filter(_bizMeetNonEmpty),
+    recruits:pick(d.recruits,['name','age','job','ta','meetDate','meetYn','joinYn'],_bizBlankRecruit).filter(_bizRecruitNonEmpty)
+  });
+  var ets=Date.now();
+  s.form=form; s.ets=ets; s.eBy=(cu&&cu.name)||'';
+  sv('tops_bizplan',bizplan);
+  try{ _driveSaveBizForm(name, form, s.ts||ets); }catch(e){ console.warn('biz form drive err:', e); }
+  try{ await _bizRecruitToCards(name, form.recruits||[]); }catch(e){ console.warn('리쿠르팅 리스트 연동 오류:', e); }
+  try{ rBizPlan(true); }catch(e){}
+  toast(name+'님 사업계획서 수정 내용이 저장되었습니다.');
+  return {ok:true, ets:ets};
 }
 // 출력: 새 창에서 바로 인쇄 대화상자. 성공 여부 반환(팝업 차단 등 실패 시 false — 출력완료 오표시 방지용)
 function printBizForm(name){

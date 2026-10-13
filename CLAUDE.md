@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1533,6 +1533,13 @@
 - **현재 참석중인 모임 (2026-10-13 — v2026.10.13-1, 사용자 요청)**: 가망고객 리스트와 리쿠르팅 대상자 사이에 표 추가 — `form.meets=[{kind,joinDate,lastDate,count,ageRange}]`
   (모임종류·가입일·최근 참석일·모임인원·모임 연령대). 기본 3줄·[줄 추가]·줄 삭제(`bizFMt`/`bizAddMeetRow`/`bizDelMeetRow`, 키는 `BIZ_MEET_KEYS`만 허용),
   제출 시 빈 줄 제외(`_bizMeetNonEmpty`), 미리보기·출력·다운로드·카톡 캡처(`_bizFormDoc`)와 드라이브 표에도 반영. 지난달 가져오기 대상은 아님(제출본이 그대로 다시 불러와지므로 유지됨).
+- **관리자 [보기] 창에서 바로 수정 (2026-10-13 — v2026.10.13-2, 사용자 요청)**: `openBizFormPreview`가 관리자면 `_bizFormDoc(name,{toolbar,edit:true})` —
+  목표 6칸·입과자·가망고객·모임·리쿠르팅 칸이 contenteditable(행 `data-bzsec`=p|m|r, 칸 `data-bzk`/목표 `data-bzg`/입과자 `data-bzi`), 표마다 [＋ 줄 추가](마지막 줄 복제·순번 재계산),
+  툴바 빨간 [✏ 수정 저장]. 창 스크립트 `_bizEdScript`(이름은 JSON.stringify + `<` 이스케이프)가 Enter 차단·붙여넣기/끌어다 놓기는 글자만, 저장은 `opener._bizAdminEditSave(name,data,ts,ets)`.
+  `_bizAdminEditSave`: `_isAdmin` 가드 → `_bizFreshSub` 최신본의 **ts(팀원 재제출)·ets(다른 관리자 수정)가 창을 연 기준값과 같을 때만** form의 goals·ipgwaja·prospects·meets·recruits 교체
+  (값 200자·줄 200개 상한, 빈 줄 제외 — 줄 삭제는 칸을 비우는 것), `s.ets/s.eBy` 기록, sv + 드라이브 표 + 리쿠르팅 카드 연동. 저장 성공 시 창의 ets 기준 갱신(연속 저장 가능).
+  [저장](xls)은 `.no-print` 전부 숨기고 contenteditable 속성 제거. 팀원·출력·카톡 캡처는 edit 없음(무변경).
+  ⚠️ 수용: 팀원이 양식을 이미 열어 둔 기기에서 다시 제출하면 관리자 수정분을 덮음(제출 경로는 ets를 보지 않음), 클라우드 읽기 실패 시 기준 비교는 로컬 값.
 
 ## 5.5 리쿠르팅 리스트 (recruit, 2026-08-05)
 
