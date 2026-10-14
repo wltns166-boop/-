@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -184,6 +184,9 @@
   **v2026.10.14-3 다른 화면도 통일(사용자 제보 — 진급평가 현재직급이 BM 그대로)**: `_liveRankOf(이름)`(팀원 mem.rank → 관리자 `_admRankOf`) —
   진급평가 표·보고서 '현재직급'은 저장 당시 `cr` 대신 **지금 직급 우선**(없으면 cr), 수정 모달·[평가 추가]도 같은 값(수정 저장 시 cr이 지금 직급으로 갱신됨 — 의도).
   rankMap 3곳(rPerf·rGoal·drBuild)·관리자 선택칸 라벨 4곳도 `_admRankOf`. ⚠️ `role==='BM'/'총무'` 판정 코드는 그대로 a.role.
+  **v2026.10.14-4 진급평가 산하 합산에 관리자 소속 포함(사용자 요청 — 백동현 실적에 박지순 포함)**: 공용 `_promTeam(이름)` = mem.belong + 관리자 admov.belong 재귀(이미 넣은 이름 건너뜀 — 순환 안전).
+  진급평가 화면(rProm getTeamTotal)·일일보고서 진급평가 칸(teamTotalYm)만 사용. ⚠️ `_drSubTeam`(팀별 실적·지점 합계)·`getMyTeam`·조직도·권한은 그대로 — 관리자 소속을 거기에 넣지 말 것.
+  관리자 소속이 비어 있으면 결과는 예전과 같음. 박지순 실적을 백동현에 합치려면 [관리자 정보 수정]에서 박지순 소속=백동현.
 - `tops/auth` 최신화: `_authDocSync()` — `sv('tops_mem'/'tops_admov')`, 관리자 병합 저장 2곳, `loadFromFirestore` 성공 직후 자동 호출(멱등).
 - 호스팅 캐시: firebase.json `Cache-Control: no-cache` — 배포 즉시 반영.
 - **로그인 화면 좌하단 버전 표시 `#lver`** — 기기가 옛 캐시 버전인지 판별용. **배포용 커밋마다 `v2026.07.09-2` 형식으로 갱신할 것.**
