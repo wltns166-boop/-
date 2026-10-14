@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-12. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-13. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1172,6 +1172,8 @@
   `mcrSave`는 수정 모드면 같은 id 건만 교체 — agent·ts·dt 유지, `ut`/`eBy` 기록, **같은 항목 id는 완료 상태(done·doneTs·doneBy) 승계**, 새 줄은 미완료.
   그 사이 삭제된 건은 저장 거부(부활 금지). 팀원이 수정하면 총무에게 pushAlert. `mcrOpen`(새 신청)·창 닫힘·`_mcrClose`가 `_mcrEditId`를 비움.
   다른 신청 창이 열려 있으면 confirm 후 닫고 수정 창을 연다.
+  **v-13 리뷰 반영**: 완료 승계는 **내용(보험사·상품명·보험료·납기·증권번호·계약일·확인서 종류·파일)이 그대로일 때만** — 하나라도 바뀌면 다시 미완료(총무가 바뀐 내용을 재반영하도록).
+  채운 날짜 칸은 `_mcrYmdSeed`로 data-ymd 기준값을 맞춤(백스페이스 정형). 총무가 남의 건을 수정하면 담당자에게 pushAlert.
 - **v2026.10.14-8 메모리 우선 (실사고 — "올렸는데 총무님한테 안 뜸", 3.89 시험신청과 같은 계열)**: 클라우드에는 신청이 정상 저장돼 있었는데(익명 REST로 확인),
   `rMcReq`·`mcrSave`가 부를 때마다 `_mcrReload`가 **localStorage를 다시 읽어**, 저장공간이 찬 기기(총무 PC — 청구 PDF 캐시)에서는 방금 받은 클라우드 목록을
   옛 캐시로 덮어 새 신청이 안 보였다(신청 저장도 옛 목록으로 클라우드를 덮을 위험). 이제 `_mcrReload`는 메모리(`mcReqs` — 수신 핸들러 2곳이 갱신)만 쓰고

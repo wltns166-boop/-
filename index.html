@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-13</div>
   </div>
 </div>
 
@@ -32931,6 +32931,12 @@ function _mcrModeDraw(){
   var b=g('mcr_savebtn'); if(b) b.innerHTML=ed?'<i class="ti ti-device-floppy"></i> 수정 저장':'<i class="ti ti-send"></i> 신청';
   try{ if(window._mcrWin&&!window._mcrWin.closed) window._mcrWin.document.title=ed?'모바일 계약 반영 요청 — 수정':'모바일 계약 반영 요청'; }catch(e){}
 }
+// 채워 넣은 날짜 칸의 자동 정형 기준값(data-ymd) 맞추기 — 안 맞추면 수정 중 백스페이스가 어색해짐(v-12 리뷰)
+function _mcrYmdSeed(inp){
+  var d=String(inp.value||'').replace(/[^0-9]/g,'').slice(0,8);
+  if(d&&_mcrFmtYmdStr(d)===inp.value){ inp.dataset.ymd=d; inp.dataset.ymdlen=inp.value.length; }
+  else { delete inp.dataset.ymd; delete inp.dataset.ymdlen; }
+}
 function _mcrCanEdit(r){
   if(!r||!cu) return false;
   if(typeof _isChongmu==='function'&&_isChongmu()) return true;
@@ -32957,13 +32963,13 @@ function mcrEdit(el){
   _mcrSyncRows(n);
   var ci=g('mcr_cust'); if(ci) ci.value=r.custName||'';
   var fc=g('mcr_fetus');
-  if(r.fetus&&fc){ fc.checked=true; mcrFetusToggle(); var du=g('mcr_due'); if(du) du.value=r.dueDate||''; }
+  if(r.fetus&&fc){ fc.checked=true; mcrFetusToggle(); var du=g('mcr_due'); if(du){ du.value=r.dueDate||''; _mcrYmdSeed(du); } }
   else { var ii=g('mcr_insured'); if(ii) ii.value=r.insName||''; }
   var box=g('mcr_rows'); var rows=box?box.querySelectorAll('.mcrrow'):[];
   items.slice(0,n).forEach(function(it,i){
     var row=rows[i]; if(!row||!it) return;
     row.setAttribute('data-mqi', String(it.id||''));
-    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){ var inp=row.querySelector('input[data-mf="'+k+'"]'); if(inp) inp.value=String(it[k]||''); });
+    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){ var inp=row.querySelector('input[data-mf="'+k+'"]'); if(inp){ inp.value=String(it[k]||''); if(k==='cdt') _mcrYmdSeed(inp); } });
     var ct=String(it.ctype||'');
     Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.toggle('sel', !!ct&&b.getAttribute('data-ct')===ct); });
     _mcrDocToggle(row);
@@ -33463,6 +33469,9 @@ function mcrSave(){
     er.custName=nm; er.insName=insd; er.fetus=fetus?1:0; er.dueDate=due;
     er.items=items.map(function(v){
       var o=v.mqi&&oldIt[v.mqi];
+      // 완료 승계는 내용이 그대로일 때만 — 보험사·증권번호 등을 고치면 다시 미완료(총무가 바뀐 내용을 다시 반영하도록, v-12 리뷰)
+      if(o&&o.done&&['ins','prod','prem','term','pol','cdt'].some(function(k){ return String(o[k]||'')!==String(v[k]||''); })) o=Object.assign({},o,{done:0});
+      if(o&&o.done&&(String(o.ctype||'')!==String(v.ct||'')||String(o.docUrl||'')!==String(v.docUrl||''))) o=Object.assign({},o,{done:0});
       var it={ id:o?o.id:('mqi_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
         ins:v.ins, prod:v.prod, prem:v.prem, term:v.term, pol:v.pol, cdt:v.cdt,
         ctype:v.ct, docUrl:v.docUrl, docName:v.docName, done:o&&o.done?1:0 };
@@ -33471,7 +33480,10 @@ function mcrSave(){
     });
     er.ut=Date.now(); er.eBy=cu.name;
     _mcrPersist();
-    try{ if(!(typeof _isChongmu==='function'&&_isChongmu())) pushAlert('총무','모바일계약', cu.name+'님이 '+nm+' 고객의 모바일 계약 반영 요청을 수정했습니다.'); }catch(e){}
+    try{
+      if(!(typeof _isChongmu==='function'&&_isChongmu())) pushAlert('총무','모바일계약', cu.name+'님이 '+nm+' 고객의 모바일 계약 반영 요청을 수정했습니다.');
+      else if(er.agent&&_agentReal(er.agent)!==_agentReal(cu.name)) pushAlert(null,'모바일계약', '총무님이 '+nm+' 고객의 모바일 계약 반영 요청을 수정했습니다.', {toName:_agentReal(er.agent)});
+    }catch(e){}
     _mcrClose();
     toast('수정되었습니다.');
     rMcReq();
