@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-12</div>
   </div>
 </div>
 
@@ -20264,7 +20264,9 @@ async function _ciFillCodes(win, agent){
   }catch(e){ try{ if(!win.closed&&win._ciGen===gen) (doc||win.document).querySelectorAll('[data-ciins]').forEach(function(td){ td.innerHTML='<span style="color:#c08080;font-size:12px">조회 실패</span>'; }); }catch(_e){} }
 }
 // 신청 보험사 이름 → 담당자 inscode 행. 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
-function _ciPick(all, ins){ var n=_icNameKey(ins); if(!n) return null;
+// 고객등록 신청 이름 → 코드 관리 이름 별칭(2026-10-14 v-12, 사용자 요청): '메리츠 가설동'은 메리츠화재 전산 코드·비밀번호를 쓴다
+function _icCodeName(ins){ ins=String(ins||''); return /^\s*메리츠\s*가설동/.test(ins)?'메리츠화재':ins; }
+function _ciPick(all, ins){ ins=_icCodeName(ins); var n=_icNameKey(ins); if(!n) return null;
   var ex=all.find(function(r){ return _icNameKey(r.ins)===n; }); if(ex) return ex;
   var part=all.filter(function(r){ var q=_icNameKey(r.ins); return q&&(q.indexOf(n)>=0||n.indexOf(q)>=0); });
   return part.length===1?part[0]:(part.length>1?'many':null); }
@@ -20308,8 +20310,8 @@ async function _ciPwSave(win, el){
       hit.pw=v; hit.ts=Date.now();
     } else {
       if(!v){ _ciMsg(win,'비밀번호를 입력해 주세요.'); keep=true; return; }
-      var mt=_icMatchIns(ins), side=mt?mt.s:(/생명|라이프/.test(ins)?'life':'son');
-      d[side].push({id:'ic_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), ins:(mt?mt.n:ins).slice(0,40), code:'', pw:v, ts:Date.now()});
+      var ins2=_icCodeName(ins), mt=_icMatchIns(ins2), side=mt?mt.s:(/생명|라이프/.test(ins2)?'life':'son');
+      d[side].push({id:'ic_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), ins:(mt?mt.n:ins2).slice(0,40), code:'', pw:v, ts:Date.now()});
     }
     await ref.set({nm:(raw&&raw.nm)||win._ciNm||'', son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
     _ciMsg(win, hit?'비밀번호를 저장했습니다.':'새 보험사로 저장했습니다 (코드는 [보험사 코드 관리]에서 입력).');

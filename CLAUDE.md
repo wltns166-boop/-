@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-11. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-12. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -147,6 +147,8 @@
   (3.3·3.35 위의 "•••• 표시(👁로 보기)" 설명은 이 변경으로 대체됨.)
 - **v2026.10.12-5 보험사 이름 줄임말 통일 (실사용 제보)**: 코드는 "DB손보", 고객등록 신청은 "DB손해보험"이라 고객정보 창 코드 칸이 비던 문제 —
   `_icNameKey`가 손해보험→손보·생명보험→생명·화재/해상(화재)보험→화재/해상·끝 '보험' 생략으로 통일, `_ciFillCodes`의 이름 비교도 이 키 사용(코드 관리 창 자동 입력·중복 판정에도 같이 적용).
+- **v2026.10.14-12 메리츠 가설동 → 메리츠화재 코드 (사용자 요청)**: 고객등록 신청 이름 '메리츠 가설동'은 이름 키가 '메리츠화재'와 겹치지 않아 코드·비밀번호 칸이 비었음 —
+  `_icCodeName(ins)` 별칭('메리츠 가설동'→'메리츠화재')을 `_ciPick` 초입과 `_ciPwSave` 새 행 이름에 적용. 다른 별칭이 필요하면 이 함수에 추가.
 - **v2026.10.12-6 고객정보 창에서 비밀번호 수정 (사용자 요청)**: 신청 보험사 표 비밀번호 칸 옆 빨간 [수정] 버튼(v-8 — ✏가 안 보인다는 제보, 관리자 또는 담당자 본인 — `_isAdmin()||key===_rsvKey()`)
   → 그 칸에 입력칸+저장/취소(Enter/Esc). 새 창은 자기 스크립트의 `_ciCall(이름,el)`이 `opener[이름](window,el)`을 부르고, 모달(같은 창)은 메인의 `_ciCall`이 직접 부름.
   `_ciPwSave`: 최신본 다시 읽어 `_ciPick`(정확 일치 → 포함 일치 후보 1곳)으로 찾은 행의 pw만 교체, 없으면 새 행(코드 빈칸, 손보/생보는 `_icMatchIns`) — 저장 후 `_ciFillCodes`로 다시 그림
