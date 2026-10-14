@@ -2419,7 +2419,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 모바일 계약 반영 요청 — 신청 모달 (흰 배경, 함정 D 역방향) -->
     <div class="mb" id="m_mcreq"><div class="mo" style="width:940px;max-width:96vw;max-height:92vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
-      <div class="mth" style="color:#1a1a2e"><span>모바일 계약 반영 요청</span><span class="mc" onclick="g('m_mcreq').classList.remove('open')" style="color:#555">×</span></div>
+      <div class="mth" style="color:#1a1a2e"><span>모바일 계약 반영 요청</span><span class="mc" onclick="_mcrClose()" style="color:#555">×</span></div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:1.4;min-width:300px">
           <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -4186,7 +4186,7 @@ function startRealtimeSync(){
 }
 function td(){return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);} // KST 날짜 — UTC였던 옛 구현은 새벽 0~9시에 하루 전 날짜가 기록되던 버그(2026-08-11 리뷰)
 function tds(){const d=new Date();return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');}
-function g(id){return document.getElementById(id);}
+function g(id){var e=document.getElementById(id); if(!e&&window._mcrWin){ try{ if(!window._mcrWin.closed) e=window._mcrWin.document.getElementById(id); }catch(_e){} } return e;}   // 모바일 계약 신청 새 창(_mcrWin)의 칸도 찾음(4.98 v2026.10.14-5)
 // 카톡 청구파일 링크 경유 — /?pdf=<Storage URL> 로 들어오면 해당 PDF로 이동.
 // (카카오 링크 버튼은 등록된 인트라넷 도메인만 허용돼 인트라넷을 경유한다.
 //  이 프로젝트 버킷의 claim_packages 경로만 허용 — 타 프로젝트 버킷을 포함한 오픈 리다이렉트 방지)
@@ -4596,6 +4596,7 @@ function login(){
 }
 function logout(){
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
+  try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ var _icp=g('ic_pop'); if(_icp) _icp.remove(); window._icSt=null; }catch(e){}   // 보험사 코드 창 닫기(비밀번호 잔존 방지)
   try{ window._medLastPw=''; }catch(_){}
   try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
@@ -12164,7 +12165,8 @@ function calcLoss(){const tot=+g('c_tot').value||0,ded=+g('c_ded').value||0,rate
 g('c_tot').addEventListener('input',calcLoss);g('c_ded').addEventListener('input',calcLoss);g('c_type').addEventListener('change',calcLoss);
 
 // TOAST
-function toast(msg){const t=g('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2400);}
+function toast(msg){let t=g('toast'); try{ var _mw=window._mcrWin; if(_mw&&!_mw.closed&&_mw.document.hasFocus()){ var _mt=_mw.document.getElementById('mcr_toast'); if(_mt) t=_mt; } }catch(_e){}   // 신청 새 창에서 작업 중이면 그 창에 표시
+  t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2400);}
 
 // ===== 알림 시간대 제어 (평일 09~18시, 주말·공휴일 제외 / 그 외엔 다음 평일 09시) =====
 var KR_HOLIDAYS_2026 = {
@@ -28307,8 +28309,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'), w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'); if(g('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
@@ -32888,6 +32890,9 @@ function mcrDelete(el){
 // ── 신청 모달
 function mcrOpen(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  var _pw=window._mcrWin;
+  if(_pw&&!_pw.closed){ try{ _pw.focus(); }catch(e){} return; }   // 이미 열린 신청 창은 그대로 앞으로(입력 보존)
+  var _popped=_mcrPopupOpen();   // 새 창(고객정보 창과 같은 방식) — 팝업이 차단되면 기존 모달로
   window._mcrGen=(window._mcrGen||0)+1;   // 모달 재오픈 세대 — 이전 세션의 파일 업로드 오귀속 방지
   window._mcrOcrBusy=false;               // 이전 폼의 사진 인식 대기가 새 폼을 잠그지 않게(v-3 리뷰 — 옛 응답은 위 세대 가드가 폐기)
   var ci=g('mcr_cust'); if(ci) ci.value='';
@@ -32903,8 +32908,97 @@ function mcrOpen(){
   var box=g('mcr_rows'); if(box) box.innerHTML='';
   var cnt=g('mcr_cnt'); if(cnt) cnt.value=1;
   _mcrSyncRows(1);
-  g('m_mcreq').classList.add('open');
+  if(_popped){ try{ var _fc=g('mcr_cust'); if(_fc) _fc.focus(); }catch(e){} }
+  else g('m_mcreq').classList.add('open');
 }
+// ── 신청 입력 창을 브라우저 새 창으로 (2026-10-14 v2026.10.14-5, 사용자 요청 — 고객정보 창처럼) ──
+//   about:blank 창에 원본 양식(_mcrTplHtml — 부팅 때 떠 둔 깨끗한 사본)과 메인 화면 CSS를 그대로 써 넣고,
+//   메인의 모달(#m_mcreq)은 창이 떠 있는 동안 문서에서 떼어 둔다(같은 id가 두 문서에 있으면 g()가 메인 쪽을 잡음).
+//   칸의 인라인 핸들러는 새 창 전역에서 찾으므로 mcr 계열 함수와 g를 메인 함수로 연결해 주고,
+//   메인 함수 안의 g()는 메인 문서에 없으면 새 창 문서에서 찾는다(g 정의 참고). confirm은 _mcrConfirm, 토스트는 toast()가 새 창으로.
+//   ⚠️ 새 mcreq 코드에서 document.querySelector/getElementById를 직접 쓰지 말 것 — 새 창 칸을 못 찾는다(g()·_mcrKkAll 사용).
+function _mcrPopupOpen(){
+  var tpl=window._mcrTplHtml, home=document.getElementById('m_mcreq');
+  if(!tpl||!home) return false;
+  var w=null;
+  try{
+    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-1080), T=(window.screenY||0)+60;
+    w=window.open('', 'mcreq_win', 'width=1020,height=880,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
+  }catch(e){ w=null; }
+  if(!w) return false;
+  var css='';
+  try{ Array.prototype.forEach.call(document.querySelectorAll('style'), function(st){ css+=st.textContent+'\n'; }); }catch(e){}
+  css=css.replace(/<\/style/gi,'<\\/style');
+  var links='';
+  try{ Array.prototype.forEach.call(document.querySelectorAll('link[rel="stylesheet"]'), function(l){ if(/^https:\/\//.test(l.href)) links+='<link rel="stylesheet" href="'+_alertEsc(l.href)+'">'; }); }catch(e){}
+  var sc='<scr'+'ipt>'
+    // 메인 창이 닫히거나 새로고침·로그아웃되면 스스로 닫힘(공용 PC 개인정보 잔존 방지 — 고객정보 창과 같은 규칙)
+    +'setInterval(function(){try{var o=window.opener;if(!o||o.closed||typeof o._mcrAlive!=="function"||!o._mcrAlive(window))window.close();}catch(e){window.close();}},1500);'
+    +'</scr'+'ipt>';
+  var html='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>모바일 계약 반영 요청</title>'+links
+    +'<style>'+css+'</style>'
+    +'<style>html,body{background:#fff!important;color:#1a1a2e;overflow:auto!important;height:auto!important}body{margin:0;padding:0}'
+    +'#m_mcreq.mb{position:static!important;inset:auto!important;display:block!important;background:none!important;z-index:auto}'
+    +'#m_mcreq .mo{width:auto!important;max-width:none!important;max-height:none!important;overflow:visible!important;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:20px 22px 40px!important;animation:none!important}'
+    +'#mcr_toast{position:fixed;bottom:20px;right:20px;z-index:999}</style>'
+    // ⚠️ 스크립트는 body 끝에 — head에 두면 외부 CSS(아이콘) 로딩이 스크립트를 막아 write 직후 양식이 아직 없음(헤드리스 실측)
+    +'</head><body>'+tpl+'<div class="toast" id="mcr_toast"></div>'+sc+'</body></html>';
+  try{ w.document.open(); w.document.write(html); w.document.close(); }
+  catch(e){ try{ w.close(); }catch(_e){} return false; }
+  // 인라인 핸들러(onclick="mcrSave()" 등)가 새 창 전역에서 메인 함수를 찾도록 연결
+  try{
+    Object.keys(window).forEach(function(k){
+      if(/^_?mcr/i.test(k)&&typeof window[k]==='function') w[k]=function(){ return window[k].apply(this, arguments); };
+    });
+    w.g=function(id){ return g(id); };
+  }catch(e){ try{ w.close(); }catch(_e){} return false; }
+  // 메인 모달은 창이 떠 있는 동안 떼어 둠(창이 닫히면 _mcrPopupGone이 제자리로)
+  window._mcrHome={node:home, parent:home.parentNode, next:home.nextSibling};
+  home.classList.remove('open');
+  home.parentNode.removeChild(home);
+  window._mcrWin=w;
+  try{ var kw=w.document.getElementById('mcr_kk_wrap'); if(kw) _mcrKkBind(kw); }catch(e){}
+  // 창 쪽 이벤트는 메인에서 직접 연결 — 창 안 스크립트는 외부 CSS가 늦으면 늦게 돌기 때문(생존 확인만 창 스크립트가 보조로 맡음)
+  try{
+    w.document.addEventListener('dragover', function(e){ e.preventDefault(); });   // 빗나간 드롭이 브라우저 파일 열기로 새지 않게
+    w.document.addEventListener('drop', function(e){ e.preventDefault(); });
+    w.addEventListener('pagehide', function(){ _mcrPopupGone(w); });
+  }catch(e){}
+  // 1초마다: 창이 닫혔으면 정리, 로그아웃 상태면 창을 닫음(개인정보 잔존 방지)
+  if(!window._mcrPoll) window._mcrPoll=setInterval(function(){ var x=window._mcrWin; if(!x) return; var lin=false; try{ lin=!!cu; }catch(e){} if(x.closed) _mcrPopupGone(x); else if(!lin) _mcrClose(); }, 1000);
+  try{ w.focus(); }catch(e){}
+  return true;
+}
+// 새 창이 닫힘(닫기·제출·로그아웃·새로고침) — 메인 모달을 제자리로 돌리고 진행 중 업로드·인식은 세대 증가로 폐기
+function _mcrPopupGone(w){
+  if(!w||window._mcrWin!==w) return;
+  window._mcrWin=null;
+  window._mcrGen=(window._mcrGen||0)+1;
+  window._mcrOcrBusy=false;
+  if(window._mcrPoll){ clearInterval(window._mcrPoll); window._mcrPoll=null; }
+  var h=window._mcrHome; window._mcrHome=null;
+  if(h&&h.node&&!h.node.isConnected){
+    try{ if(h.next&&h.next.parentNode===h.parent) h.parent.insertBefore(h.node,h.next); else (h.parent||document.body).appendChild(h.node); }
+    catch(e){ try{ document.body.appendChild(h.node); }catch(_e){} }
+  }
+}
+window._mcrAlive=function(w){ try{ return !!cu && window._mcrWin===w; }catch(e){ return false; } };
+// 신청 창 닫기 — 새 창이면 창을 닫고, 모달이면 모달을 닫음
+function _mcrClose(){
+  var w=window._mcrWin;
+  if(w){ try{ if(!w.closed) w.close(); }catch(e){} _mcrPopupGone(w); }
+  var m=document.getElementById('m_mcreq'); if(m) m.classList.remove('open');
+}
+// 확인창은 작업 중인 창에 띄움(메인 창에 뜨면 새 창에서 안 보임)
+function _mcrConfirm(msg){
+  var w=window._mcrWin;
+  try{ if(w&&!w.closed) return w.confirm(msg); }catch(e){}
+  return confirm(msg);
+}
+// 인식 칸 목록 — 새 창·모달 어느 쪽이든(g()가 찾는 문서 기준)
+function _mcrKkAll(){ var kb=g('mcr_kk_boxes'); return kb?kb.querySelectorAll('.mcrkb'):[]; }
+try{ window.addEventListener('pagehide', function(){ try{ _mcrClose(); }catch(e){} }); }catch(e){}   // 메인 탭 새로고침·닫기 때도 창 닫기
 // 계약 줄과 인식 칸은 고유 id(data-mrid)로 1:1 짝 — 중간 삭제에도 번호가 어긋나지 않음(함정 A 계열 예방)
 function _mcrRowHtml(rid){
   return '<div class="mcrrow" data-mrid="'+rid+'" style="border:1px solid rgba(72,88,204,.15);border-radius:8px;background:#fbfcff;padding:8px 10px;margin-bottom:8px">'
@@ -33095,7 +33189,7 @@ function _mcrKkSel(el){
   _mcrKkPaint();
 }
 function _mcrKkPaint(){
-  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  var bs=_mcrKkAll();
   var found=false;
   Array.prototype.forEach.call(bs,function(b){
     var on=(b.getAttribute('data-mrid')===window._mcrKkSelId);
@@ -33106,7 +33200,7 @@ function _mcrKkPaint(){
 }
 function _mcrKkSelBox(){
   _mcrKkPaint();
-  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  var bs=_mcrKkAll();
   for(var i=0;i<bs.length;i++){ if(bs[i].classList.contains('sel')) return bs[i]; }
   return bs[0]||null;
 }
@@ -33139,7 +33233,7 @@ function _mcrSyncRows(n){
       var pta=kb?kb.querySelector('.mcrkb[data-mrid="'+rid0+'"] textarea'):null;
       if(pta&&pta.value.trim()) hasVal=true;
     }
-    if(hasVal&&!confirm('줄어드는 계약 줄(또는 그 인식 칸)에 입력된 내용이 있습니다. 지우고 줄일까요?')){
+    if(hasVal&&!_mcrConfirm('줄어드는 계약 줄(또는 그 인식 칸)에 입력된 내용이 있습니다. 지우고 줄일까요?')){
       var cnt0=g('mcr_cnt'); if(cnt0) cnt0.value=rows.length;
       return;
     }
@@ -33176,7 +33270,7 @@ function mcrRowDel(btn){
   var hasVal=Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); })
     ||(pta&&pta.value.trim())||row._mcrDoc||row.querySelector('.mcrct.sel');
   if(box.querySelectorAll('.mcrrow').length<=1){
-    if(hasVal&&!confirm('입력된 값을 지울까요?')) return;
+    if(hasVal&&!_mcrConfirm('입력된 값을 지울까요?')) return;
     Array.prototype.forEach.call(row.querySelectorAll('input'),function(inp){ inp.value=''; });
     if(pta) pta.value='';
     Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.remove('sel'); });
@@ -33184,7 +33278,7 @@ function mcrRowDel(btn){
     _mcrDocToggle(row); _mcrDocDraw(row);
     return;
   }
-  if(hasVal&&!confirm('이 계약 줄에 입력된 값이 있습니다. 삭제할까요? (짝 인식 칸도 함께 사라집니다)')) return;
+  if(hasVal&&!_mcrConfirm('이 계약 줄에 입력된 값이 있습니다. 삭제할까요? (짝 인식 칸도 함께 사라집니다)')) return;
   row.remove();
   if(pair) pair.remove();
   var cnt=g('mcr_cnt'); if(cnt) cnt.value=box.querySelectorAll('.mcrrow').length;
@@ -33266,7 +33360,7 @@ function mcrSave(){
   if(!items.length){ toast('계약 내용을 한 건 이상 입력하세요.'); return; }
   if(badRow){ toast(badRow+'번 계약 줄의 보험사를 입력하세요. (진행여부가 보험사 이름으로 표시됩니다)'); return; }
   var paperNoFile=items.some(function(v){ return v.ct==='paper'&&!v.docUrl; });
-  if(paperNoFile&&!confirm('서면 확인서를 선택했지만 파일을 첨부하지 않은 계약이 있습니다.\n파일 없이 신청할까요?')) return;
+  if(paperNoFile&&!_mcrConfirm('서면 확인서를 선택했지만 파일을 첨부하지 않은 계약이 있습니다.\n파일 없이 신청할까요?')) return;
   _mcrReload();
   mcReqs.push({
     id:'mq_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
@@ -33284,7 +33378,7 @@ function mcrSave(){
     if(chongs.length) pushNotify(chongs, '모바일 계약 반영 요청', cu.name+'님이 '+nm+' 고객 계약 '+items.length+'건 반영을 요청했습니다.', '/');
   }catch(e){}
   try{ pushAlert('총무','모바일계약', cu.name+'님이 '+nm+' 고객의 모바일 계약 반영 '+items.length+'건을 요청했습니다.'); }catch(e){}
-  g('m_mcreq').classList.remove('open');
+  _mcrClose();
   toast('모바일 계약 반영 요청이 접수되었습니다.');
   rMcReq();
 }
@@ -33382,7 +33476,7 @@ function _mcrFillNames(custNm, insdNm){
 //   칸 여러 개 사용 시: 칸마다 각자 인식해 같은 번호 계약에 일괄 반영(칸당 1건 — 서로 침범 방지).
 function mcrParseText(){
   var stat=g('mcr_kk_stat');
-  var bs=document.querySelectorAll('#mcr_kk_boxes .mcrkb');
+  var bs=_mcrKkAll();
   if(!bs.length){ if(stat) stat.textContent='인식 칸이 없습니다.'; return; }
   var jobs=[];
   Array.prototype.forEach.call(bs,function(b){
@@ -33421,7 +33515,7 @@ function mcrParseText(){
     var el=all[p.idx]; if(!el) return false;
     return Array.prototype.some.call(el.querySelectorAll('input[data-mf]'),function(inp){ return inp.value.trim(); });
   });
-  if(overwrite&&!confirm('이미 입력된 계약 칸이 있습니다. 인식 결과로 덮어쓸까요?')) return;
+  if(overwrite&&!_mcrConfirm('이미 입력된 계약 칸이 있습니다. 인식 결과로 덮어쓸까요?')) return;
   var applied=[];
   plan.forEach(function(p){
     var el=all[p.idx]; if(!el) return;
@@ -33466,7 +33560,7 @@ function _mcrApply(rows, custNm, startRid, insdNm){
   }
   var tgt=Array.prototype.slice.call(all,start,start+rows.length);
   var hasVal=tgt.some(function(row){ return Array.prototype.some.call(row.querySelectorAll('input'),function(inp){ return inp.value.trim(); }); });
-  if(hasVal&&!confirm((start+1)+'번부터 채울 계약 칸에 이미 입력된 내용이 있습니다. 인식 결과로 덮어쓸까요?')) return;
+  if(hasVal&&!_mcrConfirm((start+1)+'번부터 채울 계약 칸에 이미 입력된 내용이 있습니다. 인식 결과로 덮어쓸까요?')) return;
   var applied=0;
   rows.forEach(function(r,i){
     var el=all[start+i]; if(!el) return;
@@ -33529,9 +33623,9 @@ async function mcrImgRecognize(fileList, startRid){
 }
 // 사진 입력 경로 — 붙여넣기(Ctrl+V)·드래그앤드롭 전용 핸들러(4.8 규칙: stopPropagation으로 공용 uni와 이중 처리 방지).
 //   인식 칸이 동적 생성되므로 패널(mcr_kk_wrap)에 위임 — 이벤트가 일어난 칸(.mcrkb)을 선택하고 그 번호부터 채움
-(function(){
-  var kw=g('mcr_kk_wrap');
-  if(!kw) return;
+function _mcrKkBind(kw){
+  if(!kw||kw._mcrBound) return;
+  kw._mcrBound=1;
   var boxOf=function(ev){ var t=ev.target; return (t&&t.closest)?t.closest('.mcrkb'):null; };
   kw.addEventListener('paste',function(ev){
     var items=(ev.clipboardData&&ev.clipboardData.items)||[]; var fs=[];
@@ -33552,6 +33646,11 @@ async function mcrImgRecognize(fileList, startRid){
       mcrImgRecognize(imgs, b?b.getAttribute('data-mrid'):null);
     }
   });
+}
+(function(){
+  var m=document.getElementById('m_mcreq');
+  if(m) window._mcrTplHtml=m.outerHTML;   // 새 창에 쓸 깨끗한 원본 양식(입력 전 상태) — 부팅 때 1회
+  _mcrKkBind(g('mcr_kk_wrap'));
 })();
 
 // ===== 내 자료함 (drive, 2026-09-15) — 구글드라이브 팀원별 폴더 열람·업로드 =====

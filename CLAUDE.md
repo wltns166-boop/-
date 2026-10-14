@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1144,7 +1144,15 @@
   파서 `_mcrParse`: "항목: 값" **콜론만**·라벨 14자 이내(자연문 오탐 방지), 줄 앞 장식(▶ • ★ 등) 제거, 머리말 `[보험사]`/`★보험사★` 인식(`_hins` 분리 보관 — 라벨 "보험사:"가 우선·같은 라벨 반복=새 블록 판정 무영향, Web발신·광고 무시), **값 빈 라벨은 다음 줄이 값**(pendingLb — 다른 라벨(모르는 것 포함) 나오면 해제, "설계번호 :\n값" 실제 카톡), 설계번호→증권번호 별칭, 계약자명·피보험자 분리 인식, 마스킹 이름(이*아)은 미기입+직접 검색 안내(`_mcrFillNames` — 태아 잠금 칸 안 건드림), 날짜 `_mcrFmtDate`(8자리 범위 검증 → "YYYY년 MM월 DD일").
   사진 OCR `mcrImgRecognize`(/api/analyze Gemini — 공용 `_dbKkImgShrink`, 모델 오버라이드 `tops_ai_mcr_model`, 전용 paste/drop은 패널 위임+stopPropagation — 4.8 규칙. PII 전송은 3.85.5 계열 수용).
 - **목록 `rMcReq`**: 담당자(직급·시각) / 계약자·고객정보(이름 클릭=openCustInfo, 피보험자👶·출생예정일·고객 상세(주민번호/연락처/주소 — 총무 또는 담당자 본인만) — **전부 클릭 복사** `_csrCopyVal` 재사용) / 반영 진행여부·계약정보(계약건별 카드: "n번 계약"+보험사 완료(초록)/미완료(빨강) 박스+상세 클릭 복사+확인서 배지·서면 파일 링크 — `_MCR_URL_RE` 버킷 화이트리스트) / 삭제(2번 클릭). 미완료 건 우선 정렬(안정 정렬 — 그룹 내 최신순 유지).
-- 문서 레벨 dragover/drop 캐치올에 `m_mcreq` open 조건 포함(4.8·m_samdocs 계열). 관리자 확인 대기 팝업(reqstat)에는 미포함(필요 시 별도 과제).
+- 문서 레벨 dragover/drop 캐치올에 `m_mcreq` open 조건 포함(4.8·m_samdocs 계열).
+- **신청 입력 창 = 브라우저 새 창 (2026-10-14 — v2026.10.14-5, 사용자 요청 "고객정보처럼")**: `mcrOpen` → `_mcrPopupOpen()`이 about:blank 창(`mcreq_win`)에
+  부팅 때 떠 둔 원본 양식 사본(`window._mcrTplHtml`)과 메인 `<style>`·외부 CSS 링크를 써 넣고, **메인 모달 노드(#m_mcreq)는 창이 떠 있는 동안 DOM에서 떼어 둔다**
+  (`window._mcrHome` — 같은 id가 두 문서에 있으면 g()가 메인 쪽을 잡음). `g()`는 메인 문서에 없으면 `window._mcrWin` 문서에서 찾고,
+  인라인 핸들러용으로 `/^_?mcr/` 함수와 g를 창 전역에 래퍼로 연결. confirm은 `_mcrConfirm`(창에 띄움), `toast()`는 창에 포커스가 있으면 창의 `#mcr_toast`,
+  인식 칸 목록은 `_mcrKkAll()`, 붙여넣기·드롭 위임은 `_mcrKkBind(kw)`(창 패널에도 연결). 창 닫힘(pagehide·1초 감시)·[신청] 성공·로그아웃·메인 pagehide →
+  `_mcrClose`/`_mcrPopupGone`이 노드를 제자리로 돌리고 `_mcrGen`을 올려 늦은 업로드·인식 결과를 폐기. 이미 열린 창이 있으면 [신청]은 그 창을 앞으로(입력 보존).
+  팝업 차단이면 기존 모달 그대로. ⚠️ 새 mcreq 코드에서 `document.querySelector/getElementById`·`confirm`을 직접 쓰지 말 것(새 창 칸을 못 찾음/메인 창에 뜸).
+  ⚠️ 창 HTML의 스크립트는 **body 끝**에 — head에 두면 외부 CSS 로딩이 스크립트를 막아 write 직후 양식이 아직 없음(헤드리스 실측). 창 이벤트(drop 차단·pagehide)는 메인에서 직접 연결. 관리자 확인 대기 팝업(reqstat)에는 미포함(필요 시 별도 과제).
 - ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(cardreq 계열 — 총무 완료 처리와 팀원 수정이 겹치면 늦은 저장이 이김), 클라이언트 가드(서버 미검증), Storage 고아 파일(줄 삭제·파일 빼기·종류 변경 시 원본 미삭제 — 오삭제 회피 방침).
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
