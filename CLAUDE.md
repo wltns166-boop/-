@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -114,6 +114,11 @@
   ⚠️ 새 창은 **자기 HTML 끝 스크립트가 `opener._ciFillCodes(window, agent)`를 호출** — 부모가 window.open 직후 잡은 `w.document`는 창이 열리며 바뀌어 빈 문서에 채워지던 실측(v-8). 되돌리지 말 것.
   ⚠️ **v-5~v-7 실버그**: 새 창 생존 확인이 `opener.cu`를 봤는데 `cu`는 `let` 전역이라 window 속성이 아님 → 창이 1.5초 만에 스스로 닫혔음. 이제 `window._ciAlive(name)`로 확인.
   전역 `let`/`const` 변수는 다른 창·`window.X`로 안 보인다는 점 주의.
+
+- **v2026.10.14-7 담당자 생년월일 (사용자 요청)**: 고객정보 창(일반·자녀 두 경로)에 '담당자 생년월일' 줄 — `_agentBirthOf(c.m)`:
+  팀원은 `mem[].birth`(구성원 프로필 `mm_birth`), 관리자는 `admov[이름].birth`([관리자 정보 수정] `mae_birth`), 'YYYY-MM-DD' 저장(`_ymdOk` 검증)·'YYYY.MM.DD' 표시.
+  같은 이름 팀원이 둘 이상이면 표시 안 함(오표시 방지). ⚠️ tops/auth(로그인 전 공개)에는 넣지 않음 — `_authDocSync` 무변경.
+  같은 커밋: 로그인 화면 `#lver`가 v-4에 멈춰 있던 것 수정(v-5·v-6 커밋의 치환이 style 속성 때문에 빗나갔음 — 버전 갱신은 `id="lver"[^>]*>` 패턴으로).
 
 ### 3.35 보험사 코드·비밀번호 관리 (inscode, 2026-10-07 — v2026.10.07-6, 사용자 요청)
 

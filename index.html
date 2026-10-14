@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-7</div>
   </div>
 </div>
 
@@ -2911,6 +2911,7 @@ function rSchedulePage(){
     <!-- 근무형태: 관리자에게만 표시(editMem에서 토글) -->
     <div class="fg" id="mm_worktype_wrap" style="display:none"><div class="fl">근무형태</div><select class="fs" id="mm_worktype"><option value="">선택</option><option>전업</option><option>부업</option></select></div>
   </div>
+  <div class="fg"><div class="fl">생년월일</div><input class="fi" type="date" id="mm_birth" max="2099-12-31"></div>
   <div class="fg"><div class="fl">집주소</div><input class="fi" id="mm_addr" placeholder="주소를 입력하세요"></div>
   <div class="fg"><div class="fl">소속</div><select class="fs" id="mm_belong"><option value="">선택 안함</option></select></div>
   <div class="fg"><div class="fl">비밀번호 변경 (선택)</div><input class="fi" type="password" id="mm_pw" placeholder="변경할 비밀번호 (비워두면 유지)"></div>
@@ -2933,6 +2934,7 @@ function rSchedulePage(){
     <div class="fg"><div class="fl">직급 <span style="font-weight:400;font-size:11.5px;color:#8088c0">(표시용 — 권한은 그대로)</span></div><select class="fs" id="mae_rank"></select></div>
     <div class="fg"><div class="fl">소속 <span style="font-weight:400;font-size:11.5px;color:#8088c0">(표시용)</span></div><select class="fs" id="mae_belong"></select></div>
   </div>
+  <div class="fg"><div class="fl">생년월일</div><input class="fi" type="date" id="mae_birth" max="2099-12-31"></div>
   <div class="fg"><div class="fl">집주소</div><input class="fi" id="mae_addr" placeholder="주소를 입력하세요"></div>
   <input type="hidden" id="mae_key">
   <div class="mf"><button class="bca" id="m_admedit_cancel">취소</button><button class="bco" id="m_admedit_save">저장</button></div>
@@ -8872,6 +8874,7 @@ function openAdmEdit(name){
   g('mae_phone').value=ov.phone||'';
   g('mae_join').value=ov.join||'';
   g('mae_addr').value=ov.addr||'';
+  g('mae_birth').value=_ymdOk(ov.birth)?ov.birth:'';
   g('mae_key').value=a.name;
   g('m_admedit').classList.add('open');
 }
@@ -8885,6 +8888,7 @@ g('m_admedit_save').addEventListener('click',function(){
   o.phone=(g('mae_phone').value||'').trim();
   o.join=(g('mae_join').value||'').trim();
   o.addr=(g('mae_addr').value||'').trim();
+  var bd=(g('mae_birth').value||'').trim(); o.birth=_ymdOk(bd)?bd:'';   // 생년월일(고객정보 창 담당자 표시용)
   var rk=g('mae_rank')?String(g('mae_rank').value||'').trim():'';
   o.rank=(ADM_RANKS.indexOf(rk)>=0)?rk:'';   // ''=기본값(ADMINS의 role) — merge 저장이라 키 삭제 대신 빈 값
   var bl=g('mae_belong')?String(g('mae_belong').value||'').trim().slice(0,40):'';
@@ -9209,6 +9213,7 @@ g('m_mem_save').addEventListener('click',()=>{
   mem[idx].salesStart=g('mm_salesstart').value;   // 영업시작일(루키 대상 판정 기준)
   mem[idx].workType=(g('mm_worktype')?g('mm_worktype').value:'')||'';   // 근무형태(전업/부업, 관리자 전용 입력)
   mem[idx].address=g('mm_addr').value;
+  var _bd=(g('mm_birth').value||'').trim(); mem[idx].birth=_ymdOk(_bd)?_bd:'';   // 생년월일(고객정보 창 담당자 표시용)
   mem[idx].belong=g('mm_belong').value;
   if(pw) mem[idx].lpw=pw;
   sv('tops_mem',mem);
@@ -9231,6 +9236,7 @@ function editMem(i){
   if(wtw) wtw.style.display=_isAdmin()?'':'none';
   if(g('mm_worktype')) g('mm_worktype').value=m.workType||'';
   g('mm_addr').value=m.address||'';
+  g('mm_birth').value=_ymdOk(m.birth)?m.birth:'';
   g('mm_pw').value='';
   // 함정 A: 인덱스 대신 코드(고유 식별자) 저장 — 모달이 열린 사이 실시간 동기화로
   //   mem 배열이 통째로 교체돼도 저장 시 엉뚱한 팀원을 덮어쓰지 않도록 저장 시점에 재탐색한다.
@@ -20053,6 +20059,19 @@ function openCustInfoByIdx(custIdx, famIdx){
   _renderCustInfoModal(c, fm);
 }
 // 고객정보 모달 본문 렌더 공용 — openCustInfo(이름 조회)·openCustInfoByIdx(목록 클릭)가 함께 사용
+// 담당자 생년월일(2026-10-14 v-7, 사용자 요청) — 팀원은 mem[].birth, 관리자는 admov[이름].birth ('YYYY-MM-DD').
+//   구성원 프로필·[관리자 정보 수정]에서 입력. tops/auth(로그인 전 공개 문서)에는 넣지 않음(_authDocSync 무변경).
+function _ymdOk(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v||'')); }
+function _agentBirthOf(agent){
+  try{
+    var nm=String(_agentReal(agent||'')||agent||'').trim(); if(!nm) return '';
+    var ms=(Array.isArray(mem)?mem:[]).filter(function(m){ return m&&m.name===nm; });
+    var b='';
+    if(ms.length===1) b=ms[0].birth||'';   // 동명이인이면 표시 안 함(남의 생일 오표시 방지)
+    else if(!ms.length && ADMINS.some(function(a){return a.name===nm;})) b=((_admOv(nm)||{}).birth)||'';
+    return _ymdOk(b)?b.replace(/-/g,'.'):'';
+  }catch(e){ return ''; }
+}
 function _renderCustInfoModal(c, fm){
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
   if(!body||!mb) return;
@@ -20110,6 +20129,7 @@ function _renderCustInfoModal(c, fm){
     row('직업', who.job);
     if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
     row('담당자', c.m);
+    row('담당자 생년월일', _agentBirthOf(c.m));
     if(_grd && !_grdP) row('법정대리인', _grd);   // 상세 레코드를 못 찾으면 이름만이라도
   } else {
     row('이름', who.name);
@@ -20127,6 +20147,7 @@ function _renderCustInfoModal(c, fm){
     if(who.height||who.weight) row('키/몸무게', [who.height?who.height+'cm':'', who.weight?who.weight+'kg':''].filter(Boolean).join(' / '));
     row('병력', who.disease);
     row('담당자', c.m);
+    row('담당자 생년월일', _agentBirthOf(c.m));
     row('특이사항', c.note);
   }
   // 법정대리인 전체 정보 섹션 (상세 레코드를 찾은 경우)
