@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.13-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-1</div>
   </div>
 </div>
 
@@ -2928,6 +2928,10 @@ function rSchedulePage(){
   <div class="fr">
     <div class="fg"><div class="fl">핸드폰번호</div><input class="fi" id="mae_phone" placeholder="010-0000-0000" oninput="formatPhone(this)"></div>
     <div class="fg"><div class="fl">입사일</div><input class="fi" type="date" id="mae_join"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><div class="fl">직급 <span style="font-weight:400;font-size:11.5px;color:#8088c0">(표시용 — 권한은 그대로)</span></div><select class="fs" id="mae_rank"></select></div>
+    <div class="fg"></div>
   </div>
   <div class="fg"><div class="fl">집주소</div><input class="fi" id="mae_addr" placeholder="주소를 입력하세요"></div>
   <input type="hidden" id="mae_key">
@@ -8821,14 +8825,24 @@ function rRankCnt(){
 }
 
 // MEMBERS
-// 관리자 정보 수정 — 관리자끼리 서로의 연락처·입사일·주소를 수정 (아이디/비밀번호는 본인만 개인정보수정에서)
+// 관리자 정보 수정 — 관리자끼리 서로의 연락처·입사일·주소·직급을 수정 (아이디/비밀번호는 본인만 개인정보수정에서)
+// 직급(admov[이름].rank, 2026-10-14 — v2026.10.14-1)은 구성원 표·엑셀·PDF에 보이는 **표시용 글자만** 바꾼다.
+//   ⚠️ 권한 판정(cu.role — _isChongmu·업무 현황 팝업 등)은 ADMINS의 role 그대로 — rank를 권한에 쓰지 말 것.
+var ADM_RANKS=['FA','FA(예비팀장)','TL','BM','SBM','RM','SRM','총무'];
+function _admRankOf(a){ var r=String(((_admOv(a.name)||{}).rank)||'').trim(); return (r&&ADM_RANKS.indexOf(r)>=0)?r:a.role; }
 function openAdmEdit(name){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
   var a=_admList().find(function(x){return x.name===name;});
   if(!a){ toast('관리자 계정을 찾을 수 없습니다.'); return; }
   var ov=_admOv(name)||{};
   g('mae_name').textContent=a.name;
-  g('mae_role').textContent=a.role;
+  g('mae_role').textContent=_admRankOf(a);
+  var rs=g('mae_rank');
+  if(rs){
+    var curR=String(ov.rank||'').trim(); if(ADM_RANKS.indexOf(curR)<0) curR='';
+    rs.innerHTML='<option value="">기본값 ('+_esc(a.role)+')</option>'+ADM_RANKS.map(function(r){ return '<option value="'+_esc(r)+'">'+_esc(r)+'</option>'; }).join('');
+    rs.value=curR;
+  }
   g('mae_phone').value=ov.phone||'';
   g('mae_join').value=ov.join||'';
   g('mae_addr').value=ov.addr||'';
@@ -8845,6 +8859,8 @@ g('m_admedit_save').addEventListener('click',function(){
   o.phone=(g('mae_phone').value||'').trim();
   o.join=(g('mae_join').value||'').trim();
   o.addr=(g('mae_addr').value||'').trim();
+  var rk=g('mae_rank')?String(g('mae_rank').value||'').trim():'';
+  o.rank=(ADM_RANKS.indexOf(rk)>=0)?rk:'';   // ''=기본값(ADMINS의 role) — merge 저장이라 키 삭제 대신 빈 값
   admov[name]=o;
   // 동시 수정 경합 방지: 해당 이름 키만 서버에 병합 (saveMyProfileAdmin과 동일 패턴)
   _lsSet('tops_admov', JSON.stringify(admov));
@@ -8869,7 +8885,7 @@ function _memAdminRows(){
   return _admList().filter(function(a){ return !names[a.name]; })
     .map(function(a){
       var ov=_admOv(a.name)||{};
-      return {code:a.id, name:a.name, rank:a.role, phone:ov.phone||'', joinDate:ov.join||'', address:ov.addr||''};
+      return {code:a.id, name:a.name, rank:_admRankOf(a), phone:ov.phone||'', joinDate:ov.join||'', address:ov.addr||''};
     });
 }
 function rMem(){

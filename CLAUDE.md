@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.13-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -175,6 +175,10 @@
   (mem 축약본 lid/lpw/code/name + admov id/pw). ⚠️ 로그인 전에 전체 문서(`tops/data`)를 읽으면
   업무 데이터가 미로그인 방문자에게 노출되므로 **FS_AUTH 외 읽기 금지**.
 - 축약본은 전역 `mem`을 덮지 않고 `window._authMem`에만 보관(함정 C 예방). `_tryLogin()`이 mem → _authMem 순 조회.
+- **관리자 직급 표시 (2026-10-14 — v2026.10.14-1, 사용자 요청)**: 구성원 관리 [관리자 정보 수정] 모달에 직급 select(`mae_rank`, `ADM_RANKS` 화이트리스트, 첫 칸 '기본값(role)') →
+  `admov[이름].rank`(''=기본값 — merge 저장이라 빈 값으로). `_admRankOf(a)`가 **구성원 표·엑셀·PDF(`_memAdminRows`)와 모달 머리만** 바꾼다.
+  ⚠️ **표시용 — 권한은 ADMINS의 role 그대로**(`cu.role`·`_isChongmu`·업무 현황 팝업 등). rank를 권한 판정·로그인(`_admList`)·`tops/auth`에 쓰지 말 것.
+  수용: 진급평가·일일보고·팀 선택 등 ADMINS.role을 직접 읽는 다른 화면은 원래 직급 표시(필요하면 `_admRankOf`로 통일).
 - `tops/auth` 최신화: `_authDocSync()` — `sv('tops_mem'/'tops_admov')`, 관리자 병합 저장 2곳, `loadFromFirestore` 성공 직후 자동 호출(멱등).
 - 호스팅 캐시: firebase.json `Cache-Control: no-cache` — 배포 즉시 반영.
 - **로그인 화면 좌하단 버전 표시 `#lver`** — 기기가 옛 캐시 버전인지 판별용. **배포용 커밋마다 `v2026.07.09-2` 형식으로 갱신할 것.**
