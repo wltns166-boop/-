@@ -520,7 +520,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-8</div>
   </div>
 </div>
 
@@ -32753,12 +32753,16 @@ function deleteCardReq(id){
 //   items:[{id('mqi_..'),ins,prod,prem,term,pol,cdt,ctype(''|'mobile'|'paper'),docUrl(서면 확인서 Storage URL — paper일 때만),docName,done,doneTs?,doneBy?}]}]
 //   — 동기화 키 tops_mcreq(텍스트만, 함정 B). 행·박스 조작은 전부 고유 id 기준(함정 A — data 속성 + _alertEsc).
 // 열람: 관리자(BM·총무)=전체, 팀원=본인 신청만(고객등록 현황 계열). 완료/미완료 체크는 총무(_isChongmu)만.
-// 저장은 로컬 재읽기 후 전체 배열 교체 — last-write-wins(cardreq 계열 수용). 자유 텍스트 표시는 전부 _esc(XSS).
+// 저장은 메모리(클라우드 수신본) 기준 전체 배열 교체 — last-write-wins(cardreq 계열 수용). 자유 텍스트 표시는 전부 _esc(XSS).
 var mcReqs=[];
 try{ mcReqs=JSON.parse(localStorage.getItem('tops_mcreq')||'[]'); }catch(e){ mcReqs=[]; }
 if(!Array.isArray(mcReqs)) mcReqs=[];
+// ⚠️ 메모리 우선(2026-10-14 v-8 실사고 — "올렸는데 총무님한테 안 뜸", 3.89 시험신청과 같은 계열):
+//   클라우드 수신(loadFromFirestore/onSnapshot)은 mcReqs(메모리)를 먼저 바꾸고 localStorage에 캐시하는데,
+//   기기 저장공간이 차 있으면(_lsSet 실패 — 청구 PDF 캐시 등) 캐시가 옛 상태로 남는다. 예전엔 여기서 localStorage를 다시 읽어
+//   **방금 받은 최신 목록을 옛 캐시로 덮어** 총무 화면에 새 신청이 안 보였고, 신청 저장도 옛 목록으로 클라우드를 덮을 수 있었다.
+//   localStorage는 부팅 때 한 번만 읽는 캐시 — 여기서 다시 읽지 말 것.
 function _mcrReload(){
-  try{ mcReqs=JSON.parse(localStorage.getItem('tops_mcreq')||'[]'); }catch(e){ mcReqs=[]; }
   if(!Array.isArray(mcReqs)) mcReqs=[];
 }
 function _mcrPersist(){
