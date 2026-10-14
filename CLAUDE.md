@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-10. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-11. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1165,6 +1165,11 @@
   **v-6 리뷰 반영**: 휴대폰·태블릿(`pointer:fine` 아님 또는 폭 900 미만)은 기존 모달(새 탭이 되어 원래 탭이 멈추거나 버려지면 입력 유실),
   차단 시 닫힌 창 객체도 차단으로 판정, 닫혔는데 정리 전이면 mcrOpen이 먼저 `_mcrPopupGone`, 토스트는 메인 창에 포커스가 없을 때도 새 창에.
   ⚠️ 창 HTML의 스크립트는 **body 끝**에 — head에 두면 외부 CSS 로딩이 스크립트를 막아 write 직후 양식이 아직 없음(헤드리스 실측). 창 이벤트(drop 차단·pagehide)는 메인에서 직접 연결. 관리자 확인 대기 팝업(reqstat)에는 미포함(필요 시 별도 과제).
+- **v2026.10.14-11 [수정] 버튼 (사용자 요청)**: 목록 마지막 열 '수정 · 삭제' — 글자 [수정](`mcrEdit`, 삭제와 같은 권한 `_mcrCanEdit`: 본인 또는 총무, data-mcrid 기준).
+  신청 창(새 창/모달)을 그 요청으로 채워 열고(`window._mcrEditId`, 제목 `#mcr_title`·버튼 `#mcr_savebtn` "수정 저장" — `_mcrModeDraw`), 계약 줄마다 원래 항목 id `data-mqi`.
+  `mcrSave`는 수정 모드면 같은 id 건만 교체 — agent·ts·dt 유지, `ut`/`eBy` 기록, **같은 항목 id는 완료 상태(done·doneTs·doneBy) 승계**, 새 줄은 미완료.
+  그 사이 삭제된 건은 저장 거부(부활 금지). 팀원이 수정하면 총무에게 pushAlert. `mcrOpen`(새 신청)·창 닫힘·`_mcrClose`가 `_mcrEditId`를 비움.
+  다른 신청 창이 열려 있으면 confirm 후 닫고 수정 창을 연다.
 - **v2026.10.14-8 메모리 우선 (실사고 — "올렸는데 총무님한테 안 뜸", 3.89 시험신청과 같은 계열)**: 클라우드에는 신청이 정상 저장돼 있었는데(익명 REST로 확인),
   `rMcReq`·`mcrSave`가 부를 때마다 `_mcrReload`가 **localStorage를 다시 읽어**, 저장공간이 찬 기기(총무 PC — 청구 PDF 캐시)에서는 방금 받은 클라우드 목록을
   옛 캐시로 덮어 새 신청이 안 보였다(신청 저장도 옛 목록으로 클라우드를 덮을 위험). 이제 `_mcrReload`는 메모리(`mcReqs` — 수신 핸들러 2곳이 갱신)만 쓰고

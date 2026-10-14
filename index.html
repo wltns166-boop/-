@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-11</div>
   </div>
 </div>
 
@@ -2224,7 +2224,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
         <div style="font-size:13px;color:#8888aa;margin-bottom:10px">모바일로 체결한 계약을 전산에 반영해 달라고 요청하는 곳입니다. 오른쪽 위 [신청]에서 계약 내용을 입력하면 총무님에게 알림과 함께 전달되고, 총무님이 보험사 박스를 눌러 완료/미완료를 체크합니다. 목록에는 본인 신청만 보입니다(총무는 전체).</div>
         <div style="overflow-x:auto">
         <table class="dt">
-          <thead><tr><th style="width:100px">담당자</th><th style="width:230px">계약자 · 고객정보</th><th>반영 진행여부 · 계약정보</th><th style="width:50px">삭제</th></tr></thead>
+          <thead><tr><th style="width:100px">담당자</th><th style="width:230px">계약자 · 고객정보</th><th>반영 진행여부 · 계약정보</th><th style="width:110px">수정 · 삭제</th></tr></thead>
           <tbody id="mcr_tb"></tbody>
         </table>
         </div>
@@ -2421,7 +2421,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 
     <!-- 모바일 계약 반영 요청 — 신청 모달 (흰 배경, 함정 D 역방향) -->
     <div class="mb" id="m_mcreq"><div class="mo" style="width:940px;max-width:96vw;max-height:92vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
-      <div class="mth" style="color:#1a1a2e"><span>모바일 계약 반영 요청</span><span class="mc" onclick="_mcrClose()" style="color:#555">×</span></div>
+      <div class="mth" style="color:#1a1a2e"><span id="mcr_title">모바일 계약 반영 요청</span><span class="mc" onclick="_mcrClose()" style="color:#555">×</span></div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:1.4;min-width:300px">
           <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2440,7 +2440,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
           <div class="fg" style="max-width:150px"><div class="fl">계약건수</div><input class="fi" id="mcr_cnt" type="number" min="1" max="20" value="1" onchange="_mcrSyncRows(this.value)"></div>
           <div id="mcr_rows"></div>
           <div style="margin-top:12px">
-            <button class="bp" onclick="mcrSave()" style="font-size:15px;padding:9px 22px"><i class="ti ti-send"></i> 신청</button>
+            <button class="bp" id="mcr_savebtn" onclick="mcrSave()" style="font-size:15px;padding:9px 22px"><i class="ti ti-send"></i> 신청</button>
           </div>
         </div>
         <div style="flex:1;min-width:270px;padding:10px;border:1px dashed rgba(72,88,204,.3);border-radius:10px;background:#fafbff" id="mcr_kk_wrap">
@@ -32865,6 +32865,8 @@ function rMcReq(){
         +stBox+detHtml+'</div>';
     }).join('');
     var canDel=chong||(cu&&(String(r.agent||'')===cu.name||_agentReal(r.agent||'')===_agentReal(cu.name)));
+    // 수정(2026-10-14 v-11, 사용자 요청) — 삭제와 같은 권한(본인 또는 총무), 요청 id 기준(함정 A)
+    var editBtn=canDel?'<div data-mcrid="'+_alertEsc(r.id||'')+'" onclick="mcrEdit(this)" title="이 요청 수정" style="font-size:13px;padding:3px 9px;margin-right:5px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.3);border-radius:5px;color:#3a4ab8;cursor:pointer;display:inline-block;font-weight:600">수정</div>':'';
     var delBtn=canDel?'<div data-mcrid="'+_alertEsc(r.id||'')+'" onclick="mcrDelete(this)" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.1);border:1px solid rgba(200,40,40,.2);border-radius:5px;color:#cc3333;cursor:pointer;display:inline-block"><i class="ti ti-trash"></i></div>':'';
     return '<tr style="border-bottom:1px solid rgba(80,80,200,.08)">'
       +'<td style="vertical-align:middle;white-space:nowrap">'
@@ -32879,7 +32881,7 @@ function rMcReq(){
         +infoHtml
       +'</td>'
       +'<td style="vertical-align:top;padding-top:10px"><div style="display:flex;flex-wrap:wrap;align-items:flex-start">'+boxes+'</div></td>'
-      +'<td style="vertical-align:middle;text-align:center">'+delBtn+'</td>'
+      +'<td style="vertical-align:middle;text-align:center;white-space:nowrap">'+editBtn+delBtn+'</td>'
       +'</tr>';
   });
   tb.innerHTML=rows.join('');
@@ -32919,6 +32921,55 @@ function mcrDelete(el){
     setTimeout(function(){ window._mcrDelId=null; }, 3000);
   }
 }
+// ── 수정 (2026-10-14 v-11, 사용자 요청) — 신청 창을 그 요청 내용으로 채워 연다. 저장은 mcrSave가 _mcrEditId로 같은 id 건을 교체
+//   계약 줄마다 원래 항목 id(data-mqi)를 달아 두어, 총무가 체크한 완료 상태(done·doneTs·doneBy)를 그대로 이어받는다.
+function _mcrModeDraw(){
+  var ed=!!window._mcrEditId;
+  var t=g('mcr_title'); if(t) t.textContent=ed?'모바일 계약 반영 요청 — 수정':'모바일 계약 반영 요청';
+  var b=g('mcr_savebtn'); if(b) b.innerHTML=ed?'<i class="ti ti-device-floppy"></i> 수정 저장':'<i class="ti ti-send"></i> 신청';
+  try{ if(window._mcrWin&&!window._mcrWin.closed) window._mcrWin.document.title=ed?'모바일 계약 반영 요청 — 수정':'모바일 계약 반영 요청'; }catch(e){}
+}
+function _mcrCanEdit(r){
+  if(!r||!cu) return false;
+  if(typeof _isChongmu==='function'&&_isChongmu()) return true;
+  return String(r.agent||'')===cu.name||_agentReal(r.agent||'')===_agentReal(cu.name);
+}
+function mcrEdit(el){
+  if(!cu){ toast('로그인 후 이용해주세요.'); return; }
+  var id=el&&el.getAttribute?el.getAttribute('data-mcrid'):String(el||'');
+  _mcrReload();
+  var r=mcReqs.find(function(x){ return x&&x.id===id; });
+  if(!r){ toast('이미 삭제된 요청입니다.'); rMcReq(); return; }
+  if(!_mcrCanEdit(r)){ toast('본인 요청만 수정할 수 있습니다.'); return; }
+  var w=window._mcrWin;
+  if(w&&!w.closed){
+    if(window._mcrEditId===id){ try{ w.focus(); }catch(e){} return; }
+    if(!confirm('열려 있는 신청 창을 닫고 이 요청을 수정할까요? (그 창에 입력 중인 내용은 사라집니다)')) return;
+    _mcrClose();
+  }
+  mcrOpen();
+  window._mcrEditId=id;
+  var items=Array.isArray(r.items)?r.items:[];
+  var n=Math.max(1,Math.min(20,items.length||1));
+  var cnt=g('mcr_cnt'); if(cnt) cnt.value=n;
+  _mcrSyncRows(n);
+  var ci=g('mcr_cust'); if(ci) ci.value=r.custName||'';
+  var fc=g('mcr_fetus');
+  if(r.fetus&&fc){ fc.checked=true; mcrFetusToggle(); var du=g('mcr_due'); if(du) du.value=r.dueDate||''; }
+  else { var ii=g('mcr_insured'); if(ii) ii.value=r.insName||''; }
+  var box=g('mcr_rows'); var rows=box?box.querySelectorAll('.mcrrow'):[];
+  items.slice(0,n).forEach(function(it,i){
+    var row=rows[i]; if(!row||!it) return;
+    row.setAttribute('data-mqi', String(it.id||''));
+    ['ins','prod','prem','term','pol','cdt'].forEach(function(k){ var inp=row.querySelector('input[data-mf="'+k+'"]'); if(inp) inp.value=String(it[k]||''); });
+    var ct=String(it.ctype||'');
+    Array.prototype.forEach.call(row.querySelectorAll('.mcrct'),function(b){ b.classList.toggle('sel', !!ct&&b.getAttribute('data-ct')===ct); });
+    _mcrDocToggle(row);
+    if(ct==='paper'&&it.docUrl&&_MCR_URL_RE.test(String(it.docUrl))){ row._mcrDoc={u:it.docUrl, n:it.docName||'서면 확인서'}; }
+    _mcrDocDraw(row);
+  });
+  _mcrModeDraw();
+}
 // ── 신청 모달
 function mcrOpen(){
   if(!cu){ toast('로그인 후 이용해주세요.'); return; }
@@ -32926,6 +32977,7 @@ function mcrOpen(){
   if(_pw&&_pw.closed){ _mcrPopupGone(_pw); _pw=null; }   // 닫혔는데 아직 정리 전(pagehide 누락) — 모달부터 제자리로(리뷰)
   if(_pw&&!_pw.closed){ try{ _pw.focus(); }catch(e){} return; }   // 이미 열린 신청 창은 그대로 앞으로(입력 보존)
   var _popped=_mcrPopupOpen();   // 새 창(고객정보 창과 같은 방식) — 팝업이 차단되면 기존 모달로
+  window._mcrEditId=null; _mcrModeDraw();   // 새 신청 모드(수정은 mcrEdit가 이 뒤에 채움)
   window._mcrGen=(window._mcrGen||0)+1;   // 모달 재오픈 세대 — 이전 세션의 파일 업로드 오귀속 방지
   window._mcrOcrBusy=false;               // 이전 폼의 사진 인식 대기가 새 폼을 잠그지 않게(v-3 리뷰 — 옛 응답은 위 세대 가드가 폐기)
   var ci=g('mcr_cust'); if(ci) ci.value='';
@@ -33009,6 +33061,7 @@ function _mcrPopupOpen(){
 function _mcrPopupGone(w){
   if(!w||window._mcrWin!==w) return;
   window._mcrWin=null;
+  window._mcrEditId=null;
   window._mcrGen=(window._mcrGen||0)+1;
   window._mcrOcrBusy=false;
   if(window._mcrPoll){ clearInterval(window._mcrPoll); window._mcrPoll=null; }
@@ -33024,6 +33077,7 @@ function _mcrClose(){
   var w=window._mcrWin;
   if(w){ try{ if(!w.closed) w.close(); }catch(e){} _mcrPopupGone(w); }
   var m=document.getElementById('m_mcreq'); if(m) m.classList.remove('open');
+  window._mcrEditId=null;
 }
 // 확인창은 작업 중인 창에 띄움(메인 창에 뜨면 새 창에서 안 보임)
 function _mcrConfirm(msg){
@@ -33383,6 +33437,7 @@ function mcrSave(){
       v[k]=el?el.value.trim():'';
     });
     v.ct=_mcrRowCt(row);
+    v.mqi=row.getAttribute('data-mqi')||'';   // 수정 때 원래 항목 id(완료 상태 승계용)
     // 서면 확인서일 때만 파일 URL 저장 — 종류를 모바일로 바꾸거나 해제한 뒤에도 이전 업로드 URL이
     // 화면에 안 보이는 숨은 필드로 데이터에 남던 문제(2026-09-14 리뷰 Medium)
     v.docUrl=(v.ct==='paper'&&row._mcrDoc&&row._mcrDoc.u)||'';
@@ -33397,6 +33452,29 @@ function mcrSave(){
   var paperNoFile=items.some(function(v){ return v.ct==='paper'&&!v.docUrl; });
   if(paperNoFile&&!_mcrConfirm('서면 확인서를 선택했지만 파일을 첨부하지 않은 계약이 있습니다.\n파일 없이 신청할까요?')) return;
   _mcrReload();
+  var _eid=window._mcrEditId;
+  if(_eid){
+    var er=mcReqs.find(function(x){ return x&&x.id===_eid; });
+    if(!er){ toast('이 요청은 그 사이 삭제되어 수정할 수 없습니다. 새로 신청해 주세요.'); return; }   // 부활 금지(cardreq 계열)
+    if(!_mcrCanEdit(er)){ toast('본인 요청만 수정할 수 있습니다.'); return; }
+    var oldIt={}; (er.items||[]).forEach(function(it){ if(it&&it.id) oldIt[it.id]=it; });
+    er.custName=nm; er.insName=insd; er.fetus=fetus?1:0; er.dueDate=due;
+    er.items=items.map(function(v){
+      var o=v.mqi&&oldIt[v.mqi];
+      var it={ id:o?o.id:('mqi_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+        ins:v.ins, prod:v.prod, prem:v.prem, term:v.term, pol:v.pol, cdt:v.cdt,
+        ctype:v.ct, docUrl:v.docUrl, docName:v.docName, done:o&&o.done?1:0 };
+      if(o&&o.done){ if(o.doneTs) it.doneTs=o.doneTs; if(o.doneBy) it.doneBy=o.doneBy; }   // 총무가 체크한 완료 상태 유지
+      return it;
+    });
+    er.ut=Date.now(); er.eBy=cu.name;
+    _mcrPersist();
+    try{ if(!(typeof _isChongmu==='function'&&_isChongmu())) pushAlert('총무','모바일계약', cu.name+'님이 '+nm+' 고객의 모바일 계약 반영 요청을 수정했습니다.'); }catch(e){}
+    _mcrClose();
+    toast('수정되었습니다.');
+    rMcReq();
+    return;
+  }
   mcReqs.push({
     id:'mq_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
     agent:cu.name, dt:tds(), ts:Date.now(), custName:nm, insName:insd, fetus:fetus?1:0, dueDate:due,
