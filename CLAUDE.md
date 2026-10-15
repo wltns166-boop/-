@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.15-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.15-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -135,6 +135,13 @@
   logout에서 창·상태 제거. 리뷰 반영: 수정 중 👁 무시(입력 보존)·저장 중 사람 전환 차단·이름은 저장 시작 시점 값·Enter 저장은 코드/비밀번호 칸만.
 - ⚠️ **구조적 한계(사용자 안내함)**: firestore.rules가 인증 세션이면 모든 컬렉션 읽기·쓰기를 허용하고 앱 로그인은 익명 인증이라,
   **기술을 아는 사람은 콘솔로 남의 코드·비밀번호를 읽을 수 있음**(평문 저장, 권한 검사는 화면에서만). 근본 해결은 서버(functions) 경유 + 계정별 인증 — 별도 과제.
+- **v2026.10.15-3 새 창으로 (사용자 요청 — 고객정보·계약 반영 창처럼)**: PC(`pointer:fine`·폭 900 이상)에서는 `insCodeOpen`이 `_icPopupOpen()`으로
+  브라우저 새 창(`inscode_win`, `window._icWin`)을 열고 `#ic_pop`을 **그 창 문서에 직접 만든다**(클릭·변경·키 처리기는 요소에 직접 연결 — 메인 함수가 처리).
+  `g()`는 메인에 없으면 `_icWin` 문서도 찾고, 확인창 `_icConfirm`, 칸 조회 `_icDoc()`, 토스트는 새 창 포커스 시(또는 메인 포커스 없음) `#ic_toast`, 창 안 클릭 복사는 창 자체 `_csrCopyVal`,
+  붙여넣기 `_icPasteH`는 두 문서에 연결(창이 떠 있는 문서의 붙여넣기만). 이미 떠 있으면 [보험사코드관리]는 그 창을 앞으로.
+  닫힘: ×·`_icClose`(로그아웃·메인 pagehide)·1초 감시(로그아웃이면 닫음)·창 스크립트 `opener._icAlive(window)` 1.5초 확인 — 비밀번호 잔존 방지.
+  휴대폰·태블릿·팝업 차단이면 기존 모달. 문서 drag/drop 캐치올의 ic_pop 조건은 `document.getElementById`(메인 모달만 — 새 창이 떠 있어도 메인 드롭 유지).
+  ⚠️ inscode 코드에서 `document.querySelector`·`confirm`을 직접 쓰지 말 것. 헤드리스 검증: 새 창 열림·추가/저장/삭제(확인창이 새 창에)·재클릭 시 창 추가 없음·로그아웃 시 닫힘.
 - **v2026.10.12-1 사진·PDF·엑셀로 자동 입력 (사용자 요청)**: 창 머리의 팀원 선택 옆 업로드 칸 `#ic_up` — 클릭=초록 선택(`_icUpSel`),
   선택 상태에서 Ctrl+V(문서 paste 캡처 리스너 — 창이 떠 있고 선택일 때만, 글자 붙여넣기도 인식), 끌어다 놓기(전용 핸들러 stopPropagation, 문서 drop 캐치올에 `ic_pop` 조건),
   [파일 선택](`#ic_up_file`). 사진=`_dbKkImgShrink`, PDF=pdf.js 글자(20쪽) — 글자 없으면 앞 4쪽 그림, 엑셀/CSV=XLSX→csv. `/api/analyze`(gemini-2.5-flash, 오버라이드 `tops_ai_ic_model`)는
