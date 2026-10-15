@@ -19725,7 +19725,8 @@ function _icPopupOpen(){
     w.document.addEventListener('paste', _icPasteH, true);
     w.document.addEventListener('dragover', function(e){ e.preventDefault(); });   // 빗나간 드롭이 브라우저 파일 열기로 새지 않게
     w.document.addEventListener('drop', function(e){ e.preventDefault(); });
-    w.addEventListener('pagehide', function(){ _icPopupGone(w); });
+    // 창 닫기·새로고침(F5) 모두 정리 — 새로고침이면 빈 창이 남으므로 함께 닫음(리뷰)
+    w.addEventListener('pagehide', function(){ var mine=(window._icWin===w); _icPopupGone(w); if(mine) setTimeout(function(){ try{ if(!w.closed) w.close(); }catch(e){} },0); });
   }catch(e){}
   // 1초마다: 창이 닫혔으면 정리, 로그아웃 상태면 창을 닫음
   if(!window._icPoll) window._icPoll=setInterval(function(){ var x=window._icWin; if(!x) return; var lin=false; try{ lin=!!cu; }catch(e){} if(x.closed) _icPopupGone(x); else if(!lin) _icClose(); }, 1000);
