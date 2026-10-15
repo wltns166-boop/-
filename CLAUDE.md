@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.15-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.15-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -676,6 +676,8 @@
   (메모리의 같은 객체 — 클라우드에서 받은 그대로라 깊은 비교 일치), 로컬은 `_lsSet` 캐시만. ⚠️ nalerts를 `sv`로 통째 저장하는 코드를 다시 만들지 말 것.
   같은 커밋: 고객등록 요청(`notifyChongmuReg`)은 **업무시간(`_isBizTime`)이면 총무에게 웹푸시(pushNotify)도** — 그 외 시간은 인앱 알림만(다음 업무시간에 표시).
   모의 실행: 팀원(빈 목록)이 요청 → 총무(옛 목록)가 옛 알림 닫음 → 새 알림이 클라우드에 남는 것 확인(옛 코드는 지워짐).
+  **v-2 리뷰 반영**: 클라우드 연결 전(FS_DOC 없음)에 만든·닫은 알림은 `window._nalertsPend` 대기열 → 첫 수신(loadFromFirestore/onSnapshot) 직후 `_nalertsFlush`가
+  메모리에 다시 넣고 클라우드로 보냄(그냥 버리면 첫 스냅샷이 메모리를 덮어 사라짐). 보낼 알림은 JSON 정리(undefined 제거 — Firestore 거부 방지), 저장 실패는 토스트(1분 1회, sv와 같은 스로틀).
 - **업무시간 지연 발송**: `opts.deliverAt` 이후에만 노출. 고객등록 요청 알림은 `notifyChongmuReg()` 사용
   → `_nextDeliverTime()` 로 **평일 09~18시·공휴일 제외, 그 외엔 다음 평일 09시** 계산.
   - 공휴일 표: `KR_HOLIDAYS_2026` (매년 갱신 필요).

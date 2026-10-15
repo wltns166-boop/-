@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.15-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.15-2</div>
   </div>
 </div>
 
@@ -4047,7 +4047,7 @@ async function loadFromFirestore(){
     //   관리자 기기의 기존 로컬 일정을 1회 업로드해 팀 전체에 공유(마이그레이션).
     if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} }
     else { try{ if(typeof _isAdmin==='function'&&_isAdmin()){ var _lc=JSON.parse(localStorage.getItem('tops_cal')||'[]'); if(Array.isArray(_lc)&&_lc.length) sv('tops_cal',_lc); } }catch(e){} }
-    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } try{ _nalertsFlush(); }catch(e){} }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} }
     if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } }
@@ -4144,7 +4144,7 @@ function startRealtimeSync(){
     window._fsLoaded=true; // 클라우드 데이터 수신 완료 표시 — 이 전에는 dsnap 기록 금지(이력 덮어쓰기 방지)
     if(Array.isArray(d.cal)){ window._calEvents=d.cal; try{ localStorage.setItem('tops_cal',JSON.stringify(d.cal)); }catch(e){} changed=true; }
     if(d.not)     { not=d.not;      try{ localStorage.setItem('tops_not',JSON.stringify(_slimForStorage('tops_not',not))); }catch(e){ console.warn('localStorage tops_not 저장 실패:',e); } changed=true; }
-    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } if(typeof rAlerts==='function') rAlerts(); }
+    if(Array.isArray(d.nalerts)){ nalerts=d.nalerts; try{ localStorage.setItem('tops_nalerts',JSON.stringify(nalerts)); }catch(e){ console.warn('localStorage tops_nalerts 저장 실패:',e); } try{ _nalertsFlush(); }catch(e){} if(typeof rAlerts==='function') rAlerts(); }
     if(Array.isArray(d.custs))    { try{ localStorage.setItem('tops_custs',     JSON.stringify(d.custs)); }catch(e){ console.warn('localStorage tops_custs 저장 실패:',e); }     try{ window._custs = d.custs; }catch(e){} changed=true; }
     if(Array.isArray(d.cust_reqs)){ try{ localStorage.setItem('tops_cust_reqs', JSON.stringify(d.cust_reqs)); }catch(e){ console.warn('localStorage tops_cust_reqs 저장 실패:',e); } try{ window.custReqs = d.cust_reqs; }catch(e){} changed=true; }
     if(Array.isArray(d.claims)&&_claimsCloudApply(d.claims, d.claimsClearedAt)){ window._claimsCloud=d.claims; try{ localStorage.setItem('tops_claims',    JSON.stringify(d.claims)); }catch(e){ console.warn('localStorage tops_claims 저장 실패:',e); } changed=true; }
@@ -12234,9 +12234,15 @@ function _nalertsFsWrite(add, rem){
   try{ _lsSet('tops_nalerts', JSON.stringify(nalerts)); }catch(e){}
   try{
     var FV=(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue)||null;
-    if(!window.FS_DOC||!FV) return;
-    var ad=(add||[]).filter(Boolean), rm=(rem||[]).filter(Boolean);
-    var fail=function(e){ console.warn('alert save:',e); };
+    // undefined 값은 Firestore가 거부하므로 JSON으로 한 번 정리(값 없는 칸 제거) — v-1 리뷰
+    var ad=(add||[]).filter(Boolean).map(function(x){ return JSON.parse(JSON.stringify(x)); }), rm=(rem||[]).filter(Boolean);
+    if(!window.FS_DOC||!FV){   // 클라우드 연결 전 — 대기열에 두었다가 첫 수신 때 보냄(_nalertsFlush). 그냥 버리면 첫 스냅샷이 메모리를 덮어 알림이 사라짐
+      window._nalertsPend=window._nalertsPend||{add:[],rem:[]};
+      window._nalertsPend.add=window._nalertsPend.add.concat(ad); window._nalertsPend.rem=window._nalertsPend.rem.concat(rm);
+      return;
+    }
+    var fail=function(e){ console.warn('alert save:',e);
+      try{ var now=Date.now(); if(!window._fsSaveErrTs||now-window._fsSaveErrTs>60000){ window._fsSaveErrTs=now; toast('⚠ 알림 저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); } }catch(e2){} };
     if(ad.length) window.FS_DOC.set({nalerts:FV.arrayUnion.apply(FV, ad)},{merge:true}).catch(fail);
     if(rm.length) window.FS_DOC.set({nalerts:FV.arrayRemove.apply(FV, rm)},{merge:true}).catch(fail);
   }catch(e){ console.warn('alert save:',e); }
@@ -12254,6 +12260,17 @@ function notifyChongmuReg(custName, count){
 }
 // 이 기기에서 닫은 알림 id 목록 (로컬 전용)
 function _dismissedAlertIds(){ try{ return JSON.parse(localStorage.getItem('tops_alerts_dismissed')||'[]'); }catch(e){ return []; } }
+// 클라우드 연결 전에 만든·닫은 알림을 첫 수신 직후 반영(메모리에도 다시 넣고 클라우드로 보냄)
+function _nalertsFlush(){
+  var pd=window._nalertsPend; if(!pd||!window.FS_DOC) return;
+  window._nalertsPend=null;
+  if(!Array.isArray(nalerts)) nalerts=[];
+  pd.add.forEach(function(a){ if(a&&!nalerts.some(function(x){return x&&x.id===a.id;})) nalerts.push(a); });
+  var rids=pd.rem.map(function(a){return a&&a.id;});
+  nalerts=nalerts.filter(function(x){ return !(x&&rids.indexOf(x.id)>=0); });
+  _nalertsFsWrite(pd.add, pd.rem);
+  try{ rAlerts(); }catch(e){}
+}
 function dismissAlert(id){
   if(!Array.isArray(nalerts)) nalerts=[];
   var gone=nalerts.filter(function(a){return a&&a.id===id;});
