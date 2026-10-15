@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.14-13. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.15-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -670,6 +670,12 @@
 - `pushAlert(toRole, type, msg, opts)` — 인앱 알림. `nalerts` 배열에 쌓이고 `sv('tops_nalerts')` 로 동기화.
 - 수신 필터(`rAlerts`): `a.toRole===cu.role` **또는** `a.toName===cu.name` 이면 표시.
   - 역할 대상: `pushAlert('총무', ...)` / 특정인 대상: `pushAlert(null, type, msg, {toName:'홍길동'})`.
+- **저장은 한 건씩 (2026-10-15 — v2026.10.15-1 실사고 "팀원이 고객등록 요청해도 총무님한테 알림이 안 감")**: 클라우드 `nalerts`에 고객등록 알림이
+  한 건도 남아 있지 않았음(최근 이틀 요청 10건) — 배열을 `sv`로 **통째 덮어쓰는** 구조라 옛 목록을 가진 기기(클라우드를 아직 못 받은 팀원·알림을 닫은 총무)가
+  저장하는 순간 그 사이 들어온 알림이 지워졌다. 이제 `_nalertsFsWrite(add, rem)` — pushAlert는 `FieldValue.arrayUnion`, dismissAlert·200건 초과 정리는 `arrayRemove`
+  (메모리의 같은 객체 — 클라우드에서 받은 그대로라 깊은 비교 일치), 로컬은 `_lsSet` 캐시만. ⚠️ nalerts를 `sv`로 통째 저장하는 코드를 다시 만들지 말 것.
+  같은 커밋: 고객등록 요청(`notifyChongmuReg`)은 **업무시간(`_isBizTime`)이면 총무에게 웹푸시(pushNotify)도** — 그 외 시간은 인앱 알림만(다음 업무시간에 표시).
+  모의 실행: 팀원(빈 목록)이 요청 → 총무(옛 목록)가 옛 알림 닫음 → 새 알림이 클라우드에 남는 것 확인(옛 코드는 지워짐).
 - **업무시간 지연 발송**: `opts.deliverAt` 이후에만 노출. 고객등록 요청 알림은 `notifyChongmuReg()` 사용
   → `_nextDeliverTime()` 로 **평일 09~18시·공휴일 제외, 그 외엔 다음 평일 09시** 계산.
   - 공휴일 표: `KR_HOLIDAYS_2026` (매년 갱신 필요).

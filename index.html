@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.14-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.15-1</div>
   </div>
 </div>
 
@@ -12221,9 +12221,25 @@ function pushAlert(toRole, type, msg, opts){
   if(opts&&opts.deliverAt) a.deliverAt=opts.deliverAt;   // 이 시각 이후부터 노출
   if(opts&&opts.toName) a.toName=opts.toName;            // 특정 담당자(이름)에게 발송
   nalerts.push(a);
-  if(nalerts.length>200) nalerts=nalerts.slice(-200);
-  try{sv('tops_nalerts', nalerts);}catch(e){console.warn('alert save:',e);}
+  var drop=nalerts.length>200?nalerts.slice(0,nalerts.length-200):[];
+  if(drop.length) nalerts=nalerts.slice(-200);
+  _nalertsFsWrite([a], drop);
   rAlerts();
+}
+// 알림 저장은 한 건씩 더하고 빼기(2026-10-15 v-14 실사고 — "팀원이 고객등록 요청해도 총무님한테 알림이 안 감"):
+//   예전엔 배열 전체를 sv로 덮어써서, 옛 목록을 가진 기기(아직 클라우드를 못 받은 팀원·알림을 닫은 총무 등)가 저장하는 순간
+//   그 사이 들어온 알림이 클라우드에서 지워졌다(클라우드에 고객등록 알림이 한 건도 남지 않은 것을 확인).
+//   arrayUnion/arrayRemove는 다른 기기의 변경을 덮지 않는다. ⚠️ nalerts를 sv로 통째 저장하는 코드를 다시 만들지 말 것.
+function _nalertsFsWrite(add, rem){
+  try{ _lsSet('tops_nalerts', JSON.stringify(nalerts)); }catch(e){}
+  try{
+    var FV=(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.FieldValue)||null;
+    if(!window.FS_DOC||!FV) return;
+    var ad=(add||[]).filter(Boolean), rm=(rem||[]).filter(Boolean);
+    var fail=function(e){ console.warn('alert save:',e); };
+    if(ad.length) window.FS_DOC.set({nalerts:FV.arrayUnion.apply(FV, ad)},{merge:true}).catch(fail);
+    if(rm.length) window.FS_DOC.set({nalerts:FV.arrayRemove.apply(FV, rm)},{merge:true}).catch(fail);
+  }catch(e){ console.warn('alert save:',e); }
 }
 // 고객등록 요청 → 총무에게만, 업무시간 규칙에 맞춰 알림
 function notifyChongmuReg(custName, count){
@@ -12231,12 +12247,16 @@ function notifyChongmuReg(custName, count){
     var agent=_agentReal((cu&&cu.name)||'담당자');   // '(코드)' 세션이어도 실명으로 알림
     var msg=agent+'님이 '+custName+' 고객의 고객등록'+(count>1?' '+count+'개사':'')+'을 요청했습니다.';
     pushAlert('총무','고객등록', msg, {deliverAt:_nextDeliverTime(new Date())});
+    // 휴대폰·PC 알림(웹푸시)도 총무에게 — 업무시간(평일 09~18시)에만 즉시 보냄(그 외엔 인앱 알림이 다음 업무시간에 뜸)
+    try{ if(_isBizTime(new Date())){ var ch=((typeof _admList==='function'?_admList():ADMINS)||[]).filter(function(a){ return a&&a.role==='총무'&&a.name; }).map(function(a){ return a.name; });
+      if(ch.length) pushNotify(ch, '고객등록 요청', msg, '/'); } }catch(e){}
   }catch(e){ console.warn('notifyChongmuReg err:', e); }
 }
 // 이 기기에서 닫은 알림 id 목록 (로컬 전용)
 function _dismissedAlertIds(){ try{ return JSON.parse(localStorage.getItem('tops_alerts_dismissed')||'[]'); }catch(e){ return []; } }
 function dismissAlert(id){
   if(!Array.isArray(nalerts)) nalerts=[];
+  var gone=nalerts.filter(function(a){return a&&a.id===id;});
   nalerts=nalerts.filter(function(a){return a.id!==id;});
   // 닫은 알림을 로컬에도 기록 — 다른 기기가 전체 배열을 덮어써 클라우드에 되살아나거나
   // 클라우드 저장이 실패해도, 이 기기에서는 다시 안 뜨게 한다(닫기 무한 반복 방지).
@@ -12244,7 +12264,7 @@ function dismissAlert(id){
     var ds=_dismissedAlertIds();
     if(id && ds.indexOf(id)<0){ ds.push(id); if(ds.length>300) ds=ds.slice(-300); _lsSet('tops_alerts_dismissed', JSON.stringify(ds)); }
   }catch(e){}
-  try{sv('tops_nalerts', nalerts);}catch(e){console.warn('alert save:',e);}
+  _nalertsFsWrite([], gone);
   rAlerts();
 }
 function rAlerts(){
