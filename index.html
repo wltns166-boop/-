@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.16-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.16-2</div>
   </div>
 </div>
 
@@ -1919,14 +1919,24 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
             </div>
           </div>
 
-          <!-- 서명 -->
-          <div class="fg">
+          <!-- 서명 — 계약자·피보험자가 다르면 피보험자 서명칸도 표시, 이름은 흘림체로 자동 작성(2026-10-16) -->
+          <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+          <div class="fg" style="flex:0 0 auto">
             <div class="fl">계약자 서명</div>
             <div style="margin-top:6px;border:1.5px solid rgba(72,88,204,.25);border-radius:10px;overflow:hidden;background:#fff;position:relative;width:240px;max-width:100%;margin-left:auto;margin-right:auto">
               <canvas id="claim_sign_canvas" width="480" height="120" style="display:block;cursor:crosshair;touch-action:none;width:240px;max-width:100%;height:60px"></canvas>
               <button onclick="clearClaimSign()" style="position:absolute;top:3px;right:4px;font-size:10px;padding:1px 5px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5fa;font-family:inherit;color:#666">지우기</button>
             </div>
           </div>
+          <div class="fg" id="claim_sign2_wrap" style="flex:0 0 auto;display:none">
+            <div class="fl">피보험자 서명</div>
+            <div style="margin-top:6px;border:1.5px solid rgba(72,88,204,.25);border-radius:10px;overflow:hidden;background:#fff;position:relative;width:240px;max-width:100%;margin-left:auto;margin-right:auto">
+              <canvas id="claim_sign_canvas2" width="480" height="120" style="display:block;cursor:crosshair;touch-action:none;width:240px;max-width:100%;height:60px"></canvas>
+              <button onclick="clearClaimSign('claim_sign_canvas2')" style="position:absolute;top:3px;right:4px;font-size:10px;padding:1px 5px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5fa;font-family:inherit;color:#666">지우기</button>
+            </div>
+          </div>
+          </div>
+          <div style="font-size:12px;color:#889;text-align:center;margin:-4px 0 10px">이름이 흘림체로 자동 작성됩니다. 직접 서명하려면 칸 위에 그리세요(자동 글씨는 지워짐).</div>
 
           <!-- 청구파일 -->
           <div style="font-size:13px;color:#555;background:#f4f6ff;border:1px solid rgba(72,88,204,.15);border-radius:7px;padding:7px 12px;margin:4px 0 10px">
@@ -28203,26 +28213,74 @@ function initClaimDays(){
   if(cur) dSel.value=cur;
 }
 
-// 서명 캔버스
-function initClaimSign(){
-  var canvas=g('claim_sign_canvas'); if(!canvas) return;
+// 서명 캔버스 — 계약자(claim_sign_canvas)·피보험자(claim_sign_canvas2, 계약자와 다를 때만 표시)
+//   이름을 흘림체(나눔손글씨 붓)로 자동 작성(2026-10-16 사용자 요청). 손으로 그리기 시작하면 자동 글씨를 지우고 손서명으로 전환(_hand),
+//   [지우기]는 빈칸으로 되돌리고 이름이 바뀌면 다시 자동 작성. 이름 칸은 코드로 채워지는 경로(가족 선택 등)도 있어 0.7초마다 확인.
+var CLAIM_SIGN_FONT='"Nanum Brush Script","Nanum Pen Script",cursive';
+function _claimSignBind(canvas){
+  if(!canvas||canvas._bound) return; canvas._bound=1;
   var ctx=canvas.getContext('2d');
   var drawing=false;
-  var rect;
   function getPos(e){
-    rect=canvas.getBoundingClientRect();
+    var rect=canvas.getBoundingClientRect();
     var scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
     var src=e.touches?e.touches[0]:e;
     return {x:(src.clientX-rect.left)*scaleX, y:(src.clientY-rect.top)*scaleY};
   }
-  canvas.onmousedown=canvas.ontouchstart=function(e){e.preventDefault();drawing=true;var p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);};
+  canvas.onmousedown=canvas.ontouchstart=function(e){e.preventDefault();
+    if(canvas._auto){ ctx.clearRect(0,0,canvas.width,canvas.height); canvas._auto=false; }   // 자동 글씨 위에 겹쳐 쓰지 않게
+    canvas._hand=true; drawing=true; var p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y);};
   canvas.onmousemove=canvas.ontouchmove=function(e){e.preventDefault();if(!drawing)return;var p=getPos(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#1a1a3a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();};
   canvas.onmouseup=canvas.ontouchend=canvas.onmouseleave=function(){drawing=false;};
 }
-
-function clearClaimSign(){
-  var canvas=g('claim_sign_canvas'); if(!canvas) return;
-  canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+function initClaimSign(){
+  _claimSignBind(g('claim_sign_canvas')); _claimSignBind(g('claim_sign_canvas2'));
+  clearClaimSign();   // 새 양식·수정 열 때마다 이전 서명(손서명 표시 포함) 정리 후 지금 이름으로 다시 작성
+  // 글꼴은 스타일시트가 도착한 뒤에 받아야 함 — 그 전에 fonts.load를 부르면 빈 결과로 끝나 기본 글꼴로 남음(헤드리스 실측)
+  if(!window._claimSignFontP){
+    window._claimSignFontP=1;
+    var l=document.createElement('link'); l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=Nanum+Brush+Script&display=swap';
+    l.onload=function(){ try{ if(document.fonts&&document.fonts.load) document.fonts.load('64px "Nanum Brush Script"','홍길동').then(function(){ _claimSignSync(true); }).catch(function(){}); }catch(e){} };
+    document.head.appendChild(l);
+  }
+  _claimSignSync();
+  if(!window._claimSignTimer) window._claimSignTimer=setInterval(function(){
+    var w=g('claim_form_wrap'); if(!w||w.style.display==='none'){ clearInterval(window._claimSignTimer); window._claimSignTimer=null; return; }
+    _claimSignSync();
+  },700);
+}
+// 계약자·피보험자가 다른가 — 피보험자 칸이 비었거나 같은 이름이면 같은 사람
+function _claimSignTwo(){
+  var ct=String((g('claim_cust_name')||{value:''}).value||'').trim(), ins=String((g('claim_ins_name')||{value:''}).value||'').trim();
+  return {ct:ct, ins:ins, two:!!(ins&&ins!==ct)};
+}
+function _claimSignAuto(canvas, name, force){
+  if(!canvas||canvas._hand) return;
+  if(!force&&canvas._autoName===name) return;
+  var ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  canvas._autoName=name; canvas._auto=false;
+  if(!name) return;
+  var fs=72; ctx.font=fs+'px '+CLAIM_SIGN_FONT;
+  while(fs>24&&ctx.measureText(name).width>canvas.width-90){ fs-=4; ctx.font=fs+'px '+CLAIM_SIGN_FONT; }
+  ctx.fillStyle='#1a1a3a'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(name, canvas.width/2-20, canvas.height/2+4);   // 오른쪽 [지우기] 버튼을 조금 피해서
+  canvas._auto=true;
+}
+function _claimSignSync(force){
+  var t=_claimSignTwo();
+  var w2=g('claim_sign2_wrap'); if(w2) w2.style.display=t.two?'':'none';
+  _claimSignAuto(g('claim_sign_canvas'), t.ct, force);
+  _claimSignAuto(g('claim_sign_canvas2'), t.two?t.ins:'', force);
+}
+// [지우기] — 빈칸(자동 글씨도 없음). 이름이 바뀌면 다시 자동 작성. 인자 없으면 두 칸 모두(새 양식 열기)
+function clearClaimSign(id){
+  (id?[id]:['claim_sign_canvas','claim_sign_canvas2']).forEach(function(k){
+    var canvas=g(k); if(!canvas) return;
+    canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+    canvas._hand=false; canvas._auto=false;
+    canvas._autoName=id?String((k==='claim_sign_canvas2'?_claimSignTwo().ins:_claimSignTwo().ct)):undefined;   // 지운 칸은 같은 이름으로 다시 채우지 않음
+  });
 }
 
 // 병원서류 1건 추가(내부 목록 + 미리보기 + ✕ 제거 버튼). 파일선택·붙여넣기 공용.
@@ -28564,9 +28622,11 @@ function saveClaim(){
   var files=wrap&&wrap._files?wrap._files:[];
   var acc=[];
   document.querySelectorAll('input[name="claim_accident"]:checked').forEach(function(cb){acc.push(cb.value);});
-  var signData='';
-  var canvas=g('claim_sign_canvas');
-  if(canvas) signData=canvas.toDataURL();
+  var signData='', ctSignData='';
+  try{ _claimSignSync(); }catch(e){}   // 코드로 채운 이름이 아직 서명칸에 반영 안 됐을 수 있음
+  var canvas=g('claim_sign_canvas'), canvas2=g('claim_sign_canvas2');
+  if(_claimSignTwo().two){ ctSignData=canvas?canvas.toDataURL():''; signData=canvas2?canvas2.toDataURL():''; }   // 다르면 sign=피보험자, ctSign=계약자
+  else if(canvas) signData=canvas.toDataURL();   // 같으면 기존처럼 sign 하나(계약자 칸은 PDF에서 sign으로 폴백)
   var accDate=(g('claim_acc_year')?g('claim_acc_year').value:'')
     +(g('claim_acc_month')&&g('claim_acc_month').value?'.'+g('claim_acc_month').value:'')
     +(g('claim_acc_day')&&g('claim_acc_day').value?'.'+g('claim_acc_day').value:'');
@@ -28608,6 +28668,7 @@ function saveClaim(){
     accountRrn:(g('claim_account_rrn')||{value:''}).value.trim(),
     accountNum:(g('claim_account_num')||{value:''}).value.trim(),
     sign:signData,
+    ctSign:ctSignData,
     files:files,
     done:false,
     regDate:tds(),
@@ -28656,7 +28717,7 @@ function saveClaim(){
     var claimsLight = claims.map(function(cl){
       var cp = Object.assign({}, cl);
       delete cp.packagePDF; delete cp.packagePDFs;
-      delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign;
+      delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign; delete cp.ctSign;
       return cp;
     });
     var _clLightSaved=false;
@@ -28667,7 +28728,7 @@ function saveClaim(){
   try{
     var claimsSync = claims.map(function(cl){
       var cp = Object.assign({}, cl);
-      delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign;
+      delete cp.insFiles; delete cp.files; delete cp.idImg; delete cp.bankImg; delete cp.sign; delete cp.ctSign;
       delete cp.packagePDF; delete cp.packagePDFs;
       return cp;
     });
@@ -30074,6 +30135,7 @@ function _reloadClaims(){
     if(m.idImg   && !c.idImg)   c.idImg  =m.idImg;
     if(m.bankImg && !c.bankImg) c.bankImg=m.bankImg;
     if(m.sign    && !c.sign)    c.sign   =m.sign;
+    if(m.ctSign  && !c.ctSign)  c.ctSign =m.ctSign;
     if((!c.insFiles||!c.insFiles.length) && m.insFiles && m.insFiles.length) c.insFiles=m.insFiles;
     if((!c.files  ||!c.files.length)   && m.files   && m.files.length)   c.files  =m.files;
   });
@@ -30102,7 +30164,7 @@ function _persistClaims(){
   var clLocal=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; return cp; });
   try{ localStorage.setItem('tops_claims', JSON.stringify(clLocal)); }
   catch(e){ console.warn('tops_claims 저장 실패(quota):', e); _claimsQuotaWarn(); }
-  var clSync=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; return cp; });
+  var clSync=claims.map(function(cl){ var cp=Object.assign({},cl); delete cp.packagePDF; delete cp.packagePDFs; delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; delete cp.ctSign; return cp; });
   try{ sv('tops_claims', clSync); }catch(e){}
   // 마지막 청구까지 삭제해 0건이 된 경우 — 다른 기기의 빈배열 가드(_claimsCloudApply)가
   // "의도된 삭제"로 인식해 정상 반영하도록 표식을 남긴다
@@ -30425,7 +30487,7 @@ async function generateClaimPackage(idx) {
   var clSync = claims.map(function(cl){
     var cp = Object.assign({}, cl);
     delete cp.packagePDF; delete cp.packagePDFs;
-    delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign;
+    delete cp.idImg; delete cp.bankImg; delete cp.insFiles; delete cp.files; delete cp.sign; delete cp.ctSign;
     return cp;
   });
   try{ sv('tops_claims', clSync); }catch(e){}

@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.16-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.16-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1834,6 +1834,14 @@
   계약자 칸에 피보험자 정보가 찍히던 버그** — `c.custName||c.insName`(계약자 우선)으로 수정.
   ctx 생성은 `drawClaimFields`와 `ccBuildCtx`(좌표 설정 미리보기) **두 곳 복붙 구조** — 고칠 땐 반드시 둘 다.
   잔여(기존 동작 유지): 계약자 주민번호 미입력 시 ctRrn은 insRrn으로 폴백, ctSign은 서명 캔버스(1개뿐) 공용.
+- **서명칸 2개 + 이름 흘림체 자동 작성 (2026-10-16 — v2026.10.16-2, 사용자 요청)**: 청구 폼 서명이 계약자 칸(`claim_sign_canvas`) +
+  **계약자≠피보험자일 때만 보이는 피보험자 칸**(`claim_sign_canvas2`, `#claim_sign2_wrap` — 피보험자 칸이 비었거나 같은 이름이면 같은 사람, `_claimSignTwo`).
+  이름을 흘림체(`CLAIM_SIGN_FONT` — Nanum Brush Script, 스타일시트 onload 뒤 `document.fonts.load` 후 다시 그림)로 자동 작성(`_claimSignAuto`/`_claimSignSync`) —
+  이름 칸은 코드로 채워지는 경로(가족 선택 등)도 있어 0.7초 감시(폼 숨기면 정지), saveClaim 직전에도 한 번 동기화. 손으로 그리기 시작하면 자동 글씨를 지우고 손서명(`_hand`) — 이름이 바뀌어도 유지,
+  [지우기]는 빈칸(같은 이름으로 다시 채우지 않음), 양식 열기·수정 열기(`initClaimSign`)마다 두 칸 초기화 후 지금 이름으로 다시 작성.
+  저장: **다르면 `sign`=피보험자 칸·`ctSign`=계약자 칸, 같으면 `sign`만(`ctSign=''` → PDF의 imgCt가 sign으로 폴백 — 기존 동작)**.
+  `ctSign`도 base64라 `sign`과 같이 Firestore·localStorage 경량본에서 제외(동기화 4곳 `delete cp.ctSign`), `_reloadClaims`가 메모리 ctSign 보존.
+  ⚠️ 글꼴은 스타일시트 도착 전에 `fonts.load`를 부르면 빈 결과로 끝나 기본 글꼴로 남는다(헤드리스 실측) — link onload 뒤에 부를 것.
 - **첨부 PDF 판별은 MIME 헤더만 (2026-08-26)**: generateClaimPackage의 병원서류 PDF/사진 분기는
   `/^data:[^,]*\/pdf/i` — 데이터URL **콤마 앞 헤더만** 검사. 옛 `fData.includes('/pdf')`는 base64 본문까지 훑어
   큰 JPEG 본문에 우연히 '/pdf' 문자열이 들면(수십만 자당 수% 확률) 사진이 PDF 병합 경로로 빠져
