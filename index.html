@@ -521,7 +521,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.15-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.16-1</div>
   </div>
 </div>
 
@@ -19985,7 +19985,9 @@ async function _icUpRun(src, locked){
     _icUpStat('AI가 읽는 중… (수 초~수십 초)');
     var prompt='아래 '+(src.imgs&&src.imgs.length?'사진':'자료')+'은 보험설계사의 보험사별 전산 아이디(코드)·비밀번호 목록이야. 적힌 내용을 그대로 옮겨 적어 JSON 배열만 출력해. 설명·코드펜스 없이.\n'
       +'각 항목: {"insurer":"보험사 이름","code":"코드 또는 아이디·사번·설계사번호","pw":"비밀번호(없으면 빈문자)","type":"손보 또는 생보 또는 모름"}\n'
-      +'규칙: 원문에 없는 값은 만들지 말 것. 글자·숫자·특수문자는 대소문자까지 그대로. 보험사 이름이 없는 줄은 빼. 표 제목·머리글은 넣지 마.'
+      +'규칙: 원문에 없는 값은 만들지 말 것. 글자·숫자·특수문자는 대소문자까지 그대로. 보험사 이름이 없는 줄은 빼. 표 제목·머리글은 넣지 마.\n'
+      // 2026-10-16 사용자 요청: 대리점코드·보험설계사코드 두 열이 함께 있는 표는 설계사코드를 코드 칸에
+      +'코드 열이 여러 개면(예: 대리점코드·보험설계사코드) code에는 반드시 "보험설계사코드"(설계사코드·설계사번호) 열의 값을 넣어. 대리점코드는 절대 넣지 마.'
       +(src.text?'\n\n[자료]\n'+src.text:'');
     var mdl=(function(){ try{ return localStorage.getItem('tops_ai_ic_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
     var body={model:mdl, prompt:prompt, max_tokens:8000}; if(src.imgs&&src.imgs.length) body.images=src.imgs;
