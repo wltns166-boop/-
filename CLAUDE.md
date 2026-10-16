@@ -1841,6 +1841,9 @@
   [지우기]는 빈칸(같은 이름으로 다시 채우지 않음), 양식 열기·수정 열기(`initClaimSign`)마다 두 칸 초기화 후 지금 이름으로 다시 작성.
   저장: **다르면 `sign`=피보험자 칸·`ctSign`=계약자 칸, 같으면 `sign`만(`ctSign=''` → PDF의 imgCt가 sign으로 폴백 — 기존 동작)**.
   `ctSign`도 base64라 `sign`과 같이 Firestore·localStorage 경량본에서 제외(동기화 4곳 `delete cp.ctSign`), `_reloadClaims`가 메모리 ctSign 보존.
+  리뷰 반영(v-2 같은 커밋): 저장 시 `signHand`/`ctSignHand`(손서명 여부) 기록 → **수정 열 때 손서명만 캔버스에 되살림**(`_claimSignRestore`, 이 기기 메모리에 원본이 있을 때 — 자동 글씨는 이름으로 다시 작성),
+  탭만으로는 자동 글씨가 안 지워짐(첫 이동에서 손서명 전환), 숨겨진 피보험자 칸에 손서명이 남은 채 저장하면 confirm, 다른 메뉴에 가 있는 동안 감시는 쉬고 로그아웃이면 정지,
+  글꼴 도착 뒤 다시 그리기는 [지우기]로 비운 칸을 건드리지 않음. 수용: 빈 칸도 빈 PNG로 저장(기존 동작 — ctSign을 ''로 바꾸면 피보험자 서명이 계약자 칸으로 폴백됨).
   ⚠️ 글꼴은 스타일시트 도착 전에 `fonts.load`를 부르면 빈 결과로 끝나 기본 글꼴로 남는다(헤드리스 실측) — link onload 뒤에 부를 것.
 - **첨부 PDF 판별은 MIME 헤더만 (2026-08-26)**: generateClaimPackage의 병원서류 PDF/사진 분기는
   `/^data:[^,]*\/pdf/i` — 데이터URL **콤마 앞 헤더만** 검사. 옛 `fData.includes('/pdf')`는 base64 본문까지 훑어
