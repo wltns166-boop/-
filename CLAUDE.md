@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-15. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-16. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1815,7 +1815,7 @@
     이미지 재렌더 없음). 생성·오버레이 값 구성은 공용 `_bdrFormC`/`_bdrCoordsFor`(wbOf 끄기 포함 — _bdrBuild와 동일 규칙).
   · **v2026.10.22-15 (사용자 확정 — 공단서류와 병원서류는 별개)**: `_bdrKind(cat)` — 분류 이름에 '병원'이 있으면 'hosp'(아래 v-12 칸: 생년월일·병원명·진료기간·발급사유·발급범위),
     아니면 'gov'(옛 칸: 주민번호·용도 select(본인확인용/법원제출용)·기간·위임받는자 주민번호). 버퍼(`_bdrGetVals`)는 두 종류 키를 모두 가지고 `_bdrFormC`는 insRrn/ctRrn·insBirth/ctBirth를 다 넘김(안 그린 칸은 빈값).
-    도구박스에 주민번호 항목 복원(공단서류용), 자동 배치 라벨에 주민등록번호 추가. **올린 양식 표시**: 분류 탭에 "📄 양식 n"(`_bdrParts(cat)`=bdrtpls parts), 패널 머리 아래 "등록된 양식 n건: 파일명" 줄,
+    도구박스에 주민번호 항목 복원(공단서류용), 자동 배치 라벨에 주민등록번호 추가. **올린 양식 표시**: 분류 탭 건수에 올린 양식 수를 합산(v-16 사용자 요청 — 처음의 별도 "📄 양식 n" 배지는 폐기, [전체]에도 합산. `_bdrParts(cat)`=bdrtpls parts), 패널 머리 아래 "등록된 양식 n건: 파일명" 줄,
     사이드바 검색이 등록 양식 파일명·분류 이름을 찾아 `k:'tpl'` 결과(클릭 → `_bdCatSel[cm]=분류id` 후 showPage)로 표시 — "올렸는데 표시가 없고 검색도 안 됨" 제보.
   · **v2026.10.22-12 (사용자 요청) — 칸 개편 + 칸 이름 자동 배치**: 주민번호 칸(wj_rrn/wb_rrn) → **생년월일**(wj_birth/wb_birth — `_bdrFmtBirthStr` YYYY-MM-DD),
     용도 select → **발급사유 자유 입력**(wj_purpose — 좌표 키 purpose 그대로, 라벨만 변경), **병원명**(wj_hosp→`hospName`)·**발급범위**(wj_scope→`scope`) 칸 신설, 기간 라벨 '진료기간'.

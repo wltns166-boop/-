@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-16</div>
   </div>
 </div>
 
@@ -25526,10 +25526,10 @@ function rCustomPage(name){
       return '<button data-bdcat="'+_esc(id)+'" style="padding:6px 13px;border-radius:16px;border:1px solid '+(on?'#4858cc':'#d0d4e8')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#44485a')+';font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">'+label+' <span style="opacity:.72;font-size:12px">'+cnt+'</span></button>';
     };
     catbar='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px">'
-      +tabBtn('','전체',posts.length)
+      +tabBtn('','전체',posts.length+cats.reduce(function(a,c){ return a+(_bdIsDaeri(c)?_bdrParts(c).length:0); },0))
       +cats.map(function(c){
         var n=posts.filter(function(p){ return p.cat===c.id; }).length, tp=_bdIsDaeri(c)?_bdrParts(c).length:0;
-        return tabBtn(c.id,_esc(c.nm),String(n)+(tp?' · <span title="등록된 양식 '+tp+'건">📄 양식 '+tp+'</span>':''));   // 대리발급 분류는 올린 양식 수도 표시(2026-10-22 — "올렸다는 표시가 없다")
+        return tabBtn(c.id,_esc(c.nm),n+tp);   // 대리발급 분류는 올린 양식도 건수에 합산(2026-10-22 v-16 사용자 요청 — 별도 "양식 n" 배지 대신)
       }).join('')
       +(hasNone?tabBtn('_none','미분류',posts.filter(_isNone).length):'')
       +'</div>';
