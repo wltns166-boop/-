@@ -1,0 +1,27 @@
+// VestMail 보안메일(현대카드 등) 복호화: 같은 창 이동 또는 새 창(popup) 둘 다 처리
+import { chromium } from 'playwright-core';
+import fs from 'fs';
+const [,, file, pw, out, hostRe] = process.argv;
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', proxy: process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY } : undefined });
+const ctx = await b.newContext({ viewport: { width: 1000, height: 1400 } });
+const allow = new RegExp(hostRe || 'samsungcard|hyundaicard|hcs\\.com');
+await ctx.route('**/*', r => { const u = r.request().url(); (u.startsWith('file:') || (allow.test(u) && !/\.(js|css|png|gif|jpg|ico|woff2?)(\?|$)/i.test(u))) ? r.continue() : r.abort(); });
+const p = await ctx.newPage();
+const dialogs = [];
+p.on('dialog', d => { dialogs.push(d.message()); d.dismiss().catch(() => {}); });
+await p.goto('file://' + file, { waitUntil: 'domcontentloaded', timeout: 20000 });
+await p.waitForTimeout(500);
+const popupP = ctx.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+await p.evaluate(v => { const e = document.getElementById('password'); e.value = v; }, pw);
+await p.evaluate(() => doAction());
+const popup = await popupP;
+const target = popup || p;
+target.on('dialog', d => { dialogs.push(d.message()); d.dismiss().catch(() => {}); });
+await target.waitForLoadState('networkidle', { timeout: 25000 }).catch(() => {});
+await target.waitForTimeout(2500);
+const html = await target.evaluate(() => document.documentElement.outerHTML);
+const text = await target.evaluate(() => document.body ? document.body.innerText : '');
+fs.writeFileSync(out, html);
+await target.screenshot({ path: out + '.png', fullPage: true }).catch(() => {});
+console.log(JSON.stringify({ popup: !!popup, url: target.url().slice(0, 120), dialogs, textLen: text.length, tables: (html.match(/<table/gi) || []).length, head: text.replace(/\s+/g, ' ').slice(0, 500) }));
+await b.close();
