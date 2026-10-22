@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -826,6 +826,8 @@
 - 모바일: 제목 크기는 미디어쿼리에서 `min(var(--hero-ts),10vw)`로 화면 폭까지만 축소(`--hero-ts`는 _heroPaint가 설정).
   ⚠️ 옛 `34px!important` 고정으로 되돌리지 말 것 — 설정 크기가 무시되고 미리보기와 달라지는 결함이었음(2026-08-10 리뷰).
 - 참고: 홈 배경 시즌 사진(openHomeBgModal, tops_homebg — 홈 전체 배경+흰 덮개)과는 별개 기능으로 공존(히어로 영역만 담당).
+- **v2026.10.22-5 빈 홈 상단 방지 (실사고)**: 클라우드 herocfg가 제목·부제 빈 값 + 사진 없음(옛 로고 사진을 지운 뒤) + 높이 240이라 홈 상단이 통째로 빈 칸 —
+  `_heroApply`가 셋 다 비면 HERO_DEF 문구(TIMS·INSURANCE BUSINESS MANAGEMENT SYSTEM)로 표시(저장값은 그대로, 하나라도 있으면 기존대로).
 - 편집 화면: 저장 전 미리보기(`hh_prev`, 방금 고른 파일은 dataURL로 미리보기만 — 저장 시엔 Storage URL만 기록),
   [기본값 복원]은 화면만 되돌리고 [저장]해야 반영. 편집 관리자만(클라이언트 가드 — 기존 구조적 한계와 동일 계열).
 

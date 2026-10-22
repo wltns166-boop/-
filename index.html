@@ -685,7 +685,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-5</div>
   </div>
 </div>
 
@@ -24270,6 +24270,8 @@ function _heroApply(){
   var t=g('hero_t'), s=g('hero_s'), im=g('hero_img');
   if(!t||!s||!im) return;
   var c=_heroCfg();
+  // 제목·부제·사진이 전부 비면 홈 상단이 빈 칸이 됨(옛 로고 사진 설정을 지운 뒤 실사고, 2026-10-22) — 기본 문구로 표시
+  if(!c.t.trim()&&!c.u.trim()&&!(c.img&&_HERO_URL_RE.test(c.img))){ c.t=HERO_DEF.t; c.u=HERO_DEF.u; }
   _heroFontLoad([c.tf,c.uf]);
   _heroPaint(t,s,im,c,false,g('hero_box'));
 }
