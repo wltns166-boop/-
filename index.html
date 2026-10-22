@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-12</div>
   </div>
 </div>
 
@@ -27332,12 +27332,13 @@ function _bdrGetVals(catId){
   window._bdrVals=window._bdrVals||{};
   if(!window._bdrVals[catId]){
     var my=_bdrMyInfo();
-    window._bdrVals[catId]={wj_name:'',wj_rrn:'',wj_phone:'',wj_addr:'',wj_rel:'',wj_purpose:'',wj_period:'',wb_name:my.name,wb_rrn:'',wb_phone:my.phone,wb_addr:my.addr};
+    window._bdrVals[catId]={wj_name:'',wj_birth:'',wj_phone:'',wj_addr:'',wj_rel:'',wj_hosp:'',wj_purpose:'',wj_scope:'',wj_period:'',wb_name:my.name,wb_birth:'',wb_phone:my.phone,wb_addr:my.addr};
   }
   return window._bdrVals[catId];
 }
 // 주민번호·전화번호 자동 하이픈(2026-09-11) — 입력 즉시 920728... → 920728-1234567 / 01064131743 → 010-6413-1743
 function _bdrFmtRrnStr(v){ var d=String(v||'').replace(/\D/g,'').slice(0,13); return d.length>6?d.slice(0,6)+'-'+d.slice(6):d; }
+function _bdrFmtBirthStr(v){ var d=String(v||'').replace(/\D/g,'').slice(0,8); return d.length>6?d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6):(d.length>4?d.slice(0,4)+'-'+d.slice(4):d); }   // 생년월일 YYYY-MM-DD(2026-10-22 — 주민번호 칸 대체)
 function _bdrFmtPhoneStr(v){
   var d=String(v||'').replace(/\D/g,'').slice(0,11), out=d;
   if(d.slice(0,2)==='02'){ // 서울 국번(dqPhone 규칙 재사용)
@@ -27376,7 +27377,7 @@ function _bdDaeriHtml(name,cat){
   var fld=function(k,label,ph){
     // 주민번호·전화번호 칸은 입력 즉시 자동 하이픈(2026-09-11) — 초기 표시값도 같은 규칙으로 정형
     var fm='', v=o[k]||'';
-    if(k==='wj_rrn'||k==='wb_rrn'){ fm=' oninput="this.value=_bdrFmtRrnStr(this.value)"'; v=_bdrFmtRrnStr(v); }
+    if(k==='wj_birth'||k==='wb_birth'){ fm=' oninput="this.value=_bdrFmtBirthStr(this.value)"'; v=_bdrFmtBirthStr(v); }
     else if(k==='wj_phone'||k==='wb_phone'){ fm=' oninput="this.value=_bdrFmtPhoneStr(this.value)"'; v=_bdrFmtPhoneStr(v); }
     else if(k==='wj_period'){ fm=' oninput="this.value=_bdrFmtPeriodStr(this.value)"'; v=_bdrFmtPeriodStr(v); }
     return '<div style="margin-bottom:8px"><div style="font-size:12.5px;color:#555;margin-bottom:3px">'+label+'</div>'
@@ -27399,21 +27400,20 @@ function _bdDaeriHtml(name,cat){
       +'<div style="flex:0 1 330px;min-width:260px">'
         +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">위임자 (고객)</div>'
         +fld('wj_name','고객이름','홍길동')
-        +fld('wj_rrn','주민번호','000000-0000000')
+        +fld('wj_birth','생년월일','0000-00-00')
         +fld('wj_phone','핸드폰번호','010-0000-0000')
         +fld('wj_addr','집주소','')
         +fld('wj_rel','위임받는자와의 관계','지인')
-        +'<div style="margin-bottom:8px"><div style="font-size:12.5px;color:#555;margin-bottom:3px">용도</div>'
-          +'<select data-bdrk="wj_purpose" style="'+_in+'">'
-          +['','본인확인용','법원제출용'].map(function(op){ return '<option value="'+op+'"'+((o.wj_purpose||'')===op?' selected':'')+'>'+(op||'선택 안 함')+'</option>'; }).join('')
-          +'</select></div>'
-        +fld('wj_period','기간','0000년00월00일 ~ 0000년00월00일')
+        +fld('wj_hosp','병원명','○○병원')
+        +fld('wj_period','진료기간','0000년00월00일 ~ 0000년00월00일')
+        +fld('wj_purpose','발급사유','보험금 청구용')
+        +fld('wj_scope','발급범위','진료기록 사본, 영수증 등')
         +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin:14px 0 6px">위임받는자 <span style="font-weight:400;font-size:11.5px;color:#999">— 내 계정 정보 자동 입력(수정 가능)</span></div>'
         +fld('wb_name','이름','')
-        +fld('wb_rrn','주민번호','000000-0000000')
+        +fld('wb_birth','생년월일','0000-00-00')
         +fld('wb_phone','전화번호','')
         +fld('wb_addr','집주소','')
-        +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.</div>'
+        +'<div style="font-size:11.5px;color:#9aa2bd;margin-top:2px">입력값은 저장되지 않으며 이 화면에서만 사용됩니다.<br>오른쪽 미리보기에 입력값이 바로 표시됩니다 — 양식의 칸 이름(성명·연락처·생년월일 …)을 찾아 자동 배치하며, 위치가 어긋나면 관리자가 [좌표 직접설정]으로 맞출 수 있습니다.</div>'
       +'</div>'
       +'<div style="flex:1 1 320px;min-width:280px">'
         +'<div style="font-weight:700;font-size:13.5px;color:#3040aa;margin-bottom:6px">양식 미리보기</div>'
@@ -27876,6 +27876,7 @@ async function _bdrPrevDraw(name,catId){
     if(typeof pdfjsLib==='undefined') throw new Error('PDF 뷰어 미로드');
     var bytes=Uint8Array.from(atob(b64),function(ch){ return ch.charCodeAt(0); });
     var pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+    try{ window._bdrAutoCache={slot:_bdDaeriSlot(cat), len:b64.length, auto:await _bdrAutoCoords(pdf)}; }catch(e){ console.warn('bdr auto', e); }
     var n=Math.min(pdf.numPages,5), imgs=[], sizes=[];
     for(var i=1;i<=n;i++){
       var pg=await pdf.getPage(i);
@@ -27939,14 +27940,81 @@ function _bdrPrevOverlay(){ // ccPlacePreviews 계열 — 좌표(pt)를 표시 �
     });
   }catch(e){ console.warn('bdr overlay', e); }
 }
+// ── 양식 글자로 칸 자리 자동 찾기 (2026-10-22) — pdf.js 글자 좌표를 줄로 모아 칸 이름(성명·연락처·생년월일·주소·관계·의료기관·진료기간·발급사유·발급범위)을
+//    찾고, 그 이름 오른쪽(괄호 안내문 뒤)에 값 자리를 둔다. 성명·연락처·생년월일·주소는 첫 번째=위임자(환자), 두 번째=위임받는자(신청인).
+//    결과 {키:{page,x,y}} (PDF pt, 아래 원점 — 좌표 편집기와 같은 기준). 글자 층이 없는(스캔) 양식은 빈 객체 → 관리자가 [좌표 직접설정]으로.
+var BDR_AUTO_LABELS=[   // alts: 앞쪽이 더 구체적인 이름 — 구체적인 이름을 문서 전체에서 먼저 찾고, 못 찾을 때만 짧은 이름("범위"·"기간")으로(2026-10-22 리뷰)
+  {alts:['환자와의관계','신청인과의관계','관계'], keys:['insRel']},
+  {alts:['의료기관명칭','의료기관명','병원명','의료기관'], keys:['hospName']},
+  {alts:['진료기간','열람기간','기간'], keys:['period']},
+  {alts:['발급사유','신청사유','사유','용도'], keys:['purpose']},
+  {alts:['발급범위','열람범위','범위'], keys:['scope']},
+  {alts:['생년월일'], keys:['insBirth','ctBirth']},
+  {alts:['연락처','전화번호','휴대폰','핸드폰'], keys:['phone','ctPhone']},
+  {alts:['성명','이름'], keys:['insName','ctName']},
+  {alts:['주소'], keys:['addr','ctAddr']}
+];
+async function _bdrAutoCoords(pdf){
+  var out={}, used={}, lines=[];   // lines: 전체 쪽의 줄(쪽 순 → 위→아래)
+  var np=Math.min(pdf.numPages,5);
+  for(var pn=1;pn<=np;pn++){
+    var page=await pdf.getPage(pn), vp=page.getViewport({scale:1});
+    if(((page.rotate||0)%360)!==0) continue;
+    var tc=await page.getTextContent(), pl=[];
+    tc.items.forEach(function(it){
+      var s=String(it.str||''); if(!s) return;
+      var tr=it.transform, pt=vp.convertToViewportPoint(tr[4],tr[5]);
+      var fs=it.height>0?it.height:Math.hypot(tr[2],tr[3]); if(!(fs>0)) return;
+      if(Math.abs(tr[1])>0.01||Math.abs(tr[2])>0.01) return;   // 회전·기울임 글자(워터마크) 제외
+      var ln=null; for(var i=0;i<pl.length;i++) if(Math.abs(pl[i].base-pt[1])<fs*0.35){ ln=pl[i]; break; }
+      if(!ln){ ln={pg:pn-1, base:pt[1], H:vp.height, ch:[]}; pl.push(ln); }
+      for(var c=0;c<s.length;c++) ln.ch.push({c:s[c], x0:pt[0]+it.width*c/s.length, x1:pt[0]+it.width*(c+1)/s.length});
+    });
+    pl.sort(function(a,b){ return a.base-b.base; });
+    pl.forEach(function(ln){
+      ln.ch.sort(function(a,b){ return a.x0-b.x0; });
+      ln.chars=ln.ch.filter(function(o){ return /\S/.test(o.c); });   // 공백 제거("성 명"→"성명")
+      ln.str=ln.chars.map(function(o){ return o.c; }).join('');
+      ln.taken=[];
+      if(ln.str) lines.push(ln);
+    });
+  }
+  var place=function(ln,s0,s1){
+    var end=s1;
+    if(ln.chars[end]&&ln.chars[end].c==='('){ var cl=ln.str.indexOf(')',end); if(cl>0) end=cl+1; }   // "발급 범위 (환자 본인이 직접 작성합니다)" — 안내문 뒤로
+    var last=ln.chars[end-1];
+    return {page:ln.pg, x:Math.round((last.x1+6)*10)/10, y:Math.round((ln.H-ln.base)*10)/10};
+  };
+  var maxAlt=0; BDR_AUTO_LABELS.forEach(function(L){ maxAlt=Math.max(maxAlt,L.alts.length); });
+  for(var lvl=0;lvl<maxAlt;lvl++){   // 구체적인 이름(0번)을 전체 줄에서 먼저, 그다음 짧은 이름 순
+    BDR_AUTO_LABELS.forEach(function(L){
+      var alt=L.alts[lvl]; if(!alt) return;
+      lines.forEach(function(ln){
+        var from=0;
+        while(true){
+          var s0=ln.str.indexOf(alt,from); if(s0<0) break;
+          var s1=s0+alt.length; from=s1;
+          var clash=false; for(var t=0;t<ln.taken.length;t++) if(s0<ln.taken[t][1]&&s1>ln.taken[t][0]){ clash=true; break; }
+          if(clash) continue;   // 이미 다른 이름이 차지한 글자("진료기간"의 "기간")
+          var key=null; for(var k=0;k<L.keys.length;k++) if(!used[L.keys[k]]){ key=L.keys[k]; break; }
+          if(!key) return;
+          ln.taken.push([s0,s1]); used[key]=1;
+          out[key]=place(ln,s0,s1);
+        }
+      });
+    });
+  }
+  return out;
+}
 // 폼 값 → 청구엔진 c 객체(생성·실시간 미리보기 공용, 2026-09-11 분리)
 function _bdrFormC(catId){
   var o=_bdrGetVals(catId);
   var val=function(k){ return String(o[k]||'').trim(); };
   var pd=val('wj_period').split('~');
   return {
-    insName:val('wj_name'), insRrn:val('wj_rrn').replace(/-/g,''), phone:val('wj_phone'), addr:val('wj_addr'), insRel:val('wj_rel'),
-    ctName:val('wb_name'), ctRrn:val('wb_rrn').replace(/-/g,''), ctPhone:val('wb_phone'), ctAddr:val('wb_addr'),
+    insName:val('wj_name'), insBirth:val('wj_birth'), phone:val('wj_phone'), addr:val('wj_addr'), insRel:val('wj_rel'),
+    ctName:val('wb_name'), ctBirth:val('wb_birth'), ctPhone:val('wb_phone'), ctAddr:val('wb_addr'),
+    hospName:val('wj_hosp'), scope:val('wj_scope'),
     purpose:val('wj_purpose'), period:val('wj_period'),
     periodFrom:(pd[0]||'').trim(), periodTo:(pd.length>1?pd[1]:'').trim(),
     _hyPhone:1,   // 대리발급: 전화(전체)를 010-6413-1743 하이픈 표기로(claimMeta phone/ctPhone 분기 — 2026-09-11)
@@ -27956,7 +28024,13 @@ function _bdrFormC(catId){
 // 좌표 + 위임받는자 빈 값 항목 끄기(ctx ct←ins 폴백 오기입 차단) — ⚠️ 이 wbOf 맵은 CC_DAERI_KEYS의 ct* 항목과 1:1 유지
 function _bdrCoordsFor(slot,c){
   var coords=claimCoordsFor(slot);
-  var wbOf={ctName:'ctName',ctRrn:'ctRrn',ctRrnFront:'ctRrn',ctRrnBack:'ctRrn',
+  // 자동 배치(2026-10-22): 관리자가 편집기에서 배치하지 않은 키는 양식 글자(성명·연락처…)에서 찾은 자리로 — 저장본에 그 키가 있으면 저장본 우선
+  var auto=(window._bdrAutoCache&&window._bdrAutoCache.slot===slot)?window._bdrAutoCache.auto:null;
+  if(auto){
+    var raw={}; try{ raw=(JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}')[slot])||{}; }catch(e){}
+    Object.keys(auto).forEach(function(k){ if(raw[k]) return; coords[k]=Object.assign({},coords[k]||{},auto[k],{on:true,auto:1}); });
+  }
+  var wbOf={ctName:'ctName',ctRrn:'ctRrn',ctRrnFront:'ctRrn',ctRrnBack:'ctRrn',ctBirth:'ctBirth',
     ctPhone:'ctPhone',ctPhoneFront:'ctPhone',ctPhoneMid:'ctPhone',ctPhoneBack:'ctPhone',ctAddr:'ctAddr'};
   Object.keys(coords).forEach(function(k){
     var bk=String(k).replace(/_\d+$/,''); var src=wbOf[bk];
@@ -27968,7 +28042,7 @@ function _bdrCoordsFor(slot,c){
   return coords;
 }
 // 입력값을 양식에 기입해 PDF 생성 — 청구서 엔진(drawClaimFields) 재사용.
-// 매핑: 위임자=피보험자 키(insName/insRrn/phone/addr/insRel), 위임받는자=계약자 키(ctName/ctRrn/ctPhone/ctAddr).
+// 매핑: 위임자=피보험자 키(insName/insBirth/phone/addr/insRel), 위임받는자=계약자 키(ctName/ctBirth/ctPhone/ctAddr), 병원명 hospName·발급사유 purpose·발급범위 scope·진료기간 period.
 // ⚠️ custName/rrn은 일부러 안 넣는다 — ctx 폴백(ins←custName, ct←rrn)으로 빈 칸에 반대쪽 값이 찍히는 것 방지.
 //    위임받는자 값이 빈 항목은 좌표를 꺼서(on:false) ctx의 ct←ins 폴백이 위임자 값을 그 칸에 찍지 않게 한다.
 async function _bdrBuild(name,catId){
@@ -27978,6 +28052,10 @@ async function _bdrBuild(name,catId){
   var b64=''; try{ b64=await claimTemplateFor(slot); }catch(e){}
   if(!b64){ toast('등록된 양식이 없습니다 — 관리자가 [양식 업로드]로 PDF를 올려야 합니다.'); return null; }
   _bdrSyncFromDom(catId);
+  if(!(window._bdrAutoCache&&window._bdrAutoCache.slot===slot&&window._bdrAutoCache.len===b64.length)&&typeof pdfjsLib!=='undefined'){
+    try{ var _pb=Uint8Array.from(atob(b64),function(ch){ return ch.charCodeAt(0); });
+      window._bdrAutoCache={slot:slot, len:b64.length, auto:await _bdrAutoCoords(await pdfjsLib.getDocument({data:_pb}).promise)}; }catch(e){ console.warn('bdr auto', e); }
+  }
   var c=_bdrFormC(catId);   // 실시간 미리보기와 동일 값 구성(2026-09-11 공용 분리)
   if(!c.insName&&!c.ctName){
     if(!confirm('위임자·위임받는자 이름이 모두 비어 있습니다. 빈 양식으로 만들까요?')) return null;
@@ -31800,7 +31878,11 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'agentName',  label:'모집자(설계사) 성명', page:0, x:120,  y:130, defOn:false},
   {key:'vchk',       label:'체크(V)',          page:0, x:300,   y:500, defOn:false},
   // ── 대리발급 전용 항목 (2026-09-11, daeri:1 — 대리발급 좌표 편집 모드에서만 노출·배치) ──
-  {key:'purpose',    label:'용도',             page:0, x:150,   y:520, defOn:false, daeri:1},
+  {key:'purpose',    label:'발급사유',          page:0, x:150,   y:520, defOn:false, daeri:1},
+  {key:'insBirth',   label:'위임자 생년월일',    page:0, x:150,   y:600, defOn:false, daeri:1},
+  {key:'ctBirth',    label:'위임받는자 생년월일', page:0, x:150,   y:560, defOn:false, daeri:1},
+  {key:'hospName',   label:'병원명',            page:0, x:150,   y:540, defOn:false, daeri:1},
+  {key:'scope',      label:'발급범위',          page:0, x:150,   y:460, defOn:false, daeri:1},
   {key:'period',     label:'기간(전체)',        page:0, x:150,   y:500, defOn:false, daeri:1},
   {key:'periodFrom', label:'기간 시작일',       page:0, x:150,   y:500, defOn:false, daeri:1},
   {key:'periodTo',   label:'기간 종료일',       page:0, x:300,   y:500, defOn:false, daeri:1},
@@ -31927,7 +32009,11 @@ function claimMeta(){
     agentName:{t:'ko',s:9,w:108,v:function(c){return c.agentName||'';}},
     vchk:{t:'chk',s:9,cond:T},
     // 대리발급 전용 (2026-09-11) — 값은 대리발급 폼 객체(_bdrBuild의 c) 동명 필드, understood는 고정 안내 글자(고객이 따라쓰기)
-    purpose:{t:'ko',s:9,w:140,v:function(c){return c.purpose||'';}},
+    purpose:{t:'ko',s:9,w:240,v:function(c){return c.purpose||'';}},
+    insBirth:{t:'ko',s:9,w:100,v:function(c){return c.insBirth||'';}},
+    ctBirth:{t:'ko',s:9,w:100,v:function(c){return c.ctBirth||'';}},
+    hospName:{t:'ko',s:9,w:240,v:function(c){return c.hospName||'';}},
+    scope:{t:'ko',s:9,w:300,v:function(c){return c.scope||'';}},
     period:{t:'ko',s:9,w:300,v:function(c){return c.period||'';}},
     periodFrom:{t:'ko',s:9,w:150,v:function(c){return c.periodFrom||'';}},
     periodTo:{t:'ko',s:9,w:150,v:function(c){return c.periodTo||'';}},
@@ -32135,7 +32221,8 @@ var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨 — �
   ctName:'위임받는자 이름',ctRrn:'위임받는자 주민번호',ctRrnFront:'위임받는자 주민번호 앞6',ctRrnBack:'위임받는자 주민번호 뒤7',
   ctPhone:'위임받는자 전화번호',ctPhoneFront:'위임받는자 전화 앞3',ctPhoneMid:'위임받는자 전화 중4',ctPhoneBack:'위임받는자 전화 뒤4',
   ctAddr:'위임받는자 집주소', signName:'위임자 성명(서명 옆)',
-  purpose:'용도',period:'기간(전체)',periodFrom:'기간 시작일',periodTo:'기간 종료일',understood:'이해하였음(안내 글자)',
+  purpose:'발급사유',period:'진료기간(전체)',periodFrom:'기간 시작일',periodTo:'기간 종료일',understood:'이해하였음(안내 글자)',
+  insBirth:'위임자 생년월일',ctBirth:'위임받는자 생년월일',hospName:'병원명',scope:'발급범위',
   periodFromY:'기간 시작 년',periodFromM:'기간 시작 월',periodFromD:'기간 시작 일',
   periodToY:'기간 종료 년',periodToM:'기간 종료 월',periodToD:'기간 종료 일'
 };
@@ -32745,7 +32832,7 @@ var CC_PREVIEW_SAMPLES = {
   ctPhone:'01098765432', ctPhoneFront:'010', ctPhoneMid:'9876', ctPhoneBack:'5432',
   ctAddr:'서울 강남구 테헤란로 123',
   coName:'삼성화재', prodName:'무배당 ○○건강보험', polNum:'12345-67890', designNum:'D-123456', agentName:'김설계', vchk:'V',
-  purpose:'본인확인용', period:'2026년01월01일 ~ 2026년12월31일', periodFrom:'2026년01월01일', periodTo:'2026년12월31일', understood:'이해하였음',
+  purpose:'보험금 청구용', insBirth:'1990-01-01', ctBirth:'1985-05-05', hospName:'○○병원', scope:'진료기록 사본', period:'2026년01월01일 ~ 2026년12월31일', periodFrom:'2026년01월01일', periodTo:'2026년12월31일', understood:'이해하였음',
   periodFromY:'2026', periodFromM:'01', periodFromD:'01', periodToY:'2026', periodToM:'12', periodToD:'31',
   insName:'홍길동', sign:'서명',
   insRrn:'900101-1234567', insRrnFront:'900101', insRrnBack:'1234567',
@@ -32909,15 +32996,13 @@ var CC_SAM_KEYS={ctName:1,insName:1,coName:1,prodName:1,polNum:1,agentName:1,vch
 // (위임자=피보험자 키(ins*/phone/addr/insRel), 위임받는자=계약자 키(ct*) 재사용 — 신규 키 없음. 서명은 자필)
 var CC_DAERI_KEYS={insName:1,insRrn:1,insRrnFront:1,insRrnBack:1,phone:1,phoneFront:1,phoneMid:1,phoneBack:1,addr:1,insRel:1,
   ctName:1,ctRrn:1,ctRrnFront:1,ctRrnBack:1,ctPhone:1,ctPhoneFront:1,ctPhoneMid:1,ctPhoneBack:1,ctAddr:1,
-  purpose:1,period:1,periodFrom:1,periodTo:1,understood:1,
+  purpose:1,period:1,periodFrom:1,periodTo:1,understood:1,insBirth:1,ctBirth:1,hospName:1,scope:1,
   periodFromY:1,periodFromM:1,periodFromD:1,periodToY:1,periodToM:1,periodToD:1,
   wY:1,wY2:1,wM:1,wD:1,vchk:1,signName:1};
 var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 위임자/위임받는자 이름으로 묶어 표시
   { title:'위임자 (고객)', items:[
     {key:'insName',    label:'고객이름'},
-    {key:'insRrn',     label:'주민번호 (전체)'},
-    {key:'insRrnFront',label:'주민번호 앞 6자리'},
-    {key:'insRrnBack', label:'주민번호 뒤 7자리'},
+    {key:'insBirth',   label:'생년월일'},
     {key:'phone',      label:'핸드폰번호 (전체)'},
     {key:'phoneFront', label:'핸드폰 앞 3자리'},
     {key:'phoneMid',   label:'핸드폰 가운데 4자리'},
@@ -32927,18 +33012,18 @@ var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 �
   ]},
   { title:'위임받는자 (설계사)', items:[
     {key:'ctName',       label:'이름'},
-    {key:'ctRrn',        label:'주민번호 (전체)'},
-    {key:'ctRrnFront',   label:'주민번호 앞 6자리'},
-    {key:'ctRrnBack',    label:'주민번호 뒤 7자리'},
+    {key:'ctBirth',      label:'생년월일'},
     {key:'ctPhone',      label:'전화번호 (전체)'},
     {key:'ctPhoneFront', label:'전화번호 앞 3자리'},
     {key:'ctPhoneMid',   label:'전화번호 가운데 4자리'},
     {key:'ctPhoneBack',  label:'전화번호 뒤 4자리'},
     {key:'ctAddr',       label:'집주소'}
   ]},
-  { title:'용도·기간·안내', items:[
-    {key:'purpose',    label:'용도 (본인확인용/법원제출용)'},
-    {key:'period',     label:'기간 (전체 — 시작 ~ 종료)'},
+  { title:'병원·기간·사유·범위', items:[
+    {key:'hospName',   label:'병원명'},
+    {key:'purpose',    label:'발급사유'},
+    {key:'scope',      label:'발급범위'},
+    {key:'period',     label:'진료기간 (전체 — 시작 ~ 종료)'},
     {key:'periodFrom', label:'기간 시작일'},
     {key:'periodTo',   label:'기간 종료일'},
     {key:'periodFromY',label:'기간 시작: 년 (4자리)'},
