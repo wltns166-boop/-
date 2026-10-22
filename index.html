@@ -491,6 +491,24 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .thc .thbg.cur{background:#eef1ff;color:#3848b8}
 .thc .thbg.sel{background:#4858cc;color:#fff}
 
+/* ── 로고 (th-g-*) — tops: 사용자 제공 TOPS 로고 그림(brand/). 어두운 바탕(로그인·기본 사이드바)엔 은빛판(-light) ──
+   로고에 "TOPS INSURANCE MANAGEMENT SYSTEM" 글자가 들어 있어 명칭(brandcfg)·홈 제목(herocfg)의 제목·부제 글자는 숨김 */
+.brlogo{display:none;max-width:100%;height:auto;-webkit-user-drag:none;user-select:none}
+html.th-g-tops #login_logo{display:block;width:300px;max-width:78vw;margin:0 auto 18px}
+html.th-g-tops #login_brand_t{display:none!important}
+html.th-g-tops.th-l-default #login_brand_s{display:none!important}
+html.th-g-tops #sb_logo_l{display:block;width:150px}
+html.th-g-tops.th-h-h066 #sb_logo_l{display:none}
+html.th-g-tops.th-h-h066 #sb_logo_d{display:block;width:150px}
+html.th-g-tops #sb_brand_t{display:none!important}
+html.th-g-tops.th-h-h066 .sbl::after{display:none}
+html.th-g-tops #hero_logo{display:block;position:relative;width:250px;max-width:70vw;margin:0 auto}
+html.th-g-tops #hero_t,html.th-g-tops #hero_s{display:none!important}
+/* 홈 월간 일정표 — 옆 공지 카드 높이에 맞춰 달력이 카드를 꽉 채움(행 높이 균등 분배, 2026-10-22 사용자 요청) */
+#pg_home .hg>.hc:has(#cal_wrap){display:flex;flex-direction:column}
+#cal_wrap{flex:1;display:flex;flex-direction:column}
+#cal_wrap .cg{flex:1;grid-template-rows:auto;grid-auto-rows:1fr;grid-template-columns:repeat(7,minmax(0,1fr))}   /* 일정 글자가 칸 폭을 늘리지 않게 7칸 균등 */
+
 /* ── 로그인 L22 Spotlight — 검정 무대·위에서 내려오는 빛·DM Serif Display ── */
 html.th-l-l22 #ls{background:#000;overflow:hidden}
 html.th-l-l22 #ls::before{content:'';position:absolute;left:50%;top:-10%;width:900px;height:120%;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.18),transparent 60%);clip-path:polygon(40% 0,60% 0,100% 100%,0 100%);pointer-events:none}
@@ -611,13 +629,13 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
 /* 디자인 테마(themecfg, 2026-10-22) — 첫 화면 깜빡임 방지: 로컬 캐시를 읽어 <html>에 테마 클래스·글씨체를 즉시 적용.
-   ⚠️ 목록·기본값은 본문 THEME_CAT/THEME_DEF와 같게 유지할 것(정규화·저장은 _themeCfg 쪽). */
+   ⚠️ 목록·기본값은 본문 THEME_CAT/THEME_DEF와 같게 유지할 것(정규화·저장은 _themeCfg 쪽). L=로그인·H=홈·G=로고 */
 (function(){try{
   var c=null; try{ c=JSON.parse(localStorage.getItem('tops_themecfg')||'null'); }catch(e){}
   c=(c&&typeof c==='object')?c:{};
-  var L=['default','l22'], H=['default','h066'];
-  var l=L.indexOf(c.login)>=0?c.login:'l22', h=H.indexOf(c.home)>=0?c.home:'h066';
-  document.documentElement.classList.add('th-l-'+l,'th-h-'+h);
+  var L=['default','l22'], H=['default','h066'], G=['text','tops'];
+  var l=L.indexOf(c.login)>=0?c.login:'l22', h=H.indexOf(c.home)>=0?c.home:'h066', o=G.indexOf(c.logo)>=0?c.logo:'tops';
+  document.documentElement.classList.add('th-l-'+l,'th-h-'+h,'th-g-'+o);
   var f=[]; if(l==='l22') f.push(['th_f_dm','DM+Serif+Display']); if(h==='h066') f.push(['th_f_bd','Bodoni+Moda:wght@400;700']);
   f.forEach(function(n){ var k=document.createElement('link'); k.id=n[0]; k.rel='stylesheet'; k.href='https://fonts.googleapis.com/css2?family='+n[1]+'&display=swap'; document.head.appendChild(k); });
 }catch(e){}})();
@@ -630,6 +648,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
 <!-- LOGIN -->
 <div id="ls">
   <div class="lb">
+    <img class="brlogo" id="login_logo" src="brand/tops-logo-light.png" alt="TOPS INSURANCE MANAGEMENT SYSTEM">
     <div class="ll" id="login_brand_t">TIMS</div>
     <div class="ls2" id="login_brand_s">INTRANET SYSTEM</div>
     <div class="l22lb"><span>USER ID</span><span>아이디</span></div>
@@ -664,7 +683,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-2</div>
   </div>
 </div>
 
@@ -709,7 +728,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
   <div id="san_rail" style="display:none"><div id="san_rail_in"></div></div>
 
   <nav id="sb">
-    <div class="sbl"><div class="sblt" id="sb_brand_t">TIMS</div><div class="sbu" id="sbu"></div></div>
+    <div class="sbl"><img class="brlogo" id="sb_logo_d" src="brand/tops-logo.png" alt="TOPS"><img class="brlogo" id="sb_logo_l" src="brand/tops-logo-light.png" alt="TOPS"><div class="sblt" id="sb_brand_t">TIMS</div><div class="sbu" id="sbu"></div></div>
     <div class="nlb">메뉴</div>
     <!-- 통합 검색 (2026-09-10 메뉴 → 2026-09-15 자료·파일 확장) — 메뉴 실시간 필터 + 게시물·첨부파일·공지 찾기, Esc·지우면 원상 복귀 -->
     <div style="padding:2px 14px 8px"><input id="nav_srch" type="text" placeholder="메뉴·자료·파일 검색" autocomplete="off"
@@ -820,7 +839,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <!-- HOME -->
     <div class="pg active" id="pg_home" style="position:relative">
       <button id="hb_btn" onclick="openHomeBgModal()" title="홈 배경 사진 설정 (관리자 전용)" style="display:none;position:absolute;top:10px;right:10px;z-index:5;padding:6px 12px;background:rgba(255,255,255,.85);border:1px solid #d0d4e8;border-radius:8px;color:#4a5090;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> 배경 설정</button>
-      <div class="hero" id="hero_box"><div class="heroimg" id="hero_img" style="display:none"></div><div class="ht" id="hero_t" style="font-size:70px">TIMS</div><div class="hsub" id="hero_s">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
+      <div class="hero" id="hero_box"><div class="heroimg" id="hero_img" style="display:none"></div><img class="brlogo" id="hero_logo" src="brand/tops-logo.png" alt="TOPS INSURANCE MANAGEMENT SYSTEM"><div class="ht" id="hero_t" style="font-size:70px">TIMS</div><div class="hsub" id="hero_s">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
       <!-- 명예의 전당 3칸 -->
       <div class="hrank" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
         <div class="hc" style="min-height:0;padding:14px 16px">
@@ -1166,6 +1185,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div class="thgrid" id="th_login"></div>
         <div style="font-weight:700;font-size:14px;color:#2a2a4a;margin:18px 0 8px">홈 · 메뉴 · 상단바</div>
         <div class="thgrid" id="th_home"></div>
+        <div style="font-weight:700;font-size:14px;color:#2a2a4a;margin:18px 0 8px">로고 (로그인 · 사이드바 · 홈 상단)</div>
+        <div class="thgrid" id="th_logo"></div>
         <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
           <button onclick="themeSave()" style="padding:9px 20px;background:#4858cc;border:1px solid #4858cc;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button>
           <button onclick="themeRevert()" style="padding:9px 16px;background:#fff;border:1px solid #ccd;border-radius:8px;color:#555;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-arrow-back-up"></i> 저장된 디자인으로 되돌리기</button>
@@ -24386,22 +24407,28 @@ var THEME_CAT={
      th:'<div style="position:absolute;inset:0;display:flex;background:#fff"><div style="width:24%;background:#010514;padding:8px 6px;display:flex;flex-direction:column;gap:5px"><b style="color:#6878ff;font-size:9px;letter-spacing:1px">TIMS</b><i style="height:4px;background:rgba(255,255,255,.5);border-radius:2px"></i><i style="height:4px;background:rgba(255,255,255,.5);border-radius:2px"></i><i style="height:4px;background:rgba(255,255,255,.5);border-radius:2px"></i></div><div style="flex:1;display:flex;flex-direction:column"><div style="height:13px;background:#010514"></div><div style="padding:8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><b style="grid-column:1/4;text-align:center;font-size:13px;color:#5868ff;letter-spacing:2px">TIMS</b><i style="height:20px;border:1px solid #dde;border-radius:4px"></i><i style="height:20px;border:1px solid #dde;border-radius:4px"></i><i style="height:20px;border:1px solid #dde;border-radius:4px"></i></div></div></div>'},
     {id:'h066', nm:'H066 작업 탭 · 아이보리 잉크', ds:'아이보리 바탕 · 잉크 검정 · 열어 본 화면이 상단 탭으로(PC)',
      th:'<div style="position:absolute;inset:0;display:flex;background:#f6f4ef"><div style="width:24%;border-right:1px solid rgba(13,13,13,.14);padding:8px 6px;display:flex;flex-direction:column;gap:5px"><b style="font-family:\'Bodoni Moda\',Georgia,serif;font-weight:400;color:#0d0d0d;font-size:11px">TIMS</b><i style="height:3px;background:rgba(13,13,13,.35)"></i><i style="height:3px;background:rgba(13,13,13,.2)"></i><i style="height:3px;background:rgba(13,13,13,.2)"></i></div><div style="flex:1;display:flex;flex-direction:column"><div style="height:14px;border-bottom:1px solid rgba(13,13,13,.14);display:flex;align-items:flex-end;gap:3px;padding-left:5px"><i style="width:18px;height:9px;border:1px solid rgba(13,13,13,.2);border-top:2px solid #0d0d0d;border-bottom:0"></i><i style="width:18px;height:6px;background:rgba(13,13,13,.12)"></i><span style="flex:1"></span><i style="width:16px;height:7px;background:#0d0d0d;margin:0 4px 3px 0"></i></div><div style="padding:6px 8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><b style="grid-column:1/4;text-align:center;font-family:\'Bodoni Moda\',Georgia,serif;font-weight:400;font-size:17px;color:#0d0d0d">TIMS</b><i style="height:20px;background:#fff;box-shadow:0 1px 0 rgba(13,13,13,.14),0 4px 8px rgba(0,0,0,.06)"></i><i style="height:20px;background:#fff;box-shadow:0 1px 0 rgba(13,13,13,.14),0 4px 8px rgba(0,0,0,.06)"></i><i style="height:20px;background:#fff;box-shadow:0 1px 0 rgba(13,13,13,.14),0 4px 8px rgba(0,0,0,.06)"></i></div></div></div>'}
+  ],
+  logo:[
+    {id:'text', nm:'글자 — TIMS', ds:'명칭 변경·홈 화면 꾸미기에서 정한 글자 그대로',
+     th:'<div style="position:absolute;inset:0;background:#f6f4ef;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px"><b style="font-family:\'Bodoni Moda\',Georgia,serif;font-weight:400;font-size:40px;color:#0d0d0d;line-height:1">TIMS</b><span style="font-size:7px;letter-spacing:2px;color:rgba(13,13,13,.55)">INSURANCE BUSINESS MANAGEMENT SYSTEM</span></div>'},
+    {id:'tops', nm:'TOPS 로고', ds:'사용자 제공 로고 그림 — 어두운 바탕에선 은빛으로',
+     th:'<div style="position:absolute;inset:0;display:flex"><div style="flex:1;background:#f6f4ef;display:flex;align-items:center;justify-content:center"><img src="brand/tops-logo.png" alt="" style="width:80%"></div><div style="flex:1;background:#000;display:flex;align-items:center;justify-content:center"><img src="brand/tops-logo-light.png" alt="" style="width:80%"></div></div>'}
   ]
 };
-var THEME_DEF={login:'l22', home:'h066'};   // 사용자 선택(2026-10-22) — 로그인 L22 + 홈 H066
+var THEME_DEF={login:'l22', home:'h066', logo:'tops'};   // 사용자 선택(2026-10-22) — 로그인 L22 + 홈 H066 + TOPS 로고
 var THEME_FONTS={l22:['th_f_dm','DM+Serif+Display'], h066:['th_f_bd','Bodoni+Moda:wght@400;700']};
 function _themeHas(kind,id){ return (THEME_CAT[kind]||[]).some(function(t){ return t.id===id; }); }
 // 저장값 정규화 — 목록에 없는 값(옛 시안 삭제·외부 조작)은 기본값으로
 function _themeCfg(c){
   if(c===undefined) c=window.themecfg;
   c=(c&&typeof c==='object'&&!Array.isArray(c))?c:{};
-  return { login:_themeHas('login',c.login)?c.login:THEME_DEF.login, home:_themeHas('home',c.home)?c.home:THEME_DEF.home };
+  return { login:_themeHas('login',c.login)?c.login:THEME_DEF.login, home:_themeHas('home',c.home)?c.home:THEME_DEF.home, logo:_themeHas('logo',c.logo)?c.logo:THEME_DEF.logo };
 }
 // <html> 클래스 교체 + 필요한 글씨체만 지연 로드
 function _themeSetCls(c){
   var h=document.documentElement;
-  Array.prototype.slice.call(h.classList).forEach(function(k){ if(/^th-[lh]-/.test(k)) h.classList.remove(k); });
-  h.classList.add('th-l-'+c.login, 'th-h-'+c.home);
+  Array.prototype.slice.call(h.classList).forEach(function(k){ if(/^th-[lhg]-/.test(k)) h.classList.remove(k); });
+  h.classList.add('th-l-'+c.login, 'th-h-'+c.home, 'th-g-'+c.logo);
   [c.login,c.home].forEach(function(id){
     var f=THEME_FONTS[id]; if(!f||g(f[0])) return;
     try{ var k=document.createElement('link'); k.id=f[0]; k.rel='stylesheet'; k.href='https://fonts.googleapis.com/css2?family='+f[1]+'&display=swap'; document.head.appendChild(k); }catch(e){}
@@ -24418,7 +24445,7 @@ function _themeApply(){
 function _themeTabInit(){
   var saved=_themeCfg(), draft=window._thDraft||saved;   // draft는 카드를 눌렀을 때만 생김(themePick) — 열어 두기만 해선 수신 반영을 막지 않음
   if(!g('th_login')) return;
-  ['login','home'].forEach(function(kind){
+  ['login','home','logo'].forEach(function(kind){
     var box=g('th_'+kind); if(!box) return;
     box.innerHTML=THEME_CAT[kind].map(function(t){
       var on=draft[kind]===t.id, cur=saved[kind]===t.id;
