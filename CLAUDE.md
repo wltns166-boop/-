@@ -1825,6 +1825,10 @@
     v-13: 칸 이름 앞뒤 간격 6pt 이상일 때만 칸 이름으로 인정(본문 문장 속 "주소"·"기간" 오탐 방지 — 14pt는 표 옆 세로 머리글과 붙은 칸을 놓침), 이름 뒤 ':' 건너뜀,
     같은 줄 다음 칸 이름 앞까지 `w`(폭) 기록 → `drawClaimFields` ko 분기가 `co.w`를 m.w보다 우선(긴 값 축소 기입). v-14(code-reviewer): 두 사람 칸은 별칭(성명/이름…)을 전부 모아 **문서 순서(쪽→위→아래)**로 첫째=위임자·둘째=위임받는자(별칭 단계 순이면 뒤바뀌던 경로),
     좌표에 `page.view` 오프셋(CropBox≠MediaBox 양식 — pdf-lib MediaBox 원점으로), 자동 배치는 이미지 렌더 뒤 계산(미리보기 지연 없음)·gen 검사 뒤 캐시 기록·실패 시 캐시 null,
+    **좌표 실제 설정(2026-10-22, 사용자 요청 "좌표 니가 먼저 설정해줘 글씨크기 12")**: 슬롯 `대리발급_병원서류 대리발급`(2쪽 — 1쪽 동의서·2쪽 위임장) 좌표를 익명 REST PATCH(updateMask=claim_coords_v2.\`슬롯\`)로
+    클라우드에 직접 기록 — 31개 on(size 12): 1쪽 ins*/phone/insBirth/addr·ct*/ctBirth/ctPhone/ctAddr/insRel·hospName/period/purpose/scope(x135·y340 — 라벨 아래 줄)·ctName_2(본문 "신청인( )")·wY/wM/wD·insName_2(서명란),
+    2쪽 수임인=ct*(ctName_3/ctPhone_2/ctBirth_2/insRel_2/ctAddr_2)·위임인=ins*(insName_3/phone_2/insBirth_2/addr_2)·wY_2/wM_2/wD_2·insName_4(위임인 서명란). 연락처(phone/ctPhone)는 x464·w78(칸 끝 넘침 방지 — _sdDtx 축소).
+    옛 주민번호(insRrnFront 등)·ctName_3 1쪽 배치는 on:false로 남김. 헤드리스로 실제 양식에 샘플 값 기입 PDF 2쪽 확인. 양식(real.pdf)은 Storage에서 익명 토큰(identitytoolkit signUp)으로 받음.
     0건이면 미리보기 위에 주황 안내("칸 이름을 찾지 못해 … [좌표 직접설정] 필요"), 전각 괄호·닫는 괄호 같은 줄 조건. 수용: 양식에 "신청인"이 먼저 나오면 두 사람이 뒤바뀜(순서 가정) — 그땐 [좌표 직접설정]. 헤드리스 검증(크로미움 생성 양식 — 13칸 전부 실시간 오버레이·PDF 기입 정확).
 - **사이드바 메뉴 검색 (2026-09-10 v-17)**: [메뉴] 라벨 아래 `#nav_srch` — 메뉴 라벨 실시간 필터(공백·대소문자 무시),
   일치 그룹 임시 펼침, 해제 시 접힘 상태 스냅샷 복원(`window._navSrchSnap`), 페이지 선택(showPage) 시 자동 해제.
