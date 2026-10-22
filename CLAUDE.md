@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1225,6 +1225,21 @@
   옛 캐시로 덮어 새 신청이 안 보였다(신청 저장도 옛 목록으로 클라우드를 덮을 위험). 이제 `_mcrReload`는 메모리(`mcReqs` — 수신 핸들러 2곳이 갱신)만 쓰고
   localStorage는 부팅 때 한 번만 읽는다. ⚠️ `JSON.parse(localStorage.getItem('tops_mcreq'))` 재읽기를 다시 넣지 말 것. 헤드리스로 저장공간 가득 참 흉내(_lsSet 실패) → 옛 코드 미표시·새 코드 표시 확인.
 - ⚠️ 수용 한계(기존 계열): 전체 배열 last-write-wins(cardreq 계열 — 총무 완료 처리와 팀원 수정이 겹치면 늦은 저장이 이김), 클라이언트 가드(서버 미검증), Storage 고아 파일(줄 삭제·파일 빼기·종류 변경 시 원본 미삭제 — 오삭제 회피 방침).
+
+## 4.9977 부재디비 교환 (absdb, 2026-10-22 — v2026.10.22-7, 사용자 요청)
+
+- 사이드바 그룹 **부재디비교환**(`n_ab_menu`/`nch_ab`, DB관리 아래): 리스트 작성(`ab_write`) · 마켓(`ab_market`) · 구매 리스트(`ab_buy`) · 재등록 리스트(`ab_rereg`, 관리자) · 교환 현황(`ab_stat`, 관리자).
+  관리자 전용 둘은 setAdmin `.ns` 숨김 + showPage 가드. PTITLES·렌더 맵(rAbWrite/rAbMarket/rAbBuy/rAbRereg/rAbStat) 등록.
+- **포인트 규칙**: 작성 1건=+1P, 마켓 구매 1건=−1P, 재등록 승인 시 요청자 +1P. 판매 전 본인 삭제=−1P(0P면 삭제 불가 — 올렸다 지우며 포인트 쌓기 방지). 관리자 [내리기]는 포인트 변동 없음(정책 — 의도).
+- **저장은 Firestore 컬렉션 `absdb/{id}`(DB 1건=문서, tops/data 미사용 — 3.12 규칙)와 `absdbpt/{사용자키}={pt,nm}`**(키 `_rsvKey` 규칙 'c_코드'/'n_관리자이름'). localStorage 없음(함정 B). 녹음파일은 Storage `db_recordings/absdb/` URL만(`_AB_REC_RE` 화이트리스트, storage.rules 기존 db_recordings 규칙이 커버 — 배포 불필요).
+  문서: `{id,w,wk(작성자 키),wTs, owner,ok(지금 소유자 — 재등록 승인 시 구매자로 이전),lTs(마켓 등록 시각), st:'m'|'s'|'p', buyer,bk,bTs, pTs, nm,rg,age,birth,ph,prem,visit,call,co,sd, rec:{u,n}|null, hist:[{t,by,k,ts,from?,fk?,ap?}]}`.
+  hist t: w 작성 / b 구매(from=판매자) / rq 재등록 요청 / rc 취소 / r 승인(ap=관리자) / rj 반려. **교환 현황은 hist의 ts 월로 집계**(월 셀렉트 — 이력이 있는 달 + 이번 달), 보유포인트는 absdbpt 현재값.
+- **구매·삭제·재등록·승인은 전부 `runTransaction`** — 문서 상태(st)·소유자(wk/ok/bk)를 서버값으로 재검사, 포인트 부족이면 전체 취소, 같은 DB를 둘이 동시에 사면 한 명만 성공. 신규 작성은 batch(문서 set + 포인트 increment). 조작은 `data-abid` 문서 id 기준(함정 A), 한 번에 구매 50건 상한.
+- 마켓 표시는 성함 `_abMask`(김oo)·기존담당자·수급일·등록일만, 내 디비는 체크 불가. 구매 리스트·작성 리스트·재등록 리스트는 전체 정보(`AB_INFO_TH`/`_abInfoTd` 공용, 전화번호 클릭 복사 `_csrCopyVal`, 녹음은 `<audio>`). 자유 텍스트 전부 `_esc`/`_alertEsc`.
+- 작성 창 `#ab_pop`(흰 카드 — 함정 D, `.abfi` 색 직접 지정): 성함·전화 필수, 생년월일 `_abFmtBirth`, 전화 `_dbNoteFmtPhone` 재사용. 수정·삭제는 **판매 전(hist 1건)·본인 작성·본인 소유**일 때만.
+- 리뷰 반영: `_abClear`(logout)가 상자·포인트 표시를 비우고 `_abSeq*`를 올려 늦은 응답 폐기(PII 잔존 차단), 수정 창 열기는 `_abSeqF`+`_abEditId` 일치 검사, 저장 버튼은 쓰기 요청 전에 잠금(더블클릭 2건 방지), 녹음 업로드는 `_abRecSeq`/`_abRecBusy`(창 닫힌 뒤 늦은 업로드 무시·업로드 중 저장 차단).
+- ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기·쓰기 허용 — 마켓에서 가린 성함·연락처도 콘솔로 읽히고 absdbpt 포인트도 직접 쓸 수 있음. 관리자 승인·내리기는 `_isAdmin` 클라이언트 가드뿐. 근본 해결은 서버 권한 작업 별도 과제.
+- 모의 실행(헤드리스 + 가짜 Firestore): 작성 2건 +2P → 타인 구매 −1P·0P 구매 거부·내 디비 구매 불가·마켓 성함/전화 미노출 → 재등록 요청 → 비관리자 재등록 리스트 차단 → 관리자 승인(소유 이전·+1P) → 월별 현황 2탭 통과.
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 
