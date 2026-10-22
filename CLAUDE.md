@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -863,7 +863,10 @@
   사용자 제공 TOPS 로고 그림 `brand/tops-logo.png`(흰 배경 투명화·여백 자름)과 은빛판 `brand/tops-logo-light.png`(어두운 바탕용 — 로그인·기본 네이비 사이드바).
   `#login_logo`·`#sb_logo_d/_l`·`#hero_logo`(`.brlogo`, 기본 숨김) — tops일 때 로그인 제목·사이드바 글자·홈 제목/부제 글자를 숨김(로고에 글자 포함).
   설정 탭 세 번째 구역 [로고].
-  **v-3 (사용자 확정)**: 로고 그림은 **사이드바에만** — 로그인 화면·홈 상단은 시안(L22·H066)대로 "TIMS" 글자로 되돌림(`#login_logo`·`#hero_logo` 제거). 사이드바 로고는 건드리지 말 것. 원본 그림이 545px 저해상도라 크게 키우면 흐림 — 고해상도 원본을 받으면 brand/ 파일만 교체.
+  **v-3 (사용자 확정)**: 로고 그림은 **사이드바에만** — 로그인 화면·홈 상단은 시안(L22·H066)대로 "TIMS" 글자로 되돌림(`#login_logo`·`#hero_logo` 제거). 사이드바 로고는 건드리지 말 것.
+  **v-4 (사용자 요청) — 로고 3곳 각각 선택**: themecfg `logo`(사이드바, 클래스 th-g-, 기본 tops)·`mlogo`(메인=홈 상단, th-m-, 기본 text)·`llogo`(로그인, th-n-, 기본 text),
+  값 text|tops. 설정 탭 구역 [사이드바 로고]·[메인페이지 로고]·[로그인페이지 로고]. `#hero_logo`(남색)·`#login_logo`(은빛) 다시 추가 — tops일 때 그 자리 제목 글자 숨김
+  (로그인 기본 테마에선 부제도 숨김, L22에선 TODAY'S STAGE 문구 유지). ⚠️ 새 로고 자리를 늘리면 THEME_CAT 키·THEME_DEF·_themeCfg·_themeSetCls 정규식·head G 목록·탭 루프 6곳을 함께. 원본 그림이 545px 저해상도라 크게 키우면 흐림 — 고해상도 원본을 받으면 brand/ 파일만 교체.
   홈 월간 일정표는 옆 공지 카드 높이에 맞춰 카드를 꽉 채움(`.hc:has(#cal_wrap)` flex + `.cg` 행 1fr·7칸 minmax(0,1fr)) — 테마 무관.
 
 ## 4.66 팀 미팅 — 작성 대상자 명단 (mtcfg, 2026-08-10)
