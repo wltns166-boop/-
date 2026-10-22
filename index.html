@@ -499,7 +499,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #ab_pop label b{color:#cc3040}
 #ab_pop .abfi{padding:8px 10px;border:1px solid #ccd2e6;border-radius:7px;background:#fff;color:#1a1a2e;font-size:14.5px;font-family:inherit;outline:none}
 #ab_pop .abfi:focus{border-color:#4858cc}
-#ab_pop .abrecst{font-size:12px;font-weight:400;color:#5a6488}
+#ab_pop .abrec{margin-top:6px;border:2px dashed #c9cdd6;border-radius:8px;padding:12px 14px;background:#fafbfd;display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:400}
+#ab_pop .abrec.sel,#ab_pop .abrec.drag{border:2px solid #1a9050;background:#eafaf0}   /* 선택(붙여넣기·드롭 대상)·끌어다 놓는 중 */
+#ab_pop .abrecst{flex:1;font-size:12.5px;font-weight:400;color:#5a6488;line-height:1.5;word-break:break-all}
 @media(max-width:600px){#ab_pop .abgrid{grid-template-columns:1fr}}
 /* ===== 디자인 테마 (themecfg, 2026-10-22) — <html>의 th-l-*(로그인)·th-h-*(홈·메뉴) 클래스로 겉모양만 바꿈 =====
    기존 id·동작은 그대로. brandcfg/herocfg가 인라인으로 칠하는 글씨체·색은 시안 모양을 위해 !important로 덮음.
@@ -711,7 +713,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-8</div>
   </div>
 </div>
 
@@ -762,10 +764,13 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <label>방문희망<select class="abfi" id="ab_f_visit"><option value="">선택</option><option value="방문희망">방문희망</option><option value="방문 원하지 않음">방문 원하지 않음</option></select></label>
       <label>통화요청시간<input class="abfi" id="ab_f_call" maxlength="40" placeholder="예: 평일 오후 2시 이후"></label>
       <label>DB회사<input class="abfi" id="ab_f_co" maxlength="40"></label>
-      <label>수급일<input class="abfi" id="ab_f_sd" type="date"></label>
-      <label style="grid-column:1/-1">녹음파일 <span style="font-weight:400;color:#8a8fa8">(음성 파일, 20MB 이하)</span>
-        <input type="file" id="ab_f_rec" accept="audio/*,.m4a,.mp3,.wav,.amr,.3gp,.aac" onchange="_abRecPick(this)" style="margin-top:4px;font-size:13px;color:#333">
-        <span id="ab_f_recst" class="abrecst"></span></label>
+      <label>수급일<input class="abfi" id="ab_f_sd" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this)" placeholder="숫자만 입력 (20261022)"></label>
+      <div style="grid-column:1/-1;font-size:13px;font-weight:700;color:#3a4068">녹음파일 <span style="font-weight:400;color:#8a8fa8">(음성 파일, 20MB 이하 — 칸을 누르면 초록색으로 선택되고, 파일을 끌어다 놓거나 [파일 선택]으로 올립니다)</span>
+        <div class="abrec" id="ab_f_recbox" onclick="_abRecSel(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="_abRecDrop(event)">
+          <div id="ab_f_recst" class="abrecst">파일을 여기에 끌어다 놓으세요</div>
+          <button type="button" class="abbtn sm" onclick="event.stopPropagation();g('ab_f_rec').click()">파일 선택</button>
+          <input type="file" id="ab_f_rec" accept="audio/*,.m4a,.mp3,.wav,.amr,.3gp,.aac" onchange="_abRecPick(this)" style="display:none">
+        </div></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="abbtn" onclick="abCloseForm()">취소</button>
@@ -24589,7 +24594,8 @@ function abOpenForm(id){
   window._abEditId=id||''; window._abRec=null; window._abRecSeq=(window._abRecSeq||0)+1; window._abRecBusy=0;
   AB_FIELDS.forEach(function(k){ var el=g('ab_f_'+k); if(el) el.value=''; });
   var f=g('ab_f_rec'); if(f) f.value='';
-  var st=g('ab_f_recst'); if(st){ st.textContent=''; st.style.color=''; }
+  var st=g('ab_f_recst'); if(st){ st.textContent='파일을 여기에 끌어다 놓으세요'; st.style.color=''; }
+  var rb=g('ab_f_recbox'); if(rb) rb.classList.remove('sel','drag');
   g('ab_pop_title').textContent=id?'부재디비 수정':'부재디비 작성';
   if(!id){ pop.style.display='flex'; setTimeout(function(){ try{ g('ab_f_nm').focus(); }catch(e){} },30); return; }
   var db=_abDb(); if(!db) return toast('클라우드 연결 후 다시 시도해 주세요.');
@@ -24604,11 +24610,20 @@ function abOpenForm(id){
   }).catch(_abErr);
 }
 function abCloseForm(){ var p=g('ab_pop'); if(p) p.style.display='none'; window._abEditId=''; window._abSeqF=(window._abSeqF||0)+1; window._abRecSeq=(window._abRecSeq||0)+1; window._abRecBusy=0; }
-function _abRecPick(inp){
-  var f=inp.files&&inp.files[0], st=g('ab_f_recst');
+function _abRecSel(ev){ var b=g('ab_f_recbox'); if(!b) return; b.classList.toggle('sel'); }
+function _abRecDrop(ev){
+  ev.preventDefault(); ev.stopPropagation();   // 문서 레벨 드롭 캐치올·uni 이중 처리 방지(4.8 규칙)
+  var b=g('ab_f_recbox'); if(b){ b.classList.remove('drag'); b.classList.add('sel'); }
+  var f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]; if(!f) return;
+  _abRecFile(f);
+}
+function _abRecPick(inp){ var f=inp.files&&inp.files[0]; if(f) _abRecFile(f); }
+function _abRecFile(f){
+  var st=g('ab_f_recst'), inp=g('ab_f_rec');
   if(!f) return;
-  if(f.size>20*1024*1024){ toast('녹음파일은 20MB 이하만 올릴 수 있습니다.'); inp.value=''; return; }
-  if(!(window.firebase&&firebase.storage)){ toast('저장소에 연결되지 않아 올릴 수 없습니다.'); inp.value=''; return; }
+  if(!(/^audio\//.test(f.type||'')||/\.(m4a|mp3|wav|amr|3gp|aac|ogg|opus|wma)$/i.test(f.name||''))){ toast('음성 파일만 올릴 수 있습니다.'); if(inp) inp.value=''; return; }
+  if(f.size>20*1024*1024){ toast('녹음파일은 20MB 이하만 올릴 수 있습니다.'); if(inp) inp.value=''; return; }
+  if(!(window.firebase&&firebase.storage)){ toast('저장소에 연결되지 않아 올릴 수 없습니다.'); if(inp) inp.value=''; return; }
   var safe=String(f.name||'rec').replace(/[^0-9a-zA-Z가-힣._-]/g,'_').slice(0,60);
   var path='db_recordings/absdb/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+safe;
   var seq=window._abRecSeq=(window._abRecSeq||0)+1;   // 마지막 선택만 반영(창을 닫았거나 다시 고르면 늦게 온 결과는 버림)
@@ -24620,10 +24635,17 @@ function _abRecPick(inp){
     if(st){ st.textContent='업로드 완료: '+safe; st.style.color='#1a7a45'; }
   }).catch(function(e){
     if(seq!==window._abRecSeq) return;
-    console.warn('부재디비 녹음 업로드 실패:',e); window._abRecBusy=0; inp.value='';
+    console.warn('부재디비 녹음 업로드 실패:',e); window._abRecBusy=0; if(inp) inp.value='';
     if(st){ st.textContent='업로드 실패 — 다시 골라 주세요.'; st.style.color='#cc3030'; }
   });
 }
+document.addEventListener('paste',function(e){
+  var pop=g('ab_pop'), rb=g('ab_f_recbox');
+  if(!pop||pop.style.display==='none'||!rb||!rb.classList.contains('sel')) return;
+  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]')) return;   // 입력칸 글자 붙여넣기는 가로채지 않음
+  var items=e.clipboardData&&e.clipboardData.files; if(!items||!items.length) return;
+  e.preventDefault(); e.stopPropagation(); _abRecFile(items[0]);
+},true);
 function abSave(){
   if(window._abRecBusy) return toast('녹음파일을 올리는 중입니다. 잠시 뒤 다시 눌러 주세요.');
   if(window._abSaving) return;
@@ -24631,6 +24653,8 @@ function abSave(){
   AB_FIELDS.forEach(function(k){ var el=g('ab_f_'+k); v[k]=el?String(el.value||'').trim().slice(0,60):''; });
   if(!v.nm) return toast('성함을 입력해 주세요.');
   if(v.ph.replace(/\D/g,'').length<9) return toast('전화번호를 입력해 주세요.');
+  if(v.sd&&!/^\d{4}-\d{2}-\d{2}$/.test(v.sd)) return toast('수급일은 숫자 8자리(예: 20261022)로 입력해 주세요.');
+  if(v.birth&&!/^\d{4}-\d{2}-\d{2}$/.test(v.birth)) return toast('생년월일은 숫자 8자리(예: 19800101)로 입력해 주세요.');
   v.rec=window._abRec&&window._abRec.u?{u:window._abRec.u,n:window._abRec.n||''}:null;
   var db=_abDb(), me=_abMe();
   if(!db||!me.k) return toast('클라우드 연결 후 다시 시도해 주세요.');
@@ -29333,8 +29357,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'); if(document.getElementById('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'); if(document.getElementById('ic_pop')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면

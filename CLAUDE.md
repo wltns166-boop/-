@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-8. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1238,6 +1238,9 @@
 - 마켓 표시는 성함 `_abMask`(김oo)·기존담당자·수급일·등록일만, 내 디비는 체크 불가. 구매 리스트·작성 리스트·재등록 리스트는 전체 정보(`AB_INFO_TH`/`_abInfoTd` 공용, 전화번호 클릭 복사 `_csrCopyVal`, 녹음은 `<audio>`). 자유 텍스트 전부 `_esc`/`_alertEsc`.
 - 작성 창 `#ab_pop`(흰 카드 — 함정 D, `.abfi` 색 직접 지정): 성함·전화 필수, 생년월일 `_abFmtBirth`, 전화 `_dbNoteFmtPhone` 재사용. 수정·삭제는 **판매 전(hist 1건)·본인 작성·본인 소유**일 때만.
 - 리뷰 반영: `_abClear`(logout)가 상자·포인트 표시를 비우고 `_abSeq*`를 올려 늦은 응답 폐기(PII 잔존 차단), 수정 창 열기는 `_abSeqF`+`_abEditId` 일치 검사, 저장 버튼은 쓰기 요청 전에 잠금(더블클릭 2건 방지), 녹음 업로드는 `_abRecSeq`/`_abRecBusy`(창 닫힌 뒤 늦은 업로드 무시·업로드 중 저장 차단).
+- **v-8 (사용자 요청)**: 수급일은 `type=date` 대신 글자 칸 — 숫자 8자리만 쳐도 `_abFmtBirth`로 YYYY-MM-DD 자동 작성(생년월일과 같은 방식, 저장 시 형식 검증).
+  녹음파일 칸 `#ab_f_recbox` — 클릭=초록 선택(`.sel`, `_abRecSel`), 끌어다 놓기(`_abRecDrop` — stopPropagation, 4.8 규칙)·선택 상태 Ctrl+V(문서 paste 캡처, 입력칸 글자 붙여넣기는 제외)·[파일 선택].
+  파일 공용 처리 `_abRecFile`(음성 MIME·확장자만). 문서 레벨 dragover/drop 캐치올에 `ab_pop` 열림 조건 추가(빗나간 드롭이 브라우저에서 열리지 않게).
 - ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기·쓰기 허용 — 마켓에서 가린 성함·연락처도 콘솔로 읽히고 absdbpt 포인트도 직접 쓸 수 있음. 관리자 승인·내리기는 `_isAdmin` 클라이언트 가드뿐. 근본 해결은 서버 권한 작업 별도 과제.
 - 모의 실행(헤드리스 + 가짜 Firestore): 작성 2건 +2P → 타인 구매 −1P·0P 구매 거부·내 디비 구매 불가·마켓 성함/전화 미노출 → 재등록 요청 → 비관리자 재등록 리스트 차단 → 관리자 승인(소유 이전·+1P) → 월별 현황 2탭 통과.
 
