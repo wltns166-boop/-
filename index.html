@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-11</div>
   </div>
 </div>
 
@@ -1130,7 +1130,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg" id="pg_ab_stat">
       <div class="sh"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div class="st"><i class="ti ti-chart-arrows"></i>부재디비 교환 현황</div>
           <select id="ab_stat_ym" onchange="_abStatDraw()" class="absel"></select></div>
-        <button class="bp" onclick="rAbStat()"><i class="ti ti-refresh"></i> 새로고침</button></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bp" onclick="rAbStat()"><i class="ti ti-refresh"></i> 새로고침</button>
+        <button class="bp" id="ab_stat_memcfg_btn" onclick="abStatMemOpen()"><i class="ti ti-user-cog"></i> 표시 팀원 설정</button></div></div>
       <div style="display:flex;gap:6px;margin-bottom:12px">
         <button class="abtab on" id="ab_tab_mem" onclick="abStatTab('mem')">팀원별 현황</button>
         <button class="abtab" id="ab_tab_ex" onclick="abStatTab('ex')">디비교환현황</button>
@@ -24528,7 +24529,7 @@ try{ _heroApply(); }catch(e){}
 // 상태 st: 'm' 마켓 등록중 / 's' 판매됨(구매자 보유) / 'p' 재등록 승인 대기.
 // 이력 hist:[{t,by,k,ts,…}] — t: 'w' 작성 · 'b' 구매(from=판매자) · 'rq' 재등록 요청 · 'rc' 요청 취소 · 'r' 재등록 승인(ap=승인 관리자) · 'rj' 반려.
 // ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기를 허용 — 마켓에서 가린 성함·연락처도 콘솔로는 읽힘(custs·claims와 같은 수준).
-var AB_COL='absdb', AB_PT='absdbpt', AB_BUY_MAX=50;
+var AB_COL='absdb', AB_PT='absdbpt', AB_CFG='absdbcfg', AB_BUY_MAX=50;
 var _AB_REC_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/db_recordings%2Fabsdb%2F/;
 var AB_FIELDS=['nm','rg','age','birth','ph','prem','visit','call','co','sd'];
 function _abDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
@@ -24853,10 +24854,11 @@ function rAbStat(){
   if(!db) return _abNoDb('ab_stat_box');
   var seq=window._abSeqS=(window._abSeqS||0)+1;
   box.innerHTML='불러오는 중…';
-  Promise.all([db.collection(AB_COL).get(), db.collection(AB_PT).get()]).then(function(r){
+  Promise.all([db.collection(AB_COL).get(), db.collection(AB_PT).get(), db.collection(AB_CFG).doc('stat').get().catch(function(){ return null; })]).then(function(r){
     if(seq!==window._abSeqS) return;
     var pts={}; r[1].forEach(function(d){ pts[d.id]=d.data()||{}; });
-    window._abStat={items:_abDocs(r[0]), pts:pts};
+    var cfg=(r[2]&&r[2].exists)?(r[2].data()||{}):{};
+    window._abStat={items:_abDocs(r[0]), pts:pts, keys:_abStatKeysClean(cfg.keys)};
     var yms={}; yms[_curYm()]=1;
     window._abStat.items.forEach(function(o){ (o.hist||[]).forEach(function(h){ if(h&&h.ts) yms[_abYm(h.ts)]=1; }); });
     var sel=g('ab_stat_ym'), cur=sel&&sel.value;
@@ -24892,6 +24894,10 @@ function _abStatDraw(){
   var extra=function(k,nm){ if(k&&!seen[k]){ seen[k]=1; rows.push({k:k,nm:nm||k}); } };
   Object.keys(S.pts).forEach(function(k){ extra(k,(S.pts[k]||{}).nm); });
   evs.forEach(function(e){ extra(e.h.k,e.h.by); });
+  var allRows=rows;
+  if(S.keys&&S.keys.length){ var ks={}; S.keys.forEach(function(k){ ks[k]=1; }); rows=rows.filter(function(r){ return ks[r.k]; }); }   // [표시 팀원 설정] — 비어 있으면 전체
+  window._abStatRows=allRows;
+  if(!rows.length){ box.innerHTML='<div class="abempty">표시할 팀원이 없습니다. [표시 팀원 설정]에서 골라 주세요.</div>'; return; }
   var cnt=function(k,t){ return evs.filter(function(e){ return e.h.k===k&&e.h.t===t; }).length; };
   box.innerHTML='<div class="absub" style="margin-bottom:8px">'+_esc(_ymLabel(ym))+' 기준 · 보유포인트는 지금 기준</div><table class="dt abdt"><thead><tr><th>팀원이름</th><th>작성현황</th><th>구매현황</th><th>재등록현황</th><th>보유포인트</th></tr></thead><tbody>'
     +rows.map(function(r){
@@ -24900,7 +24906,46 @@ function _abStatDraw(){
       return '<tr><td style="font-weight:700">'+_esc(r.nm)+'</td><td>'+z(w,'건')+'</td><td>'+z(b,'건')+'</td><td>'+(rq||ra?'요청 '+rq+'건 · 승인 '+ra+'건':'<span style="color:#b0b4c4">0건</span>')+'</td><td>'+z(pt,'P')+'</td></tr>';
     }).join('')+'</tbody></table>';
 }
+// 표시 팀원 설정(관리자) — Firestore absdbcfg/stat = {keys:[사용자키…], ts, by}. 비어 있으면 전체 표시(mtcfg·rc_targets 계열). last-write-wins 수용(관리자 전용·저빈도).
+function _abStatKeysClean(a){ return Array.isArray(a)?a.filter(function(k){ return typeof k==='string'&&/^[cn]_/.test(k)&&k.length<=60; }).slice(0,300):[]; }
+function abStatMemOpen(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var S=window._abStat; if(!S||!window._abStatRows){ toast('목록을 먼저 불러온 뒤 설정할 수 있습니다. [새로고침]을 눌러 주세요.'); return; }
+  var old=g('ab_memcfg_pop'); if(old) old.remove();
+  var cur=S.keys&&S.keys.length?S.keys:null, rows=window._abStatRows;
+  var sb='padding:5px 12px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#555;cursor:pointer;font-family:inherit;font-size:12.5px;';
+  var ov=document.createElement('div'); ov.id='ab_memcfg_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,40,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:6px"><i class="ti ti-user-cog"></i> 교환 현황 표시 팀원</div>'
+    +'<div style="font-size:12.5px;color:#8888aa;margin-bottom:10px;line-height:1.6">체크된 사람만 [팀원별 현황]에 표시됩니다.<br>전원 체크(또는 전원 해제)하고 저장하면 전체 표시로 돌아갑니다. 디비교환현황 탭은 영향 없음.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px"><button data-abmall="1" style="'+sb+'">전체 선택</button><button data-abmall="0" style="'+sb+'">전체 해제</button></div>'
+    +'<div style="flex:1;overflow-y:auto;border:1px solid #e2e4ee;border-radius:8px;padding:8px;min-height:120px">'
+    +rows.map(function(r){ var on=cur?cur.indexOf(r.k)>=0:true;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:13.5px;color:#1a1a2e;cursor:pointer;border-radius:6px"><input type="checkbox" data-abmk="'+_alertEsc(r.k)+'"'+(on?' checked':'')+' style="accent-color:#4858cc;width:14px;height:14px">'+_esc(r.nm)+'</label>'; }).join('')
+    +'</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
+    +'<button data-abmclose="1" style="'+sb+'padding:8px 16px">취소</button>'
+    +'<button data-abmsave="1" style="padding:8px 18px;background:#4858cc;border:none;border-radius:7px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> 저장</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-abmall]').forEach(function(b){ b.addEventListener('click',function(){ var on=b.getAttribute('data-abmall')==='1'; ov.querySelectorAll('input[data-abmk]').forEach(function(c){ c.checked=on; }); }); });
+  ov.querySelector('[data-abmclose]').addEventListener('click',function(){ ov.remove(); });
+  ov.querySelector('[data-abmsave]').addEventListener('click',abStatMemSave);
+}
+function abStatMemSave(){
+  if(!_isAdmin()) return;
+  var ov=g('ab_memcfg_pop'); if(!ov) return;
+  var boxes=ov.querySelectorAll('input[data-abmk]'), keys=[];
+  boxes.forEach(function(c){ if(c.checked) keys.push(c.getAttribute('data-abmk')); });
+  var all=(!keys.length||keys.length===boxes.length); if(all) keys=[];
+  var db=_abDb(); if(!db){ toast('클라우드에 연결되지 않았습니다.'); return; }
+  var btn=ov.querySelector('[data-abmsave]'); if(btn) btn.disabled=true;
+  db.collection(AB_CFG).doc('stat').set({keys:keys, ts:Date.now(), by:(cu&&cu.name)||''}).then(function(){
+    if(window._abStat) window._abStat.keys=keys;
+    ov.remove(); toast(all?'전체 표시로 저장했습니다.':'표시 팀원 '+keys.length+'명으로 저장했습니다.'); _abStatDraw();
+  }).catch(function(e){ if(btn) btn.disabled=false; _abErr(e); });
+}
 function _abClear(){
+  var mp=g('ab_memcfg_pop'); if(mp) mp.remove(); window._abStatRows=null;
   abCloseForm(); window._abStat=null; window._abBuying=0; window._abSaving=0;
   ['W','M','B','R','S','F'].forEach(function(k){ window['_abSeq'+k]=(window['_abSeq'+k]||0)+1; });   // 로그아웃 뒤 늦게 온 목록 응답이 화면을 다시 채우지 않게(리뷰 반영)
   ['ab_write_box','ab_market_box','ab_buy_box','ab_rereg_box','ab_stat_box'].forEach(function(id){ var b=g(id); if(b) b.innerHTML=''; });
