@@ -496,7 +496,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #ab_pop .abx{cursor:pointer;font-size:24px;color:#8a8fa8;line-height:1}
 #ab_pop .abgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
 #ab_pop label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#3a4068}
-#ab_pop label b{color:#cc3040}
+#ab_pop .abreq{color:#cc3040;font-size:11.5px;font-weight:700;margin-left:2px}
 #ab_pop .abfi{padding:8px 10px;border:1px solid #ccd2e6;border-radius:7px;background:#fff;color:#1a1a2e;font-size:14.5px;font-family:inherit;outline:none}
 #ab_pop .abfi:focus{border-color:#4858cc}
 #ab_pop .abrec{margin-top:6px;border:2px dashed #c9cdd6;border-radius:8px;padding:12px 14px;background:#fafbfd;display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:400}
@@ -713,7 +713,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-10</div>
   </div>
 </div>
 
@@ -755,16 +755,16 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
   <div class="abcard">
     <div class="abhd"><span id="ab_pop_title">부재디비 작성</span><span class="abx" onclick="abCloseForm()">×</span></div>
     <div class="abgrid">
-      <label>성함 <b>*</b><input class="abfi" id="ab_f_nm" maxlength="20"></label>
-      <label>전화번호 <b>*</b><input class="abfi" id="ab_f_ph" maxlength="13" inputmode="numeric" oninput="_dbNoteFmtPhone(this)" placeholder="010-0000-0000"></label>
-      <label>지역<input class="abfi" id="ab_f_rg" maxlength="40"></label>
-      <label>생년월일<input class="abfi" id="ab_f_birth" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this);_abAgeAuto()" placeholder="숫자만 입력 (19800101)"></label>
-      <label>나이 <span style="font-weight:400;color:#8a8fa8">(생년월일에서 자동)</span><input class="abfi" id="ab_f_age" maxlength="5" inputmode="numeric" oninput="window._abAgeHand=!!this.value.trim()"></label>
-      <label>월납<input class="abfi" id="ab_f_prem" maxlength="30" placeholder="예: 10만원"></label>
+      <label>성함 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_nm" maxlength="20"></label>
+      <label>전화번호 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_ph" maxlength="13" inputmode="numeric" oninput="_dbNoteFmtPhone(this)" placeholder="010-0000-0000"></label>
+      <label>지역 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_rg" maxlength="40"></label>
+      <label>생년월일 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_birth" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this);_abAgeAuto()" placeholder="숫자만 입력 (19800101)"></label>
+      <label>나이 <span style="font-weight:400;color:#8a8fa8">(생년월일에서 자동 입력)</span><input class="abfi" id="ab_f_age" maxlength="5" inputmode="numeric" oninput="window._abAgeHand=!!this.value.trim()"></label>
+      <label>월납 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_prem" maxlength="30" placeholder="예: 10만원"></label>
       <label>방문희망<select class="abfi" id="ab_f_visit"><option value="">선택</option><option value="방문희망">방문희망</option><option value="방문 원하지 않음">방문 원하지 않음</option></select></label>
       <label>통화요청시간<input class="abfi" id="ab_f_call" maxlength="40" placeholder="예: 평일 오후 2시 이후"></label>
-      <label>DB회사<input class="abfi" id="ab_f_co" maxlength="40"></label>
-      <label>수급일<input class="abfi" id="ab_f_sd" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this)" placeholder="숫자만 입력 (20261022)"></label>
+      <label>DB회사 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_co" maxlength="40"></label>
+      <label>수급일 <b class="abreq">(필수)</b><input class="abfi" id="ab_f_sd" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this)" placeholder="숫자만 입력 (20261022)"></label>
       <div style="grid-column:1/-1;font-size:13px;font-weight:700;color:#3a4068">녹음파일 <span style="font-weight:400;color:#8a8fa8">(음성 파일, 20MB 이하 — 칸을 누르면 초록색으로 선택되고, 파일을 끌어다 놓거나 [파일 선택]으로 올립니다)</span>
         <div class="abrec" id="ab_f_recbox" onclick="_abRecSel(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="_abRecDrop(event)">
           <div id="ab_f_recst" class="abrecst">파일을 여기에 끌어다 놓으세요</div>
@@ -24662,8 +24662,10 @@ function abSave(){
   if(window._abSaving) return;
   var v={};
   AB_FIELDS.forEach(function(k){ var el=g('ab_f_'+k); v[k]=el?String(el.value||'').trim().slice(0,60):''; });
-  if(!v.nm) return toast('성함을 입력해 주세요.');
-  if(v.ph.replace(/\D/g,'').length<9) return toast('전화번호를 입력해 주세요.');
+  // 필수 칸(성함·전화번호·지역·생년월일·월납·DB회사·수급일) — 비면 저장하지 않고 그 칸에 포커스
+  var REQ=[['nm','성함'],['ph','전화번호'],['rg','지역'],['birth','생년월일'],['prem','월납'],['co','DB회사'],['sd','수급일']];
+  for(var ri=0;ri<REQ.length;ri++){ if(!v[REQ[ri][0]]){ toast(REQ[ri][1]+'은(는) 필수 입력입니다.'); try{ g('ab_f_'+REQ[ri][0]).focus(); }catch(e){} return; } }
+  if(v.ph.replace(/\D/g,'').length<9) return toast('전화번호를 끝까지 입력해 주세요.');
   if(v.sd&&!/^\d{4}-\d{2}-\d{2}$/.test(v.sd)) return toast('수급일은 숫자 8자리(예: 20261022)로 입력해 주세요.');
   if(v.birth&&!/^\d{4}-\d{2}-\d{2}$/.test(v.birth)) return toast('생년월일은 숫자 8자리(예: 19800101)로 입력해 주세요.');
   v.rec=window._abRec&&window._abRec.u?{u:window._abRec.u,n:window._abRec.n||''}:null;

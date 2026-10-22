@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-9. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-10. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1242,6 +1242,7 @@
   녹음파일 칸 `#ab_f_recbox` — 클릭=초록 선택(`.sel`, `_abRecSel`), 끌어다 놓기(`_abRecDrop` — stopPropagation, 4.8 규칙)·선택 상태 Ctrl+V(문서 paste 캡처, 입력칸 글자 붙여넣기는 제외)·[파일 선택].
   파일 공용 처리 `_abRecFile`(음성 MIME·확장자만). 문서 레벨 dragover/drop 캐치올에 `ab_pop` 열림 조건 추가(빗나간 드롭이 브라우저에서 열리지 않게).
 - **v-9 (사용자 요청)**: 작성 창 칸 순서 생년월일 → 나이. 생년월일이 완성되면 `_abAgeAuto`가 **만 나이**를 자동 기입(오늘 기준 생일 지났는지 반영). 나이 칸을 직접 고치면(`_abAgeHand`) 이후엔 덮지 않음, 수정 창은 저장된 나이가 있으면 직접 입력으로 취급.
+- **v-10 (사용자 요청)**: 필수 칸 = 성함·전화번호·지역·생년월일·월납·DB회사·수급일(라벨 옆 빨간 `(필수)` `.abreq`, `abSave`의 `REQ` 목록 — 비면 토스트+포커스·저장 안 함). 별표(*) 표시 폐지, 나이 라벨 "(생년월일에서 자동 입력)".
 - ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기·쓰기 허용 — 마켓에서 가린 성함·연락처도 콘솔로 읽히고 absdbpt 포인트도 직접 쓸 수 있음. 관리자 승인·내리기는 `_isAdmin` 클라이언트 가드뿐. 근본 해결은 서버 권한 작업 별도 과제.
 - 모의 실행(헤드리스 + 가짜 Firestore): 작성 2건 +2P → 타인 구매 −1P·0P 구매 거부·내 디비 구매 불가·마켓 성함/전화 미노출 → 재등록 요청 → 비관리자 재등록 리스트 차단 → 관리자 승인(소유 이전·+1P) → 월별 현황 2탭 통과.
 
