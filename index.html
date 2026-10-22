@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-14</div>
   </div>
 </div>
 
@@ -27876,7 +27876,6 @@ async function _bdrPrevDraw(name,catId){
     if(typeof pdfjsLib==='undefined') throw new Error('PDF 뷰어 미로드');
     var bytes=Uint8Array.from(atob(b64),function(ch){ return ch.charCodeAt(0); });
     var pdf=await pdfjsLib.getDocument({data:bytes}).promise;
-    try{ window._bdrAutoCache={slot:_bdDaeriSlot(cat), len:b64.length, auto:await _bdrAutoCoords(pdf)}; }catch(e){ console.warn('bdr auto', e); }
     var n=Math.min(pdf.numPages,5), imgs=[], sizes=[];
     for(var i=1;i<=n;i++){
       var pg=await pdf.getPage(i);
@@ -27892,6 +27891,13 @@ async function _bdrPrevDraw(name,catId){
     box.innerHTML=imgs.map(function(u,ix){ return '<div class="bdrpv" data-bdrpage="'+ix+'" style="position:relative;max-width:560px;margin:0 auto 10px"><img src="'+u+'" alt="" style="width:100%;display:block;border:1px solid #dde;border-radius:6px"></div>'; }).join('')
       +(pdf.numPages>n?'<div style="font-size:12px;color:#999;text-align:center">… 외 '+(pdf.numPages-n)+'쪽 (미리보기는 앞 '+n+'쪽만 표시)</div>':'');
     window._bdrPrevInfo={catId:catId, slot:_bdDaeriSlot(cat), sizes:sizes};
+    var autoN=0;
+    try{ var _auto=await _bdrAutoCoords(pdf); autoN=Object.keys(_auto).length;
+      if(gen!==window._bdrPrevGen) return;
+      window._bdrAutoCache={slot:_bdDaeriSlot(cat), len:b64.length, auto:_auto}; }
+    catch(e){ console.warn('bdr auto', e); window._bdrAutoCache=null; }   // 실패하면 옛 양식의 자동 좌표가 남지 않게(리뷰)
+    if(!autoN){ var nt=document.createElement('div'); nt.style.cssText='font-size:12px;color:#c07020;text-align:center;margin:4px 0 8px';
+      nt.textContent='이 양식에서 칸 이름(성명·연락처 …)을 찾지 못해 자동 배치가 안 됩니다 — 관리자가 [좌표 직접설정]으로 자리를 잡아야 입력값이 표시됩니다.'; box.insertBefore(nt, box.firstChild); }
     _bdrPrevOverlay();   // 이미 입력돼 있던 값도 즉시 표시
   }catch(e){
     console.warn('bdr preview', e);
@@ -27959,7 +27965,8 @@ async function _bdrAutoCoords(pdf){
   var np=Math.min(pdf.numPages,5);
   for(var pn=1;pn<=np;pn++){
     var page=await pdf.getPage(pn), vp=page.getViewport({scale:1});
-    if(((page.rotate||0)%360)!==0) continue;
+    if(((page.rotate||0)%360)!==0){ console.warn('bdr auto: 회전된 쪽은 자동 배치 생략', pn); continue; }
+    var ox=(page.view&&page.view[0])||0, oy=(page.view&&page.view[1])||0;   // CropBox≠MediaBox 양식: pdf.js 뷰포트는 CropBox 원점, 출력(pdf-lib)은 MediaBox 원점(리뷰)
     var tc=await page.getTextContent(), pl=[];
     tc.items.forEach(function(it){
       var s=String(it.str||''); if(!s) return;
@@ -27967,7 +27974,7 @@ async function _bdrAutoCoords(pdf){
       var fs=it.height>0?it.height:Math.hypot(tr[2],tr[3]); if(!(fs>0)) return;
       if(Math.abs(tr[1])>0.01||Math.abs(tr[2])>0.01) return;   // 회전·기울임 글자(워터마크) 제외
       var ln=null; for(var i=0;i<pl.length;i++) if(Math.abs(pl[i].base-pt[1])<fs*0.35){ ln=pl[i]; break; }
-      if(!ln){ ln={pg:pn-1, base:pt[1], H:vp.height, ch:[]}; pl.push(ln); }
+      if(!ln){ ln={pg:pn-1, base:pt[1], H:vp.height, ox:ox, oy:oy, ch:[]}; pl.push(ln); }
       for(var c=0;c<s.length;c++) ln.ch.push({c:s[c], x0:pt[0]+it.width*c/s.length, x1:pt[0]+it.width*(c+1)/s.length});
     });
     pl.sort(function(a,b){ return a.base-b.base; });
@@ -27983,38 +27990,49 @@ async function _bdrAutoCoords(pdf){
   var isLabel=function(ln,s0,s1){
     var pv=ln.chars[s0-1], nx=ln.chars[s1];
     if(pv&&ln.chars[s0].x0-pv.x1<GAP) return false;
-    if(nx&&nx.c!=='('&&nx.c!==':'&&nx.c!=='：'&&nx.x0-ln.chars[s1-1].x1<GAP) return false;
+    if(nx&&!/[(（:：]/.test(nx.c)&&nx.x0-ln.chars[s1-1].x1<GAP) return false;
     return true;
   };
   var place=function(ln,s0,s1){
     var end=s1;
     if(ln.chars[end]&&(ln.chars[end].c===':'||ln.chars[end].c==='：')) end++;
-    if(ln.chars[end]&&ln.chars[end].c==='('){ var cl=ln.str.indexOf(')',end); if(cl>0) end=cl+1; }   // "발급 범위 (환자 본인이 직접 작성합니다)" — 안내문 뒤로
+    if(ln.chars[end]&&/[(（]/.test(ln.chars[end].c)){ var cl=ln.str.search(/[)）]/); if(cl>end) end=cl+1; }   // "발급 범위 (환자 본인이 직접 작성합니다)" — 안내문 뒤로(닫는 괄호가 같은 줄에 있을 때만)
     var last=ln.chars[end-1], x=last.x1+6;
-    var o={page:ln.pg, x:Math.round(x*10)/10, y:Math.round((ln.H-ln.base)*10)/10};
+    var o={page:ln.pg, x:Math.round((x+ln.ox)*10)/10, y:Math.round((ln.H-ln.base+ln.oy)*10)/10};
     var nx=ln.chars[end]; if(nx&&nx.x0-x>20) o.w=Math.round((nx.x0-x-6)*10)/10;   // 같은 줄 다음 칸 이름("연락처") 앞에서 폭 제한 — 긴 값은 축소 기입(_sdDtx)
     return o;
   };
   var maxAlt=0; BDR_AUTO_LABELS.forEach(function(L){ maxAlt=Math.max(maxAlt,L.alts.length); });
+  var findAll=function(alt){   // 전체 줄에서 이 이름이 칸 이름으로 쓰인 자리(문서 순서 — 쪽→위→아래)
+    var hits=[];
+    lines.forEach(function(ln,li){
+      var from=0;
+      while(true){
+        var s0=ln.str.indexOf(alt,from); if(s0<0) break;
+        var s1=s0+alt.length; from=s1;
+        var clash=false; for(var t=0;t<ln.taken.length;t++) if(s0<ln.taken[t][1]&&s1>ln.taken[t][0]){ clash=true; break; }
+        if(clash) continue;   // 이미 다른 이름이 차지한 글자("진료기간"의 "기간")
+        if(!isLabel(ln,s0,s1)) continue;
+        hits.push({ln:ln,li:li,s0:s0,s1:s1});
+      }
+    });
+    return hits;
+  };
   for(var lvl=0;lvl<maxAlt;lvl++){   // 구체적인 이름(0번)을 전체 줄에서 먼저, 그다음 짧은 이름 순
     BDR_AUTO_LABELS.forEach(function(L){
-      var alt=L.alts[lvl]; if(!alt) return;
-      lines.forEach(function(ln){
-        var from=0;
-        while(true){
-          var s0=ln.str.indexOf(alt,from); if(s0<0) break;
-          var s1=s0+alt.length; from=s1;
-          var clash=false; for(var t=0;t<ln.taken.length;t++) if(s0<ln.taken[t][1]&&s1>ln.taken[t][0]){ clash=true; break; }
-          if(clash) continue;   // 이미 다른 이름이 차지한 글자("진료기간"의 "기간")
-          if(!isLabel(ln,s0,s1)) continue;
-          var key=null; for(var k=0;k<L.keys.length;k++) if(!used[L.keys[k]]){ key=L.keys[k]; break; }
-          if(!key) return;
-          ln.taken.push([s0,s1]); used[key]=1;
-          out[key]=place(ln,s0,s1);
-        }
-      });
+      if(L.keys.length>1) return;   // 두 사람 칸은 아래에서 문서 순서로
+      var alt=L.alts[lvl]; if(!alt||used[L.keys[0]]) return;
+      var h=findAll(alt)[0]; if(!h) return;
+      h.ln.taken.push([h.s0,h.s1]); used[L.keys[0]]=1; out[L.keys[0]]=place(h.ln,h.s0,h.s1);
     });
   }
+  BDR_AUTO_LABELS.forEach(function(L){   // 성명·연락처·생년월일·주소: 별칭을 전부 모아 문서 순서로 첫째=위임자, 둘째=위임받는자(별칭 단계 순이면 뒤바뀔 수 있음 — 리뷰)
+    if(L.keys.length<2) return;
+    var hits=[]; L.alts.forEach(function(alt){ hits=hits.concat(findAll(alt)); });
+    hits.sort(function(a,b){ return a.li-b.li||a.s0-b.s0; });
+    var seen=[]; hits=hits.filter(function(h){ var id=h.li+':'+h.s0; if(seen.indexOf(id)>=0) return false; seen.push(id); return true; });
+    hits.slice(0,L.keys.length).forEach(function(h,i){ h.ln.taken.push([h.s0,h.s1]); used[L.keys[i]]=1; out[L.keys[i]]=place(h.ln,h.s0,h.s1); });
+  });
   return out;
 }
 // 폼 값 → 청구엔진 c 객체(생성·실시간 미리보기 공용, 2026-09-11 분리)
@@ -28071,7 +28089,7 @@ async function _bdrBuild(name,catId){
   _bdrSyncFromDom(catId);
   if(!(window._bdrAutoCache&&window._bdrAutoCache.slot===slot&&window._bdrAutoCache.len===b64.length)&&typeof pdfjsLib!=='undefined'){
     try{ var _pb=Uint8Array.from(atob(b64),function(ch){ return ch.charCodeAt(0); });
-      window._bdrAutoCache={slot:slot, len:b64.length, auto:await _bdrAutoCoords(await pdfjsLib.getDocument({data:_pb}).promise)}; }catch(e){ console.warn('bdr auto', e); }
+      window._bdrAutoCache={slot:slot, len:b64.length, auto:await _bdrAutoCoords(await pdfjsLib.getDocument({data:_pb}).promise)}; }catch(e){ console.warn('bdr auto', e); window._bdrAutoCache=null; }
   }
   var c=_bdrFormC(catId);   // 실시간 미리보기와 동일 값 구성(2026-09-11 공용 분리)
   if(!c.insName&&!c.ctName){
