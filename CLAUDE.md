@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.16-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -841,6 +841,23 @@
   ⚠️ 고정 px!important로 되돌리지 말 것). 제목 비우면 로그인 화면에선 숨김, **사이드바·탭 제목은 기본값 유지**(머리 붕괴 방지).
 - ⚠️ 로그인 화면은 로그인 전이라 Firestore 미수신 — 처음 쓰는 기기는 첫 로그인 전까지 기본값(BRAND_DEF) 표시.
 - HERO_DEF.t도 'TIMS'로 변경(홈 히어로 기본값 복원 시 표시 문구). 문서·보고서 내부의 "TEAM TOPS" 문구(CSV·계보도·일일보고 등)는 범위 밖 — 그대로 둠.
+
+## 4.656 홈페이지 디자인 (themecfg, 2026-10-22 — v2026.10.22-1, 사용자 요청)
+
+- 환경설정 [🎨 홈페이지 디자인] 탭(관리자 전용, 전원 적용) — 로그인 화면·홈(사이드바·상단바 포함) 시안을 카드로 골라
+  미리보기(이 화면만) → [저장] 시 `sv('tops_themecfg', {login, home})`. 저장 안 하고 환경설정을 떠나면 showPage가 저장본으로 되돌림.
+- 적용 방식: `<html>`에 `th-l-<id>`·`th-h-<id>` 클래스 → CSS(`/* ===== 디자인 테마` 블록)만으로 겉모양 변경. **기존 id·동작은 그대로**.
+  brandcfg·herocfg가 인라인으로 칠하는 글씨체·색은 시안 CSS가 `!important`로 덮음(문구는 그대로 반영).
+- 등록 시안: 로그인 `default`(네이비 우주)·`l22`(스포트라이트), 홈 `default`(네이비 사이드바)·`h066`(작업 탭·아이보리 잉크).
+  기본값 THEME_DEF = l22 + h066(사용자 선택). 원본 시안: 캔버스 artifact Bf1UiNB3eMwsy4XeoLsDsm (project/Login22·H066.dc.html).
+- **새 시안 추가 3곳**: ① `THEME_CAT`에 {id,nm,ds,th(썸네일 HTML)} ② CSS `html.th-l-<id>`/`html.th-h-<id>` 규칙 ③ `<head>` 깜빡임 방지 스크립트의 L/H 목록.
+- `<head>` 인라인 스크립트가 로컬 캐시로 클래스·글씨체(DM Serif Display / Bodoni Moda)를 첫 화면 전에 적용(깜빡임 방지).
+  ⚠️ 로그인 화면은 로그인 전이라 Firestore 미수신 — 처음 쓰는 기기는 첫 로그인 전까지 THEME_DEF로 보임.
+- L22: 입력칸 위 라벨 `.l22lb`(기본 숨김, 기기인증 중엔 `_devUiShow`가 숨김), `.lopt`를 display:contents로 풀어 flex order로
+  체크박스→로그인 버튼→찾기 링크 순 배치(DOM 순서 불변). 부제가 기본값(INTRANET SYSTEM)일 때만 "TODAY'S STAGE IS YOURS"(_brandApply).
+- H066 작업 탭 `#ws_tabs`(PC만, 모바일은 기존 제목 `.tbt`): showPage → `_wsOnPage(name)`이 페이지 **키**로 탭 추가(함정 A 안전),
+  홈 고정·최대 8개·메모리 보관(새로고침/로그아웃 시 홈만). 탭 닫기는 이동이 막히면(미저장 확인 취소) 탭 유지. ＋는 메뉴 검색칸 포커스.
+  사이드바 현재 메뉴 `.ni-cur`(id `n_<페이지키>`) 표시. 명예의 전당 그리드에 `.hrank`, 제목 이모지는 `.hemo`(H066에서 숨김).
 
 ## 4.66 팀 미팅 — 작성 대상자 명단 (mtcfg, 2026-08-10)
 
