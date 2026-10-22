@@ -713,7 +713,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-9</div>
   </div>
 </div>
 
@@ -758,8 +758,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <label>성함 <b>*</b><input class="abfi" id="ab_f_nm" maxlength="20"></label>
       <label>전화번호 <b>*</b><input class="abfi" id="ab_f_ph" maxlength="13" inputmode="numeric" oninput="_dbNoteFmtPhone(this)" placeholder="010-0000-0000"></label>
       <label>지역<input class="abfi" id="ab_f_rg" maxlength="40"></label>
-      <label>나이<input class="abfi" id="ab_f_age" maxlength="5" inputmode="numeric"></label>
-      <label>생년월일<input class="abfi" id="ab_f_birth" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this)" placeholder="1980-01-01"></label>
+      <label>생년월일<input class="abfi" id="ab_f_birth" maxlength="10" inputmode="numeric" oninput="_abFmtBirth(this);_abAgeAuto()" placeholder="숫자만 입력 (19800101)"></label>
+      <label>나이 <span style="font-weight:400;color:#8a8fa8">(생년월일에서 자동)</span><input class="abfi" id="ab_f_age" maxlength="5" inputmode="numeric" oninput="window._abAgeHand=!!this.value.trim()"></label>
       <label>월납<input class="abfi" id="ab_f_prem" maxlength="30" placeholder="예: 10만원"></label>
       <label>방문희망<select class="abfi" id="ab_f_visit"><option value="">선택</option><option value="방문희망">방문희망</option><option value="방문 원하지 않음">방문 원하지 않음</option></select></label>
       <label>통화요청시간<input class="abfi" id="ab_f_call" maxlength="40" placeholder="예: 평일 오후 2시 이후"></label>
@@ -24546,6 +24546,15 @@ function _abPtShow(){
     document.querySelectorAll('.ab_ptv').forEach(function(el){ el.textContent=p+'P'; });
   }).catch(function(){});
 }
+// 생년월일이 완성되면 만 나이를 자동 기입 — 사용자가 나이 칸을 직접 고친 뒤에는 덮지 않음(_abAgeHand)
+function _abAgeAuto(){
+  var b=(g('ab_f_birth')||{}).value||'', a=g('ab_f_age'); if(!a||window._abAgeHand) return;
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(b); if(!m){ return; }
+  var y=+m[1], mo=+m[2], d=+m[3], t=new Date();
+  if(y<1900||mo<1||mo>12||d<1||d>31) return;
+  var age=t.getFullYear()-y-((t.getMonth()+1<mo||(t.getMonth()+1===mo&&t.getDate()<d))?1:0);
+  if(age>=0&&age<130) a.value=String(age);
+}
 // 생년월일: 숫자 8자리 → 1980-01-01
 function _abFmtBirth(el){ var d=el.value.replace(/\D/g,'').slice(0,8); el.value=d.length>6?d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6):(d.length>4?d.slice(0,4)+'-'+d.slice(4):d); }
 function _abStLbl(o){
@@ -24593,6 +24602,7 @@ function abOpenForm(id){
   var pop=g('ab_pop'); if(!pop) return;
   window._abEditId=id||''; window._abRec=null; window._abRecSeq=(window._abRecSeq||0)+1; window._abRecBusy=0;
   AB_FIELDS.forEach(function(k){ var el=g('ab_f_'+k); if(el) el.value=''; });
+  window._abAgeHand=false;
   var f=g('ab_f_rec'); if(f) f.value='';
   var st=g('ab_f_recst'); if(st){ st.textContent='파일을 여기에 끌어다 놓으세요'; st.style.color=''; }
   var rb=g('ab_f_recbox'); if(rb) rb.classList.remove('sel','drag');
@@ -24605,6 +24615,7 @@ function abOpenForm(id){
     if(!s.exists) return toast('그 사이 삭제된 디비입니다.');
     var o=s.data()||{};
     AB_FIELDS.forEach(function(k){ var el=g('ab_f_'+k); if(el) el.value=o[k]||''; });
+    window._abAgeHand=!!String(o.age||'').trim();
     if(o.rec&&o.rec.u){ window._abRec={u:o.rec.u,n:o.rec.n||''}; if(st) st.textContent='등록된 파일: '+(o.rec.n||'녹음파일')+' (새 파일을 고르면 바뀝니다)'; }
     pop.style.display='flex';
   }).catch(_abErr);
