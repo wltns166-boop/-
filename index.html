@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-13</div>
   </div>
 </div>
 
@@ -27979,11 +27979,21 @@ async function _bdrAutoCoords(pdf){
       if(ln.str) lines.push(ln);
     });
   }
+  var GAP=6;   // 칸 이름 앞뒤 빈 간격(pt — 낱말 사이 띄어쓰기 ≈3pt보다 크고 표 칸 경계(≥8pt)보다 작게) — 본문·안내문 속 같은 낱말("주소를 적으세요")은 칸 이름으로 보지 않음(리뷰)
+  var isLabel=function(ln,s0,s1){
+    var pv=ln.chars[s0-1], nx=ln.chars[s1];
+    if(pv&&ln.chars[s0].x0-pv.x1<GAP) return false;
+    if(nx&&nx.c!=='('&&nx.c!==':'&&nx.c!=='：'&&nx.x0-ln.chars[s1-1].x1<GAP) return false;
+    return true;
+  };
   var place=function(ln,s0,s1){
     var end=s1;
+    if(ln.chars[end]&&(ln.chars[end].c===':'||ln.chars[end].c==='：')) end++;
     if(ln.chars[end]&&ln.chars[end].c==='('){ var cl=ln.str.indexOf(')',end); if(cl>0) end=cl+1; }   // "발급 범위 (환자 본인이 직접 작성합니다)" — 안내문 뒤로
-    var last=ln.chars[end-1];
-    return {page:ln.pg, x:Math.round((last.x1+6)*10)/10, y:Math.round((ln.H-ln.base)*10)/10};
+    var last=ln.chars[end-1], x=last.x1+6;
+    var o={page:ln.pg, x:Math.round(x*10)/10, y:Math.round((ln.H-ln.base)*10)/10};
+    var nx=ln.chars[end]; if(nx&&nx.x0-x>20) o.w=Math.round((nx.x0-x-6)*10)/10;   // 같은 줄 다음 칸 이름("연락처") 앞에서 폭 제한 — 긴 값은 축소 기입(_sdDtx)
+    return o;
   };
   var maxAlt=0; BDR_AUTO_LABELS.forEach(function(L){ maxAlt=Math.max(maxAlt,L.alts.length); });
   for(var lvl=0;lvl<maxAlt;lvl++){   // 구체적인 이름(0번)을 전체 줄에서 먼저, 그다음 짧은 이름 순
@@ -27996,6 +28006,7 @@ async function _bdrAutoCoords(pdf){
           var s1=s0+alt.length; from=s1;
           var clash=false; for(var t=0;t<ln.taken.length;t++) if(s0<ln.taken[t][1]&&s1>ln.taken[t][0]){ clash=true; break; }
           if(clash) continue;   // 이미 다른 이름이 차지한 글자("진료기간"의 "기간")
+          if(!isLabel(ln,s0,s1)) continue;
           var key=null; for(var k=0;k<L.keys.length;k++) if(!used[L.keys[k]]){ key=L.keys[k]; break; }
           if(!key) return;
           ln.taken.push([s0,s1]); used[key]=1;
@@ -28028,7 +28039,13 @@ function _bdrCoordsFor(slot,c){
   var auto=(window._bdrAutoCache&&window._bdrAutoCache.slot===slot)?window._bdrAutoCache.auto:null;
   if(auto){
     var raw={}; try{ raw=(JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}')[slot])||{}; }catch(e){}
-    Object.keys(auto).forEach(function(k){ if(raw[k]) return; coords[k]=Object.assign({},coords[k]||{},auto[k],{on:true,auto:1}); });
+    var DEF={}; try{ (CLAIM_FIELDS_DEFAULT||[]).forEach(function(f){ DEF[f.key]=f; }); }catch(e){}
+    var untouched=function(k){   // 편집기 [저장]은 배치 안 한 키도 on:false·기본 좌표로 함께 저장한다 — 그건 "관리자가 정한 자리"가 아님(리뷰)
+      var r=raw[k]; if(!r) return true;
+      var d=DEF[k]; if(!d) return false;
+      return r.on===false&&Math.abs((+r.x||0)-d.x)<0.01&&Math.abs((+r.y||0)-d.y)<0.01&&((r.page||0)===(d.page||0));
+    };
+    Object.keys(auto).forEach(function(k){ if(!untouched(k)) return; coords[k]=Object.assign({},coords[k]||{},auto[k],{on:true,auto:1}); });
   }
   var wbOf={ctName:'ctName',ctRrn:'ctRrn',ctRrnFront:'ctRrn',ctRrnBack:'ctRrn',ctBirth:'ctBirth',
     ctPhone:'ctPhone',ctPhoneFront:'ctPhone',ctPhoneMid:'ctPhone',ctPhoneBack:'ctPhone',ctAddr:'ctAddr'};
@@ -32146,7 +32163,7 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
       else if(m.t==='rrn'){ if(ctx.insRrn) drawSpaced(ctx.insRrn.slice(0,6)+'-'+ctx.insRrn.slice(6)); }
       else if(m.t==='rrnCt'){ if(ctx.ctRrn) drawSpaced(ctx.ctRrn.slice(0,6)+'-'+ctx.ctRrn.slice(6)); }
       else if(m.t==='asc'){ var v=m.v?m.v(c,ctx):''; if(co.fmt==='yy2'&&/^\d{4}$/.test(String(v))) v=String(v).slice(2); if(v) drawSpaced(v); }
-      else if(m.t==='ko'){ var v2=m.v?m.v(c,ctx):''; if(v2) await dtx(pg,srcDoc,v2,co.x,co.y,fsz,m.w); }
+      else if(m.t==='ko'){ var v2=m.v?m.v(c,ctx):''; if(v2) await dtx(pg,srcDoc,v2,co.x,co.y,fsz,(typeof co.w==='number'&&co.w>0)?co.w:m.w); }   // co.w: 대리발급 자동 배치의 칸 폭(다음 칸 이름 앞까지 — 2026-10-22)
     }catch(e){ console.warn('drawField',key,e); }
   }
 }

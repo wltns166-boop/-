@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-12. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-13. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1820,7 +1820,10 @@
     그 이름 오른쪽(바로 뒤 괄호 안내문이 있으면 그 뒤) +6pt에 값 자리(page,x,y — 아래 원점 pt). 성명·연락처·생년월일·주소는 **첫 번째=위임자(환자), 두 번째=위임받는자(신청인)**.
     구체적인 이름(alts 앞쪽 — "발급범위")을 문서 전체에서 먼저 쓰고 짧은 이름("범위")은 못 찾았을 때만(세로 머리글 "범위"가 먼저 잡히던 경우 — 리뷰). 회전·기울임 글자 제외, 앞 5쪽.
     결과는 `window._bdrAutoCache={slot,len,auto}`(_bdrPrevDraw에서 계산, _bdrBuild는 캐시가 그 양식 것이 아니면 다시 계산) → `_bdrCoordsFor`가 **저장 좌표(tops_claim_coords_v2[slot])에 없는 키만** 자동 좌표로(on:true,auto:1) —
-    관리자가 [좌표 직접설정]에서 배치한 키는 저장본 우선. 글자 층 없는 스캔 양식은 자동 배치 0건(수동 좌표만). 헤드리스 검증(크로미움 생성 양식 — 13칸 전부 실시간 오버레이·PDF 기입 정확).
+    관리자가 [좌표 직접설정]에서 배치한 키는 저장본 우선 — ⚠️ 편집기 [저장]은 배치 안 한 키도 on:false·기본 좌표로 함께 저장하므로 "저장본에 키가 있음"만으로 판정하면
+    칸 하나만 고쳐도 자동 배치가 전부 꺼진다(v-13 리뷰) → `untouched(k)`(on:false + CLAIM_FIELDS_DEFAULT와 같은 x·y·page)면 자동 적용. 글자 층 없는 스캔 양식은 자동 배치 0건(수동 좌표만).
+    v-13: 칸 이름 앞뒤 간격 6pt 이상일 때만 칸 이름으로 인정(본문 문장 속 "주소"·"기간" 오탐 방지 — 14pt는 표 옆 세로 머리글과 붙은 칸을 놓침), 이름 뒤 ':' 건너뜀,
+    같은 줄 다음 칸 이름 앞까지 `w`(폭) 기록 → `drawClaimFields` ko 분기가 `co.w`를 m.w보다 우선(긴 값 축소 기입). 수용: 양식에 "신청인"이 먼저 나오면 두 사람이 뒤바뀜(순서 가정), CropBox≠MediaBox 양식은 어긋날 수 있음 — 그땐 [좌표 직접설정]. 헤드리스 검증(크로미움 생성 양식 — 13칸 전부 실시간 오버레이·PDF 기입 정확).
 - **사이드바 메뉴 검색 (2026-09-10 v-17)**: [메뉴] 라벨 아래 `#nav_srch` — 메뉴 라벨 실시간 필터(공백·대소문자 무시),
   일치 그룹 임시 펼침, 해제 시 접힘 상태 스냅샷 복원(`window._navSrchSnap`), 페이지 선택(showPage) 시 자동 해제.
   권한(setAdmin 인라인)·`.cfg-hide` 숨김 항목은 검색 제외, 숨김은 `.nav-sh` 클래스로만(인라인 표시값 보존).
