@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -859,7 +859,7 @@
   체크박스→로그인 버튼→찾기 링크 순 배치(DOM 순서 불변). 부제가 기본값(INTRANET SYSTEM)일 때만 "TODAY'S STAGE IS YOURS"(_brandApply).
 - H066 작업 탭 `#ws_tabs`(PC만, 모바일은 기존 제목 `.tbt`): showPage → `_wsOnPage(name)`이 페이지 **키**로 탭 추가(함정 A 안전),
   홈 고정·최대 8개·메모리 보관(새로고침/로그아웃 시 홈만). 탭 닫기는 이동이 막히면(미저장 확인 취소) 탭 유지. ＋는 메뉴 검색칸 포커스.
-  사이드바 현재 메뉴 `.ni-cur`(id `n_<페이지키>`) 표시. 명예의 전당 그리드에 `.hrank`, 제목 이모지는 `.hemo`(H066에서 숨김).
+  사이드바 현재 메뉴 `.ni-cur`(id `n_<페이지키>`) 표시. 명예의 전당 그리드에 `.hrank`, 제목 이모지는 `.hemo`(H066에서 숨김). v-6: 명예의 전당 제목 14.5px·01/02/03 번호 제거(사용자 요청).
 
 - **v2026.10.22-2 로고 선택 + 일정표 맞춤 (사용자 요청)**: themecfg에 `logo`('text'|'tops', 기본 tops, 클래스 `th-g-*`, head 스크립트 G 목록) —
   사용자 제공 TOPS 로고 그림 `brand/tops-logo.png`(흰 배경 투명화·여백 자름)과 은빛판 `brand/tops-logo-light.png`(어두운 바탕용 — 로그인·기본 네이비 사이드바).
