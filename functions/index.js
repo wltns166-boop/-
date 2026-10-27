@@ -415,6 +415,59 @@ async function _kkTripSend(test) {
   return { ok: sent > 0, sent, results };
 }
 
+// ── 주말 출장보고 (2026-10-27, 사용자 요청 "출장보고는 주말에도 발송") ──
+// 일일보고 자동발송이 [주말 제외]로 쉬는 토·일에도, 보고서의 '출장보고 — 익일' 칸(다음날 출장 대상자)만
+// 일일보고와 같은 시각·같은 대상자(cfg.reportTo)에게 텍스트로 보낸다. 다음날 출장이 없으면 "없음"으로 1통.
+async function _kkTripNextSend() {
+  const [cfgSnap, tokSnap, dataSnap] = await Promise.all([KK_CFG().get(), KK_TOK().get(), KK_DATA().get()]);
+  const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
+  if (!cfg.restKey) return { ok: false, error: "no restKey" };
+  const users = (tokSnap.exists ? (tokSnap.data() || {}) : {}).users || {};
+  const d = dataSnap.exists ? (dataSnap.data() || {}) : {};
+  const trips = Array.isArray(d.trips) ? d.trips : [];
+  const nd = new Date(_kkNow().getTime() + 24 * 3600 * 1000);
+  const ndStr = nd.getUTCFullYear() + "-" + _kkPad(nd.getUTCMonth() + 1) + "-" + _kkPad(nd.getUTCDate());
+  const ndLbl = (nd.getUTCMonth() + 1) + "/" + nd.getUTCDate() + "(" + ["일", "월", "화", "수", "목", "금", "토"][nd.getUTCDay()] + ")";
+  const list = trips.filter((t) => t && String(t.when || "").slice(0, 10) === ndStr);
+  const allow = Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS;
+  const ids = Object.keys(users).filter((id) => users[id] && users[id].approved && allow.indexOf(String(users[id].member || "")) >= 0);
+  if (!ids.length) return { ok: false, error: "발송 대상자 없음(연동·승인 확인)" };
+  const hm = (v) => { const m = String(v || "").match(/T(\d{2}):(\d{2})/); return m ? (m[1] + ":" + m[2]) : "-"; };
+  const head = "[출장보고] 익일 " + ndLbl + " 출장 " + (list.length ? list.length + "건" : "없음");
+  const lines = list.map((t, i) => (i + 1) + ". " + (t.m || "-") + " · " + hm(t.when) + " · " + (t.place || "-") + " · " + (t.reason || "-") + (t.okBy ? " ✔확인" : ""));
+  const chunks = [];
+  let curTxt = "";
+  [head].concat(lines).forEach((ln) => {
+    ln = String(ln).slice(0, 190);
+    if ((curTxt + (curTxt ? "\n" : "") + ln).length > 200) { if (curTxt) chunks.push(curTxt); curTxt = ln; }
+    else curTxt += (curTxt ? "\n" : "") + ln;
+  });
+  if (curTxt) chunks.push(curTxt);
+  const link = KK_SITE;
+  let sent = 0, tokChanged = false;
+  const results = [];
+  for (const id of ids) {
+    const u = users[id] || {};
+    const nick = u.nick || ("사용자" + String(id).slice(-4));
+    const t = await _kkAccessToken(cfg, u);
+    if (!t.at) {
+      if (t.relink) { u.needsRelink = true; tokChanged = true; }
+      results.push({ nick, ok: false, err: t.err });
+      continue;
+    }
+    if (t.upd) { Object.assign(u, t.upd); u.needsRelink = false; tokChanged = true; }
+    let okAll = true;
+    for (const c of chunks.slice(0, 5)) {
+      const tpl = JSON.stringify({ object_type: "text", text: String(c).slice(0, 200), link: { web_url: link, mobile_web_url: link }, button_title: "인트라넷 열기" });
+      const s = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, t.at);
+      if (!s.ok) { okAll = false; results.push({ nick, ok: false, err: (s.data.msg || ("전송 실패 " + s.status)) }); break; }
+    }
+    if (okAll) { sent++; results.push({ nick, ok: true }); }
+  }
+  if (tokChanged) await KK_TOK().set({ users }, { merge: true }).catch(() => {});
+  return { ok: sent > 0, sent, results, n: list.length };
+}
+
 // /api 의 카카오 액션 분기 처리
 async function _kkHandle(body, res) {
   const action = String(body.kakao || "");
@@ -1085,7 +1138,21 @@ exports.kakaoDaily = onSchedule(
     if (_kkHm() < (cfg.sendTime || "18:00")) return;        // 아직 발송 시각 전
     if (cfg.skipWeekend) {
       const day = _kkNow().getUTCDay();
-      if (day === 0 || day === 6) return;
+      if (day === 0 || day === 6) {
+        // 주말: 일일보고는 쉬고 출장보고(익일 출장)만 발송 — 일일보고와 따로 하루 1회 표식(lastTripWkDate)
+        if (cfg.lastTripWkDate === today) return;
+        await KK_CFG().set({ lastTripWkDate: today }, { merge: true });
+        let w;
+        try { w = await _kkTripNextSend(); }
+        catch (e) { w = { ok: false, error: String((e && e.message) || e) }; }
+        if (!w.ok) {
+          console.warn("주말 출장보고 발송 실패 — 다음 턴 재시도:", JSON.stringify(w.results || w.error));
+          await KK_CFG().set({ lastTripWkDate: "" }, { merge: true });
+        } else {
+          console.log("주말 출장보고 발송:", w.sent + "명 · 익일 " + w.n + "건");
+        }
+        return;
+      }
     }
     // 중복 발송 방지를 위해 먼저 오늘 날짜를 기록하고, 실패(예외 포함) 시 되돌려 다음 턴에 재시도
     await KK_CFG().set({ lastSentDate: today }, { merge: true });
