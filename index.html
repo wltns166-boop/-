@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-2</div>
   </div>
 </div>
 
@@ -28105,7 +28105,11 @@ function _bdrCoordsFor(slot,c){
       var d=DEF[k]; if(!d) return false;
       return r.on===false&&Math.abs((+r.x||0)-d.x)<0.01&&Math.abs((+r.y||0)-d.y)<0.01&&((r.page||0)===(d.page||0));
     };
-    Object.keys(auto).forEach(function(k){ if(!untouched(k)) return; coords[k]=Object.assign({},coords[k]||{},auto[k],{on:true,auto:1}); });
+    // 관리자가 같은 항목을 추가본(_2·_3…)으로 배치해 둔 경우에도 자동 배치를 끈다(2026-10-27 실사용 — 기본 칸은 꺼 두고 [+ 추가]로 배치하면
+    // 자동 자리 + 관리자 자리에 이름·연락처·주소가 두 번 찍혔다). 같은 쪽에 같은 항목(_N 제외 이름)이 하나라도 켜져 있으면 관리자 배치로 본다.
+    var bk=function(k){ return String(k).replace(/_\d+$/,''); };
+    var placed={}; Object.keys(raw).forEach(function(rk){ var r=raw[rk]; if(r&&r.on!==false) placed[bk(rk)+'|'+(+r.page||0)]=1; });
+    Object.keys(auto).forEach(function(k){ if(!untouched(k)||placed[bk(k)+'|'+(+(auto[k]&&auto[k].page)||0)]) return; coords[k]=Object.assign({},coords[k]||{},auto[k],{on:true,auto:1}); });
   }
   var wbOf={ctName:'ctName',ctRrn:'ctRrn',ctRrnFront:'ctRrn',ctRrnBack:'ctRrn',ctBirth:'ctBirth',
     ctPhone:'ctPhone',ctPhoneFront:'ctPhone',ctPhoneMid:'ctPhone',ctPhoneBack:'ctPhone',ctAddr:'ctAddr'};

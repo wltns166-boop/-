@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1975,6 +1975,10 @@
   FieldPath를 못 쓰면 sv 폴백. 실패는 기다려 토스트 후 throw(페이지 삭제 흐름이 안내), 10초 응답 없음(오프라인)은 "연결되면 전송" 안내 후 진행.
   ③ 같은 함수의 재생성 목록을 localStorage 재읽기 → `_reloadClaims()`(함정 C). 헤드리스 모의 실행(로컬 쓰기 실패 + 낡은 캐시 → 편집기는 클라우드 값, 저장은 슬롯 하나만, 실패 시 throw) 통과.
   ⚠️ 이번 사고로 덮인 1쪽 좌표는 복구하지 않음 — 관리자가 [좌표 직접설정]에서 다시 배치(2쪽 항목·1쪽 insName/ctName_2/insName_2는 남아 있음).
+  **v2026.10.27-2 (실사용 — 미리보기에 신청인 성명·연락처·주소가 두 번씩 찍힘)**: 관리자가 1쪽을 다시 배치할 때 기본 칸(ctName 등)은 꺼진 채 두고
+  [+ 추가]로 `ctName_2`·`ctPhone_3`·`ctAddr_3` 같은 추가본을 놓았는데, 꺼진 기본 칸은 `untouched`(기본 좌표+off)라 자동 배치가 다시 켜서 같은 값이 두 곳에 찍혔다.
+  `_bdrCoordsFor`가 **같은 쪽에 같은 기본 이름(_N 제거)의 켜진 저장 항목이 있으면** 자동 배치를 건너뜀(쪽 단위 — 2쪽 배치가 1쪽 자동을 막지 않음).
+  실제 클라우드 좌표로 모의 실행: ct*·hospName 자동 꺼짐, 배치 안 된 period만 자동 유지.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
