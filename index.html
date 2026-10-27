@@ -26895,12 +26895,10 @@ async function _ckCoords(u){   // 양식 글자에서 '담당자'·'핸드폰' �
       if(!lm&&/^담당자:?$/.test(b.s)) lm=b;
       if(!lh&&/^(핸드폰|휴대폰|연락처|전화번호?):?$/.test(b.s)) lh=b;
     });
-    if(lm&&lh){
-      co.fs=Math.max(8,Math.min(14,Math.round(lm.h)));
-      co.mgr={x:lm.x+lm.w+10, y:lm.y, w:Math.max(40,lh.x-(lm.x+lm.w+10)-14)};
-      co.hp={x:lh.x+lh.w+10, y:lh.y, w:Math.max(40,co.W-36-(lh.x+lh.w+10))};
-    }
-  }catch(e){ console.warn('체크리스트 칸 위치 찾기 실패 — 기본 위치 사용:',e); }
+    if(lm||lh) co.fs=Math.max(8,Math.min(14,Math.round((lm||lh).h)));   // 하나만 찾아도 그 칸은 적용(리뷰)
+    if(lm) co.mgr={x:lm.x+lm.w+10, y:lm.y, w:Math.max(40,(lh&&lh.y===lm.y&&lh.x>lm.x?lh.x:co.W-36)-(lm.x+lm.w+10)-14)};
+    if(lh) co.hp={x:lh.x+lh.w+10, y:lh.y, w:Math.max(40,co.W-36-(lh.x+lh.w+10))};
+  }catch(e){ console.warn('체크리스트 칸 위치 찾기 실패 — 이번만 기본 위치 사용(다음에 다시 시도):',e); return co; }   // 일시 실패는 캐시하지 않음(리뷰)
   window._ckCoCache[u]=co;
   return co;
 }
