@@ -22226,7 +22226,7 @@ function _wkmtData(){
   (prf||[]).forEach(function(p){ if(!p||!agg[p.m]||_perfMonth(p)!==ym) return; agg[p.m].c+=(+p.c||0); agg[p.m].a+=(+p.a||0); agg[p.m].ay+=(+p.ay||0); });
   var tot={c:0,a:0,ay:0}; team.forEach(function(n){ tot.c+=agg[n].c; tot.a+=agg[n].a; tot.ay+=agg[n].ay; });
   var goals={}; (gls||[]).forEach(function(g2){ if(g2&&g2.type==='monthly'&&team.indexOf(g2.m)>=0) goals[g2.m]=g2; });
-  var goalA=0, goalC=0; team.forEach(function(n){ if(goals[n]){ goalA+=(+goals[n].a||0); goalC+=(+goals[n].c||0); } });
+  var goalA=0, goalC=0, goalHit=0, goalN=0; team.forEach(function(n){ if(goals[n]&&(+goals[n].a||0)>0){ goalA+=(+goals[n].a||0); goalC+=(+goals[n].c||0); goalHit+=agg[n].a; goalN++; } });   // 달성률은 목표가 있는 사람의 실적만(리뷰 — 목표 없는 사람 실적이 분자에 들어가 부풀던 문제)
   var wcs=team.map(function(n){ return {n:n,r:wcRec(n,wk)}; });
   var exs=(_examsFresh()||[]).filter(function(e){ return e&&((e.submitter&&team.indexOf(e.submitter)>=0)||(e.belong&&team.indexOf(e.belong)>=0)); })
     .slice().sort(function(a,b){ if(!!a.done!==!!b.done) return a.done?1:-1; return String(b.regDate||'').localeCompare(String(a.regDate||'')); });
@@ -22236,7 +22236,7 @@ function _wkmtData(){
   var hasSub=function(n){ return mem.some(function(m){ return m&&m.name&&m.belong===n&&m.name!==n; }); };
   var teams=team.filter(hasSub).map(function(L){ var ns=_drSubTeam(L), t={c:0,a:0,ay:0};
     ns.forEach(function(n){ var v=agg[n]; if(v){ t.c+=v.c; t.a+=v.a; t.ay+=v.ay; } }); return {L:L,n:ns.length,t:t}; });
-  return {leader:leader,wk:wk,ym:ym,wkLabel:_wkmtWkLabel(wk),team:team,agg:agg,tot:tot,goals:goals,goalA:goalA,goalC:goalC,
+  return {leader:leader,wk:wk,ym:ym,wkLabel:_wkmtWkLabel(wk),team:team,agg:agg,tot:tot,goals:goals,goalA:goalA,goalC:goalC,goalHit:goalHit,goalN:goalN,
     wcs:wcs,wcDone:wcs.filter(function(x){return !!x.r;}).length,exs:exs,biz:biz,cards:cards,teams:teams,
     goalNow:ym===_curYm()};
 }
@@ -22362,7 +22362,7 @@ function _wkmtBuild(d, th, items){
       catAxisLabelColor:T.fg,catAxisLabelFontSize:9,catAxisLabelFontFace:B,valAxisHidden:true,valGridLine:{style:'none'},catGridLine:{style:'none'},
       showLegend:false,catAxisLineShow:false,barGapWidthPct:55,showTitle:!!o.title,title:o.title,titleFontSize:11,titleColor:T.fg,titleFontFace:B}); };
   var pages=function(rows,n){ var out=[]; for(var i=0;i<rows.length;i+=n) out.push(rows.slice(i,i+n)); return out.length?out:[[]]; };
-  var rate=d.goalA>0?Math.round(d.tot.a/d.goalA*100):null;
+  var rate=d.goalA>0?Math.round(d.goalHit/d.goalA*100):null;
   var K=[['팀 인정실적',String(_wkmtMan(d.tot.a).toLocaleString()),'만원'],['월간 목표',d.goalA?String(_wkmtMan(d.goalA).toLocaleString()):'-',d.goalA?'만원':''],
     ['목표 달성률',rate===null?'-':String(rate),rate===null?'':'%'],['주마감 제출',d.wcDone+'/'+d.team.length,'명']];
   var memSorted=d.team.slice().sort(function(a,b){ return d.agg[b].a-d.agg[a].a; });
@@ -22411,6 +22411,7 @@ function _wkmtBuild(d, th, items){
     bar(s,0.6,3.25,4.2,1.95,topN.slice(0,6),topN.slice(0,6).map(function(n){ return _wkmtMan(d.agg[n].a); }));
     table(s,5.2,3.35,4.15,['이름','초회','2차','클로징','확정'],wcShort(5),[3,1.2,1.2,1.4,1.2],{fs:9,rh:0.29});
   }
+  if(!d.goalNow&&rate!==null) TXT(s,'※ 목표 달성률은 현재 등록된 월간 목표 기준',{x:0.5,y:5.3,w:5,h:0.22,fontSize:8,color:T.mu});
   s.addNotes(sub+' — 표지·요약');
 
   // ── 2. 선택한 내용 ──
@@ -22419,7 +22420,9 @@ function _wkmtBuild(d, th, items){
   chosen.forEach(function(it){
     if(it.k==='tree'){
       sect('계보도',function(s2,y0){
-        var kids=mem.filter(function(m){ return m&&m.name&&m.belong===d.leader&&m.name!==d.leader; }).sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+        var kidsAll=mem.filter(function(m){ return m&&m.name&&m.belong===d.leader&&m.name!==d.leader; }).sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+        var kids=kidsAll.slice(0,18);   // 3줄(18칸)까지 — 넘치면 아래 안내
+        if(kidsAll.length>18) TXT(s2,'외 '+(kidsAll.length-18)+'명: '+kidsAll.slice(18).map(function(m){ return m.name; }).join(', '),{x:X,y:5.05,w:W*0.6,h:0.22,fontSize:8,color:T.mu,fit:'shrink'});
         var bw=2.0, bh=0.62; panel(s2,X+(W-bw)/2-0.05,y0,bw+0.1,bh+0.1);
         TXT(s2,[{text:d.leader+' '+(_wkmtRank(d.leader)||''),options:{fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,breakLine:true}},{text:'팀 '+d.team.length+'명 · '+_wkmtMan(d.tot.a).toLocaleString()+'만원',options:{fontSize:9,color:T.acc}}],{x:X+(W-bw)/2,y:y0+0.05,w:bw,h:bh,align:'center'});
         if(!kids.length){ TXT(s2,'하부 인원이 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
@@ -22486,7 +22489,7 @@ function _wkmtBuild(d, th, items){
         return [n,ga?_wkmtWon(ga):'-',_wkmtWon(v.a),rt===null?'-':{t:rt+'%',b:1,c:rt>=100?'2E7D32':(rt>=70?((th==='score'||th==='tech')?'FFFFFF':T.hf):T.acc)},gc?gc+'건':'-',v.c+'건']; });
       var gp=pages(gr,11);
       gp.forEach(function(rs,pi){ sect('월간목표실적',function(s2,y0){
-        TXT(s2,'팀 목표 '+(d.goalA?_wkmtWon(d.goalA):'미설정')+' · 현재 '+_wkmtWon(d.tot.a)+(rate===null?'':' · 달성률 '+rate+'%')+(d.goalNow?'':' (목표는 현재 등록된 월간 목표 기준)'),{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,fit:'shrink'});
+        TXT(s2,'팀 목표 '+(d.goalA?_wkmtWon(d.goalA):'미설정')+(d.goalA?' · 목표 설정 '+d.goalN+'명 실적 '+_wkmtWon(d.goalHit):'')+(rate===null?'':' · 달성률 '+rate+'%')+(d.goalNow?'':' (목표는 현재 등록된 월간 목표 기준)'),{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,fit:'shrink'});
         if(rate!==null){ RRECT(s2,{x:X,y:y0+0.4,w:W,h:0.22,fill:{color:th==='score'?'2C2C2C':(th==='tech'?'132F4C':'E6E3EE')},rectRadius:0.11});
           RRECT(s2,{x:X,y:y0+0.4,w:Math.max(0.25,W*Math.min(rate,100)/100),h:0.22,fill:{color:T.acc},rectRadius:0.11}); }
         table(s2,X,y0+0.8,W,['이름','목표 인정실적','현재 인정실적','달성률','목표 건수','현재 건수'],rs,[1.5,1.8,1.8,1,1,1]); },gp.length>1?(pi+1)+'/'+gp.length:''); });
