@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1251,6 +1251,14 @@
   창은 목록을 불러온 뒤(`window._abStatRows`)에만 열림, `_abClear`에서 창·목록 제거. last-write-wins·클라이언트 가드 수용(관리자 전용). 헤드리스 검증(2명 저장→재로드 유지→전체 복귀→비관리자 차단).
 - ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기·쓰기 허용 — 마켓에서 가린 성함·연락처도 콘솔로 읽히고 absdbpt 포인트도 직접 쓸 수 있음. 관리자 승인·내리기는 `_isAdmin` 클라이언트 가드뿐. 근본 해결은 서버 권한 작업 별도 과제.
 - 모의 실행(헤드리스 + 가짜 Firestore): 작성 2건 +2P → 타인 구매 −1P·0P 구매 거부·내 디비 구매 불가·마켓 성함/전화 미노출 → 재등록 요청 → 비관리자 재등록 리스트 차단 → 관리자 승인(소유 이전·+1P) → 월별 현황 2탭 통과.
+
+## 4.9985 상담고객체크리스트 (ck, 2026-10-27 — v2026.10.27-5, 사용자 요청)
+
+- 자료실 › 각종양식의 **[상담고객체크리스트]** 분류(클라우드 boardcats에 직접 추가) + 사용자 제공 PDF 게시물(Storage board_files/ — 원본 + 1쪽 그림 pages[0]).
+- 분류 이름에 '체크리스트'가 든 탭 → 패널 `_ckPanelHtml`(rCustomPage — 대리발급·상속세·연말정산 다음 순위): 왼쪽 담당자·핸드폰 입력(`_bdrMyInfo` 자동 채움, 핸드폰 `_bdrFmtPhoneStr`),
+  [바로 출력](`ckPrint` — 새 탭 먼저·print)·[PDF 저장](`ckSavePdf`), 오른쪽 미리보기(그림 위 파란 글자 겹침 `_ckOverlay`, cqw 크기).
+- 양식 = 그 분류 게시물 중 최신 PDF(`_ckSrc`, `_bdPdfs` 화이트리스트). 값 자리 `_ckCoords` — 양식 글자에서 '담당자'·'핸드폰'(나뉜 글자 조각을 같은 줄에서 이어 붙여 판정) 오른쪽, 못 찾으면 `CK_DEF`.
+  기입은 `_sdDtx`(한글 PNG·긴 값 축소). 입력은 메모리 `window._ckBuf`만(저장 없음), logout 리셋. id `ck_` 접두.
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 

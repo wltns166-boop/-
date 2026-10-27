@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-5</div>
   </div>
 </div>
 
@@ -4929,6 +4929,7 @@ function logout(){
   // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
+  window._ckBuf=null;   // 상담고객체크리스트 담당자·핸드폰 입력도 리셋(2026-10-27)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
   window._dvState=null;  // 내 자료함 탐색 상태(팀원·경로) 리셋 — 다른 사용자가 이어받지 않게
   try{ if(typeof _rsvClear==='function') _rsvClear(); }catch(e){}   // 예약문자 — 고객 성함·연락처가 다음 로그인 사용자에게 남지 않게
@@ -25555,6 +25556,13 @@ function rCustomPage(name){
     if(_yc&&_bdIsYear(_yc)) yearCat=_yc;
   }
   var yearPanel=yearCat?_yrPanelHtml(name,yearCat):'';
+  // '체크리스트' 분류 탭 — 상담고객체크리스트 담당자·핸드폰 입력 + 출력 (2026-10-27)
+  var ckCat=null;
+  if(csel&&csel!=='_none'&&!daeriCat&&!sangCat&&!yearCat){
+    var _kc=cats.filter(function(cc){ return cc.id===csel; })[0];
+    if(_kc&&_bdIsCk(_kc)) ckCat=_kc;
+  }
+  var ckPanel=ckCat?_ckPanelHtml(name,ckCat):'';
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
@@ -25579,11 +25587,12 @@ function rCustomPage(name){
       +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
       +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
       +'</div>':'')
-    +'</div>'+catbar+daeriPanel+sangPanel+yearPanel+grid+pager+'</div>';
+    +'</div>'+catbar+daeriPanel+sangPanel+yearPanel+ckPanel+grid+pager+'</div>';
   _bdBind(body,name);
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
   if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
   if(yearCat){ try{ _yrCalc(); }catch(e){} }                          // 연말정산도 같은 이유로 최초 1회(빠뜨리면 결과 칸이 빈 채로 보임)
+  if(ckCat){ try{ _ckPrevLoad(name,ckCat.id); }catch(e){} }           // 체크리스트 칸 위치·미리보기 로드
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
 // 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
@@ -26833,6 +26842,168 @@ function ssGuidePrint(kind){
 //   미반영: 주택자금·개인연금저축 등 그 밖의 소득공제, 부녀자·한부모 추가공제, 의료비 본인/65세↑/난임 별도 한도,
 //   체크카드·전통시장·대중교통 추가공제, 중소기업 취업자 감면, 지방소득세(소득세의 10% 별도) — 화면에 명시한다.
 function _bdIsYear(cat){ return !!(cat&&/연말정산/.test(String(cat.nm||''))); }
+// ----- 상담고객체크리스트 (2026-10-27 — v2026.10.27-5, 사용자 요청) -----
+// 게시판 분류 이름에 '체크리스트'가 들어간 탭 → 담당자·핸드폰 입력(로그인 팀원 정보 자동) + 미리보기 + [바로 출력]/[PDF 저장].
+// 양식은 그 분류에 올린 게시물 중 최신 PDF(원본 u + 미리보기 그림 pages[0]). 입력값은 메모리 버퍼(window._ckBuf)만 — logout 리셋.
+function _bdIsCk(cat){ return !!(cat&&/체크리스트/.test(String(cat.nm||''))); }
+// 원본 양식(상담체크리스트 A4) 밑줄 자리 — 아래 원점 pt, y는 글자 바닥선. 양식에서 '담당자'·'핸드폰' 글자를 찾으면 그 오른쪽으로 대체(_ckCoords).
+var CK_DEF={W:594.96,H:841.92,fs:11,mgr:{x:306,y:47,w:90},hp:{x:462,y:47,w:92}};
+function _ckGetVals(catId){
+  window._ckBuf=window._ckBuf||{};
+  if(!window._ckBuf[catId]){ var my=_bdrMyInfo(); window._ckBuf[catId]={mgr:my.name||'',hp:_bdrFmtPhoneStr(my.phone||''),_f:my.phone?1:0}; }
+  else if(!window._ckBuf[catId]._f){   // 클라우드 수신 전에 열렸으면 받은 뒤 한 번만 빈 칸 채움(_bdrGetVals와 같은 규칙)
+    var v=window._ckBuf[catId], m2=_bdrMyInfo();
+    if(m2.phone){ if(!v.hp) v.hp=_bdrFmtPhoneStr(m2.phone); v._f=1; }
+  }
+  return window._ckBuf[catId];
+}
+function _ckSrc(name,catId){   // 그 분류의 최신 PDF 게시물
+  var out=null;
+  _bdPosts(name).filter(function(p){ return p&&p.cat===catId; })
+    .sort(function(a,b){ return (+b.ts||0)-(+a.ts||0); })
+    .forEach(function(p){
+      if(out) return; var f=_bdPdfs(p)[0]; if(!f) return;   // _bdPdfs가 _BD_URL_RE(우리 board_files)로 거른 주소만
+      var im=(Array.isArray(f.pages)&&f.pages[0]&&_BD_URL_RE.test(String(f.pages[0])))?f.pages[0]:'';
+      out={u:f.u,img:im};
+    });
+  return out;
+}
+function _ckBufOf(u){
+  window._ckPdfBuf=window._ckPdfBuf||{};
+  if(!window._ckPdfBuf[u]) window._ckPdfBuf[u]=fetch(u).then(function(r){ if(!r.ok) throw new Error('양식 PDF를 받지 못했습니다('+r.status+')'); return r.arrayBuffer(); })
+    .catch(function(e){ delete window._ckPdfBuf[u]; throw e; });
+  return window._ckPdfBuf[u];
+}
+async function _ckCoords(u){   // 양식 글자에서 '담당자'·'핸드폰' 위치를 찾아 값 자리 계산(없으면 CK_DEF)
+  window._ckCoCache=window._ckCoCache||{};
+  if(window._ckCoCache[u]) return window._ckCoCache[u];
+  var co=JSON.parse(JSON.stringify(CK_DEF));
+  try{
+    var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(u)).slice(0)}).promise;
+    var pg=await pdf.getPage(1), vw=pg.view||[0,0,CK_DEF.W,CK_DEF.H];
+    co.W=vw[2]-vw[0]; co.H=vw[3]-vw[1];
+    var tc=await pg.getTextContent(), lm=null, lh=null;
+    // 글자가 한두 자씩 나뉘어 나오는 PDF가 있어("담당"+"자") 같은 줄에서 붙어 있는 조각을 이어 붙여 판정
+    var its=(tc.items||[]).map(function(it){ var tr=it.transform||[]; return {s:String(it.str||'').replace(/\s/g,''), x:(tr[4]||0)-vw[0], y:(tr[5]||0)-vw[1], w:it.width||0, h:Math.abs(tr[3]||0)||11}; })
+      .filter(function(o){ return o.s; }).sort(function(a,b){ return Math.abs(a.y-b.y)>1.5?(b.y-a.y):(a.x-b.x); });
+    var runs=[], cur=null;
+    its.forEach(function(o){
+      if(cur&&Math.abs(o.y-cur.y)<=1.5&&o.x-(cur.x+cur.w)<=3){ cur.s+=o.s; cur.w=o.x+o.w-cur.x; }
+      else { cur={s:o.s,x:o.x,y:o.y,w:o.w,h:o.h}; runs.push(cur); }
+    });
+    runs.forEach(function(b){
+      if(!lm&&/^담당자:?$/.test(b.s)) lm=b;
+      if(!lh&&/^(핸드폰|휴대폰|연락처|전화번호?):?$/.test(b.s)) lh=b;
+    });
+    if(lm&&lh){
+      co.fs=Math.max(8,Math.min(14,Math.round(lm.h)));
+      co.mgr={x:lm.x+lm.w+10, y:lm.y, w:Math.max(40,lh.x-(lm.x+lm.w+10)-14)};
+      co.hp={x:lh.x+lh.w+10, y:lh.y, w:Math.max(40,co.W-36-(lh.x+lh.w+10))};
+    }
+  }catch(e){ console.warn('체크리스트 칸 위치 찾기 실패 — 기본 위치 사용:',e); }
+  window._ckCoCache[u]=co;
+  return co;
+}
+function _ckPanelHtml(name,cat){
+  var v=_ckGetVals(cat.id), s=_ckSrc(name,cat.id);
+  var an=JSON.stringify(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var ac=JSON.stringify(cat.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var _in='width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
+  var _bt='padding:10px 14px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;';
+  return '<div id="ck_panel" style="margin:12px 0 16px;padding:16px;border:1px solid #d8dcef;border-radius:12px;background:#f8f9fe;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div style="flex:0 0 260px;max-width:100%">'
+      +'<div style="font-weight:700;font-size:15px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-clipboard-check"></i> '+_esc(cat.nm)+' 출력</div>'
+      +'<div style="font-size:12.5px;color:#555;margin-bottom:3px">담당자</div>'
+      +'<input data-ckk="mgr" data-ckcat="'+_esc(cat.id)+'" oninput="_ckInput(this)" value="'+_esc(v.mgr||'')+'" maxlength="20" placeholder="담당자 이름" style="'+_in+';margin-bottom:10px">'
+      +'<div style="font-size:12.5px;color:#555;margin-bottom:3px">핸드폰</div>'
+      +'<input data-ckk="hp" data-ckcat="'+_esc(cat.id)+'" oninput="_ckInput(this)" value="'+_esc(v.hp||'')+'" inputmode="tel" maxlength="13" placeholder="010-0000-0000" style="'+_in+';margin-bottom:6px">'
+      +'<div style="font-size:11.5px;color:#8a92ac;margin-bottom:12px;line-height:1.5">내 계정 정보로 자동 입력됩니다. 고쳐서 출력해도 저장되지는 않습니다.</div>'
+      +'<button onclick="ckPrint('+an+','+ac+')" style="'+_bt+'width:100%;background:#4858cc;border:none;color:#fff;margin-bottom:8px"><i class="ti ti-printer"></i> 바로 출력</button>'
+      +'<button onclick="ckSavePdf('+an+','+ac+')" style="'+_bt+'width:100%;background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-download"></i> PDF 저장</button>'
+    +'</div>'
+    +'<div style="flex:1 1 320px;min-width:0;max-width:520px">'
+      +(s?'<div id="ck_prev" style="position:relative;container-type:inline-size;border:1px solid #d8dcef;background:#fff;box-shadow:0 2px 10px rgba(0,0,40,.08)">'
+          +'<img id="ck_prev_img" alt="" draggable="false" style="display:block;width:100%;min-height:200px"'+(s.img?' src="'+_esc(s.img)+'"':'')+'>'
+          +'<span id="ck_ov_mgr" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
+          +'<span id="ck_ov_hp" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
+        +'</div>'
+       :'<div style="padding:30px 10px;text-align:center;color:#8890b8;font-size:13.5px;border:1px dashed #c8cce8;border-radius:10px">이 분류에 올린 PDF 양식이 없습니다.'+(_isAdmin()?' [게시물 작성]으로 PDF를 올려 주세요.':'')+'</div>')
+    +'</div>'
+  +'</div>';
+}
+function _ckInput(el){
+  var cid=el.getAttribute('data-ckcat'), k=el.getAttribute('data-ckk'), v=_ckGetVals(cid);
+  if(k==='hp'){ var f=_bdrFmtPhoneStr(el.value); if(f!==el.value) el.value=f; }
+  v[k]=el.value; v._f=1;   // 직접 고친 뒤엔 자동 채움이 덮지 않게
+  _ckOverlay(cid);
+}
+function _ckOverlay(catId){
+  var co=window._ckCurCo||CK_DEF, v=_ckGetVals(catId);
+  [['mgr','ck_ov_mgr'],['hp','ck_ov_hp']].forEach(function(p){
+    var el=g(p[1]); if(!el) return;
+    var c=co[p[0]], txt=String(v[p[0]]||'');
+    el.textContent=txt;
+    el.style.left=(c.x/co.W*100)+'%';
+    el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
+    var fsq=co.fs/co.W*100;   // 칸보다 긴 값은 PDF와 같게 축소
+    el.style.fontSize=fsq+'cqw';
+    try{ var natW=el.offsetWidth, boxW=c.w/co.W*(g('ck_prev')?g('ck_prev').clientWidth:0); if(natW>boxW&&boxW>0) el.style.fontSize=(fsq*boxW/natW)+'cqw'; }catch(e){}
+  });
+}
+async function _ckPrevLoad(name,catId){
+  var s=_ckSrc(name,catId); if(!s) return;
+  var gen=window._ckGen=(window._ckGen||0)+1;
+  window._ckCurCo=window._ckCoCache&&window._ckCoCache[s.u]||CK_DEF;
+  _ckOverlay(catId);
+  try{
+    var co=await _ckCoords(s.u);
+    if(gen!==window._ckGen) return;
+    window._ckCurCo=co; _ckOverlay(catId);
+    if(!s.img){   // 미리보기 그림이 없는 게시물 — 첫 쪽을 그려서 표시
+      var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(s.u)).slice(0)}).promise, pg=await pdf.getPage(1);
+      var vp=pg.getViewport({scale:1.6}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+      await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+      if(gen!==window._ckGen) return;
+      var im=g('ck_prev_img'); if(im) im.src=cv.toDataURL('image/jpeg',.85);
+    }
+  }catch(e){ console.warn('체크리스트 미리보기 실패:',e); }
+  var im2=g('ck_prev_img'); if(im2&&!im2.complete) im2.onload=function(){ _ckOverlay(catId); };
+}
+async function _ckBuild(name,catId){
+  var s=_ckSrc(name,catId); if(!s) throw new Error('이 분류에 올린 PDF 양식이 없습니다.');
+  var buf=await _ckBufOf(s.u), co=await _ckCoords(s.u), v=_ckGetVals(catId);
+  var doc=await PDFLib.PDFDocument.load(buf.slice(0)), pg=doc.getPages()[0];
+  await _sdDtx(pg,doc,String(v.mgr||'').trim(),co.mgr.x,co.mgr.y,co.fs,co.mgr.w);
+  await _sdDtx(pg,doc,String(v.hp||'').trim(),co.hp.x,co.hp.y,co.fs,co.hp.w);
+  return await doc.save();
+}
+async function ckPrint(name,catId){   // bdrPrint 패턴 — 새 탭을 클릭 제스처 안에서 먼저 연다
+  if(window._ckBusy){ toast('출력 준비 중입니다. 잠시만 기다려주세요.'); return; }
+  var w=null; try{ w=window.open('about:blank'); }catch(e){}
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.'); return; }
+  window._ckBusy=true;
+  try{
+    var bytes=await _ckBuild(name,catId);
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    w.location=url;
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },800);
+    toast('출력 창을 열었습니다. 인쇄 대화상자가 뜨지 않으면 그 화면의 인쇄(🖨) 버튼을 눌러주세요.');
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },120000);
+  }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
+  finally{ window._ckBusy=false; }
+}
+async function ckSavePdf(name,catId){
+  if(window._ckBusy){ toast('준비 중입니다. 잠시만 기다려주세요.'); return; }
+  window._ckBusy=true;
+  try{
+    var bytes=await _ckBuild(name,catId), v=_ckGetVals(catId);
+    var fn=('상담고객체크리스트'+(v.mgr?'_'+String(v.mgr).trim():'')).replace(/[\\\/:*?"<>|]/g,'_').slice(0,60)+'.pdf';
+    var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    var a=document.createElement('a'); a.href=url; a.download=fn; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },60000);
+  }catch(e){ toast('PDF 저장 실패: '+(e.message||e)); }
+  finally{ window._ckBusy=false; }
+}
 // 근로소득공제 — [총급여 상한, 그 구간까지의 누적공제, 초과분 공제율]
 var YR_INC_DED=[
   {lim:5000000,   base:0,        rate:0.70},
