@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-3</div>
   </div>
 </div>
 
@@ -27348,12 +27348,13 @@ function _bdrParts(cat){   // 등록된 구성 서류(bdrtpls[슬롯].parts) —
   try{ var ps=bdrtpls&&bdrtpls[_bdDaeriSlot(cat)]&&bdrtpls[_bdDaeriSlot(cat)].parts; return Array.isArray(ps)?ps.filter(function(x){ return x&&x.nm; }):[]; }catch(e){ return []; }
 }
 function _bdrCatById(name,catId){ var out=null; _bdCats(name).forEach(function(c){ if(c&&c.id===catId) out=c; }); return out; }
-function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 구성원 정보(이름·전화·주소. 주민번호는 데이터에 없어 직접 입력)
-  var out={name:(typeof cu!=='undefined'&&cu&&cu.name)||'', phone:'', addr:''};
+function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 구성원 정보(이름·전화·주소·생년월일. 주민번호는 데이터에 없어 직접 입력)
+  var out={name:(typeof cu!=='undefined'&&cu&&cu.name)||'', phone:'', addr:'', birth:''};
   try{
     var m=(mem||[]).filter(function(x){ return x&&((cu.code&&x.code===cu.code)||x.name===cu.name); })[0];
-    if(m){ out.phone=m.phone||''; out.addr=m.address||''; }
-    else if(cu&&cu.admin){ var ov=_admOv(cu.name)||{}; out.phone=ov.phone||''; out.addr=ov.addr||''; }   // 관리자 계정은 admov 연락처
+    if(m){ out.phone=m.phone||''; out.addr=m.address||''; out.birth=m.birth||''; }
+    else if(cu&&cu.admin){ var ov=_admOv(cu.name)||{}; out.phone=ov.phone||''; out.addr=ov.addr||''; out.birth=ov.birth||''; }   // 관리자 계정은 admov 연락처
+    if(!_ymdOk(out.birth)) out.birth='';   // 생년월일(2026-10-27 — 개인정보수정·구성원 관리에 넣은 YYYY-MM-DD)
   }catch(e){}
   return out;
 }
@@ -27361,7 +27362,15 @@ function _bdrGetVals(catId){
   window._bdrVals=window._bdrVals||{};
   if(!window._bdrVals[catId]){
     var my=_bdrMyInfo();
-    window._bdrVals[catId]={wj_name:'',wj_rrn:'',wj_birth:'',wj_phone:'',wj_addr:'',wj_rel:'',wj_hosp:'',wj_purpose:'',wj_scope:'',wj_period:'',wb_name:my.name,wb_rrn:'',wb_birth:'',wb_phone:my.phone,wb_addr:my.addr};
+    window._bdrVals[catId]={wj_name:'',wj_rrn:'',wj_birth:'',wj_phone:'',wj_addr:'',wj_rel:'',wj_hosp:'',wj_purpose:'',wj_scope:'',wj_period:'',wb_name:my.name,wb_rrn:'',wb_birth:my.birth||'',wb_phone:my.phone,wb_addr:my.addr};
+    if(my.birth||my.phone||my.addr) window._bdrVals[catId]._wbFilled=1;
+  } else if(!window._bdrVals[catId]._wbFilled){
+    // 클라우드 수신 전에 처음 열렸으면 내 정보가 비어 있었음 — 받은 뒤 한 번만, 빈 칸에만 채운다(직접 지운 칸을 계속 되살리지 않게)
+    var v0=window._bdrVals[catId], my2=_bdrMyInfo();
+    if(my2.birth||my2.phone||my2.addr){
+      if(!v0.wb_birth) v0.wb_birth=my2.birth; if(!v0.wb_phone) v0.wb_phone=my2.phone; if(!v0.wb_addr) v0.wb_addr=my2.addr;
+      v0._wbFilled=1;
+    }
   }
   return window._bdrVals[catId];
 }

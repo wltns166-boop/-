@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1979,6 +1979,9 @@
   [+ 추가]로 `ctName_2`·`ctPhone_3`·`ctAddr_3` 같은 추가본을 놓았는데, 꺼진 기본 칸은 `untouched`(기본 좌표+off)라 자동 배치가 다시 켜서 같은 값이 두 곳에 찍혔다.
   `_bdrCoordsFor`가 **같은 쪽에 같은 기본 이름(_N 제거)의 켜진 저장 항목이 있으면** 자동 배치를 건너뜀(쪽 단위 — 2쪽 배치가 1쪽 자동을 막지 않음).
   실제 클라우드 좌표로 모의 실행: ct*·hospName 자동 꺼짐, 배치 안 된 period만 자동 유지.
+  **v2026.10.27-3 (사용자 제보 — 개인정보에 넣은 생년월일이 위임받는자 칸에 안 뜸)**: `_bdrMyInfo`가 이름·전화·주소만 채웠음 → 생년월일도
+  (팀원 `mem[].birth`, 관리자 `admov[이름].birth`, `_ymdOk` 형식만). 클라우드 수신 전에 패널이 먼저 열려 내 정보가 비었으면 `_bdrGetVals`가
+  수신 뒤 **한 번만, 빈 칸에만** 생년월일·전화·주소를 채움(`_wbFilled` — 사용자가 지운 칸을 되살리지 않게). 헤드리스 모의 실행(수신 전·후·지운 뒤·팀원) 통과.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
