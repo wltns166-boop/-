@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.22-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-1</div>
   </div>
 </div>
 
@@ -4360,7 +4360,7 @@ async function loadFromFirestore(){
     if(Array.isArray(d.exams))    { window._examsMem=d.exams; try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } }
-    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ window._ccCoordsMem=d.claim_coords_v2; try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.tplver && typeof d.tplver==='object' && !Array.isArray(d.tplver)){ window._tplVer=d.tplver; _lsSet('tops_tplver', JSON.stringify(d.tplver)); }   // 양식 교체·삭제 도장(2026-10-06 — 다른 기기의 옛 양식 캐시 무효화)
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
@@ -4458,7 +4458,7 @@ function startRealtimeSync(){
     if(Array.isArray(d.exams))    { window._examsMem=d.exams; try{ localStorage.setItem('tops_exams',     JSON.stringify(d.exams)); }catch(e){ console.warn('localStorage tops_exams 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.joinprep)) { try{ localStorage.setItem('tops_joinprep',  JSON.stringify(d.joinprep)); }catch(e){ console.warn('localStorage tops_joinprep 저장 실패:',e); } changed=true; }
     if(Array.isArray(d.db_exchanges)){ window.dbExchanges=d.db_exchanges; try{ localStorage.setItem('tops_db_exchanges', JSON.stringify(d.db_exchanges)); }catch(e){ console.warn('localStorage tops_db_exchanges 저장 실패:',e); } changed=true; }
-    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
+    if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ window._ccCoordsMem=d.claim_coords_v2; try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.tplver && typeof d.tplver==='object' && !Array.isArray(d.tplver)){ window._tplVer=d.tplver; _lsSet('tops_tplver', JSON.stringify(d.tplver)); }   // 양식 교체·삭제 도장(2026-10-06 — 다른 기기의 옛 양식 캐시 무효화)
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
@@ -28098,7 +28098,7 @@ function _bdrCoordsFor(slot,c){
   // 자동 배치(2026-10-22): 관리자가 편집기에서 배치하지 않은 키는 양식 글자(성명·연락처…)에서 찾은 자리로 — 저장본에 그 키가 있으면 저장본 우선
   var auto=(window._bdrAutoCache&&window._bdrAutoCache.slot===slot)?window._bdrAutoCache.auto:null;
   if(auto){
-    var raw={}; try{ raw=(JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}')[slot])||{}; }catch(e){}
+    var raw=_ccAllCoords()[slot]||{};
     var DEF={}; try{ (CLAIM_FIELDS_DEFAULT||[]).forEach(function(f){ DEF[f.key]=f; }); }catch(e){}
     var untouched=function(k){   // 편집기 [저장]은 배치 안 한 키도 on:false·기본 좌표로 함께 저장한다 — 그건 "관리자가 정한 자리"가 아님(리뷰)
       var r=raw[k]; if(!r) return true;
@@ -32304,8 +32304,19 @@ var _DAERI_LABELS={ // 대리발급 슬롯의 편집기 칩·항목 라벨 — �
   periodToY:'기간 종료 년',periodToM:'기간 종료 월',periodToD:'기간 종료 일'
 };
 // 보험사별 좌표(기본값 + override 병합). 구버전 flat 좌표는 DB손해보험으로 이관
+// 좌표 전체 맵 — 메모리 우선(2026-10-27 실사고 "대리발급 좌표 저장했는데 사라짐"): 저장공간이 찬 기기는 수신 핸들러의
+// 브라우저 저장소 쓰기가 조용히 실패해 옛 좌표가 남고, 편집기가 그 옛 좌표로 열려 저장 때 클라우드를 기본값으로 덮었다(3.89·4.98 계열).
+// 수신 핸들러 2곳이 window._ccCoordsMem을 먼저 기록 — localStorage는 다음 부팅용 캐시일 뿐. ⚠️ 좌표를 localStorage에서 직접 다시 읽지 말 것.
+function _ccAllCoords(){
+  var m=window._ccCoordsMem;
+  if(m&&typeof m==='object'&&!Array.isArray(m)) return m;
+  var all={}; try{ all=JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}')||{}; }catch(e){ all={}; }
+  if(typeof all!=='object'||Array.isArray(all)) all={};
+  window._ccCoordsMem=all;
+  return all;
+}
 function claimCoordsFor(insurer){
-  var all={}; try{all=JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}');}catch(e){}
+  var all=_ccAllCoords();
   var ov=all[insurer];
   if(!ov && insurer==='DB손해보험'){
     try{ var legacy=JSON.parse(localStorage.getItem('tops_claim_coords')||'{}'); if(legacy&&Object.keys(legacy).length) ov=legacy; }catch(e){}
@@ -33605,22 +33616,39 @@ function ccCommit(chip){
 }
 async function saveClaimCal(){
   var ins=window._ccInsurer||'DB손해보험';
-  var all={}; try{all=JSON.parse(localStorage.getItem('tops_claim_coords_v2')||'{}');}catch(e){}
+  var all=_ccAllCoords();
   var out={};
   Object.keys(window._ccWork||{}).forEach(function(k){
     var w=window._ccWork[k];
-    out[k]={x:w.x, y:w.y, page:(typeof w.page==='number')?w.page:0, on:(w.on===false)?false:true};
+    out[k]={x:(+w.x||0), y:(+w.y||0), page:(typeof w.page==='number')?w.page:0, on:(w.on===false)?false:true};   // undefined면 Firestore가 거부
     if(w.fmt!=null) out[k].fmt=w.fmt;
     if(typeof w.size==='number'&&w.size>0)   out[k].size=w.size;
     if(typeof w.pitch==='number'&&w.pitch>0) out[k].pitch=w.pitch;
   });
-  all[ins]=out;
-  try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(all)); }catch(e){}
-  try{ sv('tops_claim_coords_v2',all); }catch(e){}
+  all[ins]=out; window._ccCoordsMem=all;
+  _lsSet('tops_claim_coords_v2', JSON.stringify(all));
+  // 클라우드는 이 문서(보험사·슬롯) 하나만 통째로 교체 — 전체 맵을 merge로 보내면 이 기기의 낡은 다른 문서 좌표가
+  // 클라우드를 덮고(2026-10-27 실사고), 지운 추가 항목(_N)도 merge라 클라우드에서 안 지워졌다.
+  // 실패는 기다려서 알린다(리뷰) — 안 기다리면 뒤의 "저장 완료" 토스트가 실패 안내를 덮고, 페이지 삭제(ccDeletePagesDo)도 실패를 모른다.
+  // 오프라인이면 쓰기가 대기열에서 응답 없이 멈추므로 10초까지만 기다리고 "연결되면 전송" 안내 후 진행.
+  var _fsOk=false, _fsPend=false;
+  if(window.FS_DOC && typeof firebase!=='undefined' && firebase.firestore && firebase.firestore.FieldPath){
+    try{
+      var _up=window.FS_DOC.update(new firebase.firestore.FieldPath('claim_coords_v2', ins), out);
+      var _r=await Promise.race([_up.then(function(){ return 'ok'; }), new Promise(function(res){ setTimeout(function(){ res('wait'); },10000); })]);
+      _fsOk=true; if(_r==='wait') _fsPend=true;
+    }catch(e){
+      console.warn('coords save err:',e);
+      toast('⚠ 좌표 클라우드 저장 실패 — 네트워크 확인 후 다시 [저장]해 주세요.');
+      throw e;
+    }
+  }
+  if(!_fsOk){ try{ sv('tops_claim_coords_v2',all); }catch(e){} }
+  if(_fsPend) toast('좌표는 이 기기에 저장됨 — 인터넷이 연결되면 팀 공유본에 자동 전송됩니다.');
 
-  // 좌표 저장 후 해당 보험사를 쓰는 청구 파일을 자동 재생성
-  var list=[]; try{ list=JSON.parse(localStorage.getItem('tops_claims')||'[]'); }catch(e){ list=[]; }
-  if(typeof claims!=='undefined') claims=list;
+  // 좌표 저장 후 해당 보험사를 쓰는 청구 파일을 자동 재생성 — 목록은 _reloadClaims(함정 C: localStorage 재읽기는 메모리 PDF를 날림)
+  try{ if(typeof _reloadClaims==='function') _reloadClaims(); }catch(e){}
+  var list=(typeof claims!=='undefined'&&Array.isArray(claims))?claims:[];
   var targets=[];
   list.forEach(function(c,i){
     var insList=(c.insurerList&&c.insurerList.length)?c.insurerList

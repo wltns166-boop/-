@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.22-16. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1965,6 +1965,16 @@
   리뷰 반영: ① `idbSetTpl`이 `tpl_`를 쓸 때 `ver_`도 지금 시각으로(감싼 함수) — 공유 업로드 실패 시 방금 올린 양식이 낡은 캐시로 오인돼 버려지던 경로.
   ② 낡은 캐시는 **다시 받기 성공** 또는 **공유본 삭제(object-not-found)** 확인 때만 버림 — 네트워크 실패 땐 낡은 캐시라도 사용(오프라인에서 양식 증발 방지).
   ③ `_tplBump`는 sv 뒤에 로컬 전체 맵을 다시 씀(sv가 로컬 키를 한 항목짜리로 덮음). ④ DB 레거시 `tops_db_pdf_tpl`은 도장이 있으면 무시.
+- **좌표 저장 = 메모리 우선 + 슬롯 단위 교체 (2026-10-27 — v2026.10.27-1, 실사고 "대리발급서류 좌표 지정하고 저장했는데 사라짐")**:
+  클라우드 확인 결과 `대리발급_병원서류 대리발급` 1쪽 항목들이 **기본 좌표 + on:false**로 덮여 있었음(앞서 기록한 size 12만 merge로 남음).
+  원인: 저장공간이 찬 기기는 수신 핸들러의 localStorage 쓰기가 조용히 실패해 **옛 좌표 캐시**가 남고, 편집기가 그걸로 열려 [저장] 때
+  전체 맵을 `sv`(set merge)로 보내 클라우드 값을 덮음 + 저장 후에도 로컬 쓰기가 실패해 다시 열면 옛 좌표(= "사라짐"). 수정:
+  ① `_ccAllCoords()` — 메모리 `window._ccCoordsMem` 우선(수신 핸들러 2곳이 먼저 기록, 없을 때만 localStorage 1회), `claimCoordsFor`·`_bdrCoordsFor`·`saveClaimCal`이 사용.
+  ⚠️ 좌표를 localStorage에서 직접 다시 읽지 말 것(3.89·4.98 계열). ② `saveClaimCal`은 `FS_DOC.update(FieldPath('claim_coords_v2', 슬롯), out)`로
+  **그 보험사·슬롯 맵만 통째 교체**(다른 슬롯을 낡은 값으로 덮지 않음, 지운 `_N` 추가 항목도 클라우드에서 실제로 삭제됨 — merge로는 안 지워졌음),
+  FieldPath를 못 쓰면 sv 폴백. 실패는 기다려 토스트 후 throw(페이지 삭제 흐름이 안내), 10초 응답 없음(오프라인)은 "연결되면 전송" 안내 후 진행.
+  ③ 같은 함수의 재생성 목록을 localStorage 재읽기 → `_reloadClaims()`(함정 C). 헤드리스 모의 실행(로컬 쓰기 실패 + 낡은 캐시 → 편집기는 클라우드 값, 저장은 슬롯 하나만, 실패 시 throw) 통과.
+  ⚠️ 이번 사고로 덮인 1쪽 좌표는 복구하지 않음 — 관리자가 [좌표 직접설정]에서 다시 배치(2쪽 항목·1쪽 insName/ctName_2/insName_2는 남아 있음).
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
