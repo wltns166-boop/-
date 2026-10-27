@@ -22026,11 +22026,12 @@ function _mtListNames(){
 function _mtNum(v){ var n=Number(String(v==null?'':v).replace(/,/g,'')); return isFinite(n)?n:0; }
 function mtReport(){
   if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
-  if((_mtNoteDirty()||_mtFbDirty()||_mtWmDirty())&&!confirm('저장하지 않은 특이사항이 있습니다.\n저장하지 않은 내용은 보고서에 들어가지 않습니다. 계속할까요?')) return;
   var ym=_mtYm(), names=_mtListNames();
   if(!names.length){ toast('보고서에 넣을 팀원이 없습니다.'); return; }
+  // 창을 먼저 연다(확인창을 거친 뒤 열면 클릭 직후 조건이 풀려 팝업이 차단될 수 있음)
   var w=window.open('','_blank','width=980,height=900,scrollbars=yes,resizable=yes');
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  if((_mtNoteDirty()||_mtFbDirty()||_mtWmDirty())&&!confirm('저장하지 않은 특이사항이 있습니다.\n저장하지 않은 내용은 보고서에 들어가지 않습니다. 계속할까요?')){ try{ w.close(); }catch(_){} return; }
   try{
     var weeks=_mtWeeksOf(ym), nW=weeks.length;
     var tSel=g('mt_team_sel'), scope=(tSel&&tSel.value)?(tSel.value+' 팀'):'전체';
