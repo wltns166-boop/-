@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-6</div>
   </div>
 </div>
 
@@ -1837,6 +1837,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div style="display:flex;align-items:center;gap:8px">
           <select id="mt_year" onchange="mtYmChange()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
           <select id="mt_month" onchange="mtYmChange()" style="padding:5px 10px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"></select>
+          <button onclick="mtReport()" title="선택한 달의 팀 미팅 보고서(인쇄·PDF 저장)를 새 창으로 엽니다" style="padding:6px 14px;border:none;border-radius:8px;background:#4858cc;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-report"></i> 보고서</button>
         </div>
       </div>
       <!-- 표1: 팀원 주마감보고 확인 + 특이사항 -->
@@ -22007,6 +22008,123 @@ function mtView(name){
     +'<div style="overflow-x:auto"><table>'+wcHead+wcRows+'</table></div>'
     +'</body></html>';
   w.document.write(body); w.document.close();
+}
+
+// ── 팀 미팅 보고서 (2026-10-27 — v2026.10.27-6) ──
+// 표2(팀원별 미팅 현황)에 보이는 팀원(권한·작성 대상자·팀 필터 동일)의 선택 월 내용을 A4 인쇄용 새 창으로.
+// 저장·동기화 없음. 자유 텍스트 전부 _esc, 본문에 id 없음(함정 E).
+function _mtListNames(){
+  var names=_mtRoster(), tg=_mtTargets();
+  if(tg) names=names.filter(function(n){ return tg.indexOf(n)>=0; });
+  var tSel=g('mt_team_sel');
+  if(tSel&&tSel.value){
+    var tset=(typeof _drSubTeam==='function')?_drSubTeam(tSel.value):[tSel.value];
+    names=names.filter(function(n){ return tset.indexOf(n)>=0; });
+  }
+  return names;
+}
+function _mtNum(v){ var n=Number(String(v==null?'':v).replace(/,/g,'')); return isFinite(n)?n:0; }
+function mtReport(){
+  if(!(typeof _isLeader==='function'&&_isLeader())){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  if((_mtNoteDirty()||_mtFbDirty()||_mtWmDirty())&&!confirm('저장하지 않은 특이사항이 있습니다.\n저장하지 않은 내용은 보고서에 들어가지 않습니다. 계속할까요?')) return;
+  var ym=_mtYm(), names=_mtListNames();
+  if(!names.length){ toast('보고서에 넣을 팀원이 없습니다.'); return; }
+  var w=window.open('','_blank','width=980,height=900,scrollbars=yes,resizable=yes');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  try{
+    var weeks=_mtWeeksOf(ym), nW=weeks.length;
+    var tSel=g('mt_team_sel'), scope=(tSel&&tSel.value)?(tSel.value+' 팀'):'전체';
+    var wlbl=function(wk,i){ var s=new Date(wk),e=new Date(wk); e.setDate(e.getDate()+6); return (i+1)+'주차 ('+(s.getMonth()+1)+'/'+s.getDate()+'~'+(e.getMonth()+1)+'/'+e.getDate()+')'; };
+    var tot={}; WC_FIELDS.forEach(function(f){ tot[f.k]=0; });
+    var doneN=0, wkWritten=0, subN=0;
+    var rows=names.map(function(nm){
+      var rec=mtRec(nm,ym), done=!!(rec&&rec.done); if(done) doneN++;
+      var sum={}, sub=0, wr=0;
+      WC_FIELDS.forEach(function(f){ sum[f.k]=0; });
+      weeks.forEach(function(wk){
+        var r=wcRec(nm,wk);
+        if(r){ sub++; WC_FIELDS.forEach(function(f){ sum[f.k]+=_mtNum(r[f.k]); }); }
+        if(_mtWkWritten(rec,wk)) wr++;
+      });
+      WC_FIELDS.forEach(function(f){ tot[f.k]+=sum[f.k]; });
+      wkWritten+=wr; subN+=sub;
+      var rk=(typeof _liveRankOf==='function'?_liveRankOf(nm):'')||((mem.find(function(x){return x.name===nm;})||{}).rank)||'';
+      return {nm:nm, rk:rk, rec:rec, done:done, sum:sum, sub:sub, wr:wr};
+    });
+    var pct=function(a,b){ return b?Math.round(a*100/b):0; };
+    var N=names.length, allW=N*nW;
+    var card=function(t,v,sub,col){ return '<div class="kc"><div class="kt">'+t+'</div><div class="kv" style="color:'+col+'">'+v+'</div><div class="ks">'+sub+'</div></div>'; };
+    var bar=function(p,col){ return '<div class="bar"><div style="width:'+p+'%;background:'+col+'"></div></div>'; };
+    var html='<div class="cover"><div class="ttl">팀 미팅 보고서</div>'
+      +'<div class="sub">'+_esc(_mtYmLabel(ym))+' · 범위: '+_esc(scope)+' · 대상 '+N+'명</div>'
+      +'<div class="sub2">작성: '+_esc(cu?cu.name:'')+' · '+_esc(new Date().toLocaleString('ko-KR'))+'</div></div>'
+      +'<div class="kpis">'
+        +card('미팅 진행', doneN+' / '+N+'명', pct(doneN,N)+'%', '#1a7a40')
+        +card('주차 미팅 기록', wkWritten+' / '+allW+'주', pct(wkWritten,allW)+'%', '#3a40cc')
+        +card('주마감보고 제출', subN+' / '+allW+'주', pct(subN,allW)+'%', '#b06010')
+        +card('클로징확정 합계', String(tot.cfm_closing||0), '건', '#c04040')
+      +'</div>'
+      +'<h3>1. 팀원별 월간 요약</h3>'
+      +'<table><tr><th class="l">이름</th><th>직급</th><th>미팅</th><th>주차 기록</th><th>주마감 제출</th>'
+        +WC_FIELDS.map(function(f){ return '<th>'+_esc(f.label)+'</th>'; }).join('')+'</tr>'
+      +rows.map(function(o){
+        var wp=pct(o.wr,nW);
+        return '<tr><td class="l b">'+_esc(o.nm)+'</td><td>'+_esc(o.rk||'-')+'</td>'
+          +'<td>'+(o.done?'<span class="ok">진행</span>':'<span class="no">미진행</span>')+'</td>'
+          +'<td>'+o.wr+'/'+nW+bar(wp,wp>=100?'#1a7a40':(wp>0?'#d08a10':'#c04040'))+'</td>'
+          +'<td>'+o.sub+'/'+nW+'</td>'
+          +WC_FIELDS.map(function(f){ return '<td>'+o.sum[f.k]+'</td>'; }).join('')+'</tr>';
+      }).join('')
+      +'<tr class="tot"><td class="l">합계</td><td></td><td>'+doneN+'/'+N+'</td><td>'+wkWritten+'/'+allW+'</td><td>'+subN+'/'+allW+'</td>'
+        +WC_FIELDS.map(function(f){ return '<td>'+tot[f.k]+'</td>'; }).join('')+'</tr></table>'
+      +'<div class="note2">※ 실적 수치는 주마감보고(이 달에 월요일이 속한 주차) 합계입니다. 숫자가 아닌 값은 0으로 셉니다.</div>'
+      +'<h3>2. 팀원별 미팅 내용</h3>'
+      +rows.map(function(o){
+        var rec=o.rec;
+        var wn=(rec&&rec.wnotes&&typeof rec.wnotes==='object')?rec.wnotes:{};
+        var wm=(rec&&rec.wmeet&&typeof rec.wmeet==='object')?rec.wmeet:{};
+        var wkRows=weeks.map(function(wk,i){
+          var r=wcRec(o.nm,wk);
+          var a=(wm[wk]&&wm[wk].note)?String(wm[wk].note).trim():'', b=(wn[wk]&&wn[wk].note)?String(wn[wk].note).trim():'';
+          var txt=a||b; if(a&&b&&a!==b) txt=a+'\n[피드백] '+b;
+          return '<tr><td class="l b nw">'+_esc(wlbl(wk,i))+'</td>'
+            +WC_FIELDS.map(function(f){ return '<td>'+(r&&r[f.k]!=null&&r[f.k]!==''?_esc(r[f.k]):'-')+'</td>'; }).join('')
+            +'<td class="nw">'+(r?'<span class="ok">제출</span>':'<span class="no">미제출</span>')+'</td>'
+            +'<td class="l pre">'+(txt?_esc(txt):'<span class="mut">-</span>')+'</td></tr>';
+        }).join('');
+        return '<div class="mem"><div class="mh">'+_esc(o.nm)+(o.rk?' <span class="rk">'+_esc(o.rk)+'</span>':'')
+            +' <span class="bd '+(o.done?'b-ok':'b-no')+'">'+(o.done?'미팅 진행완료':'미진행')+'</span>'
+            +(rec&&rec.by?' <span class="mut sm">기록: '+_esc(rec.by)+'</span>':'')+'</div>'
+          +'<table><tr><th class="l">주차</th>'+WC_FIELDS.map(function(f){ return '<th>'+_esc(f.label)+'</th>'; }).join('')+'<th>상태</th><th class="l" style="min-width:200px">미팅 내용</th></tr>'+wkRows+'</table>'
+          +'<div class="mlbl">월 종합 메모</div><div class="memo">'+(rec&&rec.note?_esc(rec.note):'<span class="mut">작성된 메모가 없습니다.</span>')+'</div></div>';
+      }).join('');
+    var css='*{box-sizing:border-box}body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#111;margin:0;padding:22px;background:#eef0f6}'
+      +'.paper{background:#fff;max-width:1000px;margin:0 auto;padding:26px 28px;border-radius:8px}'
+      +'.cover{border:2px solid #1a1f4a;border-radius:10px;padding:16px;text-align:center;margin-bottom:14px}'
+      +'.ttl{font-size:24px;font-weight:800;color:#1a1f4a}.sub{font-size:14px;color:#333;margin-top:6px;font-weight:600}.sub2{font-size:12px;color:#777;margin-top:4px}'
+      +'.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}'
+      +'.kc{border:1px solid #dde;border-radius:9px;padding:10px;text-align:center}.kt{font-size:12px;color:#666;font-weight:700}.kv{font-size:19px;font-weight:800;margin:4px 0 2px}.ks{font-size:12px;color:#888}'
+      +'h3{font-size:16px;margin:20px 0 8px;color:#1a1f4a;border-left:4px solid #4858cc;padding-left:8px}'
+      +'table{border-collapse:collapse;width:100%;font-size:12px;margin-bottom:6px}th,td{border:1px solid #c8cbe0;padding:5px 6px;text-align:center;vertical-align:top}th{background:#eef0fa;font-weight:700}'
+      +'.l{text-align:left}.b{font-weight:700}.nw{white-space:nowrap}.pre{white-space:pre-wrap;word-break:break-all}.tot td{background:#f2f3fa;font-weight:800}'
+      +'.ok{color:#1a7a40;font-weight:700}.no{color:#c04040;font-weight:700}.mut{color:#999}.sm{font-size:11.5px;font-weight:400}'
+      +'.bar{height:5px;background:#eceef6;border-radius:3px;margin-top:3px;overflow:hidden}.bar div{height:100%}'
+      +'.note2{font-size:11.5px;color:#777}'
+      +'.mem{border:1px solid #dde;border-radius:9px;padding:12px;margin-bottom:12px;break-inside:avoid-page}'
+      +'.mh{font-size:15px;font-weight:800;margin-bottom:8px}.rk{font-size:12px;color:#556;font-weight:600}'
+      +'.bd{display:inline-block;padding:1px 10px;border-radius:10px;font-size:11.5px;font-weight:700}.b-ok{background:#e4f4ea;color:#1a7a40}.b-no{background:#fbe9e9;color:#c04040}'
+      +'.mlbl{font-size:12.5px;font-weight:700;color:#4a5090;margin:8px 0 4px}.memo{white-space:pre-wrap;font-size:13px;line-height:1.7;background:#f7f8fc;border:1px solid #e2e4ee;border-radius:7px;padding:9px 11px}'
+      +'.tb{display:flex;justify-content:flex-end;max-width:1000px;margin:0 auto 10px}.tb button{padding:8px 18px;border:none;border-radius:8px;background:#4858cc;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}'
+      +'@page{size:A4 landscape;margin:10mm}@media print{body{background:#fff;padding:0}.paper{padding:0;max-width:none}.no-print{display:none!important}th{-webkit-print-color-adjust:exact;print-color-adjust:exact}.kc,.bar div,.tot td,.bd,.memo{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+    var title=('팀미팅보고서_'+ym+'_'+scope).replace(/[\\\/:*?"<>|]/g,'_');
+    w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'
+      +'<div class="tb no-print"><button onclick="window.print()">🖨 인쇄 / PDF 저장</button></div>'
+      +'<div class="paper">'+html+'</div></body></html>');
+    w.document.close();
+  }catch(e){
+    try{ w.close(); }catch(_){}
+    console.warn('mtReport err:',e); toast('보고서를 만들지 못했습니다: '+(e&&e.message||e));
+  }
 }
 
 // ===== 사업계획서 =====
