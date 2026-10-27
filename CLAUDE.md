@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -917,6 +917,18 @@
   미작성=바로 작성 / 작성완료=열람(작성자·시각 표시)+[수정]. 저장(`mtWkModalSave`)은 wnotes·wmeet 양쪽 동시 기록/삭제(`_mtWEntry` 메타 보존),
   권한(_isLeader+_mtRoster)·빈 값 삭제 confirm·표1 동일 주차 미저장 충돌 confirm 포함. 표1이 그 팀원 표시 중이면 그 주차 칸·버튼만 갱신(재렌더 없이),
   저장 후 rMeetingList()로 배지 갱신. 모달 열람 값은 wnotes→wmeet 통합(표시 폴백과 동일 규칙).
+
+## 4.67 주간미팅자료 PPT (wkmt, 2026-10-27 — v2026.10.27-7, 사용자 요청)
+
+- 팀관리 > 팀 미팅 아래 [주간미팅자료](`n_wkmt` → `pg_wkmt`, 예비팀장 이상 — leaderNavIds·showPage 가드·`_rsPageAllowed`에 'wkmt').
+  팀장 선택(`_wkmtLeaders` — 관리자=하부 인원이 있는 관리자·구성원 전원, 그 외=본인만 고정) · 기준 주차(‹ › — `wcKey`, 월은 그 주 월요일의 달) ·
+  **시안 4종 선택**(`WKMT_THEMES` — score 스코어보드/tech 테크 회로/retro 레트로 스탬프/widget 미니 위젯, 사용자가 시안 50개 중 44·46·47·48 선택) ·
+  **넣을 내용 체크**(`WKMT_ITEMS` — 계보도·시험신청인원·주마감보고·사업계획서·리쿠르팅리스트·전체실적·팀별실적·월간목표실적) → [PPT 만들기].
+- 생성 `wkmtMake` → PptxGenJS 3.12.0(jsdelivr bundle, `_drLoadScript` 지연 로드) `_wkmtBuild(d,th,items)`: 1장 표지·요약(시안별 배치) + 체크한 항목마다 1장(표는 11~12행씩 여러 장).
+  데이터 `_wkmtData()`: 팀=`_drSubTeam(팀장)`, 실적=prf 중 기준 월(`_perfMonth`), 목표=gls monthly(월 구분 없음 — 기준 월이 이번 달이 아니면 슬라이드에 "현재 등록된 목표 기준" 표기),
+  주마감=`wcRec(이름,주차)`, 시험=`_examsFresh()`(submitter 또는 belong이 팀), 사업계획서=bizplan.subs, 리쿠르팅=recruit.cards(owner), 팀별=팀 안의 하부 팀장별 합계.
+- 저장·동기화 없음 — 시안·체크 선택만 기기 캐시 `tops_wkmt_pref`(`_lsSet`), 상태는 메모리 `window._wkmt`, logout `_wkmtClear`. 화면 표시 이름은 `_esc`/`_alertEsc`(PPT 글자는 라이브러리가 이스케이프).
+  새 시안을 늘리려면 `WKMT_THEMES` 항목 + `_wkmtThumb` 미리보기 + `_wkmtBuild`의 표지 분기·`frame`·`panel` 분기를 함께. 시안 원본(50개)은 세션 산출물(저장소 미포함).
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 

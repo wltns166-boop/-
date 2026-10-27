@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-7</div>
   </div>
 </div>
 
@@ -813,6 +813,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_hierarchy">계보도</div></div>
       <div class="ns"><div class="ni" id="n_exam">시험신청</div></div>
       <div class="ns"><div class="ni" id="n_meeting">팀 미팅</div></div>
+      <div class="ns"><div class="ni" id="n_wkmt">주간미팅자료</div></div>
       <div class="ns"><div class="ni" id="n_wclose">주마감보고</div></div>
       <div class="ns"><div class="ni" id="n_bizplan">사업계획서</div></div>
       <div class="ns"><div class="ni" id="n_recruit">리쿠르팅 리스트</div></div>
@@ -1873,6 +1874,43 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
             <thead><tr><th style="text-align:left">이름</th><th style="text-align:center">직급</th><th style="text-align:center">미팅 진행 여부</th><th style="text-align:center" id="mt_wk_th">주차 작성여부</th><th style="text-align:center">미팅내용</th></tr></thead>
             <tbody id="mt_list_tb"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 주간미팅자료 (2026-10-27 — v2026.10.27-7) -->
+    <div class="pg" id="pg_wkmt">
+      <div class="sh">
+        <div class="st"><i class="ti ti-presentation"></i>주간미팅자료</div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+          <div><div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:5px">팀장</div>
+            <select id="wkmt_leader" onchange="wkmtSet('leader',this.value)" style="padding:7px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;font-family:inherit;min-width:170px"></select></div>
+          <div><div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:5px">기준 주차</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="bp bsm" onclick="wkmtShift(-1)"><i class="ti ti-chevron-left"></i></button>
+              <span id="wkmt_wklbl" style="min-width:230px;text-align:center;font-size:14px;font-weight:700;color:#2a2a5a"></span>
+              <button class="bp bsm" onclick="wkmtShift(1)"><i class="ti ti-chevron-right"></i></button>
+            </div></div>
+          <div id="wkmt_sum" style="flex:1;min-width:220px;font-size:13px;color:#5a6080;line-height:1.6"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-palette"></i> 1. 디자인 시안 선택</div>
+        <div id="wkmt_themes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px"></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <div style="font-weight:700;font-size:16px;color:#2a2a4a"><i class="ti ti-checklist"></i> 2. 넣을 내용 선택</div>
+          <div style="display:flex;gap:6px"><button class="bp bsm" onclick="wkmtAll(true)">전체 선택</button><button class="bp bsm" onclick="wkmtAll(false)">전체 해제</button></div>
+        </div>
+        <div id="wkmt_items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px"></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div id="wkmt_plan" style="font-size:13.5px;color:#3a3a5a;line-height:1.7"></div>
+          <button id="wkmt_go" onclick="wkmtMake()" style="padding:11px 26px;border:none;border-radius:9px;background:#4858cc;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-download"></i> PPT 만들기</button>
         </div>
       </div>
     </div>
@@ -4914,6 +4952,7 @@ function logout(){
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
   try{ window._medLastPw=''; }catch(_){}
+  try{ _wkmtClear(); }catch(_){}   // 주간미팅자료 선택 상태·요약 정리
   try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
   cu=null;
   sessionStorage.removeItem('tops_session');
@@ -5339,7 +5378,7 @@ function setAdmin(){
   });
   // TL 이상 전용 nav 항목 (계보도·시험신청·팀실적·요청관리·신입관리)
   var isLeader=_isLeader();
-  var leaderNavIds=['n_team_perf','n_req_menu','n_new_menu'];   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
+  var leaderNavIds=['n_team_perf','n_req_menu','n_new_menu','n_wkmt'];   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
   var _ne=g('n_exam'); if(_ne) _ne.style.display='';
   leaderNavIds.forEach(function(id){
     var el=g(id); if(!el) return;
@@ -5698,6 +5737,7 @@ g('n_team_menu').addEventListener('click',function(){tnav('team');});
 g('n_hierarchy').addEventListener('click',function(){showPage('hierarchy');});
 g('n_exam').addEventListener('click',function(){showPage('exam');});
 g('n_meeting').addEventListener('click',function(){showPage('meeting');});
+g('n_wkmt').addEventListener('click',function(){showPage('wkmt');});
 g('n_wclose').addEventListener('click',function(){showPage('wclose');});
 g('n_bizplan').addEventListener('click',function(){showPage('bizplan');});
 g('n_recruit').addEventListener('click',function(){showPage('recruit');});
@@ -5754,7 +5794,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   tops:'TOPS',members:'구성원',hierarchy:'계보도',
   cust_apply:'고객등록 및 신청',cust_status:'고객등록 현황',
   prom:'진급평가',
-  exam:'시험신청',meeting:'팀 미팅',
+  exam:'시험신청',meeting:'팀 미팅',wkmt:'주간미팅자료',
   wclose:'주마감보고',bizplan:'사업계획서',recruit:'리쿠르팅 리스트',expect:'예상계약건 계산',trip:'출장보고',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
@@ -8523,7 +8563,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
   }
-  if(['team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(name)>=0 && !_isLeader()){
+  if(['team_perf','req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -8550,7 +8590,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -16323,7 +16363,7 @@ function _rsPageAllowed(role,pg){
   // DB 관리 4종 — showPage가 아닌 사이드바 클릭 핸들러에서만 관리자 가드(고객 PII 페이지).
   // 팝업 바로가기는 showPage를 직접 호출해 그 가드를 우회하므로 여기서 반드시 차단(2026-09-10 intranet-guard 치명 지적)
   if((role==='mem'||role==='lead') && ['db_apply','db_assign','db_info','db_exchange'].indexOf(pg)>=0) return false;
-  if(role==='mem' && ['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting'].indexOf(pg)>=0) return false; // 팀장 이상
+  if(role==='mem' && ['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(pg)>=0) return false; // 팀장 이상
   return true;
 }
 // 항목 해석 — 고정 카탈로그(REQSTAT_ITEMS) 또는 동적 바로가기 키 'pg:<페이지키>'
@@ -22126,6 +22166,333 @@ function mtReport(){
     try{ w.close(); }catch(_){}
     console.warn('mtReport err:',e); toast('보고서를 만들지 못했습니다: '+(e&&e.message||e));
   }
+}
+
+// ===== 주간미팅자료 (wkmt, 2026-10-27 — v2026.10.27-7) =====
+// 팀장 하부 인원의 계보도·시험신청·주마감보고·사업계획서·리쿠르팅·실적·목표를 골라 PPT(.pptx)로 만든다.
+// 시안 4종(스코어보드·테크 회로·레트로 스탬프·미니 위젯) 중 선택. 저장·동기화 없음(선택값만 기기 캐시).
+var WKMT_ITEMS=[
+  {k:'tree',nm:'계보도',ds:'팀장 → 하부 인원 구조와 이번 달 실적'},
+  {k:'exam',nm:'시험신청인원',ds:'팀 시험 신청 현황(대기 먼저)'},
+  {k:'wclose',nm:'주마감보고',ds:'기준 주차 팀원별 주마감보고'},
+  {k:'biz',nm:'사업계획서',ds:'팀원별 목표·가망고객·리쿠르팅 대상 수'},
+  {k:'recruit',nm:'리쿠르팅리스트',ds:'팀원별 리쿠르팅 대상자'},
+  {k:'perf',nm:'전체실적',ds:'팀 합계와 팀원별 실적 순위'},
+  {k:'teams',nm:'팀별실적',ds:'하부 팀(팀장별) 실적 비교'},
+  {k:'goal',nm:'월간목표실적',ds:'팀원별 월간 목표 대비 실적'}
+];
+var WKMT_THEMES={
+  score:{nm:'스코어보드',ds:'검정 배경 · 노란 숫자 강조',bg:'121212',fg:'FFFFFF',mu:'BDBDBD',card:'2C2C2C',cl:'',acc:'FFEB3B',hf:'FFEB3B',hc:'000000',ra:'1E1E1E',rb:'2A2A2A',tc:'FFFFFF',bc:'333333',bar:'FFEB3B',hfont:'HY견고딕'},
+  tech:{nm:'테크 회로',ds:'남색 배경 · 하늘색 선',bg:'0A1929',fg:'FFFFFF',mu:'8FA9C7',card:'132F4C',cl:'1E4976',acc:'66B2FF',hf:'1E4976',hc:'FFFFFF',ra:'0F2540',rb:'132F4C',tc:'FFFFFF',bc:'1E4976',bar:'66B2FF',hfont:'맑은 고딕'},
+  retro:{nm:'레트로 스탬프',ds:'베이지 종이 · 붉은 도장',bg:'F3EBE1',fg:'3E2723',mu:'8D6E63',card:'FAF5EF',cl:'D7CCC8',acc:'C62828',hf:'5D4037',hc:'FFFFFF',ra:'FFFFFF',rb:'F6EFE7',tc:'3E2723',bc:'D7CCC8',bar:'A1887F',hfont:'궁서'},
+  widget:{nm:'미니 위젯',ds:'밝은 배경 · 흰 카드 위젯',bg:'F4F5FB',fg:'1F2A5C',mu:'7A82A6',card:'FFFFFF',cl:'',acc:'26A69A',hf:'3949AB',hc:'FFFFFF',ra:'FFFFFF',rb:'F1F2FA',tc:'1F2A5C',bc:'E3E5F2',bar:'5C6BC0',hfont:'맑은 고딕'}
+};
+function _wkmtSt(){
+  if(!window._wkmt){
+    var pref={}; try{ pref=JSON.parse(localStorage.getItem('tops_wkmt_pref')||'{}')||{}; }catch(e){ pref={}; }
+    var items={}; WKMT_ITEMS.forEach(function(it){ items[it.k]=!(pref.items&&pref.items[it.k]===false); });
+    window._wkmt={leader:'',wk:wcKey(new Date()),th:WKMT_THEMES[pref.th]?pref.th:'score',items:items,busy:false};
+  }
+  return window._wkmt;
+}
+function _wkmtPrefSave(){ var st=_wkmtSt(); try{ _lsSet('tops_wkmt_pref',JSON.stringify({th:st.th,items:st.items})); }catch(e){} }
+// 고를 수 있는 팀장: 관리자=하부 인원이 있는 구성원·관리자 전원, 그 외=본인만
+function _wkmtLeaders(){
+  if(!cu) return [];
+  if(!_isAdmin()) return [cu.name];
+  var hasSub=function(n){ return mem.some(function(m){ return m&&m.name&&m.belong===n&&m.name!==n; }); };
+  var out=[];
+  (typeof _admList==='function'?_admList():ADMINS).forEach(function(a){ if(a&&a.name&&hasSub(a.name)&&out.indexOf(a.name)<0) out.push(a.name); });
+  mem.filter(function(m){ return m&&m.name&&!m.suspended&&hasSub(m.name); })
+    .sort(function(a,b){ return (+a.code||0)-(+b.code||0); })
+    .forEach(function(m){ if(out.indexOf(m.name)<0) out.push(m.name); });
+  if(out.indexOf(cu.name)<0) out.unshift(cu.name);
+  return out;
+}
+function _wkmtYm(wk){ return String(wk).slice(0,7); }
+function _wkmtWkLabel(wk){
+  var ym=_wkmtYm(wk), n=_mtWeeksOf(ym).indexOf(wk)+1;
+  var s=new Date(wk+'T12:00:00'), e=new Date(s); e.setDate(e.getDate()+6);
+  return _mtYmLabel(ym)+' '+(n>0?n:'?')+'주차 ('+(s.getMonth()+1)+'/'+s.getDate()+'~'+(e.getMonth()+1)+'/'+e.getDate()+')';
+}
+function _wkmtRank(n){ try{ var r=(typeof _liveRankOf==='function')?_liveRankOf(n):''; if(r) return r; }catch(e){} var m=mem.find(function(x){return x.name===n;}); return (m&&m.rank)||''; }
+function _wkmtMan(a){ return Math.round((+a||0)/10000); }
+function _wkmtWon(a){ return (+a||0).toLocaleString()+'원'; }
+// 보고서에 들어갈 데이터 한 번에 모으기
+function _wkmtData(){
+  var st=_wkmtSt(), leader=st.leader, wk=st.wk, ym=_wkmtYm(wk);
+  var team=_drSubTeam(leader);
+  var agg={}; team.forEach(function(n){ agg[n]={c:0,a:0,ay:0}; });
+  (prf||[]).forEach(function(p){ if(!p||!agg[p.m]||_perfMonth(p)!==ym) return; agg[p.m].c+=(+p.c||0); agg[p.m].a+=(+p.a||0); agg[p.m].ay+=(+p.ay||0); });
+  var tot={c:0,a:0,ay:0}; team.forEach(function(n){ tot.c+=agg[n].c; tot.a+=agg[n].a; tot.ay+=agg[n].ay; });
+  var goals={}; (gls||[]).forEach(function(g2){ if(g2&&g2.type==='monthly'&&team.indexOf(g2.m)>=0) goals[g2.m]=g2; });
+  var goalA=0, goalC=0; team.forEach(function(n){ if(goals[n]){ goalA+=(+goals[n].a||0); goalC+=(+goals[n].c||0); } });
+  var wcs=team.map(function(n){ return {n:n,r:wcRec(n,wk)}; });
+  var exs=(_examsFresh()||[]).filter(function(e){ return e&&((e.submitter&&team.indexOf(e.submitter)>=0)||(e.belong&&team.indexOf(e.belong)>=0)); })
+    .slice().sort(function(a,b){ if(!!a.done!==!!b.done) return a.done?1:-1; return String(b.regDate||'').localeCompare(String(a.regDate||'')); });
+  var subs=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs:[];
+  var biz=team.map(function(n){ return {n:n,s:subs.find(function(x){ return x&&x.m===n; })||null}; });
+  var cards=(recruit&&Array.isArray(recruit.cards))?recruit.cards.filter(function(c){ return c&&team.indexOf(c.owner)>=0; }):[];
+  var hasSub=function(n){ return mem.some(function(m){ return m&&m.name&&m.belong===n&&m.name!==n; }); };
+  var teams=team.filter(hasSub).map(function(L){ var ns=_drSubTeam(L), t={c:0,a:0,ay:0};
+    ns.forEach(function(n){ var v=agg[n]; if(v){ t.c+=v.c; t.a+=v.a; t.ay+=v.ay; } }); return {L:L,n:ns.length,t:t}; });
+  return {leader:leader,wk:wk,ym:ym,wkLabel:_wkmtWkLabel(wk),team:team,agg:agg,tot:tot,goals:goals,goalA:goalA,goalC:goalC,
+    wcs:wcs,wcDone:wcs.filter(function(x){return !!x.r;}).length,exs:exs,biz:biz,cards:cards,teams:teams,
+    goalNow:ym===_curYm()};
+}
+function rWkmt(){
+  if(!_isLeader()){ var pg=g('pg_wkmt'); if(pg) toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  var st=_wkmtSt(), ls=_wkmtLeaders();
+  if(!st.leader||ls.indexOf(st.leader)<0) st.leader=ls[0]||'';
+  var sel=g('wkmt_leader');
+  if(sel){ sel.innerHTML=ls.map(function(n){ var r=_wkmtRank(n); return '<option value="'+_alertEsc(n)+'"'+(n===st.leader?' selected':'')+'>'+_esc(n)+(r?' ('+_esc(r)+')':'')+'</option>'; }).join('');
+    sel.disabled=ls.length<2; }
+  var wl=g('wkmt_wklbl'); if(wl) wl.textContent=_wkmtWkLabel(st.wk);
+  var tb=g('wkmt_themes');
+  if(tb) tb.innerHTML=Object.keys(WKMT_THEMES).map(function(k){ var T=WKMT_THEMES[k], on=st.th===k;
+    return '<div data-wkth="'+k+'" onclick="wkmtSet(\'th\',this.getAttribute(\'data-wkth\'))" style="cursor:pointer;border-radius:12px;padding:8px;border:2px solid '+(on?'#4858cc':'#e2e4f0')+';background:'+(on?'#eef0ff':'#fff')+'">'
+      +_wkmtThumb(k)
+      +'<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span style="width:16px;height:16px;border-radius:50%;border:2px solid '+(on?'#4858cc':'#bbb')+';background:'+(on?'radial-gradient(#4858cc 45%,#fff 50%)':'#fff')+'"></span>'
+      +'<b style="font-size:14px;color:#2a2a4a">'+T.nm+'</b></div><div style="font-size:12px;color:#7a80a0;margin-top:2px">'+T.ds+'</div></div>'; }).join('');
+  var ib=g('wkmt_items');
+  if(ib) ib.innerHTML=WKMT_ITEMS.map(function(it){ var on=!!st.items[it.k];
+    return '<label style="display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px solid '+(on?'#b9c0f0':'#e4e6f0')+';background:'+(on?'#f3f4ff':'#fff')+';cursor:pointer">'
+      +'<input type="checkbox" data-wkit="'+it.k+'"'+(on?' checked':'')+' onchange="wkmtSet(\'item\',this.getAttribute(\'data-wkit\'),this.checked)" style="width:17px;height:17px;margin-top:2px">'
+      +'<span><b style="font-size:14px;color:#2a2a4a">'+it.nm+'</b><br><span style="font-size:12px;color:#7a80a0">'+it.ds+'</span></span></label>'; }).join('');
+  _wkmtSummary();
+}
+function _wkmtSummary(){
+  var st=_wkmtSt(), sm=g('wkmt_sum'), pl=g('wkmt_plan');
+  if(!st.leader){ if(sm) sm.textContent='팀장을 선택하세요.'; if(pl) pl.textContent=''; return; }
+  var d; try{ d=_wkmtData(); }catch(e){ if(sm) sm.textContent='데이터를 읽지 못했습니다: '+(e&&e.message||e); return; }
+  if(sm) sm.innerHTML='<b>'+_esc(d.leader)+' 팀</b> '+d.team.length+'명 · 이번 달 인정실적 '+_esc(_wkmtWon(d.tot.a))
+    +' · 주마감 제출 '+d.wcDone+'/'+d.team.length+'명 · 시험신청 '+d.exs.length+'건 · 리쿠르팅 대상 '+d.cards.length+'명';
+  var n=1, list=['표지·요약'].concat(WKMT_ITEMS.filter(function(it){ return st.items[it.k]; }).map(function(it){ return it.nm; }));
+  if(pl) pl.innerHTML='<b>만들 슬라이드</b> ('+_esc(WKMT_THEMES[st.th].nm)+' 시안): '+list.map(function(x){ return (n++)+'. '+_esc(x); }).join(' · ')
+    +'<br><span style="color:#8a8fb0;font-size:12.5px">표가 길면 여러 장으로 나뉩니다. 파일은 PowerPoint(.pptx)로 내려받습니다.</span>';
+}
+function wkmtSet(k,v,on){
+  var st=_wkmtSt();
+  if(k==='leader'){ if(_wkmtLeaders().indexOf(v)>=0) st.leader=v; }
+  else if(k==='th'){ if(WKMT_THEMES[v]) st.th=v; _wkmtPrefSave(); }
+  else if(k==='item'){ if(Object.prototype.hasOwnProperty.call(st.items,v)) st.items[v]=!!on; _wkmtPrefSave(); }
+  rWkmt();
+}
+function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); rWkmt(); }
+function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); _wkmtPrefSave(); rWkmt(); }
+function _wkmtClear(){ window._wkmt=null; ['wkmt_themes','wkmt_items','wkmt_sum','wkmt_plan'].forEach(function(id){ var e=g(id); if(e) e.innerHTML=''; }); }
+// 시안 미리보기(화면용 축소판)
+function _wkmtThumb(k){
+  var box='position:relative;height:118px;border-radius:7px;overflow:hidden;';
+  if(k==='score') return '<div style="'+box+'background:#121212;padding:8px 10px"><div style="color:#FFEB3B;font-size:8px;letter-spacing:3px;text-align:center;font-weight:700">SCOREBOARD</div>'
+    +'<div style="color:#fff;font-size:10px;text-align:center;font-weight:700;margin:2px 0 6px">주간미팅자료</div><div style="display:flex;gap:4px">'
+    +['1,240','2,000','62','3'].map(function(v,i){ return '<div style="flex:1;background:#2c2c2c;color:'+(i===2?'#FFEB3B':'#fff')+';font-weight:800;font-size:13px;text-align:center;padding:6px 0">'+v+'</div>'; }).join('')
+    +'</div><div style="margin-top:7px">'+[90,70,55,35].map(function(w){ return '<div style="height:6px;width:'+w+'%;background:#FFEB3B;margin-bottom:3px"></div>'; }).join('')+'</div></div>';
+  if(k==='tech') return '<div style="'+box+'background:#0A1929;padding:8px 10px;background-image:repeating-linear-gradient(#0A1929 0 17px,#102A44 17px 18px)"><div style="color:#fff;font-size:11px;font-weight:700;margin-bottom:6px">주간미팅자료 <span style="color:#8FA9C7;font-size:8px">홍길동 팀</span></div>'
+    +'<div style="display:flex;gap:4px">'+['1,240','2,000','62%','3'].map(function(v){ return '<div style="flex:1;border:1px solid #66B2FF;background:#132F4C;color:#fff;font-size:10px;font-weight:700;text-align:center;padding:4px 0;border-radius:3px">'+v+'</div>'; }).join('')+'</div>'
+    +'<div style="display:flex;align-items:flex-end;gap:5px;height:44px;margin-top:8px">'+[40,30,25,15,10].map(function(h){ return '<div style="width:12px;height:'+h+'px;background:#66B2FF"></div>'; }).join('')
+    +'<div style="margin-left:10px;color:#fff;font-size:8px;line-height:1.6">● 계보도<br>● 시험신청<br>● 주마감</div></div></div>';
+  if(k==='retro') return '<div style="'+box+'background:#F3EBE1;padding:8px 10px"><div style="font-family:serif;color:#3E2723;font-size:14px;font-weight:700">주간미팅자료</div>'
+    +'<div style="position:absolute;right:10px;top:8px;width:46px;height:46px;border:2px solid #C62828;border-radius:50%;color:#C62828;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg)">62%</div>'
+    +'<div style="display:flex;gap:4px;margin-top:22px;width:70%">'+['1,240','2,000','3'].map(function(v){ return '<div style="flex:1;border:1px solid #A1887F;background:#FAF5EF;color:#3E2723;font-size:10px;font-weight:700;text-align:center;padding:3px 0;border-radius:4px">'+v+'</div>'; }).join('')+'</div>'
+    +'<div style="margin-top:7px">'+[85,62,45].map(function(w){ return '<div style="height:6px;width:'+w+'%;background:#A1887F;margin-bottom:3px"></div>'; }).join('')+'</div></div>';
+  return '<div style="'+box+'background:#F4F5FB;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px">'
+    +'<div style="background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center"><div style="width:42px;height:42px;border-radius:50%;background:conic-gradient(#26A69A 0 62%,#E8EAF6 62% 100%);display:flex;align-items:center;justify-content:center"><div style="width:28px;height:28px;border-radius:50%;background:#fff;font-size:9px;font-weight:800;color:#1F2A5C;display:flex;align-items:center;justify-content:center">62%</div></div></div>'
+    +'<div style="background:#fff;border-radius:6px;padding:5px;font-size:9px;color:#1F2A5C;font-weight:700;line-height:1.5">1,240 2,000<br><span style="color:#26A69A">62%</span> 3</div>'
+    +'<div style="background:#fff;border-radius:6px;padding:5px">'+[85,62,45].map(function(w){ return '<div style="height:5px;width:'+w+'%;background:#5C6BC0;margin-bottom:3px"></div>'; }).join('')+'</div>'
+    +'<div style="background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:3px">'+[0,1,2,3].map(function(i){ return '<div style="width:14px;height:14px;border-radius:50%;background:'+(i===3?'#26A69A':'#5C6BC0')+'"></div>'; }).join('')+'</div></div>';
+}
+// ── PPT 만들기 ──
+async function wkmtMake(){
+  var st=_wkmtSt();
+  if(!_isLeader()){ toast('예비팀장 이상만 사용할 수 있습니다.'); return; }
+  if(!st.leader||_wkmtLeaders().indexOf(st.leader)<0){ toast('팀장을 선택하세요.'); return; }
+  if(st.busy) return;
+  st.busy=true; var btn=g('wkmt_go'), old=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.innerHTML='만드는 중…'; }
+  var who=cu&&cu.name;
+  try{
+    if(!window.PptxGenJS) await _drLoadScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+    if(!window.PptxGenJS) throw new Error('PPT 도구를 불러오지 못했습니다');
+    if(!cu||cu.name!==who) return;   // 그 사이 로그아웃·계정 전환이면 중단
+    var d=_wkmtData(), pres=_wkmtBuild(d, st.th, st.items);
+    var fn=('주간미팅자료_'+d.leader+'팀_'+d.wk).replace(/[\\\/:*?"<>|]/g,'_')+'.pptx';
+    await pres.writeFile({fileName:fn});
+    toast('PPT 파일을 만들었습니다: '+fn);
+  }catch(e){ console.warn('wkmt err:',e); toast('PPT를 만들지 못했습니다: '+(e&&e.message||e)); }
+  finally{ var s2=window._wkmt; if(s2) s2.busy=false; if(btn){ btn.disabled=false; btn.innerHTML=old; } }
+}
+function _wkmtBuild(d, th, items){
+  var T=WKMT_THEMES[th]||WKMT_THEMES.score, B='맑은 고딕';
+  var pres=new window.PptxGenJS(); pres.layout='LAYOUT_16x9'; pres.title='주간미팅자료 '+d.leader+' 팀 '+d.wk;
+  var SH=pres.ShapeType, CT=pres.ChartType;
+  var TXT=function(s,t,o){ s.addText(t,Object.assign({isTextBox:true,fontFace:B,margin:0,valign:'middle',color:T.fg},o)); };
+  var RECT=function(s,o){ s.addShape(SH.rect,Object.assign({line:{type:'none'}},o)); };
+  var RRECT=function(s,o){ s.addShape(SH.roundRect,Object.assign({line:{type:'none'},rectRadius:0.12},o)); };
+  var sub=d.leader+' 팀 · '+d.wkLabel;
+  var panel=function(s,x,y,w,h){
+    if(th==='score') RECT(s,{x:x,y:y,w:w,h:h,fill:{color:T.card}});
+    else if(th==='tech') RRECT(s,{x:x,y:y,w:w,h:h,fill:{color:T.card},line:{color:T.cl,width:1},rectRadius:0.06});
+    else if(th==='retro') RRECT(s,{x:x,y:y,w:w,h:h,fill:{color:T.card},line:{color:T.cl,width:1}});
+    else RRECT(s,{x:x,y:y,w:w,h:h,fill:{color:'FFFFFF'},rectRadius:0.15});
+  };
+  // 배경·제목 — 내용 시작 y를 돌려준다
+  var frame=function(s,title,pg){
+    s.background={color:T.bg};
+    if(th==='score'){ TXT(s,'SCOREBOARD',{x:0.5,y:0.18,w:9,h:0.3,fontSize:11,bold:true,color:T.acc,align:'center',charSpacing:8});
+      TXT(s,title,{x:0.5,y:0.48,w:9,h:0.42,fontSize:20,bold:true,align:'center',fontFace:T.hfont}); }
+    else if(th==='tech'){ for(var i=0;i<6;i++) s.addShape(SH.line,{x:0,y:0.9+i*0.85,w:10,h:0,line:{color:'102A44',width:0.75}});
+      TXT(s,[{text:title+'  ',options:{fontSize:20,bold:true,color:'FFFFFF'}},{text:sub,options:{fontSize:10.5,color:T.mu}}],{x:0.5,y:0.28,w:9,h:0.5}); }
+    else if(th==='retro'){ TXT(s,title,{x:0.5,y:0.28,w:7.5,h:0.55,fontSize:26,bold:true,fontFace:T.hfont});
+      TXT(s,sub,{x:0.5,y:0.82,w:7.5,h:0.26,fontSize:10.5,color:T.mu}); }
+    else { TXT(s,[{text:title+'  ',options:{fontSize:20,bold:true,color:T.hf}},{text:sub,options:{fontSize:10.5,color:T.mu}}],{x:0.5,y:0.28,w:9,h:0.5}); }
+    TXT(s,d.leader+' 팀 주간미팅자료'+(pg?'  ·  '+pg:''),{x:5,y:5.3,w:4.5,h:0.22,fontSize:8,color:T.mu,align:'right'});
+    return th==='retro'?1.25:(th==='score'?1.05:1.0);
+  };
+  var table=function(s,x,y,w,head,rows,cw,o){ o=o||{};
+    var data=[head.map(function(h){ return {text:String(h),options:{bold:true,color:T.hc,fill:{color:T.hf},align:'center'}}; })]
+      .concat(rows.map(function(r,ri){ return r.map(function(c,j){ var cs=(c&&typeof c==='object')?c:{t:c};
+        return {text:String(cs.t==null?'':cs.t),options:{color:cs.c||T.tc,bold:!!cs.b||j===0,fill:{color:ri%2?T.rb:T.ra},align:(o.left&&o.left.indexOf(j)>=0)?'left':(j===0?'left':'center')}}; }); }));
+    var tw=cw.reduce(function(a,b){return a+b;},0);
+    s.addTable(data,{x:x,y:y,w:w,colW:cw.map(function(c){ return w*c/tw; }),fontFace:B,fontSize:o.fs||10,rowH:o.rh||0.3,border:{type:'solid',pt:0.5,color:T.bc},margin:[0,0.06,0,0.06],valign:'middle'});
+  };
+  var bar=function(s,x,y,w,h,labels,vals,o){ o=o||{};
+    if(!labels.length){ TXT(s,'데이터 없음',{x:x,y:y,w:w,h:h,fontSize:12,color:T.mu,align:'center'}); return; }
+    s.addChart(CT.bar,[{name:o.nm||'값',labels:labels,values:vals}],{x:x,y:y,w:w,h:h,barDir:o.dir||'bar',catAxisOrientation:(o.dir||'bar')==='bar'?'maxMin':'minMax',
+      chartColors:[o.col||T.bar],showValue:true,dataLabelPosition:'outEnd',dataLabelFontSize:9,dataLabelColor:T.fg,dataLabelFontFace:B,
+      catAxisLabelColor:T.fg,catAxisLabelFontSize:9,catAxisLabelFontFace:B,valAxisHidden:true,valGridLine:{style:'none'},catGridLine:{style:'none'},
+      showLegend:false,catAxisLineShow:false,barGapWidthPct:55,showTitle:!!o.title,title:o.title,titleFontSize:11,titleColor:T.fg,titleFontFace:B}); };
+  var pages=function(rows,n){ var out=[]; for(var i=0;i<rows.length;i+=n) out.push(rows.slice(i,i+n)); return out.length?out:[[]]; };
+  var rate=d.goalA>0?Math.round(d.tot.a/d.goalA*100):null;
+  var K=[['팀 인정실적',String(_wkmtMan(d.tot.a).toLocaleString()),'만원'],['월간 목표',d.goalA?String(_wkmtMan(d.goalA).toLocaleString()):'-',d.goalA?'만원':''],
+    ['목표 달성률',rate===null?'-':String(rate),rate===null?'':'%'],['주마감 제출',d.wcDone+'/'+d.team.length,'명']];
+  var memSorted=d.team.slice().sort(function(a,b){ return d.agg[b].a-d.agg[a].a; });
+  var topN=memSorted.slice(0,8);
+  var wcShort=function(n){ return d.wcs.slice(0,n).map(function(x){ var r=x.r||{}; return [x.n,r.first!=null?r.first:'-',r.second!=null?r.second:'-',r.closing!=null?r.closing:'-',r.cfm_closing!=null?r.cfm_closing:'-']; }); };
+  var chosen=WKMT_ITEMS.filter(function(it){ return items[it.k]; });
+
+  // ── 1. 표지·요약 (시안별 배치 — score는 자체 머리말, 나머지는 frame) ──
+  var s=pres.addSlide(); s.background={color:T.bg};
+  if(th==='score'){
+    TXT(s,'SCOREBOARD',{x:0.5,y:0.22,w:9,h:0.32,fontSize:12,bold:true,color:T.acc,align:'center',charSpacing:8});
+    TXT(s,d.leader+' 팀 주간미팅자료 · '+d.wkLabel,{x:0.5,y:0.55,w:9,h:0.42,fontSize:16,bold:true,align:'center'});
+    K.forEach(function(k,i){ RECT(s,{x:0.5+i*2.3,y:1.15,w:2.1,h:1.3,fill:{color:T.card}}); TXT(s,k[1],{x:0.5+i*2.3,y:1.2,w:2.1,h:0.8,fontSize:30,bold:true,color:i===2?T.acc:'FFFFFF',align:'center',fontFace:T.hfont,fit:'shrink'});
+      TXT(s,k[0]+(k[2]?' ('+k[2]+')':''),{x:0.5+i*2.3,y:2.05,w:2.1,h:0.3,fontSize:9,color:T.mu,align:'center'}); });
+    bar(s,0.4,2.7,4.6,2.55,topN.map(function(n){return n;}),topN.map(function(n){ return _wkmtMan(d.agg[n].a); }),{title:'팀원별 인정실적 (만원)'});
+    table(s,5.3,2.8,4.2,['이름','초회','2차','클로징','확정'],wcShort(6),[3,1.2,1.2,1.4,1.2],{fs:9,rh:0.3});
+  } else if(th==='tech'){
+    frame(s,'주간미팅자료');
+    K.forEach(function(k,i){ RRECT(s,{x:0.5+i*2.3,y:1.0,w:2.15,h:0.85,fill:{color:T.card},line:{color:T.acc,width:1.25},rectRadius:0.08});
+      TXT(s,k[0],{x:0.5+i*2.3,y:1.05,w:2.15,h:0.24,fontSize:9,color:T.mu,align:'center'}); TXT(s,[{text:k[1],options:{fontSize:20,bold:true,color:i===2?T.acc:'FFFFFF'}},{text:' '+k[2],options:{fontSize:9,color:T.mu}}],{x:0.5+i*2.3,y:1.3,w:2.15,h:0.5,align:'center'}); });
+    bar(s,0.4,2.05,4.6,3.2,topN,topN.map(function(n){ return _wkmtMan(d.agg[n].a); }),{dir:'col',title:'팀원별 인정실적 (만원)'});
+    var agenda=chosen.length?chosen:[{nm:'요약만 포함'}];
+    agenda.slice(0,8).forEach(function(it,i){ var y=2.15+i*0.39; s.addShape(SH.ellipse,{x:5.35,y:y,w:0.3,h:0.3,fill:{color:T.cl},line:{type:'none'}});
+      TXT(s,String(i+1).padStart(2,'0'),{x:5.35,y:y,w:0.3,h:0.3,fontSize:8,bold:true,align:'center'}); TXT(s,it.nm,{x:5.8,y:y,w:3.6,h:0.3,fontSize:12,bold:true}); });
+  } else if(th==='retro'){
+    frame(s,'주간미팅자료');
+    s.addShape(SH.ellipse,{x:7.3,y:0.2,w:2.1,h:2.1,fill:{type:'none'},line:{color:T.acc,width:3}});
+    TXT(s,[{text:rate===null?'-':rate+'%',options:{fontSize:28,bold:true,color:T.acc,breakLine:true}},{text:'목표 달성',options:{fontSize:10,color:T.acc}}],{x:7.3,y:0.2,w:2.1,h:2.1,align:'center',rotate:-12});
+    [K[0],K[1],K[3]].forEach(function(k,i){ RRECT(s,{x:0.5+i*2.2,y:1.4,w:2.05,h:0.85,fill:{color:T.card},line:{color:T.bar,width:1.25}});
+      TXT(s,k[0],{x:0.5+i*2.2,y:1.45,w:2.05,h:0.24,fontSize:9,color:T.mu,align:'center'}); TXT(s,[{text:k[1],options:{fontSize:19,bold:true}},{text:' '+k[2],options:{fontSize:9,color:T.mu}}],{x:0.5+i*2.2,y:1.7,w:2.05,h:0.5,align:'center'}); });
+    bar(s,0.4,2.55,4.6,2.7,topN,topN.map(function(n){ return _wkmtMan(d.agg[n].a); }));
+    table(s,5.3,2.7,4.2,['이름','초회','2차','클로징','확정'],wcShort(6),[3,1.2,1.2,1.4,1.2],{fs:9,rh:0.3});
+  } else {
+    frame(s,'주간미팅자료');
+    [[0.5,1.0,3.0,2.0],[3.65,1.0,2.7,2.0],[6.5,1.0,3.0,2.0],[0.5,3.2,4.4,2.05],[5.05,3.2,4.45,2.05]].forEach(function(b){ panel(s,b[0],b[1],b[2],b[3]); });
+    if(rate!==null){ s.addChart(CT.doughnut,[{name:'달성',labels:['달성','남음'],values:[Math.min(rate,100),Math.max(0,100-rate)]}],{x:0.6,y:1.05,w:2.8,h:1.9,holeSize:68,chartColors:[T.acc,'E8EAF6'],showLegend:false,showValue:false,showPercent:false,dataBorder:{pt:0,color:'FFFFFF'}}); }
+    TXT(s,[{text:rate===null?'목표 없음':rate+'%',options:{fontSize:rate===null?12:20,bold:true,color:T.fg,breakLine:true}},{text:'목표 달성률',options:{fontSize:9,color:T.mu}}],{x:0.6,y:1.05,w:2.8,h:1.9,align:'center'});
+    [K[0],K[1],K[3],['시험 신청',String(d.exs.filter(function(e){return !e.done;}).length),'명 대기']].forEach(function(k,i){ var x=3.8+(i%2)*1.3, y=1.12+Math.floor(i/2)*0.9;
+      TXT(s,k[0],{x:x,y:y,w:1.25,h:0.24,fontSize:8.5,color:T.mu}); TXT(s,[{text:k[1],options:{fontSize:16,bold:true,color:T.fg}},{text:' '+k[2],options:{fontSize:8,color:T.mu}}],{x:x,y:y+0.24,w:1.25,h:0.5}); });
+    var wks=_mtWeeksOf(d.ym), dd=0.5, step=(2.6-dd)/Math.max(1,wks.length-1);
+    TXT(s,'주차별 주마감 제출',{x:6.65,y:1.1,w:2.7,h:0.25,fontSize:9,bold:true,color:T.fg});
+    wks.forEach(function(wk,i){ var cnt=d.team.filter(function(n){ return !!wcRec(n,wk); }).length, x=6.7+i*step;
+      s.addShape(SH.ellipse,{x:x,y:1.6,w:dd,h:dd,fill:{color:wk===d.wk?T.acc:T.bar},line:{color:'FFFFFF',width:1.5}});
+      TXT(s,String(cnt),{x:x,y:1.6,w:dd,h:dd,fontSize:12,bold:true,color:'FFFFFF',align:'center'}); TXT(s,(i+1)+'주',{x:x-0.1,y:2.15,w:dd+0.2,h:0.22,fontSize:8,color:T.mu,align:'center'}); });
+    TXT(s,'팀원 '+d.team.length+'명 기준',{x:6.65,y:2.5,w:2.7,h:0.25,fontSize:8.5,color:T.mu});
+    bar(s,0.6,3.25,4.2,1.95,topN.slice(0,6),topN.slice(0,6).map(function(n){ return _wkmtMan(d.agg[n].a); }));
+    table(s,5.2,3.35,4.15,['이름','초회','2차','클로징','확정'],wcShort(5),[3,1.2,1.2,1.4,1.2],{fs:9,rh:0.29});
+  }
+  s.addNotes(sub+' — 표지·요약');
+
+  // ── 2. 선택한 내용 ──
+  var sect=function(title,fn,pg){ var s2=pres.addSlide(); var y0=frame(s2,title,pg); fn(s2,y0); return s2; };
+  var W=9, X=0.5;
+  chosen.forEach(function(it){
+    if(it.k==='tree'){
+      sect('계보도',function(s2,y0){
+        var kids=mem.filter(function(m){ return m&&m.name&&m.belong===d.leader&&m.name!==d.leader; }).sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+        var bw=2.0, bh=0.62; panel(s2,X+(W-bw)/2-0.05,y0,bw+0.1,bh+0.1);
+        TXT(s2,[{text:d.leader+' '+(_wkmtRank(d.leader)||''),options:{fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,breakLine:true}},{text:'팀 '+d.team.length+'명 · '+_wkmtMan(d.tot.a).toLocaleString()+'만원',options:{fontSize:9,color:T.acc}}],{x:X+(W-bw)/2,y:y0+0.05,w:bw,h:bh,align:'center'});
+        if(!kids.length){ TXT(s2,'하부 인원이 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
+        var per=Math.min(kids.length,6), rows=Math.ceil(kids.length/6), cw=(W-0.15*(per-1))/per, ch=Math.min(1.55,(5.15-(y0+1.15))/rows-0.15);
+        s2.addShape(SH.line,{x:X+W/2,y:y0+bh+0.1,w:0,h:0.25,line:{color:T.mu,width:1.25}});
+        kids.forEach(function(k,i){ var r=Math.floor(i/6), c=i%6, cx=X+c*(cw+0.15), cy=y0+1.15+r*(ch+0.15);
+          panel(s2,cx,cy,cw,ch);
+          var subs=_drSubTeam(k.name).filter(function(n){ return n!==k.name; }), v=d.agg[k.name]||{a:0};
+          TXT(s2,[{text:k.name,options:{fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,breakLine:true}},{text:(_wkmtRank(k.name)||'')+' · '+_wkmtMan(v.a).toLocaleString()+'만원',options:{fontSize:8.5,color:T.acc,breakLine:true}},
+            {text:subs.length?('하부 '+subs.length+'명: '+subs.slice(0,6).join(', ')+(subs.length>6?' 외':'')):'하부 없음',options:{fontSize:8,color:T.mu}}],{x:cx+0.08,y:cy+0.05,w:cw-0.16,h:ch-0.1,align:'center',valign:'top',fit:'shrink'}); });
+      });
+    } else if(it.k==='exam'){
+      var exRows=d.exs.map(function(e){ return [e.name||'-',e.belong||'-',e.type||'-',e.examDate||'-',e.regDate||'-',e.done?{t:'접수완료',c:'2E7D32',b:1}:{t:'대기',c:T.acc,b:1}]; });
+      var ep=pages(exRows,12);
+      ep.forEach(function(rs,pi){ sect('시험신청인원',function(s2,y0){
+        TXT(s2,'전체 '+d.exs.length+'건 · 접수 대기 '+d.exs.filter(function(e){return !e.done;}).length+'건',{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg});
+        if(!rs.length){ TXT(s2,'팀 시험 신청 내역이 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
+        table(s2,X,y0+0.4,W,['이름','소속','접수유형','시험일','신청일','상태'],rs,[1.6,1.4,1.2,2,1.4,1.2]); },ep.length>1?(pi+1)+'/'+ep.length:''); });
+    } else if(it.k==='wclose'){
+      var sum={}; WC_FIELDS.forEach(function(f){ sum[f.k]=0; });
+      var wr=d.wcs.map(function(x){ var r=x.r; if(r) WC_FIELDS.forEach(function(f){ sum[f.k]+=_mtNum(r[f.k]); });
+        return [x.n].concat(WC_FIELDS.map(function(f){ return r&&r[f.k]!=null&&r[f.k]!==''?r[f.k]:'-'; })).concat([r?{t:'제출',c:'2E7D32',b:1}:{t:'미제출',c:T.acc,b:1}]); });
+      var wp=pages(wr,11);
+      wp.forEach(function(rs,pi){ sect('주마감보고',function(s2,y0){
+        TXT(s2,d.wkLabel+' · 제출 '+d.wcDone+'/'+d.team.length+'명',{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg});
+        var rows2=rs.slice(); if(pi===wp.length-1) rows2.push([{t:'합계',b:1}].concat(WC_FIELDS.map(function(f){ return {t:sum[f.k],b:1}; })).concat([{t:d.wcDone+'/'+d.team.length,b:1}]));
+        table(s2,X,y0+0.4,W,['이름'].concat(WC_FIELDS.map(function(f){ return f.label; })).concat(['상태']),rows2,[1.5,1,1,1.1,1.2,1.1,0.9,1,1.1,1],{fs:9.5}); },wp.length>1?(pi+1)+'/'+wp.length:''); });
+    } else if(it.k==='biz'){
+      var br=d.biz.map(function(x){ var f=x.s&&x.s.form, gl=(f&&f.goals)||{};
+        var pc=f&&Array.isArray(f.prospects)?f.prospects.filter(function(p){ return p&&p.name; }).length:0, rc=f&&Array.isArray(f.recruits)?f.recruits.filter(function(p){ return p&&p.name; }).length:0;
+        return [x.n,x.s?(f?{t:(f.month?f.month+'월 ':'')+'제출',c:'2E7D32',b:1}:{t:'제출(파일)',c:'2E7D32',b:1}):{t:'미제출',c:T.acc,b:1}].concat(BIZ_GOAL_FIELDS.map(function(bf){ return gl[bf.k]||'-'; })).concat([pc||'-',rc||'-']); });
+      var bp=pages(br,11), bsub=d.biz.filter(function(x){return !!x.s;}).length;
+      bp.forEach(function(rs,pi){ sect('사업계획서',function(s2,y0){
+        TXT(s2,'제출 '+bsub+'/'+d.team.length+'명 · 목표는 사업계획서에 적힌 값 그대로',{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg});
+        table(s2,X,y0+0.4,W,['이름','제출'].concat(BIZ_GOAL_FIELDS.map(function(bf){ return bf.label.replace(/\(.*\)/,''); })).concat(['가망고객','리쿠르팅']),rs,[1.3,1.2,0.9,0.9,0.9,1.2,1.2,0.9,1,1],{fs:9}); },bp.length>1?(pi+1)+'/'+bp.length:''); });
+    } else if(it.k==='recruit'){
+      var rv=function(c,fid,kw,def){ var v=c.vals&&c.vals[fid]; var ix=(typeof _rcSubIdx==='function')?_rcSubIdx(fid,kw,def):def; if(Array.isArray(v)) return String(v[ix]||''); return ix===0?String(v||''):''; };
+      var rr=d.cards.slice().sort(function(a,b){ return d.team.indexOf(a.owner)-d.team.indexOf(b.owner)||(+b.ts||0)-(+a.ts||0); }).map(function(c){
+        var prog=String((c.vals&&c.vals.prog)||'').replace(/\s+/g,' '); if(Array.isArray(c.vals&&c.vals.prog)) prog=c.vals.prog.join(' ');
+        return [c.owner||'-',rv(c,'name','이름',0)||'-',rv(c,'name','나이',1)||'-',rv(c,'job','직업',0)||'-',prog.length>34?prog.slice(0,34)+'…':(prog||'-')]; });
+      var rp=pages(rr,11);
+      rp.forEach(function(rs,pi){ sect('리쿠르팅리스트',function(s2,y0){
+        var byOwner={}; d.cards.forEach(function(c){ byOwner[c.owner]=(byOwner[c.owner]||0)+1; });
+        TXT(s2,'대상자 '+d.cards.length+'명'+(d.cards.length?' · '+Object.keys(byOwner).map(function(k){ return k+' '+byOwner[k]; }).join(', '):''),{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,fit:'shrink'});
+        if(!rs.length){ TXT(s2,'등록된 리쿠르팅 대상자가 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
+        table(s2,X,y0+0.4,W,['담당','대상자','나이','직업','진행 상황'],rs,[1.3,1.3,0.8,1.5,4.1],{left:[4]}); },rp.length>1?(pi+1)+'/'+rp.length:''); });
+    } else if(it.k==='perf'){
+      sect('전체실적',function(s2,y0){
+        [['건수',d.tot.c+'건'],['인정실적',_wkmtWon(d.tot.a)],['영수실적',_wkmtWon(d.tot.ay)]].forEach(function(k,i){ panel(s2,X+i*3.05,y0,2.9,0.8);
+          TXT(s2,k[0],{x:X+i*3.05+0.15,y:y0+0.06,w:2.6,h:0.25,fontSize:9.5,color:T.mu}); TXT(s2,k[1],{x:X+i*3.05+0.15,y:y0+0.3,w:2.6,h:0.45,fontSize:18,bold:true,color:i===1?T.acc:(th==='widget'?T.hf:T.fg),fit:'shrink'}); });
+        var top=memSorted.slice(0,10);
+        bar(s2,0.4,y0+0.95,4.5,5.15-(y0+0.95),top,top.map(function(n){ return _wkmtMan(d.agg[n].a); }),{title:'인정실적 (만원)'});
+        table(s2,5.1,y0+1.0,4.4,['순위·이름','건수','인정실적','영수실적'],top.map(function(n,i){ var v=d.agg[n]; return [(i+1)+'. '+n,v.c,_wkmtWon(v.a),_wkmtWon(v.ay)]; }),[2,0.8,1.8,1.8],{fs:9,rh:0.29});
+      },_mtYmLabel(d.ym));
+    } else if(it.k==='teams'){
+      sect('팀별실적',function(s2,y0){
+        var ts=d.teams.slice().sort(function(a,b){ return b.t.a-a.t.a; });
+        if(!ts.length){ TXT(s2,'하부 팀(팀원이 있는 팀장)이 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
+        bar(s2,0.4,y0,4.6,5.15-y0,ts.map(function(t){ return t.L+' 팀'; }),ts.map(function(t){ return _wkmtMan(t.t.a); }),{dir:'col',title:'팀별 인정실적 (만원)'});
+        table(s2,5.2,y0+0.1,4.3,['팀','인원','건수','인정실적','영수실적'],ts.slice(0,12).map(function(t){ return [t.L+' 팀',t.n+'명',t.t.c,_wkmtWon(t.t.a),_wkmtWon(t.t.ay)]; }),[1.6,0.8,0.8,1.7,1.7],{fs:9,rh:0.3});
+      },_mtYmLabel(d.ym));
+    } else if(it.k==='goal'){
+      var gr=d.team.map(function(n){ var gl=d.goals[n], v=d.agg[n], ga=gl?(+gl.a||0):0, gc=gl?(+gl.c||0):0, rt=ga>0?Math.round(v.a/ga*100):null;
+        return [n,ga?_wkmtWon(ga):'-',_wkmtWon(v.a),rt===null?'-':{t:rt+'%',b:1,c:rt>=100?'2E7D32':(rt>=70?((th==='score'||th==='tech')?'FFFFFF':T.hf):T.acc)},gc?gc+'건':'-',v.c+'건']; });
+      var gp=pages(gr,11);
+      gp.forEach(function(rs,pi){ sect('월간목표실적',function(s2,y0){
+        TXT(s2,'팀 목표 '+(d.goalA?_wkmtWon(d.goalA):'미설정')+' · 현재 '+_wkmtWon(d.tot.a)+(rate===null?'':' · 달성률 '+rate+'%')+(d.goalNow?'':' (목표는 현재 등록된 월간 목표 기준)'),{x:X,y:y0,w:W,h:0.3,fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,fit:'shrink'});
+        if(rate!==null){ RRECT(s2,{x:X,y:y0+0.4,w:W,h:0.22,fill:{color:th==='score'?'2C2C2C':(th==='tech'?'132F4C':'E6E3EE')},rectRadius:0.11});
+          RRECT(s2,{x:X,y:y0+0.4,w:Math.max(0.25,W*Math.min(rate,100)/100),h:0.22,fill:{color:T.acc},rectRadius:0.11}); }
+        table(s2,X,y0+0.8,W,['이름','목표 인정실적','현재 인정실적','달성률','목표 건수','현재 건수'],rs,[1.5,1.8,1.8,1,1,1]); },gp.length>1?(pi+1)+'/'+gp.length:''); });
+    }
+  });
+  return pres;
 }
 
 // ===== 사업계획서 =====
