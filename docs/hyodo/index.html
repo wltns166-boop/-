@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부모님 효도템 추천 목록</title>
+<meta name="description" content="부모님 효도템 채널 영상에 나온 추천 제품 모음">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #faf7f2; --card: #ffffff; --text: #1f1d1a; --sub: #6b655c;
+    --line: #e8e2d8; --accent: #c2410c; --accent-text: #ffffff; --tag: #fff1e6; --tag-text: #9a3412;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171614; --card: #22201d; --text: #f2efe9; --sub: #a8a197; --line: #36322d;
+            --accent: #f97316; --accent-text: #1a0e05; --tag: #3a2416; --tag-text: #fdba74; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 18px/1.65 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--sub); margin: 0 0 20px; }
+  .notice {
+    font-size: .9rem; color: var(--sub); background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 24px;
+  }
+  .item {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .tag {
+    display: inline-block; font-size: .8rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+    background: var(--tag); color: var(--tag-text); margin-bottom: 8px;
+  }
+  .item h2 { font-size: 1.25rem; margin: 0 0 8px; }
+  .item ul { margin: 0 0 16px; padding-left: 1.2em; }
+  .item li { margin: 4px 0; }
+  .btn {
+    display: block; text-align: center; text-decoration: none; font-weight: 700; font-size: 1.1rem;
+    padding: 14px; border-radius: 12px; background: var(--accent); color: var(--accent-text);
+  }
+  .btn.off { background: var(--line); color: var(--sub); pointer-events: none; }
+  footer { font-size: .85rem; color: var(--sub); margin-top: 32px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>부모님 효도템 추천 목록</h1>
+  <p class="sub">유튜브 「부모님 효도템」 영상에 나온 제품을 모아 두었습니다. 최신 영상이 맨 위에 있어요.</p>
+  <p class="notice">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다. 가격과 재고는 쿠팡에서 확인해 주세요.</p>
+  <div id="list"></div>
+  <footer>부모님 효도템 · 영상은 유튜브 @부모님효도템</footer>
+</main>
+<script>
+  // 새 영상이 나오면 맨 위에 추가합니다. link가 비어 있으면 "링크 준비 중"으로 표시됩니다.
+  const ITEMS = [
+    { date: "11/4", title: "조명 확대경", points: ["일반 돋보기보다 밝아 작은 글씨도 잘 보임", "배율 3~5배가 쓰기 편함", "충전식이면 건전지 교체 불필요"], link: "" },
+    { date: "11/2", title: "욕실 미끄럼 방지 매트", points: ["바닥 흡착판이 촘촘한 제품", "물 빠짐 구멍이 있는 제품", "욕조 안·샤워 공간·욕실 문 앞에 설치"], link: "" },
+    { date: "10/30", title: "팔뚝형 혈압계", points: ["손목형보다 팔뚝형", "큰 화면 글씨와 음성 안내", "측정 기록 저장 기능"], link: "" },
+    { date: "10/28", title: "겨울 전기요", points: ["좌우 온도 따로 조절", "자동 꺼짐 기능", "전자파 인증 표시 확인"], link: "" },
+  ];
+
+  const list = document.getElementById("list");
+  for (const it of ITEMS) {
+    const card = document.createElement("section");
+    card.className = "item";
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = it.date + " 영상";
+    const h2 = document.createElement("h2");
+    h2.textContent = it.title;
+    const ul = document.createElement("ul");
+    for (const p of it.points) {
+      const li = document.createElement("li");
+      li.textContent = p;
+      ul.appendChild(li);
+    }
+    const a = document.createElement("a");
+    a.className = it.link ? "btn" : "btn off";
+    a.textContent = it.link ? "쿠팡에서 보기" : "링크 준비 중";
+    if (it.link) { a.href = it.link; a.target = "_blank"; a.rel = "noopener sponsored"; }
+    card.append(tag, h2, ul, a);
+    list.appendChild(card);
+  }
+</script>
+</body>
+</html>
