@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.27-4</div>
   </div>
 </div>
 
@@ -28091,6 +28091,10 @@ function _bdrFormC(catId){
   var o=_bdrGetVals(catId);
   var val=function(k){ return String(o[k]||'').trim(); };
   var pd=val('wj_period').split('~');
+  // 공단서류(gov)에는 생년월일 입력칸이 없다 — 위임받는자 생년월일이 내 정보로 자동 채워져 있어도 넘기지 않는다(2026-10-27 실사용:
+  // 공단 위임장의 생년월일 칸은 주민번호 앞자리(ctRrnFront)로 찍는데, 자동 배치가 ctBirth를 같은 칸에 또 찍어 글자가 겹쳤음)
+  var gov=false; try{ Object.keys(boardcats||{}).forEach(function(n){ (Array.isArray(boardcats[n])?boardcats[n]:[]).forEach(function(ct){ if(ct&&ct.id===catId&&_bdrKind(ct)==='gov') gov=true; }); }); }catch(e){}
+  if(gov){ o=Object.assign({},o,{wj_birth:'',wb_birth:'',wj_hosp:'',wj_scope:''}); }
   return {
     insName:val('wj_name'), insRrn:val('wj_rrn').replace(/-/g,''), insBirth:val('wj_birth'), phone:val('wj_phone'), addr:val('wj_addr'), insRel:val('wj_rel'),
     ctName:val('wb_name'), ctRrn:val('wb_rrn').replace(/-/g,''), ctBirth:val('wb_birth'), ctPhone:val('wb_phone'), ctAddr:val('wb_addr'),
