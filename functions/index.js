@@ -417,7 +417,7 @@ async function _kkTripSend(test) {
 
 // ── 주말 출장보고 (2026-10-27, 사용자 요청 "출장보고는 주말에도 발송") ──
 // 일일보고 자동발송이 [주말 제외]로 쉬는 토·일에도, 보고서의 '출장보고 — 익일' 칸(다음날 출장 대상자)만
-// 일일보고와 같은 시각·같은 대상자(cfg.reportTo)에게 텍스트로 보낸다. 다음날 출장이 없으면 "없음"으로 1통.
+// 일일보고와 같은 시각·같은 대상자(cfg.reportTo)에게 텍스트로 보낸다. 다음날 출장이 없으면 보내지 않는다.
 async function _kkTripNextSend() {
   const [cfgSnap, tokSnap, dataSnap] = await Promise.all([KK_CFG().get(), KK_TOK().get(), KK_DATA().get()]);
   const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
@@ -429,6 +429,7 @@ async function _kkTripNextSend() {
   const ndStr = nd.getUTCFullYear() + "-" + _kkPad(nd.getUTCMonth() + 1) + "-" + _kkPad(nd.getUTCDate());
   const ndLbl = (nd.getUTCMonth() + 1) + "/" + nd.getUTCDate() + "(" + ["일", "월", "화", "수", "목", "금", "토"][nd.getUTCDay()] + ")";
   const list = trips.filter((t) => t && String(t.when || "").slice(0, 10) === ndStr);
+  if (!list.length) return { ok: true, sent: 0, empty: true, n: 0 }; // 다음날 출장 없음 — 발송 생략(사용자 요청)
   const allow = Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS;
   const ids = Object.keys(users).filter((id) => users[id] && users[id].approved && allow.indexOf(String(users[id].member || "")) >= 0);
   if (!ids.length) return { ok: false, error: "발송 대상자 없음(연동·승인 확인)" };
@@ -1149,7 +1150,7 @@ exports.kakaoDaily = onSchedule(
           console.warn("주말 출장보고 발송 실패 — 다음 턴 재시도:", JSON.stringify(w.results || w.error));
           await KK_CFG().set({ lastTripWkDate: "" }, { merge: true });
         } else {
-          console.log("주말 출장보고 발송:", w.sent + "명 · 익일 " + w.n + "건");
+          console.log("주말 출장보고:", w.empty ? "익일 출장 없음(생략)" : (w.sent + "명 · 익일 " + w.n + "건"));
         }
         return;
       }
