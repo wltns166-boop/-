@@ -771,6 +771,7 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<script src="sync-merge.js"></script>
 <script>
 /* ═══════════════════════════════════════
    DATA & USERS
@@ -795,7 +796,7 @@ function lsSetLocal(key, val) {
 /* 앱에서 데이터를 저장할 때 호출 — 로컬 캐시에 쓰고 서버에도 동기화 */
 function lsSet(key, val) {
   lsSetLocal(key, val);
-  SYNC.push(key, val);
+  SYNC.push(key);
 }
 
 /* ═══════════════════════════════════════
@@ -858,7 +859,20 @@ const SYNC = {
     }
   },
 
-  /* 서버의 전체 공유 데이터를 로컬 캐시로 내려받음. 서버 version 반환(-1=오프라인) */
+  /* 키별 base: 마지막으로 서버와 맞춘 값. 저장 시 함께 보내 서버가 다른 사람 변경과 병합 */
+  getBase(key) { return ls('base_' + key, null); },
+  setBase(key, val) { lsSetLocal('base_' + key, val); },
+  queue: {},        // 키별 저장 대기열 (같은 키 저장은 순서대로 한 번에 하나씩)
+  inflight: {},     // 키별 진행 중인 저장 수
+  onRemoteChange: null,
+
+  /* 서버 version 반영: 내 저장 직전까지 다 받은 상태일 때만 올림 (아니면 폴링이 마저 받음) */
+  bumpVersion(r) {
+    if (r.prevVersion === this.version) this.version = r.version;
+  },
+
+  /* 서버의 전체 공유 데이터를 로컬 캐시로 내려받음. 서버 version 반환(-1=오프라인)
+     아직 서버에 못 올린 내 변경이 있으면 지우지 않고 병합한 뒤 다시 올림 */
   async pullAll() {
     try {
       const data = await this.req('/api/state');
@@ -866,7 +880,18 @@ const SYNC = {
       this.version = data.version;
       const state = data.data || {};
       for (const key of SYNC_KEYS) {
-        if (key in state) lsSetLocal(key, state[key]);
+        if (!(key in state) || this.inflight[key]) continue;
+        const remote = state[key];
+        const local = ls(key, null);
+        const base = this.getBase(key);
+        if (local !== null && base !== null && !SyncMerge.eq(local, base)) {
+          lsSetLocal(key, SyncMerge.merge3(base, local, remote));
+          this.setBase(key, remote);
+          this.push(key);
+        } else {
+          lsSetLocal(key, remote);
+          this.setBase(key, remote);
+        }
       }
       return data.version;
     } catch (e) {
@@ -875,32 +900,41 @@ const SYNC = {
     }
   },
 
-  /* 현재 로컬 캐시의 모든 키를 서버로 업로드 (최초 시드 공유용) */
+  /* 서버에 아직 없는 키를 업로드 (최초 시드 공유용) */
   async pushAll() {
     if (!this.online) return;
-    const payload = {};
-    for (const key of SYNC_KEYS) {
-      const v = ls(key, null);
-      if (v !== null) payload[key] = v;
-    }
-    try {
-      const r = await this.req('/api/state', { method: 'PUT', body: JSON.stringify({ data: payload }) });
-      this.version = r.version;
-    } catch (e) { /* 오프라인이면 무시 */ }
+    await Promise.all(SYNC_KEYS.filter(k => ls(k, null) !== null).map(k => this.push(k)));
   },
 
-  /* 한 키를 서버로 동기화 (fire-and-forget) */
-  async push(key, val) {
-    if (!this.online || !this.token) return;
-    if (!SYNC_KEYS.includes(key)) return;
-    try {
-      const r = await this.req('/api/state/' + key, { method: 'PUT', body: JSON.stringify({ value: val }) });
-      this.version = r.version;   // 내 변경분이므로 폴링 시 재렌더 방지
-    } catch (e) { /* 오프라인이면 로컬에만 남고 다음 동기화 때 반영 */ }
+  /* 한 키를 서버로 동기화. 보내는 시점의 최신 로컬 값을 base와 함께 전송 */
+  push(key) {
+    if (!this.online || !this.token) return Promise.resolve();
+    if (!SYNC_KEYS.includes(key)) return Promise.resolve();
+    this.inflight[key] = (this.inflight[key] || 0) + 1;
+    const run = async () => {
+      const sent = ls(key, null);
+      const base = this.getBase(key);
+      if (sent === null || (base !== null && SyncMerge.eq(sent, base))) return;   // 올릴 변경 없음
+      const r = await this.req('/api/state/' + key, { method: 'PUT', body: JSON.stringify({ value: sent, base }) });
+      this.bumpVersion(r);
+      // 보내는 동안 또 고쳤으면 그 변경도 살려서 합침
+      const now = ls(key, null);
+      const next = SyncMerge.eq(now, sent) ? r.value : SyncMerge.merge3(sent, now, r.value);
+      lsSetLocal(key, next);
+      this.setBase(key, r.value);
+      if (!SyncMerge.eq(next, now) && this.onRemoteChange) this.onRemoteChange();   // 다른 사람 변경이 합쳐짐
+    };
+    const p = (this.queue[key] || Promise.resolve())
+      .then(run)
+      .catch(() => { /* 오프라인이면 로컬에만 남고 다음 동기화 때 병합해서 반영 */ })
+      .finally(() => { this.inflight[key] -= 1; });
+    this.queue[key] = p;
+    return p;
   },
 
   /* 다른 기기의 변경을 감지하기 위한 주기적 폴링 */
   startPolling(onRemoteChange) {
+    this.onRemoteChange = onRemoteChange;
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (!this.online) return;
     this.pollTimer = setInterval(async () => {
@@ -1359,7 +1393,7 @@ function saveClaim() {
   const name = document.getElementById('clf-name').value.trim();
   if (!name) return showToast('danger','오류','고객명을 입력하세요.');
   const claims = ls('claims',[]);
-  const newId = 'CL-2025-' + String(claims.length + 25).padStart(4,'0');
+  const newId = 'CL-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6);
   claims.unshift({
     id: newId, name,
     type: document.getElementById('clf-type').value,
@@ -1397,7 +1431,7 @@ function saveDBReq() {
   const qty = document.getElementById('dbf-qty').value;
   if (!qty) return showToast('danger','오류','수량을 입력하세요.');
   const reqs = ls('dbreqs',[]);
-  const newId = 'DBR-' + String(Date.now()).slice(-4);
+  const newId = 'DBR-' + String(Date.now()).slice(-6);
   reqs.unshift({
     id: newId,
     type: document.getElementById('dbf-type').value,

@@ -13,6 +13,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { merge3 } = require('../sync-merge');
 
 const ROOT = path.join(__dirname, '..');          // 프로젝트 루트 (HTML 위치)
 // 배포 시 영속 디스크 경로를 DATA_DIR 환경변수로 지정할 수 있음 (재배포해도 데이터 유지)
@@ -154,20 +155,25 @@ app.get('/api/state/version', auth, (req, res) => {
   res.json({ version: db.version });
 });
 
-/* ── 특정 키 데이터 저장 (덮어쓰기, last-write-wins) ── */
+/* ── 특정 키 데이터 저장 ──
+   base(편집 시작 시점의 값)를 함께 보내면, 그 사이 다른 사람이 바꾼 내용과 병합해 저장.
+   base가 없으면 예전처럼 통째로 덮어씀 (구버전 클라이언트 호환). */
 app.put('/api/state/:key', auth, (req, res) => {
   const { key } = req.params;
   if (!STATE_KEYS.includes(key)) {
     return res.status(400).json({ error: `허용되지 않은 데이터 키: ${key}` });
   }
-  if (!('value' in (req.body || {}))) {
+  const body = req.body || {};
+  if (!('value' in body)) {
     return res.status(400).json({ error: 'value 필드가 필요합니다.' });
   }
-  db.state[key] = req.body.value;
+  const value = 'base' in body ? merge3(body.base, body.value, db.state[key]) : body.value;
+  const prevVersion = db.version;
+  db.state[key] = value;
   db.version += 1;
   db.updatedAt[key] = { at: Date.now(), by: req.user.id };
   saveDB();
-  res.json({ ok: true, version: db.version });
+  res.json({ ok: true, version: db.version, prevVersion, value });
 });
 
 /* ── 여러 키를 한 번에 저장 (초기 업로드 등) ── */
@@ -192,7 +198,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, version: db.version })
 ═══════════════════════════════════════ */
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'insurance-intranet-v2.html')));
 // PWA 관련 파일만 명시적으로 노출 (.git, server 등은 비공개)
-for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
+for (const f of ['insurance-intranet-v2.html', 'sync-merge.js', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
   app.get('/' + f, (req, res) => res.sendFile(path.join(ROOT, f)));
 }
 

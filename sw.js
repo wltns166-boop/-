@@ -2,10 +2,11 @@
    - 앱 셸을 캐시해 오프라인에서도 화면이 뜨도록 함
    - API 요청(/api/)은 항상 네트워크 우선 (실시간 데이터)
 */
-const CACHE = 'insurenet-v1';
+const CACHE = 'insurenet-v2';
 const SHELL = [
   './',
   './insurance-intranet-v2.html',
+  './sync-merge.js',
   './manifest.webmanifest',
   './app-icon.svg',
 ];
