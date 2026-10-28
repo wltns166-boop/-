@@ -22274,7 +22274,7 @@ function rWkmt(){
 function _wkmtSummary(){
   var st=_wkmtSt(), sm=g('wkmt_sum'), pl=g('wkmt_plan');
   if(!st.leader){ if(sm) sm.textContent='팀장을 선택하세요.'; if(pl) pl.textContent=''; _wkmtPreview(); return; }
-  var d; try{ d=_wkmtData(); }catch(e){ if(sm) sm.textContent='데이터를 읽지 못했습니다: '+(e&&e.message||e); clearTimeout(window._wkmtPrevT); window._wkmtPrevSlides=null; var pb=g('wkmt_prev'); if(pb) pb.innerHTML=''; return; }
+  var d; try{ d=_wkmtData(); }catch(e){ if(sm) sm.textContent='데이터를 읽지 못했습니다: '+(e&&e.message||e); clearTimeout(window._wkmtPrevT); window._wkmtPrevSlides=null; window._wkmtPrevTh=null; var pb=g('wkmt_prev'); if(pb) pb.innerHTML=''; _wkmtBigDraw(); return; }
   if(sm) sm.innerHTML='<b>'+_esc(d.leader)+' 팀</b> '+d.team.length+'명 · 이번 달 인정실적 '+_esc(_wkmtWon(d.tot.a))
     +' · 주마감 제출 '+d.wcDone+'/'+d.team.length+'명 · 시험신청 '+d.exs.length+'건 · 리쿠르팅 대상 '+d.cards.length+'명';
   var n=1, list=(_wrId(st.th)?['표지','요약']:['표지·요약']).concat(WKMT_ITEMS.filter(function(it){ return st.items[it.k]; }).map(function(it){ return it.nm; }));
@@ -22284,14 +22284,14 @@ function _wkmtSummary(){
 }
 function wkmtSet(k,v,on){
   var st=_wkmtSt();
-  if(k==='leader'){ if(_wkmtLeaders().indexOf(v)>=0) st.leader=v; }
+  if(k==='leader'){ if(_wkmtLeaders().indexOf(v)>=0&&st.leader!==v){ st.leader=v; window._wkmtBigI=null; } }
   else if(k==='th'){ if(_wkmtThOk(v)&&st.th!==v){ st.th=v; window._wkmtBigI=null; } _wkmtPrefSave(); }
-  else if(k==='item'){ if(Object.prototype.hasOwnProperty.call(st.items,v)) st.items[v]=!!on; _wkmtPrefSave(); }
+  else if(k==='item'){ if(Object.prototype.hasOwnProperty.call(st.items,v)){ st.items[v]=!!on; window._wkmtBigI=null; } _wkmtPrefSave(); }
   rWkmt();
 }
-function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); rWkmt(); }
-function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); _wkmtPrefSave(); rWkmt(); }
-function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF='all'; window._wkmtBigI=null; ['wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt','wkmt_rpt_f','wkmt_big'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
+function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); window._wkmtBigI=null; rWkmt(); }
+function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); window._wkmtBigI=null; _wkmtPrefSave(); rWkmt(); }
+function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF='all'; window._wkmtBigI=null; window._wkmtPrevTh=null; var rb=g('wkmt_rpt'); if(rb) rb._wrScrolled=0; ['wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt','wkmt_rpt_f','wkmt_big'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
 // ── 미리보기 (2026-10-28 — v2026.10.28-1): PPT를 만드는 _wkmtBuild를 가짜 pres로 그대로 실행해 슬라이드를 HTML로 그린다
 //    (미리보기와 실제 파일이 같은 코드를 타서 어긋나지 않게). 좌표는 인치(10×5.625) → %, 글자 pt → cqw.
 function _wkmtMockPres(){
@@ -22372,7 +22372,7 @@ function _wkmtPreview(){
   var box=g('wkmt_prev'); if(!box) return;
   var st=_wkmtSt();
   clearTimeout(window._wkmtPrevT);
-  if(!st.leader){ box.innerHTML=''; window._wkmtPrevSlides=null; return; }
+  if(!st.leader){ box.innerHTML=''; window._wkmtPrevSlides=null; window._wkmtPrevTh=null; _wkmtBigDraw(); return; }
   window._wkmtPrevT=setTimeout(function(){
     var bx=g('wkmt_prev'); if(!bx||!window._wkmt) return;
     try{
@@ -22381,7 +22381,7 @@ function _wkmtPreview(){
       bx.innerHTML='<div style="font-size:13px;font-weight:700;color:#4a5090;margin:4px 0 8px">미리보기 · '+p.slides.length+'장 <span style="font-weight:400;color:#8a8fb0">(누르면 크게 보기 · 실제 PPT와 글꼴은 조금 다를 수 있음)</span></div>'
         +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'
         +p.slides.map(function(s,i){ return '<div data-wkpv="'+i+'" onclick="wkmtPrevOpen(+this.getAttribute(\'data-wkpv\'))" style="cursor:zoom-in"><div style="font-size:11.5px;color:#7a80a0;margin-bottom:3px">'+(i+1)+'장</div>'+_wkmtSlideHtml(s)+'</div>'; }).join('')+'</div>';
-    }catch(e){ console.warn('wkmt prev err:',e); bx.innerHTML='<div style="color:#c04040;font-size:13px">미리보기를 그리지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; }
+    }catch(e){ console.warn('wkmt prev err:',e); window._wkmtPrevSlides=null; window._wkmtPrevTh=null; _wkmtBigDraw(); bx.innerHTML='<div style="color:#c04040;font-size:13px">미리보기를 그리지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; }
   },150);
 }
 function wkmtPrevOpen(i){ window._wkmtPvSS=(window._wkmtPrevSlides||[]).slice(); _wkmtPvShow(i); }   // 열 때의 사본 — 열린 사이 다시 그려져도 넘김이 어긋나지 않게
@@ -22869,7 +22869,7 @@ function _wkmtThKeys(){ var a=WK_OLD_TH.slice(); for(var n=1;n<=100;n++) a.push(
 function _wrThumbs(){
   if(window._wrThumbHtml) return window._wrThumbHtml;
   var sd=_wrSampleData(), out={};
-  _wkmtThKeys().forEach(function(k){ try{ out[k]=_wkmtSlideHtml(_wrId(k)?_wkmtBuildRpt(sd,k,{},true,true).slides[0]:_wkmtBuild(sd,k,{},true).slides[0]); }catch(e){ out[k]=''; } });
+  _wkmtThKeys().forEach(function(k){ try{ out[k]=_wkmtSlideHtml(_wrId(k)?_wkmtBuildRpt(sd,k,{},true,true).slides[0]:_wkmtBuild(sd,k,{},true).slides[0]); }catch(e){ console.warn('wkmt thumb err:',k,e); out[k]=''; } });
   window._wrThumbHtml=out; return out;
 }
 // 왼쪽 시안 목록 — 거르기(전체/기존 4종/머리 형식 10종), 같은 거르기면 다시 그리지 않고 선택 표시만 바꾼다
