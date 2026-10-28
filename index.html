@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-4</div>
   </div>
 </div>
 
@@ -856,7 +856,9 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
 
     <div class="ni" id="n_work"><i class="ti ti-briefcase"></i>업무관리<i class="ti ti-chevron-down nc" id="nc_work"></i></div>
     <div class="nch" id="nch_work">
-      <div class="ns"><div class="ni" id="n_wa">보장분석 작성</div></div>
+      <!-- 옛 보장분석 작성 — 2026-10-28 사용자 요청으로 메뉴만 숨김(페이지·기능은 그대로) -->
+      <div class="ns" style="display:none"><div class="ni" id="n_wa">보장분석 작성</div></div>
+      <div class="ns"><div class="ni" id="n_wa2">신보장분석작성</div></div>
       <div class="ns"><div class="ni" id="n_wm">병력정리</div></div>
       <div class="ns"><div class="ni" id="n_wc">보험금 청구</div></div>
       <div class="ns"><div class="ni" id="n_calc">실비계산기</div></div>
@@ -1398,6 +1400,12 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg" id="pg_report">
       <div class="sh"><div class="st"><i class="ti ti-report"></i>보고서 작성</div></div>
       <div class="card"><div class="em" style="padding:60px 0">준비 중입니다.</div></div>
+    </div>
+
+    <!-- 신보장분석작성 (2026-10-28) — 사용자 PC의 보장분석작성 프로그램을 넣을 자리 -->
+    <div class="pg" id="pg_wa2">
+      <div class="sh"><div class="st"><i class="ti ti-shield-check"></i>신보장분석작성</div></div>
+      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다. 보장분석작성 프로그램 파일을 받으면 이 화면에 기능을 넣습니다.</div></div>
     </div>
 
     <!-- 증권바인더 제작 -->
@@ -5779,6 +5787,7 @@ g('n_wc').addEventListener('click',function(){showPage('wc');});
 g('n_calc') && g('n_calc').addEventListener('click',function(){showPage('calc');});
 g('n_report') && g('n_report').addEventListener('click',function(){showPage('report');});
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
+g('n_wa2') && g('n_wa2').addEventListener('click',function(){showPage('wa2');});
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
 g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq');});
@@ -5806,7 +5815,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',
+  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황'};
