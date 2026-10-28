@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1076,7 +1076,17 @@
 ## 4.935 신보장분석작성 (wa2, 2026-10-28 — v2026.10.28-4, 사용자 요청)
 
 - 업무관리의 옛 [보장분석 작성](`n_wa`)은 **메뉴만 숨김**(감싸는 `.ns`에 인라인 display:none — 페이지 `pg_wa`·기능은 그대로, 검색에도 안 나옴).
-- 그 자리에 [신보장분석작성](`n_wa2` → `pg_wa2`, 전원) — 지금은 "준비 중" 화면. 사용자 PC의 보장분석작성 프로그램 파일을 받으면 이 페이지에 기능을 넣는다.
+- 그 자리에 [신보장분석작성](`n_wa2` → `pg_wa2`, 전원). **v2026.10.28-5**: 사용자 제공 'TOPS 보장분석' 프로그램(`bojang/` — 백동현님 claude.ai 아티팩트 패키지. index.html 본체·dict/jong5/book/kcmaps.js·pdf.worker·`mat/` 상담자료 100장)을
+  **같은 출처 iframe**(`rWa2` → `#wa2_box`, 사용자 키 `data-u`가 같으면 재사용 — 입력 유지, [새로고침]=`wa2Reload` confirm 후 재생성)으로 띄움. 프로그램은 `window.claude.use('db'|'sample'|'downloads'|'user')`로 기능을 받는 구조라
+  **`bojang/intranet-bridge.js`**(head에서 먼저 로드)가 부모 창의 `window.db`(Firestore compat)·`window._bojangUser()`(cu → {sabun:code∥이름, name, role: `_isAdmin`→admin / 그 외 fc})·`/api/analyze`(Gemini, 오버라이드 `tops_ai_bojang_model`)·브라우저 다운로드로 그 API를 흉내냄.
+  부모가 같은 출처+db 있음+로그인 상태일 때만 연결(아니면 프로그램 자체 "저장소에 연결할 수 없습니다" 화면). `BOJANG_CONFIG.prefix='bojang_'`.
+  저장: **Firestore `bojang_customers/{id}`(고객 1명=문서 — `{ownerSabun, updatedAt, _j:JSON문자열}` — 배열 안 배열·undefined 거부 회피(4.94 v-4 계열), `bojang_config/dict|jong`, `bojang_fcprefs/{사번}`** — tops/data 미사용(3.12), localStorage 없음(함정 B).
+  bridge의 `update`는 merge set(프로그램의 사전 `update({map:{[n]:k}})`가 '한 항목 추가' 의도), 고객 문서 update는 거부. onSnapshot 해제 함수를 모아 `window._bojangTeardown`(iframe pagehide·부모 `_wa2Flush`가 호출 — 화면을 닫아도 구독이 부모에 남던 리뷰 지적).
+  `_wa2Flush`=flushSave(마지막 입력 저장 — saveCur가 첫 await 전에 set을 호출해 iframe이 사라져도 전송됨)+teardown, `_wa2Clear`는 logout에서(고객 보험 정보 잔존 차단).
+  ⚠️ **권한은 프로그램 설계대로 관리자(BM·총무 `_isAdmin`)=지점 전체 고객, 팀원=본인 고객**(3장의 "총무만 전체" 규칙과 다름 — README 원문 사양을 따름. 서버 규칙은 인증 세션이면 전부 읽기·쓰기라 콘솔로 남의 고객도 읽힘 — 기존 구조적 한계 계열).
+  ⚠️ 스캔 PDF는 **앞 4쪽만** AI 사진 인식(`/api/analyze` 이미지 4장 상한 — 프로그램 본체 `pdfImages(…,min(limits.maxCount,20))`), 5쪽 이후 담보는 조용히 빠짐 — 긴 스캔본은 나눠 올리라고 안내.
+  ⚠️ `book/`(TOPS BOOK 166쪽 — 고객 배포 금지)·`seed/`(사번·비밀번호 해시)는 **올리지 않음**(저장소·호스팅 공개 — 주소만 알면 열림). 프로그램 [교육·약관]의 책 그림은 404(검색 색인 `book.js`는 있음). 로그인한 사람만 보는 방식(Storage)은 별도 과제.
+  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">` 한 줄뿐. 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
 

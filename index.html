@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-5</div>
   </div>
 </div>
 
@@ -1404,8 +1404,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
 
     <!-- 신보장분석작성 (2026-10-28) — 사용자 PC의 보장분석작성 프로그램을 넣을 자리 -->
     <div class="pg" id="pg_wa2">
-      <div class="sh"><div class="st"><i class="ti ti-shield-check"></i>신보장분석작성</div></div>
-      <div class="card"><div class="em" style="padding:60px 0">준비 중입니다. 보장분석작성 프로그램 파일을 받으면 이 화면에 기능을 넣습니다.</div></div>
+      <div class="sh"><div class="st"><i class="ti ti-shield-check"></i>신보장분석작성</div><button class="btn bs" onclick="wa2Reload()" style="font-size:12px">새로고침</button></div>
+      <div id="wa2_box" style="background:#fff;border-radius:12px;overflow:hidden;min-height:300px"></div>
     </div>
 
     <!-- 증권바인더 제작 -->
@@ -4967,6 +4967,7 @@ function logout(){
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
   try{ window._medLastPw=''; }catch(_){}
+  try{ _wa2Clear(); }catch(_){}   // 신보장분석작성 창(고객 보험 정보) 정리
   try{ _wkmtClear(); }catch(_){}   // 주간미팅자료 선택 상태·요약 정리
   try{ var _cdp=document.getElementById('cc_delpg_pop'); if(_cdp) _cdp.remove(); var _ctm=document.getElementById('cc_tplmgr_pop'); if(_ctm) _ctm.remove(); }catch(_){}   // 좌표 편집기 페이지 삭제 선택 창 잔존 방지
   cu=null;
@@ -8607,7 +8608,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -22300,6 +22301,31 @@ function wkmtSet(k,v,on){
 }
 function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); window._wkmtBigI=null; rWkmt(); }
 function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); window._wkmtBigI=null; _wkmtPrefSave(); rWkmt(); }
+// ── 신보장분석작성 (2026-10-28) — bojang/ 폴더의 보장분석 프로그램을 같은 출처 iframe으로 띄움.
+//   프로그램 쪽 bojang/intranet-bridge.js가 부모 창의 window.db(Firestore)·_bojangUser(로그인)를 가져다 씀.
+//   저장은 Firestore bojang_customers/bojang_config/bojang_fcprefs (tops/data와 분리 — 3.12), localStorage 없음.
+window._bojangUser=function(){
+  if(!cu||!cu.name) return null;
+  return { sabun:String(cu.code||cu.name), name:String(cu.name), role:_isAdmin()?'admin':'fc' };
+};
+function _wa2Key(){ var u=window._bojangUser(); return u?(u.sabun+'|'+u.role):''; }
+function rWa2(force){
+  var box=g('wa2_box'); if(!box) return;
+  var k=_wa2Key(); if(!k){ box.innerHTML=''; return; }
+  var f=box.querySelector('iframe');
+  if(f && !force && f.getAttribute('data-u')===k) return;   // 같은 사람이면 그대로(입력 중인 화면 유지)
+  _wa2Flush(box); box.innerHTML='';
+  f=document.createElement('iframe');
+  f.setAttribute('data-u',k);
+  f.title='신보장분석작성';
+  f.style.cssText='display:block;width:100%;height:calc(100vh - 150px);min-height:560px;border:0;background:#fff';
+  f.src='bojang/index.html?v='+encodeURIComponent((g('lver')&&g('lver').textContent)||'');
+  box.appendChild(f);
+}
+function wa2Reload(){ if(confirm('보장분석 화면을 새로 불러올까요?\n(저장되지 않은 입력은 사라질 수 있습니다)')) rWa2(true); }
+// iframe을 없애기 전에 프로그램의 마지막 입력을 저장(저장 쓰기는 부모 창 Firestore로 나가므로 iframe이 사라져도 전송됨)
+function _wa2Flush(box){ try{ var f=box&&box.querySelector('iframe'); var w=f&&f.contentWindow; if(w&&typeof w.flushSave==='function') w.flushSave(); if(w&&typeof w._bojangTeardown==='function') w._bojangTeardown(); }catch(_){} }
+function _wa2Clear(){ var box=g('wa2_box'); if(box){ _wa2Flush(box); box.innerHTML=''; } }
 function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF='all'; window._wkmtBigI=null; window._wkmtPrevTh=null; var rb=g('wkmt_rpt'); if(rb) rb._wrScrolled=0; ['wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt','wkmt_rpt_f','wkmt_big'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
 // ── 미리보기 (2026-10-28 — v2026.10.28-1): PPT를 만드는 _wkmtBuild를 가짜 pres로 그대로 실행해 슬라이드를 HTML로 그린다
 //    (미리보기와 실제 파일이 같은 코드를 타서 어긋나지 않게). 좌표는 인치(10×5.625) → %, 글자 pt → cqw.
