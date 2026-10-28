@@ -22265,8 +22265,8 @@ function rWkmt(){
 }
 function _wkmtSummary(){
   var st=_wkmtSt(), sm=g('wkmt_sum'), pl=g('wkmt_plan');
-  if(!st.leader){ if(sm) sm.textContent='팀장을 선택하세요.'; if(pl) pl.textContent=''; return; }
-  var d; try{ d=_wkmtData(); }catch(e){ if(sm) sm.textContent='데이터를 읽지 못했습니다: '+(e&&e.message||e); return; }
+  if(!st.leader){ if(sm) sm.textContent='팀장을 선택하세요.'; if(pl) pl.textContent=''; _wkmtPreview(); return; }
+  var d; try{ d=_wkmtData(); }catch(e){ if(sm) sm.textContent='데이터를 읽지 못했습니다: '+(e&&e.message||e); clearTimeout(window._wkmtPrevT); window._wkmtPrevSlides=null; var pb=g('wkmt_prev'); if(pb) pb.innerHTML=''; return; }
   if(sm) sm.innerHTML='<b>'+_esc(d.leader)+' 팀</b> '+d.team.length+'명 · 이번 달 인정실적 '+_esc(_wkmtWon(d.tot.a))
     +' · 주마감 제출 '+d.wcDone+'/'+d.team.length+'명 · 시험신청 '+d.exs.length+'건 · 리쿠르팅 대상 '+d.cards.length+'명';
   var n=1, list=['표지·요약'].concat(WKMT_ITEMS.filter(function(it){ return st.items[it.k]; }).map(function(it){ return it.nm; }));
@@ -22353,7 +22353,7 @@ function _wkmtElHtml(e){
     if(e.type==='doughnut'){ var tot=ser.values.reduce(function(a,b){return a+(+b||0);},0)||1, acc=0;
       var stops=ser.values.map(function(v,i){ var a=acc; acc+=(+v||0)/tot*100; return _wkmtCss(cols[i%cols.length])+' '+a+'% '+acc+'%'; }).join(',');
       var d=Math.min(+o.w,+o.h), hole=(+o.holeSize||60);
-      return '<div style="'+_wkmtBox(o)+'display:flex;align-items:center;justify-content:center"><div style="width:'+(d*10)+'cqw;height:'+(d*10)+'cqw;border-radius:50%;background:conic-gradient('+stops+');-webkit-mask:radial-gradient(circle,transparent '+(hole/2)+'%,#000 '+(hole/2+0.5)+'%);mask:radial-gradient(circle,transparent '+(hole/2)+'%,#000 '+(hole/2+0.5)+'%)"></div></div>';
+      return '<div style="'+_wkmtBox(o)+'display:flex;align-items:center;justify-content:center"><div style="width:'+(d*10)+'cqw;height:'+(d*10)+'cqw;border-radius:50%;background:conic-gradient('+stops+');-webkit-mask:radial-gradient(circle closest-side,transparent '+(hole/2)+'%,#000 '+(hole/2+0.5)+'%);mask:radial-gradient(circle closest-side,transparent '+(hole/2)+'%,#000 '+(hole/2+0.5)+'%)"></div></div>';
     }
     var mx=Math.max.apply(null,ser.values.map(function(v){return +v||0;}).concat([1])), col=_wkmtCss(cols[0]), lc=_wkmtCss(o.catAxisLabelColor), fs=_wkmtPt(9);
     h='<div style="'+_wkmtBox(o)+'display:flex;flex-direction:column;font-family:'+_wkmtFont()+'">'+(o.showTitle&&o.title?'<div style="text-align:center;font-size:'+_wkmtPt(11)+';color:'+_wkmtCss(o.titleColor)+';margin-bottom:0.5cqw">'+_esc(o.title)+'</div>':'');
@@ -22387,26 +22387,27 @@ function _wkmtPreview(){
     }catch(e){ console.warn('wkmt prev err:',e); bx.innerHTML='<div style="color:#c04040;font-size:13px">미리보기를 그리지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; }
   },150);
 }
-function wkmtPrevOpen(i){
-  var ss=window._wkmtPrevSlides||[]; if(!ss.length) return;
+function wkmtPrevOpen(i){ window._wkmtPvSS=(window._wkmtPrevSlides||[]).slice(); _wkmtPvShow(i); }   // 열 때의 사본 — 열린 사이 다시 그려져도 넘김이 어긋나지 않게
+function _wkmtPvShow(i){
+  var ss=window._wkmtPvSS||[]; if(!ss.length) return;
   i=Math.max(0,Math.min(ss.length-1,+i||0));
   var ov=g('wkmt_pv_pop');
   if(!ov){ ov=document.createElement('div'); ov.id='wkmt_pv_pop';
     ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,15,40,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
     ov.addEventListener('click',function(ev){ if(ev.target===ov) _wkmtPrevClose(); });
     document.body.appendChild(ov);
-    window._wkmtPvKey=function(ev){ if(!g('wkmt_pv_pop')) return; if(ev.key==='Escape') _wkmtPrevClose(); else if(ev.key==='ArrowRight') wkmtPrevOpen(window._wkmtPvI+1); else if(ev.key==='ArrowLeft') wkmtPrevOpen(window._wkmtPvI-1); };
+    window._wkmtPvKey=function(ev){ if(!g('wkmt_pv_pop')) return; if(ev.key==='Escape') _wkmtPrevClose(); else if(ev.key==='ArrowRight') _wkmtPvShow(window._wkmtPvI+1); else if(ev.key==='ArrowLeft') _wkmtPvShow(window._wkmtPvI-1); };
     document.addEventListener('keydown',window._wkmtPvKey);
   }
   window._wkmtPvI=i;
   var b='padding:8px 18px;border:none;border-radius:8px;background:#fff;color:#2a2a4a;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit';
-  ov.innerHTML='<div style="width:min(1100px,92vw)">'+_wkmtSlideHtml(ss[i])+'</div>'
+  ov.innerHTML='<div style="width:min(1100px,92vw,calc((100vh - 110px)*16/9))">'+_wkmtSlideHtml(ss[i])+'</div>'
     +'<div style="display:flex;gap:10px;align-items:center;margin-top:12px;color:#fff;font-size:14px">'
-    +'<button style="'+b+'" onclick="wkmtPrevOpen(window._wkmtPvI-1)"'+(i<=0?' disabled':'')+'>‹</button>'+(i+1)+' / '+ss.length
-    +'<button style="'+b+'" onclick="wkmtPrevOpen(window._wkmtPvI+1)"'+(i>=ss.length-1?' disabled':'')+'>›</button>'
+    +'<button style="'+b+'" onclick="_wkmtPvShow(window._wkmtPvI-1)"'+(i<=0?' disabled':'')+'>‹</button>'+(i+1)+' / '+ss.length
+    +'<button style="'+b+'" onclick="_wkmtPvShow(window._wkmtPvI+1)"'+(i>=ss.length-1?' disabled':'')+'>›</button>'
     +'<button style="'+b+'" onclick="_wkmtPrevClose()">닫기</button></div>';
 }
-function _wkmtPrevClose(){ var ov=g('wkmt_pv_pop'); if(ov) ov.remove(); if(window._wkmtPvKey){ document.removeEventListener('keydown',window._wkmtPvKey); window._wkmtPvKey=null; } }
+function _wkmtPrevClose(){ var ov=g('wkmt_pv_pop'); if(ov) ov.remove(); window._wkmtPvSS=null; if(window._wkmtPvKey){ document.removeEventListener('keydown',window._wkmtPvKey); window._wkmtPvKey=null; } }
 // ── PPT 만들기 ──
 async function wkmtMake(){
   var st=_wkmtSt();
