@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1072,6 +1072,11 @@
   **2026-09-15 `gsheet-17` 배포도 같은 수동 경로로 완료** — raw.githubusercontent.com의 gs 파일을 열어 전체 복사 →
   편집기 Code.gs에 Ctrl+A/Ctrl+V → 저장 → [배포] > [배포 관리] > ✏️ > 버전 **"새 버전"** > [배포] → `?ping=1&v=N` 확인.
   ⚠️ [새 배포]를 누르면 /exec 주소가 바뀌어 인트라넷이 옛 주소를 계속 본다 — 반드시 [배포 관리] > ✏️ 경로로.
+
+## 4.935 신보장분석작성 (wa2, 2026-10-28 — v2026.10.28-4, 사용자 요청)
+
+- 업무관리의 옛 [보장분석 작성](`n_wa`)은 **메뉴만 숨김**(감싸는 `.ns`에 인라인 display:none — 페이지 `pg_wa`·기능은 그대로, 검색에도 안 나옴).
+- 그 자리에 [신보장분석작성](`n_wa2` → `pg_wa2`, 전원) — 지금은 "준비 중" 화면. 사용자 PC의 보장분석작성 프로그램 파일을 받으면 이 페이지에 기능을 넣는다.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
 
