@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -935,6 +935,14 @@
   ⚠️ `_wkmtBuild`에 새 pptx API를 쓰면 `_wkmtMockPres`에도 추가할 것. 썸네일 클릭 → 큰 화면 `#wkmt_pv_pop`(‹ › ←→ Esc, 바깥 클릭 닫힘), logout `_wkmtClear`가 닫고 비움.
   글자 전부 `_esc`, 색은 `_wkmtCss`(6자리 hex만). ⚠️ 글꼴 이름은 작은따옴표 — style="" 안에 큰따옴표가 들어가면 속성이 끊겨 표 배경·색이 사라졌음(실측).
   표 칸 글자 크기는 td에 직접(전역 td 규칙이 덮음).
+- **v2026.10.28-2 보고서 스타일 시안 100 (사용자 요청 "대기업 보고할 때처럼 심플·샤프·고급", "시안 다 넣어줘")**: 기존 4종은 그대로 두고 시안 id `r1`~`r100` 추가.
+  번호 = 머리 형식 10(`WR_HEADS` — 밑줄 제목·상단 띠·세로 강조선·장 번호·핵심 메시지·보고 정보칸·상위 경로·짧은 밑줄·왼쪽 사이드·날짜 표시) × 본문 구성 10(`WR_BODIES`),
+  색 조합 `WR_PAL[(h*3+b*7)%10]`, 지표 카드 모양 `WR_KV[(h+b*2)%5]` — `_wrSpec(n)`이 유일한 출처(번호→구성이 바뀌면 사용자가 고른 번호의 모양이 달라지니 공식 유지).
+  `_wkmtBuild`가 `_wrId(th)`이면 `_wkmtBuildRpt`로 넘김: 표지(머리 형식 %3으로 3종) → 요약(본문 구성) → 체크한 항목마다 보고서 형식 장(얇은 선 표·직각 막대·쪽 번호·"TEAM TOPS | 대외비").
+  요약의 전주 대비 수치는 `_wkmtData`의 `wkSeries`(그 달 주차별 팀 인정실적 — prf의 입력일 d 기준, d 없는 건 빠짐)·`weekAdd`/`weekAddHit`(기준 주차 추가분)·`wcPrev`(전주 주마감 제출 수).
+  주요 이슈·다음 주 Action·핵심 메시지 문장은 코드가 숫자로 자동 작성. 시안 고르기 `#wkmt_rpt`(머리 형식 거르기 `#wkmt_rpt_f`, `_wrPicker` — 거르기가 같으면 선택 표시만 갱신)
+  축소판은 고정 예시 데이터(`_wrSampleData`)로 요약 장만 그려 `window._wrThumbHtml`에 캐시(작성자 이름이 들어가므로 `_wkmtClear`에서 비움). 테마 검증은 `_wkmtThOk`, 이름은 `_wkmtThName`.
+  미리보기 렌더러 추가: 선 그래프(SVG)·글상자 배경(fill)·점선·표 칸별 테두리 배열, 선 굵기를 pt 비례로(옛 최소 1cqw는 너무 두꺼웠음). 시안 원본 PDF(100개)는 세션 산출물(저장소 미포함).
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 
