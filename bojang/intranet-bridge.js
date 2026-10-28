@@ -129,6 +129,12 @@
     }
   };
 
+  // PDF 올리는 칸 클릭 = 초록 선택 표시(.sel) — 다른 곳을 누르면 해제 (인트라넷의 다른 업로드 칸과 같은 느낌)
+  document.addEventListener('mousedown',function(e){
+    var d=e.target && e.target.closest ? e.target.closest('.drop') : null;
+    document.querySelectorAll('.drop.sel').forEach(function(x){ if(x!==d) x.classList.remove('sel'); });
+    if(d) d.classList.add('sel');
+  },true);
   var API={ db:dbApi, sample:sampleApi, downloads:dlApi, user:null };
   window.claude={ use:function(n){ return Promise.resolve(API[n]||null); } };
 })();

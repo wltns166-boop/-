@@ -585,7 +585,7 @@ function summaryBox(set,label,prevPrem){
    <div><div class="muted" style="font-size:12px">실손</div><div style="font-size:22px;font-weight:600">${set.some(p=>p.silson)?silsonGen(set.find(p=>p.silson).joinDate):'<span class="down">미가입</span>'}</div></div></div>
    <div style="font-size:12.5px"><span class="muted">주요 담보 중 비어 있는 항목 ${miss.length}개</span>${miss.length?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${miss.map(i=>`<span class="pill red">${esc(i.l)}</span>`).join('')}</div>`:''}</div>`;
 }
-function jobsHTML(mode){return S.jobs[mode].map(j=>`<div class="j ${j.st==='ok'?'ok':j.st==='bad'||j.st==='pw'?'bad':''}">${j.st==='run'?'<span class="spin"></span>':j.st==='ok'?'✓':'!'} <span>${esc(j.name)}</span><span class="s">${esc(j.msg)}</span></div>${j.st==='pw'?`<div class="row" style="gap:6px;margin:2px 0 6px 18px"><input class="in" type="password" id="pw_${j.id}" placeholder="PDF 비밀번호 (보통 생년월일 6자리)" style="width:240px;padding:5px 8px"><button class="btn sm" data-act="pdfpw" data-id="${j.id}">열기</button></div>`:''}`).join('')}
+function jobsHTML(mode){return S.jobs[mode].map(j=>`<div class="j ${j.st==='ok'?'ok':j.st==='bad'||j.st==='pw'?'bad':''}">${j.st==='run'?'<span class="spin"></span>':j.st==='ok'?'✓':'!'} <span>${esc(j.name)}</span><span class="s">${esc(j.msg)}</span>${j.st==='run'?'':`<button class="btn sm danger" data-act="delJob" data-id="${j.id}" data-confirm="1" type="button" style="margin-left:8px">삭제</button>`}</div>${j.st==='pw'?`<div class="row" style="gap:6px;margin:2px 0 6px 18px"><input class="in" type="password" id="pw_${j.id}" placeholder="PDF 비밀번호 (보통 생년월일 6자리)" style="width:240px;padding:5px 8px"><button class="btn sm" data-act="pdfpw" data-id="${j.id}">열기</button></div>`:''}`).join('')}
 function updJobs(mode){const el=$('#jobs_'+mode);if(el)el.innerHTML=jobsHTML(mode)}
 
 function keepHTML(){
@@ -1149,6 +1149,12 @@ document.addEventListener('click',async e=>{
   if(act==='delCust'){const cid=S.cur.id;clearTimeout(S.saveT);S.dirty=false;try{await S.db.doc(P.cust+'/'+cid).delete();toast('고객을 삭제했습니다')}catch(x){return toast('삭제하지 못했습니다')}S.cur=null;S.view='list';return renderMain()}
   if(act==='tab'){S.tab=id;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.id===id));return renderTab()}
   if(act==='addPolicy'){const p=newPolicy(id);(id==='before'?S.cur.before:S.cur.proposals).push(p);markDirty();renderTab();setTimeout(()=>{const g=$('.gridwrap');if(g)g.scrollLeft=g.scrollWidth},30);return}
+  if(act==='delJob'){ // 인트라넷 통합(2026-10-28): 올린 PDF 줄 삭제 — 그 파일에서 인식된 보험도 함께 뺌
+    const mode=S.jobs.before.some(x=>x.id===id)?'before':'proposal';const job=S.jobs[mode].find(x=>x.id===id);if(!job)return;
+    S.jobs[mode]=S.jobs[mode].filter(x=>x.id!==id);
+    const key=mode==='before'?'before':'proposals';const n0=S.cur[key].length;S.cur[key]=S.cur[key].filter(p=>!(p.src==='pdf'&&p.file===job.name));
+    if(S.cur[key].length!==n0){logHist(`${mode==='before'?'기존보험':'제안서'} PDF 삭제: ${job.name} (${n0-S.cur[key].length}건)`);markDirty()}
+    return renderTab()}
   if(act==='delPolicy'){S.cur.before=S.cur.before.filter(p=>p.id!==id);S.cur.proposals=S.cur.proposals.filter(p=>p.id!==id);markDirty();return renderTab()}
   if(act==='pdf')return makePdf();
   if(act==='matRec'){const set=new Set(S.cur.mats||[]);recMats().forEach(x=>set.add(x));S.cur.mats=[...set];markDirty();return renderTab()}
