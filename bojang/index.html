@@ -178,6 +178,16 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .mth .btn{justify-self:start}
 .mv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:grid;place-items:center;padding:20px;cursor:zoom-out;gap:8px;align-content:center}
 .mv img{max-height:86vh;max-width:100%;border-radius:6px}
+.cm{position:fixed;inset:0;z-index:70}
+.cm .cmbg{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.cm .cmbox{position:relative;margin:5vh auto 0;width:min(980px,94vw);max-height:88vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.cm .cmhd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.cm .cmhd h2{margin:2px 0 0;font-size:18px}
+.cm .cmbody{overflow:auto;padding:0}
+.cm .cmbody .tbl{width:100%}
+.cm tr.cur td{background:rgba(201,162,77,.12)}
+.cm .cmft{padding:10px 18px;border-top:1px solid var(--line);font-size:12px}
+
 .mv span{color:#ddd;font-size:13px;text-align:center}
 .jb{display:inline-block;min-width:38px;padding:2px 8px;border-radius:99px;font-weight:700;font-size:12.5px;color:#1a1408}
 .jb.j1{background:#d9d2c3}.jb.j2{background:#e6cf9a}.jb.j3{background:#d9b25f}.jb.j4{background:#c98c3e;color:#fff}.jb.j5{background:#b4532f;color:#fff}
@@ -433,18 +443,18 @@ async function boot(){
   if(sab){const d=await S.db.doc(EMP+'/'+sab).get().catch(()=>null);if(d&&d.exists&&d.data().active!==false){return enter(d.data())}}
   S.view='login';render();
 }
-function enter(emp){
+function enter(emp){S.cm=false;$('#custModal')?.remove();
   S.me={sabun:emp.sabun,name:emp.name,role:emp.role};ssSet('bs_sabun',emp.sabun);
   const col=S.db.collection(P.cust);
   const q=S.me.role==='admin'?col:col.where('ownerSabun','==',S.me.sabun);
-  S.unsubC=q.onSnapshot(s=>{S.custs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(S.view==='list')renderMain()},e=>toast('고객 목록을 불러오지 못했습니다: '+e.code));
+  S.unsubC=q.onSnapshot(s=>{S.custs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(S.view==='list')renderMain();if(S.cm)renderCustModal()},e=>toast('고객 목록을 불러오지 못했습니다: '+e.code));
   S.hidden=new Set();S.shown=new Set();S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[])}}).catch(()=>{});
   S.unsubJ=S.db.doc(P.jong).onSnapshot(d=>{S.jongCfg=d.exists?d.data():null;if(S.view==='admin')renderMain()},()=>{});
   S.unsubL=S.db.doc(P.dict).onSnapshot(d=>{S.learn=d.exists?(d.data().map||{}):{}},()=>{});
   if(S.me.role==='admin')S.unsubE=S.db.collection(EMP).onSnapshot(s=>{S.emps=s.docs.map(d=>d.data()).sort((a,b)=>a.sabun.localeCompare(b.sabun));if(S.view==='admin')renderMain()},()=>{});
   S.view='list';render();
 }
-async function logout(){await flushSave();S.unsubC&&S.unsubC();S.unsubE&&S.unsubE();S.unsubL&&S.unsubL();S.unsubJ&&S.unsubJ();S.unsubC=S.unsubE=null;S.me=null;S.cur=null;S.custs=[];S.emps=[];ssSet('bs_sabun',null);S.view='login';render()}
+async function logout(){await flushSave();S.cm=false;$('#custModal')?.remove();S.unsubC&&S.unsubC();S.unsubE&&S.unsubE();S.unsubL&&S.unsubL();S.unsubJ&&S.unsubJ();S.unsubC=S.unsubE=null;S.me=null;S.cur=null;S.custs=[];S.emps=[];ssSet('bs_sabun',null);S.view='login';render()}
 
 /* ───────── render ───────── */
 function render(){
@@ -503,6 +513,26 @@ function listHTML(){
    ${rows.map(c=>{const b=c.before||[],a=[...b.filter(p=>p.keep),...(c.proposals||[])];return`<tr class="click" data-act="openCust" data-id="${esc(c.id)}"><td><b>${esc(c.name)}</b>${c.gender?` <span class="dim">${esc(c.gender)}</span>`:''}</td><td>${esc(c.birth||'')}</td><td>${esc(c.phone||'')}</td>${S.me.role==='admin'?`<td>${esc(c.ownerName)} <span class="dim">${esc(c.ownerSabun)}</span></td>`:''}<td>${b.length}건</td><td>${(c.proposals||[]).length?`<span class="pill gold">${c.proposals.length}건</span>`:'<span class="dim">-</span>'}</td><td>${fmtWon(premium(b))} → ${(c.proposals||[]).length?fmtWon(premium(a)):'-'}</td><td class="dim">${dt(c.updatedAt)}</td></tr>`}).join('')}
    </tbody></table>`:`<div class="empty"><b>${S.custs.length?'검색 결과가 없습니다':'아직 등록한 고객이 없습니다'}</b>오른쪽 위 '+ 새 고객'으로 고객을 등록하고 기존 보험 PDF를 올리면 보장분석표가 채워집니다.</div>`}</div></div></div>`;
 }
+
+/* 고객 목록 모달 (2026-10-28, 인트라넷 사용자 요청) — 머리의 [고객 목록]을 누르면 보장분석을 진행한 고객을 창으로 보여 주고, 열기·삭제 */
+function renderCustModal(){
+  if(!S.cm)return;
+  let m=$('#custModal');
+  if(!m){m=document.createElement('div');m.id='custModal';m.className='cm';document.body.appendChild(m)}
+  const adm=S.me.role==='admin';
+  const rows=S.custs; // 목록 화면의 FC 필터와 무관하게 전부(일부만 보여 '사라진 줄' 오해 방지)
+  m.innerHTML=`<div class="cmbg" data-act="cmClose"></div><div class="cmbox" role="dialog" aria-label="고객 목록">
+   <div class="cmhd"><div><div class="eyebrow">${adm?'지점 전체':'내 고객'}</div><h2>보장분석 고객 목록 <span class="dim" style="font-weight:400;font-size:13px">${rows.length}명</span></h2></div>
+    <div class="row"><button class="btn pri sm" data-act="cmNew" type="button">+ 새 고객</button><button class="btn ghost sm" data-act="cmClose" type="button" aria-label="닫기">✕ 닫기</button></div></div>
+   <div class="cmbody">${rows.length?`<table class="tbl"><thead><tr><th>고객명</th><th>생년월일</th><th>연락처</th>${adm?'<th>담당 FC</th>':''}<th>기존 보험</th><th>제안</th><th>최종 수정</th><th></th></tr></thead><tbody>
+   ${rows.map(c=>{const b=c.before||[];const cur=S.cur&&S.cur.id===c.id;return`<tr class="click${cur?' cur':''}" data-act="cmOpen" data-id="${esc(c.id)}"><td><b>${esc(c.name)}</b>${c.gender?` <span class="dim">${esc(c.gender)}</span>`:''}${cur?' <span class="pill gold">보는 중</span>':''}</td><td>${esc(c.birth||'')}</td><td>${esc(c.phone||'')}</td>${adm?`<td>${esc(c.ownerName||'')} <span class="dim">${esc(c.ownerSabun||'')}</span></td>`:''}<td>${b.length}건</td><td>${(c.proposals||[]).length?`<span class="pill gold">${c.proposals.length}건</span>`:'<span class="dim">-</span>'}</td><td class="dim">${dt(c.updatedAt)}</td>
+    <td class="cmact" style="white-space:nowrap"><button class="btn sm" data-act="cmOpen" data-id="${esc(c.id)}" type="button">열기</button> <button class="btn sm danger" data-act="cmDel" data-id="${esc(c.id)}" data-confirm="1" type="button">삭제</button></td></tr>`}).join('')}
+   </tbody></table>`:`<div class="empty"><b>${S.custs.length?'표시할 고객이 없습니다':'아직 등록한 고객이 없습니다'}</b>고객 목록 화면의 '+ 새 고객'으로 등록하고 기존 보험 PDF를 올리면 여기에 쌓입니다.</div>`}</div>
+   <div class="cmft muted">줄을 누르면 그 고객의 보장분석을 엽니다 · [삭제]는 한 번 더 눌러야 지워집니다(되돌릴 수 없음)</div></div>`;
+  // 실시간 수신으로 다시 그려도 '한 번 더 누르면 실행' 상태(3초)를 잃지 않게 복원
+  if(S.cmArm&&Date.now()-S.cmArm.ts<3000){const b=m.querySelector(`[data-act=cmDel][data-id="${CSS.escape(S.cmArm.id)}"]`);if(b){b.dataset.armed='1';b.textContent='한 번 더 누르면 실행';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='삭제'}},3000-(Date.now()-S.cmArm.ts))}}else S.cmArm=null;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.cm){S.cm=false;$('#custModal')?.remove()}});
 
 /* admin */
 function adminHTML(){
@@ -1134,9 +1164,17 @@ document.addEventListener('submit',async e=>{
 });
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act,id=b.dataset.id;
-  if(b.dataset.confirm&&!b.dataset.armed){b.dataset.armed='1';const t=b.textContent;b.textContent='한 번 더 누르면 실행';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent=t}},3000);return}
+  if(b.dataset.confirm&&!b.dataset.armed){b.dataset.armed='1';const t=b.textContent;b.textContent='한 번 더 누르면 실행';if(act==='cmDel')S.cmArm={id,ts:Date.now()};setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent=t}if(act==='cmDel'&&S.cmArm&&S.cmArm.id===id&&Date.now()-S.cmArm.ts>=2900)S.cmArm=null},3000);return}
   if(act==='logout')return logout();
-  if(act==='goList'){await flushSave();S.cur=null;S.view='list';return renderMain()}
+  if(act==='goList'){S.cm=true;return renderCustModal()}
+  if(act==='cmClose'){S.cm=false;const m=$('#custModal');if(m)m.remove();return}
+  if(act==='cmOpen'){await flushSave();const c=S.custs.find(x=>x.id===id);if(!c)return toast('이미 삭제된 고객입니다');S.cm=false;$('#custModal')?.remove();S.cur=JSON.parse(JSON.stringify(c));S.cur.before=S.cur.before||[];S.cur.proposals=S.cur.proposals||[];S.tab='before';S.jobs={before:[],proposal:[]};S.saveMsg='저장됨';S.view='cust';window.scrollTo(0,0);return renderMain()}
+  if(act==='cmDel'){const c=S.custs.find(x=>x.id===id);if(!c)return;const isCur=S.cur&&S.cur.id===id;let keep=null;
+    if(isCur){keep={cur:S.cur,dirty:S.dirty};clearTimeout(S.saveT);S.dirty=false;S.pend=false;S.cur=null} // 삭제 중 자동 저장·대기 저장이 지운 문서를 되살리지 않게 먼저 떼어 둠
+    try{await S.db.doc(P.cust+'/'+id).delete();toast(`${c.name} 고객을 삭제했습니다`)}catch(x){if(keep){S.cur=keep.cur;S.dirty=keep.dirty;if(S.dirty)markDirty()}return toast('삭제하지 못했습니다')}
+    S.cmArm=null;if(isCur){S.view='list';renderMain()}
+    return renderCustModal()}
+  if(act==='cmNew'){await flushSave();S.cm=false;$('#custModal')?.remove();S.cur=null;S.view='list';S.showNew=true;renderMain();$('#nc_name')?.focus();return}
   if(act==='goEdu'){await flushSave();S.cur=null;S.view='edu';return renderMain()}
   if(act==='bookView'){const v=$('#bookViewer');const n=+id;v.innerHTML=`<div class="mv" data-act="bookClose"><img src="${bookSrc(n)}" alt=""><span>${n}쪽 · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
   if(act==='bookClose'){$('#bookViewer').hidden=true;return}

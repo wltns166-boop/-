@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-8. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1090,7 +1090,12 @@
   사번 관리 버튼(`[data-act=goAdmin]`)·고객 검색칸(`#q`)·오른쪽 위 로그인 표시(`.nav .who`)는 CSS `display:none`(본체 무수정). PDF 출력 `.pg`는 자기 변수라 영향 없음.
   **v2026.10.28-7 (사용자 요청)**: PDF 올리는 칸(`.drop`) 클릭=초록 선택(`.sel` — bridge의 mousedown 캡처, 다른 곳 누르면 해제, 끌어다 놓기 `.over`도 초록) ·
   올린 PDF 줄마다 [삭제](`data-act="delJob"`, 두 번 클릭 확인) — 그 파일에서 인식된 보험(`p.src==='pdf'&&p.file===job.name`)도 함께 빼고 이력 기록(본체 jobsHTML·click 핸들러 2곳 수정).
-  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄 + 위 delJob 2곳뿐(원본 갱신 시 다시 넣을 것). 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
+  **v2026.10.28-8 고객 목록 모달 (사용자 요청)**: 머리의 [고객 목록](`data-act="goList"`)이 목록 화면으로 가지 않고 **창 `#custModal`**(`renderCustModal` — 본체 함수, CSS `.cm*`)을 띄움:
+  보장분석을 진행한 고객(관리자=지점 전체·팀원=본인, `S.custs` — onSnapshot 수신 때마다 다시 그림 `S.cm`)을 표로(고객명·생년월일·연락처·담당 FC(관리자)·기존 보험·제안·최종 수정) + 줄 클릭/[열기](`cmOpen` — 옛 openCust와 같음)·[삭제](`cmDel`, 두 번 클릭 `data-confirm`, 문서 삭제 — 보는 중인 고객이면 S.cur 비우고 목록 화면으로).
+  닫기는 ✕·바깥 클릭·Esc(`S.cm=false`). 창 머리 [+ 새 고객]=`cmNew`(목록 화면으로 가서 등록 폼 열기 — 고객을 연 뒤 목록 화면으로 돌아갈 길이 이것뿐).
+  리뷰 반영: logout·enter에서 창 제거(S.cm 리셋 — 다음 사용자에게 고객 성함·연락처 잔존 차단), cmOpen은 flushSave **뒤**에 고객을 다시 찾음(낡은 사본으로 편집 유실 방지), cmDel은 보는 중인 고객이면 삭제 전에 S.cur·S.pend를 떼어 둠(대기 저장이 지운 문서를 되살리던 경로 — 실패 시 복원),
+  '한 번 더 누르면 실행' 상태는 `S.cmArm`(3초)로 재렌더에도 복원, 목록 화면 FC 필터는 창에 적용하지 않음. 헤드리스 검증(2명 등록→창 2줄·삭제 두 번 클릭→1줄·줄 클릭 열기·Esc·보는 중 고객 삭제→목록 화면).
+  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄 + 위 delJob 2곳 + 고객 목록 모달(renderCustModal·cm* 핸들러 4개·keydown·CSS .cm·onSnapshot 한 줄)뿐(원본 갱신 시 다시 넣을 것). 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
 
