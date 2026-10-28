@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.27-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -929,6 +929,12 @@
   주마감=`wcRec(이름,주차)`, 시험=`_examsFresh()`(submitter 또는 belong이 팀), 사업계획서=bizplan.subs, 리쿠르팅=recruit.cards(owner), 팀별=팀 안의 하부 팀장별 합계.
 - 저장·동기화 없음 — 시안·체크 선택만 기기 캐시 `tops_wkmt_pref`(`_lsSet`), 상태는 메모리 `window._wkmt`, logout `_wkmtClear`. 화면 표시 이름은 `_esc`/`_alertEsc`(PPT 글자는 라이브러리가 이스케이프).
   새 시안을 늘리려면 `WKMT_THEMES` 항목 + `_wkmtThumb` 미리보기 + `_wkmtBuild`의 표지 분기·`frame`·`panel` 분기를 함께. 시안 원본(50개)은 세션 산출물(저장소 미포함).
+- **v2026.10.28-1 미리보기 (사용자 요청)**: 계획 카드 아래 `#wkmt_prev` — 팀장·주차·시안·항목이 바뀔 때마다(`_wkmtSummary` 끝 → 150ms 디바운스 `_wkmtPreview`)
+  **같은 `_wkmtBuild(d,th,items,true)`를 가짜 PptxGenJS(`_wkmtMockPres` — addText/addShape/addTable/addChart 호출만 기록)로 돌려** 슬라이드를 HTML로 그림
+  (`_wkmtElHtml`/`_wkmtSlideHtml` — 16:9 `container-type:size`, 좌표 x×10%·y/5.625×100%, pt→cqw ×0.1389). PPT와 미리보기가 한 코드에서 나오므로 따로 고칠 필요 없음 —
+  ⚠️ `_wkmtBuild`에 새 pptx API를 쓰면 `_wkmtMockPres`에도 추가할 것. 썸네일 클릭 → 큰 화면 `#wkmt_pv_pop`(‹ › ←→ Esc, 바깥 클릭 닫힘), logout `_wkmtClear`가 닫고 비움.
+  글자 전부 `_esc`, 색은 `_wkmtCss`(6자리 hex만). ⚠️ 글꼴 이름은 작은따옴표 — style="" 안에 큰따옴표가 들어가면 속성이 끊겨 표 배경·색이 사라졌음(실측).
+  표 칸 글자 크기는 td에 직접(전역 td 규칙이 덮음).
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 
