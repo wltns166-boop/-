@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1086,7 +1086,9 @@
   ⚠️ **권한은 프로그램 설계대로 관리자(BM·총무 `_isAdmin`)=지점 전체 고객, 팀원=본인 고객**(3장의 "총무만 전체" 규칙과 다름 — README 원문 사양을 따름. 서버 규칙은 인증 세션이면 전부 읽기·쓰기라 콘솔로 남의 고객도 읽힘 — 기존 구조적 한계 계열).
   ⚠️ 스캔 PDF는 **앞 4쪽만** AI 사진 인식(`/api/analyze` 이미지 4장 상한 — 프로그램 본체 `pdfImages(…,min(limits.maxCount,20))`), 5쪽 이후 담보는 조용히 빠짐 — 긴 스캔본은 나눠 올리라고 안내.
   ⚠️ `book/`(TOPS BOOK 166쪽 — 고객 배포 금지)·`seed/`(사번·비밀번호 해시)는 **올리지 않음**(저장소·호스팅 공개 — 주소만 알면 열림). 프로그램 [교육·약관]의 책 그림은 404(검색 색인 `book.js`는 있음). 로그인한 사람만 보는 방식(Storage)은 별도 과제.
-  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">` 한 줄뿐. 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
+  **v2026.10.28-6 겉모양 (사용자 요청)**: `bojang/intranet-theme.css`(index.html head, bridge 다음 줄) — :root 변수만 덮어 인트라넷 H066(아이보리 `#f6f4ef`·검정 글씨·얇은 선·직각 모서리·Bodoni 로고)로,
+  사번 관리 버튼(`[data-act=goAdmin]`)·고객 검색칸(`#q`)·오른쪽 위 로그인 표시(`.nav .who`)는 CSS `display:none`(본체 무수정). PDF 출력 `.pg`는 자기 변수라 영향 없음.
+  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄뿐. 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
 
