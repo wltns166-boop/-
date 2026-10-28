@@ -22243,7 +22243,7 @@ function _wkmtData(){
     ns.forEach(function(n){ var v=agg[n]; if(v){ t.c+=v.c; t.a+=v.a; t.ay+=v.ay; } }); return {L:L,n:ns.length,t:t}; });
   // 주차별 팀 실적(입력일 d 기준, 만원) · 기준 주차 추가분 · 전주 주마감 제출 수 — 보고서 시안용
   var wkKeys=_mtWeeksOf(ym), inWk=function(p,k){ if(!p||!p.d||!/^\d{4}-\d{2}-\d{2}/.test(p.d)) return false; var e=new Date(k+'T12:00:00'); e.setDate(e.getDate()+6);
-    var ek=e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0'), dd=String(p.d).slice(0,10); return dd>=k&&dd<=ek; };
+    var ek=e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0'), dd=String(p.d).slice(0,10), sk=(k===wkKeys[0])?ym+'-01':k; return dd>=sk&&dd<=ek; };   // 첫 월요일 앞 날짜(1일~)는 1주차에 포함(리뷰)
   var wkSum=function(k,only){ var t=0; (prf||[]).forEach(function(p){ if(p&&agg[p.m]&&_perfMonth(p)===ym&&inWk(p,k)&&(!only||only(p.m))) t+=(+p.a||0); }); return t; };
   var wkSeries=wkKeys.map(function(k){ return {wk:k,v:_wkmtMan(wkSum(k))}; });
   var weekAdd=wkSum(wk), weekAddHit=wkSum(wk,function(n){ return goals[n]&&(+goals[n].a||0)>0; });
@@ -22294,7 +22294,7 @@ function wkmtSet(k,v,on){
 }
 function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); rWkmt(); }
 function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); _wkmtPrefSave(); rWkmt(); }
-function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; ['wkmt_themes','wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
+function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF=-1; ['wkmt_themes','wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
 // 시안 미리보기(화면용 축소판)
 function _wkmtThumb(k){
   var box='position:relative;height:118px;border-radius:7px;overflow:hidden;';
