@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -943,6 +943,10 @@
   주요 이슈·다음 주 Action·핵심 메시지 문장은 코드가 숫자로 자동 작성. 시안 고르기 `#wkmt_rpt`(머리 형식 거르기 `#wkmt_rpt_f`, `_wrPicker` — 거르기가 같으면 선택 표시만 갱신)
   축소판은 고정 예시 데이터(`_wrSampleData`)로 요약 장만 그려 `window._wrThumbHtml`에 캐시(작성자 이름이 들어가므로 `_wkmtClear`에서 비움). 테마 검증은 `_wkmtThOk`, 이름은 `_wkmtThName`.
   미리보기 렌더러 추가: 선 그래프(SVG)·글상자 배경(fill)·점선·표 칸별 테두리 배열, 선 굵기를 pt 비례로(옛 최소 1cqw는 너무 두꺼웠음). 시안 원본 PDF(100개)는 세션 산출물(저장소 미포함).
+- **v2026.10.28-3 시안 104개 한 목록 + 큰 미리보기 (사용자 요청)**: 시안 고르기 카드 = `#wkmt_pickwrap` 2단 — 왼쪽 `#wkmt_rpt` 목록(기존 4종 + 보고서 100, 순서는 `_wkmtThKeys()`),
+  거르기 `#wkmt_rpt_f`(전체 104·기존 4종·머리 형식 10 — `window._wrF` 문자열 'all'|'old'|'0'~'9'), 오른쪽 `#wkmt_big` 큰 미리보기(`_wkmtBigDraw` — 아래 미리보기와 같은 실제 팀 데이터 장,
+  ‹ ›·[크게]=큰 화면, 장 번호 `window._wkmtBigI`(시안 바꾸면 기존=1장·보고서=2장(요약)부터), 실제 장이 아직 없거나 다른 시안 것이면 예시 축소판). 화면 폭 900 이하면 한 줄로.
+  축소판 캐시 `_wrThumbs()`는 시안 키별 맵(기존 4종도 `_wkmtBuild` 예시 데이터로 그림 — 옛 CSS 축소판 `_wkmtThumb`·`#wkmt_themes`는 삭제). `_wkmtPreview`가 `window._wkmtPrevTh`에 시안 키를 남김.
 
 ## 4.7 고객등록 — 외국인 등록증 첨부 (alienIds, 2026-08-07)
 

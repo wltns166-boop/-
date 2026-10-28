@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-3</div>
   </div>
 </div>
 
@@ -1898,10 +1898,13 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
       <div class="card" style="margin-bottom:14px">
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-palette"></i> 1. 디자인 시안 선택</div>
-        <div id="wkmt_themes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px"></div>
-        <div style="font-weight:700;font-size:14px;color:#2a2a4a;margin:18px 0 4px">보고서 스타일 시안 100 <span style="font-weight:400;font-size:12px;color:#7a80a0">— 대기업 보고서처럼 심플한 흰 바탕 · 머리 형식 10 × 본문 구성 10</span></div>
-        <div id="wkmt_rpt_f" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px"></div>
-        <div id="wkmt_rpt" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:560px;overflow-y:auto;padding:2px"></div>
+        <style>#wkmt_pickwrap{display:grid;grid-template-columns:minmax(270px,380px) minmax(0,1fr);gap:18px;align-items:start}@media(max-width:900px){#wkmt_pickwrap{grid-template-columns:minmax(0,1fr)}}</style>
+        <div style="font-size:12.5px;color:#7a80a0;margin:-4px 0 8px">시안 104개(기존 4 + 보고서 100) — 왼쪽에서 고르면 오른쪽에 크게 보입니다.</div>
+        <div id="wkmt_pickwrap">
+          <div><div id="wkmt_rpt_f" style="display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px"></div>
+            <div id="wkmt_rpt" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:640px;overflow-y:auto;padding:2px"></div></div>
+          <div id="wkmt_big" style="min-width:0;position:sticky;top:10px"></div>
+        </div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
@@ -22260,12 +22263,6 @@ function rWkmt(){
   if(sel){ sel.innerHTML=ls.map(function(n){ var r=_wkmtRank(n); return '<option value="'+_alertEsc(n)+'"'+(n===st.leader?' selected':'')+'>'+_esc(n)+(r?' ('+_esc(r)+')':'')+'</option>'; }).join('');
     sel.disabled=ls.length<2; }
   var wl=g('wkmt_wklbl'); if(wl) wl.textContent=_wkmtWkLabel(st.wk);
-  var tb=g('wkmt_themes');
-  if(tb) tb.innerHTML=Object.keys(WKMT_THEMES).map(function(k){ var T=WKMT_THEMES[k], on=st.th===k;
-    return '<div data-wkth="'+k+'" onclick="wkmtSet(\'th\',this.getAttribute(\'data-wkth\'))" style="cursor:pointer;border-radius:12px;padding:8px;border:2px solid '+(on?'#4858cc':'#e2e4f0')+';background:'+(on?'#eef0ff':'#fff')+'">'
-      +_wkmtThumb(k)
-      +'<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span style="width:16px;height:16px;border-radius:50%;border:2px solid '+(on?'#4858cc':'#bbb')+';background:'+(on?'radial-gradient(#4858cc 45%,#fff 50%)':'#fff')+'"></span>'
-      +'<b style="font-size:14px;color:#2a2a4a">'+T.nm+'</b></div><div style="font-size:12px;color:#7a80a0;margin-top:2px">'+T.ds+'</div></div>'; }).join('');
   _wrPicker();
   var ib=g('wkmt_items');
   if(ib) ib.innerHTML=WKMT_ITEMS.map(function(it){ var on=!!st.items[it.k];
@@ -22288,34 +22285,13 @@ function _wkmtSummary(){
 function wkmtSet(k,v,on){
   var st=_wkmtSt();
   if(k==='leader'){ if(_wkmtLeaders().indexOf(v)>=0) st.leader=v; }
-  else if(k==='th'){ if(_wkmtThOk(v)) st.th=v; _wkmtPrefSave(); }
+  else if(k==='th'){ if(_wkmtThOk(v)&&st.th!==v){ st.th=v; window._wkmtBigI=null; } _wkmtPrefSave(); }
   else if(k==='item'){ if(Object.prototype.hasOwnProperty.call(st.items,v)) st.items[v]=!!on; _wkmtPrefSave(); }
   rWkmt();
 }
 function wkmtShift(n){ var st=_wkmtSt(); var d=new Date(st.wk+'T12:00:00'); d.setDate(d.getDate()+7*n); st.wk=wcKey(d); rWkmt(); }
 function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k){ st.items[k]=!!on; }); _wkmtPrefSave(); rWkmt(); }
-function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF=-1; ['wkmt_themes','wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
-// 시안 미리보기(화면용 축소판)
-function _wkmtThumb(k){
-  var box='position:relative;height:118px;border-radius:7px;overflow:hidden;';
-  if(k==='score') return '<div style="'+box+'background:#121212;padding:8px 10px"><div style="color:#FFEB3B;font-size:8px;letter-spacing:3px;text-align:center;font-weight:700">SCOREBOARD</div>'
-    +'<div style="color:#fff;font-size:10px;text-align:center;font-weight:700;margin:2px 0 6px">주간미팅자료</div><div style="display:flex;gap:4px">'
-    +['1,240','2,000','62','3'].map(function(v,i){ return '<div style="flex:1;background:#2c2c2c;color:'+(i===2?'#FFEB3B':'#fff')+';font-weight:800;font-size:13px;text-align:center;padding:6px 0">'+v+'</div>'; }).join('')
-    +'</div><div style="margin-top:7px">'+[90,70,55,35].map(function(w){ return '<div style="height:6px;width:'+w+'%;background:#FFEB3B;margin-bottom:3px"></div>'; }).join('')+'</div></div>';
-  if(k==='tech') return '<div style="'+box+'background:#0A1929;padding:8px 10px;background-image:repeating-linear-gradient(#0A1929 0 17px,#102A44 17px 18px)"><div style="color:#fff;font-size:11px;font-weight:700;margin-bottom:6px">주간미팅자료 <span style="color:#8FA9C7;font-size:8px">홍길동 팀</span></div>'
-    +'<div style="display:flex;gap:4px">'+['1,240','2,000','62%','3'].map(function(v){ return '<div style="flex:1;border:1px solid #66B2FF;background:#132F4C;color:#fff;font-size:10px;font-weight:700;text-align:center;padding:4px 0;border-radius:3px">'+v+'</div>'; }).join('')+'</div>'
-    +'<div style="display:flex;align-items:flex-end;gap:5px;height:44px;margin-top:8px">'+[40,30,25,15,10].map(function(h){ return '<div style="width:12px;height:'+h+'px;background:#66B2FF"></div>'; }).join('')
-    +'<div style="margin-left:10px;color:#fff;font-size:8px;line-height:1.6">● 계보도<br>● 시험신청<br>● 주마감</div></div></div>';
-  if(k==='retro') return '<div style="'+box+'background:#F3EBE1;padding:8px 10px"><div style="font-family:serif;color:#3E2723;font-size:14px;font-weight:700">주간미팅자료</div>'
-    +'<div style="position:absolute;right:10px;top:8px;width:46px;height:46px;border:2px solid #C62828;border-radius:50%;color:#C62828;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg)">62%</div>'
-    +'<div style="display:flex;gap:4px;margin-top:22px;width:70%">'+['1,240','2,000','3'].map(function(v){ return '<div style="flex:1;border:1px solid #A1887F;background:#FAF5EF;color:#3E2723;font-size:10px;font-weight:700;text-align:center;padding:3px 0;border-radius:4px">'+v+'</div>'; }).join('')+'</div>'
-    +'<div style="margin-top:7px">'+[85,62,45].map(function(w){ return '<div style="height:6px;width:'+w+'%;background:#A1887F;margin-bottom:3px"></div>'; }).join('')+'</div></div>';
-  return '<div style="'+box+'background:#F4F5FB;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px">'
-    +'<div style="background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center"><div style="width:42px;height:42px;border-radius:50%;background:conic-gradient(#26A69A 0 62%,#E8EAF6 62% 100%);display:flex;align-items:center;justify-content:center"><div style="width:28px;height:28px;border-radius:50%;background:#fff;font-size:9px;font-weight:800;color:#1F2A5C;display:flex;align-items:center;justify-content:center">62%</div></div></div>'
-    +'<div style="background:#fff;border-radius:6px;padding:5px;font-size:9px;color:#1F2A5C;font-weight:700;line-height:1.5">1,240 2,000<br><span style="color:#26A69A">62%</span> 3</div>'
-    +'<div style="background:#fff;border-radius:6px;padding:5px">'+[85,62,45].map(function(w){ return '<div style="height:5px;width:'+w+'%;background:#5C6BC0;margin-bottom:3px"></div>'; }).join('')+'</div>'
-    +'<div style="background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:3px">'+[0,1,2,3].map(function(i){ return '<div style="width:14px;height:14px;border-radius:50%;background:'+(i===3?'#26A69A':'#5C6BC0')+'"></div>'; }).join('')+'</div></div>';
-}
+function _wkmtClear(){ try{ _wkmtPrevClose(); clearTimeout(window._wkmtPrevT); }catch(_){} window._wkmtPrevSlides=null; window._wkmt=null; window._wrThumbHtml=null; window._wrF='all'; window._wkmtBigI=null; ['wkmt_items','wkmt_sum','wkmt_plan','wkmt_prev','wkmt_rpt','wkmt_rpt_f','wkmt_big'].forEach(function(id){ var e=g(id); if(e){ e.innerHTML=''; e.removeAttribute('data-built'); } }); }
 // ── 미리보기 (2026-10-28 — v2026.10.28-1): PPT를 만드는 _wkmtBuild를 가짜 pres로 그대로 실행해 슬라이드를 HTML로 그린다
 //    (미리보기와 실제 파일이 같은 코드를 타서 어긋나지 않게). 좌표는 인치(10×5.625) → %, 글자 pt → cqw.
 function _wkmtMockPres(){
@@ -22401,7 +22377,7 @@ function _wkmtPreview(){
     var bx=g('wkmt_prev'); if(!bx||!window._wkmt) return;
     try{
       var p=_wkmtBuild(_wkmtData(), st.th, st.items, true);
-      window._wkmtPrevSlides=p.slides;
+      window._wkmtPrevSlides=p.slides; window._wkmtPrevTh=st.th; _wkmtBigDraw();
       bx.innerHTML='<div style="font-size:13px;font-weight:700;color:#4a5090;margin:4px 0 8px">미리보기 · '+p.slides.length+'장 <span style="font-weight:400;color:#8a8fb0">(누르면 크게 보기 · 실제 PPT와 글꼴은 조금 다를 수 있음)</span></div>'
         +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'
         +p.slides.map(function(s,i){ return '<div data-wkpv="'+i+'" onclick="wkmtPrevOpen(+this.getAttribute(\'data-wkpv\'))" style="cursor:zoom-in"><div style="font-size:11.5px;color:#7a80a0;margin-bottom:3px">'+(i+1)+'장</div>'+_wkmtSlideHtml(s)+'</div>'; }).join('')+'</div>';
@@ -22887,33 +22863,57 @@ function _wrSampleData(){
     wcs:wcs,wcDone:4,wcPrev:5,exs:[],biz:[],cards:[],teams:[],goalNow:true,weekAdd:3200000,weekAddHit:2400000,
     wkSeries:[{wk:'2026-10-05',v:280},{wk:'2026-10-12',v:310},{wk:'2026-10-19',v:330},{wk:'2026-10-26',v:320}]};
 }
+var WK_OLD_TH=['score','tech','retro','widget'];
+function _wkmtThKeys(){ var a=WK_OLD_TH.slice(); for(var n=1;n<=100;n++) a.push('r'+n); return a; }   // 시안 104개 = 기존 4 + 보고서 100
+// 시안 축소판 — 고정 예시 데이터로 첫 요약 장을 그려 시안 키별로 캐시(기존 4종은 표지·요약 한 장, 보고서는 요약 장)
 function _wrThumbs(){
   if(window._wrThumbHtml) return window._wrThumbHtml;
-  var sd=_wrSampleData(), out=[];
-  for(var n=1;n<=100;n++){ try{ out.push(_wkmtSlideHtml(_wkmtBuildRpt(sd,'r'+n,{},true,true).slides[0])); }catch(e){ out.push(''); } }
+  var sd=_wrSampleData(), out={};
+  _wkmtThKeys().forEach(function(k){ try{ out[k]=_wkmtSlideHtml(_wrId(k)?_wkmtBuildRpt(sd,k,{},true,true).slides[0]:_wkmtBuild(sd,k,{},true).slides[0]); }catch(e){ out[k]=''; } });
   window._wrThumbHtml=out; return out;
 }
-
-
-// 시안 고르기 화면 — 머리 형식으로 걸러 보기(전체/10종), 같은 거르기면 다시 그리지 않고 선택 표시만 바꾼다
+// 왼쪽 시안 목록 — 거르기(전체/기존 4종/머리 형식 10종), 같은 거르기면 다시 그리지 않고 선택 표시만 바꾼다
 function _wrPicker(){
   var box=g('wkmt_rpt'), fb=g('wkmt_rpt_f'); if(!box) return;
-  var st=_wkmtSt(), cur=_wrId(st.th), f=(typeof window._wrF==='number')?window._wrF:-1;
-  if(fb) fb.innerHTML=[-1].concat([0,1,2,3,4,5,6,7,8,9]).map(function(h){ var on=h===f;
-    return '<button data-wrf="'+h+'" onclick="_wrFilter(+this.getAttribute(\'data-wrf\'))" style="padding:4px 11px;border-radius:14px;font-size:12px;font-family:inherit;cursor:pointer;border:1px solid '+(on?'#4858cc':'#d6d9ea')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#4a5090')+'">'+(h<0?'전체 100':WR_HEADS[h])+'</button>'; }).join('');
-  if(box.getAttribute('data-built')!==String(f)){
+  var st=_wkmtSt(), f=String(window._wrF==null?'all':window._wrF);
+  if(!/^(all|old|[0-9])$/.test(f)) f='all';
+  if(fb) fb.innerHTML=['all','old','0','1','2','3','4','5','6','7','8','9'].map(function(h){ var on=h===f;
+    return '<button data-wrf="'+h+'" onclick="_wrFilter(this.getAttribute(\'data-wrf\'))" style="padding:3px 9px;border-radius:13px;font-size:11.5px;font-family:inherit;cursor:pointer;border:1px solid '+(on?'#4858cc':'#d6d9ea')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#4a5090')+'">'+(h==='all'?'전체 104':(h==='old'?'기존 4종':WR_HEADS[+h]))+'</button>'; }).join('');
+  if(box.getAttribute('data-built')!==f){
     var th=_wrThumbs(), html='';
-    for(var n=1;n<=100;n++){ var sp=_wrSpec(n); if(f>=0&&sp.h!==f) continue;
-      html+='<div data-wrn="'+n+'" onclick="wkmtSet(\'th\',\'r\'+this.getAttribute(\'data-wrn\'))" style="cursor:pointer;border-radius:9px;padding:6px;border:2px solid #e2e4f0;background:#fff">'
-        +'<div style="pointer-events:none">'+th[n-1]+'</div>'
-        +'<div style="font-size:11.5px;margin-top:5px;color:#2a2a4a"><b style="color:#c8102e">'+String(n).padStart(3,'0')+'</b> '+WR_BODIES[sp.b]+'</div>'
-        +'<div style="font-size:10.5px;color:#8a8fb0">'+WR_HEADS[sp.h]+' · '+sp.P.nm+'</div></div>'; }
-    box.innerHTML=html; box.setAttribute('data-built',String(f));
+    _wkmtThKeys().forEach(function(k){ var n=_wrId(k), sp=n?_wrSpec(n):null;
+      if(f==='old'&&n) return; if(/^[0-9]$/.test(f)&&(!sp||sp.h!==+f)) return;
+      var l1=n?'<b style="color:#c8102e">'+String(n).padStart(3,'0')+'</b> '+WR_BODIES[sp.b]:'<b style="color:#4858cc">기존</b> '+WKMT_THEMES[k].nm;
+      var l2=n?WR_HEADS[sp.h]+' · '+sp.P.nm:WKMT_THEMES[k].ds;
+      html+='<div data-wkth="'+k+'" onclick="wkmtSet(\'th\',this.getAttribute(\'data-wkth\'))" style="cursor:pointer;border-radius:8px;padding:5px;border:2px solid #e2e4f0;background:#fff">'
+        +'<div style="pointer-events:none">'+(th[k]||'')+'</div>'
+        +'<div style="font-size:11px;margin-top:4px;color:#2a2a4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+l1+'</div>'
+        +'<div style="font-size:10px;color:#8a8fb0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+l2+'</div></div>'; });
+    box.innerHTML=html; box.setAttribute('data-built',f);
   }
-  Array.prototype.forEach.call(box.querySelectorAll('[data-wrn]'),function(el){ var on=+el.getAttribute('data-wrn')===cur;
+  var curEl=null;
+  Array.prototype.forEach.call(box.querySelectorAll('[data-wkth]'),function(el){ var on=el.getAttribute('data-wkth')===st.th; if(on) curEl=el;
     el.style.borderColor=on?'#4858cc':'#e2e4f0'; el.style.background=on?'#eef0ff':'#fff'; });
+  if(curEl&&!box._wrScrolled){ box._wrScrolled=1; try{ box.scrollTop=Math.max(0,curEl.offsetTop-box.offsetTop-8); }catch(e){} }
+  _wkmtBigDraw();
 }
-function _wrFilter(h){ window._wrF=(h>=0&&h<=9)?h:-1; _wrPicker(); }
+function _wrFilter(h){ window._wrF=/^(all|old|[0-9])$/.test(String(h))?String(h):'all'; var b=g('wkmt_rpt'); if(b) b._wrScrolled=0; _wrPicker(); }
+// 오른쪽 큰 미리보기 — 고른 시안을 실제 팀 데이터로 만든 장(미리보기와 같은 슬라이드), 아직 없으면 예시 축소판
+function _wkmtBigDraw(){
+  var bx=g('wkmt_big'); if(!bx||!window._wkmt) return;
+  var st=_wkmtSt(), ss=(window._wkmtPrevSlides&&window._wkmtPrevTh===st.th)?window._wkmtPrevSlides:null;
+  var head='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><b style="font-size:14.5px;color:#2a2a4a">'+_esc(_wkmtThName(st.th))+'</b>';
+  if(!ss||!ss.length){ var th=_wrThumbs()[st.th]||'';
+    bx.innerHTML=head+'<span style="font-size:12px;color:#8a8fb0">예시 데이터 · 팀 데이터로 그리는 중…</span></div>'+th; return; }
+  var i=window._wkmtBigI; if(typeof i!=='number') i=_wrId(st.th)?1:0; i=Math.max(0,Math.min(ss.length-1,i)); window._wkmtBigI=i;
+  var b='padding:5px 13px;border:1px solid #d6d9ea;border-radius:7px;background:#fff;color:#2a2a4a;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit';
+  bx.innerHTML=head+'<span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#5a6080">'
+    +'<button style="'+b+'" onclick="_wkmtBigGo(-1)"'+(i<=0?' disabled':'')+'>‹</button>'+(i+1)+' / '+ss.length+'장'
+    +'<button style="'+b+'" onclick="_wkmtBigGo(1)"'+(i>=ss.length-1?' disabled':'')+'>›</button>'
+    +'<button style="'+b+'" onclick="wkmtPrevOpen(window._wkmtBigI)">크게</button></span></div>'
+    +'<div style="cursor:zoom-in" onclick="wkmtPrevOpen(window._wkmtBigI)">'+_wkmtSlideHtml(ss[i])+'</div>';
+}
+function _wkmtBigGo(n){ window._wkmtBigI=(+window._wkmtBigI||0)+n; _wkmtBigDraw(); }
 
 // ===== 사업계획서 =====
 function _bizEmbedUrl(url){
