@@ -1,0 +1,1205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TOPS 보장분석</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;700&display=swap">
+<style>
+/* Layout: 고정 상단바 + 고객목록/작업공간 단일 컬럼, 작업공간은 탭(전·후·비교·질환·출력). 출력물은 A4 흰 지면. */
+:root{
+  --bg:#12110f; --panel:#1b1916; --panel2:#23201c; --line:#35302a; --line2:#4a4339;
+  --fg:#ede7dc; --muted:#a39a89; --dim:#776f61;
+  --gold:#cfa95e; --gold-dim:#8c7442; --gold-ink:#1a1408;
+  --up:#79c393; --down:#e8806f; --warn:#e3b456;
+  --f-ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-disp:"Noto Serif KR","Apple Myungjo","Batang",serif;
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.num,.tab-n,td,th{font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--panel2);padding:7px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--gold-dim)}
+.btn.pri{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:600}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:4px 10px;font-size:12.5px}
+.btn.danger{color:var(--down)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.in{background:var(--bg);border:1px solid var(--line2);border-radius:6px;padding:8px 10px;width:100%}
+.in:focus{border-color:var(--gold)}
+label.f{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)} .dim{color:var(--dim)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.eyebrow{font-size:11.5px;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;font-weight:600}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px max(16px,env(safe-area-inset-left,0px))}
+.top .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand b{font-family:var(--f-disp);font-size:20px;color:var(--gold);letter-spacing:.06em}
+.brand span{font-size:13px;color:var(--muted)}
+.nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;align-items:center}
+.nav .who{font-size:12.5px;color:var(--muted);margin-right:8px}
+
+/* login */
+.login{min-height:80vh;display:grid;place-items:center}
+.login .card{width:min(400px,100%);padding:30px;display:grid;gap:14px}
+.login h1{font-family:var(--f-disp);font-size:26px;color:var(--gold);letter-spacing:.04em}
+.err{color:var(--down);font-size:13px;min-height:1em}
+
+/* list */
+.page{padding-top:22px;display:grid;gap:18px}
+.ph{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.ph h2{font-family:var(--f-disp);font-size:24px}
+.ph .row{margin-left:auto}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:12px;color:var(--muted);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line2)}
+.tbl td{padding:10px;border-bottom:1px solid var(--line)}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:var(--panel2)}
+.tscroll{overflow-x:auto}
+.pill{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--muted)}
+.pill.gold{border-color:var(--gold-dim);color:var(--gold)}
+.pill.red{border-color:#7a3a30;color:var(--down)}
+.empty{padding:40px 10px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--fg);font-size:16px;margin-bottom:6px}
+
+/* workspace */
+.custhead{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 16px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tabs button.on{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+.tabs button .tab-n{font-size:11px;color:var(--dim);margin-left:4px}
+.save{font-size:12px;color:var(--dim);margin-left:auto}
+.drop{border:1.5px dashed var(--line2);border-radius:10px;padding:22px;text-align:center;display:grid;gap:8px;cursor:pointer}
+.drop.over{border-color:var(--gold);background:var(--panel2)}
+.drop strong{font-size:15px}
+.jobs{display:grid;gap:4px;font-size:13px}
+.jobs .j{display:flex;gap:8px;align-items:center}
+.jobs .j .s{margin-left:auto;color:var(--muted)}
+.jobs .j.ok .s{color:var(--up)} .jobs .j.bad .s{color:var(--down)}
+.spin{width:12px;height:12px;border:2px solid var(--line2);border-top-color:var(--gold);border-radius:50%;animation:sp 1s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:820px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* coverage grid */
+.gridwrap{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+.grid th,.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0;height:30px}
+.grid thead th{position:sticky;top:0;z-index:3;background:var(--panel2);padding:8px;vertical-align:top;text-align:left;min-width:150px;font-weight:500}
+.grid thead th.c-grp,.grid thead th.c-lbl,.grid thead th.c-sum{min-width:0}
+.grid .c-grp{position:sticky;left:0;z-index:2;background:var(--panel2);width:52px;min-width:52px;text-align:center;font-size:12px;color:var(--gold);font-weight:600;padding:4px}
+.grid .c-lbl{position:sticky;left:52px;z-index:2;background:var(--panel);width:150px;min-width:150px;padding:0 8px;white-space:nowrap}
+.grid .c-sum{position:sticky;left:202px;z-index:2;background:var(--panel2);width:92px;min-width:92px;text-align:right;padding:0 8px;font-weight:600}
+.grid thead .c-grp,.grid thead .c-lbl,.grid thead .c-sum{z-index:4}
+.grid tr.key .c-lbl{color:var(--fg)} .grid tr:not(.key) .c-lbl{color:var(--muted)}
+.grid tr.miss .c-sum{color:var(--down)}
+.grid tr.meta td,.grid tr.meta .c-lbl{background:var(--panel2)}
+.grid td.cell{position:relative;min-width:150px}
+.grid td.cell input.num{width:100%;height:30px;background:transparent;border:0;text-align:right;padding:0 8px}
+.grid td.cell input.num:focus{background:var(--bg);outline:1px solid var(--gold);outline-offset:-1px}
+.grid td.cell input.txt{width:100%;height:30px;background:transparent;border:0;padding:0 8px}
+.grid td.cell input.txt:focus{background:var(--bg);outline:1px solid var(--gold);outline-offset:-1px}
+.grid td.ro{text-align:right;padding:0 8px;color:var(--muted);background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.015) 6px 12px)}
+.grid td.ro.l{text-align:left}
+.grid .auto{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--gold);pointer-events:none}
+.ph-pol{display:grid;gap:4px}
+.ph-pol .co{font-weight:600;color:var(--fg)}
+.ph-pol .pr{font-size:11.5px;color:var(--muted);white-space:normal;max-width:180px}
+.ph-pol .acts{display:flex;gap:4px;flex-wrap:wrap}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;cursor:pointer}
+.chk input{accent-color:var(--gold)}
+.unm{display:grid;gap:6px}
+.unm .u{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(140px,200px);gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
+.unm .u select{padding:4px 6px}
+.keeplist{display:grid;gap:6px}
+.keeplist label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.keeplist label.on{border-color:var(--gold-dim);background:var(--panel2)}
+
+/* compare */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .v{font-size:22px;font-weight:600;margin-top:2px}
+.tile .d{font-size:12.5px;margin-top:2px}
+.up{color:var(--up)} .down{color:var(--down)}
+.cmp td.n,.cmp th.n{text-align:right}
+.cmp td.g{color:var(--gold);font-size:12px;white-space:nowrap}
+.scen{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px}
+.scen .card{padding:0;overflow:hidden}
+.scen .sh{display:flex;align-items:baseline;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.scen .sh h3{font-size:16px}
+.scen .sh .tot{margin-left:auto;font-size:13px}
+.scen table{width:100%;border-collapse:collapse;font-size:13px}
+.scen td,.scen th{padding:7px 16px;border-bottom:1px solid var(--line)}
+.scen th{font-weight:500;color:var(--muted);font-size:12px;text-align:left}
+.scen .n{text-align:right;white-space:nowrap}
+.scen tr.total td{font-weight:700;background:var(--panel2)}
+.journey{display:grid;gap:14px}
+.jrow{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:stretch}
+.jrow .dz{display:grid;place-items:center;background:var(--panel2);border:1px solid var(--gold-dim);border-radius:8px;font-family:var(--f-disp);font-size:18px;color:var(--gold)}
+.jsteps{display:flex;gap:0;overflow-x:auto}
+.jstep{flex:1 0 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;position:relative;margin-right:18px}
+.jstep:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:10px;height:10px;border-top:2px solid var(--gold-dim);border-right:2px solid var(--gold-dim);transform:translateY(-50%) rotate(45deg)}
+.jstep .t{font-weight:600;font-size:13px;margin-bottom:6px}
+.jstep .ba{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px}
+.jstep .ba span:nth-child(odd){color:var(--dim)}
+.jstep .ba span:nth-child(even){text-align:right}
+
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:22px}
+.pgrid .pk{font-size:13px;font-weight:600;margin-bottom:8px}
+.pbar{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:10px;align-items:center;margin-bottom:6px;font-size:13px}
+.pbar .pl{color:var(--muted)}
+.pbar .pt{height:16px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.pbar .pt i{display:block;height:100%;border-radius:3px}
+.pbar.b .pt i{background:#6b6355} .pbar.a .pt i{background:var(--gold)}
+.pbar .pval{font-weight:600;min-width:110px;text-align:right}
+.pgrid .pd{font-size:12.5px;text-align:right;margin-top:2px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.mth{display:grid;gap:6px;border:1px solid var(--line);border-radius:8px;padding:8px;cursor:pointer;position:relative;background:var(--bg)}
+.mth.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.mth input{position:absolute;top:12px;left:12px;accent-color:var(--gold);width:18px;height:18px}
+.mth img{width:100%;aspect-ratio:1/1.29;object-fit:contain;background:#fff;border-radius:4px}
+.mth span{font-size:12.5px;line-height:1.35}
+.mth .btn{justify-self:start}
+.mv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:grid;place-items:center;padding:20px;cursor:zoom-out;gap:8px;align-content:center}
+.mv img{max-height:86vh;max-width:100%;border-radius:6px}
+.mv span{color:#ddd;font-size:13px;text-align:center}
+.jb{display:inline-block;min-width:38px;padding:2px 8px;border-radius:99px;font-weight:700;font-size:12.5px;color:#1a1408}
+.jb.j1{background:#d9d2c3}.jb.j2{background:#e6cf9a}.jb.j3{background:#d9b25f}.jb.j4{background:#c98c3e;color:#fff}.jb.j5{background:#b4532f;color:#fff}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.bth{display:grid;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;cursor:zoom-in;text-align:left}
+.bth:hover{border-color:var(--gold-dim)}
+.bth img{width:100%;aspect-ratio:794/1123;object-fit:cover;border-radius:4px;background:#fff}
+.bth span{font-size:12px;color:var(--muted);line-height:1.35}
+.cfgg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px}
+.cfgc{display:grid;gap:4px;align-content:start}
+.cfgc .chk{font-size:13px}
+/* print preview */
+.pv{display:grid;gap:20px;justify-items:center;background:#2a2723;border-radius:10px;padding:20px 10px;overflow:hidden}
+.pvbox{box-shadow:0 6px 24px rgba(0,0,0,.45)}
+#stage{position:fixed;left:-20000px;top:0;width:794px;pointer-events:none}
+
+/* A4 page (print) — 흰 지면, 가는 가로선, 금색은 강조에만 */
+.pg{--ink:#1d1b18;--sub:#6e675b;--hair:#e4ded2;--band:#f7f3ea;--gold:#9a7631;--goldbar:#b98f3f;--graybar:#d3cdc1;--pos:#1f7a45;--neg:#b3261e;
+  width:794px;height:1123px;background:#fff;color:var(--ink);font-family:var(--f-ui);padding:40px 44px 30px;display:flex;flex-direction:column;position:relative;overflow:hidden;line-height:1.3}
+.pg .hd{display:flex;align-items:flex-end;gap:16px;padding-bottom:12px;border-bottom:1.5px solid var(--ink)}
+.pg .hd .ttl{display:grid;gap:3px}
+.pg .hd .ttl small{font-size:10px;letter-spacing:.14em;color:var(--gold);font-weight:700}
+.pg .hd h1{font-family:var(--f-disp);font-size:22px;margin:0;font-weight:700}
+.pg .hd h1 span{font-family:var(--f-ui);font-weight:500;font-size:13px;color:var(--sub);margin-left:8px}
+.pg .hd .dt{margin-left:auto;font-size:10px;color:var(--sub);text-align:right;line-height:1.5}
+.pg .hd .dt b{font-family:var(--f-disp);color:var(--gold);font-size:13px;letter-spacing:.1em;display:block}
+.pg .ft{margin-top:auto;padding-top:8px;border-top:1px solid var(--hair);font-size:8.5px;color:var(--sub);display:flex;justify-content:space-between;gap:10px}
+.pg table{border-collapse:collapse;width:100%;table-layout:fixed}
+.pg .pos{color:var(--pos)} .pg .neg{color:var(--neg)}
+.pg h2.st{font-size:13px;margin:22px 0 8px;display:flex;gap:8px;align-items:baseline;font-weight:700}
+.pg h2.st small{font-weight:400;color:var(--sub);font-size:9.5px}
+.pg .note{font-size:9px;color:var(--sub);margin-top:10px;line-height:1.5}
+/* 요약 */
+.pg .kpi{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:20px;border:1px solid var(--hair)}
+.pg .kpi div{padding:14px 16px}
+.pg .kpi div+div{border-left:1px solid var(--hair)}
+.pg .kpi small{display:block;font-size:10px;color:var(--sub);margin-bottom:4px}
+.pg .kpi b{font-size:21px;font-weight:700}
+.pg .kpi .hl{background:var(--band)}
+.pg .bars{display:grid;gap:12px}
+.pg .bar{display:grid;grid-template-columns:120px 1fr 92px;gap:12px;align-items:center}
+.pg .bar .nm{font-size:11.5px;font-weight:600}
+.pg .bar .tr{display:grid;gap:3px}
+.pg .bar .ln{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--sub)}
+.pg .bar .ln i{display:block;height:11px;border-radius:2px;min-width:2px}
+.pg .bar .ln.b i{background:var(--graybar)} .pg .bar .ln.a i{background:var(--goldbar)}
+.pg .bar .ln.a{color:var(--ink);font-weight:700}
+.pg .bar .df{text-align:right;font-size:11.5px;font-weight:700}
+.pg .legend{display:flex;gap:14px;font-size:9.5px;color:var(--sub);margin-left:auto}
+.pg .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+.pg .chips{display:flex;flex-wrap:wrap;gap:5px}
+.pg .chips span{font-size:10px;padding:3px 9px;border-radius:99px;border:1px solid var(--hair)}
+.pg .chips.ok span{border-color:#b7d8c2;background:#eef7f1;color:var(--pos)}
+.pg .chips.no span{border-color:#efc4bd;background:#fcf0ee;color:var(--neg)}
+.pg .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.pg .prem2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.pg .prem2 .pc{border:1px solid var(--hair);border-radius:4px;padding:12px 14px;display:grid;gap:6px}
+.pg .prem2 small{font-size:10.5px;font-weight:700;color:var(--ink)}
+.pg .prem2 .tr{display:grid;gap:5px}
+.pg .prem2 .ln{display:flex;align-items:center;color:var(--sub)}
+.pg .prem2 .ln i{display:block;border-radius:2px}
+.pg .prem2 .ln.b i{background:var(--graybar)} .pg .prem2 .ln.a i{background:var(--goldbar)}
+.pg .prem2 .ln.a b{color:var(--ink)}
+.pg .prem2 .df{text-align:right;font-size:12px;font-weight:700}
+/* 보장분석표 */
+.pg .cov{margin-top:14px}
+.pg .cov td,.pg .cov th{border-bottom:1px solid var(--hair);padding:0 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:400}
+.pg .cov .g{text-align:center;font-weight:700;white-space:normal;color:var(--gold);border-right:1px solid var(--hair);line-height:1.15}
+.pg .cov tr.gs td{border-top:1.2px solid #bfb6a4}
+.pg .cov .l{text-align:left}
+.pg .cov .s{text-align:right;font-weight:700;background:var(--band)}
+.pg .cov .v{text-align:right}
+.pg .cov thead th{background:var(--ink);color:#fff;text-align:center;font-weight:600;white-space:normal;line-height:1.2;padding:5px 4px;border:0;border-left:1px solid #3b3832}
+.pg .cov thead th small{display:block;font-weight:400;color:#cfc6b4;font-size:.86em}
+.pg .cov thead th.l{text-align:left}
+.pg .cov tr.mt td{text-align:center;color:var(--sub);background:#fbfaf6}
+.pg .cov tr.mt td.s{color:var(--ink)}
+.pg .cov .miss{color:var(--neg);font-weight:600}
+.pg .cov tr.key .l{font-weight:600}
+/* 질환 카드 */
+.pg .dc{border:1px solid var(--hair);border-radius:4px;overflow:hidden}
+.pg .dc .dh{display:flex;align-items:baseline;gap:8px;padding:12px 12px;background:var(--band);border-bottom:1px solid var(--hair)}
+.pg .dc .dh b{font-size:12.5px}
+.pg .dc .dh .tt{margin-left:auto;font-size:10px;color:var(--sub)}
+.pg .dc .dh .tt strong{font-size:14px;color:var(--ink);margin-left:4px}
+.pg .dc table td,.pg .dc table th{padding:6px 12px;font-size:11px;border-bottom:1px solid #f0ece3}
+.pg .dc table th{font-weight:500;color:var(--sub);font-size:9px;text-align:left}
+.pg .dc .n{text-align:right}
+.pg .dc .a{font-weight:700}
+/* 치료 여정 */
+.pg .jr{display:grid;grid-template-columns:56px 1fr;gap:12px;margin-top:14px}
+.pg .jr .dz{background:var(--ink);color:#fff;display:grid;place-items:center;font-family:var(--f-disp);font-size:17px;font-weight:700;border-radius:4px}
+.pg .jr .st{display:flex;gap:16px}
+.pg .jr .sb{flex:1;border:1px solid var(--hair);border-radius:4px;position:relative;background:#fff}
+.pg .jr .sb:not(:last-child)::after{content:"";position:absolute;right:-12px;top:50%;width:7px;height:7px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold);transform:translateY(-50%) rotate(45deg)}
+.pg .jr .sb .t{text-align:center;font-weight:700;font-size:10.5px;padding:6px 2px;border-bottom:1px solid var(--hair);background:var(--band)}
+.pg .jr .sb .r{display:flex;justify-content:space-between;font-size:10px;padding:4px 8px;color:var(--sub)}
+.pg .jr .sb .r.a{font-weight:700;color:var(--ink);font-size:11px}
+.pg .sm td,.pg .sm th{border-bottom:1px solid var(--hair);padding:5px 8px;font-size:10.5px}
+.pg .sm th{font-weight:600;color:var(--sub);font-size:9.5px;text-align:left;border-bottom:1.2px solid var(--ink)}
+.pg .sm .n{text-align:right}
+.pg .sm .lab{color:var(--gold);font-weight:700}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--gold-dim);padding:10px 18px;border-radius:8px;z-index:50;max-width:min(560px,calc(100% - 32px));font-size:13.5px}
+</style>
+</head>
+<body>
+<!-- 설치 설정 (선택): 인트라넷에 맞게 고쳐 쓰세요. README.md 참고 -->
+<script>
+window.BOJANG_CONFIG = window.BOJANG_CONFIG || {
+  prefix: "",                    // 저장소 경로 앞에 붙일 이름. 인트라넷 저장소와 겹치지 않게 예: "bojang_"
+  staffPath: "data/staff/emp",   // 사번 저장 위치 (인트라넷 사번을 쓰면 externalUser 사용)
+  externalUser: null             // 인트라넷 로그인 연동: {sabun, name, role:"admin"|"fc"} 또는 그 값을 돌려주는 함수
+};
+</script>
+<div id="app"><div class="login"><div class="card"><h1>TOPS 보장분석</h1><p class="muted">불러오는 중…</p></div></div></div>
+<div id="toast" hidden></div>
+<div id="stage" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="kcmaps.js"></script>
+<script src="dict.js"></script>
+<script src="jong5.js"></script>
+<script src="book.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+/* ───────── 표준 담보 항목 (기존 엑셀 보장분석표 87행 기준) ───────── */
+const GROUPS=[
+ ['암','암',[['cancer_gen','일반암 진단비',1],['cancer_int','통합암 진단비'],['cancer_high','고액암 진단비'],['cancer_small','소액(유사)암 진단비']]],
+ ['항암','항암',[['chemo_target','표적항암약물치료비',1],['chemo_drug','항암약물치료비'],['chemo_rad','항암방사선치료비'],['chemo_immune','면역항암제'],['rad_heavy','중입자방사선치료'],['rad_proton','양성자방사선치료']]],
+ ['뇌','뇌',[['brain_vasc','뇌혈관 진단비',1],['brain_stroke','뇌졸중 진단비'],['brain_hem','뇌출혈 진단비'],['brain_severe','중증뇌혈관 특례']]],
+ ['심장','심장',[['heart_isch','허혈성심장 진단비',1],['heart_ami','급성심근경색 진단비'],['heart_arr','부정맥 진단비'],['heart_severe','중증심혈관 특례']]],
+ ['치료','치료',[['tx_cancer','암통합치료비',1],['tx_cancer_nb','비급여암통합치료비'],['tx_circ','순환계 주요치료비',1],['tx_thromb','혈전용해치료비']]],
+ ['수술','수술',[['surg_inj','상해 수술비',1],['surg_dis','질병 수술비',1],['surg_cancer','암 수술비'],['surg_brain','뇌혈관 수술비',1],['surg_heart','허혈성 심장 수술비',1],['surg_robot','로봇 암 수술비'],['surg_n','N대 수술비'],['surg_dis_top','상급종합병원 질병수술비',0,1],['surg_dis_gen','종합병원 질병수술비',0,1],['surg_inj_top','상급종합병원 상해수술비',0,1],['surg_inj_gen','종합병원 상해수술비',0,1],['surg_adm','입원 수술비(당일입원 제외)',0,1],['surg_out','통원 수술비',0,1]]],
+ ['질병종수술','질병<br>종<br>수술',[1,2,3,4,5,6,7].map(i=>['ds'+i,i+'종 수술비(질병)',i<=5?1:0])],
+ ['상해종수술','상해<br>종<br>수술',[1,2,3,4,5,6,7].map(i=>['is'+i,i+'종 수술비(상해)',i<=5?1:0])],
+ ['후유장해','후유<br>장해',[['dis_inj','상해후유장해(3%)'],['dis_dis','질병후유장해(3%)'],['dis_cancer','암 후유장해'],['dis_inj80','상해후유장해(80% 이상)',0,1]]],
+ ['입원','입원',[['hosp_inj','상해 입원일당'],['hosp_dis','질병 입원일당'],['icu_inj','상해중환자실 일당'],['icu_dis','질병중환자실 일당'],['room_top','상급종합병원 1인실'],['room_gen','종합병원 1인실'],['room23_top','상급종합병원 2·3인실',0,1],['room23_gen','종합병원 2·3인실',0,1],['hosp_surg','질병수술 입원일당',0,1],['nursing','간호간병통합서비스 일당',0,1]]],
+ ['간병재가','간병<br>재가',[['care_inj_sup','상해 간병인 지원',1],['care_dis_sup','질병 간병인 지원',1],['care_inj_use','상해 간병인 사용',1],['care_dis_use','질병 간병인 사용',1],['home_care','재가급여'],['care_nh','간병인 사용(요양병원)',0,1]]],
+ ['사망','사망',[['death_gen','일반사망',1],['death_inj','상해사망'],['death_dis','질병사망(80세만기)']]],
+ ['골절','골절',[['cast','깁스 치료비(부목X)'],['frac','골절 진단비'],['frac_surg','골절 수술비'],['frac5','5대 골절 진단비'],['frac5_surg','5대 골절 수술비']]],
+ ['배상','배상',[['liab_fam','가족일상배상책임'],['liab','일상배상책임']]],
+ ['화상','화상',[['burn','화상 진단비'],['burn_surg','화상 수술비']]],
+ ['운전','운전',[['drv_fine','대인 벌금'],['drv_support','교통사고처리지원금',1],['drv_lawyer','변호사선임비용'],['drv_injury','자동차 부상 치료비'],['drv_fine_obj','대물 벌금',0,1]]],
+ ['화재','화재',[['fire_fine','화재벌금']]],
+ ['치아','치아',[['tooth_crown','크라운 진단비'],['tooth_implant','임플란트 진단비']]],
+ ['기타진단','기타<br>진단',[['benign_brain','양성뇌종양 진단비',0,1],['heart_spec','특정심장질환 진단비',0,1],['dementia_mild','경증치매 진단비',0,1],['dementia_sev','중증치매 진단비',0,1],['diabetes','당뇨 진단비',0,1],['thyroid_fn','갑상선기능질환 진단비',0,1],['zoster','대상포진 진단비',0,1],['gout','통풍 진단비',0,1],['kidney','말기신부전 진단비',0,1],['liver','간경화 진단비',0,1],['tb','결핵 진단비',0,1]]],
+ ['기타수술','기타<br>수술',[['cancer_small_surg','유사암 수술비',0,1],['transplant','장기이식 수술비',0,1],['stem','조혈모세포이식 수술비',0,1],['cornea','각막이식 수술비',0,1],['joint','인공관절 수술비',0,1],['disc','추간판(디스크) 수술비',0,1],['appendix','충수염(맹장) 수술비',0,1],['mastect','유방절제 수술비',0,1],['severe_inj_surg','중대한특정상해 수술비',0,1],['scar','상해흉터복원 수술비',0,1],['pin_remove','골절철심제거 수술비',0,1]]],
+ ['기타치료','기타<br>치료',[['er_emg','응급실 내원비(응급)',0,1],['er_non','응급실 내원비(비응급)',0,1],['cancer_inp','암 입원일당',0,1],['cancer_outp','암 통원일당',0,1],['nh_cancer','요양병원 암입원일당',0,1],['hormone','항암호르몬 치료비',0,1],['ctmri','CT·MRI 검사지원비',0,1],['flu','독감 치료비',0,1]]],
+];
+const ITEMS=[];GROUPS.forEach(([g,gp,arr])=>arr.forEach(([k,l,key,ex])=>ITEMS.push({g,gp,k,l,key:!!key,extra:!!ex})));
+/* ───────── 설치 설정: 다른 인트라넷에 붙일 때 window.BOJANG_CONFIG 로 바꿈 (README 참고) ───────── */
+const CFG=Object.assign({prefix:'',staffPath:'data/staff/emp',externalUser:null,branchName:'TOPS'},window.BOJANG_CONFIG||{});
+const P={cust:CFG.prefix+'customers',dict:CFG.prefix+'config/dict',jong:CFG.prefix+'config/jong',pref:CFG.prefix+'fcprefs'};
+const EMP=CFG.staffPath;
+const ITEM=Object.fromEntries(ITEMS.map(i=>[i.k,i]));
+
+/* ───────── 통합치료비 자동전개 (기존 엑셀 '계산식(수정X)' 시트) 단위: 만원 ───────── */
+const T_CANCER={4000:{surg:500,drug:500,robot:500,target:1000,immune:1000,proton:1000},8000:{surg:750,drug:750,robot:750,target:2000,immune:2000,proton:2000},10000:{surg:1000,drug:1000,robot:1000,target:3000,immune:3000,proton:3000}};
+const T_NB={4000:{surg:500,rad:500,drug:500,robot:500,target:1000,immune:1000,proton:1000},7000:{surg:750,rad:750,drug:750,robot:750,target:2000,immune:2000,proton:2000},10000:{surg:1000,rad:1000,drug:1000,robot:1000,target:3000,immune:3000,proton:3000}};
+const T_CIRC={2000:{thromb:700,surg:700,icu:700},3000:{thromb:700,surg:700,icu:700},5000:{thromb:1000,surg:1000,icu:1000},8000:{thromb:2000,surg:2000,icu:2000},10000:{thromb:2500,surg:2000,icu:2000}};
+function tier(T,amt){if(!amt)return null;const ks=Object.keys(T).map(Number).sort((a,b)=>a-b);let r=null;for(const k of ks)if(amt>=k)r=T[k];return r}
+function expandAdd(p){
+  const a={};if(!p.expand)return a;const v=p.values||{};const add=(k,n)=>{if(n)a[k]=(a[k]||0)+n};
+  const c=tier(T_CANCER,num(v.tx_cancer));
+  if(c){add('surg_cancer',c.surg);add('chemo_drug',c.drug);add('chemo_rad',c.drug);add('surg_robot',c.robot);add('chemo_target',c.target);add('chemo_immune',c.immune);add('rad_proton',c.proton)}
+  const n=tier(T_NB,num(v.tx_cancer_nb));
+  if(n){add('surg_cancer',n.surg);add('chemo_drug',n.drug);add('chemo_rad',n.rad);add('surg_robot',n.robot);add('chemo_target',n.target);add('chemo_immune',n.immune);add('rad_proton',n.proton)}
+  const r=tier(T_CIRC,num(v.tx_circ));
+  if(r){add('tx_thromb',r.thromb);add('surg_brain',r.surg);add('surg_heart',r.surg);add('circ_icu',r.icu)}
+  return a;
+}
+function eff(p,k){return num(p.values?.[k])+(expandAdd(p)[k]||0)}
+function sumK(set,k){return set.reduce((s,p)=>s+eff(p,k),0)}
+function premium(set){return set.reduce((s,p)=>s+num(p.premium),0)}
+/* 납입기간 기준 총보험료: 이미 낸 금액·앞으로 낼 금액 (갱신 인상분 제외) */
+/* 납입기간이 없을 때 추정: 'N년' 만기 → N년, 80세 미만 만기 갱신형 → 만기까지 전기납, 그 외 → 20년납(만기까지 20년 미만이면 만기까지) */
+function estPay(p){const e=String(p.expiry||''),r=String(p.renewal||'');let m;
+  if((m=e.match(/(\d+)\s*년/))&&!/세/.test(e))return+m[1];
+  if(m=e.match(/(\d+)\s*세/)){const b=String(S.cur&&S.cur.birth||'').match(/(\d{4})/),j=String(p.joinDate||'').match(/(\d{4})/);
+    const ja=b?((j?+j[1]:new Date().getFullYear())-+b[1]):null;if(ja!=null){const span=+m[1]-ja;if(span>0)return(/갱신/.test(r)&&!/비갱신/.test(r)&&+m[1]<80)?span:Math.min(20,span)}}
+  return num(p.premium)?20:0}
+function payInfo(p){const m=num(p.premium);let y=num(p.payYears),est=false;if(!y){y=estPay(p);est=!!y}if(!y)return{known:false,m,left:0,paid:0,leftAmt:0,paidAmt:0,tot:0};const tot=Math.round(y*12);let paid=0;
+  const jd=String(p.joinDate||'').match(/(\d{4})\D?(\d{1,2})?/);if(jd){const now=new Date();paid=(now.getFullYear()-+jd[1])*12+(now.getMonth()+1-(+jd[2]||1))}
+  paid=Math.max(0,Math.min(tot,paid));return{known:true,est,y,m,tot,paid,left:tot-paid,paidAmt:paid*m,leftAmt:(tot-paid)*m}}
+function premTotals(set){let left=0,paid=0,unk=0,est=0;for(const p of set){const i=payInfo(p);if(!i.known){if(i.m)unk++;continue}if(i.est&&i.m)est++;left+=i.leftAmt;paid+=i.paidAmt}return{month:premium(set),left,paid,unk,est}}
+const fmtBig=n=>n?fmtMan(Math.round(n/10000))+'원':'-';
+const fmtTerm=mo=>{if(!mo)return'납입완료';const y=Math.floor(mo/12),m=mo%12;return(y?y+'년':'')+(m?(y?' ':'')+m+'개월':'')};
+
+/* ───────── 질환별 시나리오 (기존 엑셀 '전후비교' · '치료금액' 시트) ───────── */
+const SCEN=[
+ {id:'cancer',name:'암 진단 시',rows:[['암진단금','cancer_gen'],['암통합치료','tx_cancer'],['암수술비','surg_cancer'],['표적치료','chemo_target'],['항암치료','chemo_drug'],['질병입원(1일)','hosp_dis'],['후유장해(30% 가정)','dis_dis',.3],['질병수술','surg_dis'],['5종수술(질병)','ds5']]},
+ {id:'brain',name:'뇌혈관질환 진단 시',rows:[['뇌진단금','brain_vasc'],['뇌수술비','surg_brain'],['질병입원(1일)','hosp_dis'],['질병후유(10% 가정)','dis_dis',.1],['질병수술','surg_dis'],['3종수술(질병)','ds3'],['순환계주요치료비','tx_circ']]},
+ {id:'heart',name:'심장질환 진단 시',rows:[['심장진단금','heart_isch'],['심장수술','surg_heart'],['질병입원(1일)','hosp_dis'],['질병후유(10% 가정)','dis_dis',.1],['질병수술','surg_dis'],['3종수술(질병)','ds3'],['순환계주요치료비','tx_circ']]},
+ {id:'polyp',name:'용종 제거 시',rows:[['질병수술','surg_dis'],['2종수술(질병)','ds2']]},
+ {id:'frac',name:'골절 + 핀삽입 시',rows:[['골절진단','frac'],['골절수술','frac_surg'],['깁스치료','cast'],['상해수술','surg_inj'],['1종수술(상해)','is1'],['상해후유(5% 가정)','dis_inj',.05]]},
+];
+const JOUR=[
+ {name:'암',st:[{t:'암 검사',note:'검사비 10~20만원'},{t:'암진단 확정',k:['cancer_gen']},{t:'수술 진행',k:['surg_cancer','ds5','surg_dis']},{t:'항암약물치료',k:['chemo_drug','chemo_target']},{t:'항암방사선치료',k:['chemo_drug','chemo_rad','rad_heavy']}]},
+ {name:'뇌',st:[{t:'뇌혈관 진단',k:['brain_vasc']},{t:'수술 진행',k:['surg_brain','surg_dis','ds3']},{t:'중환자실',k:['circ_icu']},{t:'혈전용해',k:['tx_thromb']}]},
+ {name:'심장',st:[{t:'심장질환 진단',k:['heart_isch']},{t:'수술 진행',k:['surg_heart','surg_dis','ds3']},{t:'중환자실',k:['circ_icu']},{t:'혈전용해',k:['tx_thromb']}]},
+];
+function scenRows(sc,set){return sc.rows.map(([l,k,m])=>({l,v:sumK(set,k)*(m||1)}))}
+function scenTotal(sc,set){return scenRows(sc,set).reduce((s,r)=>s+r.v,0)}
+function stageAmt(st,set){return st.k?st.k.reduce((s,k)=>s+sumK(set,k),0):null}
+
+/* ───────── helpers ───────── */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function num(v){if(typeof v==='number')return isFinite(v)?v:0;const n=parseFloat(String(v??'').replace(/[^0-9.\-]/g,''));return isFinite(n)?n:0}
+const r2=n=>Math.round(n*100)/100;
+const fmtN=n=>n?r2(n).toLocaleString('ko-KR'):'';
+function fmtMan(n,zero='-'){if(!n)return zero;const neg=n<0;n=Math.abs(n);let s;if(n>=10000){const e=Math.floor(n/10000),r=r2(n%10000);s=e+'억'+(r?' '+r.toLocaleString('ko-KR')+'만':'')}else s=r2(n).toLocaleString('ko-KR')+'만';return(neg?'-':'')+s}
+const fmtWon=n=>n?Math.round(n).toLocaleString('ko-KR')+'원':'-';
+function fmtDiff(d,won){if(!d)return'<span class="dim">-</span>';const s=(d>0?'+':'')+(won?Math.round(d).toLocaleString('ko-KR')+'원':fmtMan(d));return`<span class="${d>0?'up':'down'}">${s}</span>`}
+function fmtDiffP(d,won){if(!d)return'-';const s=(d>0?'+':'')+(won?Math.round(d).toLocaleString('ko-KR')+'원':fmtMan(d));return`<span class="${d>0?'pos':'neg'}">${s}</span>`}
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today=()=>{const d=new Date();return`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`};
+const dt=t=>{if(!t)return'';const d=new Date(t);return`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
+function silsonInfo(jd){const m=String(jd||'').match(/(\d{4})\D?(\d{1,2})?/);if(!m)return null;const y=+m[1],mo=+(m[2]||1),v=y*100+mo;
+  if(v<200910)return{gen:'1세대',ver:'표준화 이전',rejoin:null};if(v<201304)return{gen:'2세대',ver:'표준화Ⅰ(3년 갱신)',rejoin:null};
+  if(v<201704)return{gen:'2세대',ver:v<201509?'표준화Ⅱ':'표준화Ⅲ',rejoin:(y+15)+'.'+String(mo).padStart(2,'0')};
+  if(v<202107)return{gen:'3세대',ver:'착한실손',rejoin:(y+15)+'.'+String(mo).padStart(2,'0')};
+  return{gen:'4세대',ver:'비급여 차등제',rejoin:(y+5)+'.'+String(mo).padStart(2,'0')}}
+function silsonGen(jd){const m=String(jd||'').match(/(\d{4})\D?(\d{1,2})?/);if(!m)return'가입';const y=+m[1],mo=+(m[2]||1),v=y*100+mo;if(v<200910)return'1세대';if(v<201704)return'2세대';if(v<202107)return'3세대';return'4세대~'}
+let toastT;function toast(msg,ms=3200){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms)}
+function ssGet(k){try{return sessionStorage.getItem(k)}catch(e){return null}}
+function ssSet(k,v){try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){}}
+async function hashPw(salt,pw){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+pw));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function newPolicy(src){return{id:uid('p'),company:'',product:'',joinDate:'',premium:0,payYears:0,renewal:'',expiry:'',silson:false,values:{},unmapped:[],expand:src==='proposal',keep:false,src:'manual',file:''}}
+
+/* ───────── state ───────── */
+const S={db:null,user:null,sample:null,dl:null,me:null,emps:[],custs:[],cur:null,view:'boot',tab:'before',
+  unsubC:null,unsubE:null,saving:false,pend:false,dirty:false,saveT:null,saveMsg:'',jobs:{before:[],proposal:[]},
+  q:'',fcFilter:'',showNew:false,cmpOnlyChanged:true,pr:{hideEmpty:true,checks:true,mats:true,cover:true,before:true,after:true,disease:true,journey:true,diff:false},canSetup:false,loginErr:''};
+
+/* ───────── boot ───────── */
+async function boot(){
+  const use=n=>(window.claude&&window.claude.use)?window.claude.use(n).catch(()=>null):Promise.resolve(null);
+  [S.db,S.user,S.sample,S.dl]=await Promise.all([use('db'),use('user'),use('sample'),use('downloads')]);
+  if(!S.db){S.view='nodb';return render()}
+  if(CFG.externalUser){const u=typeof CFG.externalUser==='function'?await CFG.externalUser():CFG.externalUser;if(u&&u.sabun){S.external=true;return enter({sabun:String(u.sabun),name:u.name||String(u.sabun),role:u.role==='admin'?'admin':'fc'})}}
+  try{
+    const snap=await S.db.collection(EMP).limit(1).get();
+    if(snap.empty){S.canSetup=S.user?((await S.user.isOwner().catch(()=>false))||(await S.user.canEdit().catch(()=>false))):true;S.view='setup';return render()}
+  }catch(e){S.view='nodb';return render()}
+  const sab=ssGet('bs_sabun');
+  if(sab){const d=await S.db.doc(EMP+'/'+sab).get().catch(()=>null);if(d&&d.exists&&d.data().active!==false){return enter(d.data())}}
+  S.view='login';render();
+}
+function enter(emp){
+  S.me={sabun:emp.sabun,name:emp.name,role:emp.role};ssSet('bs_sabun',emp.sabun);
+  const col=S.db.collection(P.cust);
+  const q=S.me.role==='admin'?col:col.where('ownerSabun','==',S.me.sabun);
+  S.unsubC=q.onSnapshot(s=>{S.custs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(S.view==='list')renderMain()},e=>toast('고객 목록을 불러오지 못했습니다: '+e.code));
+  S.hidden=new Set();S.shown=new Set();S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[])}}).catch(()=>{});
+  S.unsubJ=S.db.doc(P.jong).onSnapshot(d=>{S.jongCfg=d.exists?d.data():null;if(S.view==='admin')renderMain()},()=>{});
+  S.unsubL=S.db.doc(P.dict).onSnapshot(d=>{S.learn=d.exists?(d.data().map||{}):{}},()=>{});
+  if(S.me.role==='admin')S.unsubE=S.db.collection(EMP).onSnapshot(s=>{S.emps=s.docs.map(d=>d.data()).sort((a,b)=>a.sabun.localeCompare(b.sabun));if(S.view==='admin')renderMain()},()=>{});
+  S.view='list';render();
+}
+async function logout(){await flushSave();S.unsubC&&S.unsubC();S.unsubE&&S.unsubE();S.unsubL&&S.unsubL();S.unsubJ&&S.unsubJ();S.unsubC=S.unsubE=null;S.me=null;S.cur=null;S.custs=[];S.emps=[];ssSet('bs_sabun',null);S.view='login';render()}
+
+/* ───────── render ───────── */
+function render(){
+  const app=$('#app');
+  if(S.view==='boot')return;
+  if(S.view==='nodb'){app.innerHTML=`<div class="login"><div class="card"><h1>TOPS 보장분석</h1><p>이 화면에서는 저장소에 연결할 수 없습니다.</p><p class="muted">claude.ai에 로그인한 상태로 이 페이지를 열어주세요. 공유받은 경우 '참여자(Contributor)' 이상 권한이 있어야 고객 정보를 저장할 수 있습니다.</p></div></div>`;return}
+  if(S.view==='setup'){app.innerHTML=`<div class="login"><form class="card" id="fSetup"><div class="eyebrow">최초 설정</div><h1>관리자 계정 만들기</h1>
+    ${S.canSetup?`<p class="muted" style="margin:0">처음 한 번만 합니다. 이 계정으로 FC들의 사번과 비밀번호를 발급합니다.</p>
+    <label class="f">관리자 사번<input class="in" id="su_sabun" required pattern="[A-Za-z0-9_\\-]{2,30}" autocomplete="username"></label>
+    <label class="f">이름<input class="in" id="su_name" required></label>
+    <label class="f">비밀번호 (4자 이상)<input class="in" id="su_pw" type="password" required minlength="4" autocomplete="new-password"></label>
+    <div class="err" id="err"></div><button class="btn pri" type="submit">관리자 계정 만들기</button>`:`<p class="muted">아직 관리자 계정이 없습니다. 이 페이지 소유자가 먼저 관리자 계정을 만들어야 합니다.</p>`}</form></div>`;return}
+  if(S.view==='login'){app.innerHTML=`<div class="login"><form class="card" id="fLogin"><div class="eyebrow">TOPS 지점</div><h1>보장분석</h1><p class="muted" style="margin:0">발급받은 사번과 비밀번호로 로그인하세요.</p>
+    <label class="f">사번<input class="in" id="li_sabun" required autocomplete="username"></label>
+    <label class="f">비밀번호<input class="in" id="li_pw" type="password" required autocomplete="current-password"></label>
+    <div class="err" id="err">${esc(S.loginErr)}</div><button class="btn pri" type="submit">로그인</button></form></div>`;return}
+  app.innerHTML=`<header class="top"><div class="wrap"><div class="brand"><b>TOPS</b><span>보장분석</span></div>
+    <nav class="nav"><span class="who">${esc(S.me.name)} · ${esc(S.me.sabun)}${S.me.role==='admin'?' · 관리자':''}</span>
+    <button class="btn ghost sm" data-act="goList">고객 목록</button>
+    <button class="btn ghost sm" data-act="goEdu">교육·약관</button>
+    ${S.me.role==='admin'?'<button class="btn ghost sm" data-act="goAdmin">사번 관리</button>':''}
+    ${S.external?'':'<button class="btn ghost sm" data-act="logout">로그아웃</button>'}</nav></div></header><main class="wrap" id="main"></main>`;
+  renderMain();
+}
+function renderMain(){
+  const m=$('#main');if(!m)return;
+  if(S.view==='list')m.innerHTML=listHTML();
+  else if(S.view==='admin')m.innerHTML=adminHTML();
+  else if(S.view==='edu')m.innerHTML=eduHTML();
+  else if(S.view==='cust'){m.innerHTML=custHTML();afterTab()}
+}
+
+/* list */
+function fcChips(){
+  const m=new Map();S.emps.forEach(e=>m.set(e.sabun,{s:e.sabun,n:e.name,c:0,off:e.active===false}));
+  S.custs.forEach(c=>{if(!m.has(c.ownerSabun))m.set(c.ownerSabun,{s:c.ownerSabun,n:c.ownerName,c:0});m.get(c.ownerSabun).c++});
+  const list=[...m.values()].sort((a,b)=>b.c-a.c||a.n.localeCompare(b.n));
+  const chip=(id,label,cnt,on)=>`<button class="btn sm ${on?'pri':''}" data-act="fc" data-id="${esc(id)}">${label} <span style="opacity:.7;margin-left:2px">${cnt}</span></button>`;
+  return`<div class="card" style="display:grid;gap:8px;padding:14px 16px"><div class="row"><span class="eyebrow">FC별 고객</span><span class="muted" style="font-size:12.5px;margin-left:auto">이름을 누르면 그 FC의 고객만 보입니다</span></div>
+   <div class="row" style="gap:6px">${chip('','전체',S.custs.length,!S.fcFilter)}${list.map(x=>chip(x.s,esc(x.n)+(x.off?' (정지)':''),x.c,S.fcFilter===x.s)).join('')}</div></div>`;
+}
+function listHTML(){
+  const q=S.q.trim();let rows=S.custs.filter(c=>(!q||String(c.name).includes(q)||String(c.phone||'').includes(q))&&(!S.fcFilter||c.ownerSabun===S.fcFilter));
+  const fcs=[...new Map(S.custs.map(c=>[c.ownerSabun,c.ownerName])).entries()];
+  return`<div class="page"><div class="ph"><div><div class="eyebrow">${S.me.role==='admin'?'지점 전체':'내 고객'}</div><h2>고객 목록</h2></div>
+   <div class="row"><input class="in" id="q" placeholder="고객명·연락처 검색" value="${esc(S.q)}" style="width:200px">
+   <button class="btn pri" data-act="toggleNew">+ 새 고객</button></div></div>
+   ${S.me.role==='admin'?fcChips():''}
+   ${S.showNew?`<form class="card" id="fNew"><div class="row" style="align-items:end">
+     <label class="f" style="flex:1 1 160px">고객명 *<input class="in" id="nc_name" required></label>
+     <label class="f" style="flex:1 1 140px">생년월일<input class="in" id="nc_birth" placeholder="1985-03-12"></label>
+     <label class="f" style="flex:0 1 110px">성별<select class="in" id="nc_gender"><option value="">-</option><option>남</option><option>여</option></select></label>
+     <label class="f" style="flex:1 1 150px">연락처<input class="in" id="nc_phone" placeholder="010-"></label>
+     <button class="btn pri" type="submit">등록하고 분석 시작</button></div></form>`:''}
+   <div class="card" style="padding:0"><div class="tscroll">${rows.length?`<table class="tbl"><thead><tr><th>고객명</th><th>생년월일</th><th>연락처</th>${S.me.role==='admin'?'<th>담당 FC</th>':''}<th>기존 보험</th><th>제안</th><th>월보험료 전 → 후</th><th>최종 수정</th></tr></thead><tbody>
+   ${rows.map(c=>{const b=c.before||[],a=[...b.filter(p=>p.keep),...(c.proposals||[])];return`<tr class="click" data-act="openCust" data-id="${esc(c.id)}"><td><b>${esc(c.name)}</b>${c.gender?` <span class="dim">${esc(c.gender)}</span>`:''}</td><td>${esc(c.birth||'')}</td><td>${esc(c.phone||'')}</td>${S.me.role==='admin'?`<td>${esc(c.ownerName)} <span class="dim">${esc(c.ownerSabun)}</span></td>`:''}<td>${b.length}건</td><td>${(c.proposals||[]).length?`<span class="pill gold">${c.proposals.length}건</span>`:'<span class="dim">-</span>'}</td><td>${fmtWon(premium(b))} → ${(c.proposals||[]).length?fmtWon(premium(a)):'-'}</td><td class="dim">${dt(c.updatedAt)}</td></tr>`}).join('')}
+   </tbody></table>`:`<div class="empty"><b>${S.custs.length?'검색 결과가 없습니다':'아직 등록한 고객이 없습니다'}</b>오른쪽 위 '+ 새 고객'으로 고객을 등록하고 기존 보험 PDF를 올리면 보장분석표가 채워집니다.</div>`}</div></div></div>`;
+}
+
+/* admin */
+function adminHTML(){
+  return`<div class="page"><div class="ph"><div><div class="eyebrow">관리자</div><h2>사번 관리</h2></div></div>
+  <form class="card" id="fEmp"><div class="row" style="align-items:end">
+   <label class="f" style="flex:1 1 120px">사번<input class="in" id="em_sabun" required pattern="[A-Za-z0-9_\\-]{2,30}" title="영문·숫자 2~30자"></label>
+   <label class="f" style="flex:1 1 120px">이름<input class="in" id="em_name" required></label>
+   <label class="f" style="flex:1 1 140px">초기 비밀번호<input class="in" id="em_pw" required minlength="4"></label>
+   <label class="f" style="flex:0 1 120px">권한<select class="in" id="em_role"><option value="fc">FC</option><option value="admin">관리자</option></select></label>
+   <button class="btn pri" type="submit">사번 발급</button></div><div class="err" id="err"></div></form>
+  <div class="card" style="padding:0"><div class="tscroll"><table class="tbl"><thead><tr><th>사번</th><th>이름</th><th>권한</th><th>상태</th><th>고객 수</th><th></th></tr></thead><tbody>
+  ${S.emps.map(e=>`<tr><td><b>${esc(e.sabun)}</b></td><td>${esc(e.name)}</td><td>${e.role==='admin'?'<span class="pill gold">관리자</span>':'FC'}</td><td>${e.active===false?'<span class="pill red">정지</span>':'사용 중'}</td><td>${S.custs.filter(c=>c.ownerSabun===e.sabun).length}명 <button class="btn sm ghost" data-act="goFc" data-id="${esc(e.sabun)}">고객 보기</button></td>
+  <td><div class="row" style="justify-content:flex-end">
+   <span class="row" style="gap:4px"><input class="in" style="width:120px;padding:4px 8px" id="rp_${esc(e.sabun)}" placeholder="새 비밀번호"><button class="btn sm" data-act="resetPw" data-id="${esc(e.sabun)}">비번 재설정</button></span>
+   ${e.sabun!==S.me.sabun?`<button class="btn sm" data-act="toggleEmp" data-id="${esc(e.sabun)}">${e.active===false?'사용 재개':'사용 정지'}</button><button class="btn sm danger" data-act="delEmp" data-id="${esc(e.sabun)}" data-confirm="1">삭제</button>`:''}
+  </div></td></tr>`).join('')}</tbody></table></div></div>
+  ${jongHTML()}
+  <p class="muted" style="font-size:12.5px">사번을 삭제해도 그 FC가 등록한 고객 기록은 남습니다(관리자 목록에서 계속 보입니다). 사번 관리는 이 페이지의 소유자·편집자 권한으로만 저장됩니다.</p></div>`;
+}
+
+function jongHTML(){const jc=jongCfg();const inp=(id,v)=>`<input class="in" id="${id}" value="${v}" inputmode="decimal" style="width:76px;padding:5px 8px;text-align:right">`;
+  const row=(t,arr,p)=>`<div class="row" style="gap:14px;align-items:end"><b style="width:86px;padding-bottom:6px">${t}</b>${arr.map((v,i)=>`<label class="f">${i+1}종${inp(p+(i+1),v)}</label>`).join('')}</div>`;
+  return`<div class="card" style="display:grid;gap:12px"><div><div class="eyebrow">설정</div><h3 style="font-size:16px;margin-top:2px">종수술 기본금액 <span class="muted" style="font-size:12.5px;font-weight:400">(단위 만원)</span></h3>
+   <p class="muted" style="font-size:12.5px;margin:4px 0 0">PDF에 '1~5종 수술'처럼 종별 금액이 따로 적혀 있지 않을 때만 이 금액으로 채웁니다. 처음 값은 지점 제안서들의 실제 종별 금액 평균입니다.</p></div>
+   ${row('생명 1~5종',jc.life,'jl')}${row('손보 1~5종',jc.nl5,'j5')}${row('손보 1~7종',jc.nl7,'j7')}
+   <div><button class="btn pri sm" data-act="saveJong">기본금액 저장</button></div></div>`}
+const isVis=(k,hv)=>{const it=ITEM[k];if(it&&it.extra)return!!(S.shown&&S.shown.has(k))||(!!hv&&!(S.hidden&&S.hidden.has(k)));return!(S.hidden&&S.hidden.has(k))};
+function itemCfgHTML(){
+  return`<div class="card" style="display:grid;gap:12px;border-color:var(--gold-dim)"><div class="row"><div><div class="eyebrow">내 설정 · ${esc(S.me.name)}</div><h3 style="font-size:15px;margin-top:2px">보장분석표에 보일 항목</h3></div>
+   <span class="muted" style="font-size:12.5px;margin-left:auto">기본 항목은 체크를 풀면 화면·PDF 보장분석표·비교표에서 빠집니다. '추가' 항목은 체크하면 항상 보이고, 체크하지 않으면 가입금액이 있을 때만 보입니다. 점검·질환별 계산에는 영향 없음. FC마다 따로 저장됩니다.</span></div>
+   <div class="cfgg">${GROUPS.map(([g,,arr])=>`<div class="cfgc"><label class="chk" style="font-weight:600;color:var(--gold)"><input type="checkbox" data-hgrp="${esc(g)}" ${arr.every(([k,,,ex])=>ex?(S.shown&&S.shown.has(k)):isVis(k))?'checked':''}> ${esc(g)}</label>${arr.map(([k,l,,ex])=>ex?`<label class="chk"><input type="checkbox" data-show="${k}" ${S.shown&&S.shown.has(k)?'checked':''}> ${esc(l)} <span class="dim" style="font-size:11px">추가</span></label>`:`<label class="chk"><input type="checkbox" data-hide="${k}" ${isVis(k)?'checked':''}> ${esc(l)}</label>`).join('')}</div>`).join('')}</div>
+   <div class="row"><button class="btn sm" data-act="cfgAll">모두 표시</button><button class="btn sm pri" data-act="itemCfg">닫기</button><span class="muted" style="font-size:12.5px" id="cfgMsg"></span></div></div>`;
+}
+function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
+/* customer workspace */
+function setBefore(){return S.cur.before||[]}
+function setAfter(){return[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.proposals||[])]}
+function custHTML(){
+  const c=S.cur;const tabs=[['before','보장분석 (전)',c.before.length],['after','보장분석 (후)',c.proposals.length],['compare','전후 비교'],['disease','질환별 수령액'],['checks','점검·상담자료'],['print','PDF 출력']];
+  return`<div class="page"><div class="ph"><div><div class="eyebrow">고객 · 담당 ${esc(c.ownerName)}</div><h2>${esc(c.name)} 님</h2></div>
+    <div class="row"><span class="save" id="saveMsg">${esc(S.saveMsg)}</span><button class="btn sm danger" data-act="delCust" data-confirm="1">고객 삭제</button></div></div>
+   <div class="custhead">
+    <label class="f">고객명<input class="in" data-f="name" value="${esc(c.name)}"></label>
+    <label class="f">생년월일<input class="in" data-f="birth" value="${esc(c.birth||'')}" placeholder="1985-03-12"></label>
+    <label class="f">성별<select class="in" data-f="gender"><option value="">-</option><option ${c.gender==='남'?'selected':''}>남</option><option ${c.gender==='여'?'selected':''}>여</option></select></label>
+    <label class="f">연락처<input class="in" data-f="phone" value="${esc(c.phone||'')}"></label>
+    <label class="f" style="grid-column:span 2">메모<input class="in" data-f="memo" value="${esc(c.memo||'')}" placeholder="상담 메모"></label>
+   </div>
+   <div class="tabs">${tabs.map(([k,l,n])=>`<button data-act="tab" data-id="${k}" class="${S.tab===k?'on':''}">${l}${n!=null?`<span class="tab-n">${n}</span>`:''}</button>`).join('')}</div>
+   <div id="tabBody" style="display:grid;gap:16px">${tabHTML()}</div></div>`;
+}
+function tabHTML(){
+  const t=S.tab;
+  if(t==='before')return uploadHTML('before')+gridHTML(S.cur.before,{editable:()=>true,kind:'before'})+covHTML(S.cur.before);
+  if(t==='after')return keepHTML()+uploadHTML('proposal')+gridHTML(setAfter(),{editable:p=>!S.cur.before.includes(p),kind:'after'})+limitHTML()+covHTML(S.cur.proposals);
+  if(t==='compare')return compareHTML();
+  if(t==='disease')return diseaseHTML();
+  if(t==='checks')return checksHTML();
+  if(t==='print')return printHTML();
+}
+function afterTab(){if(S.tab==='print')renderPreview()}
+function renderTab(){const b=$('#tabBody');if(!b)return;const gw=b.querySelector('.gridwrap');const sx=gw?gw.scrollLeft:0,sy=gw?gw.scrollTop:0;b.innerHTML=tabHTML();const g2=b.querySelector('.gridwrap');if(g2){g2.scrollLeft=sx;g2.scrollTop=sy}
+  document.querySelectorAll('.tabs .tab-n').forEach((el,i)=>{el.textContent=i===0?S.cur.before.length:S.cur.proposals.length});afterTab()}
+
+function uploadHTML(mode){
+  const isB=mode==='before';
+  return`<div class="split"><div class="card" style="display:grid;gap:12px">
+   <div><div class="eyebrow">${isB?'1단계':'2단계'}</div><h3 style="font-size:16px;margin-top:2px">${isB?'기존 보험 PDF 올리기':'설계한 제안서 PDF 올리기'}</h3></div>
+   <label class="drop" data-drop="${mode}"><input type="file" accept="application/pdf,.pdf" multiple hidden data-upload="${mode}">
+    <strong>PDF를 끌어다 놓거나 눌러서 선택</strong><span class="muted" style="font-size:12.5px">${isB?'보험사 증권, 가입내역 조회, 보장분석 출력물 등. 여러 개 동시에 가능':'보험사 가입설계서(제안서). 여러 개 동시에 가능'}</span></label>
+   ${S.sample?'':'<p class="muted" style="font-size:12.5px;margin:0">이 화면에서는 AI 자동 인식을 쓸 수 없습니다. 아래 표에 직접 입력하세요.</p>'}
+   <div class="jobs" id="jobs_${mode}">${jobsHTML(mode)}</div>
+   <div class="row"><button class="btn sm" data-act="addPolicy" data-id="${mode}">+ 직접 입력할 보험 추가</button></div></div>
+   <div class="card" style="display:grid;gap:8px;align-content:start"><div class="eyebrow">요약</div>${isB?summaryBox(S.cur.before,'기존'):summaryBox(setAfter(),'변경 후',premium(S.cur.before))}</div></div>`;
+}
+function summaryBox(set,label,prevPrem){
+  const miss=ITEMS.filter(i=>i.key&&!sumK(set,i.k));
+  return`<div class="row" style="gap:24px"><div><div class="muted" style="font-size:12px">${label} 월보험료</div><div style="font-size:22px;font-weight:600">${fmtWon(premium(set))}</div>${prevPrem!=null?`<div style="font-size:12.5px">기존 ${fmtWon(prevPrem)} 대비 ${fmtDiff(premium(set)-prevPrem,1)}</div>`:''}</div>
+   <div><div class="muted" style="font-size:12px">보험 건수</div><div style="font-size:22px;font-weight:600">${set.length}건</div></div>
+   <div><div class="muted" style="font-size:12px">실손</div><div style="font-size:22px;font-weight:600">${set.some(p=>p.silson)?silsonGen(set.find(p=>p.silson).joinDate):'<span class="down">미가입</span>'}</div></div></div>
+   <div style="font-size:12.5px"><span class="muted">주요 담보 중 비어 있는 항목 ${miss.length}개</span>${miss.length?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${miss.map(i=>`<span class="pill red">${esc(i.l)}</span>`).join('')}</div>`:''}</div>`;
+}
+function jobsHTML(mode){return S.jobs[mode].map(j=>`<div class="j ${j.st==='ok'?'ok':j.st==='bad'||j.st==='pw'?'bad':''}">${j.st==='run'?'<span class="spin"></span>':j.st==='ok'?'✓':'!'} <span>${esc(j.name)}</span><span class="s">${esc(j.msg)}</span></div>${j.st==='pw'?`<div class="row" style="gap:6px;margin:2px 0 6px 18px"><input class="in" type="password" id="pw_${j.id}" placeholder="PDF 비밀번호 (보통 생년월일 6자리)" style="width:240px;padding:5px 8px"><button class="btn sm" data-act="pdfpw" data-id="${j.id}">열기</button></div>`:''}`).join('')}
+function updJobs(mode){const el=$('#jobs_'+mode);if(el)el.innerHTML=jobsHTML(mode)}
+
+function keepHTML(){
+  const b=S.cur.before;
+  return`<div class="card" style="display:grid;gap:10px"><div class="row"><div><div class="eyebrow">1단계</div><h3 style="font-size:16px;margin-top:2px">유지할 기존 보험 선택</h3></div><span class="muted" style="margin-left:auto;font-size:12.5px">체크한 보험은 '후' 보장분석표에 그대로 포함됩니다</span></div>
+  ${b.length?`<div class="keeplist">${b.map(p=>`<label class="${p.keep?'on':''}"><input type="checkbox" data-keep="${p.id}" ${p.keep?'checked':''} class="chk"><span><b>${esc(p.company||'보험사 미입력')}</b> <span class="muted">${esc(p.product||'')}</span>${p.silson?' <span class="pill gold">실손</span>':''}${p.summary?' <span class="pill red">합산 자료 · 계약별 선택 불가</span>':''}</span><span class="muted">${esc(p.joinDate||'')} · ${fmtWon(num(p.premium))}</span></label>`).join('')}</div>${b.some(p=>p.summary)?'<p class="muted" style="margin:0;font-size:12.5px">보험사 보장분석의 합계 자료는 계약별로 나뉘어 있지 않아 일부만 유지할 수 없습니다. 계약별로 고르려면 고객 동의(LMS) 후 출력한 상세 보장분석이나 증권 PDF를 올려주세요.</p>':''}`:'<p class="muted" style="margin:0">보장분석 (전) 탭에서 기존 보험을 먼저 올려주세요.</p>'}</div>`;
+}
+function polHead(p,kind,ed){
+  const tag=kind==='after'?(ed?'<span class="pill gold">제안</span>':'<span class="pill">유지</span>'):'';
+  return`<div class="ph-pol">${tag?`<div>${tag}</div>`:''}<div class="co">${esc(p.company||'보험사')}${p.summary?' <span class="pill">합산</span>':''}</div><div class="pr">${esc(p.product||'')}</div>
+   ${ed?`<div class="acts"><button class="btn sm danger" data-act="delPolicy" data-id="${p.id}" data-confirm="1">삭제</button></div>`:''}</div>`;
+}
+function gridHTML(cols,{editable,kind}){
+  if(!cols.length)return`<div class="card empty"><b>${kind==='before'?'기존 보험이 아직 없습니다':'유지할 보험이나 제안 보험이 아직 없습니다'}</b>${kind==='before'?'PDF를 올리면 담보가 자동으로 아래 표에 채워집니다.':'위에서 유지할 보험을 체크하거나 제안서 PDF를 올려주세요.'}</div>`;
+  const ed=cols.map(p=>editable(p));
+  const mrow=(lbl,f,type='txt')=>`<tr class="meta"><td class="c-grp"></td><td class="c-lbl">${lbl}</td><td class="c-sum">${f==='premium'?fmtN(premium(cols)):''}</td>${cols.map((p,i)=>ed[i]?`<td class="cell"><input class="${type}" data-pid="${p.id}" data-pf="${f}" value="${esc(f==='premium'||f==='payYears'?(num(p[f])||''):p[f]||'')}" ${f==='payYears'&&!num(p.payYears)&&estPay(p)?`placeholder="${estPay(p)} (추정)"`:''} ${type==='num'?'inputmode="numeric"':''}></td>`:`<td class="ro ${type==='txt'?'l':''}">${esc(f==='premium'||f==='payYears'?fmtN(num(p[f])):p[f]||'')}</td>`).join('')}</tr>`;
+  let body=mrow('가입회사','company')+mrow('상품명','product')+mrow('가입일','joinDate')+mrow('월보험료(원)','premium','num')+mrow('납입기간(년)','payYears','num');
+  body+=`<tr class="meta"><td class="c-grp">실비</td><td class="c-lbl">실손의료비</td><td class="c-sum" id="sum_silson">${cols.some(p=>p.silson)?'가입':'<span class="down">미가입</span>'}</td>${cols.map((p,i)=>`<td class="${ed[i]?'cell':'ro l'}" style="padding:0 8px">${ed[i]?`<label class="chk"><input type="checkbox" data-pid="${p.id}" data-pchk="silson" ${p.silson?'checked':''}> ${p.silson?silsonGen(p.joinDate):'없음'}</label>`:(p.silson?silsonGen(p.joinDate):'-')}</td>`).join('')}</tr>`;
+  body+=`<tr class="meta"><td class="c-grp"></td><td class="c-lbl" title="암통합치료비·비급여암통합치료비·순환계 주요치료비 가입금액에 따라 세부 치료비를 자동 계산">통합치료비 자동전개</td><td class="c-sum"></td>${cols.map((p,i)=>`<td class="${ed[i]?'cell':'ro l'}" style="padding:0 8px">${ed[i]?`<label class="chk"><input type="checkbox" data-pid="${p.id}" data-pchk="expand" ${p.expand?'checked':''}> 사용</label>`:(p.expand?'사용':'-')}</td>`).join('')}</tr>`;
+  for(const [g,gp,arr0] of GROUPS){const arr=arr0.filter(([k])=>isVis(k,sumK(cols,k)>0));
+    arr.forEach(([k,l,key],idx)=>{
+      const s=sumK(cols,k);
+      body+=`<tr class="${key?'key':''} ${key&&!s?'miss':''}" data-row="${k}">${idx===0?`<td class="c-grp" rowspan="${arr.length}">${gp}</td>`:''}<td class="c-lbl">${esc(l)}</td><td class="c-sum" data-sum="${k}">${key&&!s?'미가입':fmtN(s)}</td>
+      ${cols.map((p,i)=>{const a=expandAdd(p)[k]||0;return ed[i]?`<td class="cell">${a?`<span class="auto" data-auto="${p.id}:${k}">+${fmtN(a)}</span>`:`<span class="auto" data-auto="${p.id}:${k}"></span>`}<input class="num" inputmode="decimal" data-pid="${p.id}" data-k="${k}" value="${esc(p.values[k]??'')}"></td>`:`<td class="ro">${fmtN(eff(p,k))}</td>`}).join('')}</tr>`;
+    });
+  }
+  return`<div style="display:grid;gap:8px"><div class="row"><h3 style="font-size:16px">${kind==='before'?'기존 보장현황':'전문가 제안 보장현황'}</h3><span class="muted" style="font-size:12.5px;margin-left:auto">단위: 만원 (일당은 1일 금액) · 금색 +숫자는 통합치료비 자동전개분</span><button class="btn sm" data-act="itemCfg">항목 표시 설정${S.hidden&&S.hidden.size?` <span class="pill gold">${S.hidden.size}개 숨김</span>`:''}${S.shown&&S.shown.size?` <span class="pill">추가 ${S.shown.size}</span>`:''}</button></div>${S.showCfg?itemCfgHTML():''}
+   <div class="gridwrap"><table class="grid"><thead><tr><th class="c-grp">구분</th><th class="c-lbl">담보</th><th class="c-sum">합계</th>${cols.map((p,i)=>`<th>${polHead(p,kind,ed[i])}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function updateSums(){
+  const t=S.tab;const cols=t==='before'?S.cur.before:setAfter();
+  document.querySelectorAll('[data-sum]').forEach(el=>{const k=el.dataset.sum;const s=sumK(cols,k);const key=ITEM[k].key;el.textContent=key&&!s?'미가입':fmtN(s);el.parentElement.classList.toggle('miss',key&&!s)});
+  const ps=document.querySelector('tr.meta td.c-sum');
+  document.querySelectorAll('[data-auto]').forEach(el=>{const[pid,k]=el.dataset.auto.split(':');const p=cols.find(x=>x.id===pid);const a=p?(expandAdd(p)[k]||0):0;el.textContent=a?'+'+fmtN(a):''});
+  const pr=[...document.querySelectorAll('tr.meta')].find(tr=>tr.querySelector('.c-lbl')?.textContent.startsWith('월보험료'));if(pr)pr.querySelector('.c-sum').textContent=fmtN(premium(cols));
+}
+function covHTML(set){
+  const pols=set.filter(p=>(p.cov&&p.cov.length)||(p.unmapped&&p.unmapped.length));
+  if(!pols.length)return'';
+  if(!pols.some(p=>p.id===S.covSel))S.covSel=(pols.find(p=>(p.cov||[]).some(c=>!c.key))||pols[0]).id;
+  const p=pols.find(x=>x.id===S.covSel);
+  const opts=k=>`<option value="">분류 안 함</option>${GROUPS.map(([g,,arr])=>`<optgroup label="${g}">${arr.map(([kk,l])=>`<option value="${kk}" ${k===kk?'selected':''}>${esc(l)}</option>`).join('')}</optgroup>`).join('')}`;
+  const SRC={dict:['사전','gold'],learn:['학습','gold'],ai:['AI',''],none:['미분류','red'],user:['직접','']};
+  const rows=(p.cov||[]).map((c,i)=>({c,i})).sort((a,b)=>(a.c.key?1:0)-(b.c.key?1:0));
+  const nNone=(p.cov||[]).filter(c=>!c.key).length;
+  return`<div class="card" style="display:grid;gap:10px"><div class="row"><div><h3 style="font-size:15px">PDF에서 읽은 담보 원문</h3><div class="muted" style="font-size:12.5px">항목을 바꾸면 표에 바로 반영되고, 같은 담보명은 다음부터 자동으로 그 항목에 들어갑니다</div></div></div>
+   <div class="row" style="gap:6px">${pols.map(x=>{const nn=(x.cov||[]).filter(c=>!c.key).length+(x.unmapped||[]).length;return`<button class="btn sm ${x.id===p.id?'pri':''}" data-act="covSel" data-id="${x.id}">${esc(x.company||'보험사')} ${esc((x.product||'').slice(0,14))}${nn?` <span class="pill red" style="margin-left:4px">${nn}</span>`:''}</button>`}).join('')}</div>
+   ${rows.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>담보명 (PDF 원문)</th><th style="text-align:right">가입금액</th><th>보장분석표 항목</th><th>근거</th></tr></thead><tbody>
+   ${rows.map(({c,i})=>{const s=SRC[c.src]||SRC.ai;return`<tr><td>${esc(c.name)}</td><td style="text-align:right;white-space:nowrap">${fmtMan(num(c.amount))}원</td><td><select class="in" style="padding:4px 6px;min-width:170px" data-cov="${p.id}:${i}">${c.key&&c.key.includes('+')?`<option value="${esc(c.key)}" selected>${c.agg==='jong'?esc((c.key.startsWith('is')?'상해':'질병')+' 1~'+c.jn+'종 (기본금액 적용)'):esc(c.key.split('+').map(k=>ITEM[k]?.l).join(' + '))}</option>`:''}${opts(c.key)}</select></td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`}).join('')}</tbody></table></div>`:''}
+   ${(p.unmapped||[]).length?`<div class="unm">${p.unmapped.map((u,i)=>`<div class="u"><span>${esc(u.name)}</span><span>${u.amount?fmtMan(num(u.amount))+'원':''}</span><select class="in" data-unm="${p.id}:${i}"><option value="">항목 지정…</option>${opts('').replace('<option value="">분류 안 함</option>','')}<option value="__del">목록에서 지우기</option></select></div>`).join('')}</div>`:''}
+   ${nNone?`<p class="muted" style="margin:0;font-size:12.5px">미분류 ${nNone}개는 보장분석표 87개 항목에 없는 담보이거나 판단이 애매한 담보입니다. 넣을 항목이 있으면 골라주세요.</p>`:''}</div>`;
+}
+
+/* compare */
+function premCardHTML(){
+  const B=setBefore(),A=setAfter();const tb=premTotals(B),ta=premTotals(A);const drop=B.filter(p=>!p.keep);const saved=premTotals(drop);
+  const mxM=Math.max(1,tb.month,ta.month),mxL=Math.max(1,tb.left,ta.left);
+  const bar=(lbl,v,mx,cls,txt)=>`<div class="pbar ${cls}"><span class="pl">${lbl}</span><span class="pt"><i style="width:${Math.max(1,v/mx*100)}%"></i></span><span class="pval">${txt}</span></div>`;
+  const rowsP=[...A.map(p=>({p,t:B.includes(p)?'유지':'신규'})),...drop.map(p=>({p,t:'정리'}))];
+  const unk=tb.unk+ta.unk;
+  return`<div class="card" style="display:grid;gap:16px"><div class="row"><div><div class="eyebrow">보험료</div><h3 style="font-size:16px;margin-top:2px">내는 보험료 비교</h3></div><span class="muted" style="font-size:12.5px;margin-left:auto">앞으로 낼 금액 = 월보험료 × 남은 납입개월 (갱신 인상분 제외)</span></div>
+   <div class="pgrid"><div><div class="pk">매달 내는 보험료</div>${bar('지금',tb.month,mxM,'b',fmtWon(tb.month))}${bar('제안 후',ta.month,mxM,'a',fmtWon(ta.month))}<div class="pd">${fmtDiff(ta.month-tb.month,1)} / 월</div></div>
+   <div><div class="pk">앞으로 낼 총 보험료</div>${bar('지금 그대로',tb.left,mxL,'b',fmtBig(tb.left))}${bar('제안 후',ta.left,mxL,'a',fmtBig(ta.left))}<div class="pd">${fmtDiff(Math.round((ta.left-tb.left)/10000))}원${saved.left?` · 정리하는 보험에서 아끼는 금액 ${fmtBig(saved.left)}`:''}</div></div></div>
+   <div class="tscroll"><table class="tbl"><thead><tr><th>구분</th><th>보험</th><th style="text-align:right">월보험료</th><th style="text-align:right">납입기간</th><th style="text-align:right">남은 기간</th><th style="text-align:right">앞으로 낼 금액</th></tr></thead><tbody>
+   ${rowsP.map(({p,t})=>{const i=payInfo(p);return`<tr style="${t==='정리'?'opacity:.55':''}"><td><span class="pill ${t==='신규'?'gold':t==='정리'?'red':''}">${t}</span></td><td><b>${esc(p.company||'-')}</b> <span class="muted">${esc(p.product||'')}</span></td><td style="text-align:right">${fmtWon(i.m)}</td><td style="text-align:right">${i.known?(i.est?`${i.y}년 <span class="pill gold" title="만기·갱신 여부로 추정">추정</span>`:i.y+'년'):'<span class="down">미입력</span>'}</td><td style="text-align:right">${i.known?fmtTerm(i.left):'-'}</td><td style="text-align:right">${t==='정리'?'<s>'+fmtBig(i.leftAmt)+'</s>':fmtBig(i.leftAmt)}</td></tr>`}).join('')}</tbody></table></div>
+   ${(tb.est+ta.est)?`<p class="muted" style="margin:0;font-size:12.5px">'추정' 표시 보험은 PDF에 납입기간이 없어 만기·갱신 여부로 추정했습니다(80세 미만 만기 갱신형은 만기까지, 나머지는 20년납). 정확한 납입기간을 보장분석표의 '납입기간(년)' 칸에 넣으면 바로 바뀝니다.</p>`:''}
+   ${unk?`<p class="muted" style="margin:0;font-size:12.5px">납입기간이 비어 있는 보험 ${unk}건은 총액에서 빠졌습니다. 보장분석표의 '납입기간(년)' 칸에 넣으면 바로 반영됩니다.</p>`:''}</div>`;
+}
+function compareHTML(){
+  const B=setBefore(),A=setAfter();
+  if(!S.cur.proposals.length&&!B.some(p=>p.keep))return`<div class="card empty"><b>아직 비교할 '후' 보장이 없습니다</b>보장분석 (후) 탭에서 유지할 보험을 고르고 제안서를 올려주세요.</div>`;
+  const pb=premium(B),pa=premium(A);
+  const keyB=ITEMS.filter(i=>i.key&&sumK(B,i.k)).length,keyA=ITEMS.filter(i=>i.key&&sumK(A,i.k)).length,keyN=ITEMS.filter(i=>i.key).length;
+  let rows='';let lastG='';
+  for(const it of ITEMS){const b=sumK(B,it.k),a=sumK(A,it.k);if(!isVis(it.k,b||a))continue;if(S.cmpOnlyChanged&&b===a)continue;rows+=`<tr><td class="g">${it.g!==lastG?esc(it.g):''}</td><td>${esc(it.l)}</td><td class="n">${fmtMan(b)}</td><td class="n">${fmtMan(a)}</td><td class="n">${fmtDiff(a-b)}</td></tr>`;lastG=it.g}
+  return premCardHTML()+`<div class="tiles">
+   <div class="tile"><div class="k">월보험료 (전 → 후)</div><div class="v">${fmtWon(pa)}</div><div class="d">기존 ${fmtWon(pb)} · ${fmtDiff(pa-pb,1)}</div></div>
+   <div class="tile"><div class="k">주요 담보 가입</div><div class="v">${keyA} / ${keyN}</div><div class="d">기존 ${keyB}개 · ${fmtDiff(keyA-keyB?(keyA-keyB):0,0).replace('만','개')}</div></div>
+   ${SCEN.slice(0,3).map(sc=>{const b=scenTotal(sc,B),a=scenTotal(sc,A);return`<div class="tile"><div class="k">${sc.name} 수령액</div><div class="v">${fmtMan(a)}원</div><div class="d">기존 ${fmtMan(b)} · ${fmtDiff(a-b)}</div></div>`}).join('')}
+  </div>
+  <div class="card" style="padding:0"><div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)"><h3 style="font-size:16px">항목별 보장 변화</h3><label class="chk" style="margin-left:auto"><input type="checkbox" data-act2="onlyChanged" ${S.cmpOnlyChanged?'checked':''}> 변동 있는 항목만</label></div>
+  <div class="tscroll"><table class="tbl cmp"><thead><tr><th>구분</th><th>담보</th><th class="n">리모델링 전</th><th class="n">리모델링 후</th><th class="n">증감</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">변동된 항목이 없습니다</td></tr>'}</tbody></table></div></div>`;
+}
+/* disease */
+function diseaseHTML(){
+  const B=setBefore(),A=setAfter();
+  const cards=SCEN.map(sc=>{const rb=scenRows(sc,B),ra=scenRows(sc,A);const tb=scenTotal(sc,B),ta=scenTotal(sc,A);
+    return`<div class="card"><div class="sh"><h3>${sc.name}</h3><span class="tot">${fmtMan(tb)} → <b>${fmtMan(ta)}</b> ${fmtDiff(ta-tb)}</span></div><table><thead><tr><th>지급 항목</th><th class="n">전</th><th class="n">후</th><th class="n">증감</th></tr></thead><tbody>
+    ${rb.map((r,i)=>`<tr><td>${esc(r.l)}</td><td class="n">${fmtMan(r.v)}</td><td class="n">${fmtMan(ra[i].v)}</td><td class="n">${fmtDiff(ra[i].v-r.v)}</td></tr>`).join('')}
+    <tr class="total"><td>총합</td><td class="n">${fmtMan(tb)}</td><td class="n">${fmtMan(ta)}</td><td class="n">${fmtDiff(ta-tb)}</td></tr></tbody></table></div>`}).join('');
+  const jr=JOUR.map(j=>`<div class="jrow"><div class="dz">${j.name}</div><div class="jsteps">${j.st.map(s=>{const b=stageAmt(s,B),a=stageAmt(s,A);return`<div class="jstep"><div class="t">${s.t}</div>${s.note?`<div class="muted" style="font-size:12.5px">${s.note}</div>`:`<div class="ba"><span>전</span><span>${fmtMan(b)}</span><span>후</span><span><b>${fmtMan(a)}</b></span></div>`}</div>`}).join('')}</div></div>`).join('');
+  return`<div class="scen">${cards}</div><div class="card" style="display:grid;gap:12px"><div><div class="eyebrow">치료 단계별</div><h3 style="font-size:16px;margin-top:2px">진단부터 치료까지 받는 금액</h3></div><div class="journey">${jr}</div>
+  <p class="muted" style="font-size:12px;margin:0">단위 만원. 입원일당은 1일 기준, 후유장해는 표시한 지급률을 가정한 금액입니다. 종수술 기준(1~5종 분류표): 암 관혈 근치수술 5종, 뇌·심장 카테터·내시경 3종(89-1항), 대장 내시경 용종 제거 2종(89-2항). 실제 지급은 각 약관의 지급 조건을 따릅니다.</p></div>`;
+}
+
+/* ───────── 업계누적 인수한도 (인카 사내교육자료 25.07 · 고객배포 금지 → 화면에서만 표시) ───────── */
+const LIM={
+ son:{cos:['메리츠화재','DB손보','한화손보','하나손보','현대해상','롯데손보','농협손보','삼성화재','KB손보','흥국화재'],
+  re:[/메리츠/,/DB손|DB손해|동부화재/,/한화손|한화손해/,/하나손/,/현대해상/,/롯데손/,/농협손|NH손|NH농협손/,/삼성화재/,/KB손|KB손해/,/흥국화재/],
+  rows:[
+  ['surg_dis','질병수술비',['150 *손보합산','150 *손보합산, 집중관리40','150','150 *손보합산, 6개월내100','(~60세)150/(61세~)60 *손보합산, 3개월내3건','150 *손보합산','100','입원기준200','150 *손보합산','150 *손보합산']],
+  ['surg_inj','상해수술비',['(~50세)500/(51세~)300 *6개월내2건','300 *6개월내3건','500','300 *6개월내200','6개월내 피보험자1인2건','200 *손보합산, 6개월내4건','500 *6개월내2건','입원기준500','500 *손보합산','200']],
+  ['frac','골절진단비',['200','(~60세)200/(61세~)100','150','(~75세)100/(76세~)50 *3급50','(~60세)200/(61세~)100','200 *1개월내3건, 100초과제한','100','1급200/2급150/3급100','200','150']],
+  ['heart_arr','부정맥(I49)진단비',['(~60세)6천 *허혈심합산','2천','2억 *심질환합산','(~60세)2천/(61세~)1천','7천 *허혈심장합산','無','無','無','無','2억 *심질환합산']],
+  ['hosp_dis','입원일당',['10(7) *6개월내8(7)','10(7) *1개월내5만, 집중관리6','11(8)','10(7)','10(7) *3개월내1인2건','10(7)','10(7)','10(7)','10(7)','10(7)']],
+  ['room_top','1인실입원일당(상급)',['상급50(35)','상급60(42)','30(21)','60(42)','無','업계1건','無','상급30(21)','30(21)','60(42)']],
+  ['room_gen','1인실입원일당(종합)',['종합20(14)','종합20(14)','30(21)','60(42)','無','업계1건','無','종합10(7)','30(21)','60(42)']],
+  ['dis_inj','상해후유장해',['(20세~)5억 *6개월내2억 초과시 전연령1천','5억 *6개월내, 집중관리3억','8억','(~65세)5억/(66세~)3억 *1개월내3억','無','5억 *1개월내3억','30억 *사망합산, 15억초과&6개월내8억초과 재정심사','無','15억 *사망합산, 2/3급12억','5억']],
+  ['dis_dis','질병후유장해',['(~40세)1억/(41세~)6천','(~60세)1억/(61세~)2천 *손보합산, 간편4천','9천 *(~20세)손보합산1.5억','(~20세)1억/(~40세)8천/(~60세)6천/(61세~)1천','7천 *간편3천','7천 *손보합산','2억','7천','無','(~40세)1억/(41세~)6천']],
+  ['care_dis_use','간병인사용입원일당',['업계1건','업계1건','15','15 *요양제외','20 *업계1건','(~15세)10/(~75세)20/(76세~)10','업계1건','20','(~15세)15/(~80세)25/(81세~)10','(~15세)10/(16세~)20']],
+  ['tooth_implant','보철치료비',['100','(~55세)150/(56세~)100','200','','(~60세)250/(61세~)150','','300','(~55세)250/(~60세)200/(~70세)150','(~55세)250/(56~60세)200/(61세~)150','(~30세)300/(31~50세)200/(51세~)업계1건']],
+  ['tooth_crown','보존치료비',['30','(~50세)60/(51세~)40','100','','50','','120','80','(20~50세)60/(51세~)40','(~50세)69/(51세~)17']],
+  ['tx_cancer','암주요치료비',['3,100','4천','無','無','無','5천','無','無','無','3천 *6개월내']],
+  ['chemo_drug','항암방사선약물치료비',['5천','7천','無','(~65세)1억/(66세~)3천','3천','5천 *방사선/약물 각','無','8천','無','(~60세)2억/(~65세)1억/(~70세)7천/(71세~)2천']],
+  ['drv_support','교통사고처리지원금',['2억','2억 *당사기가입자3억','2억','2억5천','2억','2억','2억','2억','2억','2억']],
+  ['drv_lawyer','변호사선임비용',['5천','5천','5천','5천','7천','5천','5천','5천','5천','5천']]]},
+ life:{cos:['DB생명','미래에셋생명','메트라이프','동양생명','라이나생명','농협생명','삼성생명','흥국생명','KDB생명','하나생명','신한라이프','ABL생명','KB라이프'],
+  re:[/DB생명/,/미래에셋/,/메트라이프|MetLife/i,/동양생명/,/라이나/,/농협생명|NH생명|NH농협생명/,/삼성생명/,/흥국생명/,/KDB/,/하나생명/,/신한라이프|신한생명/,/ABL/,/KB라이프|KB생명/],
+  rows:[
+  ['death_gen','일반사망',['50억 *비위험, 4급30억/3급15억/2급5억/1급2억','150억 *전체사망합산, 간편30억','30억 *간편, 3개월내3건','30억','20억','40억 *비위험, 4급30억/3급20억/2급6억/1급5억','당사한도1.5배','30억','30억 *비위험, 4급30억/3급15억/2급6억/1급3억','30억 *비위험, 4급20억/3급14억/1·2급10억','50억 *1개월내3개회사&7억','30억','30억 *비위험, 3개월내5건&10억']],
+  ['dis_dis','질병장해',['無','1억','無','1억 *1개월내3건&3천','無','14억 *비위험(재해·질병)','7천','(~10세)1.3억/(11세~)1억','1억','無','4억 *1개월내2개회사&1억','無','無']],
+  ['cancer_gen','암진단비',['(~40세)3억/(~60세)2.7억/(61세~)2.5억','4억','3억 *3개월내3건1.5억','4억 *1개월내3건&2억','(~50세)3억/(~80세)2.5억','3억','3.5억','3.5억 *소액암7천','3억 *비갱신형, 갱신형4억','3억','4억 *1개월내2개회사&2억','4억','3억 *3개월내3건&2억']],
+  ['brain_vasc','뇌혈관질환진단비',['無 *1년내8천','1억','2억','2천 *간편, 1개월내3건&5천','無','無','6천','1억','無','無','2억 *1개월내2개회사&1억','無','2억']],
+  ['heart_isch','허혈심장진단비',['無 *1년내8천','1억','2억','2천 *간편, 1개월내3건&5천','無','無','6천','1억','無','無','2억 *1개월내2개회사&1억','無','2억']],
+  ['surg_dis','질병수술비',['40','170','30','40','無','無','200','40','無','無','140','40','100']],
+  ['surg_inj','재해수술비',['無','170','30','40','無','無','200','無','無','無','40','10','無']],
+  ['frac','골절진단비',['130','150','100','130','300','200','150','150','無','100','無','200','無']],
+  ['hosp_dis','입원일당',['10(7)','10(7)','10(7) *3개월내3건','10(7)','10(7)','10(7)','10(7)','10(7)','10(7)','10(7)','7','10','10(7) *3개월내3건&7만']],
+  ['chemo_drug','항암방사선약물치료비',['無','無','無','1억 *1개월내3건&3천','無','1억','1.5억','無','無','無','無','無','無']],
+  ['chemo_target','표적항암약물치료비',['1.5억','3억 *고액항암합산','2.5억','2억 *1개월내3건&1억','2.5억','1억','2.5억 *고액항암합산','5억 *고액항암합산','3억 *고액항암합산','無','4억 *1개월내2개회사&2억','無','4억 *고액항암합산']],
+  ['tx_cancer','일반암주요치료비',['無','無','','無','2.5억','無','無','6천','無','無','無','無','無']],
+  ['care_dis_use','간병인사용입원일당',['(~65세)15/(66세~)8','20','당타사3건이하 *치매간병인','10','無','(~70세)20/(~80세)10','업계1건','20','20','업계1건','20 *1개월내1개회사','10','25']],
+  ['tooth_implant','보철치료비',['','250','','','(~60세)300/(61세~)200','200 *임플란트치료','업계1건','','','','300','(~60세)300/(61세~)200','']],
+  ['tooth_crown','보존치료비',['','無','','','無','','업계1건','','','','150','100','']]]}
+};
+function insAge(){const m=String(S.cur.birth||'').match(/(\d{4})\D?(\d{2})\D?(\d{2})/);if(!m)return null;const b=new Date(+m[1],+m[2]-1,+m[3]),n=new Date();let mo=(n.getFullYear()-b.getFullYear())*12+n.getMonth()-b.getMonth()-(n.getDate()<b.getDate()?1:0);return Math.floor(mo/12)+(mo%12>=6?1:0)}
+function limAmt(s){const m=s.match(/(\d[\d,.]*)\s*(억|천)?(?:\s*(\d+)천)?/);if(!m)return null;let v=parseFloat(m[1].replace(/,/g,''));if(m[2]==='억')v=v*10000+(m[3]?+m[3]*1000:0);else if(m[2]==='천')v*=1000;return v}
+function limParse(text,age,silson){
+  if(!text)return{t:'자료 없음'};const main=text.split('*')[0].trim();
+  if(/^無/.test(main))return{none:true,t:text};if(/업계\d건|당타사|당사한도|입원기준|피보험자/.test(main)&&!/^\(?[~\d]/.test(main))return{t:text};
+  const segs=main.split('/');let seg=segs[0];
+  if(age!=null&&segs.length>1){const rng=s=>{let m;if(m=s.match(/\((\d+)~(\d+)세\)/))return[+m[1],+m[2]];if(m=s.match(/\(~(\d+)세\)/))return[0,+m[1]];if(m=s.match(/\((\d+)세~\)/))return[+m[1],999];return null};
+    const hit=segs.find(s=>{const r=rng(s);return r&&age>=r[0]&&age<=r[1]});if(hit)seg=hit}
+  if(/업계\d건/.test(seg))return{t:text};
+  const s2=seg.replace(/\([^)]*세[^)]*\)/g,'').replace(/^[^\d]*/,'').replace(/^\d+급/,'');const p=s2.match(/^(\d[\d,.]*\s*(?:억|천)?(?:\s*\d+천)?)\s*(?:\((\d+)\))?/);if(!p)return{t:text};
+  let v=limAmt(p[1]);if(silson&&p[2])v=+p[2];return{v,t:text}}
+function limitRows(){
+  const A=setAfter();const age=insAge();const sil=A.some(p=>p.silson);const out=[];
+  for(const p of S.cur.proposals){
+    let tb=null,ci=-1;for(const k of['life','son']){const i=LIM[k].re.findIndex(r=>r.test((p.company||'')+' '+(p.product||'')));if(i>=0){tb=LIM[k];ci=i;break}}
+    if(!tb){out.push({co:p.company||'보험사',miss:true});continue}
+    for(const[k,l,arr]of tb.rows){if(!eff(p,k))continue;const tot=sumK(A,k);const lp=limParse(arr[ci],age,sil);
+      let st='확인',cls='';if(lp.none){st='담보 없음?';cls='red'}else if(lp.v){const r=tot/lp.v;if(r>1){st='초과';cls='red'}else if(r>=.8){st='근접';cls='gold'}else{st='여유';cls=''}}
+      out.push({co:tb.cos[ci],l,mine:eff(p,k),tot,lim:lp,st,cls})}
+  }
+  return{rows:out,age,sil};
+}
+function limitHTML(){
+  if(!S.cur.proposals.length)return'';const {rows,age,sil}=limitRows();if(!rows.length)return'';
+  return`<div class="card" style="display:grid;gap:10px"><div class="row"><div><div class="eyebrow">사내용 · 고객 배포 금지</div><h3 style="font-size:16px;margin-top:2px">업계누적 인수한도 점검 <span class="muted" style="font-size:12.5px;font-weight:400">(25.07 기준)</span></h3></div>
+   <span class="muted" style="font-size:12.5px;margin-left:auto">${age!=null?`보험나이 ${age}세`:'생년월일을 넣으면 나이별 한도를 적용합니다'} · ${sil?'실손 가입자 기준(괄호) 적용':'실손 미가입 기준'}</span></div>
+   <div class="tscroll"><table class="tbl"><thead><tr><th>제안 보험사</th><th>담보</th><th style="text-align:right">이번 제안</th><th style="text-align:right">합산(유지+제안)</th><th>보험사 한도</th><th>판정</th></tr></thead><tbody>
+   ${rows.map(r=>r.miss?`<tr><td>${esc(r.co)}</td><td colspan="5" class="muted">한도표에 없는 보험사입니다</td></tr>`:`<tr><td>${esc(r.co)}</td><td>${esc(r.l)}</td><td style="text-align:right">${fmtMan(r.mine)}</td><td style="text-align:right"><b>${fmtMan(r.tot)}</b></td><td style="font-size:12.5px">${esc(r.lim.t)}${r.lim.v?` <span class="muted">→ ${fmtMan(r.lim.v)}</span>`:''}</td><td><span class="pill ${r.cls}">${r.st}</span></td></tr>`).join('')}</tbody></table></div>
+   <p class="muted" style="margin:0;font-size:12.5px">합산은 이 고객의 유지 보험과 제안 보험만 더한 값입니다. 다른 회사 가입분 전체와 '6개월 내 n건' 같은 조건은 청약 전 보험사 시스템에서 확인하세요. 이 표는 PDF 보고서에 들어가지 않습니다.</p></div>`;
+}
+
+/* ───────── 상담자료(지점 제공 자료 98장) ───────── */
+const MAT_GROUPS=[
+ ['0009e1a1','사망',['사망담보 비교','사망담보 보장 범위','상해사망 vs 재해사망','일반사망 보장 보험 2가지(종신·정기)','사망보장 준비','어떤 사망보험이 필요할까요?']],
+ ['1bf11048','암',['암 보장 범위','일반암 질병코드','유사암 질병코드','대표적 항암방사선','신식 방사선 암 치료(양성자·중입자)','대표적 암수술','암 치료 로봇 수술','양성종양의 종류','암 주요치료비','하이클래스 암 치료비']],
+ ['fc8eccb5','뇌혈관',['뇌혈관질환 발병','뇌혈관질환 후유증','뇌혈관질환 치료 비용','뇌혈관질환 치료 방법','뇌혈관질환 수술','뇌혈관질환 종류','뇌혈관질환 보장 범위']],
+ ['633070ef','심장',['심장 질환의 종류','심장질환 100%','급성심근경색증 치료법','협심증이란?','부정맥이란?','심부전이란?','심장질환 환자 수']],
+ ['82e5ec21','수술',['수술의 정의','의료기술 발전에 따른 수술 종류','수술비 종류 및 특징','N대질병·종수술비 장단점','1~5종 수술비 주요 보장항목','N대 질병 수술비 분류 예시','N대 질병 수술비 vs 1~5종 수술비']],
+ ['225ffbfc','간병·치매',['간병비가 무서운 진짜 이유','실질적인 간병인 비용','간병인보험(지원·사용일당)','간호·간병통합서비스란?','장기요양등급판정','장기요양급여금','치매 진단','치매로 인한 경제적 비용','장기요양급여 본인부담금','간병보험 vs 간병인보험','표적치매약물치료']],
+ ['22b103c9','실손',['한눈에 보는 실손보험','1세대 vs 4세대 실손','2세대 vs 4세대 실손','3세대 vs 4세대 실손','4세대 실비 할증 주의','실손보험 전환이 고민된다면','실손보험 유지가 고민된다면']],
+ ['bed9a8e5','후유장해',['13개 부위 후유장해 예시','장애의 88%는 후천적 장애','후유장해 계산법','암과 후유장해','당뇨와 후유장해','고혈압과 후유장해']],
+ ['8a8dfa4b','운전자',['자동차보험과 운전자보험','자동차사고 처리 프로세스','운전자보험 변경의 필요성','교통사고처리지원금','변호사선임비용','자동차사고 벌금(대인·대물)','운전자보험 변천사','자동차사고 부상 등급 예시','자부상 지급 예시']],
+ ['54a70fcc','자동차보험',['자동차보험과 운전자보험','대인배상1','대인배상2','대물배상','자기신체사고·자동차상해','무보험차 상해','자기차량손해']],
+ ['78cf83ee','화재·배상',['주택 화재보험','누수사고 보장 담보','일상생활배상책임']],
+ ['70e7e57a','생명보험',['생명보험의 변천사','CI보험이란?','CI보험의 중대한 질병','GI보험이란?','변액보험이란?','유니버셜 보험','종신보험 감액완납제도','종신보험 연금전환']],
+ ['f627dbf4','점검',['갱신형과 비갱신형 비교']],['3f21c809','점검',['보험 점검 체크리스트']],['f0a0d296','점검',['건강검진 전 보험점검']],
+ ['c3dc4b71','고지·청구',['계약 전 알릴의무(고지의무)','고지의무사항 비교(일반·간편)']],['e5ef4a30','고지·청구',['보험사 직원 만나서(청구 서류)']],
+ ['fd9a2ddb','기타',['경영인 정기보험','태아보험','펫보험','치아보험']],
+];
+const MATS=[];MAT_GROUPS.forEach(([f,g,ts])=>ts.forEach((t,i)=>MATS.push({id:f+'-'+(i+1),g,t})));
+MATS.push({id:'silson-hist',g:'실손',t:'실손의료비 변천사 (세대별 상세)'},{id:'silson-5gen',g:'실손',t:'세대별 자기부담금과 5세대 전환 시기'});
+const MAT=Object.fromEntries(MATS.map(m=>[m.id,m]));
+const matSrc=id=>'mat/'+id+'.jpg';
+
+/* ───────── 자동 보험 점검 (상담자료 근거) ───────── */
+const sk=(set,...ks)=>ks.reduce((s,k)=>s+sumK(set,k),0);
+const CHECKS=[
+ {t:'실손의료비',f:set=>{const s=set.filter(p=>p.silson);if(!s.length)return{l:'bad',m:'실손의료비가 없습니다. 입원·통원 병원비 실비 보장이 비어 있습니다.',mat:['22b103c9-1']};
+   const i=silsonInfo(s[0].joinDate);if(!i)return{l:'ok',m:'실손 가입 (가입일을 입력하면 세대와 5세대 전환 시기를 확인합니다)',mat:['silson-hist']};
+   if(i.gen==='4세대')return{l:'warn',m:`4세대 실손(${i.ver}). 비급여를 많이 쓰면 다음 해 보험료가 할증되고, 5년 재가입 시점(${i.rejoin})에 5세대로 전환됩니다. 5세대는 비중증 비급여 자기부담 50%·연 1천만원 한도이고 도수·체외충격파·증식치료가 빠지므로 보완이 필요합니다.`,mat:['silson-5gen','22b103c9-5']};
+   if(i.rejoin)return{l:'warn',m:`${i.gen} 실손(${i.ver}). 15년 재가입 시점(${i.rejoin})에 5세대로 전환됩니다. 5세대는 비중증 비급여 자기부담 50%·연 1천만원 한도이고 도수·체외충격파·증식치료가 빠지므로 전환 전 보완을 검토하세요.`,mat:['silson-5gen','22b103c9-'+(i.gen==='2세대'?3:4)]};
+   return{l:'ok',m:`${i.gen} 실손(${i.ver}). 재가입 주기가 없어 5세대 강제 전환 대상이 아닙니다. 자기부담이 적어 유지를 먼저 권합니다.`,mat:['22b103c9-'+(i.gen==='1세대'?2:3),'22b103c9-7']}}},
+ {t:'암 진단비',f:set=>{const g=sk(set,'cancer_gen','cancer_int','cancer_high');
+   if(!g)return{l:'bad',m:sumK(set,'cancer_small')?'유사암 진단비만 있고 일반암 진단비가 없습니다.':'암 진단비가 없습니다.',mat:['1bf11048-1','1bf11048-2']};
+   if(g<3000)return{l:'warn',m:`일반암 진단비 ${fmtMan(g)}원 — 치료 기간 생활비까지 고려하면 부족할 수 있습니다.`,mat:['1bf11048-1']};
+   return{l:'ok',m:`일반암 진단비 ${fmtMan(g)}원`}}},
+ {t:'암 치료비',f:set=>{const t=sk(set,'tx_cancer','tx_cancer_nb','chemo_target','chemo_immune','rad_proton','rad_heavy');
+   return t?{l:'ok',m:'표적·면역·양성자 또는 암 통합(주요)치료비가 있습니다.'}:{l:'warn',m:'진단비 외에 표적항암·양성자·로봇수술 같은 고액 치료비 보장이 없습니다.',mat:['1bf11048-9','1bf11048-10','1bf11048-5']}}},
+ {t:'뇌혈관 보장 범위',f:set=>{if(sumK(set,'brain_vasc'))return{l:'ok',m:`뇌혈관질환 진단비 ${fmtMan(sumK(set,'brain_vasc'))}원 (I60~I69 전체)`};
+   if(sumK(set,'brain_stroke'))return{l:'warn',m:'뇌졸중 진단비만 있습니다. 뇌혈관질환 전체(I60~I69)보다 보장 범위가 좁습니다.',mat:['fc8eccb5-7','fc8eccb5-6']};
+   if(sumK(set,'brain_hem'))return{l:'bad',m:'뇌출혈 진단비만 있습니다. 뇌졸중의 76%인 뇌경색은 보장되지 않습니다.',mat:['fc8eccb5-7','fc8eccb5-1']};
+   return{l:'bad',m:'뇌 관련 진단비가 없습니다.',mat:['fc8eccb5-1','fc8eccb5-7']}}},
+ {t:'심장 보장 범위',f:set=>{if(sumK(set,'heart_isch'))return{l:'ok',m:`허혈성심장질환 진단비 ${fmtMan(sumK(set,'heart_isch'))}원`};
+   if(sumK(set,'heart_ami'))return{l:'bad',m:'급성심근경색 진단비만 있습니다. 심장질환 중 약 9%만 해당하고, 협심증 등 허혈성심장질환(50%)은 보장되지 않습니다.',mat:['633070ef-2','633070ef-1']};
+   return{l:'bad',m:'심장 관련 진단비가 없습니다.',mat:['633070ef-2','633070ef-1']}}},
+ {t:'뇌·심장 치료비',f:set=>sk(set,'tx_circ','tx_thromb','surg_brain','surg_heart')?{l:'ok',m:'순환계 치료비 또는 뇌·심장 수술비가 있습니다.'}:{l:'warn',m:'진단 이후 수술·혈전용해·입원 치료비 보장이 없습니다. 뇌졸중 1회 입원 진료비는 평균 1,500만원대입니다.',mat:['fc8eccb5-3','fc8eccb5-5']}},
+ {t:'수술비',f:set=>{const j=[1,2,3,4,5,6,7].reduce((s,i)=>s+sumK(set,'ds'+i),0);
+   if(j)return{l:'ok',m:'질병 종수술비가 있습니다.'};if(sk(set,'surg_n','surg_dis'))return{l:'warn',m:'질병수술비·N대수술비만 있고 종수술비(1~5종)가 없습니다. 큰 수술일수록 보장 차이가 커집니다.',mat:['82e5ec21-4','82e5ec21-7']};
+   return{l:'bad',m:'질병 수술비 보장이 없습니다.',mat:['82e5ec21-3','82e5ec21-5']}}},
+ {t:'간병',f:set=>sk(set,'care_inj_sup','care_dis_sup','care_inj_use','care_dis_use')?{l:'ok',m:'간병인 지원·사용 일당이 있습니다.'}:{l:'warn',m:'간병인 보장이 없습니다. 간병인 비용은 하루 12~15만원 수준입니다.',mat:['225ffbfc-2','225ffbfc-3','225ffbfc-1']}},
+ {t:'질병후유장해',f:set=>sumK(set,'dis_dis')?{l:'ok',m:`질병후유장해 ${fmtMan(sumK(set,'dis_dis'))}원`}:{l:'warn',m:'질병후유장해가 없습니다. 후천적 장애의 56%는 질병이 원인입니다.',mat:['bed9a8e5-2','bed9a8e5-3']}},
+ {t:'사망보장',f:set=>sk(set,'death_gen','death_dis')?{l:'ok',m:'질병·일반사망 보장이 있습니다.'}:{l:'warn',m:sumK(set,'death_inj')?'상해사망만 있고 질병사망 보장이 없습니다.':'사망보장이 없습니다.',mat:['0009e1a1-1','0009e1a1-6']}},
+ {t:'운전자보험',f:set=>{const f=sumK(set,'drv_fine'),s=sumK(set,'drv_support'),l=sumK(set,'drv_lawyer');
+   if(!f&&!s&&!l)return{l:'warn',m:'운전자보험이 없습니다. 자동차보험은 형사·행정 책임(벌금·합의금·변호사비)을 보장하지 않습니다.',mat:['8a8dfa4b-1','8a8dfa4b-3']};
+   if(f<3000||s<20000||l<5000)return{l:'warn',m:'예전 기준 운전자보험입니다. 최근 기준(벌금 3천만·처리지원금 2억·변호사비 5천만, 6주 미만·대물 벌금 신설)보다 낮습니다.',mat:['8a8dfa4b-3','8a8dfa4b-7']};
+   return{l:'ok',m:'최근 기준 운전자 보장이 있습니다.'}}},
+ {t:'갱신형 비중',f:set=>{const k=set.filter(p=>/갱신/.test(p.renewal||''));const r=set.filter(p=>p.renewal).length;if(!r)return{l:'na',m:'갱신 여부 정보 없음'};
+   const g=k.filter(p=>!/비갱신/.test(p.renewal)).length;return g/r>.5?{l:'warn',m:`갱신형 위주(${g}/${r}건)입니다. 나이가 들수록 갱신 때 보험료가 오릅니다.`,mat:['f627dbf4-1']}:{l:'ok',m:`비갱신 위주(${r-g}/${r}건)`}}},
+ {t:'보험기간',f:set=>{const s=set.filter(p=>{const m=String(p.expiry||'').match(/(\d+)세/);return m&&+m[1]<=80});return s.length?{l:'warn',m:`80세 이하 만기 보험 ${s.length}건 — 병이 많은 시기 전에 보장이 끝납니다.`,mat:['3f21c809-1']}:{l:'ok',m:'짧은 만기 보험 없음'}}},
+ {t:'일상배상 중복',f:set=>{const n=set.filter(p=>eff(p,'liab')||eff(p,'liab_fam')).length;return n>1?{l:'warn',m:`일상생활배상책임이 ${n}건입니다. 실손형이라 여러 개여도 중복 보상되지 않습니다.`,mat:['78cf83ee-3']}:{l:'ok',m:n?'일상배상 1건':'일상배상 없음'}}},
+];
+const LV={bad:['부족','red'],warn:['주의','gold'],ok:['양호',''],na:['-','']};
+function runChecks(set){return CHECKS.map(c=>({t:c.t,...c.f(set)}))}
+function recMats(){const B=setBefore(),A=setAfter();const s=new Set();runChecks(B).forEach(r=>{if((r.l==='bad'||r.l==='warn'||r.t==='실손의료비')&&r.mat&&r.mat[0])s.add(r.mat[0])});return[...s]}
+function checksHTML(){
+  const B=setBefore(),A=setAfter();const hasA=S.cur.proposals.length||B.some(p=>p.keep);const rb=runChecks(B),ra=hasA?runChecks(A):null;const sel=new Set(S.cur.mats||[]);const rec=recMats();
+  const pill=r=>`<span class="pill ${LV[r.l][1]}">${LV[r.l][0]}</span>`;
+  const th=id=>{const m=MAT[id];return`<label class="mth ${sel.has(id)?'on':''}"><input type="checkbox" data-mat="${id}" ${sel.has(id)?'checked':''}><img src="${matSrc(id)}" alt="" loading="lazy"><span>${esc(m.t)}</span><button class="btn sm ghost" data-act="matView" data-id="${id}" type="button">크게</button></label>`};
+  return`<div class="card" style="padding:0"><div class="row" style="padding:14px 16px;border-bottom:1px solid var(--line)"><div><div class="eyebrow">자동 점검</div><h3 style="font-size:16px;margin-top:2px">보험 점검 결과</h3></div><span class="muted" style="font-size:12.5px;margin-left:auto">지점 상담자료 기준으로 보장 공백·범위·구조를 점검합니다</span></div>
+   <div class="tscroll"><table class="tbl"><thead><tr><th>점검 항목</th><th>지금</th><th>내용</th>${ra?'<th>제안 후</th>':''}</tr></thead><tbody>
+   ${rb.map((r,i)=>`<tr><td><b>${r.t}</b></td><td>${pill(r)}</td><td style="font-size:13px">${esc(r.m)}</td>${ra?`<td>${pill(ra[i])}${ra[i].l!==r.l?` <span class="muted" style="font-size:12px">${esc(ra[i].m)}</span>`:''}</td>`:''}</tr>`).join('')}</tbody></table></div></div>
+  <div class="card" style="display:grid;gap:12px"><div class="row"><div><div class="eyebrow">상담자료</div><h3 style="font-size:16px;margin-top:2px">이 고객에게 추천하는 자료 ${rec.length}장</h3></div>
+   <div class="row" style="margin-left:auto"><span class="muted" style="font-size:12.5px">체크한 자료는 PDF 보고서 뒤에 붙습니다 (선택 ${sel.size}장)</span><button class="btn sm" data-act="matRec">추천 자료 모두 넣기</button>${sel.size?'<button class="btn sm ghost" data-act="matClear">선택 해제</button>':''}</div></div>
+   <div class="mgrid">${rec.map(th).join('')}</div></div>
+  <div class="card" style="display:grid;gap:10px"><h3 style="font-size:16px">전체 상담자료 ${MATS.length}장</h3>
+   ${[...new Set(MATS.map(m=>m.g))].map(g=>{const ms=MATS.filter(m=>m.g===g);const n=ms.filter(m=>sel.has(m.id)).length;return`<details ${S.matOpen===g?'open':''} data-g="${esc(g)}"><summary style="cursor:pointer;padding:6px 0"><b>${esc(g)}</b> <span class="muted">${ms.length}장${n?` · 선택 ${n}`:''}</span></summary><div class="mgrid" style="margin-top:8px">${S.matOpen===g?ms.map(m=>th(m.id)).join(''):''}</div></details>`}).join('')}</div>
+  <div id="matViewer" hidden></div>`;
+}
+function checksPage(){
+  const B=setBefore(),A=setAfter();const hasA=S.cur.proposals.length||B.some(p=>p.keep);const rb=runChecks(B),ra=hasA?runChecks(A):null;
+  const c={bad:'#b3261e',warn:'#9a6a12',ok:'#1f7a45',na:'#6e675b'};const tag=r=>`<b style="color:${c[r.l]}">${LV[r.l][0]}</b>`;
+  const h=`<table class="sm" style="margin-top:16px"><colgroup><col style="width:104px"><col style="width:46px"><col>${ra?'<col style="width:56px">':''}</colgroup><tr><th>점검 항목</th><th>지금</th><th>내용</th>${ra?'<th>제안 후</th>':''}</tr>
+   ${rb.map((r,i)=>`<tr><td><b>${r.t}</b></td><td>${tag(r)}</td><td style="line-height:1.5">${esc(r.m)}</td>${ra?`<td>${tag(ra[i])}</td>`:''}</tr>`).join('')}</table>
+   <div class="note">점검 기준은 지점 상담자료(뇌혈관·심장질환 보장 범위, 실손 세대 비교, 간병비, 운전자보험 변경 기준 등)를 따릅니다.</div>`;
+  return pgShell('보험 점검 결과','보장 공백·범위 점검',h);
+}
+function matPages(){return(S.cur.mats||[]).filter(id=>MAT[id]).map(id=>pgShell('상담 참고자료',esc(MAT[id].g)+' · '+esc(MAT[id].t),`<div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:14px"><img src="${matSrc(id)}" style="max-width:100%;max-height:900px;display:block"></div>`))}
+
+/* ───────── 교육·약관 (TOPS BOOK 166쪽 + 1~5종 수술분류표) ───────── */
+const BOOK_STEPS=[[1,'표지'],[2,'STEP 1 · 우리가 하는 일'],[19,'STEP 2 · 보험 보장의 구성'],[87,'STEP 3 · 피해야 할 보험'],[111,'STEP 4 · 사이드 보험'],[135,'STEP 5 · 실손의료비'],[142,'STEP 6 · 고지의무'],[147,'STEP 7 · TA부터 계약까지'],[160,'STEP 8 · 보험 기본 용어'],[165,'STEP 9 · 보험금 청구']];
+const bookSrc=n=>'book/'+String(n).padStart(3,'0')+'.jpg';
+const normQ=s=>String(s||'').toLowerCase().replace(/[\s·.,()\[\]~\-]/g,'');
+function eduHTML(){
+  const q=S.eduQ||'';const nq=normQ(q);const J=window.JONG5||[],B=window.BOOK||[];
+  const jHit=nq?J.filter(r=>normQ(r[1]+r[2]).includes(nq)||nq.split(/\s+/).every(w=>normQ(r[2]).includes(w))):[];
+  const bHit=nq?B.filter(b=>b.x.includes(nq)).slice(0,40):[];
+  const jrow=r=>`<tr><td class="muted" style="white-space:nowrap">${esc(r[0])}</td><td class="muted" style="white-space:nowrap">${esc(r[1])}</td><td>${esc(r[2])}</td><td style="text-align:center"><span class="jb j${r[3]}">${r[3]}종</span></td></tr>`;
+  const thumb=n=>{const b=B.find(x=>x.n===n);return`<button class="bth" data-act="bookView" data-id="${n}" type="button"><img src="${bookSrc(n)}" alt="" loading="lazy"><span>${n}쪽 ${esc(b?b.t:'')}</span></button>`};
+  let body='';
+  if(nq){
+    body=`<div class="card" style="display:grid;gap:10px"><h3 style="font-size:16px">1~5종 수술분류표 <span class="muted" style="font-size:13px;font-weight:400">${jHit.length}건</span></h3>
+      ${jHit.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>항</th><th>구분</th><th>수술명</th><th style="text-align:center">종</th></tr></thead><tbody>${jHit.map(jrow).join('')}</tbody></table></div>`:'<p class="muted" style="margin:0">분류표에서 찾지 못했습니다. 부위 이름(예: 갑상선, 담낭, 무릎)이나 수술 방법(내시경, 관혈)으로 검색해 보세요.</p>'}</div>
+     <div class="card" style="display:grid;gap:10px"><h3 style="font-size:16px">교육자료에서 찾은 쪽 <span class="muted" style="font-size:13px;font-weight:400">${bHit.length}쪽</span></h3>
+      ${bHit.length?`<div class="bgrid">${bHit.map(b=>thumb(b.n)).join('')}</div>`:'<p class="muted" style="margin:0">해당 단어가 있는 쪽이 없습니다.</p>'}
+      <p class="muted" style="margin:0;font-size:12.5px">교육자료는 이미지에서 글자를 읽어 찾기 때문에 일부 단어는 검색되지 않을 수 있습니다. 1~7종 분류표는 50~64쪽에서 직접 확인하세요.</p></div>`;
+  }else{
+    const groups=[...new Set(J.map(r=>r[1]))];
+    body=`<div class="card" style="display:grid;gap:10px"><div class="row"><h3 style="font-size:16px">1~5종 수술분류표</h3><span class="muted" style="font-size:12.5px;margin-left:auto">질병·상해 1~5종수술비Ⅲ 약관 기준 · ${J.length}항목</span></div>
+      ${groups.map(g=>`<details><summary style="cursor:pointer;padding:6px 0"><b>${esc(g)}</b> <span class="muted">${J.filter(r=>r[1]===g).length}항목</span></summary><div class="tscroll"><table class="tbl"><tbody>${J.filter(r=>r[1]===g).map(jrow).join('')}</tbody></table></div></details>`).join('')}
+      <ul class="muted" style="margin:4px 0 0;padding-left:18px;font-size:12.5px;line-height:1.7">${(window.JONG5_NOTES||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ul></div>
+     <div class="card" style="display:grid;gap:10px"><div class="row"><h3 style="font-size:16px">TOPS BOOK 신입 교육자료</h3><span class="muted" style="font-size:12.5px;margin-left:auto">${B.length}쪽 · 단계를 눌러 펼치기</span></div>
+      ${BOOK_STEPS.map(([st,t],i)=>{const en=(BOOK_STEPS[i+1]||[B.length+1])[0];const ns=Array.from({length:en-st},(_,k)=>st+k);return`<details data-step="${st}" ${S.eduOpen===st?'open':''}><summary style="cursor:pointer;padding:6px 0"><b>${esc(t)}</b> <span class="muted">${st}~${en-1}쪽</span></summary><div class="bgrid" style="margin-top:8px">${S.eduOpen===st?ns.map(thumb).join(''):''}</div></details>`}).join('')}</div>`;
+  }
+  return`<div class="page"><div class="ph"><div><div class="eyebrow">사내 교육</div><h2>교육·약관 자료</h2></div>
+   <div class="row"><input class="in" id="eduQ" placeholder="수술명·질병·용어 검색 (예: 담낭, 백내장, 고지의무)" value="${esc(q)}" style="width:min(420px,80vw)"></div></div>${body}<div id="bookViewer" hidden></div></div>`;
+}
+
+/* ───────── print / PDF ───────── */
+function printHTML(){
+  const o=S.pr;const ck=(k,l)=>`<label class="chk"><input type="checkbox" data-pr="${k}" ${o[k]?'checked':''}> ${l}</label>`;
+  return`<div class="card" style="display:grid;gap:12px"><div class="row"><div><div class="eyebrow">출력</div><h3 style="font-size:16px;margin-top:2px">보장분석 보고서 PDF</h3></div>
+   <button class="btn pri" style="margin-left:auto" data-act="pdf" id="pdfBtn" ${S.dl?'':'disabled'}>PDF 다운로드</button></div>
+   <div class="row" style="gap:16px">${ck('cover','한눈에 보는 요약')}${ck('before','보장분석표 (전)')}${ck('after','보장분석표 (후)')}${ck('disease','질환별 보장')}${ck('journey','치료 단계별 수령액')}${ck('diff','항목별 증감표')}${ck('checks','보험 점검 결과')}${ck('mats','선택한 상담자료 '+((S.cur.mats||[]).length)+'장')}<span class="dim">|</span>${ck('hideEmpty','가입금액 없는 항목 빼기')}</div>
+   ${S.dl?'':'<p class="muted" style="margin:0;font-size:12.5px">이 화면에서는 파일 다운로드를 쓸 수 없습니다.</p>'}<div id="pdfMsg" class="muted" style="font-size:12.5px"></div></div>
+   <div class="pv" id="pv"></div>`;
+}
+function pgShell(title,sub,inner){
+  const c=S.cur;
+  return`<div class="pg"><div class="hd"><div class="ttl"><small>${sub}</small><h1>${esc(c.name)} 님<span>${title}</span></h1></div><div class="dt"><b>TOPS</b>${today()} · 담당 ${esc(c.ownerName)}</div></div>${inner}
+  <div class="ft"><span>상담용 참고자료입니다. 실제 보험금은 각 보험사 약관과 지급 조건에 따라 지급됩니다.</span><span></span></div></div>`;
+}
+const dfP=(d,won)=>d?`<span class="${d>0?'pos':'neg'}">${d>0?'+':''}${won?Math.round(d).toLocaleString('ko-KR')+'원':fmtMan(d)}</span>`:'<span style="color:#b5ad9f">변동 없음</span>';
+function coverPage(){
+  const B=setBefore(),A=setAfter();const pb=premium(B),pa=premium(A);
+  const sc=SCEN.map(s=>({n:s.name,b:scenTotal(s,B),a:scenTotal(s,A)}));const mx=Math.max(1,...sc.map(x=>Math.max(x.b,x.a)));
+  const keys=ITEMS.filter(i=>i.key);const added=keys.filter(i=>!sumK(B,i.k)&&sumK(A,i.k));const raised=keys.filter(i=>sumK(B,i.k)&&sumK(A,i.k)>sumK(B,i.k));const still=keys.filter(i=>!sumK(A,i.k));
+  const silB=B.find(p=>p.silson),silA=A.find(p=>p.silson);
+  const tb=premTotals(B),ta=premTotals(A);const mxM=Math.max(1,tb.month,ta.month),mxL=Math.max(1,tb.left,ta.left);
+  const pb2=(lbl,v,mx,c,t)=>`<div class="ln ${c}" style="font-size:10.5px"><span style="width:58px;display:inline-block">${lbl}</span><i style="width:${Math.max(.5,v/mx*62)}%;height:13px"></i><b style="margin-left:4px">${t}</b></div>`;
+  let h=`<div class="prem2"><div class="pc"><small>매달 내는 보험료</small><div class="tr">${pb2('지금',tb.month,mxM,'b',fmtWon(tb.month))}${pb2('제안 후',ta.month,mxM,'a',fmtWon(ta.month))}</div><div class="df">${dfP(ta.month-tb.month,1)} / 월</div></div>
+   <div class="pc"><small>앞으로 낼 총 보험료</small><div class="tr">${pb2('지금 그대로',tb.left,mxL,'b',fmtBig(tb.left))}${pb2('제안 후',ta.left,mxL,'a',fmtBig(ta.left))}</div><div class="df">${ta.left-tb.left?`<span class="${ta.left>tb.left?'pos':'neg'}">${ta.left>tb.left?'+':''}${fmtMan(Math.round((ta.left-tb.left)/10000))}원</span>`:'<span style="color:#b5ad9f">변동 없음</span>'}</div></div></div>`;
+  h+=`<h2 class="st">이런 일이 생기면 받는 금액<span class="legend"><span><i style="background:#d3cdc1"></i>지금</span><span><i style="background:#b98f3f"></i>제안 후</span></span></h2><div class="bars">`;
+  h+=sc.map(x=>`<div class="bar"><div class="nm">${x.n}</div><div class="tr"><div class="ln b"><i style="width:${x.b/mx*100*.78}%"></i>${fmtMan(x.b,'0')}</div><div class="ln a"><i style="width:${x.a/mx*100*.78}%"></i>${fmtMan(x.a,'0')}</div></div><div class="df">${dfP(x.a-x.b)}</div></div>`).join('')+'</div>';
+  h+=`<div class="two" style="margin-top:6px"><div><h2 class="st">새로 생기거나 늘어나는 보장 <small>${added.length+raised.length}개</small></h2><div class="chips ok">${[...added,...raised].map(i=>`<span>${esc(i.l)}</span>`).join('')||'<span style="color:#6e675b;background:#fff;border-color:#e4ded2">없음</span>'}</div></div>
+   <div><h2 class="st">아직 비어 있는 주요 보장 <small>${still.length}개</small></h2><div class="chips no">${still.map(i=>`<span>${esc(i.l)}</span>`).join('')||'<span style="color:#1f7a45;background:#eef7f1;border-color:#b7d8c2">주요 보장 모두 준비됨</span>'}</div></div></div>`;
+  h+=`<h2 class="st">가입 현황 <small>앞으로 낼 금액 = 월보험료 × 남은 납입기간</small></h2><table class="sm"><colgroup><col style="width:48px"><col><col style="width:86px"><col style="width:70px"><col style="width:96px"></colgroup><tr><th>구분</th><th>보험</th><th class="n">월보험료</th><th class="n">남은 기간</th><th class="n">앞으로 낼 금액</th></tr>
+   ${A.map(p=>{const i=payInfo(p);return`<tr><td class="lab">${B.includes(p)?'유지':'신규'}</td><td><b>${esc(p.company)}</b> <span style="color:#6e675b">${esc(p.product)}</span></td><td class="n">${fmtWon(i.m)}</td><td class="n">${i.known?fmtTerm(i.left):'-'}</td><td class="n">${i.known?fmtBig(i.leftAmt):'-'}</td></tr>`}).join('')}
+   ${B.filter(p=>!p.keep).map(p=>{const i=payInfo(p);return`<tr style="color:#9a9284"><td>정리</td><td><s>${esc(p.company)} ${esc(p.product)}</s></td><td class="n"><s>${fmtWon(i.m)}</s></td><td class="n">${i.known?fmtTerm(i.left):'-'}</td><td class="n"><s>${i.known?fmtBig(i.leftAmt):'-'}</s></td></tr>`}).join('')}
+   <tr><td class="lab">실손</td><td colspan="4">${silB?silsonGen(silB.joinDate)+' 실손':'실손 없음'} → ${silA?(silA===silB?'그대로 유지':silsonGen(silA.joinDate)+' 실손'):'<span class="neg">실손 없음</span>'}</td></tr></table>`;
+  if(S.cur.memo)h+=`<h2 class="st">상담 메모</h2><div style="font-size:11px;line-height:1.6">${esc(S.cur.memo)}</div>`;
+  h+=`<div class="note">받는 금액은 진단비·수술비·치료비 등 해당 질환에 지급되는 담보를 더한 금액입니다(입원은 1일분, 후유장해는 일정 지급률 가정). 단위 만원.</div>`;
+  return pgShell('보장 리모델링 요약','한눈에 보는 요약',h);
+}
+function covPages(cols,title,sub){
+  if(!cols.length)return[];
+  const o=S.pr;const per=7;const out=[];
+  for(let s=0;s<cols.length;s+=per){
+    const pc=cols.slice(s,s+per);const items=ITEMS.filter(i=>isVis(i.k,sumK(cols,i.k)>0)&&(!o.hideEmpty||i.key||sumK(cols,i.k)));
+    const nRows=items.length+4;const avail=1123-70-62-28-50;const rh=Math.max(9.5,Math.min(24,Math.floor(avail/nRows*10)/10));const fs=Math.max(7,Math.min(11.5,rh*.62));
+    const pw=(706-36-122-70)/pc.length;
+    let h=`<table class="cov" style="font-size:${fs}px"><colgroup><col style="width:36px"><col style="width:122px"><col style="width:70px">${pc.map(()=>`<col style="width:${pw}px">`).join('')}</colgroup>
+     <thead><tr><th colspan="2" class="l">담보 <small>단위 만원</small></th><th>합계</th>${pc.map(p=>`<th>${esc(p.company||'-')}<small>${esc(p.product||'')}</small></th>`).join('')}</tr></thead>`;
+    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">가입일</td><td class="s"></td>${pc.map(p=>`<td>${esc(p.joinDate||'')}</td>`).join('')}</tr>`;
+    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료(원)</td><td class="s">${fmtN(premium(cols))}</td>${pc.map(p=>`<td>${fmtN(num(p.premium))}</td>`).join('')}</tr>`;
+    h+=`<tr class="gs" style="height:${rh}px"><td class="g">실비</td><td class="l">실손의료비</td><td class="s ${cols.some(p=>p.silson)?'':'miss'}">${cols.some(p=>p.silson)?'가입':'미가입'}</td>${pc.map(p=>`<td style="text-align:center">${p.silson?silsonGen(p.joinDate):''}</td>`).join('')}</tr>`;
+    for(const [g,gp,arr] of GROUPS){const vis=arr.filter(([k])=>items.some(i=>i.k===k));vis.forEach(([k,l,key],idx)=>{const sm=sumK(cols,k);
+      h+=`<tr class="${key?'key':''} ${idx===0?'gs':''}" style="height:${rh}px">${idx===0?`<td class="g" rowspan="${vis.length}">${vis.length>2?gp:gp.replace(/<br>/g,'')}</td>`:''}<td class="l">${esc(l)}</td><td class="s ${key&&!sm?'miss':''}">${key&&!sm?'미가입':fmtN(sm)}</td>${pc.map(p=>`<td class="v">${fmtN(eff(p,k))}</td>`).join('')}</tr>`})}
+    h+='</table>';
+    out.push(pgShell(title,sub+(cols.length>per?` (${s/per+1}/${Math.ceil(cols.length/per)})`:''),h));
+  }
+  return out;
+}
+function diseasePage(){
+  const B=setBefore(),A=setAfter();
+  const card=sc=>{const rb=scenRows(sc,B),ra=scenRows(sc,A);const tb=scenTotal(sc,B),ta=scenTotal(sc,A);
+    const rows=rb.map((r,i)=>({l:r.l,b:r.v,a:ra[i].v})).filter(r=>r.b||r.a);
+    return`<div class="dc"><div class="dh"><b>${sc.name}</b><span class="tt">${fmtMan(tb,'0')} →<strong>${fmtMan(ta,'0')}</strong></span></div><table><colgroup><col><col style="width:72px"><col style="width:72px"><col style="width:78px"></colgroup><tr><th>지급 항목</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
+     ${rows.map(r=>`<tr><td>${esc(r.l)}</td><td class="n">${fmtMan(r.b)}</td><td class="n a">${fmtMan(r.a)}</td><td class="n">${r.a-r.b?dfP(r.a-r.b):''}</td></tr>`).join('')||'<tr><td colspan="4" style="color:#9a9284">해당 보장 없음</td></tr>'}</table></div>`};
+  const h=`<div class="two" style="margin-top:18px;align-items:start"><div style="display:grid;gap:14px">${card(SCEN[0])}${card(SCEN[3])}</div><div style="display:grid;gap:14px">${card(SCEN[1])}${card(SCEN[2])}${card(SCEN[4])}</div></div>
+   <div class="note">입원은 1일분, 후유장해는 항목에 적힌 지급률을 가정한 금액입니다. 금액이 없는 항목은 표에서 뺐습니다. 단위 만원.</div>`;
+  return pgShell('질환별 보장 비교','질환별로 받는 금액',h);
+}
+function journeyPage(){
+  const B=setBefore(),A=setAfter();
+  let h='<h2 class="st">진단부터 치료까지, 단계마다 받는 금액 <small>단위 만원</small></h2>';
+  for(const j of JOUR){h+=`<div class="jr"><div class="dz">${j.name}</div><div class="st">${j.st.map(s=>{const b=stageAmt(s,B),a=stageAmt(s,A);return`<div class="sb"><div class="t">${s.t}</div>${s.note?`<div class="r" style="justify-content:center;padding:12px 4px">${s.note}</div>`:`<div class="r"><span>지금</span><span>${fmtMan(b)}</span></div><div class="r a"><span>제안 후</span><span>${fmtMan(a)}</span></div>`}</div>`}).join('')}</div></div>`}
+  h+=`<div class="note" style="margin-top:18px">수술 단계는 해당 수술비에 질병수술비·종수술비를 더한 금액이고, 중환자실·혈전용해는 순환계 주요치료비의 세부 지급액입니다.</div>`;
+  return pgShell('치료 단계별 수령액','치료 과정별로 받는 금액',h);
+}
+function diffPages(){
+  const B=setBefore(),A=setAfter();const rows=ITEMS.filter(i=>isVis(i.k,true)).map(i=>({i,b:sumK(B,i.k),a:sumK(A,i.k)})).filter(r=>r.a!==r.b);
+  if(!rows.length)return[];const out=[];const per=40;
+  for(let s=0;s<rows.length;s+=per){const ch=rows.slice(s,s+per);
+    out.push(pgShell('항목별 보장 증감표','변동된 담보 '+rows.length+'개',`<table class="sm" style="margin-top:16px"><colgroup><col style="width:80px"><col><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tr><th>구분</th><th>담보</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
+    ${ch.map(r=>`<tr><td class="lab">${esc(r.i.g)}</td><td>${esc(r.i.l)}</td><td class="n">${fmtMan(r.b)}</td><td class="n"><b>${fmtMan(r.a)}</b></td><td class="n">${dfP(r.a-r.b)}</td></tr>`).join('')}</table>`))}
+  return out;
+}
+function buildPages(){
+  const o=S.pr;let p=[];const hasAfter=S.cur.proposals.length||S.cur.before.some(x=>x.keep);
+  if(o.cover&&hasAfter)p.push(coverPage());
+  if(o.before)p.push(...covPages(setBefore(),'가입보험 보장분석표','기존 보장현황'));
+  if(o.after&&hasAfter)p.push(...covPages(setAfter(),'가입보험 보장분석표','전문가 제안'));
+  if(o.disease&&hasAfter)p.push(diseasePage());
+  if(o.journey&&hasAfter)p.push(journeyPage());
+  if(o.diff&&hasAfter)p.push(...diffPages());
+  if(o.checks)p.push(checksPage());
+  if(o.mats)p.push(...matPages());
+  return p.map((h,i,a)=>h.replace('<span></span></div></div>',`<span>${i+1} / ${a.length}</span></div></div>`));
+}
+function renderPreview(){
+  const pv=$('#pv');if(!pv)return;const pages=buildPages();
+  if(!pages.length){pv.innerHTML='<div class="empty" style="color:#cfc6b5"><b>출력할 내용이 없습니다</b>기존 보험을 먼저 입력하세요.</div>';return}
+  const w=Math.min(794,pv.clientWidth-20);const z=w/794;
+  pv.innerHTML=pages.map(h=>`<div class="pvbox" style="width:${794*z}px;height:${1123*z}px"><div style="transform:scale(${z});transform-origin:0 0;width:794px">${h}</div></div>`).join('');
+}
+async function makePdf(){
+  const btn=$('#pdfBtn'),msg=$('#pdfMsg');const pages=buildPages();if(!pages.length)return toast('출력할 내용이 없습니다');
+  if(!window.html2canvas||!window.jspdf){return toast('PDF 도구를 불러오지 못했습니다. 페이지를 새로고침해 주세요.')}
+  btn.disabled=true;const st=$('#stage');st.innerHTML=pages.join('');
+  try{
+    await document.fonts.ready;await Promise.all([...st.querySelectorAll('img')].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r})));const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait',compress:true});
+    const els=[...st.querySelectorAll('.pg')];
+    for(let i=0;i<els.length;i++){msg.textContent=`PDF 만드는 중… ${i+1}/${els.length}쪽`;
+      const cv=await html2canvas(els[i],{scale:2.6,backgroundColor:'#ffffff',logging:false,useCORS:true});
+      if(i)doc.addPage();doc.addImage(cv.toDataURL('image/jpeg',.93),'JPEG',0,0,210,297,undefined,'FAST')}
+    const blob=doc.output('blob');msg.textContent='저장 위치를 확인해 주세요…';
+    await S.dl.save({filename:`보장분석표_${S.cur.name}_${today().replace(/\./g,'')}.pdf`,data:blob});
+    msg.textContent='PDF를 저장했습니다. 열어서 바로 인쇄하시면 됩니다.';
+    logHist('PDF 출력');markDirty();
+  }catch(e){msg.textContent=e&&e.code==='declined'?'다운로드를 취소했습니다.':'PDF를 만들지 못했습니다: '+(e&&(e.message||e.code)||e)}
+  finally{btn.disabled=false;st.innerHTML=''}
+}
+
+/* ───────── PDF 인식 ───────── */
+if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js'}
+class KCMapFactory{constructor(){}async fetch({name}){const b=(window.__KCMAPS||{})[name];if(!b)throw new Error('CMap 없음: '+name);const bin=atob(b);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return{cMapData:u,compressionType:1}}}
+async function pdfRead(file,password){
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),cMapUrl:'cmaps/',cMapPacked:true,CMapReaderFactory:KCMapFactory,isEvalSupported:false,...(password?{password}:{})}).promise;
+  let out=[],chars=0;
+  for(let i=1;i<=pdf.numPages;i++){
+    const pg=await pdf.getPage(i);const tc=await pg.getTextContent();const lines=[];
+    for(const it of tc.items){if(!it.str||!it.str.trim())continue;const y=it.transform[5],x=it.transform[4];let ln=lines.find(l=>Math.abs(l.y-y)<3);if(!ln){ln={y,its:[]};lines.push(ln)}ln.its.push({x,w:it.width||0,s:it.str})}
+    lines.sort((a,b)=>b.y-a.y);
+    const txt=lines.map(l=>{l.its.sort((a,b)=>a.x-b.x);let s='',end=null;for(const t of l.its){if(end!=null){const gap=t.x-end;s+=gap>14?' | ':gap>1.5?' ':''}s+=t.s;end=t.x+t.w}return s}).join('\n');
+    chars+=txt.replace(/\s/g,'').length;out.push(`=== ${i}쪽 ===\n${txt}`);
+  }
+  return{pdf,text:out.join('\n'),chars,pages:pdf.numPages};
+}
+async function pdfImages(pdf,max){
+  const blobs=[];for(let i=1;i<=Math.min(pdf.numPages,max);i++){const pg=await pdf.getPage(i);const v0=pg.getViewport({scale:1});const sc=Math.min(2.2,1500/v0.width);const vp=pg.getViewport({scale:sc});
+    const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    blobs.push(await new Promise(r=>cv.toBlob(r,'image/jpeg',.85)))}
+  return blobs;
+}
+function aiPrompt(text,mode,hasImg){
+  const keys=ITEMS.map(i=>`${i.k}: ${i.l}`).join('\n');
+  return`당신은 한국 보험 보장분석 전문가입니다. ${hasImg?'첨부 이미지는':'아래 텍스트는'} ${mode==='before'?'고객이 이미 가입한 보험의 증권·가입내역·보장분석 자료':'설계사가 작성한 보험 가입설계서(제안서)·상품설명서'} PDF${hasImg?'의 페이지입니다':'에서 추출한 것입니다'}. 표의 칸은 " | "로 구분돼 있고, 긴 담보명은 다음 줄로 이어질 수 있습니다.
+
+할 일: ${mode==='before'?'자료에 있는 보험계약을 모두 찾아 계약마다':'이 제안서의 보험계약(보통 1건, 상품이 여럿이면 상품마다)'} 가입한 담보를 빠짐없이 원래 이름 그대로 나열하세요.
+
+규칙
+1. coverages에는 담보(특약) 하나당 한 줄. name은 PDF에 적힌 담보명 그대로(앞의 일련번호·'갱신형' 표시는 빼도 됨), amount는 가입금액을 '만원' 단위 숫자로: 1억원=10000, 3천만원=3000, 1백만원=100, 10만원=10, 5천원=0.5. 일당·회당 담보는 1일(1회) 금액.
+2. 같은 담보가 요약표와 상세설명에 두 번 나오면 한 번만 쓰세요. 단, '1~5종 수술'처럼 한 담보 안에서 종별 지급액이 따로 적혀 있으면 종마다 한 줄씩 쓰고 이름 끝에 (1종)…(5종)을 붙이세요(예: "1~5종재해수술(3종)", 금액은 그 종의 지급액). 가입금액이 없거나 0인 담보는 빼세요.
+3. key에는 아래 표준항목 중 확실히 같은 보장이면 그 key를, 애매하거나 해당 없으면 ""를 넣으세요.
+4. 실손의료비(질병·상해 입원/통원 실손) 담보가 있으면 silson=true로 하고 coverages에는 넣지 마세요.
+5. premium은 월 보험료 합계(원, 숫자). payYears는 납입기간 연수(숫자): '20년납'→20, 'N세납'은 N에서 가입나이를 뺀 값, 전기납이면 보험기간 연수(예 20년갱신이면 20), 모르면 0. joinDate는 계약일 YYYY-MM-DD(모르면 YYYY-MM, 제안서면 ""). renewal은 "갱신"/"비갱신"/"혼합"/"", expiry는 보험기간(예 "90세만기").
+6. 납입면제·할인·적립보험료·해약환급금 표는 무시하세요.
+7. 보험사 '보장분석' 리포트처럼 계약별 담보 없이 보장 항목별 합계만 있는 자료라면, policies에 1건만 만들고 company="합산", product="(보험사명) 보장분석 합계 (정상계약 N건)", premium=월 보험료 합계, summary=true로 하세요. coverages에는 '가입금액'(보장금액) 열만 쓰고 권장금액·부족금액은 쓰지 마세요. 실손의료비 금액이 있으면 silson=true. 가입금액 0인 항목은 빼세요.
+
+표준항목 key
+${keys}
+
+JSON 하나만 답하세요:
+{"customer":{"birth":"","gender":""},"policies":[{"company":"","product":"","joinDate":"","premium":0,"payYears":20,"renewal":"","expiry":"","silson":false,"summary":false,"coverages":[{"name":"암진단비(유사암제외)","amount":3000,"key":"cancer_gen"}]}]}
+${hasImg?'':'\n=== PDF 텍스트 ===\n'+text}`;
+}
+/* 기본값: 지점 제안서 실제 금액 평균(10만원 단위 반올림) — 생명 1~5종 2건, 손보 1~5종 31건, 손보 1~7종 4건 */
+const JONG_DEF={life:[20,30,80,430,700],nl5:[20,40,100,440,770],nl7:[20,20,30,100,300,500,1000]};
+function jongCfg(){const c=S.jongCfg||{};const ok=(a,n)=>Array.isArray(a)&&a.length===n;return{life:ok(c.life,5)?c.life:JONG_DEF.life,nl5:ok(c.nl5,5)?c.nl5:JONG_DEF.nl5,nl7:ok(c.nl7,7)?c.nl7:JONG_DEF.nl7}}
+function covAssign(c,company){
+  const n=window.COVDICT?COVDICT.norm(c.name):c.name;
+  if(S.learn&&Object.prototype.hasOwnProperty.call(S.learn,n)){const k=S.learn[n];return{key:k&&ITEM[k]?k:'',src:'learn',agg:'sum'}}
+  const d=window.COVDICT?COVDICT.lookup(c.name):undefined;
+  if(d&&d.silson)return{silson:true};
+  if(d&&d.jongAll){const life=/생명|라이프|life/i.test(company||'');const n=life?5:(d.n||5);const keys=Array.from({length:n},(_,i)=>d.side+(i+1));return{key:keys.join('+'),src:'dict',agg:'jong',jn:n,sch:life?'life':n===7?'nl7':'nl5'}}
+  if(d&&d.k===null)return{key:'',src:'dict',agg:'sum'};
+  if(d&&d.k)return{key:d.k.join('+'),src:'dict',agg:d.agg};
+  return{key:ITEM[c.key]?c.key:'',src:ITEM[c.key]?'ai':'none',agg:'sum'};
+}
+function covValues(cov){
+  const sum={},mx={};
+  const jc=jongCfg();for(const c of cov||[]){if(!c.key)continue;if(c.agg==='jong'){const sch=jc[c.sch]||(c.jn===7?jc.nl7:jc.nl5);c.key.split('+').forEach((k,i)=>{if(ITEM[k]&&sch[i])sum[k]=(sum[k]||0)+num(sch[i])});continue}const a=num(c.amount);for(const k of c.key.split('+')){if(!ITEM[k])continue;if(c.agg==='max')mx[k]=Math.max(mx[k]||0,a);else sum[k]=(sum[k]||0)+a}}
+  for(const k in mx)sum[k]=(sum[k]||0)+mx[k];
+  for(const k in sum)sum[k]=r2(sum[k]);return sum;
+}
+async function recognize(files,mode){
+  if(!files.length)return;
+  const pdfs=[...files].filter(f=>/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name));
+  if(!pdfs.length)return toast('PDF 파일만 올릴 수 있습니다');
+  if(!window.pdfjsLib)return toast('PDF 읽기 도구를 불러오지 못했습니다. 새로고침해 주세요.');
+  for(const f of pdfs){const job={id:uid('j'),name:f.name,file:f,mode,st:'run',msg:'PDF 읽는 중…'};S.jobs[mode].unshift(job);updJobs(mode);await processJob(job)}
+}
+async function processJob(job,pw){
+  const mode=job.mode,f=job.file;job.st='run';job.msg='PDF 읽는 중…';updJobs(mode);
+  try{
+    let r;
+    try{r=await pdfRead(f,pw)}catch(e){if(e&&e.name==='PasswordException'){job.st='pw';job.msg=pw?'비밀번호가 맞지 않습니다':'비밀번호가 걸린 PDF입니다';updJobs(mode);return}throw e}
+    if(!S.sample){job.st='bad';job.msg='자동 인식 불가 — 직접 입력하세요';updJobs(mode);return}
+    let imgs=null;let text=r.text;
+    if(r.chars<r.pages*40){const lim=await S.sample.limits().catch(()=>null);
+      if(lim&&lim.images){job.msg='스캔 문서 — 이미지로 분석 준비 중…';updJobs(mode);imgs=await pdfImages(r.pdf,Math.min(lim.images.maxCount||8,20))}
+      else if(r.chars<20){job.st='bad';job.msg='글자를 읽을 수 없는 스캔 PDF입니다';updJobs(mode);return}}
+    const enc=new TextEncoder();while(enc.encode(text).length>230000)text=text.slice(0,Math.floor(text.length*.85));
+    job.msg='AI가 담보를 읽는 중… (30초~1분)';updJobs(mode);
+    const res=await S.sample.json(aiPrompt(text,mode,!!imgs),{modelTier:'complex',...(imgs?{images:imgs}:{})});
+    const st=applyResult(res,mode,f.name);
+    job.st='ok';job.msg=`${st.n}건 · 담보 ${st.cov}개 (미분류 ${st.none})`;job.file=null;
+    logHist(`${mode==='before'?'기존보험':'제안서'} PDF 인식: ${f.name} (${st.n}건)`);
+    markDirty();renderTab();
+  }catch(e){job.st='bad';const c=e&&e.code;job.msg=c==='not_granted'?'Claude 사용 허용이 필요합니다':c==='rate_limited'?'요청이 많습니다. 잠시 후 다시 시도':c==='invalid_json'?'결과를 해석하지 못했습니다. 다시 올려주세요':c==='usage_limit'?'사용량 한도에 도달했습니다':('오류: '+(e&&(e.message||c)||e));updJobs(mode)}
+}
+function applyResult(res,mode,fname){
+  const pols=Array.isArray(res?.policies)?res.policies:[];const c=S.cur;let ncov=0,nnone=0;
+  if(res?.customer){if(!c.birth&&res.customer.birth)c.birth=String(res.customer.birth);if(!c.gender&&/^[남여]/.test(res.customer.gender||''))c.gender=res.customer.gender[0]}
+  for(const q of pols){
+    const p=newPolicy(mode);p.src='pdf';p.file=fname;p.company=String(q.company||'');p.product=String(q.product||'');p.joinDate=String(q.joinDate||'');p.premium=num(q.premium);p.payYears=num(q.payYears);p.renewal=String(q.renewal||'');p.expiry=String(q.expiry||'');p.silson=!!q.silson;p.summary=!!q.summary;
+    p.cov=[];
+    for(const x of(q.coverages||[])){if(!x||!x.name)continue;const a=num(x.amount);if(!a)continue;const as=covAssign(x,q.company);if(as.silson){p.silson=true;continue}
+      p.cov.push({name:String(x.name),amount:a,key:as.key,src:as.src,agg:as.agg,...(as.jn?{jn:as.jn,sch:as.sch}:{})});ncov++;if(!as.key)nnone++}
+    for(const[k,v]of Object.entries(q.items||{})){const n=num(v);if(n&&ITEM[k])p.cov.push({name:ITEM[k].l,amount:n,key:k,src:'ai',agg:'sum'})}
+    p.values=covValues(p.cov);
+    (mode==='before'?c.before:c.proposals).push(p);
+  }
+  return{n:pols.length,cov:ncov,none:nnone};
+}
+async function learnSave(n,k){
+  S.learn=S.learn||{};S.learn[n]=k;
+  try{const ref=S.db.doc(P.dict);try{await ref.update({map:{[n]:k}})}catch(e){if(e&&e.code==='invalid_argument')await ref.set({map:{...S.learn}});else throw e}}
+  catch(e){toast('담보명 사전에 저장하지 못했습니다')}
+}
+
+/* ───────── save ───────── */
+function logHist(a){const c=S.cur;c.history=c.history||[];c.history.unshift({at:Date.now(),by:S.me.name,a});c.history=c.history.slice(0,40)}
+function setSaveMsg(m){S.saveMsg=m;const el=$('#saveMsg');if(el)el.textContent=m}
+function markDirty(){S.dirty=true;setSaveMsg('변경됨');clearTimeout(S.saveT);S.saveT=setTimeout(saveCur,1200)}
+async function saveCur(){
+  if(!S.cur)return;if(S.saving){S.pend=true;return}S.saving=true;setSaveMsg('저장 중…');
+  const c=S.cur;c.updatedAt=Date.now();
+  try{await S.db.doc(P.cust+'/'+c.id).set(JSON.parse(JSON.stringify(c)));S.dirty=false;setSaveMsg('저장됨 '+dt(c.updatedAt).slice(11))}
+  catch(e){setSaveMsg('저장 실패');toast(e.code==='invalid_argument'?'저장 권한이 없습니다. 페이지 소유자에게 참여자 권한을 요청하세요.':e.code==='quota_exceeded'?'저장 공간이 가득 찼습니다.':'저장하지 못했습니다. 잠시 후 다시 시도됩니다.');if(e.code==='unavailable')setTimeout(markDirty,2500)}
+  S.saving=false;if(S.pend){S.pend=false;saveCur()}
+}
+async function flushSave(){clearTimeout(S.saveT);if(S.dirty&&S.cur)await saveCur()}
+
+/* ───────── events ───────── */
+document.addEventListener('submit',async e=>{
+  e.preventDefault();const id=e.target.id;const err=$('#err');
+  if(id==='fLogin'){
+    const sab=$('#li_sabun').value.trim(),pw=$('#li_pw').value;
+    try{if(!/^[A-Za-z0-9_\-]{1,30}$/.test(sab))throw 0;const d=await S.db.doc(EMP+'/'+sab).get();
+      if(!d.exists)throw 0;const emp=d.data();if(emp.active===false){S.loginErr='사용이 정지된 사번입니다. 관리자에게 문의하세요.';return render()}
+      if(await hashPw(emp.salt,pw)!==emp.hash)throw 0;S.loginErr='';enter(emp)}
+    catch(x){S.loginErr='사번 또는 비밀번호가 맞지 않습니다.';err.textContent=S.loginErr}
+  }
+  if(id==='fSetup'){
+    const sab=$('#su_sabun').value.trim(),name=$('#su_name').value.trim(),pw=$('#su_pw').value;
+    const salt=uid('s');const emp={sabun:sab,name,role:'admin',salt,hash:await hashPw(salt,pw),active:true,createdAt:Date.now()};
+    try{await S.db.doc(EMP+'/'+sab).set(emp);enter(emp);toast('관리자 계정을 만들었습니다. 사번 관리에서 FC 사번을 발급하세요.')}catch(x){err.textContent='저장하지 못했습니다: '+(x.code||x)}
+  }
+  if(id==='fEmp'){
+    const sab=$('#em_sabun').value.trim(),name=$('#em_name').value.trim(),pw=$('#em_pw').value,role=$('#em_role').value;
+    if(S.emps.some(x=>x.sabun===sab)){err.textContent='이미 있는 사번입니다.';return}
+    const salt=uid('s');try{await S.db.doc(EMP+'/'+sab).set({sabun:sab,name,role,salt,hash:await hashPw(salt,pw),active:true,createdAt:Date.now()});toast(`${name}(${sab}) 사번을 발급했습니다`);e.target.reset();err.textContent=''}
+    catch(x){err.textContent=x.code==='invalid_argument'?'사번 발급 권한이 없습니다. 이 페이지 소유자 계정에서 발급하세요.':'저장하지 못했습니다: '+(x.code||x)}
+  }
+  if(id==='fNew'){
+    const name=$('#nc_name').value.trim();if(!name)return;
+    const c={id:uid('c'),ownerSabun:S.me.sabun,ownerName:S.me.name,name,birth:$('#nc_birth').value.trim(),gender:$('#nc_gender').value,phone:$('#nc_phone').value.trim(),memo:'',before:[],proposals:[],history:[],createdAt:Date.now(),updatedAt:Date.now()};
+    S.cur=c;logHist('고객 등록');S.showNew=false;S.tab='before';S.view='cust';S.jobs={before:[],proposal:[]};renderMain();saveCur();
+  }
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act,id=b.dataset.id;
+  if(b.dataset.confirm&&!b.dataset.armed){b.dataset.armed='1';const t=b.textContent;b.textContent='한 번 더 누르면 실행';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent=t}},3000);return}
+  if(act==='logout')return logout();
+  if(act==='goList'){await flushSave();S.cur=null;S.view='list';return renderMain()}
+  if(act==='goEdu'){await flushSave();S.cur=null;S.view='edu';return renderMain()}
+  if(act==='bookView'){const v=$('#bookViewer');const n=+id;v.innerHTML=`<div class="mv" data-act="bookClose"><img src="${bookSrc(n)}" alt=""><span>${n}쪽 · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
+  if(act==='bookClose'){$('#bookViewer').hidden=true;return}
+  if(act==='goAdmin'){await flushSave();S.cur=null;S.view='admin';return renderMain()}
+  if(act==='fc'){S.fcFilter=id||'';return renderMain()}
+  if(act==='goFc'){S.fcFilter=id;S.view='list';return renderMain()}
+  if(act==='saveJong'){const g=(p,n)=>Array.from({length:n},(_,i)=>num($('#'+p+(i+1)).value));try{await S.db.doc(P.jong).set({life:g('jl',5),nl5:g('j5',5),nl7:g('j7',7)});toast('종수술 기본금액을 저장했습니다. 새로 인식하는 PDF부터 적용됩니다')}catch(x){toast('저장하지 못했습니다')}return}
+  if(act==='toggleNew'){S.showNew=!S.showNew;renderMain();if(S.showNew)$('#nc_name')?.focus();return}
+  if(act==='openCust'){const c=S.custs.find(x=>x.id===id);if(!c)return;S.cur=JSON.parse(JSON.stringify(c));S.cur.before=S.cur.before||[];S.cur.proposals=S.cur.proposals||[];S.tab='before';S.jobs={before:[],proposal:[]};S.saveMsg='저장됨';S.view='cust';window.scrollTo(0,0);return renderMain()}
+  if(act==='delCust'){const cid=S.cur.id;clearTimeout(S.saveT);S.dirty=false;try{await S.db.doc(P.cust+'/'+cid).delete();toast('고객을 삭제했습니다')}catch(x){return toast('삭제하지 못했습니다')}S.cur=null;S.view='list';return renderMain()}
+  if(act==='tab'){S.tab=id;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.id===id));return renderTab()}
+  if(act==='addPolicy'){const p=newPolicy(id);(id==='before'?S.cur.before:S.cur.proposals).push(p);markDirty();renderTab();setTimeout(()=>{const g=$('.gridwrap');if(g)g.scrollLeft=g.scrollWidth},30);return}
+  if(act==='delPolicy'){S.cur.before=S.cur.before.filter(p=>p.id!==id);S.cur.proposals=S.cur.proposals.filter(p=>p.id!==id);markDirty();return renderTab()}
+  if(act==='pdf')return makePdf();
+  if(act==='matRec'){const set=new Set(S.cur.mats||[]);recMats().forEach(x=>set.add(x));S.cur.mats=[...set];markDirty();return renderTab()}
+  if(act==='matClear'){S.cur.mats=[];markDirty();return renderTab()}
+  if(act==='matView'){e.preventDefault();const v=$('#matViewer');v.innerHTML=`<div class="mv" data-act="matClose"><img src="${matSrc(id)}" alt=""><span>${esc(MAT[id].t)} · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
+  if(act==='matClose'){$('#matViewer').hidden=true;return}
+  if(act==='itemCfg'){S.showCfg=!S.showCfg;return renderTab()}
+  if(act==='cfgAll'){S.hidden=new Set();S.shown=new Set(ITEMS.filter(i=>i.extra).map(i=>i.k));saveHidden();return renderTab()}
+  if(act==='covSel'){S.covSel=id;return renderTab()}
+  if(act==='pdfpw'){const job=[...S.jobs.before,...S.jobs.proposal].find(j=>j.id===id);const pw=$('#pw_'+id)?.value||'';if(job&&pw)processJob(job,pw);return}
+  if(act==='resetPw'){const v=$('#rp_'+id)?.value||'';if(v.length<4)return toast('새 비밀번호를 4자 이상 입력하세요');const salt=uid('s');try{await S.db.doc(EMP+'/'+id).update({salt,hash:await hashPw(salt,v)});toast('비밀번호를 바꿨습니다')}catch(x){toast('바꾸지 못했습니다: 권한을 확인하세요')}return}
+  if(act==='toggleEmp'){const em=S.emps.find(x=>x.sabun===id);try{await S.db.doc(EMP+'/'+id).update({active:em.active===false})}catch(x){toast('바꾸지 못했습니다')}return}
+  if(act==='delEmp'){try{await S.db.doc(EMP+'/'+id).delete();toast('사번을 삭제했습니다')}catch(x){toast('삭제하지 못했습니다')}return}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='eduQ'){S.eduQ=t.value;clearTimeout(S.eduT);S.eduT=setTimeout(()=>{const pos=t.selectionStart;renderMain();const q=$('#eduQ');if(q){q.focus();q.setSelectionRange(pos,pos)}},250);return}
+  if(t.id==='q'){S.q=t.value;const pos=t.selectionStart;renderMain();const q=$('#q');q.focus();q.setSelectionRange(pos,pos);return}
+  if(!S.cur)return;
+  if(t.dataset.f){S.cur[t.dataset.f]=t.value;if(t.dataset.f==='name'){const h=$('.ph h2');if(h)h.textContent=t.value+' 님'}return markDirty()}
+  const p=t.dataset.pid&&[...S.cur.before,...S.cur.proposals].find(x=>x.id===t.dataset.pid);if(!p)return;
+  if(t.dataset.k){const v=t.value.trim();if(v==='')delete p.values[t.dataset.k];else p.values[t.dataset.k]=num(v);updateSums();return markDirty()}
+  if(t.dataset.pf){p[t.dataset.pf]=(t.dataset.pf==='premium'||t.dataset.pf==='payYears')?num(t.value):t.value;if(t.dataset.pf==='premium')updateSums();return markDirty()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='fcFilter'){S.fcFilter=t.value;return renderMain()}
+  if(!S.cur)return;
+  if(t.dataset.f==='gender'){S.cur.gender=t.value;return markDirty()}
+  if(t.dataset.upload){recognize(t.files,t.dataset.upload);t.value='';return}
+  if(t.dataset.keep){const p=S.cur.before.find(x=>x.id===t.dataset.keep);p.keep=t.checked;markDirty();return renderTab()}
+  if(t.dataset.pchk){const p=[...S.cur.before,...S.cur.proposals].find(x=>x.id===t.dataset.pid);p[t.dataset.pchk]=t.checked;markDirty();return renderTab()}
+  if(t.dataset.cov){const[pid,i]=t.dataset.cov.split(':');const p=[...S.cur.before,...S.cur.proposals].find(x=>x.id===pid);const c=p.cov[+i];const before=covValues(p.cov);
+    c.key=t.value;c.src='user';c.agg=(window.COVDICT&&COVDICT.lookup(c.name)?.agg)||'sum';const after=covValues(p.cov);
+    for(const k of new Set([...Object.keys(before),...Object.keys(after)])){const v=r2(num(p.values[k])-(before[k]||0)+(after[k]||0));if(v)p.values[k]=v;else delete p.values[k]}
+    learnSave(window.COVDICT?COVDICT.norm(c.name):c.name,c.key);toast(c.key?`'${c.name}' → ${c.key.split('+').map(k=>ITEM[k]?.l).join('+')}. 다음부터 자동으로 들어갑니다`:`'${c.name}'은 다음부터 분류하지 않습니다`);markDirty();return renderTab()}
+  if(t.dataset.unm){const[pid,i]=t.dataset.unm.split(':');const p=[...S.cur.before,...S.cur.proposals].find(x=>x.id===pid);const u=p.unmapped[+i];const k=t.value;if(!k)return;
+    if(k!=='__del'){p.values[k]=r2(num(p.values[k])+num(u.amount));toast(`'${u.name}' → ${ITEM[k].l}에 ${fmtMan(num(u.amount))}원 더했습니다`)}p.unmapped.splice(+i,1);markDirty();return renderTab()}
+  if(t.dataset.act2==='onlyChanged'){S.cmpOnlyChanged=t.checked;return renderTab()}
+  if(t.dataset.mat){const set=new Set(S.cur.mats||[]);t.checked?set.add(t.dataset.mat):set.delete(t.dataset.mat);S.cur.mats=[...set];t.closest('.mth')?.classList.toggle('on',t.checked);markDirty();return}
+  if(t.dataset.hide){S.hidden=S.hidden||new Set();t.checked?S.hidden.delete(t.dataset.hide):S.hidden.add(t.dataset.hide);saveHidden();return renderTab()}
+  if(t.dataset.show){S.shown=S.shown||new Set();t.checked?S.shown.add(t.dataset.show):S.shown.delete(t.dataset.show);saveHidden();return renderTab()}
+  if(t.dataset.hgrp){const g=GROUPS.find(x=>x[0]===t.dataset.hgrp);S.hidden=S.hidden||new Set();S.shown=S.shown||new Set();g[2].forEach(([k,,,ex])=>{if(ex){t.checked?S.shown.add(k):S.shown.delete(k)}else{t.checked?S.hidden.delete(k):S.hidden.add(k)}});saveHidden();return renderTab()}
+  if(t.dataset.pr){S.pr[t.dataset.pr]=t.checked;return renderPreview()}
+});
+['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{
+  const d=e.target.closest&&e.target.closest('[data-drop]');if(!d)return;e.preventDefault();
+  if(ev==='dragover')d.classList.add('over');else d.classList.remove('over');
+  if(ev==='drop')recognize(e.dataTransfer.files,d.dataset.drop);
+}));
+document.addEventListener('toggle',e=>{const d=e.target;if(d.tagName==='DETAILS'&&d.dataset.step&&d.open&&S.eduOpen!==+d.dataset.step){S.eduOpen=+d.dataset.step;renderMain();return}if(d.tagName==='DETAILS'&&d.dataset.g&&d.open&&S.matOpen!==d.dataset.g){S.matOpen=d.dataset.g;renderTab()}},true);
+window.addEventListener('resize',()=>{clearTimeout(window._rz);window._rz=setTimeout(()=>{if(S.view==='cust'&&S.tab==='print')renderPreview()},200)});
+boot();
+</script>
+
+</body>
+</html>
