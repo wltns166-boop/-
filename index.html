@@ -8533,6 +8533,7 @@ function dqPrint(){
   w.document.write(body); w.document.close();
 }
 function showPage(name){
+  try{ if(typeof _wkmtPrevClose==='function') _wkmtPrevClose(); }catch(_){}
   // 팀 미팅 페이지를 떠나거나 다시 그리기 전, 미저장 특이사항·주차 피드백 보호(드롭다운 이동과 동일한 확인창)
   try{
     var _mpg=g('pg_meeting');
@@ -22373,8 +22374,8 @@ function _wkmtSlideHtml(s){
 function _wkmtPreview(){
   var box=g('wkmt_prev'); if(!box) return;
   var st=_wkmtSt();
-  if(!st.leader){ box.innerHTML=''; return; }
   clearTimeout(window._wkmtPrevT);
+  if(!st.leader){ box.innerHTML=''; window._wkmtPrevSlides=null; return; }
   window._wkmtPrevT=setTimeout(function(){
     var bx=g('wkmt_prev'); if(!bx||!window._wkmt) return;
     try{
