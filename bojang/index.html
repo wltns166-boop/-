@@ -523,16 +523,29 @@ function renderCustModal(){
   const rows=S.custs; // 목록 화면의 FC 필터와 무관하게 전부(일부만 보여 '사라진 줄' 오해 방지)
   m.innerHTML=`<div class="cmbg" data-act="cmClose"></div><div class="cmbox" role="dialog" aria-label="고객 목록">
    <div class="cmhd"><div><div class="eyebrow">${adm?'지점 전체':'내 고객'}</div><h2>보장분석 고객 목록 <span class="dim" style="font-weight:400;font-size:13px">${rows.length}명</span></h2></div>
-    <div class="row"><button class="btn pri sm" data-act="cmNew" type="button">+ 새 고객</button><button class="btn ghost sm" data-act="cmClose" type="button" aria-label="닫기">✕ 닫기</button></div></div>
+    <div class="row">${window._bjDrive&&window._bjDrive.enabled()&&!S.cmDrv?`<button class="btn sm" data-act="cmDrive" type="button">드라이브 저장본 불러오기</button>`:''}<button class="btn pri sm" data-act="cmNew" type="button">+ 새 고객</button><button class="btn ghost sm" data-act="cmClose" type="button" aria-label="닫기">✕ 닫기</button></div></div>
+   ${S.cmDrv?cmDriveHTML():`
    <div class="cmbody">${rows.length?`<table class="tbl"><thead><tr><th>고객명</th><th>생년월일</th><th>연락처</th>${adm?'<th>담당 FC</th>':''}<th>기존 보험</th><th>제안</th><th>최종 수정</th><th></th></tr></thead><tbody>
    ${rows.map(c=>{const b=c.before||[];const cur=S.cur&&S.cur.id===c.id;return`<tr class="click${cur?' cur':''}" data-act="cmOpen" data-id="${esc(c.id)}"><td><b>${esc(c.name)}</b>${c.gender?` <span class="dim">${esc(c.gender)}</span>`:''}${cur?' <span class="pill gold">보는 중</span>':''}</td><td>${esc(c.birth||'')}</td><td>${esc(c.phone||'')}</td>${adm?`<td>${esc(c.ownerName||'')} <span class="dim">${esc(c.ownerSabun||'')}</span></td>`:''}<td>${b.length}건</td><td>${(c.proposals||[]).length?`<span class="pill gold">${c.proposals.length}건</span>`:'<span class="dim">-</span>'}</td><td class="dim">${dt(c.updatedAt)}</td>
     <td class="cmact" style="white-space:nowrap"><button class="btn sm" data-act="cmOpen" data-id="${esc(c.id)}" type="button">열기</button> <button class="btn sm danger" data-act="cmDel" data-id="${esc(c.id)}" data-confirm="1" type="button">삭제</button></td></tr>`}).join('')}
    </tbody></table>`:`<div class="empty"><b>${S.custs.length?'표시할 고객이 없습니다':'아직 등록한 고객이 없습니다'}</b>고객 목록 화면의 '+ 새 고객'으로 등록하고 기존 보험 PDF를 올리면 여기에 쌓입니다.</div>`}</div>
-   <div class="cmft muted">줄을 누르면 그 고객의 보장분석을 엽니다 · [삭제]는 한 번 더 눌러야 지워집니다(되돌릴 수 없음)</div></div>`;
+   <div class="cmft muted">줄을 누르면 그 고객의 보장분석을 엽니다 · [삭제]는 한 번 더 눌러야 지워집니다(되돌릴 수 없음)</div>`}</div>`;
   // 실시간 수신으로 다시 그려도 '한 번 더 누르면 실행' 상태(3초)를 잃지 않게 복원
   if(S.cmArm&&Date.now()-S.cmArm.ts<3000){const b=m.querySelector(`[data-act=cmDel][data-id="${CSS.escape(S.cmArm.id)}"]`);if(b){b.dataset.armed='1';b.textContent='한 번 더 누르면 실행';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='삭제'}},3000-(Date.now()-S.cmArm.ts))}}else S.cmArm=null;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.cm){S.cm=false;$('#custModal')?.remove()}});
+// 모달 안 [드라이브 저장본 불러오기] — {내 이름}/보장분석/ 폴더(고객명) → 그 안의 백업 JSON(·PDF 표시만) → 불러오기
+function cmDriveHTML(){
+  const d=S.cmDrv;const hd=`<div class="cmbody" style="padding:14px 18px"><div class="row" style="margin-bottom:10px"><button class="btn sm" data-act="cmDrvBack" type="button">← ${d.folder?'고객 폴더 목록':'고객 목록'}</button><b style="margin-left:6px">구글드라이브 · 보장분석${d.folder?' / '+esc(d.folder):''}</b></div>`;
+  if(d.err)return hd+`<div class="err">${esc(d.err)}</div></div>`;
+  if(d.busy)return hd+`<div class="muted">불러오는 중…</div></div>`;
+  if(!d.folder){if(!d.folders)return hd+`<div class="muted">폴더 목록을 불러오는 중…</div></div>`;
+    return hd+(d.folders.length?`<div class="row" style="gap:6px;flex-wrap:wrap">${d.folders.map(f=>`<button class="btn sm" data-act="cmDrvFolder" data-id="${esc(f)}" type="button">📁 ${esc(f)}</button>`).join('')}</div>`:`<div class="muted">드라이브에 저장된 보장분석이 아직 없습니다. 보장분석을 진행하면 자동으로 백업됩니다.</div>`)+`</div>`}
+  if(!d.files)return hd+`<div class="muted">파일 목록을 불러오는 중…</div></div>`;
+  const js=d.files.filter(f=>/\.json$/i.test(f.name)),pdfs=d.files.filter(f=>/\.pdf$/i.test(f.name));
+  return hd+(js.length?`<table class="tbl"><thead><tr><th>백업 파일</th><th>저장 시각</th><th></th></tr></thead><tbody>${js.map(f=>`<tr><td>${esc(f.name)}</td><td class="dim">${esc(f.dt||'')}</td><td><button class="btn pri sm" data-act="cmDrvLoad" data-id="${d.files.indexOf(f)}" type="button">불러오기</button></td></tr>`).join('')}</tbody></table>`:`<div class="muted">이 폴더에 보장분석 백업 파일(.json)이 없습니다.</div>`)
+   +(pdfs.length?`<div class="muted" style="margin-top:10px;font-size:12px">보장분석표 PDF ${pdfs.length}개(${esc(pdfs.map(f=>f.name).join(', '))}) — 인트라넷 [내 자료함]에서 열 수 있습니다.</div>`:'')+`</div>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.cm){S.cm=false;S.cmDrv=null;$('#custModal')?.remove()}});
 
 /* admin */
 function adminHTML(){
@@ -573,7 +586,7 @@ function setAfter(){return[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.pro
 function custHTML(){
   const c=S.cur;const tabs=[['before','보장분석 (전)',c.before.length],['after','보장분석 (후)',c.proposals.length],['compare','전후 비교'],['disease','질환별 수령액'],['checks','점검·상담자료'],['print','PDF 출력']];
   return`<div class="page"><div class="ph"><div><div class="eyebrow">고객 · 담당 ${esc(c.ownerName)}</div><h2>${esc(c.name)} 님</h2></div>
-    <div class="row"><span class="save" id="saveMsg">${esc(S.saveMsg)}</span><button class="btn sm danger" data-act="delCust" data-confirm="1">고객 삭제</button></div></div>
+    <div class="row"><span class="save" id="saveMsg">${esc(S.saveMsg)}</span>${window._bjDrive&&window._bjDrive.enabled()?`<span class="save" id="drvMsg"></span><button class="btn sm" data-act="drvOpen" type="button" title="구글드라이브 보장분석 폴더(내 자료함)">자료함</button>`:''}<button class="btn sm danger" data-act="delCust" data-confirm="1">고객 삭제</button></div></div>
    <div class="custhead">
     <label class="f">고객명<input class="in" data-f="name" value="${esc(c.name)}"></label>
     <label class="f">생년월일<input class="in" data-f="birth" value="${esc(c.birth||'')}" placeholder="1985-03-12"></label>
@@ -1007,8 +1020,11 @@ async function makePdf(){
       const cv=await html2canvas(els[i],{scale:2.6,backgroundColor:'#ffffff',logging:false,useCORS:true});
       if(i)doc.addPage();doc.addImage(cv.toDataURL('image/jpeg',.93),'JPEG',0,0,210,297,undefined,'FAST')}
     const blob=doc.output('blob');msg.textContent='저장 위치를 확인해 주세요…';
-    await S.dl.save({filename:`보장분석표_${S.cur.name}_${today().replace(/\./g,'')}.pdf`,data:blob});
+    const fname=`보장분석표_${S.cur.name}_${today().replace(/\./g,'')}.pdf`;
+    await S.dl.save({filename:fname,data:blob});
     msg.textContent='PDF를 저장했습니다. 열어서 바로 인쇄하시면 됩니다.';
+    if(window._bjDrive&&window._bjDrive.enabled()){msg.textContent='PDF를 저장했습니다. 구글드라이브에도 보관하는 중…';const ok=await window._bjDrive.pdf(S.cur,blob,fname);
+      msg.textContent=ok?'PDF를 저장했고 구글드라이브(보장분석 폴더)에도 보관했습니다. 열어서 바로 인쇄하시면 됩니다.':'PDF는 저장했지만 구글드라이브 보관은 실패했습니다. [자료함]에서 직접 올릴 수 있습니다.'}
     logHist('PDF 출력');markDirty();
   }catch(e){msg.textContent=e&&e.code==='declined'?'다운로드를 취소했습니다.':'PDF를 만들지 못했습니다: '+(e&&(e.message||e.code)||e)}
   finally{btn.disabled=false;st.innerHTML=''}
@@ -1129,11 +1145,11 @@ function markDirty(){S.dirty=true;setSaveMsg('변경됨');clearTimeout(S.saveT);
 async function saveCur(){
   if(!S.cur)return;if(S.saving){S.pend=true;return}S.saving=true;setSaveMsg('저장 중…');
   const c=S.cur;c.updatedAt=Date.now();
-  try{await S.db.doc(P.cust+'/'+c.id).set(JSON.parse(JSON.stringify(c)));S.dirty=false;setSaveMsg('저장됨 '+dt(c.updatedAt).slice(11))}
+  try{await S.db.doc(P.cust+'/'+c.id).set(JSON.parse(JSON.stringify(c)));S.dirty=false;setSaveMsg('저장됨 '+dt(c.updatedAt).slice(11));try{window._bjDrive&&window._bjDrive.changed(c)}catch(x){}}
   catch(e){setSaveMsg('저장 실패');toast(e.code==='invalid_argument'?'저장 권한이 없습니다. 페이지 소유자에게 참여자 권한을 요청하세요.':e.code==='quota_exceeded'?'저장 공간이 가득 찼습니다.':'저장하지 못했습니다. 잠시 후 다시 시도됩니다.');if(e.code==='unavailable')setTimeout(markDirty,2500)}
   S.saving=false;if(S.pend){S.pend=false;saveCur()}
 }
-async function flushSave(){clearTimeout(S.saveT);if(S.dirty&&S.cur)await saveCur()}
+async function flushSave(){clearTimeout(S.saveT);if(S.dirty&&S.cur)await saveCur();try{window._bjDrive&&window._bjDrive.flush()}catch(x){}}
 
 /* ───────── events ───────── */
 document.addEventListener('submit',async e=>{
@@ -1166,14 +1182,29 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act,id=b.dataset.id;
   if(b.dataset.confirm&&!b.dataset.armed){b.dataset.armed='1';const t=b.textContent;b.textContent='한 번 더 누르면 실행';if(act==='cmDel')S.cmArm={id,ts:Date.now()};setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent=t}if(act==='cmDel'&&S.cmArm&&S.cmArm.id===id&&Date.now()-S.cmArm.ts>=2900)S.cmArm=null},3000);return}
   if(act==='logout')return logout();
-  if(act==='goList'){S.cm=true;return renderCustModal()}
-  if(act==='cmClose'){S.cm=false;const m=$('#custModal');if(m)m.remove();return}
+  if(act==='goList'){S.cm=true;S.cmDrv=null;return renderCustModal()}
+  if(act==='cmClose'){S.cm=false;S.cmDrv=null;const m=$('#custModal');if(m)m.remove();return}
   if(act==='cmOpen'){await flushSave();const c=S.custs.find(x=>x.id===id);if(!c)return toast('이미 삭제된 고객입니다');S.cm=false;$('#custModal')?.remove();S.cur=JSON.parse(JSON.stringify(c));S.cur.before=S.cur.before||[];S.cur.proposals=S.cur.proposals||[];S.tab='before';S.jobs={before:[],proposal:[]};S.saveMsg='저장됨';S.view='cust';window.scrollTo(0,0);return renderMain()}
   if(act==='cmDel'){const c=S.custs.find(x=>x.id===id);if(!c)return;const isCur=S.cur&&S.cur.id===id;let keep=null;
-    if(isCur){keep={cur:S.cur,dirty:S.dirty};clearTimeout(S.saveT);S.dirty=false;S.pend=false;S.cur=null} // 삭제 중 자동 저장·대기 저장이 지운 문서를 되살리지 않게 먼저 떼어 둠
+    if(isCur){keep={cur:S.cur,dirty:S.dirty};clearTimeout(S.saveT);S.dirty=false;S.pend=false;S.cur=null}
+    try{window._bjDrive&&window._bjDrive.cancel(id)}catch(x){} // 삭제 중 자동 저장·대기 저장이 지운 문서를 되살리지 않게 먼저 떼어 둠
     try{await S.db.doc(P.cust+'/'+id).delete();toast(`${c.name} 고객을 삭제했습니다`)}catch(x){if(keep){S.cur=keep.cur;S.dirty=keep.dirty;if(S.dirty)markDirty()}return toast('삭제하지 못했습니다')}
     S.cmArm=null;if(isCur){S.view='list';renderMain()}
     return renderCustModal()}
+  if(act==='drvOpen'){await flushSave();window._bjDrive&&window._bjDrive.openDrive(S.cur);return}
+  if(act==='cmDrive'){const seq=(S.cmDrvSeq=(S.cmDrvSeq||0)+1);S.cmDrv={folders:null,folder:'',files:null,err:''};renderCustModal();let fo,er;try{fo=await window._bjDrive.folders()}catch(x){er='드라이브 목록을 불러오지 못했습니다: '+(x&&x.message||x)}
+    if(S.cmDrvSeq!==seq||!S.cmDrv)return;if(er)S.cmDrv.err=er;else S.cmDrv.folders=fo;return renderCustModal()}
+  if(act==='cmDrvBack'){S.cmDrvSeq=(S.cmDrvSeq||0)+1;if(S.cmDrv&&S.cmDrv.folder){S.cmDrv.folder='';S.cmDrv.files=null;S.cmDrv.err=''}else S.cmDrv=null;return renderCustModal()}
+  if(act==='cmDrvFolder'){if(!S.cmDrv)return;const seq=(S.cmDrvSeq=(S.cmDrvSeq||0)+1);S.cmDrv.folder=id;S.cmDrv.files=null;S.cmDrv.err='';renderCustModal();let fl,er;try{fl=await window._bjDrive.files(id)}catch(x){er='파일 목록을 불러오지 못했습니다: '+(x&&x.message||x)}
+    if(S.cmDrvSeq!==seq||!S.cmDrv||S.cmDrv.folder!==id)return;if(er)S.cmDrv.err=er;else S.cmDrv.files=fl;return renderCustModal()}
+  if(act==='cmDrvLoad'){if(!S.cmDrv||!S.cmDrv.files)return;const f=S.cmDrv.files[+id];if(!f)return;const seq=(S.cmDrvSeq=(S.cmDrvSeq||0)+1);S.cmDrv.err='';S.cmDrv.busy=1;renderCustModal();let c,ex;
+    try{const got=await window._bjDrive.load(S.cmDrv.folder,f.name);c=got.cust;ex=got.existing}catch(x){if(S.cmDrvSeq!==seq||!S.cmDrv)return;S.cmDrv.busy=0;S.cmDrv.err='불러오지 못했습니다: '+(x&&x.message||x);return renderCustModal()}
+    if(S.cmDrvSeq!==seq||!S.cmDrv)return;S.cmDrv.busy=0;
+    if(ex&&(+ex.updatedAt||0)>(c.updatedAt||0)&&!confirm(`${c.name} 고객은 저장소에 더 최근 내용(${dt(ex.updatedAt)})이 있습니다. 드라이브 저장본(${dt(c.updatedAt)})으로 덮어쓸까요?`)){return renderCustModal()}
+    await flushSave();if(S.cmDrvSeq!==seq||!S.cmDrv)return;
+    try{await S.db.doc(P.cust+'/'+c.id).set(JSON.parse(JSON.stringify(c)))}catch(x){if(S.cmDrv)S.cmDrv.err='저장소에 넣지 못했습니다: '+(x&&x.code||x);return renderCustModal()}
+    toast(ex?`${c.name} 고객을 드라이브 저장본으로 되돌렸습니다`:`${c.name} 고객을 드라이브에서 불러왔습니다`);
+    S.cm=false;S.cmDrv=null;$('#custModal')?.remove();S.cur=c;S.cur.before=S.cur.before||[];S.cur.proposals=S.cur.proposals||[];S.tab='before';S.jobs={before:[],proposal:[]};S.saveMsg='저장됨';S.view='cust';window.scrollTo(0,0);return renderMain()}
   if(act==='cmNew'){await flushSave();S.cm=false;$('#custModal')?.remove();S.cur=null;S.view='list';S.showNew=true;renderMain();$('#nc_name')?.focus();return}
   if(act==='goEdu'){await flushSave();S.cur=null;S.view='edu';return renderMain()}
   if(act==='bookView'){const v=$('#bookViewer');const n=+id;v.innerHTML=`<div class="mv" data-act="bookClose"><img src="${bookSrc(n)}" alt=""><span>${n}쪽 · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
@@ -1184,7 +1215,7 @@ document.addEventListener('click',async e=>{
   if(act==='saveJong'){const g=(p,n)=>Array.from({length:n},(_,i)=>num($('#'+p+(i+1)).value));try{await S.db.doc(P.jong).set({life:g('jl',5),nl5:g('j5',5),nl7:g('j7',7)});toast('종수술 기본금액을 저장했습니다. 새로 인식하는 PDF부터 적용됩니다')}catch(x){toast('저장하지 못했습니다')}return}
   if(act==='toggleNew'){S.showNew=!S.showNew;renderMain();if(S.showNew)$('#nc_name')?.focus();return}
   if(act==='openCust'){const c=S.custs.find(x=>x.id===id);if(!c)return;S.cur=JSON.parse(JSON.stringify(c));S.cur.before=S.cur.before||[];S.cur.proposals=S.cur.proposals||[];S.tab='before';S.jobs={before:[],proposal:[]};S.saveMsg='저장됨';S.view='cust';window.scrollTo(0,0);return renderMain()}
-  if(act==='delCust'){const cid=S.cur.id;clearTimeout(S.saveT);S.dirty=false;try{await S.db.doc(P.cust+'/'+cid).delete();toast('고객을 삭제했습니다')}catch(x){return toast('삭제하지 못했습니다')}S.cur=null;S.view='list';return renderMain()}
+  if(act==='delCust'){const cid=S.cur.id;clearTimeout(S.saveT);S.dirty=false;try{window._bjDrive&&window._bjDrive.cancel(cid)}catch(x){}try{await S.db.doc(P.cust+'/'+cid).delete();toast('고객을 삭제했습니다')}catch(x){return toast('삭제하지 못했습니다')}S.cur=null;S.view='list';return renderMain()}
   if(act==='tab'){S.tab=id;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.id===id));return renderTab()}
   if(act==='addPolicy'){const p=newPolicy(id);(id==='before'?S.cur.before:S.cur.proposals).push(p);markDirty();renderTab();setTimeout(()=>{const g=$('.gridwrap');if(g)g.scrollLeft=g.scrollWidth},30);return}
   if(act==='delJob'){ // 인트라넷 통합(2026-10-28): 올린 PDF 줄 삭제 — 그 파일에서 인식된 보험도 함께 뺌

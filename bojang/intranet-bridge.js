@@ -135,6 +135,84 @@
     document.querySelectorAll('.drop.sel').forEach(function(x){ if(x!==d) x.classList.remove('sel'); });
     if(d) d.classList.add('sel');
   },true);
+  // ── 구글드라이브 보관 (2026-10-28, 사용자 요청 "자동으로 저장 · 구글드라이브에도 · 저장된 것 불러오기") ──
+  //   폴더: TEAM TOPS 자료/{로그인 이름}/보장분석/{고객명_id끝6자리}/ — 데이터 백업 `보장분석데이터_고객명.json`(같은 이름이라 늘 최신 1개),
+  //   출력한 보장분석표 PDF. 업로드는 내 자료함과 같은 앱스크립트 직접 POST(no-cors — 응답을 못 읽어 dvList의 이름·크기로 확인), 목록·내용은 /api/drive 프록시.
+  //   백업은 Firestore 저장 뒤 20초 디바운스(연속 편집 중 매번 올리지 않게), 화면을 떠날 때는 바로 시작(최선 노력 — 창을 닫으면 끊길 수 있음).
+  //   고객별 대기열(Map) — 다른 고객으로 옮겨도 앞 고객 대기분이 사라지지 않고, 삭제한 고객은 cancel로 대기분을 버림(되살아남 방지).
+  var DRV_DEBOUNCE=20000, DRV_T=null, DRV_PEND=new Map(), DRV_BUSY=false;
+  function driveUrl(){ try{ return (P._driveSyncUrl?P._driveSyncUrl():'')||''; }catch(e){ return ''; } }
+  function member(){ return String(ME.name||'').trim(); }
+  function safeName(n){ return String(n||'파일').replace(/[\\/:*?"<>|]/g,'_').replace(/^\.+$/,'_'); }
+  function custFolder(c){ var nm=String((c&&c.name)||'고객').trim()||'고객'; return safeName(nm)+'_'+String((c&&c.id)||'').replace(/[^\w\-]/g,'').slice(-6); } // 동명이인·이름 변환 충돌 방지
+  function b64Of(blob){ return blobToDataUrl(blob).then(function(u){ var i=u.indexOf(','); return i<0?'':u.slice(i+1); }); }
+  function utf8B64(str){ var bytes=new TextEncoder().encode(str); var bin=''; for(var i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000)); return { b64:btoa(bin), size:bytes.length }; }
+  function b64Utf8(b64){ var bin=atob(b64); var bytes=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i); return new TextDecoder().decode(bytes); }
+  function proxy(payload){ return P._driveProxy(payload).then(function(r){ if(!r||r.error||!r.ok){ var e=new Error((r&&r.error&&(r.error.message||r.error))||'drive_error'); e.r=r; throw e; } return r; }); }
+  function listHas(r, filename, size){ return (r.files||[]).some(function(x){ return String(x&&x.name)===filename && (size==null || +x.size===size); }); }
+  function upload(pathStr, filename, mime, b64, size){
+    var url=driveUrl(); if(!url||!member()) return Promise.reject(new Error('드라이브 미연결'));
+    var path=pathStr;
+    return fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'dvUpload',member:member(),path:path,filename:filename,mime:mime,data:b64})})
+      .then(function(){ return new Promise(function(r){ setTimeout(r,1200); }); })
+      .then(function(){ return proxy({action:'dvList',member:member(),path:path}); })
+      .then(function(r){ if(listHas(r,filename,size)) return r;
+        return new Promise(function(r2){ setTimeout(r2,2500); }).then(function(){ return proxy({action:'dvList',member:member(),path:path}); })  // 반영 지연 — 한 번 더 확인
+          .then(function(r3){ if(!listHas(r3,filename,size)) throw new Error('업로드 확인 실패'); return r3; }); });
+  }
+  function setDrvMsg(m){ try{ var el=document.getElementById('drvMsg'); if(el) el.textContent=m; }catch(e){} }
+  function backupNow(){
+    clearTimeout(DRV_T); DRV_T=null;
+    if(DRV_BUSY||!DRV_PEND.size) return Promise.resolve();
+    if(!driveUrl()){ DRV_PEND.clear(); setDrvMsg(''); return Promise.resolve(); }
+    var id=DRV_PEND.keys().next().value, c=DRV_PEND.get(id); DRV_PEND.delete(id);
+    DRV_BUSY=true; setDrvMsg('드라이브 저장 중…');
+    var enc=utf8B64(JSON.stringify(c)), fn='보장분석데이터_'+safeName(c.name||'고객')+'.json';
+    return upload('보장분석/'+custFolder(c), fn, 'application/json', enc.b64, enc.size).then(function(){
+      setDrvMsg('드라이브 저장됨 '+new Date().toTimeString().slice(0,5));
+    }).catch(function(e){ console.warn('보장분석 드라이브 백업 실패:',e); setDrvMsg('드라이브 저장 실패'); })
+      .then(function(){ DRV_BUSY=false; if(DRV_PEND.size) return backupNow(); });
+  }
+  var CUST_KEYS=['id','ownerSabun','ownerName','name','birth','gender','phone','memo','before','proposals','history','mats','createdAt','updatedAt'];
+  var driveApi={
+    enabled:function(){ return !!(driveUrl()&&member()); },
+    // Firestore 저장이 끝난 고객 — 20초 뒤 드라이브에 백업(그 사이 또 바뀌면 마지막 것만)
+    changed:function(c){ if(!c||!c.id||!driveUrl()) return; DRV_PEND.set(c.id,JSON.parse(JSON.stringify(c))); clearTimeout(DRV_T); DRV_T=setTimeout(backupNow,DRV_DEBOUNCE); setDrvMsg('드라이브 저장 대기'); },
+    cancel:function(id){ DRV_PEND.delete(id); if(!DRV_PEND.size){ clearTimeout(DRV_T); DRV_T=null; } }, // 삭제한 고객의 대기분 — 올라가면 되살아남
+    flush:function(){ return backupNow(); },
+    // 출력한 보장분석표 PDF도 같은 폴더에
+    pdf:function(c, blob, filename){
+      if(!driveUrl()) return Promise.resolve(false);
+      return b64Of(blob).then(function(b64){ return upload('보장분석/'+custFolder(c), safeName(filename), 'application/pdf', b64, blob.size); })
+        .then(function(){ return true; }).catch(function(e){ console.warn('보장분석 PDF 드라이브 저장 실패:',e); return false; });
+    },
+    folders:function(){ return proxy({action:'dvList',member:member(),path:'보장분석'}).then(function(r){ return (r.folders||[]).map(function(f){ return String(f.name||''); }).filter(Boolean); }); },
+    files:function(folder){ return proxy({action:'dvList',member:member(),path:'보장분석/'+folder}).then(function(r){ return r.files||[]; }); },
+    // 백업 JSON을 읽어 고객 객체로 — 드라이브 파일은 누구나 바꿔 둘 수 있으므로 모양을 검사하고 아는 칸만 남긴다.
+    //   소유 확인: 저장소에 같은 id 문서가 있고 남의 것이면(관리자 아님) 거부 — 팀원이 남의 고객을 덮어쓰거나 되가져가는 경로 차단.
+    load:function(folder, name){
+      return proxy({action:'dvFile',member:member(),path:'보장분석/'+folder,name:name}).then(function(r){
+        var c=JSON.parse(b64Utf8(String(r.data||'')));
+        if(!c||typeof c!=='object'||typeof c.id!=='string'||!/^[\w\-]{1,80}$/.test(c.id)||typeof c.name!=='string'||!c.name.trim()) throw new Error('보장분석 백업 파일이 아닙니다');
+        var o={}; CUST_KEYS.forEach(function(k){ if(c[k]!==undefined) o[k]=c[k]; });
+        ['name','birth','gender','phone','memo','ownerName','ownerSabun'].forEach(function(k){ if(o[k]!=null&&typeof o[k]!=='string') o[k]=String(o[k]); if(typeof o[k]==='string'&&o[k].length>2000) o[k]=o[k].slice(0,2000); });
+        o.before=Array.isArray(o.before)?o.before:[]; o.proposals=Array.isArray(o.proposals)?o.proposals:[]; o.history=Array.isArray(o.history)?o.history:[];
+        o.updatedAt=+o.updatedAt||0; o.createdAt=+o.createdAt||o.updatedAt||Date.now();
+        if(ME.role!=='admin'||!o.ownerSabun){ o.ownerSabun=ME.sabun; o.ownerName=ME.name; }
+        return FDB.doc('bojang_customers/'+o.id).get().then(function(sn){
+          var ex=sn.exists?dec(sn.data()):null;
+          if(ex&&ME.role!=='admin'&&String(ex.ownerSabun||'')!==String(ME.sabun)){ var e=new Error('다른 담당자의 고객이라 불러올 수 없습니다'); e.code='owner'; throw e; }
+          return { cust:o, existing:ex };
+        });
+      });
+    },
+    openDrive:function(c){ // 인트라넷 [내 자료함]을 그 고객 폴더로 열기
+      try{ var st=P._dvState||(P._dvState={}); st.member=member(); st.path=['보장분석',custFolder(c)]; st.busy=false; P.showPage('drive'); }catch(e){}
+    }
+  };
+  window._bjDrive=driveApi;
+  window.addEventListener('pagehide',function(){ try{ driveApi.flush(); }catch(e){} });
   var API={ db:dbApi, sample:sampleApi, downloads:dlApi, user:null };
   window.claude={ use:function(n){ return Promise.resolve(API[n]||null); } };
 })();

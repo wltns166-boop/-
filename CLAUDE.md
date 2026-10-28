@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-8. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-9. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1095,7 +1095,14 @@
   닫기는 ✕·바깥 클릭·Esc(`S.cm=false`). 창 머리 [+ 새 고객]=`cmNew`(목록 화면으로 가서 등록 폼 열기 — 고객을 연 뒤 목록 화면으로 돌아갈 길이 이것뿐).
   리뷰 반영: logout·enter에서 창 제거(S.cm 리셋 — 다음 사용자에게 고객 성함·연락처 잔존 차단), cmOpen은 flushSave **뒤**에 고객을 다시 찾음(낡은 사본으로 편집 유실 방지), cmDel은 보는 중인 고객이면 삭제 전에 S.cur·S.pend를 떼어 둠(대기 저장이 지운 문서를 되살리던 경로 — 실패 시 복원),
   '한 번 더 누르면 실행' 상태는 `S.cmArm`(3초)로 재렌더에도 복원, 목록 화면 FC 필터는 창에 적용하지 않음. 헤드리스 검증(2명 등록→창 2줄·삭제 두 번 클릭→1줄·줄 클릭 열기·Esc·보는 중 고객 삭제→목록 화면).
-  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄 + 위 delJob 2곳 + 고객 목록 모달(renderCustModal·cm* 핸들러 4개·keydown·CSS .cm·onSnapshot 한 줄)뿐(원본 갱신 시 다시 넣을 것). 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
+  **v2026.10.28-9 자동 저장 + 구글드라이브 보관 + 불러오기 (사용자 요청)**: 고객 데이터의 Firestore 자동 저장은 프로그램 원래 동작(입력 1.2초 뒤 `saveCur`). 여기에 bridge `driveApi`(`window._bjDrive`):
+  ① `saveCur` 성공 → `changed(c)` 고객별 대기열(Map) → 20초 디바운스 뒤 `{로그인 이름}/보장분석/{고객명_id끝6자리}/보장분석데이터_고객명.json`(같은 이름 덮어쓰기 = 최신 1개)으로 dvUpload 직접 POST(no-cors) 후 dvList **이름+크기**로 확인(2.5초 뒤 재확인 1회).
+  `flushSave`(고객 전환·로그아웃·iframe pagehide)가 `flush()`로 바로 시작(기다리지 않음 — 최선 노력), 삭제(`delCust`·`cmDel`)는 `cancel(id)`로 대기분 폐기(되살아남 방지). 고객 화면 머리에 상태 `#drvMsg`("드라이브 저장 대기/중/됨/실패") + [자료함](`drvOpen` — 부모 `_dvState`를 그 폴더로 두고 showPage('drive')).
+  ② `makePdf`가 PDF를 내려받은 뒤 같은 폴더에 PDF도 올림(`pdf()` — 실패해도 내려받기는 완료, 문구로 안내).
+  ③ 고객 목록 모달 [드라이브 저장본 불러오기](`cmDrive` → `cmDriveHTML`: 폴더(고객) → .json 파일 → [불러오기] `cmDrvLoad`): `load()`가 dvFile로 읽어 **아는 칸만**(`CUST_KEYS`)·문자열 2000자·updatedAt 숫자로 정리하고,
+  **Firestore에서 같은 id 문서를 직접 읽어** 남의 고객(관리자 아님)이면 거부, 저장소가 더 최근이면 confirm 후 set → 열기. 팀원이 불러오면 ownerSabun은 본인. 모든 요청은 `S.cmDrvSeq`로 늦은 응답 폐기.
+  드라이브는 본인 폴더만(관리자도) — 다른 담당자의 백업은 내 자료함에서 봄. ⚠️ 앱스크립트 웹앱은 인증이 없어 드라이브 파일은 믿지 않는다(검증·소유 확인 유지할 것). 헤드리스 검증(가짜 앱스크립트: 백업→삭제→불러오기 복원·PDF 업로드·팀원의 남의 고객 거부).
+  bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄 + 위 delJob 2곳 + 고객 목록 모달(renderCustModal·cmDriveHTML·cm* 핸들러·keydown·CSS .cm·onSnapshot 한 줄) + 드라이브 연결(saveCur/flushSave/delCust/makePdf 한 줄씩·머리 drvMsg)뿐(원본 갱신 시 다시 넣을 것). 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)
 
