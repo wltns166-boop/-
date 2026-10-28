@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-9. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-10. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1102,6 +1102,11 @@
   ③ 고객 목록 모달 [드라이브 저장본 불러오기](`cmDrive` → `cmDriveHTML`: 폴더(고객) → .json 파일 → [불러오기] `cmDrvLoad`): `load()`가 dvFile로 읽어 **아는 칸만**(`CUST_KEYS`)·문자열 2000자·updatedAt 숫자로 정리하고,
   **Firestore에서 같은 id 문서를 직접 읽어** 남의 고객(관리자 아님)이면 거부, 저장소가 더 최근이면 confirm 후 set → 열기. 팀원이 불러오면 ownerSabun은 본인. 모든 요청은 `S.cmDrvSeq`로 늦은 응답 폐기.
   드라이브는 본인 폴더만(관리자도) — 다른 담당자의 백업은 내 자료함에서 봄. ⚠️ 앱스크립트 웹앱은 인증이 없어 드라이브 파일은 믿지 않는다(검증·소유 확인 유지할 것). 헤드리스 검증(가짜 앱스크립트: 백업→삭제→불러오기 복원·PDF 업로드·팀원의 남의 고객 거부).
+  **v2026.10.28-10 "저장 실패" 실사고 (사용자 제보)**: 클라우드 `bojang_customers`·`bojang_config`가 비어 있었음 — 프로그램이 한 번도 저장에 성공한 적 없음.
+  원인: **iframe에서 만든 객체를 부모 창 Firestore SDK에 넘기면 거부**(`invalid-argument "Data must be an object, but it was: a custom Object object"` — SDK의 isPlainObject가 창마다 다른 Object.prototype을 봄.
+  실제 SDK 9.22로 헤드리스 재현). 가짜 Firestore 모의 실행은 이걸 못 잡았음. bridge `toP(v)`=`P.JSON.parse(JSON.stringify(v))`로 set 데이터·merge 옵션을 **부모 창 객체로 바꿔** 넘김(update도).
+  ⚠️ iframe→부모 Firestore에 객체·옵션을 넘기는 새 코드는 반드시 `toP`를 거칠 것. 모의 Firestore(parent.html)도 `isPlain`(prototype 검사)으로 엄격해짐.
+  같은 커밋: Firestore 오류 코드(permission-denied/resource-exhausted/unavailable)를 프로그램이 기대하는 코드(invalid_argument/quota_exceeded/unavailable)로 바꿔 안내문이 맞게 나오고 console.warn에 원문 기록.
   bojang/index.html 본체는 사용자 제공 코드 — 수정은 `<script src="intranet-bridge.js">`·`<link intranet-theme.css>` 두 줄 + 위 delJob 2곳 + 고객 목록 모달(renderCustModal·cmDriveHTML·cm* 핸들러·keydown·CSS .cm·onSnapshot 한 줄) + 드라이브 연결(saveCur/flushSave/delCust/makePdf 한 줄씩·머리 drvMsg)뿐(원본 갱신 시 다시 넣을 것). 원본이 갱신되면 새 패키지로 덮어쓰고 그 한 줄만 다시 넣을 것. 모의 실행(가짜 Firestore 부모+iframe): 고객 등록→PDF 인식(/api/analyze 목업)→저장 형식·목록 재표시·teardown 통과.
 
 ## 4.94 증권바인더 제작 (binder, 2026-10-01 — v2026.10.01-1)

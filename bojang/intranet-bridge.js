@@ -45,8 +45,15 @@
     var docs=qs.docs.map(wrapDoc);
     return { docs:docs, empty:docs.length===0, size:docs.length, forEach:function(f){ docs.forEach(f); } };
   }
-  function errCode(e){ // 프로그램은 e.code를 그대로 보여 줌 — Firestore 'permission-denied' 등
+  // ⚠️ 이 창(iframe)에서 만든 객체를 부모 창 Firestore에 그대로 넘기면 SDK가 "다른 창의 객체"라며 거부한다
+  //   (invalid-argument "Data must be an object, but it was: a custom Object object" — 2026-10-28 실사고 "저장 실패").
+  //   부모 창의 JSON.parse로 다시 만들어 부모 창 객체로 바꿔 넘긴다(undefined 칸도 함께 사라짐).
+  function toP(v){ if(v===undefined||v===null) return v; try{ return P.JSON.parse(JSON.stringify(v)); }catch(e){ return v; } }
+  var CODE_MAP={ 'permission-denied':'invalid_argument', 'resource-exhausted':'quota_exceeded', 'unavailable':'unavailable', 'deadline-exceeded':'unavailable' };
+  function errCode(e){ // 프로그램은 claude.ai 저장소 코드(invalid_argument=권한 없음·quota_exceeded·unavailable)로 안내문을 고른다 — Firestore 코드를 맞춰 준다
+    if(e && e.code && CODE_MAP[e.code]) e.code=CODE_MAP[e.code];
     if(e && !e.code) e.code='error';
+    try{ console.warn('[bojang] Firestore 오류:', e && e.code, e && e.message); }catch(x){}
     return e;
   }
   function docApi(path){
@@ -54,11 +61,11 @@
     return {
       id:ref.id,
       get:function(){ return ref.get().then(wrapDoc).catch(function(e){ throw errCode(e); }); },
-      set:function(d,opt){ return ref.set(enc(path,d), opt&&opt.merge?{merge:true}:undefined).catch(function(e){ throw errCode(e); }); },
+      set:function(d,opt){ return ref.set(toP(enc(path,d)), opt&&opt.merge?toP({merge:true}):undefined).catch(function(e){ throw errCode(e); }); },
       // 프로그램의 update는 '그 필드만 합치기' 의도(예: 담보명 학습 사전 map에 한 항목 추가) — Firestore update는 map을 통째 바꾸므로 merge set으로.
       update:function(d){
         if(isCust(path)) return Promise.reject(errCode({code:'unsupported',message:'update on customer doc'}));
-        return ref.set(d,{merge:true}).catch(function(e){ throw errCode(e); });
+        return ref.set(toP(d),toP({merge:true})).catch(function(e){ throw errCode(e); });
       },
       delete:function(){ return ref.delete().catch(function(e){ throw errCode(e); }); },
       onSnapshot:function(ok,bad){ return track(ref.onSnapshot(function(s){ ok(wrapDoc(s)); }, function(e){ bad&&bad(errCode(e)); })); }
