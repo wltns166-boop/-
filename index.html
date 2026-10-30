@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-4</div>
   </div>
 </div>
 
@@ -2192,8 +2192,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
               <div id="claim_ins_search_list" style="max-height:200px;overflow-y:auto;border:1px solid rgba(30,150,80,.25);border-radius:8px;background:#fff"></div>
             </div>
             <div class="fr">
-              <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동" onblur="_silsonDraw()"></div>
-              <div class="fg"><div class="fl">주민번호</div><input class="fi" id="claim_ins_rrn" placeholder="000000-0000000" maxlength="14" oninput="formatRrn(this)" onblur="_silsonDraw()"></div>
+              <div class="fg"><div class="fl">고객명</div><input class="fi" id="claim_ins_name" placeholder="홍길동" onblur="_silsonDraw();_claimDocsWhoChanged()"></div>
+              <div class="fg"><div class="fl">주민번호</div><input class="fi" id="claim_ins_rrn" placeholder="000000-0000000" maxlength="14" oninput="formatRrn(this)" onblur="_silsonDraw();_claimDocsWhoChanged()"></div>
               <div class="fg" style="max-width:170px"><div class="fl">계약자와의 관계</div>
                 <select class="fs" id="claim_ins_rel"><option value="">선택</option><option>본인</option><option>배우자</option><option>자녀</option><option>보호자</option><option>법정대리인</option></select>
               </div>
@@ -2300,6 +2300,13 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
               <input type="file" id="claim_file" accept="image/*,.pdf" onchange="previewClaimFile()" style="display:none" multiple>
             </label>
             <div id="claim_file_preview" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+
+          <!-- 계약자≠피보험자일 때 신분증·통장사본을 누구 것으로 쓸지 (2026-10-30) -->
+          <div class="fg" id="claim_docs_who_wrap" style="display:none;border:1.5px solid #c9d3f5;border-radius:10px;padding:9px 12px;background:#f5f7ff;color:#1a1a3a">
+            <div class="fl" style="color:#1a1a3a;margin-bottom:4px">신분증·통장사본은 누구 것으로 할까요? <span style="font-size:11px;color:#777;font-weight:400;margin-left:4px">계약자와 피보험자가 다를 때만 보입니다</span></div>
+            <label style="display:inline-flex;align-items:center;gap:5px;margin-right:16px;cursor:pointer;font-size:14px;color:#1a1a3a"><input type="radio" name="claim_docs_who" value="ct" checked onchange="claimDocsWhoPick('ct')"> 계약자 <b id="claim_docs_who_ct"></b> 님 것</label>
+            <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:14px;color:#1a1a3a"><input type="radio" name="claim_docs_who" value="ins" onchange="claimDocsWhoPick('ins')"> 피보험자 <b id="claim_docs_who_ins"></b> 님 것</label>
           </div>
 
           <!-- 신분증 -->
@@ -30914,6 +30921,7 @@ function _claimSignAuto(canvas, name, force){
 function _claimSignSync(force){
   var t=_claimSignTwo();
   var w2=g('claim_sign2_wrap'); if(w2) w2.style.display=t.two?'':'none';
+  try{ _claimDocsWhoDraw(t); }catch(e){}
   _claimSignAuto(g('claim_sign_canvas'), t.ct, force);
   _claimSignAuto(g('claim_sign_canvas2'), t.two?t.ins:'', force);
 }
@@ -31285,6 +31293,7 @@ function saveClaim(){
     insName:(g('claim_ins_name')||{value:''}).value.trim(),
     insRrn:(g('claim_ins_rrn')||{value:''}).value.trim(),
     insRel:(g('claim_ins_rel')||{value:''}).value, // 계약자와의 관계 (본인/배우자/자녀/보호자/법정대리인)
+    docsWho:_claimDocsPerson().who, // 신분증·통장사본 주인 'ct'|'ins' — 보관함 키도 이 사람 기준(2026-10-30)
     insurer:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}).join(', '),
     insurerList:Array.from(document.querySelectorAll('input[name="claim_ins"]:checked')).map(function(cb){return cb.value;}),
     // 생명보험사별 청구서 발송 팩스번호 {보험사명: 번호}
@@ -31463,7 +31472,9 @@ function editClaim(i){
   wrap.style.display='block';
   // 이 기기에 원본이 없는 건(quota 정리·타 기기 등록)이라도 보관함에 있으면 자동 등록
   // — _claimDocsPrefill은 폼이 보여야 동작하므로(offsetParent 가드) 반드시 display='block' 이후에 호출
-  if(!c.idImg||!c.bankImg){ try{ _claimDocsPrefill(c.custName, c.rrn); }catch(e){} }
+  wrap._docsWho=(c.docsWho==='ins'&&c.insName&&c.insName!==c.custName)?'ins':'ct';   // 저장 당시 고른 사람(계약자/피보험자)
+  try{ _claimDocsWhoDraw(); }catch(e){}
+  if(!c.idImg||!c.bankImg){ try{ var _dp=_claimDocsPerson(); _claimDocsPrefill(_dp.name, _dp.rrn, _dp.who); }catch(e){} }
   var btn=g('btn_claim_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
   wrap.scrollIntoView({behavior:'smooth',block:'start'});
   initClaimSign();
@@ -31837,6 +31848,7 @@ function selectClaimInsCust(name,rrn){
   var r=g('claim_ins_rrn'); if(r) r.value=rrn||'';
   var wrap=g('claim_ins_search_wrap'); if(wrap) wrap.style.display='none';
   try{ _silsonDraw(); }catch(e){}
+  try{ _claimDocsWhoChanged(); }catch(e){}
   toast('피보험자 정보가 입력되었습니다.');
 }
 
@@ -31917,6 +31929,7 @@ function claimInsFamPick(name,rrn,rel){
   var relEl=g('claim_ins_rel'); if(relEl) relEl.value=rel||'';
   var wrap=g('claim_ins_search_wrap'); if(wrap) wrap.style.display='none';
   try{ _silsonDraw(); }catch(e){}
+  try{ _claimDocsWhoChanged(); }catch(e){}
   toast((name||'')+' 님이 피보험자로 입력되었습니다.');
 }
 
@@ -31930,7 +31943,7 @@ function _claimFillContractor(p){
   // 계좌정보 자동 입력 (등록된 계좌 — 가족이면 가족 명의 은행/계좌)
   window._selectedCust=p;
   fillClaimAccount(p);
-  try{ _claimDocsPrefill(p.name, p.rrn); }catch(e){} // 보관된 신분증·통장사본 자동 등록(가족 키 포함)
+  try{ _claimDocsPrefillFromInputs(); }catch(e){} // 보관된 신분증·통장사본 자동 등록(가족 키 포함 — 계약자/피보험자 선택 반영)
   try{ _claimInsFamDraw(); }catch(e){} // 피보험자 가족 바로입력 버튼 갱신
   var wrap=g('claim_cust_search_wrap');if(wrap)wrap.style.display='none';
   toast(p.name+' 님 정보가 입력되었습니다.');
@@ -32044,7 +32057,8 @@ function _claimDocsPathId(key){
 // skipAuto: {id:true,...}면 그 서류는 보관함에서 불러와 그대로인 것 → 재업로드 생략
 async function _claimDocsStore(obj, skipAuto){
   try{
-    var key=_claimDocsKey(obj&&obj.custName, obj&&obj.rrn); if(!key) return;
+    var _ins=obj&&obj.docsWho==='ins';
+    var key=_ins?_claimDocsKey(obj.insName, obj.insRrn):_claimDocsKey(obj&&obj.custName, obj&&obj.rrn); if(!key) return;
     var jobs=[['id',obj.idImg],['bank',obj.bankImg]].filter(function(p){
       if(skipAuto&&skipAuto[p[0]]) return false;
       return String(p[1]||'').startsWith('data:image');
@@ -32089,7 +32103,8 @@ function _claimDocsDelete(e,kind){
   if(e){ e.stopPropagation(); e.preventDefault(); }
   var wrap=g('claim_form_wrap'); if(!wrap) return;
   var all=_claimDocsAll();
-  var key=_claimDocsKey((g('claim_cust_name')||{value:''}).value, (g('claim_rrn')||{value:''}).value);
+  var _dp=_claimDocsPerson();
+  var key=_claimDocsKey(_dp.name, _dp.rrn);
   if(key&&!all[key]){ // 생년 없이 저장된 예전 키 등 — _claimDocsFind와 같은 규칙으로 실제 키 탐색
     var n=key.split('|')[0], birth=key.split('|')[1]||'', ks=[];
     Object.keys(all).forEach(function(k){
@@ -32122,10 +32137,13 @@ function _claimDocsFormReset(wrap){
   wrap._docsPrefillToken=(wrap._docsPrefillToken||0)+1;
   wrap._imgGen=(wrap._imgGen||0)+1; wrap._imgBusy=0; // 진행 중이던 이미지 변환 결과를 폐기(오귀속 방지)
   wrap._idAuto=false; wrap._bankAuto=false; wrap._idVault=false; wrap._bankVault=false; wrap._docsAutoKey='';
+  wrap._docsWho='ct'; wrap._docsWhoTwo=false;
+  document.querySelectorAll('input[name="claim_docs_who"]').forEach(function(r){ r.checked=(r.value==='ct'); });
+  var _dw=g('claim_docs_who_wrap'); if(_dw) _dw.style.display='none';
   ['claim_docs_del_id','claim_docs_del_bank'].forEach(function(id){ var b=g(id); if(b) b.style.display='none'; });
 }
 // 보관함(없으면 이 기기의 이전 청구)에서 신분증·통장사본을 찾아 빈 칸에만 자동 등록
-function _claimDocsPrefill(name, rrn){
+function _claimDocsPrefill(name, rrn, who){
   var wrap=g('claim_form_wrap'); if(!wrap||wrap.offsetParent===null||!String(name||'').trim()) return;
   var key=_claimDocsKey(name, rrn);
   // 이름만으로 자동등록된 뒤 주민번호가 입력·수정돼 대상 고객이 달라졌으면, 이전 자동등록분을 빼고 다시 조회
@@ -32176,8 +32194,10 @@ function _claimDocsPrefill(name, rrn){
     var n=String(name).trim(), birth=key.split('|')[1]||'';
     var cand=[], births={};
     for(var i=claims.length-1;i>=0;i--){
-      var c=claims[i]; if(!c||String(c.custName||'').trim()!==n) continue;
-      var cb=String(c.rrn||'').replace(/[^0-9]/g,'').slice(0,6);
+      var c=claims[i]; if(!c) continue;
+      var _ci=c.docsWho==='ins';   // 그 청구의 사진이 누구 것이었는지 — 고른 사람과 같은 쪽일 때만 사용
+      if(_ci!==(who==='ins')||String((_ci?c.insName:c.custName)||'').trim()!==n) continue;
+      var cb=String((_ci?c.insRrn:c.rrn)||'').replace(/[^0-9]/g,'').slice(0,6);
       if(birth&&cb!==birth) continue; // 생년 불일치·미기재 건은 본인 확인 불가 — 제외
       births[cb]=1; cand.push(c);
     }
@@ -32192,7 +32212,46 @@ function _claimDocsPrefill(name, rrn){
 }
 function _claimDocsPrefillFromInputs(){
   var wrap=g('claim_form_wrap'); if(!wrap||wrap.offsetParent===null) return;
-  _claimDocsPrefill((g('claim_cust_name')||{value:''}).value, (g('claim_rrn')||{value:''}).value);
+  var p=_claimDocsPerson();
+  _claimDocsPrefill(p.name, p.rrn, p.who);
+}
+// 신분증·통장사본의 주인 — 계약자≠피보험자이고 [피보험자]를 골랐으면 피보험자, 그 외엔 계약자 (2026-10-30)
+function _claimDocsPerson(){
+  var wrap=g('claim_form_wrap'), t=_claimSignTwo();
+  if(t.two&&wrap&&wrap._docsWho==='ins') return {who:'ins', name:t.ins, rrn:String((g('claim_ins_rrn')||{value:''}).value||'').trim()};
+  return {who:'ct', name:t.ct, rrn:String((g('claim_rrn')||{value:''}).value||'').trim()};
+}
+// 선택 칸 표시·이름 갱신. 피보험자를 고른 채 두 사람이 같아지면(또는 다시 달라지면) 주인이 바뀌므로 다시 불러옴
+function _claimDocsWhoDraw(t){
+  var wrap=g('claim_form_wrap'), box=g('claim_docs_who_wrap'); if(!wrap||!box) return;
+  t=t||_claimSignTwo();
+  box.style.display=t.two?'':'none';
+  var a=g('claim_docs_who_ct'), b=g('claim_docs_who_ins');
+  if(a&&a.textContent!==t.ct) a.textContent=t.ct;
+  if(b&&b.textContent!==t.ins) b.textContent=t.ins;
+  document.querySelectorAll('input[name="claim_docs_who"]').forEach(function(r){ r.checked=(r.value===(wrap._docsWho==='ins'?'ins':'ct')); });
+  var two=!!t.two;
+  if(wrap._docsWhoTwo!==two){
+    var was=wrap._docsWhoTwo; wrap._docsWhoTwo=two;
+    if(wrap._docsWho==='ins'&&was!==undefined&&wrap.offsetParent!==null){ try{ _claimDocsPrefillFromInputs(); }catch(e){} }
+  }
+}
+function _claimDocsWhoChanged(){
+  _claimDocsWhoDraw();
+  if(_claimDocsPerson().who==='ins') _claimDocsPrefillFromInputs();   // 피보험자 것을 쓰는 중이면 바뀐 피보험자로 다시 조회
+}
+function claimDocsWhoPick(who){
+  var wrap=g('claim_form_wrap'); if(!wrap) return;
+  who=who==='ins'?'ins':'ct';
+  if(wrap._docsWho===who) return;
+  wrap._docsWho=who;
+  _claimDocsWhoDraw();
+  var hand=(wrap._idImg&&!wrap._idAuto)||(wrap._bankImg&&!wrap._bankAuto);
+  _claimDocsPrefillFromInputs();   // 자동으로 불러온 사진은 빼고 고른 사람 것으로 다시 불러옴
+  var p=_claimDocsPerson(), ent=_claimDocsFind(p.name, p.rrn);
+  var nm=(who==='ins'?'피보험자':'계약자')+' '+(p.name||'')+' 님';
+  if(hand) toast(nm+' 것으로 바꿨습니다. 직접 올린 사진은 그대로 두었어요 — 바꾸려면 ✕로 빼세요.');
+  else if(!ent||(!ent.id&&!ent.bank)) toast(nm+' 보관 사진이 없습니다. 이번에 올리면 다음 청구부터 자동 등록됩니다.');
 }
 var _claimDocsToastTs=0;
 function _claimDocsPrefillToast(){

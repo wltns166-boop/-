@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-4. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -2083,6 +2083,11 @@
   **v2026.10.27-3 (사용자 제보 — 개인정보에 넣은 생년월일이 위임받는자 칸에 안 뜸)**: `_bdrMyInfo`가 이름·전화·주소만 채웠음 → 생년월일도
   (팀원 `mem[].birth`, 관리자 `admov[이름].birth`, `_ymdOk` 형식만). 클라우드 수신 전에 패널이 먼저 열려 내 정보가 비었으면 `_bdrGetVals`가
   수신 뒤 **한 번만, 빈 칸에만** 생년월일·전화·주소를 채움(`_wbFilled` — 사용자가 지운 칸을 되살리지 않게). 헤드리스 모의 실행(수신 전·후·지운 뒤·팀원) 통과.
+- **신분증·통장사본 주인 선택 (2026-10-30 — v2026.10.30-4, 사용자 요청)**: 계약자≠피보험자(`_claimSignTwo().two`)일 때만 신분증 칸 위에 `#claim_docs_who_wrap`
+  라디오 [계약자 ○○ 님 것]/[피보험자 ○○ 님 것](기본 계약자, `claimDocsWhoPick`, 상태 `wrap._docsWho`, 표시 갱신은 서명 감시 타이머의 `_claimDocsWhoDraw`).
+  주인은 `_claimDocsPerson()` 하나로 판정 — 보관함 자동 등록(`_claimDocsPrefill(name,rrn,who)`)·보관함 삭제·저장(`obj.docsWho` → `_claimDocsStore`가 그 사람 키 "이름|생년6"에 기록) 모두 이 사람 기준.
+  바꾸면 자동으로 불러온 사진만 빼고 고른 사람 것으로 다시 불러옴(직접 올린 사진은 그대로 — 토스트 안내), 피보험자를 고른 채 두 사람이 같아지면 계약자로 되돌아감.
+  이 기기 이전 청구 폴백은 그 청구의 docsWho가 같은 쪽일 때만(옛 청구=계약자). 수정 열기는 저장된 docsWho 복원. 고객등록의 가족 서류도 "가족이름|생년6" 키라 피보험자(가족) 선택 시 그대로 불러와짐.
 - **좌표 편집기 — 꺼진 항목 숨김·삭제 영구화 (2026-08-26)**: `m_claimcal` 캔버스는 **켜진 항목만** 칩으로
   표시(꺼진 항목의 회색 칩 렌더 제거 — 화면 어지럽힘의 원인). Delete/Backspace는 기본 항목이면
   **숨김(on:false)** — 통째로 지우면 저장본에서 키가 빠져 claimCoordsFor가 기본 좌표(defOn)로 되살리던
