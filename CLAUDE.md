@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-5. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-6. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -237,6 +237,7 @@
 - **구성원 관리 [카카오톡 등록] (2026-10-30 — v2026.10.30-5, 사용자 요청, 관리자 전용)**: [기기인증 관리] 오른쪽 노란 버튼(`btn_kkreg`, `.ao`+`_isAdmin` 가드) → 창 `#kkreg_popup`(`openKkRegMgr`/`_kkRegList`, 흰 카드 — 함정 D).
   **사람 기준 목록**(`_kkDbNameList` — 관리자+사용정지 아닌 팀원, openKkDbMgr와 공용으로 분리)에 `/api/kakao status`의 users(member 매핑)를 대조해 미등록([링크 복사]·[이 기기에서 등록] — `kkDbCopyLink(nm)`/`kkDbLinkHere(nm)`에 이름 인자 추가, 인자 없으면 옛 셀렉트 값) /
   승인 대기([승인]·[해제]) / 등록 완료([테스트]·[해제]) 표시. 계정이 여럿이면 승인된 것을 대표로 + 경고, 팀원 미지정 계정 수는 머리에 표시(지정은 DB 정보 [카톡 알림 연동]에서 — 같은 데이터·서버, 화면만 다름).
+  **v2026.10.30-6 (사용자 요청)**: 한 사람에 카카오 계정이 둘 이상이면 그 줄을 계정별 소줄(승인됨/대기 · 닉네임 · 카카오ID · 연동일 + [테스트]/[승인]·[해제])로 펼쳐 어느 계정이든 바로 정리(실사례: 김경태 2026-10-30 두 번 연동 — 승인 1·대기 1).
   `_kkDbList` 초입이 `_kkRegList()`를 불러 승인·해제 뒤 두 창이 같이 갱신, 늦은 응답은 `_kkRegSeq`로 폐기, logout에서 두 팝업 제거. onclick 인자는 이름·카카오ID(함정 A, & 먼저 이스케이프). 헤드리스 검증(5명 상태 표시·링크 복사 authurl 호출·비관리자 차단).
 
 - 관리자가 DB 배정 저장 시 `_kkDbAssignNotify()` → functions `dbassign` 액션 → 배정된 팀원의

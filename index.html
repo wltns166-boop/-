@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-6</div>
   </div>
 </div>
 
@@ -11101,7 +11101,17 @@ function _kkRegList(){
       var ohere=('kkDbLinkHere('+JSON.stringify(nm)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
       var us=byName[nm]||[], state='', acts='';
       var u=us.filter(function(x){ return x.approved; })[0]||us[0];   // 계정이 여럿이면 승인된 것을 대표로(집계와 일치)
-      if(!u){
+      if(us.length>1){
+        // 계정이 둘 이상이면 계정마다 한 줄씩 — 어느 것이든 바로 [해제]/[승인]/[테스트]할 수 있게(사용자 요청 2026-10-30)
+        state='<div style="color:#e0a030;font-weight:700;margin-bottom:4px">카카오 계정 '+us.length+'개 — 실제 쓰는 계정 하나만 남기고 [해제]하세요</div>'
+          +us.map(function(x){
+            var oid2=JSON.stringify(String(x.id)).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+            return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px dashed #e4e7f5;flex-wrap:wrap">'
+              +'<span style="font-size:12px;color:#444">'+(x.approved?'<b style="color:#209658">승인됨</b>':'<b style="color:#e0a030">승인 대기</b>')+' · 카카오: '+_esc(x.nick||'-')+(x.id?' <span style="color:#98a0c0">/ '+_esc(String(x.id))+'</span>':'')+(x.linkedAt?' · '+_esc(x.linkedAt):'')+(x.needsRelink?' <b style="color:#cc3030">재연동 필요</b>':'')+'</span>'
+              +'<span style="display:inline-flex;gap:6px">'+(x.approved?btn('kkDbTest('+oid2+')','테스트','#fffbe6','#e8d870','#8a7500'):btn('kkDbApprove('+oid2+')','승인','rgba(40,160,100,.12)','rgba(60,200,120,.35)','#209658'))+btn('kkDbUnlink('+oid2+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040')+'</span></div>';
+          }).join('');
+        acts='';
+      }else if(!u){
         state='<span style="color:#cc3030;font-weight:700">미등록</span>';
         acts=btn(onm,'<i class="ti ti-link"></i> 링크 복사','#4858cc','#4858cc','#fff')+btn(ohere,'이 기기에서 등록','#fee500','#f5d900','#191919');
       }else{
@@ -11114,11 +11124,12 @@ function _kkRegList(){
           state='<span style="color:#e0a030;font-weight:700">승인 대기</span>'+nick;
           acts=btn('kkDbApprove('+oid+')','승인','rgba(40,160,100,.12)','rgba(60,200,120,.35)','#209658')+btn('kkDbUnlink('+oid+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040');
         }
-        if(us.length>1) state+=' <span style="color:#e0a030;font-size:12px;font-weight:700">계정 '+us.length+'개 — [카톡 알림 연동]에서 정리</span>';
       }
-      return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eef;white-space:nowrap"><b>'+_esc(nm)+'</b></td>'
-        +'<td style="padding:8px 10px;border-bottom:1px solid #eef">'+state+'</td>'
-        +'<td style="padding:8px 10px;border-bottom:1px solid #eef;text-align:right;white-space:nowrap"><span style="display:inline-flex;gap:6px">'+acts+'</span></td></tr>';
+      return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eef;white-space:nowrap;vertical-align:top"><b>'+_esc(nm)+'</b></td>'
+        +(acts===''&&us.length>1
+          ?'<td colspan="2" style="padding:8px 10px;border-bottom:1px solid #eef">'+state+'</td>'
+          :'<td style="padding:8px 10px;border-bottom:1px solid #eef">'+state+'</td>'
+           +'<td style="padding:8px 10px;border-bottom:1px solid #eef;text-align:right;white-space:nowrap"><span style="display:inline-flex;gap:6px">'+acts+'</span></td>')+'</tr>';
     }).join('');
     var done=names.filter(function(n){ return (byName[n]||[]).some(function(u){ return u.approved; }); }).length;
     box.innerHTML='<div style="font-size:13px;color:#555;margin-bottom:8px">등록 완료 <b style="color:#209658">'+done+'</b> / 전체 '+names.length+'명'
