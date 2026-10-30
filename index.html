@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-7</div>
   </div>
 </div>
 
@@ -11033,7 +11033,8 @@ function _kkDbList(){
         +' <span style="color:#666;font-size:13px">카카오: '+_esc(u.nick||'-')+(u.id?' <span style="color:#98a0c0">/ '+_esc(String(u.id))+'</span>':'')+'</span>'
         +' <span style="color:#999;font-size:12px">('+_esc(u.linkedAt||'')+' 연동)</span>'
         +(u.approved?' <span style="color:#209658;font-size:12px;font-weight:700">승인됨</span>':' <span style="color:#e0a030;font-size:12px;font-weight:700">승인 대기</span>')
-        +(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'')+'</span>'
+        +(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'')
+        +(u.noMsg?' <span style="color:#cc3030;font-size:12px;font-weight:700" title="카카오 로그인 때 메시지 전송 동의가 빠진 계정 — 해제 후 다시 연동">메시지 동의 없음 · 해제 후 재연동</span>':'')+'</span>'
         +'<span style="display:flex;gap:6px;flex:0 0 auto">'
         +(u.approved
           ?('<button onclick="kkDbTest('+oid+')" style="font-size:12px;padding:4px 10px;background:#fffbe6;border:1px solid #e8d870;border-radius:5px;color:#8a7500;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-message-circle"></i> 테스트</button>'
@@ -11077,7 +11078,7 @@ function openKkRegMgr(){
   el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:720px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3);color:#1a1a2e">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px"><div style="font-size:17px;font-weight:700">💬 카카오톡 등록</div>'
     +'<button onclick="document.getElementById(\'kkreg_popup\').remove()" style="padding:6px 14px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">닫기</button></div>'
-    +'<div style="font-size:13px;color:#777;margin-bottom:12px">등록하면 DB 배정·예약문자 등 카톡 알림을 본인 카카오 "나와의 채팅"으로 받습니다. [링크 복사]로 링크를 전달하면 팀원이 <b>본인 카카오로 로그인</b>해 등록되고, 관리자가 [승인]하면 완료됩니다.</div>'
+    +'<div style="font-size:13px;color:#777;margin-bottom:12px">등록하면 DB 배정·예약문자 등 카톡 알림을 본인 카카오 "나와의 채팅"으로 받습니다. [링크 복사]로 링크를 전달하면 팀원이 <b>본인 카카오로 로그인</b>해 등록되고, 관리자가 [승인]하면 완료됩니다. <b style="color:#cc3030">로그인 동의 화면에서 "카카오톡 메시지 전송"에 반드시 체크</b>해야 카톡이 갑니다.</div>'
     +'<div id="kkreg_list" style="font-size:14px">불러오는 중…</div>'
   +'</div>';
   el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
@@ -11107,7 +11108,7 @@ function _kkRegList(){
           +us.map(function(x){
             var oid2=JSON.stringify(String(x.id)).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
             return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px dashed #e4e7f5;flex-wrap:wrap">'
-              +'<span style="font-size:12px;color:#444">'+(x.approved?'<b style="color:#209658">승인됨</b>':'<b style="color:#e0a030">승인 대기</b>')+' · 카카오: '+_esc(x.nick||'-')+(x.id?' <span style="color:#98a0c0">/ '+_esc(String(x.id))+'</span>':'')+(x.linkedAt?' · '+_esc(x.linkedAt):'')+(x.needsRelink?' <b style="color:#cc3030">재연동 필요</b>':'')+'</span>'
+              +'<span style="font-size:12px;color:#444">'+(x.approved?'<b style="color:#209658">승인됨</b>':'<b style="color:#e0a030">승인 대기</b>')+' · 카카오: '+_esc(x.nick||'-')+(x.id?' <span style="color:#98a0c0">/ '+_esc(String(x.id))+'</span>':'')+(x.linkedAt?' · '+_esc(x.linkedAt):'')+(x.needsRelink?' <b style="color:#cc3030">재연동 필요</b>':'')+(x.noMsg?' <b style="color:#cc3030">메시지 동의 없음 · 해제 후 재연동</b>':'')+'</span>'
               +'<span style="display:inline-flex;gap:6px">'+(x.approved?btn('kkDbTest('+oid2+')','테스트','#fffbe6','#e8d870','#8a7500'):btn('kkDbApprove('+oid2+')','승인','rgba(40,160,100,.12)','rgba(60,200,120,.35)','#209658'))+btn('kkDbUnlink('+oid2+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040')+'</span></div>';
           }).join('');
         acts='';
@@ -11118,10 +11119,10 @@ function _kkRegList(){
         var oid=JSON.stringify(String(u.id)).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
         var nick=' <span style="color:#666;font-size:12px;font-weight:400">카카오: '+_esc(u.nick||'-')+(u.linkedAt?' · '+_esc(u.linkedAt):'')+'</span>';
         if(u.approved){
-          state='<span style="color:#209658;font-weight:700">등록 완료</span>'+nick+(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'');
+          state='<span style="color:#209658;font-weight:700">등록 완료</span>'+nick+(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'')+(u.noMsg?' <span style="color:#cc3030;font-size:12px;font-weight:700" title="카카오 로그인 때 메시지 전송 동의가 빠진 계정 — 해제 후 다시 연동">메시지 동의 없음 · 해제 후 재연동</span>':'');
           acts=btn('kkDbTest('+oid+')','테스트','#fffbe6','#e8d870','#8a7500')+btn('kkDbUnlink('+oid+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040');
         }else{
-          state='<span style="color:#e0a030;font-weight:700">승인 대기</span>'+nick;
+          state='<span style="color:#e0a030;font-weight:700">승인 대기</span>'+nick+(u.noMsg?' <span style="color:#cc3030;font-size:12px;font-weight:700" title="카카오 로그인 때 메시지 전송 동의가 빠진 계정 — 해제 후 다시 연동">메시지 동의 없음 · 해제 후 재연동</span>':'');
           acts=btn('kkDbApprove('+oid+')','승인','rgba(40,160,100,.12)','rgba(60,200,120,.35)','#209658')+btn('kkDbUnlink('+oid+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040');
         }
       }

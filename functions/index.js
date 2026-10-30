@@ -270,6 +270,9 @@ async function _bzUpload(buf, clean) {
 }
 
 // 토큰 갱신 후 유효한 access_token 확보 (만료 10분 전이면 미리 갱신)
+// 카카오 전송 오류 → 사람이 이해할 문구. "insufficient scopes" = 로그인 때 "카카오톡 메시지 전송" 동의를 빼고 들어온 계정(2026-10-30 실사고).
+const KK_NO_SCOPE_MSG = "카카오 로그인 때 \"카카오톡 메시지 전송\" 동의가 빠진 계정입니다 — [해제] 후 연동 링크로 다시 로그인하며 메시지 전송 항목에 체크해야 합니다.";
+function _kkErrKo(msg) { return /insufficient scopes/i.test(String(msg || "")) ? KK_NO_SCOPE_MSG : msg; }
 async function _kkAccessToken(cfg, u) {
   if (u.at && u.atExp && Date.now() < u.atExp - 10 * 60 * 1000) return { at: u.at };
   const r = await _kkForm("https://kauth.kakao.com/oauth/token", {
@@ -544,6 +547,13 @@ async function _kkHandle(body, res) {
         res.status(400).json({ error: { message: "카카오 토큰 발급 실패: " + (t.data.error_description || t.data.error || t.status) } });
         return;
       }
+      // 메시지 전송 동의(talk_message) 없이 로그인하면 발송이 전부 "insufficient scopes"로 실패한다(2026-10-30 실사고 — 김경태 2계정) —
+      //   저장하지 않고 다시 동의하도록 안내(동의 화면에서 "카카오톡 메시지 전송" 체크를 빼면 여기로 온다).
+      const scopeStr = String(t.data.scope || "");
+      if (scopeStr && !/\btalk_message\b/.test(scopeStr)) {
+        res.status(400).json({ error: { message: "카카오 로그인은 됐지만 \"카카오톡 메시지 전송\" 동의가 빠졌습니다. 연동 링크를 다시 열어 동의 화면에서 메시지 전송 항목에 체크한 뒤 [동의하고 계속하기]를 눌러 주세요.", code: "no_talk_scope" } });
+        return;
+      }
       // 사용자 식별 (닉네임은 profile_nickname 동의 시에만 옴)
       const meR = await fetch("https://kapi.kakao.com/v2/user/me", { headers: { Authorization: "Bearer " + t.data.access_token } });
       const me = await meR.json().catch(() => ({}));
@@ -562,7 +572,8 @@ async function _kkHandle(body, res) {
       users[kid] = {
         nick, rt: t.data.refresh_token || (users[kid] && users[kid].rt) || "",
         at: t.data.access_token, atExp: Date.now() + (t.data.expires_in || 21600) * 1000,
-        linkedAt: _kkToday(), needsRelink: false, approved: wasApproved, member: memberNm
+        linkedAt: _kkToday(), needsRelink: false, approved: wasApproved, member: memberNm,
+        scope: scopeStr   // 동의 항목 기록(status에서 메시지 동의 여부 표시)
       };
       await KK_TOK().set({ users }, { merge: true });
       res.json({ ok: true, nick, approved: wasApproved });
@@ -597,7 +608,8 @@ async function _kkHandle(body, res) {
         enabled: !!cfg.enabled, sendTime: cfg.sendTime || "18:00", skipWeekend: !!cfg.skipWeekend,
         lastSentDate: cfg.lastSentDate || "",
         reportTo: Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS,
-        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", member: users[id].member || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved })),
+        users: Object.keys(users).map((id) => ({ id, nick: users[id].nick || "", member: users[id].member || "", linkedAt: users[id].linkedAt || "", needsRelink: !!users[id].needsRelink, approved: !!users[id].approved,
+          noMsg: !!(users[id].noMsg || (users[id].scope && !/\btalk_message\b/.test(String(users[id].scope)))) })),
         logs: (cfg.logs || []).slice(0, 31)
       });
       return;
@@ -904,7 +916,7 @@ async function _kkHandle(body, res) {
           buttons: [{ title: "크게 보기", link: { web_url: sheetR.u, mobile_web_url: sheetR.u } }, { title: "인트라넷 열기", link: { web_url: siteS, mobile_web_url: siteS } }] });
         const ss = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplS }, tR.at);
         if (ss.ok) res.json({ ok: true, sent: 1, total: 1, textParts: 1, nick: uR.nick || "" });
-        else res.json({ ok: false, sent: 0, total: 1, error: (ss.data && (ss.data.msg || ss.data.error_description)) || ("전송 실패 " + ss.status) });
+        else res.json({ ok: false, sent: 0, total: 1, error: _kkErrKo((ss.data && (ss.data.msg || ss.data.error_description)) || ("전송 실패 " + ss.status)) });
         return;
       }
       // 텍스트 템플릿 200자 제한 — 줄 단위로 나눠 최대 5통(긴 줄은 200자 조각으로)
@@ -932,7 +944,7 @@ async function _kkHandle(body, res) {
       for (const tpl of msgsR) {
         const sr = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, tR.at);
         if (sr.ok) sentR++;
-        else { lastErrR = (sr.data && (sr.data.msg || sr.data.error_description)) || ("전송 실패 " + sr.status); break; }
+        else { lastErrR = _kkErrKo((sr.data && (sr.data.msg || sr.data.error_description)) || ("전송 실패 " + sr.status)); break; }
       }
       // ok=글·사진 전부 도착. 일부만 갔으면 sent/total로 알려 재발송 시 중복을 사용자가 판단하게 한다(리뷰 반영)
       res.json({ ok: sentR >= msgsR.length, sent: sentR, total: msgsR.length, textParts: partsR.length, nick: uR.nick || "", error: lastErrR || (cutR ? "문구가 길어 뒷부분이 생략됨" : undefined) });
@@ -965,8 +977,12 @@ async function _kkHandle(body, res) {
       const txtT = "[테스트]\n" + (uT.member ? uT.member + "님, " : "") + "TEAM TOPS 인트라넷 카톡 알림이 정상 연결되었습니다.\nDB 배정 시 이 채팅으로 알림이 발송됩니다.";
       const tplT = JSON.stringify({ object_type: "text", text: txtT.slice(0, 200), link: { web_url: KK_SITE + "/", mobile_web_url: KK_SITE + "/" }, button_title: "인트라넷 열기" });
       const sT = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplT }, tT.at);
-      if (sT.ok) res.json({ ok: true, nick: uT.nick || "" });
-      else res.json({ ok: false, error: (sT.data && (sT.data.msg || sT.data.error_description)) || ("전송 실패 " + sT.status) });
+      if (sT.ok) { if (uT.noMsg) { uT.noMsg = false; await KK_TOK().set({ users: usersT }, { merge: true }).catch(() => {}); } res.json({ ok: true, nick: uT.nick || "" }); }
+      else {
+        const emsg = (sT.data && (sT.data.msg || sT.data.error_description)) || ("전송 실패 " + sT.status);
+        if (/insufficient scopes/i.test(emsg)) { uT.noMsg = true; await KK_TOK().set({ users: usersT }, { merge: true }).catch(() => {}); }   // 메시지 동의 없음 표식 → status에 noMsg
+        res.json({ ok: false, error: _kkErrKo(emsg) });
+      }
       return;
     }
     if (action === "sendnow") {
