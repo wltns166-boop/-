@@ -31473,7 +31473,7 @@ function editClaim(i){
   // 이 기기에 원본이 없는 건(quota 정리·타 기기 등록)이라도 보관함에 있으면 자동 등록
   // — _claimDocsPrefill은 폼이 보여야 동작하므로(offsetParent 가드) 반드시 display='block' 이후에 호출
   wrap._docsWho=(c.docsWho==='ins'&&c.insName&&c.insName!==c.custName)?'ins':'ct';   // 저장 당시 고른 사람(계약자/피보험자)
-  try{ _claimDocsWhoDraw(); }catch(e){}
+  try{ wrap._docsWhoTwo=_claimSignTwo().two; _claimDocsWhoDraw(); }catch(e){}   // 미리 맞춰 두어 아래 한 번만 조회
   if(!c.idImg||!c.bankImg){ try{ var _dp=_claimDocsPerson(); _claimDocsPrefill(_dp.name, _dp.rrn, _dp.who); }catch(e){} }
   var btn=g('btn_claim_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
   wrap.scrollIntoView({behavior:'smooth',block:'start'});
@@ -33007,7 +33007,7 @@ async function generateClaimPackage(idx) {
   var _idImgUse=c.idImg||'', _bankImgUse=c.bankImg||'';
   if(!_idImgUse||!_bankImgUse){
     try{
-      var _ent=(typeof _claimDocsFind==='function')?_claimDocsFind(c.custName, c.rrn):null;
+      var _ent=(typeof _claimDocsFind==='function')?((c.docsWho==='ins'&&c.insName&&c.insName!==c.custName)?_claimDocsFind(c.insName, c.insRrn):_claimDocsFind(c.custName, c.rrn)):null;   // 고른 사람(계약자/피보험자) 보관함
       if(!_idImgUse&&_ent&&_ent.id) _idImgUse=await _fetchDataUrl(_ent.id);
       if(!_bankImgUse&&_ent&&_ent.bank) _bankImgUse=await _fetchDataUrl(_ent.bank);
     }catch(e){ console.warn('보관함 서류 조회 실패(생성은 계속):', e); }
