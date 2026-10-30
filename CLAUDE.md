@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-3. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1340,6 +1340,13 @@
   [PDF 올리기](여러 개 한 번에 — `ckTplAdd`, 새 양식은 맨 뒤 ckOrd). 조작은 전부 게시물 id 기준·`_bdFresh` 병합 저장, 연타 가드 `_ckMgrBusy`/`_ckTplBusy`, 실시간 수신 재렌더 때 이름 입력 중이면 창을 다시 그리지 않음(`_ckMgrRefresh`).
   리뷰 반영: 다른 저장 중에 바꾼 이름은 버리지 않고 끝난 뒤 저장(`_ckMgrOp` wait 재시도), 저장 뒤 창 다시 그리기는 이름 입력 중이면 생략. 수용: 게시물 [수정] 창을 연 사이 양식 관리에서 바꾼 이름·순서는 그 게시물 저장 때 옛 값으로 덮일 수 있음(last-write-wins 계열), 새로 올린 양식은 자동 선택 안 됨.
   logout에서 `_ckSel`·`_ckPg` 리셋 + 창 닫기. 헤드리스 모의 실행(3양식 라벨·2장씩·체크 시 쪽 이동·2양식 합쳐 2쪽·선택 없음 거부·이름/순서/삭제/2파일 업로드 중 PDF 아닌 것 제외) 통과.
+- **v2026.10.30-3 쪽 단위 양식 + 좌표 지정 (사용자 요청 — "올린 양식에 2개의 양식이 들어있는데 1장만 반영", "양식관리에 좌표지정")**: 양식 = PDF 게시물의 **쪽 하나**(id `게시물id#쪽`).
+  쪽별 정보는 게시물의 `p.ckf={'쪽':{nm,ord,co,off}}`(`_ckMeta`로 쓰기 — boards 배열 안의 맵이라 sv merge 문제 없음), 쪽 수는 `p.ckn`(올릴 때 pdf-lib 쪽 수, 40 상한) → `f.pgTotal` → 미리보기 그림 수 → 열어서 센 값(`_ckCountPages` — 2쪽 이상이면 화면 다시 그림).
+  v-2의 `p.ckNm`은 1쪽 이름, `p.ckOrd`는 파일 순서로 이어서 읽음(1쪽 이름을 바꾸면 ckNm 삭제). 미리보기·출력은 그 쪽만(`_ckRenderPage`, `_ckBuild`가 같은 PDF는 한 번만 열어 쪽마다 기입 후 copyPages([쪽])), 자동 위치 `_ckCoords(u,쪽)` 캐시 키 `u#쪽`.
+  [양식 관리] 줄마다 **[좌표]** → 창 `#ck_co_pop`(`_ckCoOpen`): 쪽 그림 위 파란 점선 상자(담당자·핸드폰)를 끌어 옮기고 오른쪽 띠로 폭 조절, 글씨 크기 6~24 → `co={W,H,fs,mgr:{x,y,w},hp:{x,y,w}}`(pt·아래 원점·바닥선 — `_ckCoords` 형식, `_ckCoOk`로 숫자 확인).
+  co가 있으면 미리보기·출력 모두 그 값(`_ckCoOf`·`window._ckFM`), [자동 위치로]=co 삭제. 창은 쪽 전체가 화면 높이 안에 보이게 폭 제한. [삭제]는 같은 PDF에 다른 쪽이 남으면 그 쪽만 `off`(목록에서 뺌), 마지막 쪽이면 게시물째 `bdDel`, 뺀 쪽은 [뺀 양식 n개 되살리기].
+  리뷰 반영: 뺀 쪽이 있는 PDF의 마지막 쪽을 지우면 "뺀 쪽 n개도 함께 사라짐" 확인창 후 bdDel, 좌표 저장·자동 위치로는 다른 저장 중이면 끝난 뒤 저장(wait).
+  헤드리스 모의 실행(2쪽 PDF → 양식 2개·2쪽 골라 합쳐 2쪽 출력·좌표 끌기/글씨 크기/저장·자동 위치로·쪽 빼기/되살리기·3쪽 PDF 업로드 → 양식 3개 맨 뒤) 통과.
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 

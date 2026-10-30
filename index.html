@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-3</div>
   </div>
 </div>
 
@@ -27805,13 +27805,15 @@ function _ckBufOf(u){
     .catch(function(e){ delete window._ckPdfBuf[u]; throw e; });
   return window._ckPdfBuf[u];
 }
-async function _ckCoords(u){   // 양식 글자에서 '담당자'·'핸드폰' 위치를 찾아 값 자리 계산(없으면 CK_DEF)
+async function _ckCoords(u,pn){   // 양식 그 쪽(pn, 기본 1)의 글자에서 '담당자'·'핸드폰' 위치를 찾아 값 자리 계산(없으면 CK_DEF)
+  pn=Math.max(1,+pn||1);
+  var ck=u+'#'+pn;
   window._ckCoCache=window._ckCoCache||{};
-  if(window._ckCoCache[u]) return window._ckCoCache[u];
+  if(window._ckCoCache[ck]) return window._ckCoCache[ck];
   var co=JSON.parse(JSON.stringify(CK_DEF));
   try{
     var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(u)).slice(0)}).promise;
-    var pg=await pdf.getPage(1), vw=pg.view||[0,0,CK_DEF.W,CK_DEF.H];
+    var pg=await pdf.getPage(Math.min(pn,pdf.numPages)), vw=pg.view||[0,0,CK_DEF.W,CK_DEF.H];
     co.W=vw[2]-vw[0]; co.H=vw[3]-vw[1];
     var tc=await pg.getTextContent(), lm=null, lh=null;
     // 글자가 한두 자씩 나뉘어 나오는 PDF가 있어("담당"+"자") 같은 줄에서 붙어 있는 조각을 이어 붙여 판정
@@ -27830,26 +27832,56 @@ async function _ckCoords(u){   // 양식 글자에서 '담당자'·'핸드폰' �
     if(lm) co.mgr={x:lm.x+lm.w+10, y:lm.y, w:Math.max(40,(lh&&lh.y===lm.y&&lh.x>lm.x?lh.x:co.W-36)-(lm.x+lm.w+10)-14)};
     if(lh) co.hp={x:lh.x+lh.w+10, y:lh.y, w:Math.max(40,co.W-36-(lh.x+lh.w+10))};
   }catch(e){ console.warn('체크리스트 칸 위치 찾기 실패 — 이번만 기본 위치 사용(다음에 다시 시도):',e); return co; }   // 일시 실패는 캐시하지 않음(리뷰)
-  window._ckCoCache[u]=co;
+  try{ pdf.destroy(); }catch(e){}
+  window._ckCoCache[ck]=co;
   return co;
 }
-// ----- 양식 여러 개 (2026-10-30 — v2026.10.30-2, 사용자 요청) -----
-// 양식 = 그 분류에서 PDF가 붙은 게시물 1건. 순서는 p.ckOrd(양식 관리 ▲▼) → 없으면 올린 순서(ts). 이름은 p.ckNm, 비면 'N번양식'.
-// 출력할 양식 선택은 메모리 window._ckSel[분류id]=[게시물 id…](저장 없음, 처음엔 1번 양식), 미리보기 쪽 번호는 window._ckPg[분류id](2개씩).
-function _ckFormsOf(list,catId){
+// ----- 양식 여러 개 (2026-10-30 — v2026.10.30-2~-3, 사용자 요청) -----
+// 양식 = 그 분류 PDF 게시물의 **쪽 하나**(v-3 — PDF 한 파일에 양식이 여러 쪽이면 쪽마다 따로). id는 '게시물id#쪽'.
+// 쪽별 정보는 게시물의 p.ckf={'쪽':{nm,ord,co,off}} — nm 이름(비면 'N번양식'), ord 순서, co 직접 지정 좌표(없으면 글자 자동 인식), off 목록에서 뺌.
+// 쪽 수는 p.ckn(올릴 때 기록) → f.pgTotal → 미리보기 그림 수 → 따로 센 값(_ckPgCnt). v-2의 p.ckNm(1쪽 이름)·p.ckOrd(파일 순서)도 이어서 읽음.
+// 출력할 양식 선택은 메모리 window._ckSel[분류id]=[양식 id…](저장 없음, 처음엔 1번 양식), 미리보기 쪽 번호는 window._ckPg[분류id](2개씩).
+function _ckCoOk(c){
+  var num=function(n){ return typeof n==='number'&&isFinite(n); };
+  return !!(c&&typeof c==='object'&&num(c.W)&&num(c.H)&&c.W>0&&c.H>0&&num(c.fs)&&c.fs>=6&&c.fs<=30
+    &&['mgr','hp'].every(function(k){ var v=c[k]; return v&&typeof v==='object'&&num(v.x)&&num(v.y)&&num(v.w)&&v.w>0; }));
+}
+function _ckPgKnown(p,f){ return !!((+p.ckn>0)||(+f.pgTotal>0)||(Array.isArray(f.pages)&&f.pages.length)||(window._ckPgCnt&&window._ckPgCnt[f.u])); }
+function _ckPgCount(p,f){
+  var n=+p.ckn||+f.pgTotal||(Array.isArray(f.pages)?f.pages.length:0)||(window._ckPgCnt&&window._ckPgCnt[f.u])||1;
+  return Math.max(1,Math.min(40,Math.floor(n)||1));
+}
+function _ckMeta(p,pg){   // 쓰기용 — 쪽 정보 칸을 만들어 돌려줌
+  if(!p.ckf||typeof p.ckf!=='object'||Array.isArray(p.ckf)) p.ckf={};
+  var k=String(pg); if(!p.ckf[k]||typeof p.ckf[k]!=='object') p.ckf[k]={};
+  return p.ckf[k];
+}
+function _ckFormsOf(list,catId,withOff){
   var out=[];
   (Array.isArray(list)?list:[]).forEach(function(p){
     if(!p||p.cat!==catId) return;
     var f=_bdPdfs(p)[0]; if(!f) return;   // _bdPdfs가 _BD_URL_RE(우리 board_files)로 거른 주소만
-    var im=(Array.isArray(f.pages)&&f.pages[0]&&_BD_URL_RE.test(String(f.pages[0])))?f.pages[0]:'';
-    var ord=(typeof p.ckOrd==='number'&&isFinite(p.ckOrd))?p.ckOrd:null;
-    out.push({id:p.id,u:f.u,img:im,fn:String(f.n||''),nm:String(p.ckNm||'').slice(0,20),ord:ord,ts:+p.ts||0,dt:String(p.dt||''),post:p});
+    var n=_ckPgCount(p,f), meta=(p.ckf&&typeof p.ckf==='object'&&!Array.isArray(p.ckf))?p.ckf:{};
+    var pord=(typeof p.ckOrd==='number'&&isFinite(p.ckOrd))?p.ckOrd:null;
+    for(var pg=1;pg<=n;pg++){
+      var m=meta[String(pg)]; m=(m&&typeof m==='object')?m:{};
+      if(m.off&&!withOff) continue;
+      var pi=Array.isArray(f.pages)?f.pages[pg-1]:'';
+      out.push({id:p.id+'#'+pg, pid:p.id, pg:pg, np:n, u:f.u, img:(pi&&_BD_URL_RE.test(String(pi)))?pi:'', fn:String(f.n||''),
+        nm:String(m.nm||(pg===1?p.ckNm||'':'')).slice(0,20), ord:(typeof m.ord==='number'&&isFinite(m.ord))?m.ord:null, pord:pord,
+        ts:+p.ts||0, dt:String(p.dt||''), co:_ckCoOk(m.co)?m.co:null, off:!!m.off, post:p});
+    }
   });
   out.sort(function(a,b){
     if(a.ord!==null&&b.ord!==null&&a.ord!==b.ord) return a.ord-b.ord;
-    if(a.ord!==null&&b.ord===null) return -1;
-    if(a.ord===null&&b.ord!==null) return 1;
-    return a.ts-b.ts;
+    if((a.ord!==null)!==(b.ord!==null)) return a.ord!==null?-1:1;
+    if(a.pid!==b.pid){
+      if(a.pord!==null&&b.pord!==null&&a.pord!==b.pord) return a.pord-b.pord;
+      if((a.pord!==null)!==(b.pord!==null)) return a.pord!==null?-1:1;
+      if(a.ts!==b.ts) return a.ts-b.ts;
+      return a.pid<b.pid?-1:1;
+    }
+    return a.pg-b.pg;
   });
   out.forEach(function(f,i){ f.no=i+1; f.label=f.nm||((i+1)+'번양식'); });
   return out;
@@ -27904,10 +27936,12 @@ function _ckPrevHtml(name,catId){
   var pages=Math.ceil(forms.length/2), pg=Math.min(Math.max(0,+window._ckPg[catId]||0),pages-1);
   window._ckPg[catId]=pg;
   var show=forms.slice(pg*2,pg*2+2), ic=(window._ckImgCache=window._ckImgCache||{});
+  var fm=window._ckFM={};   // 미리보기 카드별 양식 정보(겹침 글자 위치 계산용)
   var nb='width:34px;height:34px;flex:0 0 34px;border-radius:50%;border:1px solid #c8cce8;background:#fff;color:#3a40aa;font-size:20px;line-height:1;cursor:pointer;font-family:inherit;';
   var cards=show.map(function(f){
-    var on=sel.indexOf(f.id)>=0, src=f.img||ic[f.u]||'';
-    return '<div data-cku="'+_esc(f.u)+'" style="flex:1 1 220px;min-width:0;max-width:440px">'
+    var on=sel.indexOf(f.id)>=0, src=f.img||ic[f.u+'#'+f.pg]||'';
+    fm[f.id]={u:f.u,pg:f.pg,co:f.co};
+    return '<div data-ckid="'+_esc(f.id)+'" style="flex:1 1 220px;min-width:0;max-width:440px">'
       +'<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#2a2a4a;margin-bottom:5px">'
         +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.label)+'</span>'
         +(on?'<span style="flex:0 0 auto;font-size:11.5px;font-weight:700;color:#1d7a32;background:#e3f4e6;border-radius:9px;padding:1px 7px">✓ 출력</span>':'')+'</div>'
@@ -27949,10 +27983,11 @@ function _ckInput(el){
   v[k]=el.value; v._f=1;   // 직접 고친 뒤엔 자동 채움이 덮지 않게
   _ckOverlay(cid);
 }
+function _ckCoOf(fm){ return fm&&(fm.co||(window._ckCoCache&&window._ckCoCache[fm.u+'#'+fm.pg]))||CK_DEF; }
 function _ckOverlay(catId){
-  var v=_ckGetVals(catId), cc=window._ckCoCache||{}, w=g('ck_prevwrap'); if(!w) return;
-  w.querySelectorAll('[data-cku]').forEach(function(card){
-    var co=cc[card.getAttribute('data-cku')]||CK_DEF, box=card.querySelector('[data-ckpv]');
+  var v=_ckGetVals(catId), w=g('ck_prevwrap'); if(!w) return;
+  w.querySelectorAll('[data-ckid]').forEach(function(card){
+    var co=_ckCoOf((window._ckFM||{})[card.getAttribute('data-ckid')]), box=card.querySelector('[data-ckpv]');
     card.querySelectorAll('[data-ckov]').forEach(function(el){
       var k=el.getAttribute('data-ckov'), c=co[k]; if(!c) return;
       el.textContent=String(v[k]||'');
@@ -27964,27 +27999,47 @@ function _ckOverlay(catId){
     });
   });
 }
+async function _ckRenderPage(u,pn,scale){   // PDF 한 쪽을 JPEG 그림으로(+쪽 크기)
+  var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(u)).slice(0)}).promise;
+  try{
+    var page=await pdf.getPage(pn), vw=page.view||[0,0,CK_DEF.W,CK_DEF.H];
+    var vp=page.getViewport({scale:scale||1.6}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+    await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    return {url:cv.toDataURL('image/jpeg',.85), W:vw[2]-vw[0], H:vw[3]-vw[1]};
+  }finally{ try{ pdf.destroy(); }catch(e){} }
+}
+async function _ckCountPages(name,catId){   // 쪽 수를 모르는 옛 게시물(미리보기 그림 없음)은 PDF를 열어 셈 → 2쪽 이상이면 화면 다시 그림
+  window._ckPgCnt=window._ckPgCnt||{}; window._ckPgCntRun=window._ckPgCntRun||{};
+  var more=false;
+  var list=_bdPosts(name).filter(function(p){ return p&&p.cat===catId; });
+  for(var i=0;i<list.length;i++){
+    var p=list[i], f=_bdPdfs(p)[0]; if(!f||_ckPgKnown(p,f)||window._ckPgCntRun[f.u]) continue;
+    window._ckPgCntRun[f.u]=1;
+    try{
+      var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(f.u)).slice(0)}).promise;
+      window._ckPgCnt[f.u]=pdf.numPages||1; if(pdf.numPages>1) more=true;
+      try{ pdf.destroy(); }catch(_e){}
+    }catch(e){ console.warn('체크리스트 양식 쪽 수 확인 실패:',e); }
+  }
+  if(more){ try{ rCustomPage(name); }catch(e){} }
+}
 async function _ckPrevLoad(name,catId){
   var w=g('ck_prevwrap'); if(!w) return;
   var gen=window._ckGen=(window._ckGen||0)+1;
+  _ckCountPages(name,catId);
   _ckOverlay(catId);
-  var cards=Array.prototype.slice.call(w.querySelectorAll('[data-cku]'));
+  var cards=Array.prototype.slice.call(w.querySelectorAll('[data-ckid]'));
   cards.forEach(function(card){ var im=card.querySelector('img'); if(im&&!im.complete) im.onload=function(){ _ckOverlay(catId); }; });
   for(var i=0;i<cards.length;i++){
-    var card=cards[i], u=card.getAttribute('data-cku');
+    var card=cards[i], fm=(window._ckFM||{})[card.getAttribute('data-ckid')]; if(!fm) continue;
     try{
-      await _ckCoords(u);
-      if(gen!==window._ckGen) return;
-      _ckOverlay(catId);
+      if(!fm.co){ await _ckCoords(fm.u,fm.pg); if(gen!==window._ckGen) return; _ckOverlay(catId); }
       var im=card.querySelector('img');
-      if(im&&!im.getAttribute('src')){   // 미리보기 그림이 없는 게시물 — 첫 쪽을 그려서 표시(주소별 캐시)
-        var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(u)).slice(0)}).promise, pg=await pdf.getPage(1);
-        var vp=pg.getViewport({scale:1.6}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
-        await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-        var url=cv.toDataURL('image/jpeg',.85); (window._ckImgCache=window._ckImgCache||{})[u]=url;
-        try{ pdf.destroy(); }catch(_e){}
+      if(im&&!im.getAttribute('src')){   // 미리보기 그림이 없는 쪽 — 그려서 표시(주소·쪽별 캐시)
+        var r=await _ckRenderPage(fm.u,fm.pg,1.6);
+        (window._ckImgCache=window._ckImgCache||{})[fm.u+'#'+fm.pg]=r.url;
         if(gen!==window._ckGen) return;
-        im.onload=function(){ _ckOverlay(catId); }; im.src=url;
+        im.onload=function(){ _ckOverlay(catId); }; im.src=r.url;
       }
     }catch(e){ console.warn('체크리스트 미리보기 실패:',e); }
   }
@@ -27993,14 +28048,17 @@ async function _ckBuild(name,catId){
   var forms=_ckForms(name,catId); if(!forms.length) throw new Error('이 분류에 올린 PDF 양식이 없습니다.');
   var sel=_ckSelIds(catId,forms), pick=forms.filter(function(f){ return sel.indexOf(f.id)>=0; });
   if(!pick.length) throw new Error('출력할 양식을 하나 이상 골라 주세요.');
-  var v=_ckGetVals(catId), out=await PDFLib.PDFDocument.create();
+  var v=_ckGetVals(catId), out=await PDFLib.PDFDocument.create(), docs={};
   for(var i=0;i<pick.length;i++){
-    var f=pick[i], buf=await _ckBufOf(f.u), co=await _ckCoords(f.u);
-    var doc=await PDFLib.PDFDocument.load(buf.slice(0)), pg=doc.getPages()[0];
+    var f=pick[i];
+    if(!docs[f.u]) docs[f.u]=await PDFLib.PDFDocument.load((await _ckBufOf(f.u)).slice(0));   // 같은 PDF의 여러 쪽은 한 번만 열기
+    var doc=docs[f.u], pages=doc.getPages();
+    if(f.pg>pages.length) throw new Error(f.label+': PDF에 '+f.pg+'쪽이 없습니다.');
+    var co=f.co||await _ckCoords(f.u,f.pg), pg=pages[f.pg-1];
     await _sdDtx(pg,doc,String(v.mgr||'').trim(),co.mgr.x,co.mgr.y,co.fs,co.mgr.w);
     await _sdDtx(pg,doc,String(v.hp||'').trim(),co.hp.x,co.hp.y,co.fs,co.hp.w);
-    var cp=await out.copyPages(doc,doc.getPageIndices());
-    cp.forEach(function(p){ out.addPage(p); });
+    var cp=await out.copyPages(doc,[f.pg-1]);
+    out.addPage(cp[0]);
   }
   return await out.save();
 }
@@ -28033,9 +28091,10 @@ async function ckSavePdf(name,catId){
   }catch(e){ toast('PDF 저장 실패: '+(e.message||e)); }
   finally{ window._ckBusy=false; }
 }
-// ----- [양식 관리] 창 (2026-10-30 — v2026.10.30-2, 관리자 전용) -----
-// 올리기(ckTplAdd)·이름(ckNm)·순서(ckOrd)·보기·삭제(bdDel 재사용). 조작은 전부 게시물 id 기준(함정 A), 저장은 _bdFresh(클라우드 최신본 병합).
-// 흰 카드(함정 D 역방향), id는 ck_mgr_ 접두(함정 E). 상태 window._ckMgr={name,catId} — logout에서 창과 함께 정리.
+// ----- [양식 관리] 창 (2026-10-30 — v2026.10.30-2~-3, 관리자 전용) -----
+// 올리기(ckTplAdd)·이름·순서(▲▼)·좌표(_ckCoOpen)·보기·삭제. 조작은 전부 양식 id(게시물id#쪽) 기준(함정 A), 저장은 _bdFresh(클라우드 최신본 병합).
+// 삭제: 같은 PDF에 다른 쪽이 남아 있으면 그 쪽만 목록에서 뺌(off), 마지막 쪽이면 게시물째 삭제(bdDel). 뺀 쪽은 [뺀 양식 되살리기]로 복구.
+// 흰 카드(함정 D 역방향), id는 ck_mgr_·ck_co_ 접두(함정 E). 상태 window._ckMgr={name,catId} — logout에서 창과 함께 정리.
 function ckMgrOpen(name,catId){
   if(!_isAdmin()){ toast('관리자만 양식을 관리할 수 있습니다.'); return; }
   var old=g('ck_mgr_pop'); if(old) old.remove();
@@ -28043,7 +28102,7 @@ function ckMgrOpen(name,catId){
   var ov=document.createElement('div');
   ov.id='ck_mgr_pop';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
-  ov.innerHTML='<div style="background:#fff;color:#1a1a2e;border-radius:12px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+  ov.innerHTML='<div style="background:#fff;color:#1a1a2e;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="flex:1;font-weight:700;font-size:17px"><i class="ti ti-settings"></i> 양식 관리</div>'
     +'<button data-ckmact="close" style="border:none;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer">×</button></div>'
     +'<div id="ck_mgr_body"></div></div>';
@@ -28053,39 +28112,45 @@ function ckMgrOpen(name,catId){
     var act=b.getAttribute('data-ckmact'), row=b.closest('[data-ckmid]'), id=row?row.getAttribute('data-ckmid'):'';
     if(act==='close') ckMgrClose();
     else if(act==='up'||act==='down') _ckMgrMove(id,act==='up'?-1:1);
+    else if(act==='co') _ckCoOpen(id);
     else if(act==='view') _ckMgrView(id);
     else if(act==='del') _ckMgrDel(id);
+    else if(act==='unhide') _ckMgrUnhide();
   });
   ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.hasAttribute&&ev.target.hasAttribute('data-ckmnm')){ ev.preventDefault(); ev.target.blur(); } });
   document.body.appendChild(ov);
   _ckMgrDraw();
 }
-function ckMgrClose(){ var p=g('ck_mgr_pop'); if(p) p.remove(); window._ckMgr=null; }
+function ckMgrClose(){ _ckCoClose(); var p=g('ck_mgr_pop'); if(p) p.remove(); window._ckMgr=null; }
 function _ckMgrDraw(){
   var m=window._ckMgr, body=g('ck_mgr_body'); if(!m||!body) return;
   var cat=_bdCats(m.name).filter(function(c){ return c.id===m.catId; })[0];
   if(!cat){ body.innerHTML='<div style="padding:20px 0;color:#c03030">분류를 찾을 수 없습니다. 창을 닫고 새로고침해 주세요.</div>'; return; }
   var forms=_ckForms(m.name,m.catId), A=_ckArgs(m.name,m.catId);
+  var hidden=_ckFormsOf(_bdPosts(m.name),m.catId,true).filter(function(f){ return f.off; }).length;
   var sb='padding:5px 9px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#444;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;';
   var rows=forms.map(function(f,i){
     return '<div data-ckmid="'+_esc(f.id)+'" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eceef6">'
       +'<div style="flex:0 0 22px;text-align:center;font-weight:700;color:#4858cc">'+f.no+'</div>'
-      +(f.img?'<img src="'+_esc(f.img)+'" alt="" draggable="false" style="flex:0 0 40px;width:40px;height:56px;object-fit:cover;border:1px solid #dde0ee">':'<div style="flex:0 0 40px;height:56px;border:1px dashed #ccd;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999">PDF</div>')
+      +(f.img?'<img src="'+_esc(f.img)+'" alt="" draggable="false" style="flex:0 0 40px;width:40px;height:56px;object-fit:cover;border:1px solid #dde0ee">':'<div style="flex:0 0 40px;height:56px;border:1px dashed #ccd;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999">'+f.pg+'쪽</div>')
       +'<div style="flex:1;min-width:0">'
         +'<input data-ckmnm="1" value="'+_esc(f.nm)+'" placeholder="'+f.no+'번양식" maxlength="20" onchange="ckMgrRename(this)" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ccd;border-radius:6px;font-family:inherit;font-size:14px;color:#111;background:#fff">'
-        +'<div style="font-size:11.5px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.fn||'PDF')+(f.dt?' · '+_esc(f.dt):'')+'</div></div>'
-      +'<div style="flex:0 0 auto;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:170px">'
+        +'<div style="font-size:11.5px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.fn||'PDF')+(f.np>1?' · '+f.pg+'/'+f.np+'쪽':'')+(f.dt?' · '+_esc(f.dt):'')
+          +' · <span style="color:'+(f.co?'#207830':'#8a92ac')+'">좌표 '+(f.co?'직접 지정':'자동')+'</span></div></div>'
+      +'<div style="flex:0 0 auto;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:200px">'
         +'<button data-ckmact="up" title="위로" style="'+sb+'"'+(i===0?' disabled':'')+'>▲</button>'
         +'<button data-ckmact="down" title="아래로" style="'+sb+'"'+(i===forms.length-1?' disabled':'')+'>▼</button>'
+        +'<button data-ckmact="co" style="'+sb+'border-color:#b8c4ee;background:#eef1ff;color:#3a40aa">좌표</button>'
         +'<button data-ckmact="view" style="'+sb+'">보기</button>'
         +'<button data-ckmact="del" style="'+sb+'border-color:#e0b0b0;background:#fdf3f3;color:#c03030">삭제</button></div>'
       +'</div>';
   }).join('');
-  body.innerHTML='<div style="font-size:12.5px;color:#777;margin-bottom:12px;line-height:1.6">'+_esc(cat.nm)+' — 이름은 [바로 출력] 위 체크박스에 표시됩니다(비우면 "N번양식"). 여러 개 고르면 위에 있는 양식부터 출력됩니다.</div>'
+  body.innerHTML='<div style="font-size:12.5px;color:#777;margin-bottom:12px;line-height:1.6">'+_esc(cat.nm)+' — PDF 한 파일에 여러 쪽이 있으면 쪽마다 양식 하나로 나옵니다. 이름은 [바로 출력] 위 체크박스에 표시되고(비우면 "N번양식"), 여러 개 고르면 위에 있는 양식부터 출력됩니다. [좌표]에서 담당자·핸드폰이 찍힐 자리를 직접 정할 수 있습니다.</div>'
     +(rows||'<div style="padding:18px 0;color:#999;font-size:13.5px;text-align:center">올린 양식이 없습니다.</div>')
     +'<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap">'
       +'<label style="padding:8px 14px;border-radius:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830;font-size:14px;font-weight:700;cursor:pointer"><i class="ti ti-file-plus"></i> PDF 올리기'
       +'<input type="file" accept="application/pdf,.pdf" multiple onchange="ckTplAdd(this,'+A.an+','+A.ac+')" style="display:none"></label>'
+      +(hidden?'<button data-ckmact="unhide" style="'+sb+'">뺀 양식 '+hidden+'개 되살리기</button>':'')
       +'<span style="flex:1;font-size:11.5px;color:#999">PDF만 · 1개 25MB까지 · 여러 개 한 번에 가능</span>'
       +'<button data-ckmact="close" style="padding:8px 16px;border-radius:8px;background:#eceef6;border:1px solid #d0d4e8;color:#44485a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button></div>';
 }
@@ -28109,13 +28174,20 @@ async function _ckMgrOp(mut,okMsg,wait){
   }catch(e){ console.warn(e); toast('저장 실패: '+(e&&e.message||e)); }
   finally{ window._ckMgrBusy=false; try{ _ckMgrRefresh(); }catch(e){} }   // 다른 줄 이름을 입력 중이면 다시 그리지 않음(리뷰)
 }
+function _ckIdSplit(id){ var m=/^(.+)#(\d+)$/.exec(String(id||'')); return m?{pid:m[1],pg:+m[2]}:null; }
+function _ckPostIn(arr,pid){
+  var p=arr.filter(function(x){ return x&&x.id===pid; })[0];
+  if(!p) throw new Error('양식을 찾을 수 없습니다(다른 관리자가 지웠을 수 있습니다).');
+  return p;
+}
 function ckMgrRename(el){
   var row=el.closest('[data-ckmid]'); if(!row) return;
-  var id=row.getAttribute('data-ckmid'), v=String(el.value||'').replace(/\s+/g,' ').trim().slice(0,20);
+  var k=_ckIdSplit(row.getAttribute('data-ckmid')); if(!k) return;
+  var v=String(el.value||'').replace(/\s+/g,' ').trim().slice(0,20);
   _ckMgrOp(function(arr){
-    var p=arr.filter(function(x){ return x&&x.id===id; })[0];
-    if(!p) throw new Error('양식을 찾을 수 없습니다(다른 관리자가 지웠을 수 있습니다).');
-    if(v) p.ckNm=v; else delete p.ckNm;
+    var p=_ckPostIn(arr,k.pid), mt=_ckMeta(p,k.pg);
+    if(v) mt.nm=v; else delete mt.nm;
+    if(k.pg===1) delete p.ckNm;   // v-2의 게시물 단위 이름은 1쪽 이름으로 옮김
   },'양식 이름을 저장했습니다.',1);
 }
 function _ckMgrMove(id,d){
@@ -28125,24 +28197,143 @@ function _ckMgrMove(id,d){
     if(i<0) throw new Error('양식을 찾을 수 없습니다(다른 관리자가 지웠을 수 있습니다).');
     var j=i+d; if(j<0||j>=forms.length) return;
     var t=forms[i]; forms[i]=forms[j]; forms[j]=t;
-    forms.forEach(function(f,k){ f.post.ckOrd=k; });   // f.post는 arr 안의 실제 게시물
+    forms.forEach(function(f,k){ _ckMeta(f.post,f.pg).ord=k; });   // f.post는 arr 안의 실제 게시물
   },'');
 }
 function _ckMgrView(id){
   var m=window._ckMgr; if(!m) return;
   var f=_ckForms(m.name,m.catId).filter(function(x){ return x.id===id; })[0];
   if(!f){ toast('양식을 찾을 수 없습니다.'); return; }
-  var w=null; try{ w=window.open(f.u,'_blank','noopener'); }catch(e){}
+  var w=null; try{ w=window.open(f.u+'#page='+f.pg,'_blank','noopener'); }catch(e){}
   if(!w) toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.');
 }
 async function _ckMgrDel(id){
   var m=window._ckMgr; if(!m) return;
   if(window._ckMgrBusy||window._ckTplBusy){ toast('처리 중입니다. 잠시만 기다려주세요.'); return; }
+  var forms=_ckForms(m.name,m.catId), f=forms.filter(function(x){ return x.id===id; })[0]; if(!f) return;
+  var sibs=forms.filter(function(x){ return x.pid===f.pid; }).length;
+  if(sibs>1){   // 같은 PDF에 다른 양식이 남아 있으면 이 쪽만 목록에서 뺌
+    if(!confirm('"'+f.label+'"('+f.fn+' '+f.pg+'쪽)을 양식 목록에서 뺄까요?\n같은 PDF의 다른 쪽 양식은 그대로 남습니다.')) return;
+    _ckMgrOp(function(arr){ _ckMeta(_ckPostIn(arr,f.pid),f.pg).off=1; },'양식을 목록에서 뺐습니다.');
+    return;
+  }
+  var hid=_ckFormsOf(_bdPosts(m.name),m.catId,true).filter(function(x){ return x.pid===f.pid&&x.off; }).length;
+  if(hid&&!confirm('"'+f.label+'"은(는) '+f.fn+'에 남은 마지막 양식입니다.\n지우면 PDF 파일째 삭제되어, 목록에서 뺀 같은 PDF의 다른 쪽 '+hid+'개도 함께 사라지고 되살릴 수 없습니다.\n계속할까요?')) return;   // 리뷰 — 뺀 쪽이 조용히 사라지지 않게
   window._ckMgrBusy=true;
-  try{ await bdDel(m.name,id); }   // 게시물·원본·미리보기 그림까지 정리(확인창 포함)
+  try{ await bdDel(m.name,f.pid); }   // 마지막 쪽 — 게시물·원본·미리보기 그림까지 정리(확인창 포함)
   finally{ window._ckMgrBusy=false; try{ _ckMgrDraw(); }catch(e){} }
 }
-// [PDF 올리기]: 파일마다 그 분류의 새 게시물로 올림(게시물 작성과 같은 저장 형식 — 원본 + 페이지 미리보기). 순서는 맨 뒤(ckOrd).
+function _ckMgrUnhide(){
+  _ckMgrOp(function(arr,catId){
+    _ckFormsOf(arr,catId,true).forEach(function(f){ if(f.off) delete _ckMeta(f.post,f.pg).off; });
+  },'뺀 양식을 되살렸습니다.');
+}
+// ----- 좌표 지정 창 (2026-10-30 — v2026.10.30-3, 사용자 요청) -----
+// 그 쪽 그림 위의 파란 점선 상자 2개(담당자·핸드폰)를 끌어 옮기고 오른쪽 끝을 끌어 폭 조절, 글씨 크기 입력 → p.ckf[쪽].co={W,H,fs,mgr:{x,y,w},hp:{x,y,w}}
+// (PDF pt·아래 원점, y=글자 바닥선 — _ckCoords와 같은 형식). [자동 위치로]=co 삭제(글자 자동 인식으로 돌아감). 받은 co는 _ckCoOk로 숫자만 확인해 씀.
+async function _ckCoOpen(id){
+  var m=window._ckMgr; if(!m) return;
+  var f=_ckForms(m.name,m.catId).filter(function(x){ return x.id===id; })[0];
+  if(!f){ toast('양식을 찾을 수 없습니다.'); return; }
+  _ckCoClose();
+  var gen=window._ckCoGen=(window._ckCoGen||0)+1;
+  var bt='padding:8px 14px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;';
+  var ov=document.createElement('div');
+  ov.id='ck_co_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.innerHTML='<div style="background:#fff;color:#1a1a2e;border-radius:12px;max-width:760px;width:100%;max-height:94vh;overflow-y:auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.4)">'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:4px"><i class="ti ti-crosshair"></i> 좌표 지정 — '+_esc(f.label)+'</div>'
+    +'<div style="font-size:12.5px;color:#666;margin-bottom:10px;line-height:1.6">파란 점선 상자를 끌어 <b>담당자</b>·<b>핸드폰</b>이 찍힐 자리로 옮기세요. 상자 오른쪽 끝(진한 띠)을 끌면 폭이 바뀝니다(긴 값은 폭에 맞춰 줄어듦).</div>'
+    +'<div id="ck_co_stage" style="position:relative;container-type:inline-size;border:1px solid #ccd;background:#f4f4f6;min-height:240px;user-select:none">'
+      +'<img id="ck_co_img" alt="" draggable="false" style="display:block;width:100%">'
+      +'<div id="ck_co_wait" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font-size:13.5px">양식을 불러오는 중…</div></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">'
+      +'<label style="font-size:13px;color:#444">글씨 크기 <input id="ck_co_fs" type="number" min="6" max="24" step="0.5" style="width:64px;padding:5px 6px;border:1px solid #ccd;border-radius:6px;font-family:inherit;font-size:13px;color:#111;background:#fff"> pt</label>'
+      +'<span style="flex:1"></span>'
+      +'<button data-ckcoact="auto" style="'+bt+'background:#fff;border:1px solid #c8cce8;color:#3a40aa">자동 위치로</button>'
+      +'<button data-ckcoact="cancel" style="'+bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">취소</button>'
+      +'<button data-ckcoact="save" style="'+bt+'background:#4858cc;border:none;color:#fff">저장</button></div></div>';
+  ov.addEventListener('click',function(ev){
+    var b=ev.target.closest&&ev.target.closest('[data-ckcoact]'); if(!b) return;
+    var a=b.getAttribute('data-ckcoact');
+    if(a==='cancel') _ckCoClose(); else if(a==='save') _ckCoSave(); else if(a==='auto') _ckCoAuto();
+  });
+  document.body.appendChild(ov);
+  var fsIn=g('ck_co_fs');
+  fsIn.addEventListener('input',function(){ var s=window._ckCo; if(!s||!s.co) return; var n=+fsIn.value; if(isFinite(n)&&n>=6&&n<=24){ s.co.fs=n; _ckCoDraw(); } });
+  window._ckCo={id:f.id,pid:f.pid,pg:f.pg,co:null};
+  try{
+    var r=await _ckRenderPage(f.u,f.pg,1.6);
+    var base=JSON.parse(JSON.stringify(f.co||await _ckCoords(f.u,f.pg)));
+    if(gen!==window._ckCoGen) return;
+    base.W=r.W; base.H=r.H;   // 쪽 실제 크기로
+    window._ckCo.co=base;
+    var stg=g('ck_co_stage'); if(stg){ stg.style.maxWidth='calc((94vh - 190px) * '+(r.W/r.H).toFixed(4)+')'; stg.style.margin='0 auto'; }   // 쪽 전체가 화면 높이 안에 보이게
+    var im=g('ck_co_img'); if(im){ im.onload=function(){ _ckCoDraw(); }; im.src=r.url; }
+    var wt=g('ck_co_wait'); if(wt) wt.remove();
+    fsIn.value=base.fs;
+    _ckCoDraw();
+  }catch(e){
+    console.warn(e);
+    if(gen!==window._ckCoGen) return;
+    toast('양식을 불러오지 못했습니다: '+(e&&e.message||e)); _ckCoClose();
+  }
+}
+function _ckCoClose(){ window._ckCoGen=(window._ckCoGen||0)+1; window._ckCo=null; var p=g('ck_co_pop'); if(p) p.remove(); }
+function _ckCoDraw(){
+  var s=window._ckCo, st=g('ck_co_stage'); if(!s||!s.co||!st) return;
+  var co=s.co, v=window._ckMgr?_ckGetVals(window._ckMgr.catId):{};
+  ['mgr','hp'].forEach(function(k){
+    var el=st.querySelector('[data-cochip="'+k+'"]');
+    if(!el){
+      el=document.createElement('div'); el.setAttribute('data-cochip',k); el.title=k==='mgr'?'담당자':'핸드폰';
+      el.style.cssText='position:absolute;box-sizing:border-box;border:1.5px dashed #1a3fd0;background:rgba(72,88,204,.14);color:#1a3fd0;white-space:nowrap;overflow:hidden;cursor:move;touch-action:none;line-height:1.15;padding:0 10px 0 2px';
+      el.innerHTML='<span data-cotx="1"></span><span data-cohd="1" style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;background:#1a3fd0;opacity:.6"></span>';
+      st.appendChild(el); _ckCoBindDrag(el,k);
+    }
+    var c=co[k];
+    el.style.left=(c.x/co.W*100)+'%';
+    el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
+    el.style.width=(c.w/co.W*100)+'%';
+    el.style.fontSize=(co.fs/co.W*100)+'cqw';
+    el.querySelector('[data-cotx]').textContent=(k==='mgr'?(String(v.mgr||'').trim()||'담당자'):(String(v.hp||'').trim()||'010-0000-0000'));
+  });
+}
+function _ckCoBindDrag(el,k){
+  el.addEventListener('pointerdown',function(ev){
+    var s=window._ckCo, st=g('ck_co_stage'); if(!s||!s.co||!st) return;
+    ev.preventDefault();
+    var r=st.getBoundingClientRect(), resize=!!(ev.target.closest&&ev.target.closest('[data-cohd]'));
+    var c=s.co[k], x0=c.x, y0=c.y, w0=c.w, px=ev.clientX, py=ev.clientY;
+    try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+    function mv(e){
+      if(window._ckCo!==s) return;
+      var dx=(e.clientX-px)/r.width*s.co.W, dy=(e.clientY-py)/r.height*s.co.H;
+      if(resize) c.w=Math.max(20,Math.min(s.co.W-c.x,w0+dx));
+      else { c.x=Math.max(0,Math.min(s.co.W-20,x0+dx)); c.y=Math.max(2,Math.min(s.co.H-2,y0-dy)); c.w=Math.min(c.w,s.co.W-c.x); }
+      _ckCoDraw();
+    }
+    function up(){ el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',up); }
+    el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  });
+}
+function _ckCoSave(){
+  var s=window._ckCo; if(!s||!s.co){ toast('양식을 아직 불러오는 중입니다.'); return; }
+  var co=s.co, r=function(n){ return Math.round(n*10)/10; }, pt=function(c){ return {x:r(c.x),y:r(c.y),w:r(c.w)}; };
+  var out={W:r(co.W),H:r(co.H),fs:r(co.fs),mgr:pt(co.mgr),hp:pt(co.hp)};
+  if(!_ckCoOk(out)){ toast('좌표 값이 올바르지 않습니다. 글씨 크기는 6~24 사이로 넣어 주세요.'); return; }
+  var pid=s.pid, pg=s.pg;
+  _ckCoClose();
+  _ckMgrOp(function(arr){ _ckMeta(_ckPostIn(arr,pid),pg).co=out; },'좌표를 저장했습니다.',1);   // 다른 저장 중이면 끝난 뒤 저장(창은 이미 닫힘 — 버리지 않게)
+}
+function _ckCoAuto(){
+  var s=window._ckCo; if(!s) return;
+  if(!confirm('직접 지정한 좌표를 지우고 양식 글자(담당자·핸드폰)로 자동으로 찾은 위치를 쓸까요?')) return;
+  var pid=s.pid, pg=s.pg;
+  _ckCoClose();
+  _ckMgrOp(function(arr){ delete _ckMeta(_ckPostIn(arr,pid),pg).co; },'자동 위치로 되돌렸습니다.',1);
+}
+// [PDF 올리기]: 파일마다 그 분류의 새 게시물로 올림(게시물 작성과 같은 저장 형식 — 원본 + 페이지 미리보기). 쪽마다 양식 하나, 순서는 맨 뒤.
 // 올리기 전 출력과 같은 pdf-lib로 열어 봄(암호 PDF 등 거부 — ignoreEncryption 금지).
 async function ckTplAdd(inp,name,catId){
   var files=Array.prototype.slice.call((inp&&inp.files)||[]); try{ inp.value=''; }catch(e){}
@@ -28159,29 +28350,30 @@ async function ckTplAdd(inp,name,catId){
     return true;
   });
   if(!files.length){ toast('올릴 수 없는 파일입니다: '+bad.join(', ')); return; }
-  if(!confirm(files.length+'개 PDF를 '+cat.nm+' 양식으로 추가할까요?'+(bad.length?'\n(제외: '+bad.join(', ')+')':''))) return;
+  if(!confirm(files.length+'개 PDF를 '+cat.nm+' 양식으로 추가할까요?\n(PDF 한 파일에 여러 쪽이 있으면 쪽마다 양식 하나로 추가됩니다)'+(bad.length?'\n(제외: '+bad.join(', ')+')':''))) return;
   window._ckTplBusy=true;
   var done=0, fail=bad.slice();
   try{
     for(var i=0;i<files.length;i++){
-      var f=files[i], entry=null, post=null;
+      var f=files[i], entry=null, post=null, np=1;
       try{
         var ab=await f.arrayBuffer();
-        try{ await PDFLib.PDFDocument.load(ab.slice(0)); }
+        try{ np=(await PDFLib.PDFDocument.load(ab.slice(0))).getPageCount()||1; }
         catch(e){ throw new Error('열 수 없는 PDF(암호·손상)'); }
+        np=Math.min(40,np);
         toast('양식 올리는 중… ('+(i+1)+'/'+files.length+')');
         entry={u:await _bdPdfUpload(name,f), t:'pdf', n:String(f.name||'양식.pdf').slice(0,120)};
         try{
           var pv=await _bdPdfPagesUpload(name, ab.slice(0), entry.n);
           entry.pages=pv.pages; if(pv.total>pv.pages.length) entry.pgTotal=pv.total;
-        }catch(e){ console.warn('체크리스트 양식 미리보기 생성 실패:',e); }   // 없어도 _ckPrevLoad가 첫 쪽을 그려 보여 줌
+        }catch(e){ console.warn('체크리스트 양식 미리보기 생성 실패:',e); }   // 없어도 _ckPrevLoad가 쪽을 그려 보여 줌
         post={ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now(),
-          title:cat.nm+' 양식 ('+td()+')', body:'', vm:'scroll', files:[entry], cat:catId };
+          title:cat.nm+' 양식 ('+td()+')', body:'', vm:'scroll', files:[entry], cat:catId, ckn:np, ckf:{} };
         await _bdFresh(function(b){
           if(!Array.isArray(b[name])) b[name]=[];
           var forms=_ckFormsOf(b[name],catId);
-          forms.forEach(function(x,k){ x.post.ckOrd=k; });   // 지금 보이는 순서를 굳히고 새 양식은 맨 뒤
-          post.ckOrd=forms.length;
+          forms.forEach(function(x,k){ _ckMeta(x.post,x.pg).ord=k; });   // 지금 보이는 순서를 굳히고 새 양식은 맨 뒤
+          for(var pg=1;pg<=np;pg++) post.ckf[String(pg)]={ord:forms.length+pg-1};
           b[name].push(post);
         });
         entry=null; done++;
@@ -28194,7 +28386,7 @@ async function ckTplAdd(inp,name,catId){
         fail.push(f.name+'('+(e&&e.message||e)+')');
       }
     }
-    toast((done?done+'개 양식을 추가했습니다.':'양식을 추가하지 못했습니다.')+(fail.length?' 실패: '+fail.join(', '):''));
+    toast((done?done+'개 PDF를 양식으로 추가했습니다.':'양식을 추가하지 못했습니다.')+(fail.length?' 실패: '+fail.join(', '):''));
     if(done&&window._bdPage) window._bdPage[name]=0;
     try{ rCustomPage(name); }catch(e){ console.warn(e); }   // 저장은 끝남 — 화면 오류를 실패로 안내하지 않음
   }finally{ window._ckTplBusy=false; try{ _ckMgrDraw(); }catch(e){} }
