@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-9</div>
   </div>
 </div>
 
@@ -6059,7 +6059,10 @@ function _rsvMapDraw(){
       if(im){ im.src=window._rsvMapPrevUrl; im.style.display='block'; }
       if(ph0) ph0.style.display='none';
       if(nm0) nm0.style.visibility='hidden';
-      _rsvAttDraw();
+      // v2026.10.30-9: 검색된 지도를 [지도 캡처] 없이 자동 첨부 — 직접 고른 사진(man)이 지금 장소 것이거나, 이 장소에서 ✕로 뺀 뒤면 건드리지 않음
+      var cur=window._rsvMapImg;
+      if(!(cur&&cur.man&&cur.q===q)&&window._rsvMapAutoOff!==q) _rsvMapImgSet({blob:b, q:q, auto:1});
+      else _rsvAttDraw();
     }).catch(function(e){
       if(seq!==window._rsvMapSeq) return;
       console.warn('정적 지도 실패 — 움직이는 지도로 대체:', e);
@@ -6121,7 +6124,7 @@ var _RSV_CARD_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-t
 function _rsvMapImgSet(o){
   var old=window._rsvMapImg;
   if(old&&old.url){ try{ URL.revokeObjectURL(old.url); }catch(e){} }
-  window._rsvMapImg=o?{blob:o.blob, url:URL.createObjectURL(o.blob), q:o.q||''}:null;
+  window._rsvMapImg=o?{blob:o.blob, url:URL.createObjectURL(o.blob), q:o.q||'', man:!!o.man, auto:!!o.auto}:null;
   _rsvAttDraw();
 }
 function _rsvCard(){
@@ -6159,7 +6162,7 @@ function _rsvAttDraw(){
     var mi=window._rsvMapImg, curQ=String((g('rsv_place')||{}).value||'').trim().slice(0,80);
     if(mi){
       var stale=mi.q&&mi.q!==curQ;
-      ms.innerHTML='<img src="'+_alertEsc(mi.url)+'" alt="지도">'+(stale?'<span style="color:#b07000;font-weight:700">장소가 바뀌었습니다 — 다시 캡처하세요</span>':'<span class="ok">✓ 지도 첨부 완료</span>')+
+      ms.innerHTML='<img src="'+_alertEsc(mi.url)+'" alt="지도">'+(stale?'<span style="color:#b07000;font-weight:700">장소가 바뀌었습니다 — 지도를 다시 찾는 중이거나 [지도 캡처]로 다시 첨부하세요</span>':'<span class="ok">✓ 지도 첨부 완료'+(mi.auto?' (검색 위치 자동)':'')+'</span>')+
         '<button class="rsvx" onclick="rsvMapDel()">✕ 빼기</button>';
     } else ms.innerHTML='첨부된 지도 없음';
   }
@@ -6169,7 +6172,7 @@ function _rsvAttDraw(){
   }
   _rsvCardPrefetch(); _rsvComboPrep();
 }
-function rsvMapDel(){ _rsvMapImgSet(null); }
+function rsvMapDel(){ window._rsvMapAutoOff=String((g('rsv_place')||{}).value||'').trim().slice(0,80); _rsvMapImgSet(null); }   // 이 장소에서는 자동 첨부를 다시 하지 않음(장소가 바뀌면 다시 자동)
 function _rsvB64ToBlob(b64, mime){
   var bin=atob(b64), u8=new Uint8Array(bin.length);
   for(var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
@@ -6180,6 +6183,7 @@ function _rsvDataUrlToBlob(du){ var p=String(du).split(','); var mime=(p[0].matc
 async function rsvMapCapture(){
   var pos=window._rsvMapPos;
   if(!pos){ toast('상담장소를 입력해 지도가 표시된 뒤 눌러 주세요.'); return; }
+  window._rsvMapAutoOff=null;
   if(window._rsvCapBusy) return;
   window._rsvCapBusy=true;
   var st=g('rsv_mapatt_st'); if(st) st.innerHTML='지도 이미지를 만드는 중…';
@@ -6243,7 +6247,7 @@ async function rsvMapFile(inp){
   if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(f.name||'')){ toast('사진 파일만 첨부할 수 있습니다.'); return; }
   try{
     var du=await _custAlienShrink(f);   // 1600px JPEG 축소(기존 업로더 재사용 — 문자 앱 용량 제한 대비)
-    _rsvMapImgSet({blob:_rsvDataUrlToBlob(du), q:String((g('rsv_place')||{}).value||'').trim().slice(0,80)});
+    _rsvMapImgSet({blob:_rsvDataUrlToBlob(du), q:String((g('rsv_place')||{}).value||'').trim().slice(0,80), man:1});
     toast('지도 첨부 완료');
   }catch(e){ toast('사진을 읽지 못했습니다: '+((e&&e.message)||e)); }
 }
@@ -6572,6 +6576,7 @@ function rsvLogDel(id){
   }).catch(function(err){ console.warn('[rsvlog] 삭제 실패', err); toast('삭제하지 못했습니다(네트워크 확인).'); });
 }
 function _rsvClear(){
+  window._rsvMapAutoOff=null;
   ['rsv_name','rsv_date','rsv_time','rsv_place','rsv_hp'].forEach(function(k){ var el=g(k); if(el) el.value=''; });
   var bb=g('rsv_bubble'); if(bb) bb.innerHTML='';
   var mt=g('rsv_meta'); if(mt) mt.innerHTML='';
