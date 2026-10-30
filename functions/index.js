@@ -418,26 +418,30 @@ async function _kkTripSend(test) {
   return { ok: sent > 0, sent, results };
 }
 
-// ── 주말 출장보고 (2026-10-27, 사용자 요청 "출장보고는 주말에도 발송") ──
-// 일일보고 자동발송이 [주말 제외]로 쉬는 토·일에도, 보고서의 '출장보고 — 익일' 칸(다음날 출장 대상자)만
-// 일일보고와 같은 시각·같은 대상자(cfg.reportTo)에게 텍스트로 보낸다. 다음날 출장이 없으면 보내지 않는다.
-async function _kkTripNextSend() {
+// ── 출장보고 (2026-10-27 주말 익일 출장 / 2026-10-30 아침 9시 당일 출장, 사용자 요청) ──
+// offsetDays=1: [주말 제외]로 일일보고가 쉬는 토·일에 보고서의 '출장보고 — 익일' 칸(다음날 출장 대상자)만 같은 시각에.
+// offsetDays=0: 매일 아침 9시(KST) 그날 출장 인원(trips[].when 날짜가 오늘)을 — 일일보고 자동발송 설정과 독립(restKey만).
+// 둘 다 대상자는 일일보고와 같은 cfg.reportTo, 그날 출장이 없으면 보내지 않는다(사용자 요청).
+async function _kkTripNextSend() { return _kkTripDaySend(1); }
+async function _kkTripTodaySend() { return _kkTripDaySend(0); }
+async function _kkTripDaySend(offsetDays) {
   const [cfgSnap, tokSnap, dataSnap] = await Promise.all([KK_CFG().get(), KK_TOK().get(), KK_DATA().get()]);
   const cfg = cfgSnap.exists ? (cfgSnap.data() || {}) : {};
   if (!cfg.restKey) return { ok: false, error: "no restKey" };
   const users = (tokSnap.exists ? (tokSnap.data() || {}) : {}).users || {};
   const d = dataSnap.exists ? (dataSnap.data() || {}) : {};
   const trips = Array.isArray(d.trips) ? d.trips : [];
-  const nd = new Date(_kkNow().getTime() + 24 * 3600 * 1000);
+  const nd = new Date(_kkNow().getTime() + (offsetDays || 0) * 24 * 3600 * 1000);
   const ndStr = nd.getUTCFullYear() + "-" + _kkPad(nd.getUTCMonth() + 1) + "-" + _kkPad(nd.getUTCDate());
   const ndLbl = (nd.getUTCMonth() + 1) + "/" + nd.getUTCDate() + "(" + ["일", "월", "화", "수", "목", "금", "토"][nd.getUTCDay()] + ")";
-  const list = trips.filter((t) => t && String(t.when || "").slice(0, 10) === ndStr);
-  if (!list.length) return { ok: true, sent: 0, empty: true, n: 0 }; // 다음날 출장 없음 — 발송 생략(사용자 요청)
+  const list = trips.filter((t) => t && String(t.when || "").slice(0, 10) === ndStr)
+    .sort((a, b) => String(a.when || "").localeCompare(String(b.when || "")));   // 시각순
+  if (!list.length) return { ok: true, sent: 0, empty: true, n: 0 }; // 그날 출장 없음 — 발송 생략(사용자 요청)
   const allow = Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS;
   const ids = Object.keys(users).filter((id) => users[id] && users[id].approved && allow.indexOf(String(users[id].member || "")) >= 0);
   if (!ids.length) return { ok: false, error: "발송 대상자 없음(연동·승인 확인)" };
   const hm = (v) => { const m = String(v || "").match(/T(\d{2}):(\d{2})/); return m ? (m[1] + ":" + m[2]) : "-"; };
-  const head = "[출장보고] 익일 " + ndLbl + " 출장 " + (list.length ? list.length + "건" : "없음");
+  const head = "[출장보고] " + (offsetDays ? "익일 " : "오늘 ") + ndLbl + " 출장 " + list.length + "건" + (offsetDays ? "" : " (출장 인원 " + list.length + "명)");
   const lines = list.map((t, i) => (i + 1) + ". " + (t.m || "-") + " · " + hm(t.when) + " · " + (t.place || "-") + " · " + (t.reason || "-") + (t.okBy ? " ✔확인" : ""));
   const chunks = [];
   let curTxt = "";
@@ -1148,6 +1152,19 @@ exports.kakaoDaily = onSchedule(
         await KK_CFG().set({ lastTripSentDate: "" }, { merge: true });
       } else {
         console.log("출장 리스트 발송:", tr.empty ? "오늘 신청 없음(생략)" : tr.off ? "명단 비움(끔)" : (tr.sent + "명"));
+      }
+    }
+    // ── 아침 9시 당일 출장 인원 보고 (2026-10-30, 사용자 요청) — 일일보고 자동발송 설정과 독립, 대상자는 reportTo ──
+    if (_kkHm() >= "09:00" && cfg.lastTripAmDate !== today && cfg.restKey) {
+      await KK_CFG().set({ lastTripAmDate: today }, { merge: true });   // 중복 방지 먼저 기록, 실패 시 되돌려 다음 턴 재시도
+      let am;
+      try { am = await _kkTripTodaySend(); }
+      catch (e) { am = { ok: false, error: String((e && e.message) || e) }; }
+      if (!am.ok) {
+        console.warn("아침 출장 인원 보고 실패 — 다음 턴 재시도:", JSON.stringify(am.results || am.error));
+        await KK_CFG().set({ lastTripAmDate: "" }, { merge: true });
+      } else {
+        console.log("아침 출장 인원 보고:", am.empty ? "오늘 출장 없음(생략)" : (am.sent + "명 · 오늘 " + am.n + "건"));
       }
     }
     // ── 이하 자동 발송 ──
