@@ -30,6 +30,22 @@ jobs:
           echo "HTTP $CODE"
           echo "── status 응답 ──"
           python3 -m json.tool /tmp/status.json || cat /tmp/status.json || true
+      - name: kktest 시험 발송(선택 — .kakao-diag-run에 'kktest=<카카오ID>' 줄이 있을 때만)
+        if: always()
+        run: |
+          grep -E '^kktest=' .kakao-diag-run 2>/dev/null | sed 's/^kktest=//' | while read -r KID; do
+            [ -z "$KID" ] && continue
+            TOK=$(curl -sS -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBg8dwkOHXU_lZO3C9k4hvOH0OnatJEWwY" \
+              -H 'Content-Type: application/json' -d '{"returnSecureToken":true}' \
+              | python3 -c 'import sys,json;print(json.load(sys.stdin)["idToken"])')
+            CODE=$(curl -sS -m 60 -X POST "https://team-tops-intranet.web.app/api/kakao" \
+              -H 'Content-Type: application/json' \
+              -d "{\"kakao\":\"kktest\",\"id\":\"$KID\",\"idToken\":\"$TOK\"}" \
+              -o /tmp/kktest.json -w '%{http_code}' || echo "000")
+            echo "── kktest $KID → HTTP $CODE ──"
+            python3 -m json.tool /tmp/kktest.json || cat /tmp/kktest.json || true
+            sleep 11
+          done
       - name: GCP 장애 확인
         if: always()
         run: |
