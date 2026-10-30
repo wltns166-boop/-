@@ -29,6 +29,16 @@ PC와 휴대폰이 **같은 데이터를 실시간으로 공유**하는 보험 �
 
 ---
 
+## 🎓 특약 교육 (신규)
+
+인트라넷 왼쪽 메뉴 **🎓 특약 교육**에서 주요 특약 31종 설명 카드와 교육 영상 8편을 볼 수 있습니다.
+
+- 특약 리스트·설명: [`riders/README.md`](riders/README.md)
+- 교육 영상(1080p, AI 내레이션·자막·퀴즈 포함): [`riders/videos/`](riders/videos)
+- 내용 원본: [`riders/riders.json`](riders/riders.json) — 수정 후 `python3 riders/sync_intranet.py` 실행
+
+---
+
 ## 실행 방법
 
 ### 1) 서버 켜기 (PC에서 1회)

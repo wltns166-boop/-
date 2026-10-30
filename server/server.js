@@ -195,6 +195,8 @@ app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'insurance-intranet-v2.h
 for (const f of ['insurance-intranet-v2.html', 'manifest.webmanifest', 'sw.js', 'app-icon.svg']) {
   app.get('/' + f, (req, res) => res.sendFile(path.join(ROOT, f)));
 }
+// 특약 교육 영상 (구간 요청을 지원해 휴대폰에서도 바로 재생)
+app.use('/riders/videos', express.static(path.join(ROOT, 'riders', 'videos'), { maxAge: '7d', index: false }));
 
 /* ═══════════════════════════════════════
    시작
