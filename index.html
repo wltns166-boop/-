@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-8</div>
   </div>
 </div>
 
@@ -3015,18 +3015,18 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
 
 <!-- 청구서 좌표 직접설정 모달 -->
 <div class="mb" id="m_claimcal"><div class="mo" style="max-width:920px;width:96vw">
-  <div class="mth"><span><span id="cc_title">청구서 좌표 직접설정</span> <span style="font-size:12px;color:#a090ff">(관리자 전용)</span></span><span class="mc" onclick="g('m_claimcal').classList.remove('open')">×</span></div>
+  <div class="mth"><span><span id="cc_title">청구서 좌표 직접설정</span> <span style="font-size:12px;color:#a090ff">(관리자 전용)</span></span><span class="mc" onclick="ccCloseModal()">×</span></div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(80,80,160,.15)">
     <span id="cc_ins_lbl" style="font-size:13px;color:#6070aa;font-weight:600">보험사</span>
     <select id="cc_insurer" onchange="ccSelectInsurer()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:220px"></select>
-    <button class="bp" onclick="ccUploadTemplate()" style="font-size:13px;padding:5px 10px"><i class="ti ti-upload"></i> 양식 PDF 업로드</button>
+    <button class="bp" id="cc_upload_btn" onclick="ccUploadTemplate()" style="font-size:13px;padding:5px 10px"><i class="ti ti-upload"></i> 양식 PDF 업로드</button>
     <button class="bp" id="cc_tplmgr_btn" onclick="ccTplMgrOpen()" style="font-size:13px;padding:5px 10px;background:#eef6ff;border-color:rgba(40,110,200,.35);color:#1f5fae" title="등록된 양식 보기·새로 올리기·삭제"><i class="ti ti-files"></i> 양식 관리</button>
     <button class="bp" id="cc_multi_btn" onclick="ccUploadMultiple()" style="font-size:13px;padding:5px 10px;background:#fff4d8;border-color:rgba(180,140,40,.4);color:#8a6a10" title="파일명이 '01_보험사명.pdf' 형식이면 자동으로 각 보험사로 업로드"><i class="ti ti-upload"></i> 여러개 한꺼번에 업로드</button>
     <span style="flex:1"></span>
     <select id="cc_addfield" onchange="ccAddFieldToPage()" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:230px"><option value="">+ 이 페이지에 항목 추가</option></select>
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <span style="font-size:13px;color:#6070aa;font-weight:600">페이지</span>
+    <span id="cc_page_lbl" style="font-size:13px;color:#6070aa;font-weight:600">페이지</span>
     <div id="cc_tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     <button class="bp" id="cc_delpage_btn" onclick="ccDeletePage()" title="양식 PDF에서 페이지 삭제(여러 장 선택 가능)" style="font-size:13px;padding:5px 10px;background:#fff0f0;border-color:rgba(200,50,50,.35);color:#c03030"><i class="ti ti-trash"></i> 페이지 삭제</button>
     <span style="flex:1"></span>
@@ -3034,17 +3034,17 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <select id="cc_data_sel" onchange="ccSelectData()" title="작성된 청구건을 선택하면 실제 값으로 미리보기" style="font-size:13px;padding:5px 8px;border:1px solid rgba(72,88,204,.3);border-radius:6px;font-family:inherit;max-width:200px"><option value="">샘플 (홍길동)</option></select>
     <button class="bp" id="cc_preview_btn" onclick="ccTogglePreview()" style="font-size:13px;padding:5px 10px" title="실제 들어갈 글자를 흐리게 미리보기"><i class="ti ti-eye"></i> 미리보기 끄기</button>
     <button class="bp" id="cc_labels_btn" onclick="ccToggleLabels()" style="font-size:13px;padding:5px 10px" title="칩의 항목 제목 글자를 숨겨 미리보기가 가려지지 않게 함"><i class="ti ti-tag"></i> 제목 안보이기</button>
-    <button class="bp" onclick="ccExport()" style="font-size:13px;padding:5px 10px"><i class="ti ti-copy"></i> 내보내기</button>
-    <button class="bp" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> 기본값 복원</button>
+    <button class="bp" id="cc_export_btn" onclick="ccExport()" style="font-size:13px;padding:5px 10px"><i class="ti ti-copy"></i> 내보내기</button>
+    <button class="bp" id="cc_reset_btn" onclick="resetClaimCal()" style="font-size:13px;padding:5px 10px"><i class="ti ti-refresh"></i> <span id="cc_reset_txt">기본값 복원</span></button>
     <button class="bp bco" onclick="saveClaimCal()" style="font-size:13px;padding:5px 14px">저장</button>
   </div>
-  <div style="font-size:13px;color:#8088b0;margin-bottom:8px">파란 칩을 드래그해 칸 위에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. <b>다중 선택</b>: ① 빈 공간을 드래그해 박스로 묶기 ② Ctrl/Shift+클릭으로 하나씩 추가 ③ Ctrl/⌘+A로 현재 페이지 전체. 여러개 선택 상태에서 드래그하면 함께 이동, <b>방향키</b>로도 함께 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 함께 제거, <b>Esc</b>로 선택 해제. 칩을 클릭(여러 개 선택 가능)하면 아래에서 <b>글씨크기·글자간격</b> 조정 — 값 입력 후 <b>엔터</b> 또는 [적용]하면 선택한 칩 전부에 반영. <b>저장</b> 시 해당 보험사 청구파일이 자동 재생성됩니다.</div>
+  <div id="cc_help" style="font-size:13px;color:#8088b0;margin-bottom:8px">파란 칩을 드래그해 칸 위에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. <b>다중 선택</b>: ① 빈 공간을 드래그해 박스로 묶기 ② Ctrl/Shift+클릭으로 하나씩 추가 ③ Ctrl/⌘+A로 현재 페이지 전체. 여러개 선택 상태에서 드래그하면 함께 이동, <b>방향키</b>로도 함께 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 함께 제거, <b>Esc</b>로 선택 해제. 칩을 클릭(여러 개 선택 가능)하면 아래에서 <b>글씨크기·글자간격</b> 조정 — 값 입력 후 <b>엔터</b> 또는 [적용]하면 선택한 칩 전부에 반영. <b>저장</b> 시 해당 보험사 청구파일이 자동 재생성됩니다.</div>
   <div id="cc_props" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#f5f6ff;border:1px solid rgba(72,88,204,.15);border-radius:8px">
     <span style="font-size:13px;color:#6070aa;font-weight:600">선택 항목:</span>
     <b id="cc_props_name" style="font-size:13px;color:#3040aa">— (칩을 한 번 클릭하면 글씨크기·간격을 조정할 수 있습니다)</b>
     <span style="flex:1"></span>
     <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글씨크기 <input id="cc_props_size" type="number" step="0.5" min="5" max="24" onkeydown="if(event.key==='Enter'){event.preventDefault();ccApplyProps();}" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="9"></label>
-    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px">글자간격 <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" onkeydown="if(event.key==='Enter'){event.preventDefault();ccApplyProps();}" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
+    <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:5px"><span id="cc_props_pitch_lbl">글자간격</span> <input id="cc_props_pitch" type="number" step="0.5" min="0" max="60" onkeydown="if(event.key==='Enter'){event.preventDefault();ccApplyProps();}" style="width:64px;font-size:13px;padding:4px 6px;border:1px solid rgba(72,88,204,.3);border-radius:5px;font-family:inherit" placeholder="(없음)"></label>
     <button class="bp bco" onclick="ccApplyProps()" style="font-size:13px;padding:5px 12px">적용</button>
   </div>
   <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
@@ -27930,8 +27930,10 @@ async function _ckCoords(u,pn){   // 양식 그 쪽(pn, 기본 1)의 글자에�
 // 출력할 양식 선택은 메모리 window._ckSel[분류id]=[양식 id…](저장 없음, 처음엔 1번 양식), 미리보기 쪽 번호는 window._ckPg[분류id](2개씩).
 function _ckCoOk(c){
   var num=function(n){ return typeof n==='number'&&isFinite(n); };
+  var pt=function(v){ return v&&typeof v==='object'&&num(v.x)&&num(v.y)&&num(v.w)&&v.w>0&&(v.fs===undefined||(num(v.fs)&&v.fs>=6&&v.fs<=30)); };
   return !!(c&&typeof c==='object'&&num(c.W)&&num(c.H)&&c.W>0&&c.H>0&&num(c.fs)&&c.fs>=6&&c.fs<=30
-    &&['mgr','hp'].every(function(k){ var v=c[k]; return v&&typeof v==='object'&&num(v.x)&&num(v.y)&&num(v.w)&&v.w>0; }));
+    &&['mgr','hp'].every(function(k){ return pt(c[k]); })
+    &&(c.more===undefined||(Array.isArray(c.more)&&c.more.every(function(v){ return pt(v)&&(v.k==='mgr'||v.k==='hp'); }))));
 }
 function _ckPgKnown(p,f){ return !!((+p.ckn>0)||(+f.pgTotal>0)||(Array.isArray(f.pages)&&f.pages.length)||(window._ckPgCnt&&window._ckPgCnt[f.u])); }
 function _ckPgCount(p,f){
@@ -28034,9 +28036,7 @@ function _ckPrevHtml(name,catId){
         +(on?'<span style="flex:0 0 auto;font-size:11.5px;font-weight:700;color:#1d7a32;background:#e3f4e6;border-radius:9px;padding:1px 7px">✓ 출력</span>':'')+'</div>'
       +'<div data-ckpv="1" style="position:relative;container-type:inline-size;border:'+(on?'2px solid #5cb46c':'1px solid #d8dcef')+';background:#fff;box-shadow:0 2px 10px rgba(0,0,40,.08)">'
         +'<img data-ckimg="1" alt="" draggable="false" style="display:block;width:100%;min-height:200px"'+(src?' src="'+_esc(src)+'"':'')+'>'
-        +'<span data-ckov="mgr" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
-        +'<span data-ckov="hp" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
-      +'</div></div>';
+      +'</div></div>';   // 겹침 글자(span[data-ckov])는 _ckOverlay가 찍을 자리 수만큼 만든다
   }).join('');
   var nav=pages>1
     ? '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px">'
@@ -28074,15 +28074,17 @@ function _ckCoOf(fm){ return fm&&(fm.co||(window._ckCoCache&&window._ckCoCache[f
 function _ckOverlay(catId){
   var v=_ckGetVals(catId), w=g('ck_prevwrap'); if(!w) return;
   w.querySelectorAll('[data-ckid]').forEach(function(card){
-    var co=_ckCoOf((window._ckFM||{})[card.getAttribute('data-ckid')]), box=card.querySelector('[data-ckpv]');
-    card.querySelectorAll('[data-ckov]').forEach(function(el){
-      var k=el.getAttribute('data-ckov'), c=co[k]; if(!c) return;
-      el.textContent=String(v[k]||'');
+    var co=_ckCoOf((window._ckFM||{})[card.getAttribute('data-ckid')]), box=card.querySelector('[data-ckpv]'); if(!box) return;
+    var items=_ckCoItems(co), els=Array.prototype.slice.call(box.querySelectorAll('[data-ckov]'));
+    while(els.length<items.length){ var sp=document.createElement('span'); sp.setAttribute('data-ckov','1'); sp.style.cssText='position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none'; box.appendChild(sp); els.push(sp); }
+    els.forEach(function(el,i){
+      var c=items[i]; if(!c){ el.textContent=''; return; }
+      el.textContent=String(v[c.k]||'');
       el.style.left=(c.x/co.W*100)+'%';
-      el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
-      var fsq=co.fs/co.W*100;   // 칸보다 긴 값은 PDF와 같게 축소
+      el.style.bottom=((c.y-c.fs*0.22)/co.H*100)+'%';
+      var fsq=c.fs/co.W*100;   // 칸보다 긴 값은 PDF와 같게 축소
       el.style.fontSize=fsq+'cqw';
-      try{ var natW=el.offsetWidth, boxW=c.w/co.W*(box?box.clientWidth:0); if(natW>boxW&&boxW>0) el.style.fontSize=(fsq*boxW/natW)+'cqw'; }catch(e){}
+      try{ var natW=el.offsetWidth, boxW=c.w/co.W*box.clientWidth; if(natW>boxW&&boxW>0) el.style.fontSize=(fsq*boxW/natW)+'cqw'; }catch(e){}
     });
   });
 }
@@ -28142,8 +28144,8 @@ async function _ckBuild(name,catId){
     var doc=docs[f.u], pages=doc.getPages();
     if(f.pg>pages.length) throw new Error(f.label+': PDF에 '+f.pg+'쪽이 없습니다.');
     var co=f.co||await _ckCoords(f.u,f.pg), pg=pages[f.pg-1];
-    await _sdDtx(pg,doc,String(v.mgr||'').trim(),co.mgr.x,co.mgr.y,co.fs,co.mgr.w);
-    await _sdDtx(pg,doc,String(v.hp||'').trim(),co.hp.x,co.hp.y,co.fs,co.hp.w);
+    var items=_ckCoItems(co);
+    for(var j=0;j<items.length;j++){ var it=items[j]; await _sdDtx(pg,doc,String(v[it.k]||'').trim(),it.x,it.y,it.fs,it.w); }
     var cp=await out.copyPages(doc,[f.pg-1]);
     out.addPage(cp[0]);
   }
@@ -28315,110 +28317,84 @@ function _ckMgrUnhide(){
     _ckFormsOf(arr,catId,true).forEach(function(f){ if(f.off) delete _ckMeta(f.post,f.pg).off; });
   },'뺀 양식을 되살렸습니다.');
 }
-// ----- 좌표 지정 창 (2026-10-30 — v2026.10.30-3, 사용자 요청) -----
-// 그 쪽 그림 위의 파란 점선 상자 2개(담당자·핸드폰)를 끌어 옮기고 오른쪽 끝을 끌어 폭 조절, 글씨 크기 입력 → p.ckf[쪽].co={W,H,fs,mgr:{x,y,w},hp:{x,y,w}}
-// (PDF pt·아래 원점, y=글자 바닥선 — _ckCoords와 같은 형식). [자동 위치로]=co 삭제(글자 자동 인식으로 돌아감). 받은 co는 _ckCoOk로 숫자만 확인해 씀.
-async function _ckCoOpen(id){
+// ----- 좌표 지정 (2026-10-30 — v2026.10.30-3 자체 창 → v2026.10.30-8 청구서 좌표 편집기(m_claimcal) 'ck' 모드로, 사용자 요청) -----
+// 저장 형식 p.ckf[쪽].co={W,H,fs, mgr:{x,y,w,fs?,off?}, hp:{x,y,w,fs?,off?}, more:[{k:'mgr'|'hp',x,y,w,fs?}]}
+// (PDF pt·아래 원점, y=글자 바닥선 — _ckCoords와 같은 형식). fs는 전체 기본 글씨 크기, 칸별 fs가 있으면 우선. off=그 칸 숨김, more=[+ 추가]로 더 놓은 자리.
+// 미리보기(_ckOverlay)·출력(_ckBuild)은 _ckCoItems(co)로 찍을 자리 목록을 받는다. 옛 저장본(mgr·hp만)은 그대로 읽힘.
+var CK_CC_LABELS={mgr:'담당자',hp:'핸드폰'};
+var CK_CC_GROUPS=[{title:'상담고객체크리스트',items:[{key:'mgr',label:'담당자'},{key:'hp',label:'핸드폰'}]}];
+function _ckCoItems(co){
+  var out=[];
+  ['mgr','hp'].forEach(function(k){ var c=co&&co[k]; if(c&&!c.off) out.push({k:k,x:c.x,y:c.y,w:c.w,fs:(typeof c.fs==='number'&&c.fs>0)?c.fs:co.fs}); });
+  (Array.isArray(co&&co.more)?co.more:[]).forEach(function(c){ if(c&&(c.k==='mgr'||c.k==='hp')) out.push({k:c.k,x:c.x,y:c.y,w:c.w,fs:(typeof c.fs==='number'&&c.fs>0)?c.fs:co.fs}); });
+  return out;
+}
+function _ckWorkFromCo(co,pg){   // 저장 co → 편집기 _ccWork(키 mgr/hp/mgr_2…, page=쪽-1, size·w). 자동 인식 좌표는 소수가 길어 0.1 단위로
+  var w={}, pi=Math.max(0,(+pg||1)-1), cnt={mgr:1,hp:1}, r=function(n){ return Math.round(n*10)/10; };
+  var mk=function(c,on){ return {page:pi,x:r(+c.x||0),y:r(+c.y||0),w:r((+c.w>0)?+c.w:90),size:(typeof c.fs==='number'&&c.fs>0)?c.fs:(co.fs||CK_DEF.fs),on:on}; };
+  ['mgr','hp'].forEach(function(k){ var c=co[k]||CK_DEF[k]; w[k]=mk(c,!c.off); });
+  (Array.isArray(co.more)?co.more:[]).forEach(function(c){
+    if(!c||!(c.k==='mgr'||c.k==='hp')) return;
+    w[c.k+'_'+(++cnt[c.k])]=mk(c,true);
+  });
+  return w;
+}
+function _ckCcSample(bk){   // 편집기 미리보기 글자 — 지금 입력된 담당자·핸드폰(없으면 예시)
+  var v=(window._ckMgr&&window._ckMgr.catId)?_ckGetVals(window._ckMgr.catId):{};
+  return bk==='mgr'?(String(v.mgr||'').trim()||'홍길동'):(bk==='hp'?(String(v.hp||'').trim()||'010-1234-5678'):'');
+}
+function _ckCoOpen(id){
   var m=window._ckMgr; if(!m) return;
   var f=_ckForms(m.name,m.catId).filter(function(x){ return x.id===id; })[0];
   if(!f){ toast('양식을 찾을 수 없습니다.'); return; }
-  _ckCoClose();
-  var gen=window._ckCoGen=(window._ckCoGen||0)+1;
-  var bt='padding:8px 14px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;';
-  var ov=document.createElement('div');
-  ov.id='ck_co_pop';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:12px';
-  ov.innerHTML='<div style="background:#fff;color:#1a1a2e;border-radius:12px;max-width:760px;width:100%;max-height:94vh;overflow-y:auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.4)">'
-    +'<div style="font-weight:700;font-size:16px;margin-bottom:4px"><i class="ti ti-crosshair"></i> 좌표 지정 — '+_esc(f.label)+'</div>'
-    +'<div style="font-size:12.5px;color:#666;margin-bottom:10px;line-height:1.6">파란 점선 상자를 끌어 <b>담당자</b>·<b>핸드폰</b>이 찍힐 자리로 옮기세요. 상자 오른쪽 끝(진한 띠)을 끌면 폭이 바뀝니다(긴 값은 폭에 맞춰 줄어듦).</div>'
-    +'<div id="ck_co_stage" style="position:relative;container-type:inline-size;border:1px solid #ccd;background:#f4f4f6;min-height:240px;user-select:none">'
-      +'<img id="ck_co_img" alt="" draggable="false" style="display:block;width:100%">'
-      +'<div id="ck_co_wait" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font-size:13.5px">양식을 불러오는 중…</div></div>'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">'
-      +'<label style="font-size:13px;color:#444">글씨 크기 <input id="ck_co_fs" type="number" min="6" max="24" step="0.5" style="width:64px;padding:5px 6px;border:1px solid #ccd;border-radius:6px;font-family:inherit;font-size:13px;color:#111;background:#fff"> pt</label>'
-      +'<span style="flex:1"></span>'
-      +'<button data-ckcoact="auto" style="'+bt+'background:#fff;border:1px solid #c8cce8;color:#3a40aa">자동 위치로</button>'
-      +'<button data-ckcoact="cancel" style="'+bt+'background:#eceef6;border:1px solid #d0d4e8;color:#44485a">취소</button>'
-      +'<button data-ckcoact="save" style="'+bt+'background:#4858cc;border:none;color:#fff">저장</button></div></div>';
-  ov.addEventListener('click',function(ev){
-    var b=ev.target.closest&&ev.target.closest('[data-ckcoact]'); if(!b) return;
-    var a=b.getAttribute('data-ckcoact');
-    if(a==='cancel') _ckCoClose(); else if(a==='save') _ckCoSave(); else if(a==='auto') _ckCoAuto();
-  });
-  document.body.appendChild(ov);
-  var fsIn=g('ck_co_fs');
-  fsIn.addEventListener('input',function(){ var s=window._ckCo; if(!s||!s.co) return; var n=+fsIn.value; if(isFinite(n)&&n>=6&&n<=24){ s.co.fs=n; _ckCoDraw(); } });
-  window._ckCo={id:f.id,pid:f.pid,pg:f.pg,co:null};
-  try{
-    var r=await _ckRenderPage(f.u,f.pg,1.6);
-    var base=JSON.parse(JSON.stringify(f.co||await _ckCoords(f.u,f.pg)));
-    if(gen!==window._ckCoGen) return;
-    base.W=r.W; base.H=r.H;   // 쪽 실제 크기로
-    window._ckCo.co=base;
-    var stg=g('ck_co_stage'); if(stg){ stg.style.maxWidth='calc((94vh - 190px) * '+(r.W/r.H).toFixed(4)+')'; stg.style.margin='0 auto'; }   // 쪽 전체가 화면 높이 안에 보이게
-    var im=g('ck_co_img'); if(im){ im.onload=function(){ _ckCoDraw(); }; im.src=r.url; }
-    var wt=g('ck_co_wait'); if(wt) wt.remove();
-    fsIn.value=base.fs;
-    _ckCoDraw();
-  }catch(e){
-    console.warn(e);
-    if(gen!==window._ckCoGen) return;
-    toast('양식을 불러오지 못했습니다: '+(e&&e.message||e)); _ckCoClose();
-  }
+  window._ccPresetInsurer=null;
+  window._ccCkReq={id:f.id,pid:f.pid,pg:f.pg,u:f.u,label:f.label,co:f.co?JSON.parse(JSON.stringify(f.co)):null,name:m.name,catId:m.catId};
+  openClaimCal();
 }
-function _ckCoClose(){ window._ckCoGen=(window._ckCoGen||0)+1; window._ckCo=null; var p=g('ck_co_pop'); if(p) p.remove(); }
-function _ckCoDraw(){
-  var s=window._ckCo, st=g('ck_co_stage'); if(!s||!s.co||!st) return;
-  var co=s.co, v=window._ckMgr?_ckGetVals(window._ckMgr.catId):{};
+function _ckCoClose(){ if(window._ccMode==='ck'){ window._ccCk=null; window._ccCkGen=(window._ccCkGen||0)+1; var mm=g('m_claimcal'); if(mm) mm.classList.remove('open'); var km=g('ck_mgr_pop'); if(km) km.style.display=''; } }
+function ccCloseModal(){   // 편집기 × — 체크리스트 모드면 숨겨 둔 [양식 관리] 창을 다시 보이고 최신 상태로
+  var mm=g('m_claimcal'); if(mm) mm.classList.remove('open');
+  if(window._ccMode==='ck'){ window._ccCk=null; window._ccCkGen=(window._ccCkGen||0)+1; var km=g('ck_mgr_pop'); if(km){ km.style.display=''; try{ _ckMgrRefresh(); }catch(e){} } }
+}
+function _ckCcCollect(){   // 편집기 _ccWork → 저장 co(검사 _ckCoOk 통과 형식). 두 기본 칸은 항상 포함(숨김이면 off).
+  var ck=window._ccCk, wk=window._ccWork||{}; if(!ck) return null;
+  var r=function(n){ return Math.round(n*10)/10; };
+  var baseFs=null; ['mgr','hp'].forEach(function(k){ var w=wk[k]; if(baseFs==null&&w&&typeof w.size==='number'&&w.size>0) baseFs=w.size; });
+  var old=ck.co||{}, out={W:r(window._ccPageW||old.W||CK_DEF.W),H:r(window._ccPageH||old.H||CK_DEF.H),fs:r(baseFs||old.fs||CK_DEF.fs),more:[]};
   ['mgr','hp'].forEach(function(k){
-    var el=st.querySelector('[data-cochip="'+k+'"]');
-    if(!el){
-      el=document.createElement('div'); el.setAttribute('data-cochip',k); el.title=k==='mgr'?'담당자':'핸드폰';
-      el.style.cssText='position:absolute;box-sizing:border-box;border:1.5px dashed #1a3fd0;background:rgba(72,88,204,.14);color:#1a3fd0;white-space:nowrap;overflow:hidden;cursor:move;touch-action:none;line-height:1.15;padding:0 10px 0 2px';
-      el.innerHTML='<span data-cotx="1"></span><span data-cohd="1" style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;background:#1a3fd0;opacity:.6"></span>';
-      st.appendChild(el); _ckCoBindDrag(el,k);
-    }
-    var c=co[k];
-    el.style.left=(c.x/co.W*100)+'%';
-    el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
-    el.style.width=(c.w/co.W*100)+'%';
-    el.style.fontSize=(co.fs/co.W*100)+'cqw';
-    el.querySelector('[data-cotx]').textContent=(k==='mgr'?(String(v.mgr||'').trim()||'담당자'):(String(v.hp||'').trim()||'010-0000-0000'));
+    var w=wk[k]||old[k]||CK_DEF[k], it={x:r(+w.x||0),y:r(+w.y||0),w:r((+w.w>0)?+w.w:((old[k]&&+old[k].w>0)?+old[k].w:90))};
+    if(typeof w.size==='number'&&w.size>0&&r(w.size)!==out.fs) it.fs=r(w.size);
+    if(!wk[k]||wk[k].on===false) it.off=true;
+    out[k]=it;
   });
-}
-function _ckCoBindDrag(el,k){
-  el.addEventListener('pointerdown',function(ev){
-    var s=window._ckCo, st=g('ck_co_stage'); if(!s||!s.co||!st) return;
-    ev.preventDefault();
-    var r=st.getBoundingClientRect(), resize=!!(ev.target.closest&&ev.target.closest('[data-cohd]'));
-    var c=s.co[k], x0=c.x, y0=c.y, w0=c.w, px=ev.clientX, py=ev.clientY;
-    try{ el.setPointerCapture(ev.pointerId); }catch(e){}
-    function mv(e){
-      if(window._ckCo!==s) return;
-      var dx=(e.clientX-px)/r.width*s.co.W, dy=(e.clientY-py)/r.height*s.co.H;
-      if(resize) c.w=Math.max(20,Math.min(s.co.W-c.x,w0+dx));
-      else { c.x=Math.max(0,Math.min(s.co.W-20,x0+dx)); c.y=Math.max(2,Math.min(s.co.H-2,y0-dy)); c.w=Math.min(c.w,s.co.W-c.x); }
-      _ckCoDraw();
-    }
-    function up(){ el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',up); }
-    el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  Object.keys(wk).forEach(function(key){
+    var w=wk[key]; if(!w||w.on===false) return; var bk=ccBaseKey(key); if(key===bk||!(bk==='mgr'||bk==='hp')) return;
+    var it={k:bk,x:r(+w.x||0),y:r(+w.y||0),w:r((+w.w>0)?+w.w:90)}; if(typeof w.size==='number'&&w.size>0&&r(w.size)!==out.fs) it.fs=r(w.size);
+    out.more.push(it);
   });
+  if(!out.more.length) delete out.more;
+  return out;
 }
-function _ckCoSave(){
-  var s=window._ckCo; if(!s||!s.co){ toast('양식을 아직 불러오는 중입니다.'); return; }
-  var co=s.co, r=function(n){ return Math.round(n*10)/10; }, pt=function(c){ return {x:r(c.x),y:r(c.y),w:r(c.w)}; };
-  var out={W:r(co.W),H:r(co.H),fs:r(co.fs),mgr:pt(co.mgr),hp:pt(co.hp)};
-  if(!_ckCoOk(out)){ toast('좌표 값이 올바르지 않습니다. 글씨 크기는 6~24 사이로 넣어 주세요.'); return; }
-  var pid=s.pid, pg=s.pg;
-  _ckCoClose();
-  _ckMgrOp(function(arr){ _ckMeta(_ckPostIn(arr,pid),pg).co=out; },'좌표를 저장했습니다.',1);   // 다른 저장 중이면 끝난 뒤 저장(창은 이미 닫힘 — 버리지 않게)
+async function _ckCcSave(){
+  var ck=window._ccCk; if(!ck){ toast('양식을 아직 불러오는 중입니다.'); return; }
+  if(!window._ccPageW||window._ccCkDrawn!==ck||!Object.keys(window._ccWork||{}).length){ toast('양식을 아직 불러오는 중입니다.'); return; }   // 이 양식의 쪽이 그려진 뒤에만
+  var out=_ckCcCollect();
+  if(!_ckCoOk(out)){ toast('좌표 값이 올바르지 않습니다. 글씨 크기는 6~30, 칸 폭은 20 이상으로 넣어 주세요.'); return; }
+  if(out.mgr.off&&out.hp.off&&!(out.more&&out.more.length)){ if(!confirm('담당자·핸드폰이 모두 숨김 상태입니다. 이 양식에는 아무것도 찍히지 않게 저장할까요?')) return; }
+  ck.co=JSON.parse(JSON.stringify(out));   // 저장 뒤 [자동 위치로]·재저장 기준
+  var pid=ck.pid, pg=ck.pg;
+  await _ckMgrOp(function(arr){ _ckMeta(_ckPostIn(arr,pid),pg).co=out; },'좌표를 저장했습니다. 미리보기·출력에 반영됩니다.',1);
 }
-function _ckCoAuto(){
-  var s=window._ckCo; if(!s) return;
-  if(!confirm('직접 지정한 좌표를 지우고 양식 글자(담당자·핸드폰)로 자동으로 찾은 위치를 쓸까요?')) return;
-  var pid=s.pid, pg=s.pg;
-  _ckCoClose();
+function _ckCcAuto(){
+  var ck=window._ccCk; if(!ck) return;
+  if(!confirm('직접 지정한 좌표를 지우고 양식 글자(담당자·핸드폰)로 자동으로 찾은 위치를 쓸까요? (바로 저장됩니다)')) return;
+  var pid=ck.pid, pg=ck.pg, gen=window._ccCkGen=(window._ccCkGen||0)+1;
   _ckMgrOp(function(arr){ delete _ckMeta(_ckPostIn(arr,pid),pg).co; },'자동 위치로 되돌렸습니다.',1);
+  ck.co=null;
+  _ckCoords(ck.u,ck.pg).then(function(co){
+    if(gen!==window._ccCkGen||window._ccCk!==ck||window._ccMode!=='ck') return;
+    window._ccWork=_ckWorkFromCo(co,ck.pg); window._ccSelKey=null; window._ccSelKeys=[]; ccPlaceChips();
+  }).catch(function(e){ console.warn(e); });
 }
 // [PDF 올리기]: 파일마다 그 분류의 새 게시물로 올림(게시물 작성과 같은 저장 형식 — 원본 + 페이지 미리보기). 쪽마다 양식 하나, 순서는 맨 뒤.
 // 올리기 전 출력과 같은 pdf-lib로 열어 봄(암호 PDF 등 거부 — ignoreEncryption 금지).
@@ -34124,25 +34100,55 @@ function idbListTpl(){ return idbDB().then(function(db){ return new Promise(func
 
 // ===== 좌표 설정 모달 (보험사 인식) =====
 function openClaimCal(){
-  if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ window._ccPresetInsurer=null; toast('관리자만 사용할 수 있습니다.'); return; }
-  if(typeof pdfjsLib==='undefined'){ window._ccPresetInsurer=null; toast('PDF 뷰어 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; } // 프리셋 정리 — 다음 일반 진입에 3종 슬롯이 남지 않게
+  if(!(typeof cu!=='undefined'&&cu&&cu.admin)){ window._ccPresetInsurer=null; window._ccCkReq=null; toast('관리자만 사용할 수 있습니다.'); return; }
+  if(typeof pdfjsLib==='undefined'){ window._ccPresetInsurer=null; window._ccCkReq=null; toast('PDF 뷰어 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; } // 프리셋 정리 — 다음 일반 진입에 3종 슬롯이 남지 않게
   // 진입 모드: 3종서류 [좌표 설정](_ccPresetInsurer가 3종 슬롯)이면 'samdocs' — 문서 3종만 목록에 표시.
   // 대리발급 슬롯('대리발급_…', 2026-09-10)이면 'daeri' — 진입한 그 문서 하나만 표시.
   // 그 외(청구서 쪽 진입)는 'claim' — 보험사만 표시. 같은 편집기·저장 경로를 쓰되 화면만 분리(개별 편집기처럼 동작).
-  window._ccMode=(window._ccPresetInsurer&&typeof SAMDOC_LIST!=='undefined'&&SAMDOC_LIST.some(function(d){return d.tpl===window._ccPresetInsurer;}))?'samdocs'
-    :(_isDaeriSlot(window._ccPresetInsurer)?'daeri':'claim');
-  var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
+  // 상담고객체크리스트 [좌표] 진입(window._ccCkReq — 4.9985 v-4)이면 'ck': 양식은 게시판 PDF의 한 쪽, 항목은 담당자·핸드폰뿐, 저장은 게시물 p.ckf[쪽].co.
+  var _ckReq=window._ccCkReq||null; window._ccCkReq=null;
+  window._ccMode=_ckReq?'ck':((window._ccPresetInsurer&&typeof SAMDOC_LIST!=='undefined'&&SAMDOC_LIST.some(function(d){return d.tpl===window._ccPresetInsurer;}))?'samdocs'
+    :(_isDaeriSlot(window._ccPresetInsurer)?'daeri':'claim'));
+  var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri'), _ck=(window._ccMode==='ck');
+  window._ccCk=_ck?_ckReq:null;
+  // ck 모드에서 숨기는 청구서 전용 조작(보험사·양식 업로드·관리·항목 추가·페이지 탭·삭제·내보내기) — 다른 모드 진입 시 다시 표시
+  ['cc_insurer','cc_ins_lbl','cc_upload_btn','cc_addfield','cc_page_lbl','cc_tabs','cc_delpage_btn','cc_export_btn'].forEach(function(i){ var el=g(i); if(el) el.style.display=_ck?'none':''; });
+  var _rt=g('cc_reset_txt'); if(_rt) _rt.textContent=_ck?'자동 위치로':'기본값 복원';
+  var _pl=g('cc_props_pitch_lbl'); if(_pl) _pl.textContent=_ck?'칸 폭(pt)':'글자간격';
+  var _pi=g('cc_props_pitch'); if(_pi){ _pi.min=_ck?20:0; _pi.max=_ck?600:60; _pi.step=_ck?1:0.5; }
+  var _hp=g('cc_help'); if(_hp){
+    if(_ck){ if(!_hp.getAttribute('data-orig')) _hp.setAttribute('data-orig',_hp.innerHTML);
+      _hp.innerHTML='파란 칩을 드래그해 <b>담당자</b>·<b>핸드폰</b>이 찍힐 자리에 올려놓으세요. <b>왼쪽 아래 빨간 점</b>이 글자 시작 위치. 칩을 클릭하면 아래에서 <b>글씨크기·칸 폭</b>(긴 값은 폭에 맞춰 줄어듦)을 조정 — 값 입력 후 <b>엔터</b> 또는 [적용]. <b>방향키</b>로 미세 이동(↑↓←→ 1pt, Shift 10pt, Alt 0.5pt), <b>Delete</b>로 숨김, 오른쪽 도구박스에서 다시 체크·[+ 추가]로 같은 항목을 더 놓을 수 있습니다. [자동 위치로]는 직접 지정을 지우고 양식 글자에서 찾은 위치로 되돌립니다. <b>저장</b>하면 미리보기·출력에 바로 반영됩니다.'; }
+    else if(_hp.getAttribute('data-orig')) _hp.innerHTML=_hp.getAttribute('data-orig');
+  }
   window._ccDaeriSlot=_daeri?window._ccPresetInsurer:null;   // ccPopulateInsurers가 목록으로 사용(진입 슬롯 1개, 타 모드 진입 시 리셋 — 잔존 방지)
-  var _t=g('cc_title');    if(_t)  _t.textContent=_sam?'3종서류 좌표 설정':(_daeri?'대리발급 서류 좌표 설정':'청구서 좌표 직접설정');
+  var _t=g('cc_title');    if(_t)  _t.textContent=_ck?('체크리스트 좌표 지정 — '+(_ckReq.label||'')):(_sam?'3종서류 좌표 설정':(_daeri?'대리발급 서류 좌표 설정':'청구서 좌표 직접설정'));
   var _il=g('cc_ins_lbl'); if(_il) _il.textContent=(_sam||_daeri)?'문서':'보험사';
-  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri)?'none':'';
-  var _tm=g('cc_tplmgr_btn'); if(_tm) _tm.style.display=_daeri?'none':'';   // 대리발급 양식은 서류별 합본이라 [양식 업로드] 창에서 관리
+  var _mb=g('cc_multi_btn'); if(_mb) _mb.style.display=(_sam||_daeri||_ck)?'none':'';
+  var _tm=g('cc_tplmgr_btn'); if(_tm) _tm.style.display=(_daeri||_ck)?'none':'';   // 대리발급 양식은 서류별 합본이라 [양식 업로드] 창에서 관리
   try{ var _tp=g('cc_tplmgr_pop'); if(_tp) _tp.remove(); }catch(e){}   // 파일명→보험사 일괄 업로드는 청구서 전용
-  var _dl=g('cc_data_lbl'); if(_dl) _dl.style.display=(_sam||_daeri)?'none':'';    // 청구건 미리보기 데이터는 청구서 전용
-  var _ds=g('cc_data_sel'); if(_ds){ _ds.style.display=(_sam||_daeri)?'none':''; if(_sam||_daeri){ _ds.value=''; window._ccDataClaim=null; } }
+  var _dl=g('cc_data_lbl'); if(_dl) _dl.style.display=(_sam||_daeri||_ck)?'none':'';    // 청구건 미리보기 데이터는 청구서 전용
+  var _ds=g('cc_data_sel'); if(_ds){ _ds.style.display=(_sam||_daeri||_ck)?'none':''; if(_sam||_daeri||_ck){ _ds.value=''; window._ccDataClaim=null; } }
+  // 체크리스트 [양식 관리] 창(body 직속, z 9999)은 #app 안의 편집기 위에 그려지므로 편집기가 떠 있는 동안 숨김 — ccCloseModal/_ckCoClose가 되살림
+  var _km=g('ck_mgr_pop'); if(_km) _km.style.display=_ck?'none':'';
   g('m_claimcal').classList.add('open');
   if(typeof window._ccShowPreview==='undefined') window._ccShowPreview=true;
   ccNudgeSetup();
+  window._ccSelKey=null; window._ccSelKeys=[];
+  if(_ck){   // 체크리스트: 보험사 목록 없이 그 양식(쪽)만 — 좌표는 저장된 co(없으면 글자 자동 인식)
+    window._ccInsurer='__ck__'; window._ccPdf=null; window._ccWork={}; window._ccPageW=0; window._ccPageH=0; window._ccCkDrawn=null;   // 직전 편집기의 쪽 크기가 남아 로딩 중 저장을 통과시키지 않게(리뷰)
+    g('cc_overlay').innerHTML=''; g('cc_toolbox').innerHTML='';
+    var _ckGen=window._ccCkGen=(window._ccCkGen||0)+1;
+    (async function(){
+      try{
+        var co=_ckReq.co||await _ckCoords(_ckReq.u,_ckReq.pg);
+        if(_ckGen!==window._ccCkGen||window._ccMode!=='ck') return;
+        window._ccWork=_ckWorkFromCo(co,_ckReq.pg);
+        ccRenderPage(_ckReq.pg);
+      }catch(e){ console.warn(e); toast('양식을 불러오지 못했습니다: '+(e&&e.message||e)); }
+    })();
+    return;
+  }
   if(!_sam&&!_daeri) ccPopulateDataSel();   // 작성된 청구건 목록 → 미리보기 데이터 선택(청구서 전용)
   ccPopulateInsurers().then(function(){
     var sel=g('cc_insurer');
@@ -34552,10 +34558,12 @@ function ccBuildAddField(){
   sel.innerHTML=opts;
 }
 async function ccRenderPage(pn){
+  var _ck=(window._ccMode==='ck'&&window._ccCk), _ckObj=window._ccCk;
+  if(_ck) pn=window._ccCk.pg;   // 체크리스트 양식은 그 쪽 하나만
   window._ccPage=pn;
-  var tpl=''; try{ tpl=await claimTemplateFor(window._ccInsurer); }catch(e){}
+  var tpl=''; if(!_ck){ try{ tpl=await claimTemplateFor(window._ccInsurer); }catch(e){} }
   var cv=g('cc_canvas');
-  if(!tpl){
+  if(!tpl&&!_ck){
     g('cc_overlay').innerHTML='';
     cv.width=620; cv.height=300; var cx=cv.getContext('2d');
     cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
@@ -34568,13 +34576,16 @@ async function ccRenderPage(pn){
   }
   try{
     if(!window._ccPdf){
-      var bytes=Uint8Array.from(atob(tpl),function(ch){return ch.charCodeAt(0);});
-      window._ccPdf=await pdfjsLib.getDocument({data:bytes}).promise;
+      var bytes=_ck?new Uint8Array((await _ckBufOf(window._ccCk.u)).slice(0)):Uint8Array.from(atob(tpl),function(ch){return ch.charCodeAt(0);});
+      var _pdfNew=await pdfjsLib.getDocument({data:bytes}).promise;
+      if(_ck&&(window._ccMode!=='ck'||window._ccCk!==_ckObj)) return;   // 받는 사이 창이 닫혔거나 다른 양식으로 바뀜 — 전역에 쓰지 않음
+      window._ccPdf=_pdfNew;
     }
     if(pn>window._ccPdf.numPages) pn=window._ccPdf.numPages;
     if(pn<1) pn=1;
     window._ccPage=pn;
     var page=await window._ccPdf.getPage(pn);
+    if(_ck&&(window._ccMode!=='ck'||window._ccCk!==_ckObj)) return;
     var base=page.getViewport({scale:1});
     var stage=g('cc_stage'); var avail=(stage.clientWidth||720)-6;
     var scale=Math.min(1.5, avail/base.width); if(!isFinite(scale)||scale<=0) scale=1;
@@ -34582,6 +34593,7 @@ async function ccRenderPage(pn){
     var vp=page.getViewport({scale:scale});
     cv.width=vp.width; cv.height=vp.height;
     await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    if(_ck){ if(window._ccMode!=='ck'||window._ccCk!==_ckObj) return; window._ccCkDrawn=_ckObj; }   // 이 양식이 그려졌음 — _ckCcSave 가드
     var ov=g('cc_overlay'); ov.style.width=vp.width+'px'; ov.style.height=vp.height+'px';
     ccBuildTabs(); ccBuildAddField(); ccPlaceChips();
   }catch(e){ console.warn('cc render',e); toast('양식 렌더 오류: '+e.message); }
@@ -34591,7 +34603,7 @@ function ccLabelFor(key){
   var bk=ccBaseKey(key);
   var def=CLAIM_FIELDS_DEFAULT.find(function(f){return f.key===bk;});
   // 대리발급 모드는 칩도 위임자/위임받는자(입력 폼 칸 이름) 라벨로 — 청구서 라벨("피보험자 성명")이 그대로 보이던 혼동 수정(2026-09-11)
-  var lbl=((window._ccMode==='daeri')&&_DAERI_LABELS[bk])||(def&&def.label)||key;
+  var lbl=((window._ccMode==='daeri')&&_DAERI_LABELS[bk])||((window._ccMode==='ck')&&CK_CC_LABELS[bk])||(def&&def.label)||key;
   if(key!==bk){ var n=key.split('_').pop(); lbl+=' #'+n; }
   return lbl;
 }
@@ -34731,7 +34743,8 @@ function ccPlacePreviews(){
     var bk=ccBaseKey(key);
     var fpage=(typeof co.page==='number')?co.page:0;
     if(fpage!==pageIdx) return;
-    var text=realC ? ccRealText(bk, co, realC, realCtx, META) : CC_PREVIEW_SAMPLES[bk];
+    var _ckm=(window._ccMode==='ck');
+    var text=_ckm?_ckCcSample(bk):(realC ? ccRealText(bk, co, realC, realCtx, META) : CC_PREVIEW_SAMPLES[bk]);
     if(!text) return;
     var meta=META[bk]||{};
     var size=(typeof co.size==='number'&&co.size>0)?co.size:(meta.s||9);
@@ -34761,10 +34774,18 @@ function ccPlacePreviews(){
     }
     span.style.cssText=css;
     ov.appendChild(span);
+    if(_ckm){   // 칸 폭 안내선 + 긴 값은 출력(_sdDtx)과 같게 폭에 맞춰 축소
+      var wpx=((typeof co.w==='number'&&co.w>0)?co.w:90)*sc;
+      try{ var nat=span.offsetWidth; if(nat>wpx&&wpx>0) span.style.fontSize=(pxFs*wpx/nat).toFixed(1)+'px'; }catch(e){}
+      var ln=document.createElement('div'); ln.className='cc_preview'; ln.dataset.key=key;
+      ln.style.cssText='position:absolute;left:'+(co.x*sc)+'px;top:'+((H-co.y)*sc+1)+'px;width:'+wpx.toFixed(1)+'px;border-top:1px dashed rgba(26,63,208,.55);pointer-events:none;z-index:1;';
+      ov.appendChild(ln);
+    }
   });
 }
 function ccUpdatePreviewFor(key){
   var ov=g('cc_overlay'); if(!ov || !window._ccShowPreview) return;
+  if(window._ccMode==='ck'){ ccPlacePreviews(); return; }   // 체크리스트: 글자+폭 안내선 둘이라 통째로 다시 그림(항목 2~3개뿐)
   var span=ov.querySelector('.cc_preview[data-key="'+key+'"]');
   if(!span) return;
   var co=window._ccWork[key]; if(!co) return;
@@ -34951,7 +34972,7 @@ function ccRefreshToolbox(){
   // 폼에 입력칸이 없는 항목(CC_SAM_KEYS 밖)은 숨김 — 문서에 맞는 항목만 노출.
   // (이미 배치돼 켜진 항목은 칩으로 계속 표시·삭제 가능하니 데이터가 갇히진 않음)
   var _sam=(window._ccMode==='samdocs'), _daeri=(window._ccMode==='daeri');
-  var groups=_daeri?CC_DAERI_GROUPS:(_sam?CC_TOOLBOX_GROUPS.filter(function(grp){return grp.sam;}):CC_TOOLBOX_GROUPS);
+  var groups=(window._ccMode==='ck')?CK_CC_GROUPS:(_daeri?CC_DAERI_GROUPS:(_sam?CC_TOOLBOX_GROUPS.filter(function(grp){return grp.sam;}):CC_TOOLBOX_GROUPS));
   groups.forEach(function(grp){
     var items=_sam?grp.items.filter(function(it){return CC_SAM_KEYS[it.key]||counts[it.key];}):grp.items; // 이미 배치돼 켜진 항목은 계속 표시(고아 좌표 방지. daeri는 전용 그룹이라 필터 불요)
     if(!items.length) return;
@@ -35057,6 +35078,11 @@ function ccTbAdd(baseKey){
     x: bx, y: by,
     on: true
   };
+  if(window._ccMode==='ck'){   // 체크리스트: 글씨크기·칸 폭은 같은 항목(또는 전체) 기본값을 이어받음
+    var _b=window._ccWork[baseKey]||window._ccWork.mgr||window._ccWork.hp||{};
+    window._ccWork[newKey].size=(typeof _b.size==='number'&&_b.size>0)?_b.size:CK_DEF.fs;
+    window._ccWork[newKey].w=(typeof _b.w==='number'&&_b.w>0)?_b.w:90;
+  }
   window._ccSelKey=newKey;
   window._ccSelKeys=[newKey]; // 다중선택 배열도 동기화 — 어긋나면 크기·간격 적용이 이전 선택 칩에 가는 버그(2026-08-26 리뷰)
   ccPlaceChips();
@@ -35289,35 +35315,41 @@ function ccUpdatePropsPanel(){
   var key=keys[keys.length-1];
   var co=window._ccWork[key];
   var meta=(typeof claimMeta==='function')?(claimMeta()[key]||{}):{};
+  var _ckp=(window._ccMode==='ck'), _pk=_ckp?'w':'pitch';   // 체크리스트 모드는 간격 칸이 칸 폭
   if(keys.length>1){
     // 다중 선택 — 전 항목 값이 같으면 그 값 표시, 다르면 빈 칸(빈 칸=각자 유지)
     g('cc_props_name').textContent=ccLabelFor(key)+' 외 '+(keys.length-1)+'개 — 입력한 값만 전체 적용(빈 칸은 각자 유지)';
     var szs=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.size==='number'&&w.size>0)?w.size:null; });
-    var pts=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w.pitch==='number'&&w.pitch>0)?w.pitch:null; });
+    var pts=keys.map(function(k){ var w=window._ccWork[k]; return (typeof w[_pk]==='number'&&w[_pk]>0)?w[_pk]:null; });
     var sameSz=szs.every(function(v){return v===szs[0];});
     var samePt=pts.every(function(v){return v===pts[0];});
     sizeInput.value=(sameSz&&szs[0]!=null)?szs[0]:'';
     pitchInput.value=(samePt&&pts[0]!=null)?pts[0]:'';
-    sizeInput.placeholder=sameSz?((meta.s!=null)?String(meta.s):'9'):'(여러 값)';
-    pitchInput.placeholder=samePt?((meta.pitch!=null)?String(meta.pitch):'(없음)'):'(여러 값)';
+    sizeInput.placeholder=sameSz?((meta.s!=null)?String(meta.s):(_ckp?String(CK_DEF.fs):'9')):'(여러 값)';
+    pitchInput.placeholder=samePt?((meta.pitch!=null)?String(meta.pitch):(_ckp?'90':'(없음)')):'(여러 값)';
     return;
   }
   g('cc_props_name').textContent=ccLabelFor(key);
-  sizeInput.placeholder=(meta.s!=null)?String(meta.s):'9';
-  pitchInput.placeholder=(meta.pitch!=null)?String(meta.pitch):'(없음)';
+  sizeInput.placeholder=(meta.s!=null)?String(meta.s):(_ckp?String(CK_DEF.fs):'9');
+  pitchInput.placeholder=(meta.pitch!=null)?String(meta.pitch):(_ckp?'90':'(없음)');
   sizeInput.value=(typeof co.size==='number'&&co.size>0)?co.size:'';
-  pitchInput.value=(typeof co.pitch==='number'&&co.pitch>0)?co.pitch:'';
+  pitchInput.value=(typeof co[_pk]==='number'&&co[_pk]>0)?co[_pk]:'';
 }
 function ccApplyProps(){
   var keys=_ccPropsTargets();
   if(!keys.length){ toast('항목을 먼저 클릭하세요.'); return; }
   var s=parseFloat((g('cc_props_size')||{}).value);
   var p=parseFloat((g('cc_props_pitch')||{}).value);
-  var multi=keys.length>1;
+  var multi=keys.length>1, _ckp=(window._ccMode==='ck');
+  if(_ckp){   // 체크리스트: 글씨 6~30pt, 칸 폭 20pt 이상(저장 검사 _ckCoOk와 같은 범위)
+    if(!isNaN(s)&&(s<6||s>30)){ toast('글씨 크기는 6~30 사이로 넣어 주세요.'); return; }
+    if(!isNaN(p)&&p<20){ toast('칸 폭은 20pt 이상으로 넣어 주세요.'); return; }
+  }
   keys.forEach(function(key){
     // 다중 선택에선 빈 칸=각자 유지(다른 값들이 조용히 지워지는 사고 방지), 단일 선택은 기존대로 빈 칸=기본값 복귀
-    if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else if(!multi) delete window._ccWork[key].size;
-    if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else if(!multi) delete window._ccWork[key].pitch;
+    if(!isNaN(s)&&s>0) window._ccWork[key].size=s; else if(!multi&&!_ckp) delete window._ccWork[key].size;
+    if(_ckp){ if(!isNaN(p)&&p>0) window._ccWork[key].w=p; }
+    else { if(!isNaN(p)&&p>0) window._ccWork[key].pitch=p; else if(!multi) delete window._ccWork[key].pitch; }
   });
   ccPlacePreviews();
   toast(multi?(keys.length+'개 항목에 적용. "저장"을 눌러 영구 저장하세요.'):'적용. "저장"을 눌러 영구 저장하세요.');
@@ -35335,6 +35367,7 @@ function ccCommit(chip){
   ccUpdatePreviewFor(key);
 }
 async function saveClaimCal(){
+  if(window._ccMode==='ck'){ await _ckCcSave(); return; }   // 체크리스트 양식 좌표는 게시물 메타에(4.9985)
   var ins=window._ccInsurer||'DB손해보험';
   var all=_ccAllCoords();
   var out={};
@@ -35411,6 +35444,7 @@ function ccExport(){
   toast('좌표 JSON을 표시했습니다 (클립보드에도 복사 시도됨).');
 }
 function resetClaimCal(){
+  if(window._ccMode==='ck'){ _ckCcAuto(); return; }
   if(!confirm((window._ccInsurer||'')+' 좌표를 기본값으로 되돌릴까요? (저장을 눌러야 적용됩니다)')) return;
   var def={};
   CLAIM_FIELDS_DEFAULT.forEach(function(f){

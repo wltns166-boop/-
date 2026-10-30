@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-7. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-8. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1358,6 +1358,14 @@
   co가 있으면 미리보기·출력 모두 그 값(`_ckCoOf`·`window._ckFM`), [자동 위치로]=co 삭제. 창은 쪽 전체가 화면 높이 안에 보이게 폭 제한. [삭제]는 같은 PDF에 다른 쪽이 남으면 그 쪽만 `off`(목록에서 뺌), 마지막 쪽이면 게시물째 `bdDel`, 뺀 쪽은 [뺀 양식 n개 되살리기].
   리뷰 반영: 뺀 쪽이 있는 PDF의 마지막 쪽을 지우면 "뺀 쪽 n개도 함께 사라짐" 확인창 후 bdDel, 좌표 저장·자동 위치로는 다른 저장 중이면 끝난 뒤 저장(wait).
   헤드리스 모의 실행(2쪽 PDF → 양식 2개·2쪽 골라 합쳐 2쪽 출력·좌표 끌기/글씨 크기/저장·자동 위치로·쪽 빼기/되살리기·3쪽 PDF 업로드 → 양식 3개 맨 뒤) 통과.
+- **v2026.10.30-8 좌표 지정 = 청구서 좌표 편집기 (사용자 요청 "청구서류좌표지정 같은걸로")**: 자체 창 `#ck_co_pop`을 없애고 [양식 관리] 줄의 [좌표]가 `window._ccCkReq={id,pid,pg,u,label,co,name,catId}`를 두고
+  `openClaimCal()` → **`_ccMode='ck'`**(samdocs·daeri와 같은 모드 분기). 양식은 게시판 PDF의 그 쪽(`_ckBufOf`로 받아 `_ccPdf`, 페이지 고정), 항목은 `CK_CC_GROUPS`(담당자 mgr·핸드폰 hp)·라벨 `CK_CC_LABELS`,
+  보험사·업로드·양식 관리·항목 추가·페이지 탭·삭제·내보내기·청구건 데이터는 숨김(다른 모드 진입 시 복원), [기본값 복원]은 [자동 위치로](`_ckCcAuto` — co 삭제 후 자동 좌표로 다시 그림), 안내문 `#cc_help` 교체.
+  속성 패널의 글자간격 칸은 **칸 폭(pt)**(`_ccWork[k].w`, 20 이상 — 미리보기는 폭 안내 점선 + 긴 값 축소, 출력 `_sdDtx`와 같은 규칙), 글씨 6~30. 칩 끌기·방향키·라쏘·Delete·도구박스 체크/[+ 추가]/[− 제거]는 편집기 그대로.
+  **저장 형식 확장** `co={W,H,fs, mgr:{x,y,w,fs?,off?}, hp:{…}, more:[{k:'mgr'|'hp',x,y,w,fs?}]}` — 칸별 fs(전체 fs와 다를 때만), off=숨김, more=[+ 추가] 자리. 옛 저장본(mgr·hp만) 그대로 읽힘(`_ckCoOk` 확장).
+  미리보기 `_ckOverlay`(span을 자리 수만큼 생성)·출력 `_ckBuild`는 **`_ckCoItems(co)`** 목록으로 찍는다 — co를 읽는 새 코드도 이 함수를 쓸 것. 편집기 ↔ co 변환은 `_ckWorkFromCo`/`_ckCcCollect`, 저장 `_ckCcSave`(`_ckMgrOp` 병합, 창은 열어 둠).
+  ⚠️ `#m_claimcal`은 `#app`(z-index 1 스태킹) 안이라 body 직속 `ck_mgr_pop`(9999) 아래에 그려진다 — 편집기가 떠 있는 동안 [양식 관리] 창을 display:none으로 숨기고 × (`ccCloseModal`)·`_ckCoClose`가 되살린다(z-index로는 못 올림).
+  헤드리스 검증(ck 모드 열림·숨김 UI·칩 2개·방향키 이동·크기 14/폭 120 적용·핸드폰 [+ 추가]+기본 숨김 저장 → co.more/off·재열기 복원·출력 PDF 반영·자동 위치로·이후 청구서 모드 UI 복원).
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 
