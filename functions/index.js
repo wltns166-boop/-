@@ -573,7 +573,8 @@ async function _kkHandle(body, res) {
         nick, rt: t.data.refresh_token || (users[kid] && users[kid].rt) || "",
         at: t.data.access_token, atExp: Date.now() + (t.data.expires_in || 21600) * 1000,
         linkedAt: _kkToday(), needsRelink: false, approved: wasApproved, member: memberNm,
-        scope: scopeStr   // 동의 항목 기록(status에서 메시지 동의 여부 표시)
+        scope: scopeStr,  // 동의 항목 기록(status에서 메시지 동의 여부 표시)
+        noMsg: false      // merge 저장이라 명시해야 옛 표식이 지워짐(재연동 뒤에도 배지가 남던 리뷰 지적)
       };
       await KK_TOK().set({ users }, { merge: true });
       res.json({ ok: true, nick, approved: wasApproved });
