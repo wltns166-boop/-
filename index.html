@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-5</div>
   </div>
 </div>
 
@@ -968,6 +968,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="bp ao" id="btn_devmgr" onclick="openDevMgr()" style="font-size:14px"><i class="ti ti-device-mobile-check"></i> 기기인증 관리</button>
+            <button class="bp ao" id="btn_kkreg" onclick="openKkRegMgr()" style="font-size:14px;background:#fee500;border-color:#f5d900;color:#191919;font-weight:700"><i class="ti ti-message-circle"></i> 카카오톡 등록</button>
             <button class="bp ao" onclick="exportMemExcel()" style="font-size:14px;background:rgba(20,140,60,.18);border-color:rgba(30,180,80,.3);color:#18a050"><i class="ti ti-table-export"></i> 엑셀저장</button>
             <button class="bp ao" onclick="exportMemPdf()" style="font-size:14px;background:rgba(180,60,60,.14);border-color:rgba(200,80,80,.3);color:#cc5050"><i class="ti ti-file-type-pdf"></i> PDF저장</button>
           </div>
@@ -4973,6 +4974,7 @@ function logout(){
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
+  try{ ['kkreg_popup','kkdbmgr_popup'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); }); }catch(e){}   // 카톡 등록·연동 관리 창 제거
   try{ window._medLastPw=''; }catch(_){}
   try{ _wa2Clear(); }catch(_){}   // 신보장분석작성 창(고객 보험 정보) 정리
   try{ _wkmtClear(); }catch(_){}   // 주간미팅자료 선택 상태·요약 정리
@@ -10968,15 +10970,19 @@ function kkOpen(){
 // ===== 카톡 알림 연동 관리 (DB 정보 페이지, 관리자 전용) =====
 // 팀원별 연동 링크 발급(링크를 카톡 등으로 전달 → 팀원 본인이 카카오 로그인) / 연동 현황 리스트 /
 // 승인·해제 / 이번 달 배정내역 수동 발송. 발송 대상 매핑은 링크에 심은 팀원 이름(state) 기준.
-function openKkDbMgr(){
-  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
-  var old=g('kkdbmgr_popup'); if(old) old.remove();
-  // 관리자(BM·총무)도 배정 대상이므로 목록에 포함 — 관리자 먼저, 그 다음 팀원(코드순)
+// 카톡 연동 대상 이름 목록 — 관리자(BM·총무)도 배정 대상이므로 포함: 관리자 먼저, 그 다음 팀원(코드순, 사용정지 제외)
+function _kkDbNameList(){
   var names=[];
   try{ (typeof _admList==='function'?_admList():(ADMINS||[])).forEach(function(a){ if(a&&a.name&&names.indexOf(a.name)<0) names.push(a.name); }); }catch(e){}
   (mem||[]).filter(function(m){return m.name&&m.name.trim()&&!m.suspended;})
     .sort(function(a,b){return (+a.code||0)-(+b.code||0);})
     .forEach(function(m){ if(names.indexOf(m.name)<0) names.push(m.name); });
+  return names;
+}
+function openKkDbMgr(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var old=g('kkdbmgr_popup'); if(old) old.remove();
+  var names=_kkDbNameList();
   var el=document.createElement('div');
   el.id='kkdbmgr_popup';
   el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
@@ -10999,6 +11005,7 @@ function openKkDbMgr(){
   _kkDbList();
 }
 function _kkDbList(){
+  try{ _kkRegList(); }catch(e){}   // 구성원 관리 [카카오톡 등록] 창이 떠 있으면 같이 새로 고침
   var box=g('kkdb_list'); if(!box) return;
   _kkApi('status').then(function(st){
     if(!st||!st.ok){ box.textContent=(st&&st.error&&st.error.message)||'상태를 불러오지 못했습니다. (카카오 REST 키 미설정일 수 있음)'; return; }
@@ -11039,8 +11046,8 @@ function _kkDbList(){
     }).join('');
   }).catch(function(){ box.textContent='서버 통신 오류 — 잠시 후 다시 시도하세요.'; });
 }
-function kkDbCopyLink(){
-  var nm=(g('kkdb_mem')||{value:''}).value;
+function kkDbCopyLink(nmArg){
+  var nm=nmArg||(g('kkdb_mem')||{value:''}).value;
   if(!nm){ toast('팀원을 선택하세요.'); return; }
   _kkApi('authurl',{member:nm}).then(function(r){
     if(!(r&&r.ok&&r.url)){ toast((r&&r.error&&r.error.message)||'링크 생성 실패'); return; }
@@ -11049,14 +11056,75 @@ function kkDbCopyLink(){
     else prompt('아래 링크를 복사해 전달하세요:', r.url);
   }).catch(function(){ toast('링크 생성 실패 — 인터넷 연결을 확인하세요.'); });
 }
-function kkDbLinkHere(){
-  var nm=(g('kkdb_mem')||{value:''}).value;
+function kkDbLinkHere(nmArg){
+  var nm=nmArg||(g('kkdb_mem')||{value:''}).value;
   if(!nm){ toast('팀원을 선택하세요.'); return; }
   if(!confirm('『'+nm+'』님 연동을 이 기기에서 진행합니다.\n카카오 로그인 화면에서 반드시 "'+nm+'" 본인의 카카오 계정으로 로그인해야 합니다.\n계속할까요?')) return;
   _kkApi('authurl',{member:nm}).then(function(r){
     if(r&&r.ok&&r.url){ location.href=r.url; return; }
     toast((r&&r.error&&r.error.message)||'연동 URL 생성 실패');
   }).catch(function(){ toast('연동 요청 실패 — 인터넷 연결을 확인하세요.'); });
+}
+// ===== 구성원 관리 [카카오톡 등록] (2026-10-30, 사용자 요청, 관리자 전용) =====
+// 팀원 명단을 기준으로 카톡 등록 여부(미등록/승인 대기/등록 완료)를 보여 주고, 사람마다 바로 등록 링크 복사·이 기기에서 등록·승인·해제.
+// 데이터·서버는 DB 정보 [카톡 알림 연동]과 같은 것(users[].member 매핑, /api/kakao status·authurl·approve·unlink) — 화면만 사람 기준으로 바꾼 것.
+function openKkRegMgr(){
+  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  var old=g('kkreg_popup'); if(old) old.remove();
+  var el=document.createElement('div');
+  el.id='kkreg_popup';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,16,.75);z-index:999;display:flex;align-items:center;justify-content:center';
+  el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;width:720px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3);color:#1a1a2e">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px"><div style="font-size:17px;font-weight:700">💬 카카오톡 등록</div>'
+    +'<button onclick="document.getElementById(\'kkreg_popup\').remove()" style="padding:6px 14px;border:1px solid #ccc;border-radius:7px;cursor:pointer;font-family:inherit;background:#f5f5fa">닫기</button></div>'
+    +'<div style="font-size:13px;color:#777;margin-bottom:12px">등록하면 DB 배정·예약문자 등 카톡 알림을 본인 카카오 "나와의 채팅"으로 받습니다. [링크 복사]로 링크를 전달하면 팀원이 <b>본인 카카오로 로그인</b>해 등록되고, 관리자가 [승인]하면 완료됩니다.</div>'
+    +'<div id="kkreg_list" style="font-size:14px">불러오는 중…</div>'
+  +'</div>';
+  el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+  _kkRegList();
+}
+function _kkRegList(){
+  if(!g('kkreg_list')) return;
+  var names=_kkDbNameList();
+  var seq=(window._kkRegSeq=(window._kkRegSeq||0)+1);   // 겹친 응답은 마지막 요청 것만 그림
+  _kkApi('status').then(function(st){
+    var box=g('kkreg_list'); if(!box||seq!==window._kkRegSeq) return;
+    if(!st||!st.ok){ box.textContent=(st&&st.error&&st.error.message)||'상태를 불러오지 못했습니다. (카카오 REST 키 미설정일 수 있음)'; return; }
+    var users=st.users||[], byName={};
+    users.forEach(function(u){ if(u&&u.member){ (byName[u.member]=byName[u.member]||[]).push(u); } });
+    var unmapped=users.filter(function(u){ return u&&!u.member; }).length;
+    var btn=function(fn,label,bg,bd,fg){ return '<button onclick="'+fn+'" style="font-size:12px;padding:4px 10px;background:'+bg+';border:1px solid '+bd+';border-radius:5px;color:'+fg+';cursor:pointer;font-family:inherit;font-weight:600">'+label+'</button>'; };
+    var rows=names.map(function(nm){
+      // 함정 A: 이름·카카오ID(고유 식별자)만 넘김 — & 먼저 이스케이프
+      var onm=('kkDbCopyLink('+JSON.stringify(nm)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      var ohere=('kkDbLinkHere('+JSON.stringify(nm)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      var us=byName[nm]||[], state='', acts='';
+      var u=us.filter(function(x){ return x.approved; })[0]||us[0];   // 계정이 여럿이면 승인된 것을 대표로(집계와 일치)
+      if(!u){
+        state='<span style="color:#cc3030;font-weight:700">미등록</span>';
+        acts=btn(onm,'<i class="ti ti-link"></i> 링크 복사','#4858cc','#4858cc','#fff')+btn(ohere,'이 기기에서 등록','#fee500','#f5d900','#191919');
+      }else{
+        var oid=JSON.stringify(String(u.id)).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        var nick=' <span style="color:#666;font-size:12px;font-weight:400">카카오: '+_esc(u.nick||'-')+(u.linkedAt?' · '+_esc(u.linkedAt):'')+'</span>';
+        if(u.approved){
+          state='<span style="color:#209658;font-weight:700">등록 완료</span>'+nick+(u.needsRelink?' <span style="color:#cc3030;font-size:12px;font-weight:700">재연동 필요</span>':'');
+          acts=btn('kkDbTest('+oid+')','테스트','#fffbe6','#e8d870','#8a7500')+btn('kkDbUnlink('+oid+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040');
+        }else{
+          state='<span style="color:#e0a030;font-weight:700">승인 대기</span>'+nick;
+          acts=btn('kkDbApprove('+oid+')','승인','rgba(40,160,100,.12)','rgba(60,200,120,.35)','#209658')+btn('kkDbUnlink('+oid+')','해제','#fff5f5','rgba(200,80,80,.4)','#cc4040');
+        }
+        if(us.length>1) state+=' <span style="color:#e0a030;font-size:12px;font-weight:700">계정 '+us.length+'개 — [카톡 알림 연동]에서 정리</span>';
+      }
+      return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eef;white-space:nowrap"><b>'+_esc(nm)+'</b></td>'
+        +'<td style="padding:8px 10px;border-bottom:1px solid #eef">'+state+'</td>'
+        +'<td style="padding:8px 10px;border-bottom:1px solid #eef;text-align:right;white-space:nowrap"><span style="display:inline-flex;gap:6px">'+acts+'</span></td></tr>';
+    }).join('');
+    var done=names.filter(function(n){ return (byName[n]||[]).some(function(u){ return u.approved; }); }).length;
+    box.innerHTML='<div style="font-size:13px;color:#555;margin-bottom:8px">등록 완료 <b style="color:#209658">'+done+'</b> / 전체 '+names.length+'명'
+      +(unmapped?' · <span style="color:#cc7020">팀원 미지정 계정 '+unmapped+'개</span> — <a href="#" onclick="openKkDbMgr();return false" style="color:#4858cc">[카톡 알림 연동]</a>에서 지정':'')+'</div>'
+      +'<table style="width:100%;border-collapse:collapse"><thead><tr style="font-size:12px;color:#777"><th style="text-align:left;padding:6px 10px">이름</th><th style="text-align:left;padding:6px 10px">카카오톡 등록</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }).catch(function(){ var box=g('kkreg_list'); if(box&&seq===window._kkRegSeq) box.textContent='서버 통신 오류 — 잠시 후 다시 시도하세요.'; });
 }
 function kkDbApprove(id){
   _kkApi('approve',{id:id}).then(function(r){
