@@ -32244,14 +32244,20 @@ function claimDocsWhoPick(who){
   var wrap=g('claim_form_wrap'); if(!wrap) return;
   who=who==='ins'?'ins':'ct';
   if(wrap._docsWho===who) return;
+  var t=_claimSignTwo(), nm=(who==='ins'?'피보험자 '+t.ins:'계약자 '+t.ct)+' 님';
+  // 직접 올린 사진이 남은 채 주인을 바꾸면 저장 때 그 사진이 고른 사람 보관함 사진을 덮어씀(리뷰) — 빼고 바꿀지 확인
+  var hId=!!(wrap._idImg&&!wrap._idAuto), hBank=!!(wrap._bankImg&&!wrap._bankAuto);
+  if(hId||hBank){
+    if(!confirm('직접 올린 '+[hId?'신분증':'',hBank?'통장사본':''].filter(Boolean).join('·')+' 사진이 있습니다.\n이 사진을 빼고 '+nm+' 것으로 바꿀까요?')){
+      _claimDocsWhoDraw(); return;   // 취소 — 라디오를 원래대로
+    }
+    if(hId) _claimImgSet('id',''); if(hBank) _claimImgSet('bank','');
+  }
   wrap._docsWho=who;
   _claimDocsWhoDraw();
-  var hand=(wrap._idImg&&!wrap._idAuto)||(wrap._bankImg&&!wrap._bankAuto);
   _claimDocsPrefillFromInputs();   // 자동으로 불러온 사진은 빼고 고른 사람 것으로 다시 불러옴
   var p=_claimDocsPerson(), ent=_claimDocsFind(p.name, p.rrn);
-  var nm=(who==='ins'?'피보험자':'계약자')+' '+(p.name||'')+' 님';
-  if(hand) toast(nm+' 것으로 바꿨습니다. 직접 올린 사진은 그대로 두었어요 — 바꾸려면 ✕로 빼세요.');
-  else if(!ent||(!ent.id&&!ent.bank)) toast(nm+' 보관 사진이 없습니다. 이번에 올리면 다음 청구부터 자동 등록됩니다.');
+  if(!ent||(!ent.id&&!ent.bank)) toast(nm+' 보관 사진이 없습니다. 이번에 올리면 다음 청구부터 자동 등록됩니다.');
 }
 var _claimDocsToastTs=0;
 function _claimDocsPrefillToast(){
