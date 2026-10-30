@@ -17,6 +17,7 @@ import certifi
 if os.path.exists("/root/.ccr/ca-bundle.crt"):
     certifi.where = lambda: "/root/.ccr/ca-bundle.crt"
 import edge_tts  # noqa: E402
+import hashlib  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "..", "riders.json")
@@ -42,6 +43,8 @@ CAPTION_FIX = [
     ("이 점은", "2점은"), ("삼 점 이상", "3점 이상"),
     ("십에서 이십 퍼센트", "10~20%"), ("삼 퍼센트부터 백 퍼센트", "3%부터 100%"),
     ("삼십 퍼센트", "30%"), ("이십 퍼센트", "20%"), ("오십 퍼센트", "50%"), ("십 퍼센트", "10%"), ("백 퍼센트", "100%"),
+    ("삼백오십만 원", "350만 원"), ("백오십만 원", "150만 원"), ("십오만 원", "15만 원"), ("오십 회", "50회"),
+    ("영 원", "0원"), ("1년까지는", "1년까지는"),
     ("오천만 원", "5천만 원"), ("이천만 원", "2천만 원"), (" 천만 원", " 1천만 원"), ("이십 일 입원", "20일 입원"), ("일억 원", "1억 원"),
     ("삼십만 원", "30만 원"), ("십만 원", "10만 원"), ("칠만 원", "7만 원"), ("삼만 원", "3만 원"),
     ("구십 일", "90일"), ("이십 일분", "20일분"), ("팔십 세", "80세"), ("전치 팔 주", "전치 8주"),
@@ -57,9 +60,16 @@ def caption(text):
 
 def build_scenes(cat, idx, total):
     scenes = [{"type": "intro", "say": cat["intro"]}]
+    if cat.get("journey"):
+        scenes.append({"type": "journey", "journey": cat["journey"], "say": cat["journey"]["say"]})
     n = len(cat["riders"])
     for i, r in enumerate(cat["riders"]):
-        scenes.append({"type": "rider", "rider": r, "pos": i + 1, "count": n, "say": r["say"]})
+        # 1) 그림으로 이해: 이름·핵심 3가지·그림 스토리
+        scenes.append({"type": "rider", "rider": r, "pos": i + 1, "count": n, "say": r["say"][:4]})
+        # 2) 자세히: 그래프/치료법/보장표 + 예시 + 상담 포인트
+        vs = r["visual"]["say"]
+        scenes.append({"type": "detail", "rider": r, "pos": i + 1, "count": n,
+                       "lead": len(vs), "say": vs + r["say"][4:]})
     scenes.append({"type": "compare", "compare": cat["compare"], "say": cat["compare"]["say"]})
     scenes.append({"type": "quiz", "quiz": cat["quiz"], "say": cat["quiz"]["say"]})
     scenes.append({
@@ -78,6 +88,11 @@ def build_scenes(cat, idx, total):
                 "이것으로 특약 교육 과정을 모두 마쳤습니다. 수고 많으셨어요."]
     scenes.append({"type": "outro", "say": last})
     return scenes
+
+
+def clip_name(text):
+    # 문장 내용으로 파일 이름을 정해, 장면 순서가 바뀌어도 음성이 어긋나지 않게 한다
+    return hashlib.md5(f"{VOICE}|{RATE}|{text}".encode()).hexdigest()[:16] + ".mp3"
 
 
 def probe_duration(path):
@@ -109,7 +124,7 @@ async def build_video(cat, idx, total, out_root):
     jobs = []
     for si, sc in enumerate(scenes):
         for k, text in enumerate(sc["say"]):
-            jobs.append(tts(text, os.path.join(clips, f"s{si:02d}_{k}.mp3")))
+            jobs.append(tts(text, os.path.join(clips, clip_name(text))))
     # 동시에 너무 많이 요청하지 않도록 나눠서 합성
     for i in range(0, len(jobs), 6):
         await asyncio.gather(*jobs[i:i + 6])
@@ -140,7 +155,7 @@ async def build_video(cat, idx, total, out_root):
                 sc["thinkAt"] = round(local, 3)
                 silence(QUIZ_THINK)
                 local += QUIZ_THINK
-            p = os.path.join(clips, f"s{si:02d}_{k}.mp3")
+            p = os.path.join(clips, clip_name(text))
             wav = p[:-4] + ".wav"
             if not os.path.exists(wav):
                 subprocess.check_call(["ffmpeg", "-v", "error", "-y", "-i", p,

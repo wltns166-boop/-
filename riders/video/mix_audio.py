@@ -80,7 +80,7 @@ def main(d):
         w.setframerate(SR)
         w.writeframes((mix * 32767).astype(np.int16).tobytes())
     subprocess.check_call(["ffmpeg", "-v", "error", "-y", "-i", raw,
-                           "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", str(SR), "-ac", "2",
+                           "-af", "loudnorm=I=-14:TP=-1.0:LRA=11", "-ar", str(SR), "-ac", "2",
                            os.path.join(d, "mix.wav")])
     print("mixed", tl["id"])
 

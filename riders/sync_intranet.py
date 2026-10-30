@@ -15,7 +15,8 @@ slim = {
     "meta": {"disclaimer": data["meta"]["disclaimer"]},
     "categories": [
         {k: c[k] for k in ("id", "no", "title", "icon", "color", "summary")} | {
-            "riders": [{k: r[k] for k in ("name", "oneLine", "desc", "points", "example", "tip")}
+            "riders": [{k: r[k] for k in ("name", "oneLine", "desc", "points", "example", "tip", "story")}
+                       | {"visual": {k: v for k, v in r["visual"].items() if k != "say"}}
                        for r in c["riders"]]}
         for c in data["categories"]
     ],
@@ -45,9 +46,24 @@ for c in data["categories"]:
 L += ["", "인트라넷에서는 왼쪽 메뉴 **🎓 특약 교육**에서 바로 볼 수 있습니다.", ""]
 for c in data["categories"]:
     L += [f"## {c['no']}. {c['icon']} {c['title']}", "", f"_{c['summary']}_", ""]
+    if c.get("journey"):
+        L += [f"**{c['journey']['title']}**", "", " → ".join(f"{s_['icon']} {s_['label']} ({s_['rider']})" for s_ in c["journey"]["steps"]), ""]
     for r in c["riders"]:
         L += [f"### {r['name']}", "", f"**{r['oneLine']}**", "", r["desc"], ""]
         L += [f"- {p}" for p in r["points"]]
+        L += ["", "🖼️ " + " → ".join(f"{a} {b}" for a, b in r["story"]), ""]
+        v = r["visual"]
+        L += [f"**{v['title']}**", ""]
+        if v["type"] == "treat":
+            L += [f"- {it['icon']} **{it['name']}** — {it['text']}" for it in v["items"]]
+        elif v["type"] == "check":
+            L += [f"- {dict(y='✅', n='❌', m='🔺 상품마다')[it['ok']]} {it['label']}" for it in v["items"]]
+        elif v["type"] == "flow":
+            L += [" → ".join(f"{it['icon']} {it['label']}({it['sub']})" for it in v["items"])]
+        elif v["type"] == "timeline":
+            L += [" → ".join(f"{it['label']}: **{it['text']}**" for it in v["items"])]
+        else:
+            L += [f"- {it['label']}: {'█' * max(1, round(it['value'] / 10))} {it['text']}" for it in v["items"]]
         L += ["", f"📌 **이럴 때 받아요** — {r['example']}  ", f"💡 **상담 포인트** — {r['tip']}", ""]
     L += ["**핵심 정리**", ""] + [f"{i}. {t}" for i, t in enumerate(c["takeaways"], 1)] + [""]
 L += ["---", "", "## 영상 다시 만들기", "",
