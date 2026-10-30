@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.28-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-1</div>
   </div>
 </div>
 
@@ -27859,6 +27859,9 @@ function _ckPanelHtml(name,cat){
       +'<div style="font-size:11.5px;color:#8a92ac;margin-bottom:12px;line-height:1.5">내 계정 정보로 자동 입력됩니다. 고쳐서 출력해도 저장되지는 않습니다.</div>'
       +'<button onclick="ckPrint('+an+','+ac+')" style="'+_bt+'width:100%;background:#4858cc;border:none;color:#fff;margin-bottom:8px"><i class="ti ti-printer"></i> 바로 출력</button>'
       +'<button onclick="ckSavePdf('+an+','+ac+')" style="'+_bt+'width:100%;background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-download"></i> PDF 저장</button>'
+      +(_isAdmin()?'<label style="'+_bt+'width:100%;box-sizing:border-box;display:block;text-align:center;margin-top:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-file-plus"></i> 양식 추가'
+          +'<input type="file" accept="application/pdf,.pdf" onchange="ckTplAdd(this,'+an+','+ac+')" style="display:none"></label>'
+        +'<div style="font-size:11.5px;color:#8a92ac;margin-top:5px;line-height:1.5">관리자 전용 · PDF를 올리면 가장 최근에 올린 양식으로 출력됩니다(이전 양식은 아래 게시물로 남음).</div>':'')
     +'</div>'
     +'<div style="flex:1 1 320px;min-width:0;max-width:520px">'
       +(s?'<div id="ck_prev" style="position:relative;container-type:inline-size;border:1px solid #d8dcef;background:#fff;box-shadow:0 2px 10px rgba(0,0,40,.08)">'
@@ -27866,7 +27869,7 @@ function _ckPanelHtml(name,cat){
           +'<span id="ck_ov_mgr" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
           +'<span id="ck_ov_hp" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
         +'</div>'
-       :'<div style="padding:30px 10px;text-align:center;color:#8890b8;font-size:13.5px;border:1px dashed #c8cce8;border-radius:10px">이 분류에 올린 PDF 양식이 없습니다.'+(_isAdmin()?' [게시물 작성]으로 PDF를 올려 주세요.':'')+'</div>')
+       :'<div style="padding:30px 10px;text-align:center;color:#8890b8;font-size:13.5px;border:1px dashed #c8cce8;border-radius:10px">이 분류에 올린 PDF 양식이 없습니다.'+(_isAdmin()?' 왼쪽 [양식 추가]로 PDF를 올려 주세요.':'')+'</div>')
     +'</div>'
   +'</div>';
 }
@@ -27930,6 +27933,47 @@ async function ckPrint(name,catId){   // bdrPrint 패턴 — 새 탭을 클릭 �
     setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },120000);
   }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
   finally{ window._ckBusy=false; }
+}
+// [양식 추가] (2026-10-30 — v2026.10.30-1, 사용자 요청, 관리자 전용): PDF를 그 분류의 새 게시물로 올림 → _ckSrc가 최신 PDF를 양식으로 씀.
+// 저장 형식은 게시물 작성(bdSave)과 같음(원본 + 페이지 미리보기, board_files/, boards는 _bdFresh 병합). 출력과 같은 pdf-lib로 먼저 열어 봄(암호 PDF 등 거부).
+async function ckTplAdd(inp,name,catId){
+  var f=inp&&inp.files&&inp.files[0]; try{ inp.value=''; }catch(e){}
+  if(!f) return;
+  if(!_isAdmin()){ toast('관리자만 양식을 추가할 수 있습니다.'); return; }
+  if(window._ckTplBusy){ toast('양식을 올리는 중입니다. 잠시만 기다려주세요.'); return; }
+  if(!(/\.pdf$/i.test(String(f.name||''))||f.type==='application/pdf')){ toast('PDF 파일만 양식으로 올릴 수 있습니다.'); return; }
+  if(f.size>25*1024*1024){ toast('25MB 이하 PDF만 올릴 수 있습니다.'); return; }
+  if(!(typeof firebase!=='undefined'&&firebase.storage)){ toast('클라우드 연결 후 양식을 올릴 수 있습니다.'); return; }
+  var cat=_bdCats(name).filter(function(c){ return c.id===catId; })[0];
+  if(!cat){ toast('분류를 찾을 수 없습니다. 화면을 새로고침해 주세요.'); return; }
+  if(!confirm('"'+f.name+'"을(를) '+cat.nm+' 양식으로 추가할까요?\n추가하면 모든 팀원의 출력이 이 양식으로 바뀝니다.')) return;
+  window._ckTplBusy=true;
+  var entry=null, post=null;
+  try{
+    var ab=await f.arrayBuffer();
+    try{ await PDFLib.PDFDocument.load(ab.slice(0)); }
+    catch(e){ throw new Error('이 PDF는 열 수 없습니다(암호가 걸렸거나 손상된 파일). 다른 PDF로 저장해 올려 주세요.'); }
+    toast('양식 올리는 중…');
+    entry={u:await _bdPdfUpload(name,f), t:'pdf', n:String(f.name||'양식.pdf').slice(0,120)};
+    try{
+      var pv=await _bdPdfPagesUpload(name, ab.slice(0), entry.n);
+      entry.pages=pv.pages; if(pv.total>pv.pages.length) entry.pgTotal=pv.total;
+    }catch(e){ console.warn('체크리스트 양식 미리보기 생성 실패:',e); }   // 없어도 _ckPrevLoad가 첫 쪽을 그려 보여 줌
+    post={ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now(),
+      title:cat.nm+' 양식 ('+td()+')', body:'', vm:'scroll', files:[entry], cat:catId };
+    await _bdFresh(function(b){ if(!Array.isArray(b[name])) b[name]=[]; b[name].push(post); });
+    entry=null;
+    toast('양식을 추가했습니다. 이제 이 양식으로 출력됩니다.');
+    if(window._bdPage) window._bdPage[name]=0;
+    try{ rCustomPage(name); }catch(e){ console.warn(e); }   // 저장은 끝남 — 화면 오류를 실패로 안내하지 않음(리뷰)
+  }catch(e){
+    console.warn(e);
+    if(entry){   // 기록 전 실패 — 올라간 원본·미리보기 정리(고아 방지)
+      try{ if(post&&boards&&Array.isArray(boards[name])) boards[name]=boards[name].filter(function(x){ return !(x&&x.id===post.id); }); }catch(_e){}   // 메모리에만 남은 게시물이 지운 주소를 가리키지 않게(리뷰)
+      [entry.u].concat(entry.pages||[]).forEach(function(u){ try{ if(_BD_URL_RE.test(String(u))) firebase.storage().refFromURL(u).delete().catch(function(){}); }catch(_e){} });
+    }
+    toast('양식 추가 실패: '+(e&&e.message||e));
+  }finally{ window._ckTplBusy=false; }
 }
 async function ckSavePdf(name,catId){
   if(window._ckBusy){ toast('준비 중입니다. 잠시만 기다려주세요.'); return; }

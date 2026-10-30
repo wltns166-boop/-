@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.28-10. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1330,6 +1330,9 @@
 - 양식 = 그 분류 게시물 중 최신 PDF(`_ckSrc`, `_bdPdfs` 화이트리스트). 값 자리 `_ckCoords` — 양식 글자에서 '담당자'·'핸드폰'(나뉜 글자 조각을 같은 줄에서 이어 붙여 판정) 오른쪽, 못 찾으면 `CK_DEF`.
   위치 찾기가 예외로 실패하면 캐시하지 않고 다음에 재시도, 라벨은 하나만 찾아도 그 칸 적용. ⚠️ 팀원도 이 양식 PDF는 [PDF 저장]으로 받을 수 있음 — 출력용 양식이라 5.6 다운로드 차단의 의도된 예외.
   기입은 `_sdDtx`(한글 PNG·긴 값 축소). 입력은 메모리 `window._ckBuf`만(저장 없음), logout 리셋. id `ck_` 접두.
+- **v2026.10.30-1 [양식 추가] (사용자 요청, 관리자 전용)**: [PDF 저장] 아래 초록 버튼(숨은 file input — `ckTplAdd(inp,name,catId)`). PDF를 **그 분류의 새 게시물**로 올림
+  (게시물 작성과 같은 저장 형식 — `_bdPdfUpload` 원본 + `_bdPdfPagesUpload` 미리보기, `_bdFresh` 병합, 제목 "분류명 양식 (날짜)") → `_ckSrc`가 최신 PDF를 양식으로 쓰므로 즉시 바뀜(이전 양식은 게시물로 남음 — 지우려면 게시물 삭제).
+  올리기 전 출력과 같은 pdf-lib로 열어 봄(암호·손상 PDF 거부 — ignoreEncryption 금지), 25MB 상한, confirm, 연타 가드 `_ckTplBusy`, 기록 전 실패면 올라간 파일 정리. 헤드리스 모의 실행(관리자만 버튼·저장 형식·잘못된 PDF·저장 실패 정리) 통과.
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 
