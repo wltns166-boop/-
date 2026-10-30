@@ -11,7 +11,7 @@
 - **메인 파일**: `index.html` — 단일 HTML 인트라넷 앱 (HTML+CSS+JS 한 파일, 약 11,000줄)
 - **구글드라이브 연동 서버**: `google-drive-sync.gs` — Apps Script 웹앱
 - **데이터 저장**: `localStorage` + Firebase(Firestore) 동기화. 파일/이미지/PDF는 Firebase Storage + 구글드라이브.
-- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-1. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
+- 작업 브랜치: **`claude/jolly-carson-bvrih0`** (2026-10-06부터 — 최신 v2026.10.30-2. `claude/great-mccarthy-oustzl`(432b6a4, v2026.10.01-2)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/jolly-carson-bvrih0` 최신** 위에서 시작할 것 — great-mccarthy에서 푸시하면 청구 공유 주소 수정이 빠진 옛 코드가 배포된다.)
   (이전: **`claude/great-mccarthy-oustzl`** (2026-09-29부터 — v2026.10.01-2까지. 이전 `claude/compassionate-mendel-p9ufls`(2184148, v2026.09.28-14)의 내용을 모두 포함.
   ⚠️ 새 세션은 반드시 **원격 `claude/great-mccarthy-oustzl` 최신** 위에서 시작할 것 — compassionate-mendel에서 푸시하면 9/29 작업(공지 분류·병력정리 수술 OCR·간편체 고지사항)이 빠진 옛 코드가 배포된다.)
@@ -1333,6 +1333,13 @@
 - **v2026.10.30-1 [양식 추가] (사용자 요청, 관리자 전용)**: [PDF 저장] 아래 초록 버튼(숨은 file input — `ckTplAdd(inp,name,catId)`). PDF를 **그 분류의 새 게시물**로 올림
   (게시물 작성과 같은 저장 형식 — `_bdPdfUpload` 원본 + `_bdPdfPagesUpload` 미리보기, `_bdFresh` 병합, 제목 "분류명 양식 (날짜)") → `_ckSrc`가 최신 PDF를 양식으로 쓰므로 즉시 바뀜(이전 양식은 게시물로 남음 — 지우려면 게시물 삭제).
   올리기 전 출력과 같은 pdf-lib로 열어 봄(암호·손상 PDF 거부 — ignoreEncryption 금지), 25MB 상한, confirm, 연타 가드 `_ckTplBusy`, 기록 전 실패면 올라간 파일 정리. 헤드리스 모의 실행(관리자만 버튼·저장 형식·잘못된 PDF·저장 실패 정리) 통과.
+- **v2026.10.30-2 양식 여러 개 + [양식 관리] 창 (사용자 요청)**: 양식 = 그 분류에서 PDF가 붙은 게시물 각각(`_ckFormsOf` — 순서 `p.ckOrd` → 없으면 올린 순서 ts, 이름 `p.ckNm` 비면 "N번양식"). `_ckSrc`(최신 1개) 폐지.
+  왼쪽: [바로 출력] 위 **출력할 양식 체크박스**(`data-ckpick`=게시물 id, `ckPick`) — 선택은 메모리 `window._ckSel[분류id]`(처음엔 1번 양식, 고른 양식이 다 지워지면 1번), 여러 개면 **양식 순서대로 한 PDF로 합쳐** 출력(`_ckBuild` — 양식마다 1쪽에 담당자·핸드폰 기입 후 copyPages).
+  오른쪽 미리보기 `#ck_prevwrap`: **2개씩** 카드(`data-cku`=PDF 주소, 고른 양식은 초록 테두리+✓출력), 3개 이상이면 ‹ ›(`ckPgMove`, `window._ckPg`), 체크하면 그 양식이 있는 쪽으로 이동. 겹침 글자는 카드마다 그 양식의 좌표(`_ckCoCache[u]`), pages 그림이 없는 양식은 첫 쪽을 그려 `_ckImgCache[u]`에 캐시.
+  관리자 [양식 관리](옛 [양식 추가] 자리) → 창 `#ck_mgr_pop`(`ckMgrOpen`, 흰 카드): 줄마다 번호·작은 그림·**이름 입력**(바꾸면 바로 저장 `ckMgrRename`, 20자)·▲▼(`_ckMgrMove` — 그 분류 양식 전부 ckOrd 다시 매김)·[보기](원본 새 탭)·[삭제](`bdDel` 재사용 — 확인창·원본·미리보기 그림 정리),
+  [PDF 올리기](여러 개 한 번에 — `ckTplAdd`, 새 양식은 맨 뒤 ckOrd). 조작은 전부 게시물 id 기준·`_bdFresh` 병합 저장, 연타 가드 `_ckMgrBusy`/`_ckTplBusy`, 실시간 수신 재렌더 때 이름 입력 중이면 창을 다시 그리지 않음(`_ckMgrRefresh`).
+  리뷰 반영: 다른 저장 중에 바꾼 이름은 버리지 않고 끝난 뒤 저장(`_ckMgrOp` wait 재시도), 저장 뒤 창 다시 그리기는 이름 입력 중이면 생략. 수용: 게시물 [수정] 창을 연 사이 양식 관리에서 바꾼 이름·순서는 그 게시물 저장 때 옛 값으로 덮일 수 있음(last-write-wins 계열), 새로 올린 양식은 자동 선택 안 됨.
+  logout에서 `_ckSel`·`_ckPg` 리셋 + 창 닫기. 헤드리스 모의 실행(3양식 라벨·2장씩·체크 시 쪽 이동·2양식 합쳐 2쪽·선택 없음 거부·이름/순서/삭제/2파일 업로드 중 PDF 아닌 것 제외) 통과.
 
 ## 4.99 상속세 계산기 · 설명서 (ss, 2026-09-15 — v2026.09.15-4)
 

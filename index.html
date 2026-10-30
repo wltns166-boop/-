@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-2</div>
   </div>
 </div>
 
@@ -4986,6 +4986,7 @@ function logout(){
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
   window._ckBuf=null;   // 상담고객체크리스트 담당자·핸드폰 입력도 리셋(2026-10-27)
+  window._ckSel=null; window._ckPg=null; try{ if(typeof ckMgrClose==='function') ckMgrClose(); }catch(e){}   // 체크리스트 양식 선택·양식 관리 창(2026-10-30)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
   window._dvState=null;  // 내 자료함 탐색 상태(팀원·경로) 리셋 — 다른 사용자가 이어받지 않게
   try{ if(typeof _rsvClear==='function') _rsvClear(); }catch(e){}   // 예약문자 — 고객 성함·연락처가 다음 로그인 사용자에게 남지 않게
@@ -26533,7 +26534,7 @@ function rCustomPage(name){
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
   if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
   if(yearCat){ try{ _yrCalc(); }catch(e){} }                          // 연말정산도 같은 이유로 최초 1회(빠뜨리면 결과 칸이 빈 채로 보임)
-  if(ckCat){ try{ _ckPrevLoad(name,ckCat.id); }catch(e){} }           // 체크리스트 칸 위치·미리보기 로드
+  if(ckCat){ try{ _ckPrevLoad(name,ckCat.id); }catch(e){} try{ _ckMgrRefresh(); }catch(e){} }           // 체크리스트 칸 위치·미리보기 로드
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
 // 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
@@ -27798,17 +27799,6 @@ function _ckGetVals(catId){
   }
   return window._ckBuf[catId];
 }
-function _ckSrc(name,catId){   // 그 분류의 최신 PDF 게시물
-  var out=null;
-  _bdPosts(name).filter(function(p){ return p&&p.cat===catId; })
-    .sort(function(a,b){ return (+b.ts||0)-(+a.ts||0); })
-    .forEach(function(p){
-      if(out) return; var f=_bdPdfs(p)[0]; if(!f) return;   // _bdPdfs가 _BD_URL_RE(우리 board_files)로 거른 주소만
-      var im=(Array.isArray(f.pages)&&f.pages[0]&&_BD_URL_RE.test(String(f.pages[0])))?f.pages[0]:'';
-      out={u:f.u,img:im};
-    });
-  return out;
-}
 function _ckBufOf(u){
   window._ckPdfBuf=window._ckPdfBuf||{};
   if(!window._ckPdfBuf[u]) window._ckPdfBuf[u]=fetch(u).then(function(r){ if(!r.ok) throw new Error('양식 PDF를 받지 못했습니다('+r.status+')'); return r.arrayBuffer(); })
@@ -27843,12 +27833,52 @@ async function _ckCoords(u){   // 양식 글자에서 '담당자'·'핸드폰' �
   window._ckCoCache[u]=co;
   return co;
 }
+// ----- 양식 여러 개 (2026-10-30 — v2026.10.30-2, 사용자 요청) -----
+// 양식 = 그 분류에서 PDF가 붙은 게시물 1건. 순서는 p.ckOrd(양식 관리 ▲▼) → 없으면 올린 순서(ts). 이름은 p.ckNm, 비면 'N번양식'.
+// 출력할 양식 선택은 메모리 window._ckSel[분류id]=[게시물 id…](저장 없음, 처음엔 1번 양식), 미리보기 쪽 번호는 window._ckPg[분류id](2개씩).
+function _ckFormsOf(list,catId){
+  var out=[];
+  (Array.isArray(list)?list:[]).forEach(function(p){
+    if(!p||p.cat!==catId) return;
+    var f=_bdPdfs(p)[0]; if(!f) return;   // _bdPdfs가 _BD_URL_RE(우리 board_files)로 거른 주소만
+    var im=(Array.isArray(f.pages)&&f.pages[0]&&_BD_URL_RE.test(String(f.pages[0])))?f.pages[0]:'';
+    var ord=(typeof p.ckOrd==='number'&&isFinite(p.ckOrd))?p.ckOrd:null;
+    out.push({id:p.id,u:f.u,img:im,fn:String(f.n||''),nm:String(p.ckNm||'').slice(0,20),ord:ord,ts:+p.ts||0,dt:String(p.dt||''),post:p});
+  });
+  out.sort(function(a,b){
+    if(a.ord!==null&&b.ord!==null&&a.ord!==b.ord) return a.ord-b.ord;
+    if(a.ord!==null&&b.ord===null) return -1;
+    if(a.ord===null&&b.ord!==null) return 1;
+    return a.ts-b.ts;
+  });
+  out.forEach(function(f,i){ f.no=i+1; f.label=f.nm||((i+1)+'번양식'); });
+  return out;
+}
+function _ckForms(name,catId){ return _ckFormsOf(_bdPosts(name),catId); }
+function _ckSelIds(catId,forms){   // 지금 있는 양식만, 양식 순서대로
+  window._ckSel=window._ckSel||{};
+  var s=window._ckSel[catId], ids=forms.map(function(f){ return f.id; });
+  if(!Array.isArray(s)){ if(!forms.length) return []; s=window._ckSel[catId]=[forms[0].id]; }
+  var keep=ids.filter(function(id){ return s.indexOf(id)>=0; });
+  if(!keep.length&&s.length&&forms.length) keep=[forms[0].id];   // 고른 양식이 모두 지워졌으면 1번으로
+  window._ckSel[catId]=keep;
+  return keep;
+}
+function _ckArgs(name,catId){
+  return { an:JSON.stringify(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;'), ac:JSON.stringify(catId).replace(/&/g,'&amp;').replace(/"/g,'&quot;') };
+}
 function _ckPanelHtml(name,cat){
-  var v=_ckGetVals(cat.id), s=_ckSrc(name,cat.id);
-  var an=JSON.stringify(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-  var ac=JSON.stringify(cat.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  var v=_ckGetVals(cat.id), forms=_ckForms(name,cat.id), sel=_ckSelIds(cat.id,forms), A=_ckArgs(name,cat.id);
   var _in='width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
   var _bt='padding:10px 14px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;';
+  var picks=forms.length
+    ? forms.map(function(f){
+        var on=sel.indexOf(f.id)>=0;
+        return '<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid '+(on?'#7cc58a':'#dde0ee')+';border-radius:7px;background:'+(on?'#eef8f0':'#fff')+';cursor:pointer;font-size:13.5px;color:#222;margin-bottom:5px">'
+          +'<input type="checkbox" data-ckpick="'+_esc(f.id)+'"'+(on?' checked':'')+' onchange="ckPick(this,'+A.an+','+A.ac+')" style="width:16px;height:16px;margin:0;cursor:pointer">'
+          +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.label)+'</span></label>';
+      }).join('')
+    : '<div style="font-size:12.5px;color:#8a92ac;margin-bottom:6px">올린 양식이 없습니다.</div>';
   return '<div id="ck_panel" style="margin:12px 0 16px;padding:16px;border:1px solid #d8dcef;border-radius:12px;background:#f8f9fe;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">'
     +'<div style="flex:0 0 260px;max-width:100%">'
       +'<div style="font-weight:700;font-size:15px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-clipboard-check"></i> '+_esc(cat.nm)+' 출력</div>'
@@ -27857,21 +27887,61 @@ function _ckPanelHtml(name,cat){
       +'<div style="font-size:12.5px;color:#555;margin-bottom:3px">핸드폰</div>'
       +'<input data-ckk="hp" data-ckcat="'+_esc(cat.id)+'" oninput="_ckInput(this)" value="'+_esc(v.hp||'')+'" inputmode="tel" maxlength="13" placeholder="010-0000-0000" style="'+_in+';margin-bottom:6px">'
       +'<div style="font-size:11.5px;color:#8a92ac;margin-bottom:12px;line-height:1.5">내 계정 정보로 자동 입력됩니다. 고쳐서 출력해도 저장되지는 않습니다.</div>'
-      +'<button onclick="ckPrint('+an+','+ac+')" style="'+_bt+'width:100%;background:#4858cc;border:none;color:#fff;margin-bottom:8px"><i class="ti ti-printer"></i> 바로 출력</button>'
-      +'<button onclick="ckSavePdf('+an+','+ac+')" style="'+_bt+'width:100%;background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-download"></i> PDF 저장</button>'
-      +(_isAdmin()?'<label style="'+_bt+'width:100%;box-sizing:border-box;display:block;text-align:center;margin-top:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-file-plus"></i> 양식 추가'
-          +'<input type="file" accept="application/pdf,.pdf" onchange="ckTplAdd(this,'+an+','+ac+')" style="display:none"></label>'
-        +'<div style="font-size:11.5px;color:#8a92ac;margin-top:5px;line-height:1.5">관리자 전용 · PDF를 올리면 가장 최근에 올린 양식으로 출력됩니다(이전 양식은 아래 게시물로 남음).</div>':'')
+      +'<div style="font-size:12.5px;color:#555;margin-bottom:5px">출력할 양식 <span style="color:#8a92ac">(여러 개 고르면 한 번에 출력)</span></div>'
+      +picks
+      +'<button onclick="ckPrint('+A.an+','+A.ac+')" style="'+_bt+'width:100%;background:#4858cc;border:none;color:#fff;margin:6px 0 8px"><i class="ti ti-printer"></i> 바로 출력</button>'
+      +'<button onclick="ckSavePdf('+A.an+','+A.ac+')" style="'+_bt+'width:100%;background:#fff;border:1px solid #c8cce8;color:#3a40aa"><i class="ti ti-download"></i> PDF 저장</button>'
+      +(_isAdmin()?'<button onclick="ckMgrOpen('+A.an+','+A.ac+')" style="'+_bt+'width:100%;margin-top:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830"><i class="ti ti-settings"></i> 양식 관리</button>':'')
     +'</div>'
-    +'<div style="flex:1 1 320px;min-width:0;max-width:520px">'
-      +(s?'<div id="ck_prev" style="position:relative;container-type:inline-size;border:1px solid #d8dcef;background:#fff;box-shadow:0 2px 10px rgba(0,0,40,.08)">'
-          +'<img id="ck_prev_img" alt="" draggable="false" style="display:block;width:100%;min-height:200px"'+(s.img?' src="'+_esc(s.img)+'"':'')+'>'
-          +'<span id="ck_ov_mgr" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
-          +'<span id="ck_ov_hp" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
-        +'</div>'
-       :'<div style="padding:30px 10px;text-align:center;color:#8890b8;font-size:13.5px;border:1px dashed #c8cce8;border-radius:10px">이 분류에 올린 PDF 양식이 없습니다.'+(_isAdmin()?' 왼쪽 [양식 추가]로 PDF를 올려 주세요.':'')+'</div>')
-    +'</div>'
+    +'<div id="ck_prevwrap" style="flex:1 1 420px;min-width:0;max-width:960px">'+_ckPrevHtml(name,cat.id)+'</div>'
   +'</div>';
+}
+function _ckPrevHtml(name,catId){
+  var forms=_ckForms(name,catId);
+  if(!forms.length) return '<div style="padding:30px 10px;text-align:center;color:#8890b8;font-size:13.5px;border:1px dashed #c8cce8;border-radius:10px">이 분류에 올린 PDF 양식이 없습니다.'+(_isAdmin()?' 왼쪽 [양식 관리]에서 PDF를 올려 주세요.':'')+'</div>';
+  var sel=_ckSelIds(catId,forms), A=_ckArgs(name,catId);
+  window._ckPg=window._ckPg||{};
+  var pages=Math.ceil(forms.length/2), pg=Math.min(Math.max(0,+window._ckPg[catId]||0),pages-1);
+  window._ckPg[catId]=pg;
+  var show=forms.slice(pg*2,pg*2+2), ic=(window._ckImgCache=window._ckImgCache||{});
+  var nb='width:34px;height:34px;flex:0 0 34px;border-radius:50%;border:1px solid #c8cce8;background:#fff;color:#3a40aa;font-size:20px;line-height:1;cursor:pointer;font-family:inherit;';
+  var cards=show.map(function(f){
+    var on=sel.indexOf(f.id)>=0, src=f.img||ic[f.u]||'';
+    return '<div data-cku="'+_esc(f.u)+'" style="flex:1 1 220px;min-width:0;max-width:440px">'
+      +'<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#2a2a4a;margin-bottom:5px">'
+        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.label)+'</span>'
+        +(on?'<span style="flex:0 0 auto;font-size:11.5px;font-weight:700;color:#1d7a32;background:#e3f4e6;border-radius:9px;padding:1px 7px">✓ 출력</span>':'')+'</div>'
+      +'<div data-ckpv="1" style="position:relative;container-type:inline-size;border:'+(on?'2px solid #5cb46c':'1px solid #d8dcef')+';background:#fff;box-shadow:0 2px 10px rgba(0,0,40,.08)">'
+        +'<img data-ckimg="1" alt="" draggable="false" style="display:block;width:100%;min-height:200px"'+(src?' src="'+_esc(src)+'"':'')+'>'
+        +'<span data-ckov="mgr" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
+        +'<span data-ckov="hp" style="position:absolute;white-space:nowrap;color:#1a3fd0;pointer-events:none"></span>'
+      +'</div></div>';
+  }).join('');
+  var nav=pages>1
+    ? '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px">'
+      +'<button onclick="ckPgMove('+A.an+','+A.ac+',-1)" style="'+nb+(pg<=0?'opacity:.35;cursor:default':'')+'"'+(pg<=0?' disabled':'')+'>‹</button>'
+      +'<span style="font-size:13px;color:#555;font-weight:600">'+(pg*2+1)+(show.length>1?'–'+(pg*2+show.length):'')+' / '+forms.length+'개 양식</span>'
+      +'<button onclick="ckPgMove('+A.an+','+A.ac+',1)" style="'+nb+(pg>=pages-1?'opacity:.35;cursor:default':'')+'"'+(pg>=pages-1?' disabled':'')+'>›</button></div>'
+    : '';
+  return '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+cards+'</div>'+nav;
+}
+function _ckPrevRedraw(name,catId){
+  var w=g('ck_prevwrap'); if(!w) return;
+  w.innerHTML=_ckPrevHtml(name,catId);
+  _ckPrevLoad(name,catId);
+}
+function ckPgMove(name,catId,d){
+  window._ckPg=window._ckPg||{};
+  window._ckPg[catId]=(+window._ckPg[catId]||0)+d;
+  _ckPrevRedraw(name,catId);
+}
+function ckPick(el,name,catId){
+  var id=el.getAttribute('data-ckpick'), forms=_ckForms(name,catId), cur=_ckSelIds(catId,forms);
+  var want=forms.map(function(f){ return f.id; }).filter(function(x){ return x===id?el.checked:cur.indexOf(x)>=0; });
+  window._ckSel[catId]=want;
+  var lb=el.closest('label'); if(lb){ lb.style.borderColor=el.checked?'#7cc58a':'#dde0ee'; lb.style.background=el.checked?'#eef8f0':'#fff'; }
+  if(el.checked){ for(var i=0;i<forms.length;i++){ if(forms[i].id===id){ window._ckPg=window._ckPg||{}; window._ckPg[catId]=Math.floor(i/2); break; } } }
+  _ckPrevRedraw(name,catId);
 }
 function _ckInput(el){
   var cid=el.getAttribute('data-ckcat'), k=el.getAttribute('data-ckk'), v=_ckGetVals(cid);
@@ -27880,47 +27950,64 @@ function _ckInput(el){
   _ckOverlay(cid);
 }
 function _ckOverlay(catId){
-  var co=window._ckCurCo||CK_DEF, v=_ckGetVals(catId);
-  [['mgr','ck_ov_mgr'],['hp','ck_ov_hp']].forEach(function(p){
-    var el=g(p[1]); if(!el) return;
-    var c=co[p[0]], txt=String(v[p[0]]||'');
-    el.textContent=txt;
-    el.style.left=(c.x/co.W*100)+'%';
-    el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
-    var fsq=co.fs/co.W*100;   // 칸보다 긴 값은 PDF와 같게 축소
-    el.style.fontSize=fsq+'cqw';
-    try{ var natW=el.offsetWidth, boxW=c.w/co.W*(g('ck_prev')?g('ck_prev').clientWidth:0); if(natW>boxW&&boxW>0) el.style.fontSize=(fsq*boxW/natW)+'cqw'; }catch(e){}
+  var v=_ckGetVals(catId), cc=window._ckCoCache||{}, w=g('ck_prevwrap'); if(!w) return;
+  w.querySelectorAll('[data-cku]').forEach(function(card){
+    var co=cc[card.getAttribute('data-cku')]||CK_DEF, box=card.querySelector('[data-ckpv]');
+    card.querySelectorAll('[data-ckov]').forEach(function(el){
+      var k=el.getAttribute('data-ckov'), c=co[k]; if(!c) return;
+      el.textContent=String(v[k]||'');
+      el.style.left=(c.x/co.W*100)+'%';
+      el.style.bottom=((c.y-co.fs*0.22)/co.H*100)+'%';
+      var fsq=co.fs/co.W*100;   // 칸보다 긴 값은 PDF와 같게 축소
+      el.style.fontSize=fsq+'cqw';
+      try{ var natW=el.offsetWidth, boxW=c.w/co.W*(box?box.clientWidth:0); if(natW>boxW&&boxW>0) el.style.fontSize=(fsq*boxW/natW)+'cqw'; }catch(e){}
+    });
   });
 }
 async function _ckPrevLoad(name,catId){
-  var s=_ckSrc(name,catId); if(!s) return;
+  var w=g('ck_prevwrap'); if(!w) return;
   var gen=window._ckGen=(window._ckGen||0)+1;
-  window._ckCurCo=window._ckCoCache&&window._ckCoCache[s.u]||CK_DEF;
   _ckOverlay(catId);
-  try{
-    var co=await _ckCoords(s.u);
-    if(gen!==window._ckGen) return;
-    window._ckCurCo=co; _ckOverlay(catId);
-    if(!s.img){   // 미리보기 그림이 없는 게시물 — 첫 쪽을 그려서 표시
-      var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(s.u)).slice(0)}).promise, pg=await pdf.getPage(1);
-      var vp=pg.getViewport({scale:1.6}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
-      await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+  var cards=Array.prototype.slice.call(w.querySelectorAll('[data-cku]'));
+  cards.forEach(function(card){ var im=card.querySelector('img'); if(im&&!im.complete) im.onload=function(){ _ckOverlay(catId); }; });
+  for(var i=0;i<cards.length;i++){
+    var card=cards[i], u=card.getAttribute('data-cku');
+    try{
+      await _ckCoords(u);
       if(gen!==window._ckGen) return;
-      var im=g('ck_prev_img'); if(im) im.src=cv.toDataURL('image/jpeg',.85);
-    }
-  }catch(e){ console.warn('체크리스트 미리보기 실패:',e); }
-  var im2=g('ck_prev_img'); if(im2&&!im2.complete) im2.onload=function(){ _ckOverlay(catId); };
+      _ckOverlay(catId);
+      var im=card.querySelector('img');
+      if(im&&!im.getAttribute('src')){   // 미리보기 그림이 없는 게시물 — 첫 쪽을 그려서 표시(주소별 캐시)
+        var pdf=await pdfjsLib.getDocument({data:(await _ckBufOf(u)).slice(0)}).promise, pg=await pdf.getPage(1);
+        var vp=pg.getViewport({scale:1.6}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+        await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+        var url=cv.toDataURL('image/jpeg',.85); (window._ckImgCache=window._ckImgCache||{})[u]=url;
+        try{ pdf.destroy(); }catch(_e){}
+        if(gen!==window._ckGen) return;
+        im.onload=function(){ _ckOverlay(catId); }; im.src=url;
+      }
+    }catch(e){ console.warn('체크리스트 미리보기 실패:',e); }
+  }
 }
 async function _ckBuild(name,catId){
-  var s=_ckSrc(name,catId); if(!s) throw new Error('이 분류에 올린 PDF 양식이 없습니다.');
-  var buf=await _ckBufOf(s.u), co=await _ckCoords(s.u), v=_ckGetVals(catId);
-  var doc=await PDFLib.PDFDocument.load(buf.slice(0)), pg=doc.getPages()[0];
-  await _sdDtx(pg,doc,String(v.mgr||'').trim(),co.mgr.x,co.mgr.y,co.fs,co.mgr.w);
-  await _sdDtx(pg,doc,String(v.hp||'').trim(),co.hp.x,co.hp.y,co.fs,co.hp.w);
-  return await doc.save();
+  var forms=_ckForms(name,catId); if(!forms.length) throw new Error('이 분류에 올린 PDF 양식이 없습니다.');
+  var sel=_ckSelIds(catId,forms), pick=forms.filter(function(f){ return sel.indexOf(f.id)>=0; });
+  if(!pick.length) throw new Error('출력할 양식을 하나 이상 골라 주세요.');
+  var v=_ckGetVals(catId), out=await PDFLib.PDFDocument.create();
+  for(var i=0;i<pick.length;i++){
+    var f=pick[i], buf=await _ckBufOf(f.u), co=await _ckCoords(f.u);
+    var doc=await PDFLib.PDFDocument.load(buf.slice(0)), pg=doc.getPages()[0];
+    await _sdDtx(pg,doc,String(v.mgr||'').trim(),co.mgr.x,co.mgr.y,co.fs,co.mgr.w);
+    await _sdDtx(pg,doc,String(v.hp||'').trim(),co.hp.x,co.hp.y,co.fs,co.hp.w);
+    var cp=await out.copyPages(doc,doc.getPageIndices());
+    cp.forEach(function(p){ out.addPage(p); });
+  }
+  return await out.save();
 }
 async function ckPrint(name,catId){   // bdrPrint 패턴 — 새 탭을 클릭 제스처 안에서 먼저 연다
   if(window._ckBusy){ toast('출력 준비 중입니다. 잠시만 기다려주세요.'); return; }
+  var forms=_ckForms(name,catId);
+  if(forms.length&&!_ckSelIds(catId,forms).length){ toast('출력할 양식을 하나 이상 골라 주세요.'); return; }   // 빈 탭을 열기 전에
   var w=null; try{ w=window.open('about:blank'); }catch(e){}
   if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.'); return; }
   window._ckBusy=true;
@@ -27934,47 +28021,6 @@ async function ckPrint(name,catId){   // bdrPrint 패턴 — 새 탭을 클릭 �
   }catch(e){ try{w.close();}catch(_e){} toast('출력 실패: '+(e.message||e)); }
   finally{ window._ckBusy=false; }
 }
-// [양식 추가] (2026-10-30 — v2026.10.30-1, 사용자 요청, 관리자 전용): PDF를 그 분류의 새 게시물로 올림 → _ckSrc가 최신 PDF를 양식으로 씀.
-// 저장 형식은 게시물 작성(bdSave)과 같음(원본 + 페이지 미리보기, board_files/, boards는 _bdFresh 병합). 출력과 같은 pdf-lib로 먼저 열어 봄(암호 PDF 등 거부).
-async function ckTplAdd(inp,name,catId){
-  var f=inp&&inp.files&&inp.files[0]; try{ inp.value=''; }catch(e){}
-  if(!f) return;
-  if(!_isAdmin()){ toast('관리자만 양식을 추가할 수 있습니다.'); return; }
-  if(window._ckTplBusy){ toast('양식을 올리는 중입니다. 잠시만 기다려주세요.'); return; }
-  if(!(/\.pdf$/i.test(String(f.name||''))||f.type==='application/pdf')){ toast('PDF 파일만 양식으로 올릴 수 있습니다.'); return; }
-  if(f.size>25*1024*1024){ toast('25MB 이하 PDF만 올릴 수 있습니다.'); return; }
-  if(!(typeof firebase!=='undefined'&&firebase.storage)){ toast('클라우드 연결 후 양식을 올릴 수 있습니다.'); return; }
-  var cat=_bdCats(name).filter(function(c){ return c.id===catId; })[0];
-  if(!cat){ toast('분류를 찾을 수 없습니다. 화면을 새로고침해 주세요.'); return; }
-  if(!confirm('"'+f.name+'"을(를) '+cat.nm+' 양식으로 추가할까요?\n추가하면 모든 팀원의 출력이 이 양식으로 바뀝니다.')) return;
-  window._ckTplBusy=true;
-  var entry=null, post=null;
-  try{
-    var ab=await f.arrayBuffer();
-    try{ await PDFLib.PDFDocument.load(ab.slice(0)); }
-    catch(e){ throw new Error('이 PDF는 열 수 없습니다(암호가 걸렸거나 손상된 파일). 다른 PDF로 저장해 올려 주세요.'); }
-    toast('양식 올리는 중…');
-    entry={u:await _bdPdfUpload(name,f), t:'pdf', n:String(f.name||'양식.pdf').slice(0,120)};
-    try{
-      var pv=await _bdPdfPagesUpload(name, ab.slice(0), entry.n);
-      entry.pages=pv.pages; if(pv.total>pv.pages.length) entry.pgTotal=pv.total;
-    }catch(e){ console.warn('체크리스트 양식 미리보기 생성 실패:',e); }   // 없어도 _ckPrevLoad가 첫 쪽을 그려 보여 줌
-    post={ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now(),
-      title:cat.nm+' 양식 ('+td()+')', body:'', vm:'scroll', files:[entry], cat:catId };
-    await _bdFresh(function(b){ if(!Array.isArray(b[name])) b[name]=[]; b[name].push(post); });
-    entry=null;
-    toast('양식을 추가했습니다. 이제 이 양식으로 출력됩니다.');
-    if(window._bdPage) window._bdPage[name]=0;
-    try{ rCustomPage(name); }catch(e){ console.warn(e); }   // 저장은 끝남 — 화면 오류를 실패로 안내하지 않음(리뷰)
-  }catch(e){
-    console.warn(e);
-    if(entry){   // 기록 전 실패 — 올라간 원본·미리보기 정리(고아 방지)
-      try{ if(post&&boards&&Array.isArray(boards[name])) boards[name]=boards[name].filter(function(x){ return !(x&&x.id===post.id); }); }catch(_e){}   // 메모리에만 남은 게시물이 지운 주소를 가리키지 않게(리뷰)
-      [entry.u].concat(entry.pages||[]).forEach(function(u){ try{ if(_BD_URL_RE.test(String(u))) firebase.storage().refFromURL(u).delete().catch(function(){}); }catch(_e){} });
-    }
-    toast('양식 추가 실패: '+(e&&e.message||e));
-  }finally{ window._ckTplBusy=false; }
-}
 async function ckSavePdf(name,catId){
   if(window._ckBusy){ toast('준비 중입니다. 잠시만 기다려주세요.'); return; }
   window._ckBusy=true;
@@ -27986,6 +28032,172 @@ async function ckSavePdf(name,catId){
     setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} },60000);
   }catch(e){ toast('PDF 저장 실패: '+(e.message||e)); }
   finally{ window._ckBusy=false; }
+}
+// ----- [양식 관리] 창 (2026-10-30 — v2026.10.30-2, 관리자 전용) -----
+// 올리기(ckTplAdd)·이름(ckNm)·순서(ckOrd)·보기·삭제(bdDel 재사용). 조작은 전부 게시물 id 기준(함정 A), 저장은 _bdFresh(클라우드 최신본 병합).
+// 흰 카드(함정 D 역방향), id는 ck_mgr_ 접두(함정 E). 상태 window._ckMgr={name,catId} — logout에서 창과 함께 정리.
+function ckMgrOpen(name,catId){
+  if(!_isAdmin()){ toast('관리자만 양식을 관리할 수 있습니다.'); return; }
+  var old=g('ck_mgr_pop'); if(old) old.remove();
+  window._ckMgr={name:name,catId:catId};
+  var ov=document.createElement('div');
+  ov.id='ck_mgr_pop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,20,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;color:#1a1a2e;border-radius:12px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="flex:1;font-weight:700;font-size:17px"><i class="ti ti-settings"></i> 양식 관리</div>'
+    +'<button data-ckmact="close" style="border:none;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer">×</button></div>'
+    +'<div id="ck_mgr_body"></div></div>';
+  ov.addEventListener('click',function(ev){
+    if(ev.target===ov){ if(!window._ckMgrBusy&&!window._ckTplBusy) ckMgrClose(); return; }
+    var b=ev.target.closest&&ev.target.closest('[data-ckmact]'); if(!b) return;
+    var act=b.getAttribute('data-ckmact'), row=b.closest('[data-ckmid]'), id=row?row.getAttribute('data-ckmid'):'';
+    if(act==='close') ckMgrClose();
+    else if(act==='up'||act==='down') _ckMgrMove(id,act==='up'?-1:1);
+    else if(act==='view') _ckMgrView(id);
+    else if(act==='del') _ckMgrDel(id);
+  });
+  ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.hasAttribute&&ev.target.hasAttribute('data-ckmnm')){ ev.preventDefault(); ev.target.blur(); } });
+  document.body.appendChild(ov);
+  _ckMgrDraw();
+}
+function ckMgrClose(){ var p=g('ck_mgr_pop'); if(p) p.remove(); window._ckMgr=null; }
+function _ckMgrDraw(){
+  var m=window._ckMgr, body=g('ck_mgr_body'); if(!m||!body) return;
+  var cat=_bdCats(m.name).filter(function(c){ return c.id===m.catId; })[0];
+  if(!cat){ body.innerHTML='<div style="padding:20px 0;color:#c03030">분류를 찾을 수 없습니다. 창을 닫고 새로고침해 주세요.</div>'; return; }
+  var forms=_ckForms(m.name,m.catId), A=_ckArgs(m.name,m.catId);
+  var sb='padding:5px 9px;border:1px solid #ccd;border-radius:6px;background:#f6f6fa;color:#444;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;';
+  var rows=forms.map(function(f,i){
+    return '<div data-ckmid="'+_esc(f.id)+'" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eceef6">'
+      +'<div style="flex:0 0 22px;text-align:center;font-weight:700;color:#4858cc">'+f.no+'</div>'
+      +(f.img?'<img src="'+_esc(f.img)+'" alt="" draggable="false" style="flex:0 0 40px;width:40px;height:56px;object-fit:cover;border:1px solid #dde0ee">':'<div style="flex:0 0 40px;height:56px;border:1px dashed #ccd;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999">PDF</div>')
+      +'<div style="flex:1;min-width:0">'
+        +'<input data-ckmnm="1" value="'+_esc(f.nm)+'" placeholder="'+f.no+'번양식" maxlength="20" onchange="ckMgrRename(this)" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ccd;border-radius:6px;font-family:inherit;font-size:14px;color:#111;background:#fff">'
+        +'<div style="font-size:11.5px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(f.fn||'PDF')+(f.dt?' · '+_esc(f.dt):'')+'</div></div>'
+      +'<div style="flex:0 0 auto;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:170px">'
+        +'<button data-ckmact="up" title="위로" style="'+sb+'"'+(i===0?' disabled':'')+'>▲</button>'
+        +'<button data-ckmact="down" title="아래로" style="'+sb+'"'+(i===forms.length-1?' disabled':'')+'>▼</button>'
+        +'<button data-ckmact="view" style="'+sb+'">보기</button>'
+        +'<button data-ckmact="del" style="'+sb+'border-color:#e0b0b0;background:#fdf3f3;color:#c03030">삭제</button></div>'
+      +'</div>';
+  }).join('');
+  body.innerHTML='<div style="font-size:12.5px;color:#777;margin-bottom:12px;line-height:1.6">'+_esc(cat.nm)+' — 이름은 [바로 출력] 위 체크박스에 표시됩니다(비우면 "N번양식"). 여러 개 고르면 위에 있는 양식부터 출력됩니다.</div>'
+    +(rows||'<div style="padding:18px 0;color:#999;font-size:13.5px;text-align:center">올린 양식이 없습니다.</div>')
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap">'
+      +'<label style="padding:8px 14px;border-radius:8px;background:#eef7ee;border:1px solid #b8d8b8;color:#207830;font-size:14px;font-weight:700;cursor:pointer"><i class="ti ti-file-plus"></i> PDF 올리기'
+      +'<input type="file" accept="application/pdf,.pdf" multiple onchange="ckTplAdd(this,'+A.an+','+A.ac+')" style="display:none"></label>'
+      +'<span style="flex:1;font-size:11.5px;color:#999">PDF만 · 1개 25MB까지 · 여러 개 한 번에 가능</span>'
+      +'<button data-ckmact="close" style="padding:8px 16px;border-radius:8px;background:#eceef6;border:1px solid #d0d4e8;color:#44485a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button></div>';
+}
+function _ckMgrRefresh(){   // 실시간 수신 재렌더 — 이름 입력 중이면 건드리지 않음
+  var p=g('ck_mgr_pop'); if(!p||!window._ckMgr) return;
+  if(document.activeElement&&p.contains(document.activeElement)&&document.activeElement.tagName==='INPUT') return;
+  _ckMgrDraw();
+}
+async function _ckMgrOp(mut,okMsg,wait){
+  var m=window._ckMgr; if(!m) return;
+  if(!_isAdmin()){ toast('관리자만 양식을 관리할 수 있습니다.'); return; }
+  if(window._ckMgrBusy||window._ckTplBusy){
+    if(wait&&wait<40){ setTimeout(function(){ _ckMgrOp(mut,okMsg,wait+1); },300); return; }   // 이름 변경은 버리지 않고 앞 작업이 끝나면 저장(리뷰)
+    toast('처리 중입니다. 잠시만 기다려주세요.'); return;
+  }
+  window._ckMgrBusy=true;
+  try{
+    await _bdFresh(function(b){ if(!Array.isArray(b[m.name])) b[m.name]=[]; mut(b[m.name],m.catId); });
+    if(okMsg) toast(okMsg);
+    try{ rCustomPage(m.name); }catch(e){ console.warn(e); }
+  }catch(e){ console.warn(e); toast('저장 실패: '+(e&&e.message||e)); }
+  finally{ window._ckMgrBusy=false; try{ _ckMgrRefresh(); }catch(e){} }   // 다른 줄 이름을 입력 중이면 다시 그리지 않음(리뷰)
+}
+function ckMgrRename(el){
+  var row=el.closest('[data-ckmid]'); if(!row) return;
+  var id=row.getAttribute('data-ckmid'), v=String(el.value||'').replace(/\s+/g,' ').trim().slice(0,20);
+  _ckMgrOp(function(arr){
+    var p=arr.filter(function(x){ return x&&x.id===id; })[0];
+    if(!p) throw new Error('양식을 찾을 수 없습니다(다른 관리자가 지웠을 수 있습니다).');
+    if(v) p.ckNm=v; else delete p.ckNm;
+  },'양식 이름을 저장했습니다.',1);
+}
+function _ckMgrMove(id,d){
+  _ckMgrOp(function(arr,catId){
+    var forms=_ckFormsOf(arr,catId), i=-1;
+    forms.forEach(function(f,k){ if(f.id===id) i=k; });
+    if(i<0) throw new Error('양식을 찾을 수 없습니다(다른 관리자가 지웠을 수 있습니다).');
+    var j=i+d; if(j<0||j>=forms.length) return;
+    var t=forms[i]; forms[i]=forms[j]; forms[j]=t;
+    forms.forEach(function(f,k){ f.post.ckOrd=k; });   // f.post는 arr 안의 실제 게시물
+  },'');
+}
+function _ckMgrView(id){
+  var m=window._ckMgr; if(!m) return;
+  var f=_ckForms(m.name,m.catId).filter(function(x){ return x.id===id; })[0];
+  if(!f){ toast('양식을 찾을 수 없습니다.'); return; }
+  var w=null; try{ w=window.open(f.u,'_blank','noopener'); }catch(e){}
+  if(!w) toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.');
+}
+async function _ckMgrDel(id){
+  var m=window._ckMgr; if(!m) return;
+  if(window._ckMgrBusy||window._ckTplBusy){ toast('처리 중입니다. 잠시만 기다려주세요.'); return; }
+  window._ckMgrBusy=true;
+  try{ await bdDel(m.name,id); }   // 게시물·원본·미리보기 그림까지 정리(확인창 포함)
+  finally{ window._ckMgrBusy=false; try{ _ckMgrDraw(); }catch(e){} }
+}
+// [PDF 올리기]: 파일마다 그 분류의 새 게시물로 올림(게시물 작성과 같은 저장 형식 — 원본 + 페이지 미리보기). 순서는 맨 뒤(ckOrd).
+// 올리기 전 출력과 같은 pdf-lib로 열어 봄(암호 PDF 등 거부 — ignoreEncryption 금지).
+async function ckTplAdd(inp,name,catId){
+  var files=Array.prototype.slice.call((inp&&inp.files)||[]); try{ inp.value=''; }catch(e){}
+  if(!files.length) return;
+  if(!_isAdmin()){ toast('관리자만 양식을 추가할 수 있습니다.'); return; }
+  if(window._ckTplBusy||window._ckMgrBusy){ toast('처리 중입니다. 잠시만 기다려주세요.'); return; }
+  if(!(typeof firebase!=='undefined'&&firebase.storage)){ toast('클라우드 연결 후 양식을 올릴 수 있습니다.'); return; }
+  var cat=_bdCats(name).filter(function(c){ return c.id===catId; })[0];
+  if(!cat){ toast('분류를 찾을 수 없습니다. 화면을 새로고침해 주세요.'); return; }
+  var bad=[];
+  files=files.filter(function(f){
+    if(!(/\.pdf$/i.test(String(f.name||''))||f.type==='application/pdf')){ bad.push(f.name+'(PDF 아님)'); return false; }
+    if(f.size>25*1024*1024){ bad.push(f.name+'(25MB 초과)'); return false; }
+    return true;
+  });
+  if(!files.length){ toast('올릴 수 없는 파일입니다: '+bad.join(', ')); return; }
+  if(!confirm(files.length+'개 PDF를 '+cat.nm+' 양식으로 추가할까요?'+(bad.length?'\n(제외: '+bad.join(', ')+')':''))) return;
+  window._ckTplBusy=true;
+  var done=0, fail=bad.slice();
+  try{
+    for(var i=0;i<files.length;i++){
+      var f=files[i], entry=null, post=null;
+      try{
+        var ab=await f.arrayBuffer();
+        try{ await PDFLib.PDFDocument.load(ab.slice(0)); }
+        catch(e){ throw new Error('열 수 없는 PDF(암호·손상)'); }
+        toast('양식 올리는 중… ('+(i+1)+'/'+files.length+')');
+        entry={u:await _bdPdfUpload(name,f), t:'pdf', n:String(f.name||'양식.pdf').slice(0,120)};
+        try{
+          var pv=await _bdPdfPagesUpload(name, ab.slice(0), entry.n);
+          entry.pages=pv.pages; if(pv.total>pv.pages.length) entry.pgTotal=pv.total;
+        }catch(e){ console.warn('체크리스트 양식 미리보기 생성 실패:',e); }   // 없어도 _ckPrevLoad가 첫 쪽을 그려 보여 줌
+        post={ id:'po_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), by:(cu&&cu.name)||'', dt:tds(), ts:Date.now(),
+          title:cat.nm+' 양식 ('+td()+')', body:'', vm:'scroll', files:[entry], cat:catId };
+        await _bdFresh(function(b){
+          if(!Array.isArray(b[name])) b[name]=[];
+          var forms=_ckFormsOf(b[name],catId);
+          forms.forEach(function(x,k){ x.post.ckOrd=k; });   // 지금 보이는 순서를 굳히고 새 양식은 맨 뒤
+          post.ckOrd=forms.length;
+          b[name].push(post);
+        });
+        entry=null; done++;
+      }catch(e){
+        console.warn(e);
+        if(entry){   // 기록 전 실패 — 올라간 원본·미리보기 정리(고아 방지), 메모리에만 남은 게시물도 뺌
+          try{ if(post&&boards&&Array.isArray(boards[name])) boards[name]=boards[name].filter(function(x){ return !(x&&x.id===post.id); }); }catch(_e){}
+          [entry.u].concat(entry.pages||[]).forEach(function(u){ try{ if(_BD_URL_RE.test(String(u))) firebase.storage().refFromURL(u).delete().catch(function(){}); }catch(_e){} });
+        }
+        fail.push(f.name+'('+(e&&e.message||e)+')');
+      }
+    }
+    toast((done?done+'개 양식을 추가했습니다.':'양식을 추가하지 못했습니다.')+(fail.length?' 실패: '+fail.join(', '):''));
+    if(done&&window._bdPage) window._bdPage[name]=0;
+    try{ rCustomPage(name); }catch(e){ console.warn(e); }   // 저장은 끝남 — 화면 오류를 실패로 안내하지 않음
+  }finally{ window._ckTplBusy=false; try{ _ckMgrDraw(); }catch(e){} }
 }
 // 근로소득공제 — [총급여 상한, 그 구간까지의 누적공제, 초과분 공제율]
 var YR_INC_DED=[
