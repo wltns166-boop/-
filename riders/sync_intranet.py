@@ -14,7 +14,9 @@ data = json.load(open(os.path.join(HERE, "riders.json"), encoding="utf-8"))
 slim = {
     "meta": {"disclaimer": data["meta"]["disclaimer"]},
     "categories": [
-        {k: c[k] for k in ("id", "no", "title", "icon", "color", "summary")} | {
+        {k: c[k] for k in ("id", "no", "title", "icon", "color", "summary")}
+        | ({"generations": [{k: g[k] for k in ("name", "alias", "period", "rows")} for g in c["generations"]]}
+           if c.get("generations") else {}) | {
             "riders": [{k: r[k] for k in ("name", "oneLine", "desc", "points", "example", "tip", "story")}
                        | {"visual": {k: v for k, v in r["visual"].items() if k != "say"}}
                        for r in c["riders"]]}
@@ -46,6 +48,15 @@ for c in data["categories"]:
 L += ["", "인트라넷에서는 왼쪽 메뉴 **🎓 특약 교육**에서 바로 볼 수 있습니다.", ""]
 for c in data["categories"]:
     L += [f"## {c['no']}. {c['icon']} {c['title']}", "", f"_{c['summary']}_", ""]
+    if c.get("generations"):
+        G = c["generations"]
+        labels = [r[0] for r in G[0]["rows"]]
+        L += ["**실손 1~5세대 한눈에 비교**", "", "| 세대 | 판매 시기 | " + " | ".join(labels) + " |",
+              "|---|---|" + "---|" * len(labels)]
+        for g in G:
+            vals = {r[0]: r[1] for r in g["rows"]}
+            L.append(f"| **{g['name']}** ({g['alias']}) | {g['period']} | " + " | ".join(vals.get(l, r[1]) for l, r in zip(labels, g["rows"])) + " |")
+        L += ["", "> 5세대(2026년 5월~): 비급여를 중증/비중증으로 나눠, 비중증은 자기부담 50%·연 한도 1천만 원, 중증은 자기부담 30%·연 한도 5천만 원과 상급·종합병원 입원 자기부담 연 500만 원 상한을 둡니다.", ""]
     if c.get("journey"):
         L += [f"**{c['journey']['title']}**", "", " → ".join(f"{s_['icon']} {s_['label']} ({s_['rider']})" for s_ in c["journey"]["steps"]), ""]
     for r in c["riders"]:

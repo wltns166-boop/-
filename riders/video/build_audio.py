@@ -17,6 +17,7 @@ import certifi
 if os.path.exists("/root/.ccr/ca-bundle.crt"):
     certifi.where = lambda: "/root/.ccr/ca-bundle.crt"
 import edge_tts  # noqa: E402
+import re  # noqa: E402
 import hashlib  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,11 +56,21 @@ CAPTION_FIX = [
 def caption(text):
     for a, b in CAPTION_FIX:
         text = text.replace(a, b)
-    return text
+    text = text.replace("10에서 20퍼센트", "10~20%")
+    return re.sub(r"(\d+)퍼센트", r"\1%", text)
 
 
 def build_scenes(cat, idx, total):
     scenes = [{"type": "intro", "say": cat["intro"]}]
+    if cat.get("generations"):
+        # 세대 비교형 영상: 타임라인 → 세대별 → 비교 그래프 → 핵심 비교 → 퀴즈
+        gens = cat["generations"]
+        scenes.append({"type": "gentl", "generations": gens, "say": cat["timeline"]["say"]})
+        for g in gens:
+            scenes.append({"type": "gen", "g": g, "total": len(gens), "say": g["say"]})
+        scenes.append({"type": "compare", "compare": cat["compare"], "say": cat["compare"]["say"]})
+        scenes.append({"type": "compare", "compare": cat["compare2"], "say": cat["compare2"]["say"]})
+        return scenes + tail_scenes(cat, idx, total)
     if cat.get("journey"):
         scenes.append({"type": "journey", "journey": cat["journey"], "say": cat["journey"]["say"]})
     n = len(cat["riders"])
@@ -71,6 +82,11 @@ def build_scenes(cat, idx, total):
         scenes.append({"type": "detail", "rider": r, "pos": i + 1, "count": n,
                        "lead": len(vs), "say": vs + r["say"][4:]})
     scenes.append({"type": "compare", "compare": cat["compare"], "say": cat["compare"]["say"]})
+    return scenes + tail_scenes(cat, idx, total)
+
+
+def tail_scenes(cat, idx, total):
+    scenes = []
     scenes.append({"type": "quiz", "quiz": cat["quiz"], "say": cat["quiz"]["say"]})
     scenes.append({
         "type": "summary",
@@ -184,7 +200,8 @@ async def build_video(cat, idx, total, out_root):
     timeline = {
         "id": cat["id"], "no": cat["no"], "title": cat["title"], "icon": cat["icon"],
         "color": cat["color"], "summary": cat["summary"], "total": total,
-        "riderNames": [r["name"] for r in cat["riders"]],
+        "riderNames": ([f"{g['name']} · {g['alias']}" for g in cat["generations"]] if cat.get("generations")
+                       else [r["name"] for r in cat["riders"]]),
         "duration": round(t, 3), "scenes": scenes,
     }
     with open(os.path.join(out, "timeline.json"), "w") as f:
