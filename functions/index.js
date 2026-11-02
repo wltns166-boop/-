@@ -381,8 +381,8 @@ async function _kkTripSend(test) {
   const ids = Object.keys(users).filter((id) => users[id] && users[id].approved && allow.indexOf(String(users[id].member || "")) >= 0);
   if (!ids.length) return { ok: false, error: "수신자 카톡 미연동/미승인: " + allow.join(", ") };
   const fmt = (v) => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? ((+m[2]) + "/" + (+m[3]) + " " + m[4] + ":" + m[5]) : String(v || "-"); };
-  const head = (test ? "[시험] " : "") + "[출장 신청 리스트] " + today.slice(5).replace("-", "/") + " — 오늘 " + todays.length + "건" + (todays.length ? "" : " (신청 없음)");
-  const lines = todays.map((t, i) => (i + 1) + ". " + (t.m || "-") + " · " + fmt(t.when) + " · " + (t.place || "-") + " · " + (t.reason || "-") + (t.okBy ? " ✔확인" : ""));
+  const head = (test ? "[시험] " : "") + "[출장 신청 리스트] " + today.slice(5).replace("-", "/") + " — 오늘 " + todays.length + "건" + (todays.length ? "" : " (신청 없음)") + (todays.filter((t) => t.rejBy).length ? " (반려 " + todays.filter((t) => t.rejBy).length + "건 포함)" : "");
+  const lines = todays.map((t, i) => (i + 1) + ". " + (t.m || "-") + " · " + fmt(t.when) + " · " + (t.place || "-") + " · " + (t.reason || "-") + (t.rejBy ? " ✖반려" : (t.okBy ? " ✔확인" : "")));
   // 텍스트 템플릿 200자 제한 준수 — 줄 단위로 200자 이하 조각으로 나눠 최대 5통(dbassign과 동일 안전 규칙)
   const chunks = [];
   let curTxt = "";
@@ -434,7 +434,7 @@ async function _kkTripDaySend(offsetDays) {
   const nd = new Date(_kkNow().getTime() + (offsetDays || 0) * 24 * 3600 * 1000);
   const ndStr = nd.getUTCFullYear() + "-" + _kkPad(nd.getUTCMonth() + 1) + "-" + _kkPad(nd.getUTCDate());
   const ndLbl = (nd.getUTCMonth() + 1) + "/" + nd.getUTCDate() + "(" + ["일", "월", "화", "수", "목", "금", "토"][nd.getUTCDay()] + ")";
-  const list = trips.filter((t) => t && String(t.when || "").slice(0, 10) === ndStr)
+  const list = trips.filter((t) => t && !t.rejBy && String(t.when || "").slice(0, 10) === ndStr)   // 반려된 출장은 제외(2026-11-02)
     .sort((a, b) => String(a.when || "").localeCompare(String(b.when || "")));   // 시각순
   if (!list.length) return { ok: true, sent: 0, empty: true, n: 0 }; // 그날 출장 없음 — 발송 생략(사용자 요청)
   const allow = Array.isArray(cfg.reportTo) ? cfg.reportTo : KK_REPORT_ADMINS;

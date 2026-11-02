@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.10.30-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-1</div>
   </div>
 </div>
 
@@ -11545,7 +11545,7 @@ function drBuild(){
       var ndLbl=(nd.getMonth()+1)+'월 '+nd.getDate()+'일';
       var tl=(Array.isArray(trips)?trips:[]).filter(function(t){ return String(t.when||'').slice(0,10)===ndStr; });
       return {t:'출장보고 — 익일 '+ndLbl, h:tl.length?tbl(['이름','일시','사유','장소','확인'],
-        tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-']; }))
+        tl.map(function(t){ return [_esc(t.m||'-'),_esc(_tripFmt(t.when)),_esc(t.reason||'-'),_esc(t.place||'-'),t.rejBy?'<span style="color:#cc3020;font-weight:700">반려('+_esc(t.rejBy)+')</span>':(t.okBy?'<span style="color:#0fa658;font-weight:700">확인('+_esc(t.okBy)+')</span>':'-')]; }))
         :emptyMsg('다음날('+ndLbl+') 출장 일정이 없습니다.')};
     }
     if(src==='exam'){ // 시험신청 — 전체 신청 내역 (렌더 시 _examsFresh 재로드 — 메모리 사본 우선)
@@ -13127,9 +13127,9 @@ function _rTripCal(visible){
     var blk=_tripBlockOf(ds);
     var evHtml=evs.map(function(t){
       var hm=String(t.when||'').slice(11,16);
-      var col=t.okBy?'#18a050':'#2a3aaa', bg=t.okBy?'rgba(30,160,80,.14)':'rgba(80,100,220,.16)';
+      var col=t.rejBy?'#c02040':(t.okBy?'#18a050':'#2a3aaa'), bg=t.rejBy?'rgba(220,50,70,.12)':(t.okBy?'rgba(30,160,80,.14)':'rgba(80,100,220,.16)');
       // 배지 클릭은 셀로 전파 안 함(2026-09-04 리뷰) — 관리자가 신청 내용을 보려고 배지를 눌렀을 때 불가일 confirm이 뜨는 것 방지
-      return '<div onclick="event.stopPropagation()" style="font-size:13px;background:'+bg+';color:'+col+';border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||''))+'">'+_esc(t.m||'')+' '+hm+'</div>';
+      return '<div onclick="event.stopPropagation()" style="font-size:13px;background:'+bg+';color:'+col+';border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(t.rejBy?';text-decoration:line-through':'')+'" title="'+_esc((t.m||'')+' '+hm+' '+(t.place||'')+(t.rejBy?' (반려)':''))+'">'+_esc(t.m||'')+' '+hm+'</div>';
     }).join('');
     if(blk) evHtml='<div style="font-size:12px;background:rgba(220,50,70,.14);color:#c02040;font-weight:700;border-radius:4px;padding:2px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="출장 불가일'+(blk.by?' — '+_esc(blk.by)+' 지정':'')+'">⛔ 출장불가</div>'+evHtml;
     var cellStyle=blk?'background:rgba(220,50,70,.06)':(evs.length?'background:rgba(80,100,220,.05)':'');
@@ -13163,7 +13163,7 @@ function rTrip(){
     if(canOkAny){
       var lim=Date.now()-30*24*3600*1000;
       var pend=visible.filter(function(t){
-        if(!t||t.okBy) return false;
+        if(!t||t.okBy||t.rejBy) return false;
         if(monthly.indexOf(t)>=0) return false;   // 표시 중인 달의 건은 아래 목록에서 확인 가능
         if(!((cu&&cu.admin)||(t.m!==(cu&&cu.name)))) return false;   // 본인 신청은 본인이 확인 불가(canOk 규칙과 동일)
         var ts=t.ts||0;
@@ -13180,6 +13180,7 @@ function rTrip(){
               +'<b>'+_esc(t.m||'-')+'</b><span style="color:#2040cc">'+(w?_tripFmtBr(w):'(일시 미상)')+'</span><span style="color:#888">신청 '+_esc(_tripDtFmt(t.dt))+'</span>'
               +(/^\d{4}-\d{2}/.test(w)?'<button data-tripgo="'+w.slice(0,7)+'" style="padding:3px 9px;font-size:12px;border:1px solid #c8cce8;border-radius:6px;background:#fff;color:#3a40aa;cursor:pointer;font-family:inherit">해당 월 보기</button>':'')
               +'<button data-tripok="'+i+'" style="padding:3px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> 확인</button>'
+              +'<button data-triprej="'+i+'" data-tripfp="'+_alertEsc(_tripFp(t))+'" style="padding:3px 10px;font-size:12px;background:rgba(220,50,70,.1);border:1px solid rgba(220,50,70,.35);border-radius:6px;color:#c02040;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> 반려</button>'
             +'</div>';
           }).join('');
         pbox.querySelectorAll('[data-tripgo]').forEach(function(b){
@@ -13190,10 +13191,13 @@ function rTrip(){
         });
         pbox.querySelectorAll('[data-tripok]').forEach(function(b){
           b.addEventListener('click',function(){
-            var i2=+b.getAttribute('data-tripok'); var t2=trips[i2]; if(!t2||t2.okBy) return;
+            var i2=+b.getAttribute('data-tripok'); var t2=trips[i2]; if(!t2||t2.okBy||t2.rejBy) return;
             t2.okBy=(cu&&cu.name)||''; t2.okDt=td();
             sv('tops_trips',trips); rTrip();
           });
+        });
+        pbox.querySelectorAll('[data-triprej]').forEach(function(b){
+          b.addEventListener('click',function(){ _tripReject(+b.getAttribute('data-triprej'),b.getAttribute('data-tripfp')); });
         });
       }
     }
@@ -13204,9 +13208,13 @@ function rTrip(){
     var canDel=(cu&&cu.admin)||(cu&&cu.name===t.m); // 삭제: 관리자 또는 본인
     // 확인: 관리자 또는 상급자(가시 목록에서 본인이 아닌 행 = 하부 인원의 신청)
     var canOk=(cu&&cu.admin)||(myTeam!==null&&cu&&t.m!==cu.name);
-    var okHtml = t.okBy
+    var okHtml = t.rejBy
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#c02040;font-weight:700;white-space:nowrap'+(canOk?';cursor:pointer':'')+'"'+(canOk?' data-triprej="'+i+'" data-tripfp="'+_alertEsc(_tripFp(t))+'" title="'+_alertEsc('반려 사유: '+(t.rejWhy||'-')+' — 누르면 반려 취소')+'"':' title="'+_alertEsc('반려 사유: '+(t.rejWhy||'-'))+'"')+'><i class="ti ti-circle-x"></i>반려('+_esc(t.rejBy)+')</span>'
+        +(t.rejWhy?'<span style="font-size:11.5px;color:#c02040;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(t.rejWhy)+'</span>':'')
+      : t.okBy
       ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#18a050;font-weight:700;white-space:nowrap'+(canOk?';cursor:pointer':'')+'"'+(canOk?' data-tripok="'+i+'" title="누르면 확인 취소"':'')+'><i class="ti ti-circle-check"></i>확인('+_esc(t.okBy)+')</span>'
-      : (canOk?'<button data-tripok="'+i+'" style="padding:4px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-check"></i> 확인</button>':'');
+      : (canOk?'<button data-tripok="'+i+'" style="padding:4px 10px;font-size:12px;background:rgba(30,160,80,.15);border:1px solid rgba(40,180,100,.35);border-radius:6px;color:#18a050;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-check"></i> 확인</button>'
+          +'<button data-triprej="'+i+'" data-tripfp="'+_alertEsc(_tripFp(t))+'" style="padding:4px 10px;font-size:12px;background:rgba(220,50,70,.1);border:1px solid rgba(220,50,70,.35);border-radius:6px;color:#c02040;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-x"></i> 반려</button>':'');
     return '<tr>'
       +'<td style="white-space:nowrap">'+_esc(_tripDtFmt(t.dt))+'</td>'
       +'<td style="font-weight:600;white-space:nowrap">'+_esc(t.m||'-')+'</td>'
@@ -13225,10 +13233,36 @@ function rTrip(){
     b.addEventListener('click',function(){
       var i=+b.getAttribute('data-tripok'); var t=trips[i]; if(!t) return;
       if(t.okBy){ if(!confirm('확인을 취소하시겠습니까?')) return; delete t.okBy; delete t.okDt; }
-      else { t.okBy=(cu&&cu.name)||''; t.okDt=td(); }
+      else { t.okBy=(cu&&cu.name)||''; t.okDt=td(); delete t.rejBy; delete t.rejDt; delete t.rejWhy; }
       sv('tops_trips',trips); rTrip();
     });
   });
+  tb.querySelectorAll('[data-triprej]').forEach(function(b){
+    b.addEventListener('click',function(){ _tripReject(+b.getAttribute('data-triprej'),b.getAttribute('data-tripfp')); });
+  });
+}
+// 출장 신청 반려 (2026-11-02, 사용자 요청) — 확인과 같은 권한(관리자 또는 상급자, 본인 신청 제외).
+// 반려하면 확인 표시는 지우고 rejBy/rejDt/rejWhy 기록, 신청자에게 인앱 알림. 반려된 건을 다시 누르면 반려 취소.
+function _tripFp(t){ return (t&&t.ts||'')+'|'+(t&&t.m||'')+'|'+(t&&t.when||''); }   // 그린 뒤 trips가 실시간 교체돼도 엉뚱한 건을 반려하지 않게(함정 A)
+function _tripReject(i,fp){
+  var t=trips[i];
+  if(!t||(fp!=null&&_tripFp(t)!==fp)){ toast('목록이 바뀌었습니다. 다시 시도해 주세요.'); rTrip(); return; }
+  var myTeam=getMyTeam();
+  var canOk=(cu&&cu.admin)||(myTeam!==null&&cu&&t.m!==cu.name&&myTeam.indexOf(t.m)>=0);
+  if(!canOk){ toast('반려 권한이 없습니다.'); return; }
+  if(t.rejBy){
+    if(!confirm('반려를 취소하시겠습니까?')) return;
+    delete t.rejBy; delete t.rejDt; delete t.rejWhy;
+    sv('tops_trips',trips); rTrip(); return;
+  }
+  var why=prompt((t.m||'')+' 님의 출장 신청('+_tripFmt(t.when)+')을 반려합니다.\n반려 사유를 입력하세요 (선택):','');
+  if(why===null) return;
+  why=String(why).trim().slice(0,200);
+  delete t.okBy; delete t.okDt;
+  t.rejBy=(cu&&cu.name)||''; t.rejDt=td(); if(why) t.rejWhy=why; else delete t.rejWhy;
+  sv('tops_trips',trips);
+  try{ if(t.m&&t.m!==(cu&&cu.name)) pushAlert(null,'출장반려',(cu&&cu.name||'')+' 님이 출장 신청('+_tripFmt(t.when)+(t.place?' · '+t.place:'')+')을 반려했습니다.'+(why?' 사유: '+why:''),{toName:t.m}); }catch(e){}
+  rTrip(); toast('반려 처리했습니다.');
 }
 function openTripReq(){
   var sel=g('trip_mem');
@@ -16509,7 +16543,7 @@ function _reqStatCount(key, own){
     case 'trip': { // 최근 30일 신청만(확인 기능 도입 전의 옛 미확인 건이 몽땅 잡혀 소음이 되는 것 방지)
       var lim=Date.now()-30*24*3600*1000;
       return (trips||[]).filter(function(t){
-        if(!t||t.okBy) return false;
+        if(!t||t.okBy||t.rejBy) return false;
         if(own&&t.m!==me) return false;
         var ts=t.ts||0;
         if(!ts&&t.dt){ var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String(t.dt)); if(m) ts=new Date(+m[1],+m[2]-1,+m[3]).getTime(); }
