@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-5</div>
   </div>
 </div>
 
@@ -1200,7 +1200,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg" id="pg_dbuse">
       <div class="sh"><div class="st"><i class="ti ti-chart-bar"></i>DB사용량</div>
         <button class="bp" onclick="rDbUse()"><i class="ti ti-refresh"></i> 새로고침</button></div>
-      <div class="abnote">고객별 DB 종류·권역·배정일과 진행 단계(TA·상담·제안·계약)를 각자 입력하면 아래에 합산됩니다. 내 입력은 나만 고칠 수 있습니다.</div>
+      <div class="abnote">고객별 DB 종류·권역·배정일과 진행 단계(TA·상담·제안·계약)를 각자 입력하면 아래에 합산됩니다. 화면에서는 내가 입력한 고객만 고칠 수 있습니다.</div>
       <div class="dbutop">
         <div class="card">
           <div class="dbuh">고객 추가</div>
@@ -26380,7 +26380,7 @@ function _dbuSub(){
     window._dbuDocs=o; window._dbuLoaded=true;
     if(g('dbu_st')&&/불러오는/.test(g('dbu_st').textContent)) _dbuSt('');
     _dbuRender();
-  }, function(e){ if(seq!==window._dbuSeq) return; console.warn('DB사용량 불러오기 실패:', e); _dbuSt('데이터를 불러오지 못했습니다.',true); });
+  }, function(e){ if(seq!==window._dbuSeq) return; console.warn('DB사용량 불러오기 실패:', e); _dbuUnsubscribe(); _dbuSt('데이터를 불러오지 못했습니다. [새로고침]을 눌러 다시 시도하세요.',true); });   // 오류 뒤 구독을 비워 다음 rDbUse가 다시 구독(리뷰 반영)
 }
 function _dbuUnsubscribe(){
   window._dbuSeq=(window._dbuSeq||0)+1;
@@ -26487,7 +26487,7 @@ function _dbuChartDraw(){
   var cv=g('dbu_chart'); if(!cv) return;
   var pg=g('pg_dbuse'); if(!pg||!pg.classList.contains('active')) return;
   _dbuChartLib().then(function(){
-    if(!window.Chart||!g('dbu_chart')) return;
+    if(!cu||!window.Chart||!g('dbu_chart')) return;   // 로그아웃 뒤 늦게 온 로드 콜백은 무시
     var rows=window._dbuRows||[];
     var gr=document.querySelector('input[name="dbu_gran"]:checked'), gran=gr?gr.value:'month';
     var dated=rows.filter(function(r){ return r.assigned; });
@@ -26503,11 +26503,13 @@ function _dbuChartDraw(){
       if(m){ var q=m.split('-').map(Number), nd=new Date(q[0],q[1],0).getDate(); for(var i=1;i<=nd;i++) labels.push(String(i).padStart(2,'0')); }
       keyOf=function(r){ return r.assigned.slice(8,10); }; src=dated.filter(function(r){ return r.assigned.slice(0,7)===m; });
     }
-    var types=DBU_TYPES.slice(); src.forEach(function(r){ if(types.indexOf(r.dbType)<0) types.push(r.dbType); });
-    types=types.filter(function(t){ return src.some(function(r){ return r.dbType===t; }); });
+    // 색은 DB 종류별로 고정(전체 데이터 기준 순서 — 월을 바꿔도 같은 종류는 같은 색)
+    var order=DBU_TYPES.slice(), extra=[]; (window._dbuAllRows||[]).forEach(function(r){ if(order.indexOf(r.dbType)<0&&extra.indexOf(r.dbType)<0) extra.push(r.dbType); });
+    extra.sort(); order=order.concat(extra);
+    var types=order.filter(function(t){ return src.some(function(r){ return r.dbType===t; }); });
     if(window._dbuChart){ try{ window._dbuChart.destroy(); }catch(e){} window._dbuChart=null; }
     window._dbuChart=new Chart(g('dbu_chart'),{type:'bar',data:{labels:labels,datasets:types.map(function(t,i){
-      return {label:t,data:labels.map(function(l){ return src.filter(function(r){ return r.dbType===t&&keyOf(r)===l; }).length; }),backgroundColor:DBU_COLORS[i%DBU_COLORS.length],borderWidth:0,stack:'s'}; })},
+      return {label:t,data:labels.map(function(l){ return src.filter(function(r){ return r.dbType===t&&keyOf(r)===l; }).length; }),backgroundColor:DBU_COLORS[order.indexOf(t)%DBU_COLORS.length],borderWidth:0,stack:'s'}; })},
       options:{responsive:true,maintainAspectRatio:false,animation:false,
         scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#5d6b78'},title:{display:gran==='day',text:'일',color:'#5d6b78'}},
           y:{stacked:true,beginAtZero:true,grid:{color:'#e3e8ee'},ticks:{color:'#5d6b78',precision:0},title:{display:true,text:'건',color:'#5d6b78'}}},
@@ -26524,21 +26526,31 @@ async function dbuPdf(){
     toast('PDF 보고서 만드는 중…');
     await _drEnsureLibs();
     var all=window._dbuAllRows||_dbuAll(), today=td();
-    rep.innerHTML='<h1>DB 사용량 취합 보고서</h1><div class="dbunote">기준일 '+today+' · 전체 '+all.length+'건 · 관리자용</div>'
-      +'<div class="dbuh">진행 현황</div><div class="dbukpis">'+_dbuKpiHtml(all)+'</div>'
-      +'<div class="dbuh">단계별 전환율 (DB 종류별, 배정 대비)</div>'+_dbuRateHtml(all,'dbType','base')
-      +'<div class="dbuh">단계별 전환율 (DB 종류별, 전 단계 대비)</div>'+_dbuRateHtml(all,'dbType','prev')
-      +'<div class="dbuh">권역 × DB 종류 (건수)</div>'+_dbuMatrixHtml(all)
-      +'<div class="dbuh">전체 고객 목록</div>'+_dbuListHtml(all);
+    // 구간별로 따로 캡처(리뷰 반영 — 한 장으로 그리면 목록이 길 때 캔버스 높이 한도를 넘어 빈 PDF가 됨). 목록은 40줄씩 나눠 행이 쪽 사이에서 잘리지 않게.
+    var blocks=['<h1>DB 사용량 취합 보고서</h1><div class="dbunote">기준일 '+today+' · 전체 '+all.length+'건 · 관리자용</div>'
+      +'<div class="dbuh">진행 현황</div><div class="dbukpis">'+_dbuKpiHtml(all)+'</div>',
+      '<div class="dbuh">단계별 전환율 (DB 종류별, 배정 대비)</div>'+_dbuRateHtml(all,'dbType','base'),
+      '<div class="dbuh">단계별 전환율 (DB 종류별, 전 단계 대비)</div>'+_dbuRateHtml(all,'dbType','prev'),
+      '<div class="dbuh">권역 × DB 종류 (건수)</div>'+_dbuMatrixHtml(all)];
+    if(!all.length) blocks.push('<div class="dbuh">전체 고객 목록</div>'+_dbuListHtml(all));
+    for(var bi=0;bi<all.length;bi+=40) blocks.push('<div class="dbuh">전체 고객 목록'+(all.length>40?' ('+(bi+1)+'~'+Math.min(all.length,bi+40)+')':'')+'</div>'+_dbuListHtml(all.slice(bi,bi+40)));
     try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
-    var canvas=await html2canvas(rep,{scale:2,backgroundColor:'#ffffff',windowWidth:1123});
     var pdf=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-    var PW=297, PH=210, cw=canvas.width, per=Math.floor(cw*PH/PW);
-    for(var y=0,p=0;y<canvas.height;y+=per,p++){
-      var h=Math.min(per,canvas.height-y), sl=document.createElement('canvas');
-      sl.width=cw; sl.height=h; var cx=sl.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cw,h); cx.drawImage(canvas,0,y,cw,h,0,0,cw,h);
-      if(p) pdf.addPage();
-      pdf.addImage(sl.toDataURL('image/jpeg',0.92),'JPEG',0,0,PW,h*PW/cw);
+    var PW=297, PH=210, curY=0, first=true;
+    for(var k=0;k<blocks.length;k++){
+      rep.innerHTML=blocks[k];
+      var canvas=await html2canvas(rep,{scale:1.5,backgroundColor:'#ffffff',windowWidth:1123});
+      var cw=canvas.width, per=Math.floor(cw*PH/PW);
+      for(var y=0;y<canvas.height;y+=per){
+        var h=Math.min(per,canvas.height-y), hmm=h*PW/cw;
+        if(first){ first=false; curY=0; }
+        else if(curY+hmm>PH){ pdf.addPage(); curY=0; }
+        var sl=document.createElement('canvas'); sl.width=cw; sl.height=h;
+        var cx=sl.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cw,h); cx.drawImage(canvas,0,y,cw,h,0,0,cw,h);
+        pdf.addImage(sl.toDataURL('image/jpeg',0.9),'JPEG',0,curY,PW,hmm);
+        curY+=hmm; sl.width=sl.height=0;
+      }
+      canvas.width=canvas.height=0;
     }
     pdf.save('DB사용량보고서_'+today+'.pdf');
     toast('PDF 보고서를 저장했습니다.');
