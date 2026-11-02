@@ -1104,6 +1104,134 @@ async function _medPdfHandle(body, res) {
 }
 
 // 매 5분: 발송 시각 도달 여부 검사 → 하루 1회 자동 발송 (KST)
+// ── 시책표 자동 공지 등록 (2026-11-02, 사용자 요청) ─────────────────────────
+// 관리자가 회사 프로그램에서 받은 시책표 PDF를 구글드라이브 `TEAM TOPS 자료/{관리자}/시책표 업로드` 폴더에
+// 넣어 두면(PC의 Google Drive 데스크톱 앱 폴더), kakaoDaily(5분마다)가 새 PDF를 찾아 공지사항(분류 '시책')으로 바로 등록한다.
+// · 드라이브 접근은 기존 앱스크립트 액션(dvList/dvFile/dvMkdir)만 사용 — gs 재배포 불필요.
+// · 처리한 파일은 kakao_private/sichaek.done[파일id]에 기록(드라이브 파일은 그대로 둠) — 트랜잭션 선점이라 실행이 겹쳐도 한 번만 등록.
+//   읽기·업로드 단계의 일시 오류는 다음 턴 재시도(최대 3회), 공지 기록 단계 이후 실패는 재시도 안 함(중복 방지).
+// · 폴더를 처음 볼 때 들어 있던 파일은 기준선으로만 기록(등록 안 함) — 옛 파일 일괄 등록 방지. 이후 넣은 파일은 전부 등록.
+// · ⚠️ 수용: 클라이언트는 공지를 배열째 sv로 저장하므로, 서버가 넣은 공지를 아직 못 받은 기기가 공지를 저장하면 덮일 수 있음(nalerts 4장 계열).
+// · 원본은 Storage notice_files/ (클라이언트 _uploadNoticeFile과 같은 경로), 공지 목록 tops/data.not 에 arrayUnion으로 추가.
+//   열람 시 그림 변환은 클라이언트 _noticePdfInject가 처리(pages 없음).
+// ⚠️ 앱스크립트 파일 읽기 상한 6MB(DV_MAX_READ) — 넘으면 등록하지 않고 그 관리자에게 인앱 알림.
+const SC_GAS_URL = "https://script.google.com/macros/s/AKfycbwpknpHr2g8xh1C0gP7Bo6fR7PxpCarjTvQuSUys_5DTXMxNkDASGfOkSktDqpjdDU2/exec";   // index.html DRIVE_SYNC_URL과 같은 값
+const SC_DIR = "시책표 업로드";
+const SC_DOC = () => admin.firestore().collection("kakao_private").doc("sichaek");
+async function _scGas(payload) {
+  const isJson = (t) => { try { JSON.parse(t); return true; } catch (e) { return false; } };
+  const post = async () => (await fetch(SC_GAS_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), redirect: "follow", signal: AbortSignal.timeout(25000) })).text();
+  let txt = await post();
+  if (!isJson(txt)) { await new Promise((r) => setTimeout(r, 400)); txt = await post(); }   // POST→GET 변환 간헐 실패 흡수(/api/drive 프록시와 같은 이유)
+  if (!isJson(txt) && payload.action === "dvList") {
+    const qs = Object.keys(payload).map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(String(payload[k]))).join("&");
+    try { const g = await (await fetch(SC_GAS_URL + "?" + qs, { redirect: "follow", signal: AbortSignal.timeout(25000) })).text(); if (isJson(g)) txt = g; } catch (e) {}
+  }
+  if (!isJson(txt)) throw new Error("앱스크립트 응답이 JSON이 아님: " + String(txt).slice(0, 120));
+  return JSON.parse(txt);
+}
+function _scKstStamp() {
+  const n = _kkNow();
+  return { date: n.getUTCFullYear() + "." + _kkPad(n.getUTCMonth() + 1) + "." + _kkPad(n.getUTCDate()),
+    hm: _kkPad(n.getUTCHours()) + ":" + _kkPad(n.getUTCMinutes()) };
+}
+async function _scAlert(toName, msg) {
+  try {
+    const a = { id: "a_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8), toRole: null, fromName: "시책표 자동등록", type: "시책표", msg: String(msg), ts: Date.now(), toName: toName };
+    await KK_DATA().update({ nalerts: admin.firestore.FieldValue.arrayUnion(a) });
+  } catch (e) { console.warn("시책표 알림 실패:", String((e && e.message) || e)); }
+}
+async function _sichaekScan() {
+  const t0 = Date.now();
+  const timeLeft = () => Date.now() - t0 < 90000;   // 스캔 전체 90초 예산 — 뒤의 일일보고·출장 발송을 밀지 않게
+  const stSnap = await SC_DOC().get();
+  const st = stSnap.exists ? (stSnap.data() || {}) : {};
+  const mk = st.mk || {}, base = st.base || {};
+  const out = [];
+  let budget = 5;   // 한 턴에 최대 5건 등록(나머지는 다음 턴)
+  // 파일 하나 선점 — 트랜잭션으로 done을 확인하며 표시(두 실행이 겹쳐도 한 번만 등록). 재시도 대기(rt<3, ok 없음)면 다시 잡음
+  const claim = (id, info) => admin.firestore().runTransaction(async (tx) => {
+    const sn = await tx.get(SC_DOC());
+    const d = ((sn.exists ? (sn.data() || {}) : {}).done || {})[id];
+    if (d && (d.ok || d.err || d.ing || !(d.rt < 3))) return false;
+    tx.set(SC_DOC(), { done: { [id]: Object.assign({ ing: 1, rt: (d && d.rt) || 0, ts: Date.now() }, info) } }, { merge: true });
+    return true;
+  });
+  const PERM = /^(too_large|PDF 파일이 아님|same_name)$/;
+  for (const member of KK_REPORT_ADMINS) {
+    if (budget <= 0 || !timeLeft()) break;
+    if (!mk[member]) {   // 폴더가 없으면 한 번 만들어 둔다(PC 드라이브 앱에서 바로 보이게)
+      try {
+        const r = await _scGas({ action: "dvMkdir", member, path: "", name: SC_DIR });
+        if (r && r.ok) await SC_DOC().set({ mk: { [member]: Date.now() } }, { merge: true });
+      } catch (e) { console.warn("시책표 폴더 생성 실패(" + member + "):", String((e && e.message) || e)); }
+    }
+    let ls;
+    try { ls = await _scGas({ action: "dvList", member, path: SC_DIR }); }
+    catch (e) { console.warn("시책표 폴더 조회 실패(" + member + "):", String((e && e.message) || e)); continue; }
+    if (!ls || !ls.ok || !Array.isArray(ls.files)) continue;
+    const pdfs = ls.files.filter((f) => f && f.id && /\.pdf$/i.test(String(f.name || "")));
+    // 처음 보는 폴더: 지금 들어 있는 파일은 등록하지 않고 기준선으로만 기록(옛 파일 일괄 등록 방지). 이후 새로 넣은 파일은 수정 시각과 무관하게 등록
+    if (!base[member]) {
+      const mark = {};
+      pdfs.forEach((f) => { mark[f.id] = { ok: 1, base: 1, n: String(f.name).slice(0, 120) }; });
+      await SC_DOC().set({ base: { [member]: Date.now() }, done: mark }, { merge: true });
+      continue;
+    }
+    const done = ((await SC_DOC().get()).data() || {}).done || {};
+    const nameCnt = {};
+    pdfs.forEach((f) => { nameCnt[f.name] = (nameCnt[f.name] || 0) + 1; });
+    const todo = pdfs.filter((f) => { const d = done[f.id]; return !d || (!d.ok && !d.err && !d.ing && d.rt < 3); })
+      .sort((a, b) => String(a.dt || "").localeCompare(String(b.dt || "")));   // 오래된 것부터 — 공지 순서 유지
+    for (const f of todo) {
+      if (budget <= 0 || !timeLeft()) break;
+      if (!(await claim(f.id, { n: String(f.name).slice(0, 120), by: member }))) continue;
+      budget--;
+      let stage = "read";
+      try {
+        // dvFile은 이름으로 첫 파일만 읽으므로 같은 이름이 둘 이상이면 내용이 뒤바뀔 수 있어 등록하지 않음
+        if (nameCnt[f.name] > 1) throw new Error("same_name");
+        if (+f.size > 6 * 1024 * 1024) throw new Error("too_large");
+        const r = await _scGas({ action: "dvFile", member, path: SC_DIR, name: f.name });
+        if (!r || !r.ok || !r.data) throw new Error(String((r && r.error) || "파일 읽기 실패"));
+        const buf = Buffer.from(String(r.data), "base64");
+        if (buf.slice(0, 5).toString() !== "%PDF-") throw new Error("PDF 파일이 아님");
+        const crypto = require("crypto");
+        const safe = String(f.name).replace(/[^\w.\-가-힣()[\]\s]/g, "_");
+        const path = "notice_files/" + Date.now() + "_" + crypto.randomBytes(3).toString("hex") + "/" + safe;
+        const token = crypto.randomUUID();
+        const bucket = admin.storage().bucket();
+        await bucket.file(path).save(buf, { metadata: { contentType: "application/pdf", metadata: { firebaseStorageDownloadTokens: token } } });
+        const url = "https://firebasestorage.googleapis.com/v0/b/" + bucket.name + "/o/" + encodeURIComponent(path) + "?alt=media&token=" + token;
+        const k = _scKstStamp();
+        const title = String(f.name).replace(/\.pdf$/i, "").trim().slice(0, 100) || "시책표";
+        const obj = { title, content: "", date: k.date, datetime: k.date + " " + k.hm, author: member,
+          files: [{ name: String(f.name), type: "application/pdf", url, path }], trackRead: false,
+          nid: "n" + Date.now() + Math.random().toString(36).slice(2, 6), vm: "swipe", cat: "시책", auto: 1 };
+        stage = "post";   // 이 뒤의 실패는 등록 여부가 불확실 — 재시도하지 않음(중복 공지 방지)
+        await KK_DATA().update({ not: admin.firestore.FieldValue.arrayUnion(obj) });
+        await SC_DOC().set({ done: { [f.id]: { ok: 1, ing: admin.firestore.FieldValue.delete(), nid: obj.nid } } }, { merge: true });
+        out.push(member + ": " + f.name);
+      } catch (e) {
+        const em = String((e && e.message) || e);
+        const prev = (done[f.id] && done[f.id].rt) || 0;
+        const retry = stage === "read" && !PERM.test(em) && prev + 1 < 3;
+        console.warn("시책표 등록 실패(" + member + " · " + f.name + (retry ? " · 다음 턴 재시도" : "") + "):", em);
+        await SC_DOC().set({ done: { [f.id]: retry
+          ? { rt: prev + 1, ing: admin.firestore.FieldValue.delete(), last: em.slice(0, 200) }
+          : { err: em.slice(0, 200), ing: admin.firestore.FieldValue.delete() } } }, { merge: true });
+        if (!retry) {
+          const why = em === "too_large" ? "파일이 6MB보다 커서 자동으로 올릴 수 없습니다. 공지 등록에서 직접 올려 주세요."
+            : em === "same_name" ? "폴더에 같은 이름의 PDF가 여러 개 있습니다. 이름을 바꿔 다시 넣어 주세요."
+            : em + " — 공지 등록에서 직접 올려 주세요.";
+          await _scAlert(member, "시책표 자동등록 실패: " + f.name + " — " + why);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 exports.kakaoDaily = onSchedule(
   { schedule: "*/5 * * * *", timeZone: "Asia/Seoul", region: "us-central1", memory: "2GiB", timeoutSeconds: 300 },
   async () => {
@@ -1166,6 +1294,11 @@ exports.kakaoDaily = onSchedule(
       } else {
         console.log("아침 출장 인원 보고:", am.empty ? "오늘 출장 없음(생략)" : (am.sent + "명 · 오늘 " + am.n + "건"));
       }
+    }
+    // ── 시책표 자동 공지 등록 (2026-11-02) — 07~23시에만, 다른 발송과 독립 ──
+    if (_kkHm() >= "07:00" && _kkHm() < "23:00") {
+      try { const sc = await _sichaekScan(); if (sc.length) console.log("시책표 공지 등록:", sc.join(", ")); }
+      catch (e) { console.warn("시책표 자동등록 실패:", String((e && e.message) || e)); }
     }
     // ── 이하 자동 발송 ──
     if (!cfg.enabled || !cfg.restKey) return;
