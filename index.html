@@ -16052,14 +16052,18 @@ async function _noticePdfToImages(file, info){
   if(typeof pdfjsLib==='undefined') return [];
   var buf=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  var imgs=[], n=Math.min(pdf.numPages, NOTICE_PDF_MAXPG);
-  if(info) info.total=pdf.numPages;
-  for(var p=1;p<=n;p++){
-    var page=await pdf.getPage(p);
-    var blob=await _noticePdfPageJpeg(page, NOTICE_PDF_W, false);
-    if(blob) imgs.push(blob);
-  }
-  return imgs;
+  try{
+    var imgs=[], n=Math.min(pdf.numPages, NOTICE_PDF_MAXPG);
+    if(info) info.total=pdf.numPages;
+    for(var p=1;p<=n;p++){
+      var page=await pdf.getPage(p);
+      var blob=await _noticePdfPageJpeg(page, NOTICE_PDF_W, false);
+      try{ page.cleanup(); }catch(e){}
+      if(!blob) throw new Error(p+'쪽 그림 만들기 실패');   // 중간 쪽이 빠져 번호가 밀리지 않게
+      imgs.push(blob);
+    }
+    return imgs;
+  }finally{ try{ pdf.destroy(); }catch(e){} }
 }
 // 페이지 JPEG들을 Storage(base 폴더)에 올리고 obj.pages·pq·pgTotal 기록. 실패는 throw.
 async function _noticePdfPagesPut(obj, blobLike, base, pre){
@@ -16080,14 +16084,16 @@ async function _noticePdfPagesPut(obj, blobLike, base, pre){
 // 옛 미리보기 그림은 지우지 않음(새 이름으로 올림 — 저장 실패·다른 기기 열람 중에도 깨지지 않게).
 async function _noticePdfRegen(f){
   var src=_noticeFileSrc(f);
-  if(!/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(src||''))) throw new Error('원본 PDF 주소 없음');
+  if(!_noticePdfSrcOk(f)) throw new Error('원본 PDF 주소 없음');
   var res=await fetch(src); if(!res.ok) throw new Error('원본 PDF 받기 실패 HTTP '+res.status);
   var blob=await res.blob();
   var nf=JSON.parse(JSON.stringify(f));
-  var dir=(typeof f.path==='string'&&/^notice_files\/[^/]+\//.test(f.path))?f.path.replace(/[^/]*$/,''):('notice_files/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'/');
+  var dir=(typeof f.path==='string'&&/^notice_files\/[\w-]+\/[^/]+$/.test(f.path))?f.path.replace(/[^/]*$/,''):('notice_files/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'/');
   await _noticePdfPagesPut(nf, blob, dir, 'hq'+Date.now().toString(36)+'_p');
   return nf;
 }
+// 이 프로젝트 버킷의 notice_files/ 원본만 다시 받음(다른 주소를 심은 데이터 방어)
+function _noticePdfSrcOk(f){ return /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/notice_files%2F/.test(String(_noticeFileSrc(f)||'')); }
 function _noticeIsPdf(f){ return !!f&&typeof f==='object'&&(/pdf/i.test(f.type||'')||/\.pdf$/i.test(f.name||'')); }
 // 공지 첨부파일 1개를 Firebase Storage에 업로드 → {name,type,url,pages?} 반환
 async function _uploadNoticeFile(file){
@@ -16236,6 +16242,12 @@ function removeHomeBg(){
 
 async function saveNotice(){
   if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  // 연타 가드(2026-11-02) — 업로드·고화질 변환이 수십 초 걸릴 수 있어 두 번 돌지 않게
+  if(window._notSaveBusy){ toast('저장 중입니다. 잠시만 기다려 주세요.'); return; }
+  window._notSaveBusy=true;
+  try{ return await _saveNoticeDo(); }finally{ window._notSaveBusy=false; }
+}
+async function _saveNoticeDo(){
   const t=g('mn_title').value.trim();
   if(!t){toast('제목을 입력하세요.');return;}
   // 메인화면 팝업 기간 검증(2026-09-29) — 첨부 업로드 전에 막아야 재시도 시 중복 업로드가 안 생김
@@ -16269,12 +16281,12 @@ async function saveNotice(){
   // 고화질 미리보기 다시 만들기(2026-11-02) — 새 파일 없이 [수정]→[저장]하면, 옛 화질(pq 없음)이거나
   // 미리보기가 없는 PDF 첨부(드라이브 자동 등록 시책 등)를 저장된 원본에서 다시 변환. 실패하면 그 파일은 옛 미리보기 그대로(저장은 진행).
   var _regenFail=0, _regenN=0;
-  if(!picked.length && files.some(function(f){ return _noticeIsPdf(f)&&(f.pq||0)<NOTICE_PDF_PQ; })){
+  if(!picked.length && files.some(function(f){ return _noticeIsPdf(f)&&(f.pq||0)<NOTICE_PDF_PQ&&_noticePdfSrcOk(f); })){
     toast('PDF 미리보기를 고화질로 다시 만드는 중...');
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
     for(var _ri=0;_ri<files.length;_ri++){
       var _rf=files[_ri];
-      if(!_noticeIsPdf(_rf)||(_rf.pq||0)>=NOTICE_PDF_PQ) continue;
+      if(!_noticeIsPdf(_rf)||(_rf.pq||0)>=NOTICE_PDF_PQ||!_noticePdfSrcOk(_rf)) continue;
       try{
         var _nf=await _noticePdfRegen(_rf);
         files[_ri]=_nf; _regenN++;
