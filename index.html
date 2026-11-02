@@ -714,7 +714,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-3</div>
   </div>
 </div>
 
@@ -16026,25 +16026,69 @@ function openNoticeAddPage(){
 var notreads; try{ notreads=JSON.parse(localStorage.getItem('tops_notreads')||'[]'); }catch(e){ notreads=[]; }
 if(!Array.isArray(notreads)) notreads=[];
 
-// PDF 파일(File)을 페이지별 JPEG Blob 배열로 변환 (PDF.js, 최대 20쪽)
+// PDF 파일(File/Blob)을 페이지별 JPEG Blob 배열로 변환 (PDF.js, 최대 NOTICE_PDF_MAXPG쪽)
 // ⚠️ 리네임(2026-09-08 실사고): 원래 이름 _pdfToImages가 청구서 쪽 동명 함수(뒤에 선언 — dataURL 시그니처)에
 // 전역에서 덮여, 공지 PDF pages 사전 생성이 항상 조용히 실패했음(호출은 되지만 빈 결과 반환 — 토스트도 안 뜸).
-async function _noticePdfToImages(file){
+// 고화질(2026-11-02 — v2026.11.02-3, 사용자 제보 "시책표 화질이 안 좋아"): 옛 배율 1.6(A4 → 폭 952px)·JPEG 0.85라
+// 작은 글씨 표가 뭉개졌음 → 페이지 폭 NOTICE_PDF_W(2200px)에 맞춰 렌더(배율 1.6~4), JPEG 0.86, 최대 40쪽(옛 20쪽 — 26쪽 시책표 뒤 6쪽 누락).
+// 결과 객체 pages 옆에 pq=2(화질 판), pgTotal(전체 쪽 수) 기록 — pq 없는 옛 공지는 [수정]→[저장] 때 다시 만듦(_noticePdfRegen).
+var NOTICE_PDF_W=2200, NOTICE_PDF_MAXPG=40, NOTICE_PDF_PQ=2;
+async function _noticePdfPageJpeg(page, targetW, asDataUrl){
+  var vp1=page.getViewport({scale:1});
+  var sc=Math.max(1.6, Math.min(4, targetW/(vp1.width||595)));
+  // 픽셀 상한(약 1,400만) — 아주 큰 판형 PDF에서 캔버스가 터지지 않게
+  var area=vp1.width*vp1.height*sc*sc; if(area>14e6) sc=Math.sqrt(14e6/(vp1.width*vp1.height));
+  var vp=page.getViewport({scale:sc});
+  var cv=document.createElement('canvas');
+  cv.width=Math.floor(vp.width); cv.height=Math.floor(vp.height);
+  var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+  await page.render({canvasContext:cx, viewport:vp}).promise;
+  if(asDataUrl){ var d=cv.toDataURL('image/jpeg',0.86); cv.width=cv.height=0; return d; }
+  var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.86); });
+  cv.width=cv.height=0;   // 메모리 즉시 반환(쪽이 많을 때)
+  return blob;
+}
+async function _noticePdfToImages(file, info){
   if(typeof pdfjsLib==='undefined') return [];
   var buf=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  var imgs=[], n=Math.min(pdf.numPages, 20);
+  var imgs=[], n=Math.min(pdf.numPages, NOTICE_PDF_MAXPG);
+  if(info) info.total=pdf.numPages;
   for(var p=1;p<=n;p++){
     var page=await pdf.getPage(p);
-    var vp=page.getViewport({scale:1.6});
-    var cv=document.createElement('canvas');
-    cv.width=vp.width; cv.height=vp.height;
-    await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
-    var blob=await new Promise(function(res){ cv.toBlob(res,'image/jpeg',0.85); });
+    var blob=await _noticePdfPageJpeg(page, NOTICE_PDF_W, false);
     if(blob) imgs.push(blob);
   }
   return imgs;
 }
+// 페이지 JPEG들을 Storage(base 폴더)에 올리고 obj.pages·pq·pgTotal 기록. 실패는 throw.
+async function _noticePdfPagesPut(obj, blobLike, base, pre){
+  var info={};
+  var imgs=await _noticePdfToImages(blobLike, info);
+  var pageUrls=[];
+  for(var k=0;k<imgs.length;k++){
+    var pref=firebase.storage().ref(base+(pre||'p')+(k+1)+'.jpg');
+    await pref.put(imgs[k], {contentType:'image/jpeg'});
+    pageUrls.push(await pref.getDownloadURL());
+  }
+  if(!pageUrls.length) throw new Error('변환된 페이지 없음');
+  obj.pages=pageUrls; obj.pq=NOTICE_PDF_PQ;
+  if(info.total>pageUrls.length) obj.pgTotal=info.total; else delete obj.pgTotal;
+  return obj;
+}
+// 기존 공지 PDF 첨부의 미리보기를 고화질로 다시 만듦(저장된 원본 PDF를 받아 변환) — 새 객체 반환, 실패는 throw.
+// 옛 미리보기 그림은 지우지 않음(새 이름으로 올림 — 저장 실패·다른 기기 열람 중에도 깨지지 않게).
+async function _noticePdfRegen(f){
+  var src=_noticeFileSrc(f);
+  if(!/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(src||''))) throw new Error('원본 PDF 주소 없음');
+  var res=await fetch(src); if(!res.ok) throw new Error('원본 PDF 받기 실패 HTTP '+res.status);
+  var blob=await res.blob();
+  var nf=JSON.parse(JSON.stringify(f));
+  var dir=(typeof f.path==='string'&&/^notice_files\/[^/]+\//.test(f.path))?f.path.replace(/[^/]*$/,''):('notice_files/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'/');
+  await _noticePdfPagesPut(nf, blob, dir, 'hq'+Date.now().toString(36)+'_p');
+  return nf;
+}
+function _noticeIsPdf(f){ return !!f&&typeof f==='object'&&(/pdf/i.test(f.type||'')||/\.pdf$/i.test(f.name||'')); }
 // 공지 첨부파일 1개를 Firebase Storage에 업로드 → {name,type,url,pages?} 반환
 async function _uploadNoticeFile(file){
   var safe=(file.name||'file').replace(/[^\w.\-가-힣()\[\]\s]/g,'_');
@@ -16058,14 +16102,7 @@ async function _uploadNoticeFile(file){
     var isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name||'');
     if(isPdf && typeof pdfjsLib!=='undefined'){
       try{
-        var imgs=await _noticePdfToImages(file);
-        var pageUrls=[];
-        for(var k=0;k<imgs.length;k++){
-          var pref=firebase.storage().ref(base+'p'+(k+1)+'.jpg');
-          await pref.put(imgs[k], {contentType:'image/jpeg'});
-          pageUrls.push(await pref.getDownloadURL());
-        }
-        if(pageUrls.length) obj.pages=pageUrls;
+        await _noticePdfPagesPut(obj, file, base, 'p');
       }catch(e){
         console.warn('PDF 미리보기 이미지 생성 실패:', e);
         // 조용한 실패 금지(2026-09-08) — 첨부 자체는 등록되고, 열람 시점 자동 변환(_noticePdfInject)이 구제함을 안내.
@@ -16208,7 +16245,10 @@ async function saveNotice(){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(popS)||!/^\d{4}-\d{2}-\d{2}$/.test(popE)){ toast('팝업 기간(시작일·종료일)을 입력하세요.'); return; }
     if(popS>popE){ toast('팝업 종료일이 시작일보다 빠릅니다.'); return; }
   }
-  const idx=g('mn_edit_idx').value;
+  let idx=g('mn_edit_idx').value;
+  // 수정 대상 식별자(2026-11-02) — 아래 업로드·고화질 변환(수 초)을 기다리는 사이 실시간 수신으로 not이 바뀌어도
+  // 같은 공지를 다시 찾아 저장(함정 A — 낡은 인덱스로 엉뚱한 공지를 덮지 않게)
+  const _editNid=(idx!==''&&not[+idx]&&not[+idx].nid)?not[+idx].nid:'';
   const fileInput=g('mn_file');
   const picked=fileInput?Array.from(fileInput.files):[];
   // 편집 시 새 파일을 안 고르면 기존 첨부 유지 / 새로 고르면 교체
@@ -16225,6 +16265,26 @@ async function saveNotice(){
       toast('첨부파일 업로드 실패: '+((e&&(e.code||e.message))||''));
       return;
     }
+  }
+  // 고화질 미리보기 다시 만들기(2026-11-02) — 새 파일 없이 [수정]→[저장]하면, 옛 화질(pq 없음)이거나
+  // 미리보기가 없는 PDF 첨부(드라이브 자동 등록 시책 등)를 저장된 원본에서 다시 변환. 실패하면 그 파일은 옛 미리보기 그대로(저장은 진행).
+  var _regenFail=0, _regenN=0;
+  if(!picked.length && files.some(function(f){ return _noticeIsPdf(f)&&(f.pq||0)<NOTICE_PDF_PQ; })){
+    toast('PDF 미리보기를 고화질로 다시 만드는 중...');
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    for(var _ri=0;_ri<files.length;_ri++){
+      var _rf=files[_ri];
+      if(!_noticeIsPdf(_rf)||(_rf.pq||0)>=NOTICE_PDF_PQ) continue;
+      try{
+        var _nf=await _noticePdfRegen(_rf);
+        files[_ri]=_nf; _regenN++;
+      }catch(e){ _regenFail++; console.warn('공지 PDF 고화질 재생성 실패:', e); }
+    }
+  }
+  if(_editNid){
+    var _k=not.findIndex(function(n){ return n&&n.nid===_editNid; });
+    if(_k<0){ toast('그 사이 삭제된 공지입니다 — 저장하지 않았습니다.'); return; }
+    idx=String(_k);
   }
   const now=new Date();
   const dateStr=now.getFullYear()+'.'
@@ -16256,7 +16316,10 @@ async function saveNotice(){
   closeNoticeModal();
   rNotices();
   rNoticePage();
-  toast(idx!==''?'수정되었습니다.':'공지가 등록되었습니다.');
+  toast((idx!==''?'수정되었습니다.':'공지가 등록되었습니다.')
+    +(_regenN?' (PDF 미리보기 고화질 '+_regenN+'건)':'')
+    +(_regenFail?' ⚠ 고화질 변환 실패 '+_regenFail+'건 — 옛 미리보기 유지':''));
+  // 옛 저화질 미리보기 그림은 지우지 않음 — 클라우드 저장 실패·다른 기기 열람 중이면 깨진 그림이 되므로(고아 파일 수용)
 }
 
 function deleteCurrentNotice(){
@@ -18449,6 +18512,7 @@ function _noticeFilesPopupHtml(files, vm){
       } else {
         html+='<div class="nv-view" data-imgs="'+attrJson(imgs)+'" data-pdf="'+esc(isPdf?src:'')+'"></div>';
       }
+      if(pages&&f.pgTotal>imgs.length) html+='<div style="text-align:center;color:#889;font-size:13px;padding:6px">… 이후 '+(f.pgTotal-imgs.length)+'쪽은 위의 다운로드로 확인해 주세요.</div>';
     } else if(isPdf){
       // pages 없는 PDF → 열람 시점 자동 변환(_noticePdfInject) — 실패 시에만 iframe 폴백(2026-09-08)
       html+='<div class="nv-pdfpend" data-pdfsrc="'+esc(src)+'" data-vm="'+vm+'" style="padding:28px;text-align:center;color:#667;font-size:14px;border:1px solid #e2e4ee;border-radius:8px;background:#f4f5fa">PDF 미리보기 변환 중...</div>';
@@ -18480,17 +18544,14 @@ async function _noticePdfInject(w){
         var buf=await res.arrayBuffer();
         if(w.closed) return;
         var pdf=await pdfjsLib.getDocument({data:buf}).promise;
-        var n=Math.min(pdf.numPages,30);
+        var n=Math.min(pdf.numPages,NOTICE_PDF_MAXPG);
         var pageImgs=[];
         for(var p=1;p<=n;p++){
           try{ el.textContent='PDF 미리보기 변환 중... ('+p+'/'+n+'쪽)'; }catch(e0){}
           var page=await pdf.getPage(p);
-          var vp=page.getViewport({scale:1.6});
-          var cv=document.createElement('canvas');
-          cv.width=vp.width; cv.height=vp.height;
-          await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+          var du=await _noticePdfPageJpeg(page, 1800, true);   // 열람 시점 변환은 조금 낮춰(속도) — 옛 952px보다 선명
           if(w.closed) return;
-          pageImgs.push(cv.toDataURL('image/jpeg',0.85));
+          pageImgs.push(du);
         }
         if(w.closed) return;
         // 공지의 보기 방식대로 표시 — 좌우(swipe)=자료실 스타일 뷰어(nvMount), 위아래(scroll)=세로 나열.
@@ -18548,19 +18609,31 @@ function openNoticeDetail(i){
     +'.nv-dlt{font-size:13px;color:#1a8050}'
     +'.nv-view{background:#f6f6fa;border-radius:10px;padding:10px 8px}'
     +'.nv-side{flex:0 0 22%;min-width:0;width:22%;max-height:60vh;object-fit:contain;opacity:.5;cursor:pointer;border-radius:8px;align-self:center}'
-    +'.nv-main{width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block}'
+    +'.nv-main{width:100%;max-height:72vh;object-fit:contain;border-radius:8px;display:block;cursor:zoom-in}'
+    +'.nv-zbg{position:fixed;inset:0;background:rgba(20,22,30,.92);z-index:9999;overflow:auto;-webkit-overflow-scrolling:touch}'
+    +'.nv-zbg img{display:block;margin:0 auto;background:#fff;cursor:zoom-out}'
+    +'.nv-zbar{position:fixed;top:10px;right:14px;z-index:10000;display:flex;gap:6px}'
+    +'.nv-zbar button{padding:7px 13px;border:none;border-radius:6px;background:#fff;color:#222;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px}'
     +'.nv-nb{padding:6px 16px;border:1px solid #ccd;border-radius:6px;background:#fff;color:#555;cursor:pointer;font-family:inherit;font-size:16px;line-height:1}'
     +'.nv-nb:disabled{opacity:.4;cursor:default}'
     +'.nv-thumb{height:62px;border-radius:5px;cursor:pointer;flex:0 0 auto;opacity:.55}'
     +'.nv-thumb.on{outline:2px solid #4858cc;opacity:1}'
     +'.nv-stack{background:#f6f6fa;border-radius:10px;padding:10px 8px}'
-    +'.nv-simg{max-width:100%;display:block;margin:0 auto 10px;border:1px solid #e2e4ee;border-radius:6px}'
+    +'.nv-simg{max-width:100%;display:block;margin:0 auto 10px;border:1px solid #e2e4ee;border-radius:6px;cursor:zoom-in}'
     +'.nv-pdf{width:100%;height:78vh;min-height:480px;border:1px solid #e2e4ee;border-radius:8px}'
     +'.nv-old{color:#999;margin-bottom:8px}';
   // 팝업 뷰어 스크립트 — nvMount(자료실 게시판 좌우 스와이프 스타일: 가운데 크게+양옆 미리보기+썸네일 줄+←/→)
   //   /nvMountScroll(세로 나열). _noticePdfInject(변환된 PDF 페이지)도 같은 함수를 호출해 방식 통일(2026-09-08).
   var script='<scr'+'ipt>(function(){var active=null;'
     +'function mk(t,cs){var e=document.createElement(t);if(cs)e.style.cssText=cs;return e;}'
+    // 크게 보기(2026-11-02) — 그림을 누르면 화면 가득(폭 맞춤) + 확대/축소(폭 100~300%)·Esc/✕/그림 클릭으로 닫기
+    +'var zbg=null;function zClose(){if(zbg){zbg.remove();zbg=null;}}'
+    +'window.nvZoom=function(u){zClose();var z=100;zbg=mk("div");zbg.className="nv-zbg";var im=document.createElement("img");im.src=u;'
+      +'function ap(){im.style.width=z+"%";im.style.maxWidth=z>100?"none":"1400px";lb.textContent=z+"%";}'
+      +'var bar=mk("div");bar.className="nv-zbar";var bm=document.createElement("button");bm.textContent="\uFF0D";var lb=document.createElement("button");var bp=document.createElement("button");bp.textContent="\uFF0B";var bx=document.createElement("button");bx.textContent="\u2715 닫기";'
+      +'bm.onclick=function(e){e.stopPropagation();z=Math.max(100,z-50);ap();};bp.onclick=function(e){e.stopPropagation();z=Math.min(300,z+50);ap();};lb.onclick=function(e){e.stopPropagation();z=100;ap();};bx.onclick=function(e){e.stopPropagation();zClose();};'
+      +'im.onclick=function(){zClose();};bar.appendChild(bm);bar.appendChild(lb);bar.appendChild(bp);bar.appendChild(bx);zbg.appendChild(im);zbg.appendChild(bar);document.body.appendChild(zbg);ap();};'
+    +'document.addEventListener("click",function(e){var t=e.target;if(t&&t.classList&&(t.classList.contains("nv-main")||t.classList.contains("nv-simg"))&&t.src)nvZoom(t.src);});'
     +'window.nvMountScroll=function(c,imgs){c.innerHTML="";c.className="nv-stack";c.style.cssText="";imgs.forEach(function(u){var im=document.createElement("img");im.className="nv-simg";im.src=u;c.appendChild(im);});};'
     +'window.nvMount=function(c,imgs,pdf){'
       +'c.innerHTML="";c.className="nv-view";c.style.cssText="";'
@@ -18595,7 +18668,7 @@ function openNoticeDetail(i){
       +'var imgs;try{imgs=JSON.parse(c.getAttribute("data-imgs")||"[]");}catch(e){imgs=[];}'
       +'imgs=imgs.filter(function(u){return /^(https?:|data:|blob:)/i.test(String(u||""));});'
       +'if(imgs.length)nvMount(c,imgs,c.getAttribute("data-pdf")||"");});'
-    +'document.addEventListener("keydown",function(e){if(!active)return;if(e.key==="ArrowLeft"&&active._prev)active._prev();else if(e.key==="ArrowRight"&&active._next)active._next();});'
+    +'document.addEventListener("keydown",function(e){if(zbg){if(e.key==="Escape")zClose();return;}if(!active)return;if(e.key==="ArrowLeft"&&active._prev)active._prev();else if(e.key==="ArrowRight"&&active._next)active._next();});'
     +'})();</scr'+'ipt>';
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(n.title)+'</title><style>'+css+'</style></head><body>'
     +'<h2>'+esc(n.title)+'</h2>'
