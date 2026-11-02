@@ -274,6 +274,7 @@
   — 기존 firestore.rules 한계와 동일 계열. 근본 해결은 서버 권한 작업 별도 필요.
   관리자는 승인 전에 연동 목록의 [팀원: 이름]과 카카오 닉네임이 실제 본인인지 확인할 것.
 - functions 배포: `.github/workflows/functions-deploy.yml` — functions/** 변경 푸시 시 자동.
+  ⚠️ **2026-11-02 실사고**: Node.js 20 런타임이 2026-10-31 폐지돼 배포가 "Runtime Node.js 20 was decommissioned"로 실패 — `functions/package.json` engines·`firebase.json` runtime을 **nodejs22**로 올림. 배포 실패 시 Actions 로그부터 볼 것.
 
 ### 3.8 카톡 일일보고 발송 대상자 (2026-07-30)
 
