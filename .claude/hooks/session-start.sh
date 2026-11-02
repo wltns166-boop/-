@@ -66,5 +66,8 @@ if [ -f CLAUDE.md ]; then
   echo "• 인계 상태(CLAUDE.md 0장):"
   sed -n '/^<!-- HANDOFF:START/,/^<!-- HANDOFF:END/p' CLAUDE.md | grep -v '^<!-- HANDOFF:' | sed 's/^/  /'
 fi
+# 4) 최근 커밋 — 인계 칸을 깜빡해도 항상 최신(커밋 기록은 자동으로 쌓임)
+echo "• 최근 작업(커밋 기록):"
+git log --format='  %h %ad %s' --date=format:'%m/%d %H:%M' -8 2>/dev/null || true
 
 echo "─────────────────────────────────────────────────"
