@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-5</div>
   </div>
 </div>
 
@@ -889,9 +889,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_db_assign">배정현황</div></div>
       <div class="ns"><div class="ni" id="n_db_info">DB 정보</div></div>
       <div class="ns"><div class="ni" id="n_db_exchange">교환신청</div></div>
+      <div class="ns"><div class="ni" id="n_dbuse">DB사용량</div></div>
     </div>
-
-    <div class="ni" id="n_dbuse"><i class="ti ti-chart-bar"></i>DB사용량</div>
 
     <div class="ni" id="n_ab_menu"><i class="ti ti-arrows-exchange"></i>부재디비교환<i class="ti ti-chevron-down nc" id="nc_ab"></i></div>
     <div class="nch" id="nch_ab">
@@ -5523,9 +5522,10 @@ function setAdmin(){
     var el=g(id); if(!el||!el.parentElement) return;
     el.parentElement.style.display=isAdmin?'':'none';   // .ns 통째 숨김
   });
-  // DB관리 메뉴 전체(그룹 머리+하위 묶음)는 관리자만 (2026-08-25 — 팀원 화면에서 완전히 숨김)
+  // DB관리 그룹 머리+하위 묶음은 전원 표시 (v2026.11.04-5 — 안에 전원용 DB사용량이 들어감. 2026-08-25의 '관리자만'을 대체).
+  // 신청현황·배정현황은 위에서 관리자만, DB 정보·교환신청은 환경설정 숨김(navcfg hide)으로 계속 숨겨짐
   [g('n_db'), g('nch_db')].forEach(function(el){
-    if(el) el.style.display=isAdmin?'':'none';
+    if(el) el.style.display='';
   });
   // 부재디비교환: 재등록 리스트·교환 현황은 관리자만 (2026-10-22)
   ['n_ab_rereg','n_ab_stat'].forEach(function(id){
