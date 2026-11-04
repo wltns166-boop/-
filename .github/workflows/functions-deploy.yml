@@ -23,8 +23,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # ⚠️ 2026-11-04(협업 대비): 어느 브랜치에 푸시돼도 **작업 브랜치(jolly-carson) 최신**을 배포한다.
+      #   두 사람(박지순·백동현)의 세션이 서로 다른 claude/** 브랜치에 푸시해도, 낡은 코드가 라이브를 덮지 않게.
+      #   → 라이브에 올리려면 반드시 작업 브랜치에 푸시할 것. 작업 브랜치를 바꾸면 이 ref도 함께 바꿀 것.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: claude/jolly-carson-bvrih0
 
       - name: Install functions dependencies
         run: npm ci --prefix functions
