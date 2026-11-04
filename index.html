@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.02-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-1</div>
   </div>
 </div>
 
@@ -26054,13 +26054,21 @@ function abBuy(){
 function abAdmDel(btn){
   if(!_isAdmin()) return toast('관리자만 사용할 수 있습니다.');
   var id=_abIdOf(btn), db=_abDb(); if(!id||!db) return;
-  if(!confirm('이 디비를 마켓에서 내리고 삭제할까요? (포인트는 바뀌지 않습니다)')) return;
-  var ref=db.collection(AB_COL).doc(id);
+  if(!confirm('이 디비를 마켓에서 내리고 삭제할까요?\n마켓에 올린 사람(지금 소유자)이 받은 1P가 차감됩니다.')) return;
+  var ref=db.collection(AB_COL).doc(id), who='';
+  // 내리기도 삭제와 같이 마켓에 올린 사람(ok — 작성자, 재등록이면 재등록한 사람)이 받은 1P를 되돌림(0P면 0에서 멈춤 — 관리자 내리기는 막지 않음)
   db.runTransaction(function(tx){ return tx.get(ref).then(function(s){
     if(!s.exists) throw _abFail('이미 삭제된 디비입니다.');
-    if((s.data()||{}).st!=='m') throw _abFail('그 사이 판매된 디비입니다.');
-    tx.delete(ref);
-  }); }).then(function(){ toast('마켓에서 내렸습니다.'); rAbMarket(); }).catch(_abErr);
+    var o=s.data()||{};
+    if(o.st!=='m') throw _abFail('그 사이 판매된 디비입니다.');
+    if(!o.ok){ tx.delete(ref); return; }
+    var pref=db.collection(AB_PT).doc(o.ok);
+    return tx.get(pref).then(function(ps){
+      var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
+      tx.delete(ref); tx.set(pref,{pt:Math.max(0,pt-1)},{merge:true});
+      who=(o.owner||'')+(pt>0?' −1P':' (이미 0P)');
+    });
+  }); }).then(function(){ toast('마켓에서 내렸습니다.'+(who?' ('+who+')':'')); _abPtShow(); rAbMarket(); }).catch(_abErr);
 }
 // ── 구매 리스트 ──
 function rAbBuy(){
