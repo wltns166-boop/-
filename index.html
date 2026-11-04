@@ -12308,12 +12308,15 @@ function medOpenDrive(i){
   showPage('drive');
 }
 
+function _medDelKey(t){ return t?(t.id||JSON.stringify([t.dt,t.cust,t.m,t.note||t.items||''])):''; }
 function deleteMedByIdx(i){
-  if(window._delMedIdx===i){
+  // 2번 클릭 확인은 위치(i)가 아니라 기록 키로 — 두 클릭 사이 다른 팀원 저장으로 목록 순서가 바뀌어도 엉뚱한 기록을 지우지 않게(2026-11-04 리뷰)
+  var k1=_medDelKey(mhx[i]);
+  if(k1&&window._delMedIdx===k1){
     // 클라우드 최신본에서 동일 항목을 찾아 삭제 — 낡은 배열 덮어쓰기 방지.
     // 신규 항목은 고유 id로, 구형 항목(id 없음)은 작성일+고객+담당+전체본문으로 매칭
     // (items 앞 80자는 표 머리글이라 모든 분석에서 동일 — 판별에 쓰면 안 됨)
-    var t=mhx[i];
+    var t=mhx.filter(function(x){ return _medDelKey(x)===k1; })[0];
     if(t){
       var sig=JSON.stringify([t.dt,t.cust,t.m,t.note||t.items||'']);
       var found=false;
@@ -12332,7 +12335,7 @@ function deleteMedByIdx(i){
     }
     window._delMedIdx=null;
   } else {
-    window._delMedIdx=i;
+    window._delMedIdx=k1;
     toast('한 번 더 누르면 삭제됩니다.');
     setTimeout(function(){window._delMedIdx=null;},3000);
   }
@@ -12763,7 +12766,7 @@ function saveMedExcelByIdx(i){
 g('btn_wm') && g('btn_wm').addEventListener('click',()=>{fillSel('mwm_mem');g('mwm_cust').value='';g('mwm_items').value='';g('mwm_note').value='';g('m_wm').classList.add('open');});
 g('m_wm_c').addEventListener('click',()=>g('m_wm').classList.remove('open'));
 g('m_wm_cancel').addEventListener('click',()=>g('m_wm').classList.remove('open'));
-g('m_wm_save').addEventListener('click',()=>{var e={id:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),cust:g('mwm_cust').value,m:g('mwm_mem').value,items:g('mwm_items').value,note:g('mwm_note').value,dt:td()};_mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){g('m_wm').classList.remove('open');rWm();toast('저장되었습니다.');});});
+g('m_wm_save').addEventListener('click',()=>{var e={id:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),cust:g('mwm_cust').value,m:g('mwm_mem').value,items:g('mwm_items').value,note:g('mwm_note').value,dt:td()};_mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){g('m_wm').classList.remove('open');rWm();toast('저장되었습니다.');}).catch(function(){});});
 
 function rWc(){
   const tb=g('wc_tb');
