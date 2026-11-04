@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-4</div>
   </div>
 </div>
 
@@ -25875,6 +25875,10 @@ try{ _heroApply(); }catch(e){}
 // 이력 hist:[{t,by,k,ts,…}] — t: 'w' 작성 · 'b' 구매(from=판매자) · 'rq' 재등록 요청 · 'rc' 요청 취소 · 'r' 재등록 승인(ap=승인 관리자) · 'rj' 반려.
 // ⚠️ 구조적 한계(기존 계열): firestore.rules가 인증 세션이면 읽기를 허용 — 마켓에서 가린 성함·연락처도 콘솔로는 읽힘(custs·claims와 같은 수준).
 var AB_COL='absdb', AB_PT='absdbpt', AB_CFG='absdbcfg', AB_BUY_MAX=50;
+// 등록제재(v2026.11.04-4, 백동현 요청): 포인트가 −3P 이하이면 새 디비 작성·재등록 요청·재등록 승인을 막음(구매는 원래 pt>=건수라 마이너스면 이미 막힘). 해제는 관리자 [교환 현황] [조정]
+var AB_BAN_PT=-3;
+function _abBanned(pt){ return (+pt||0)<=AB_BAN_PT; }
+var AB_BAN_MSG='포인트가 '+AB_BAN_PT+'P 이하라 디비 등록이 제재되었습니다. 관리자에게 문의해 주세요.';
 var _AB_REC_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/db_recordings%2Fabsdb%2F/;
 var AB_FIELDS=['nm','rg','age','birth','ph','prem','visit','call','co','sd'];
 function _abDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
@@ -25890,7 +25894,7 @@ function _abPtShow(){
   var db=_abDb(), me=_abMe(); if(!db||!me.k) return;
   db.collection(AB_PT).doc(me.k).get().then(function(s){
     var p=s.exists?(+((s.data()||{}).pt)||0):0;
-    document.querySelectorAll('.ab_ptv').forEach(function(el){ el.textContent=p+'P'; });
+    document.querySelectorAll('.ab_ptv').forEach(function(el){ el.textContent=p+'P'+(_abBanned(p)?' (등록제재)':''); el.style.color=p<0?'#d21f3c':''; });
   }).catch(function(){});
 }
 // 생년월일이 완성되면 만 나이를 자동 기입 — 사용자가 나이 칸을 직접 고친 뒤에는 덮지 않음(_abAgeHand)
@@ -25954,7 +25958,17 @@ function abOpenForm(id){
   var st=g('ab_f_recst'); if(st){ st.textContent='파일을 여기에 끌어다 놓으세요'; st.style.color=''; }
   var rb=g('ab_f_recbox'); if(rb) rb.classList.remove('sel','drag');
   g('ab_pop_title').textContent=id?'부재디비 수정':'부재디비 작성';
-  if(!id){ pop.style.display='flex'; setTimeout(function(){ try{ g('ab_f_nm').focus(); }catch(e){} },30); return; }
+  if(!id){
+    pop.style.display='flex'; setTimeout(function(){ try{ g('ab_f_nm').focus(); }catch(e){} },30);
+    // 등록제재면 창을 바로 닫고 안내(저장 트랜잭션도 다시 막음 — 이건 입력 헛수고 방지용)
+    var db0=_abDb(), me0=_abMe(), fs0=window._abSeqF=(window._abSeqF||0)+1;
+    if(db0&&me0.k) db0.collection(AB_PT).doc(me0.k).get().then(function(ps){
+      if(fs0!==window._abSeqF||window._abEditId) return;
+      var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
+      if(_abBanned(pt)){ abCloseForm(); toast(AB_BAN_MSG+' (지금 '+pt+'P)'); }
+    }).catch(function(){});
+    return;
+  }
   var db=_abDb(); if(!db) return toast('클라우드 연결 후 다시 시도해 주세요.');
   var fseq=window._abSeqF=(window._abSeqF||0)+1;   // 응답 전에 다른 행 [수정]·[작성]·닫기를 누르면 먼저 보낸 응답은 버림(리뷰 반영)
   db.collection(AB_COL).doc(id).get().then(function(s){
@@ -26033,10 +26047,13 @@ function abSave(){
     var id='ab_'+now+'_'+Math.random().toString(36).slice(2,8);
     var o=Object.assign({id:id,w:me.nm,wk:me.k,wTs:now,owner:me.nm,ok:me.k,lTs:now,st:'m',buyer:'',bk:'',bTs:0,
       hist:[{t:'w',by:me.nm,k:me.k,ts:now}]},v);
-    var b=db.batch();
-    b.set(db.collection(AB_COL).doc(id),o);
-    b.set(db.collection(AB_PT).doc(me.k),{pt:firebase.firestore.FieldValue.increment(1),nm:me.nm},{merge:true});
-    p=b.commit();
+    var nref=db.collection(AB_COL).doc(id), npref=db.collection(AB_PT).doc(me.k);
+    // 등록제재 확인을 위해 포인트를 읽고 쓰는 트랜잭션(옛 batch increment와 결과 같음)
+    p=db.runTransaction(function(tx){ return tx.get(npref).then(function(ps){
+      var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
+      if(_abBanned(pt)) throw _abFail(AB_BAN_MSG+' (지금 '+pt+'P)');
+      tx.set(nref,o); tx.set(npref,{pt:pt+1,nm:me.nm},{merge:true});
+    }); });
   }
   p.then(function(){
     var wasEdit=!!eid; abCloseForm();
@@ -26120,7 +26137,7 @@ function abAdmDel(btn){
     var pref=db.collection(AB_PT).doc(o.ok);
     return tx.get(pref).then(function(ps){
       var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
-      tx.delete(ref); tx.set(pref,{pt:pt-1},{merge:true});
+      tx.delete(ref); tx.set(pref,Object.assign({pt:pt-1},(ps.exists&&(ps.data()||{}).nm)?{}:{nm:o.owner||''}),{merge:true});
       who=(o.owner||'')+' −1P'+(pt<1?' → 보유 '+(pt-1)+'P(마이너스 — 새로 올려 채워야 구매 가능)':'');
     });
   }); }).then(function(){ toast('마켓에서 내렸습니다.'+(who?' ('+who+')':'')); _abPtShow(); rAbMarket(); }).catch(_abErr);
@@ -26146,10 +26163,13 @@ function rAbBuy(){
 function _abTxStep(btn, from, to, ev, msg, okMsg){
   var id=_abIdOf(btn), db=_abDb(), me=_abMe(); if(!id||!db||!me.k) return;
   var ref=db.collection(AB_COL).doc(id);
-  db.runTransaction(function(tx){ return tx.get(ref).then(function(s){
+  var pref=db.collection(AB_PT).doc(me.k);
+  db.runTransaction(function(tx){ return Promise.all([tx.get(ref),tx.get(pref)]).then(function(ss){
+    var s=ss[0];
     if(!s.exists) throw _abFail('삭제된 디비입니다.');
     var o=s.data()||{};
     if(o.bk!==me.k) throw _abFail('내가 구매한 디비가 아닙니다.');
+    if(to==='p'&&_abBanned(ss[1].exists?(ss[1].data()||{}).pt:0)) throw _abFail(AB_BAN_MSG);
     if(o.st!==from) throw _abFail(msg);
     var now=Date.now(), up={st:to,hist:(o.hist||[]).concat([{t:ev,by:me.nm,k:me.k,ts:now}])};
     if(to==='p') up.pTs=now;
@@ -26189,6 +26209,7 @@ function abApprove(btn, ok){
     var pref=db.collection(AB_PT).doc(o.bk);
     return tx.get(pref).then(function(ps){
       var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
+      if(_abBanned(pt)) throw _abFail((o.buyer||'요청자')+' 님은 '+pt+'P로 등록제재 중이라 승인할 수 없습니다. ([교환 현황]에서 포인트를 조정하거나 반려해 주세요)');
       tx.update(ref,{st:'m',owner:o.buyer||'',ok:o.bk,lTs:now,buyer:'',bk:'',bTs:0,pTs:0,
         hist:(o.hist||[]).concat([{t:'r',by:o.buyer||'',k:o.bk,ts:now,ap:adm}])});
       tx.set(pref,{pt:pt+1,nm:o.buyer||''},{merge:true});
@@ -26256,8 +26277,25 @@ function _abStatDraw(){
     +rows.map(function(r){
       var w=cnt(r.k,'w'), b=cnt(r.k,'b'), rq=cnt(r.k,'rq'), ra=cnt(r.k,'r'), pt=+((S.pts[r.k]||{}).pt)||0;
       var z=function(n,u){ return n?'<b>'+n+'</b>'+u:'<span style="color:#b0b4c4">0'+u+'</span>'; };
-      return '<tr><td style="font-weight:700">'+_esc(r.nm)+'</td><td>'+z(w,'건')+'</td><td>'+z(b,'건')+'</td><td>'+(rq||ra?'요청 '+rq+'건 · 승인 '+ra+'건':'<span style="color:#b0b4c4">0건</span>')+'</td><td>'+z(pt,'P')+'</td></tr>';
+      return '<tr><td style="font-weight:700">'+_esc(r.nm)+'</td><td>'+z(w,'건')+'</td><td>'+z(b,'건')+'</td><td>'+(rq||ra?'요청 '+rq+'건 · 승인 '+ra+'건':'<span style="color:#b0b4c4">0건</span>')+'</td><td style="white-space:nowrap">'+(pt<0?'<b style="color:#d21f3c">'+pt+'P</b>':z(pt,'P'))
+        +(_abBanned(pt)?' <span class="abst" style="background:#d21f3c;color:#fff">등록제재</span>':'')
+        +' <button class="abbtn sm" data-abmk="'+_alertEsc(r.k)+'" data-abnm="'+_alertEsc(r.nm)+'" onclick="abPtAdj(this)">조정</button></td></tr>';
     }).join('')+'</tbody></table>';
+}
+// 관리자 포인트 조정 — 등록제재 해제·오류 보정용. 사용자 키(data-abmk) 기준(함정 A), 마지막 조정 기록 adj 남김
+function abPtAdj(btn){
+  if(!_isAdmin()) return toast('관리자만 사용할 수 있습니다.');
+  var k=btn&&btn.getAttribute('data-abmk'), nm=(btn&&btn.getAttribute('data-abnm'))||'', db=_abDb(); if(!k||!db) return;
+  if(!/^(c|n)_/.test(k)) return toast('사용자 정보를 찾지 못했습니다.');
+  var S=window._abStat||{}, cur=+((S.pts&&S.pts[k]||{}).pt)||0;
+  var v=prompt(nm+' 님의 보유포인트를 몇 P로 바꿀까요? (지금 '+cur+'P · '+AB_BAN_PT+'P 이하는 등록제재)', String(cur));
+  if(v===null) return; v=String(v).trim();
+  if(!/^-?\d{1,4}$/.test(v)) return toast('정수로 입력해 주세요. (예: 0, -2)');
+  var nv=+v, pref=db.collection(AB_PT).doc(k), adm=(cu&&cu.name)||'';
+  db.runTransaction(function(tx){ return tx.get(pref).then(function(ps){
+    var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
+    tx.set(pref,{pt:nv,nm:(ps.exists&&(ps.data()||{}).nm)||nm,adj:{by:adm,ts:Date.now(),from:pt,to:nv}},{merge:true});
+  }); }).then(function(){ toast(nm+' 님 포인트를 '+nv+'P로 바꿨습니다.'+(_abBanned(nv)?' (등록제재 유지)':'')); _abPtShow(); rAbStat(); }).catch(_abErr);
 }
 // 표시 팀원 설정(관리자) — Firestore absdbcfg/stat = {keys:[사용자키…], ts, by}. 비어 있으면 전체 표시(mtcfg·rc_targets 계열). last-write-wins 수용(관리자 전용·저빈도).
 function _abStatKeysClean(a){ return Array.isArray(a)?a.filter(function(k){ return typeof k==='string'&&/^[cn]_/.test(k)&&k.length<=60; }).slice(0,300):[]; }
