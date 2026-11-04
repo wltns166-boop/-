@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-10</div>
   </div>
 </div>
 
@@ -5074,6 +5074,7 @@ function login(){
   });
 }
 function logout(){
+  window._mfSelMap={};
   try{ _mhxColStop(); }catch(e){}
   try{ _cbClear(); }catch(e){}   // 사용법 안내 채팅 봇 대화 지우기
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
@@ -9183,6 +9184,7 @@ function dqPrint(){
   w.document.write(body); w.document.close();
 }
 function showPage(name){
+  window._mfSelMap={};   // 목록 월별 보기 — 화면을 열 때마다 이번 달부터(v2026.11.04-10)
   try{ if(typeof _wkmtPrevClose==='function') _wkmtPrevClose(); }catch(_){}
   // 팀 미팅 페이지를 떠나거나 다시 그리기 전, 미저장 특이사항·주차 피드백 보호(드롭다운 이동과 동일한 확인창)
   try{
@@ -20715,9 +20717,11 @@ function rCustStatus(){
 
   // 최신순 정렬
   var sorted=reqs.slice().sort(function(a,b){ return _csrTs(b)-_csrTs(a); });
+  sorted=_mfApply('cust', tb, sorted, function(r){ return r.regTs?_mfOfTs(r.regTs):_mfOfStr(r.regDate); }, function(r){ return !r.done; });
+  var _mfCur=_mfSel('cust')===_mfNow();   // 총무 일일 정리(완료 묶음 숨김)는 이번 달 보기에서만 — 지난 달·전체는 완료 기록도 보여 줌
 
   if(!sorted.length){
-    tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">등록 요청 내역이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">등록 요청 내역이 없습니다.'+_mfEmpty('cust')+'</td></tr>';
     return;
   }
 
@@ -20734,7 +20738,7 @@ function rCustStatus(){
 
   // 총무 화면 일일 정리: 전부 완료된 고객 그룹은 완료한 날까지만 보이고 다음날부터 숨김
   //   (데이터 삭제 아님 — 팀원 본인 화면에는 계속 보임)
-  if(isAdmin){
+  if(isAdmin&&_mfCur){
     var _dayKey=function(ts){ var d=new Date(ts); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
     var _todayKey=_dayKey(Date.now());
     order=order.filter(function(nm){
@@ -20746,7 +20750,7 @@ function rCustStatus(){
       return last ? _dayKey(last)===_todayKey : true;   // 시점 정보가 전혀 없으면 안전하게 유지
     });
     if(!order.length){
-      tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">처리할 등록 요청이 없습니다. (완료된 내역은 다음날 자동 정리됩니다)</td></tr>';
+      tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">처리할 등록 요청이 없습니다. (완료된 내역은 다음날 자동 정리됩니다 — 위에서 지난 달·전체를 고르면 보입니다)</td></tr>';
       return;
     }
   }
@@ -31487,8 +31491,9 @@ function rExam(){
   var visibleExams=isAdmin ? exams : exams.filter(function(e,i){
     return (e.submitter&&_exTeam.indexOf(e.submitter)>=0) || (e.belong&&_exTeam.indexOf(e.belong)>=0);
   });
+  visibleExams=_mfApply('exam', tb, visibleExams, function(e){ return _mfOfStr(e.regDate)||(/^ex_(\d{12,})_/.test(e.id||'')?_mfOfTs(+String(e.id).split('_')[1]):''); }, function(e){ return !e.done; });
   if(!visibleExams.length){
-    tb.innerHTML='<tr><td colspan="9" class="em" style="padding:30px">신청 내역이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="9" class="em" style="padding:30px">신청 내역이 없습니다.'+_mfEmpty('exam')+'</td></tr>';
     return;
   }
   tb.innerHTML=visibleExams.map(function(e,vi){
@@ -33574,10 +33579,9 @@ function rClaimStatus(){
   // 본인 것만 (관리자는 전체). 총무 화면에선 완료 건 자동 숨김(2026-08-26) —
   //   데이터 삭제 아님: 팀원 본인·BM 화면에는 계속 표시되고, 미완료로 되돌리면 총무 화면에도 다시 나타남.
   var visibleStatus=[];
-  var _csHideDone=_isChongmu();
+  var _csHideDone=_isChongmu()&&_mfSel('claim')===_mfNow();   // 완료 숨김은 이번 달 보기에서만(지난 달·전체는 완료 기록도 보여 줌 — 월별 보기 v2026.11.04-10)
   claims.forEach(function(c,i){
     if(!(_isAdmin()||(cu&&c.agent&&c.agent===cu.name))) return;
-    if(_csHideDone&&c.done) return;
     visibleStatus.push({c:c,i:i});   // 원본 인덱스 보존(함정 A)
   });
   // 최근 신청이 위로, 과거 내역은 아래로 — 청구신청 목록(rClaimApply, v2026.09.01-6)과 동일 규칙:
@@ -33588,9 +33592,10 @@ function rClaimStatus(){
     if(ka!==kb) return ka>kb?-1:1;
     return b.i-a.i;
   });
+  visibleStatus=_mfApply('claim', tb, visibleStatus, function(x){ return _mfOfStr(x.c.regDate); }, function(x){ return !x.c.done; }, _csHideDone?function(x){ return !!x.c.done; }:null);   // 총무 이번 달 화면에서만 완료 숨김(건수 줄에 'n건 숨김' 표시)
   if(!visibleStatus.length){
     tb.innerHTML='<tr><td colspan="7" class="em" style="padding:30px">'
-      +(_csHideDone?'처리할 청구 내역이 없습니다. (완료된 건은 총무 화면에서 자동으로 숨겨집니다)':'청구 내역이 없습니다.')
+      +(_csHideDone?'처리할 청구 내역이 없습니다. (완료된 건은 총무 화면에서 자동으로 숨겨집니다 — 위에서 지난 달·전체를 고르면 보입니다)':'청구 내역이 없습니다.'+_mfEmpty('claim'))
       +'</td></tr>';
     return;
   }
@@ -36690,6 +36695,65 @@ function resetClaimCal(){
 var reqItems = JSON.parse(localStorage.getItem('tops_req_items')||'[]');
 
 // 행 정렬용 시각 — ts 우선, 없으면 dt('YYYY.MM.DD') 파싱(구 데이터)
+// ===== 목록 월별 보기 (v2026.11.04-10, 백동현 요청) — 요청관리·시험신청·고객등록 현황·청구현황·모바일 계약 반영 요청 =====
+// 기본은 이번 달만, ‹ ›·선택칸으로 지난 달·전체·미완료 전체를 봄. 기록은 지우지 않음(표시 필터일 뿐).
+// 선택은 메모리 window._mfSelMap(화면 이동·로그아웃 때 이번 달로 되돌림 — showPage·logout). 날짜를 알 수 없는 옛 기록은 [전체]에서만 보임.
+var MF_RENDER={req:'rReqUnified',exam:'rExam',cust:'rCustStatus',claim:'rClaimStatus',mcr:'rMcReq'};
+function _mfNow(){ return td().slice(0,7); }
+function _mfOfTs(ts){ ts=+ts||0; if(!ts) return ''; try{ return new Date(ts+9*3600*1000).toISOString().slice(0,7); }catch(e){ return ''; } }
+function _mfOfStr(v){ var m=/(\d{4})\D{0,3}(\d{1,2})/.exec(String(v||'')); if(!m) return ''; var mm=+m[2]; return (mm>=1&&mm<=12)?(m[1]+'-'+('0'+mm).slice(-2)):''; }
+function _mfSel(k){ var v=(window._mfSelMap||{})[k]; return (v==='all'||v==='pend'||/^\d{4}-\d{2}$/.test(v||''))?v:_mfNow(); }
+function _mfShift(ym,d){ var y=+ym.slice(0,4), m=+ym.slice(5,7)-1+d; y+=Math.floor(m/12); m=((m%12)+12)%12; return y+'-'+('0'+(m+1)).slice(-2); }
+function mfSet(k,v){
+  if(!MF_RENDER.hasOwnProperty(k)) return;
+  v=String(v||''); if(!(v==='all'||v==='pend'||/^\d{4}-\d{2}$/.test(v))) v=_mfNow();
+  (window._mfSelMap=window._mfSelMap||{})[k]=v;
+  var f=window[MF_RENDER[k]]; if(typeof f==='function'){ try{ f(); }catch(e){ console.warn('[월별 보기]',e); } }
+}
+function mfStep(k,d){ var cur=_mfSel(k); if(!/^\d{4}-\d{2}$/.test(cur)) cur=_mfNow(); mfSet(k,_mfShift(cur,d)); }
+// list를 지금 고른 달로 거르고 표 위에 월 선택 줄을 그림. monthOf(o)→'YYYY-MM'|'' , pendOf(o)→미처리 여부
+function _mfApply(k, tb, list, monthOf, pendOf, hideFn){
+  var sel=_mfSel(k), now=_mfNow(), cnt={}, noDate=0, prevPend=0;
+  list.forEach(function(o){
+    var m=''; try{ m=monthOf(o)||''; }catch(e){}
+    if(!m){ noDate++; return; }
+    cnt[m]=(cnt[m]||0)+1;
+    try{ if(m<now&&pendOf(o)) prevPend++; }catch(e){}
+  });
+  var months=Object.keys(cnt); if(months.indexOf(now)<0) months.push(now);
+  if(/^\d{4}-\d{2}$/.test(sel)&&months.indexOf(sel)<0) months.push(sel);
+  months.sort().reverse();
+  var out=list.filter(function(o){
+    if(sel==='all') return true;
+    if(sel==='pend'){ try{ return !!pendOf(o); }catch(e){ return true; } }
+    var m=''; try{ m=monthOf(o)||''; }catch(e){}
+    return m===sel||(!m&&sel===now);   // 날짜 없는 옛 기록은 이번 달 화면에 함께(리뷰 반영 — 미완료가 안 보이는 일 방지)
+  });
+  var hidN=0; if(typeof hideFn==='function'){ var _o=out; out=_o.filter(function(o){ var h=false; try{ h=!!hideFn(o); }catch(e){} if(h) hidN++; return !h; }); }
+  try{
+    var tbl=tb&&tb.closest?tb.closest('table'):null;
+    if(tbl&&tbl.parentNode){
+      var bar=document.getElementById('mf_'+k);
+      if(!bar){ bar=document.createElement('div'); bar.id='mf_'+k; tbl.parentNode.insertBefore(bar,tbl); }
+      var lab=function(ym){ return ym.slice(0,4)+'년 '+(+ym.slice(5,7))+'월'+(ym===now?' (이번 달)':''); };
+      var B='font-size:13px;padding:4px 10px;border:1px solid #c9ccd8;border-radius:6px;background:#fff;color:#222;cursor:pointer;font-family:inherit';
+      var opts=months.map(function(ym){ return '<option value="'+ym+'"'+(ym===sel?' selected':'')+'>'+lab(ym)+' · '+((cnt[ym]||0)+(ym===now?noDate:0))+'건</option>'; }).join('')
+        +'<option value="pend"'+(sel==='pend'?' selected':'')+'>미완료 전체</option>'
+        +'<option value="all"'+(sel==='all'?' selected':'')+'>전체 기간 · '+list.length+'건</option>';
+      var note='';
+      if(sel===now&&prevPend) note='<button style="'+B+';border-color:#e3a2a2;color:#c03030;background:#fff5f5" onclick="mfSet(\''+k+'\',\'pend\')">지난 달 미완료 '+prevPend+'건 보기</button>';
+      else if((sel==='all'||sel===now)&&noDate) note='<span style="font-size:12px;color:#8a90aa">날짜 없는 옛 기록 '+noDate+'건 포함</span>';
+      else if(sel!==now) note='<button style="'+B+'" onclick="mfSet(\''+k+'\',\''+now+'\')">이번 달로</button>';
+      bar.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px';
+      bar.innerHTML='<button style="'+B+'" onclick="mfStep(\''+k+'\',-1)" title="이전 달">‹</button>'
+        +'<select style="'+B+';font-weight:700" onchange="mfSet(\''+k+'\',this.value)">'+opts+'</select>'
+        +'<button style="'+B+'" onclick="mfStep(\''+k+'\',1)" title="다음 달">›</button>'
+        +'<span style="font-size:13px;color:#555">'+(sel==='all'?'전체':sel==='pend'?'미완료':lab(sel))+' '+out.length+'건'+(hidN?' (완료 '+hidN+'건 숨김)':'')+'</span>'+note;
+    }
+  }catch(e){ console.warn('[월별 보기 줄]',e); }
+  return out;
+}
+function _mfEmpty(k){ var s=_mfSel(k); return s==='all'?'':(s==='pend'?' (미완료 건이 없습니다)':' (이 달에는 없습니다 — 위에서 다른 달을 골라 보세요)'); }
 function _reqRowTs(o){
   if(o&&o.ts) return o.ts;
   var m=/^(\d{4})[.-](\d{1,2})[.-](\d{1,2})/.exec(String((o&&o.dt)||''));
@@ -36708,8 +36772,9 @@ function rReqUnified(){
   (isAdmin ? cardReqs.slice() : cardReqs.filter(function(r){ return r&&cu&&r.agent===cu.name; }))
     .forEach(function(c){ rows.push({t:'c', o:c}); });
   rows.sort(function(a,b){ return _reqRowTs(b.o)-_reqRowTs(a.o); });
+  rows=_mfApply('req', tb, rows, function(x){ return _mfOfTs(_reqRowTs(x.o)); }, function(x){ var st=(x.o&&x.o.status)||'검토중'; return st!=='완료'&&st!=='반려'; });
   if(!rows.length){
-    tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">요청 내역이 없습니다.</td></tr>';
+    tb.innerHTML='<tr><td colspan="6" class="em" style="padding:30px">요청 내역이 없습니다.'+_mfEmpty('req')+'</td></tr>';
     return;
   }
   var kindColors={'교육신청':'rgba(72,88,204,.15)','물품신청':'rgba(30,160,80,.12)','건의사항':'rgba(200,120,30,.12)','명함신청':'rgba(160,60,190,.12)'};
@@ -37063,8 +37128,9 @@ function rMcReq(){
     var a=String(r.agent||'');
     return a===cu.name || _agentReal(a)===_agentReal(cu.name);
   });
+  list=_mfApply('mcr', tb, list, function(r){ return r.ts?_mfOfTs(r.ts):_mfOfStr(r.dt); }, function(r){ return (r.items||[]).some(function(it){ return it&&!it.done; }); });
   if(!list.length){
-    tb.innerHTML='<tr><td colspan="4" class="em" style="padding:30px">모바일 계약 반영 요청 내역이 없습니다.<br><span style="font-size:13px;color:#b0b0c8">오른쪽 위 [신청] 버튼으로 요청을 등록하세요.</span></td></tr>';
+    tb.innerHTML='<tr><td colspan="4" class="em" style="padding:30px">모바일 계약 반영 요청 내역이 없습니다.'+_mfEmpty('mcr')+'<br><span style="font-size:13px;color:#b0b0c8">오른쪽 위 [신청] 버튼으로 요청을 등록하세요.</span></td></tr>';
     return;
   }
   list.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
