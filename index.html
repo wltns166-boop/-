@@ -6048,7 +6048,7 @@ async function _cbAi(q, cat){
   if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('서버 오류 '+res.status));
   var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'', m=/\{[\s\S]*\}/.exec(text);
   if(!m) return [];
-  var o=JSON.parse(m[0]), ids=(o&&Array.isArray(o.ids))?o.ids:[], byId={}, out=[];
+  var o=JSON.parse(m[0]), ids=(o&&Array.isArray(o.ids))?o.ids:[], byId=Object.create(null), out=[];
   cat.forEach(function(e){ byId[e.id]=e; });
   ids.forEach(function(id){ id=String(id); if(byId[id]&&out.indexOf(byId[id])<0&&out.length<3) out.push(byId[id]); });
   return out;
@@ -6087,11 +6087,11 @@ function _cbEnsure(){
   app.appendChild(b); app.appendChild(p);
   p.querySelector('.x').onclick=function(){ _cbToggle(false); };
   g('cb_send').onclick=function(){ _cbAsk(); };
-  g('cb_in').onkeydown=function(ev){ if(ev.key==='Enter'&&!ev.isComposing){ ev.preventDefault(); _cbAsk(); } else if(ev.key==='Escape'){ _cbToggle(false); } };
+  g('cb_in').onkeydown=function(ev){ if(ev.key==='Enter'&&!ev.isComposing&&ev.keyCode!==229){ ev.preventDefault(); _cbAsk(); } else if(ev.key==='Escape'){ _cbToggle(false); } };
   g('cb_body').onclick=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
     var go=t.closest('[data-cbgo]'); if(go){ _cbGo(go.getAttribute('data-cbgo')); return; }
-    var ch=t.closest('[data-cbchip]'); if(ch){ g('cb_in').value=ch.getAttribute('data-cbchip'); _cbAsk(); }
+    var ch=t.closest('[data-cbchip]'); if(ch){ if(window._cbBusy){ toast('답을 찾는 중입니다. 잠시만 기다려 주세요.'); return; } g('cb_in').value=ch.getAttribute('data-cbchip'); _cbAsk(); }
   };
   if(!window._cbMsgs) window._cbMsgs=[];
   _cbDraw();
@@ -6114,7 +6114,7 @@ function _cbDraw(){
   (window._cbMsgs||[]).forEach(function(m){ h+='<div class="cbm '+(m.u?'u':'b')+'">'+m.h+'</div>'; });
   body.innerHTML=h; body.scrollTop=body.scrollHeight;
 }
-function _cbPush(u, html){ (window._cbMsgs=window._cbMsgs||[]).push({u:u?1:0,h:html}); if(window._cbMsgs.length>60) window._cbMsgs.splice(0,window._cbMsgs.length-60); _cbDraw(); }
+function _cbPush(u, html, ph){ (window._cbMsgs=window._cbMsgs||[]).push({u:u?1:0,h:html,ph:ph||0}); if(window._cbMsgs.length>60) window._cbMsgs.splice(0,window._cbMsgs.length-60); _cbDraw(); }
 async function _cbAsk(){
   var inp=g('cb_in'); if(!inp) return;
   var q=String(inp.value||'').trim(); if(!q) return;
@@ -6126,12 +6126,12 @@ async function _cbAsk(){
   if(loc.length&&loc[0].s>=4&&(loc.length===1||loc[1].s<=loc[0].s*0.6)) picks=[loc[0].e];
   else {
     window._cbBusy=true; var sb=g('cb_send'); if(sb) sb.disabled=true;
-    _cbPush(0,'<span style="color:#8a90aa">찾는 중…</span>');
     var seq=window._cbSeq=(window._cbSeq||0)+1;
+    _cbPush(0,'<span style="color:#8a90aa">찾는 중…</span>',seq);
     try{ picks=await _cbAi(q,cat); }catch(e){ picks=null; }
-    window._cbBusy=false; if(sb) sb.disabled=false;
-    if(seq!==window._cbSeq||!window._cbMsgs) return;   // 로그아웃·초기화됨
-    window._cbMsgs.pop();   // '찾는 중…' 지우기
+    if(seq!==window._cbSeq||!window._cbMsgs) return;   // 로그아웃·초기화됨(뒤의 요청 상태는 건드리지 않음)
+    window._cbBusy=false; sb=g('cb_send'); if(sb) sb.disabled=false;
+    window._cbMsgs=window._cbMsgs.filter(function(m){ return m.ph!==seq; });   // 이 요청의 '찾는 중…'만 지우기
     if(picks===null){   // AI 연결 실패 → 낱말로 찾은 후보만 보여 줌(확신이 없으니 답 대신 목록으로)
       var cand=loc.slice(0,3).map(function(x){ return x.e; });
       if(!cand.length){ _cbPush(0,'지금은 답을 찾지 못했어요(연결 오류). 잠시 뒤 다시 물어보시거나 왼쪽 위 <b>메뉴·자료·파일 검색</b> 칸을 써 보세요.'); return; }
