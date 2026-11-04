@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-11</div>
   </div>
 </div>
 
@@ -6033,6 +6033,26 @@ function _cbMenuCat(){
       out.push({id:k,t:t,p:p,kw:t,a:'['+p+'] 메뉴에서 볼 수 있습니다. 아래 [바로 가기]를 누르세요.',nav:nav}); seen[k]=1;
     });
   }catch(e){}
+  // 게시판 분류 탭(자료실 › 각종양식의 '건강보험공단 요양급여내역서 대리발급' 등) — [바로 가기]는 그 탭을 골라 연다(2026-11-04 박지순 요청)
+  try{
+    var bc=(typeof boardcats!=='undefined'&&boardcats&&typeof boardcats==='object'&&!Array.isArray(boardcats))?boardcats:{};
+    Object.keys(bc).forEach(function(cm){
+      if(String(cm).indexOf('cm_')!==0||!Array.isArray(bc[cm])) return;
+      var nav='n_'+cm; if(!_navSrchMenuOk(nav)) return;
+      var path=_navSrchPath(nav)||_navSrchText(g(nav))||'자료';
+      bc[cm].forEach(function(c){
+        if(!c||!c.id||!String(c.nm||'').trim()) return;
+        var id=('bc_'+cm+'_'+c.id).replace(/[^A-Za-z0-9_]/g,''); if(seen[id]) return;
+        var nm=String(c.nm).slice(0,60);
+        var a=_bdIsDaeri(c)?'['+path+'] 의 \''+nm+'\' 탭에서 서류를 작성합니다. 위임자·위임받는자 정보를 넣고 [미리보기]·[출력]을 누르세요.'
+          :_bdIsCk(c)?'['+path+'] 의 \''+nm+'\' 탭에서 담당자·핸드폰을 넣고 [바로 출력] 또는 [PDF 저장]을 누르세요.'
+          :_bdIsSang(c)?'['+path+'] 의 \''+nm+'\' 탭에서 상속세·증여세를 계산합니다.'
+          :'['+path+'] 의 \''+nm+'\' 탭에서 자료를 볼 수 있습니다.';
+        var hl=/^[A-Za-z0-9_-]+$/.test(String(c.id))?['[data-bdcat="'+c.id+'"]','여기가 \''+nm+'\' 탭입니다']:null;
+        out.push({id:id,t:nm,p:path+' › '+nm,kw:nm,a:a+'\n아래 [바로 가기]를 누르세요.',nav:nav,bcm:cm,bcat:c.id,hl:hl}); seen[id]=1;
+      });
+    });
+  }catch(e){}
   return out;
 }
 // 낱말 점수 — 질문 안에 들어 있는 안내 낱말 길이의 합(제목은 가산)
@@ -6205,6 +6225,7 @@ function _cbGo(id){
   if(e.proc){ _cbPush(0,_cbProcHtml(e)); return; }
   try{
     if(e.fn){ window[e.fn](); }
+    else if(e.bcm){ window._bdCatSel=window._bdCatSel||{}; window._bdCatSel[e.bcm]=e.bcat; window._bdPage=window._bdPage||{}; window._bdPage[e.bcm]=0; showPage(e.bcm); if(e.hl) _cbPoint(e.hl[0], e.hl[1]); }   // 하위 메뉴가 있는 그룹은 클릭이 접기가 되므로 showPage로 직접 연다
     else { var el=g(e.nav); if(el) el.click(); if(e.hl) _cbPoint(e.hl[0], e.hl[1]); }
     if(window.innerWidth<=768) _cbToggle(false);
   }catch(err){ toast('화면을 열지 못했습니다.'); }
