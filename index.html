@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-2</div>
   </div>
 </div>
 
@@ -4494,7 +4494,8 @@ async function loadFromFirestore(){
     if(d.dba&&d.dba.length)    { dba=d.dba;     try{ localStorage.setItem('tops_dba',JSON.stringify(dba)); }catch(e){ console.warn('localStorage tops_dba 저장 실패:',e); } }
     if(d.dbs&&d.dbs.length)    { dbs=d.dbs;     try{ localStorage.setItem('tops_dbs',JSON.stringify(_slimForStorage('tops_dbs',dbs))); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); } }
     if(d.ana&&d.ana.length)    { ana=d.ana;     try{ localStorage.setItem('tops_ana',JSON.stringify(ana)); }catch(e){ console.warn('localStorage tops_ana 저장 실패:',e); } }
-    if(d.mhx&&d.mhx.length)    { mhx=d.mhx;     try{ localStorage.setItem('tops_mhx',JSON.stringify(_slimForStorage('tops_mhx',mhx))); }catch(e){ console.warn('localStorage tops_mhx 저장 실패:',e); } }
+    // 병력정리는 컬렉션 mhx/{id}로 이전(2026-11-04 — tops/data 1MiB 한도 99.9% 실사고). tops/data에 남은 옛 mhx는 컬렉션으로 옮기고 필드 삭제.
+    try{ _mhxColStart(); if(Array.isArray(d.mhx)) _mhxMigrate(d.mhx); }catch(e){ console.warn('mhx 컬렉션 시작 실패:',e); }
     if(d.clm&&d.clm.length)    { clm=d.clm;     try{ localStorage.setItem('tops_clm',JSON.stringify(clm)); }catch(e){ console.warn('localStorage tops_clm 저장 실패:',e); } }
     if(d.wst&&d.wst.length)    { wst=d.wst;     try{ localStorage.setItem('tops_wst',JSON.stringify(wst)); }catch(e){ console.warn('localStorage tops_wst 저장 실패:',e); } }
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } }
@@ -4563,17 +4564,7 @@ async function loadFromFirestore(){
     try{ if(typeof _isAdmin==='function'&&_isAdmin()) _claimsIdMigrate(); }catch(e){}
     // 리쿠르팅 항목 예전 기본형 → 새 분할 양식 마이그레이션 — 관리자 기기 세션 1회(멱등)
     try{ if(typeof _isAdmin==='function'&&_isAdmin()&&typeof _rcFldsMigrate==='function') _rcFldsMigrate(); }catch(e){}
-    // 병력정리 클라우드 슬림 마이그레이션(2026-08-31): 기존 저장분의 noteHtml을 클라우드에서 제거해
-    //   tops/data 1MiB 한도 압박(~700KB) 해소. sv('tops_mhx')가 이제 슬림본을 저장하므로 재저장 1회면 됨.
-    //   관리자 기기 세션 1회(멱등 — noteHtml 없으면 저장 안 함). 표시·PDF는 _medNoteToHtml 재생성으로 동일.
-    try{
-      if(typeof _isAdmin==='function'&&_isAdmin()&&!window._mhxSlimMigrated
-         &&Array.isArray(mhx)&&mhx.some(function(m){return m&&m.noteHtml;})){
-        window._mhxSlimMigrated=true;
-        sv('tops_mhx',mhx);
-        console.log('mhx 클라우드 슬림 마이그레이션 실행 — noteHtml 제거 저장');
-      }
-    }catch(e){}
+    // (병력정리 noteHtml 슬림 마이그레이션(2026-08-31)은 2026-11-04 컬렉션 이전(_mhxMigrate)으로 대체됨)
     // 로그인 전용 문서(tops/auth)를 클라우드 최신 계정 정보로 수렴시킴
     //   (옛 버전 캐시로 접속한 기기가 mem을 저장해 auth 문서가 뒤처지는 경우 대비 — 멱등)
     try{ _authDocSync(); }catch(e){}
@@ -4596,7 +4587,7 @@ function startRealtimeSync(){
     if(d.prm)     { prm=d.prm;      try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); }      changed=true; }
     if(d.dba)     { dba=d.dba;      try{ localStorage.setItem('tops_dba',JSON.stringify(dba)); }catch(e){ console.warn('localStorage tops_dba 저장 실패:',e); }      changed=true; }
     if(d.dbs)     { dbs=d.dbs;      try{ localStorage.setItem('tops_dbs',JSON.stringify(_slimForStorage('tops_dbs',dbs))); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); }      changed=true; }
-    if(d.mhx)     { mhx=d.mhx;      try{ localStorage.setItem('tops_mhx',JSON.stringify(_slimForStorage('tops_mhx',mhx))); }catch(e){ console.warn('localStorage tops_mhx 저장 실패:',e); }      changed=true; }
+    if(Array.isArray(d.mhx)&&d.mhx.length){ try{ _mhxMigrate(d.mhx); }catch(e){} }   // 옛 버전 기기가 다시 써 넣은 병력정리 → 컬렉션으로 옮김(표시는 컬렉션 구독이 담당)
     if(d.consults){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } changed=true; }
     if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
     if(d.wclose)  { wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} changed=true; }
@@ -5083,6 +5074,7 @@ function login(){
   });
 }
 function logout(){
+  try{ _mhxColStop(); }catch(e){}
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
@@ -12266,6 +12258,7 @@ g('m_wa_cancel').addEventListener('click',()=>g('m_wa').classList.remove('open')
 g('m_wa_save').addEventListener('click',()=>{ana.push({cust:g('mwa_cust').value,m:g('mwa_mem').value,items:g('mwa_items').value,st:g('mwa_st').value,dt:td()});sv('tops_ana',ana);g('m_wa').classList.remove('open');rWa();toast('저장되었습니다.');});
 
 function rWm(){
+  try{ _mhxColStart(); }catch(e){}   // 병력정리 컬렉션 구독(로그인 뒤 첫 진입 보장)
   const tb=g('wm_tb');
   // 기본은 관리자 포함 전원 "본인이 분석한 것만"(2026-08-07 — 팀원 내역이 섞여 보인다는 요청).
   // 관리자만 [전체 보기] 토글로 팀 전체(작성자 없는 구형 내역 포함) 열람 가능. mhx의 m 필드가 작성자.
@@ -12770,7 +12763,7 @@ function saveMedExcelByIdx(i){
 g('btn_wm') && g('btn_wm').addEventListener('click',()=>{fillSel('mwm_mem');g('mwm_cust').value='';g('mwm_items').value='';g('mwm_note').value='';g('m_wm').classList.add('open');});
 g('m_wm_c').addEventListener('click',()=>g('m_wm').classList.remove('open'));
 g('m_wm_cancel').addEventListener('click',()=>g('m_wm').classList.remove('open'));
-g('m_wm_save').addEventListener('click',()=>{mhx.push({cust:g('mwm_cust').value,m:g('mwm_mem').value,items:g('mwm_items').value,note:g('mwm_note').value,dt:td()});sv('tops_mhx',mhx);g('m_wm').classList.remove('open');rWm();toast('저장되었습니다.');});
+g('m_wm_save').addEventListener('click',()=>{var e={id:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),cust:g('mwm_cust').value,m:g('mwm_mem').value,items:g('mwm_items').value,note:g('mwm_note').value,dt:td()};_mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){g('m_wm').classList.remove('open');rWm();toast('저장되었습니다.');});});
 
 function rWc(){
   const tb=g('wc_tb');
@@ -15712,17 +15705,66 @@ function copyMedResult(){
 
 // 병력정리 저장/삭제는 항상 클라우드 최신본 기준으로 병합 — 낡은/빈 로컬 배열로
 // 통째 덮어써서 다른 기기의 내역이 사라지던 문제 방지 (dsnap 이력 소실과 같은 유형)
+// ⚠ 2026-11-04: 저장소를 tops/data의 mhx 배열 → 컬렉션 mhx/{id}(기록 1건=문서 1개)로 이전.
+//   tops/data가 1MiB 한도 99.9%까지 차서(병력정리만 454KB) 병력정리 저장이 조용히 거부되던 실사고(김하은 — 조단아 고객).
+//   이제 저장은 바뀐 기록 문서만 set/delete — 다른 사람 기록을 덮지 않고, tops/data 크기와 무관. tops/data에 mhx를 다시 넣지 말 것.
+var MHX_COL='mhx';
+function _mhxColRef(){ return (window.db&&window.db.collection)?window.db.collection(MHX_COL):null; }
+function _mhxSortArr(a){ return a.sort(function(x,y){ return (+x.o||0)-(+y.o||0); }); }
+function _mhxOrdOf(m){ var t=parseInt(String((m&&m.id)||'').split('_')[0],36); return isFinite(t)&&t>1e12&&t<4e12?t:0; }
+function _mhxDocOf(m){ var o=JSON.parse(JSON.stringify(m||{})); delete o.noteHtml; if(!o.o) o.o=_mhxOrdOf(o)||Date.now(); return o; }
+function _mhxCache(){ try{ _lsSet('tops_mhx', JSON.stringify(_slimForStorage('tops_mhx',mhx))); }catch(e){} }
+// 옛 무id 기록용 결정적 id — 여러 기기가 동시에 옮겨도 같은 문서로 모이게(중복 방지)
+function _mhxLegacyId(m){ var str=JSON.stringify([m.dt,m.cust,m.m,m.note||m.items||'']), h1=5381, h2=52711; for(var i=0;i<str.length;i++){ var c=str.charCodeAt(i); h1=((h1<<5)+h1+c)|0; h2=((h2<<5)+h2^c)|0; } return 'lg_'+(h1>>>0).toString(36)+(h2>>>0).toString(36); }
+// 컬렉션 실시간 구독 — 로그인 세션 1회(로그아웃에서 해제)
+function _mhxColStart(){
+  var col=_mhxColRef(); if(!col||window._mhxUnsub||!cu) return;
+  window._mhxUnsub=col.onSnapshot(function(snap){
+    if(!cu) return;
+    var a=[]; snap.forEach(function(d){ var o=d.data()||{}; o.id=o.id||d.id; a.push(o); });
+    mhx=_mhxSortArr(a); window._mhxColLoaded=true; _mhxCache();
+    try{ if(window._curPage==='wm'&&typeof rWm==='function') rWm(); }catch(e){}
+  }, function(e){ console.warn('mhx 구독 오류:',e); window._mhxUnsub=null; });
+}
+function _mhxColStop(){ try{ if(window._mhxUnsub) window._mhxUnsub(); }catch(e){} window._mhxUnsub=null; window._mhxColLoaded=false; }
+// tops/data.mhx(옛 저장) → 컬렉션으로 옮긴 뒤 필드 삭제. 컬렉션에 이미 있는 문서는 건드리지 않음(멱등, 어느 기기든 실행 가능)
+function _mhxMigrate(arr){
+  var col=_mhxColRef(); if(!col||!window.FS_DOC||!Array.isArray(arr)||window._mhxMigBusy) return;
+  window._mhxMigBusy=true;
+  col.get().then(function(snap){
+    var have={}; snap.forEach(function(d){ have[d.id]=1; });
+    var adds=[]; arr.forEach(function(m,i){ if(!m||typeof m!=='object') return; var o=_mhxDocOf(m); if(!o.id) o.id=_mhxLegacyId(m); if(!_mhxOrdOf(o)) o.o=1e12+i; if(!have[o.id]){ have[o.id]=1; adds.push(o); } });
+    var chunks=[]; for(var i=0;i<adds.length;i+=400) chunks.push(adds.slice(i,i+400));
+    return chunks.reduce(function(p,ch){ return p.then(function(){ var b=window.db.batch(); ch.forEach(function(o){ b.set(col.doc(o.id),o); }); return b.commit(); }); }, Promise.resolve())
+      .then(function(){ return window.FS_DOC.update({mhx:firebase.firestore.FieldValue.delete()}); })
+      .then(function(){ console.log('병력정리 컬렉션 이전: '+adds.length+'건 추가 · tops/data.mhx 삭제'); });
+  }).catch(function(e){ console.warn('병력정리 컬렉션 이전 실패(다음 접속 때 다시 시도):',e); })
+    .then(function(){ window._mhxMigBusy=false; });
+}
 async function _mhxCloudMergeNow(mutator){
-  var base=mhx;
+  var col=_mhxColRef(), base=mhx, baseMap={};
+  if(!col){ toast('클라우드에 연결되지 않아 병력정리를 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'); throw new Error('mhx: no db'); }
   try{
-    if(window.FS_DOC){
-      var doc=await window.FS_DOC.get();
-      var d=doc&&doc.exists?doc.data():{};
-      if(Array.isArray(d.mhx)) base=d.mhx;   // 클라우드가 원본
-    }
-  }catch(e){ console.warn('mhx 클라우드 조회 실패 — 로컬 기준으로 저장:', e); }
-  mhx=mutator(base.slice())||base;
-  sv('tops_mhx',mhx);
+    var snap=await col.get(); base=[];
+    snap.forEach(function(d){ var o=d.data()||{}; o.id=o.id||d.id; base.push(o); });
+    _mhxSortArr(base);
+  }catch(e){ console.warn('mhx 클라우드 조회 실패 — 화면 목록 기준으로 저장:', e); base=(mhx||[]).map(function(m){ return JSON.parse(JSON.stringify(m)); }); }
+  base.forEach(function(m){ if(m&&m.id) baseMap[m.id]=JSON.stringify(_mhxDocOf(m)); });
+  var res=mutator(base.map(function(m){ return JSON.parse(JSON.stringify(m)); }))||base;
+  var b=window.db.batch(), n=0, keep={};
+  res.forEach(function(m){
+    if(!m||typeof m!=='object') return;
+    if(!m.id) m.id=_mhxLegacyId(m);
+    var o=_mhxDocOf(m); m.o=o.o; keep[m.id]=1;
+    if(baseMap[m.id]!==JSON.stringify(o)){ b.set(col.doc(m.id),o); n++; }
+  });
+  Object.keys(baseMap).forEach(function(id){ if(!keep[id]){ b.delete(col.doc(id)); n++; } });
+  if(n){
+    try{ await b.commit(); }
+    catch(e){ console.warn('병력정리 저장 실패:',e); toast('⚠ 병력정리를 클라우드에 저장하지 못했습니다: '+((e&&e.message)||e)); throw e; }
+  }
+  mhx=_mhxSortArr(res.filter(function(m){ return m&&typeof m==='object'; }));
+  _mhxCache();
 }
 // 같은 탭에서 저장/삭제가 겹치면(더블클릭·자동저장 직후 수동저장) 읽기~쓰기 사이에
 // 서로를 덮어쓸 수 있으므로 호출을 한 줄로 직렬화한다
@@ -15758,7 +15800,7 @@ function saveMedResult(){
   _mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){
     rWm();toast('저장되었습니다.');
     try{ _medDrivePdfSave(e); }catch(err){}
-  });
+  }).catch(function(){ if(window._lastMedSavedId===e.id) window._lastMedSavedId=null; });   // 실패면 [목록 저장]으로 다시 저장 가능
 }
 
 // 병력정리 분석 완료 시 자동저장
@@ -15768,6 +15810,9 @@ function autoSaveMedResult(text, html){
   _mhxCloudMerge(function(arr){arr.push(e);return arr;}).then(function(){
     rWm();
     try{ _medDrivePdfSave(e); }catch(err){}
+  }).catch(function(){   // 자동 저장 실패 — [목록 저장]을 누르면 다시 저장하도록(이미 저장됨으로 막히지 않게)
+    if(window._lastMedSavedId===e.id) window._lastMedSavedId=null;
+    toast('⚠ 병력정리 자동 저장에 실패했습니다. 결과 아래 [목록 저장]을 눌러 다시 저장해 주세요.');
   });
 }
 
@@ -15958,7 +16003,6 @@ async function uploadToFirestore(){
       dba: dba,
       dbs: _slimForStorage('tops_dbs', dbs),
       ana: ana,
-      mhx: _slimForStorage('tops_mhx', mhx),
       clm: clm,
       wst: wst,
       dbInfo: dbInfo,
