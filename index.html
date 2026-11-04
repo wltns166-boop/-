@@ -88,7 +88,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .ntabs{display:flex;gap:6px;flex-wrap:wrap}
 .ntab{padding:6px 16px;border:1px solid rgba(80,90,180,.3);border-radius:18px;background:#fff;color:#4a5690;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .ntab.on{background:#4858cc;border-color:#4858cc;color:#fff}
-body:has(#notpop_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
+body:has(#notpop_pop) .toast,body:has(#cbp_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
 .ntabs.sm .ntab{padding:3px 12px;font-size:12.5px}
 .npop{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
 .npop.on{background:rgba(72,88,204,.1);color:#3848b8;border:1px solid rgba(72,88,204,.3)}
@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-8</div>
   </div>
 </div>
 
@@ -6164,7 +6164,7 @@ async function _cbAsk(){
   inp.value=''; _cbPush(1,_esc(q));
   var ctH=''; try{ ctH=_cbContact(q); }catch(e){}
   if(ctH){ _cbPush(0,ctH); return; }
-  if(!window._cbProc){ try{ await _cbProcLoad(); }catch(e){} if(!window._cbMsgs) return; }
+  if(!window._cbProc){ window._cbBusy=true; var lseq=window._cbSeq; try{ await _cbProcLoad(); }catch(e){} if(!window._cbMsgs||lseq!==window._cbSeq) return; window._cbBusy=false; }
   var cat=_cbCatalog();
   var loc=_cbLocal(q,cat), picks=[];
   // 낱말이 확실히 맞으면 AI 없이 바로(무료·즉시)
@@ -6232,7 +6232,7 @@ function _cbProcLoad(force){
   window._cbProcP=pr;
   return pr;
 }
-var CB_PROC_RE=/다음|그다음|후에|후엔|이후|하고나서|하고 나서|했어|했는데|했어요|끝나면|끝났|순서|절차|프로세스|뭐해|뭐 해|뭘 해|뭐하|어떻게 해/;
+var CB_PROC_RE=/다음|후에|후엔|이후|하고\s*나서|했어|했는데|했어요|했습니다|끝나면|끝났|순서|절차|프로세스/;
 function _cbProcHtml(e){
   var menu=Object.create(null); _cbMenuCat().forEach(function(m){ menu[m.id]=m; });
   var h='<div class="cbt">📋 '+_esc(e.t)+'</div><div class="cbp">업무 순서</div><ol style="margin:4px 0 0;padding-left:20px">';
@@ -6254,8 +6254,9 @@ function _cbpOpen(){
     +'<div id="cbp_main" style="padding:14px 18px;overflow-y:auto"><div style="color:#888">불러오는 중…</div></div>'
     +'</div>';
   document.body.appendChild(o);
+  var downOut=false; o.addEventListener('mousedown',function(ev){ downOut=(ev.target===o); });
   o.addEventListener('click',function(ev){
-    if(ev.target===o){ _cbpClose(); return; }
+    if(ev.target===o){ if(downOut) _cbpClose(); return; }   // 칸에서 끌다 바깥에서 놓은 경우는 닫지 않음
     var a=ev.target.closest&&ev.target.closest('[data-cbpact]'); if(!a) return;
     var act=a.getAttribute('data-cbpact');
     if(act==='close') _cbpClose();
@@ -6270,8 +6271,10 @@ function _cbpOpen(){
   _cbProcLoad(true).then(function(){ if(document.getElementById('cbp_pop')===o){ var l=window._cbProc||[]; _cbpSel(l.length?l[0].id:'', null, true); } });
 }
 function _cbpMenuOpts(sel){
-  var h='<option value="">(연결할 메뉴 없음)</option>';
-  _cbMenuCat().forEach(function(m){ h+='<option value="'+_alertEsc(m.id)+'"'+(m.id===sel?' selected':'')+'>'+_esc(m.p||m.t)+'</option>'; });
+  var h='<option value="">(연결할 메뉴 없음)</option>', found=false;
+  _cbMenuCat().forEach(function(m){ if(m.id===sel) found=true; h+='<option value="'+_alertEsc(m.id)+'"'+(m.id===sel?' selected':'')+'>'+_esc(m.p||m.t)+'</option>'; });
+  // 지금 편집하는 사람에게 안 보이는 메뉴에 연결돼 있으면 그대로 보존(다른 칸만 고쳐 저장해도 연결이 지워지지 않게)
+  if(sel&&!found) h+='<option value="'+_alertEsc(sel)+'" selected>(그대로 유지: 지금 화면에 없는 메뉴 '+_esc(sel)+')</option>';
   return h;
 }
 function _cbpStepRow(s){
@@ -6347,6 +6350,9 @@ function _cbpSave(){
   var doc={t:c.t, kw:c.kw, steps:c.steps, ord:(prev&&prev.ord)?prev.ord:Date.now(), ts:Date.now(), by:(cu&&cu.name)||''};
   window._cbpBusy=true;
   window.db.collection('cbproc').doc(id).set(doc).then(function(){
+    // 저장한 문서를 바로 목록에 반영(다시 읽기가 실패해도 같은 문서를 가리키게 — 다음 저장이 새 문서로 중복되지 않게)
+    var cl=_cbProcClean(id,doc), l=(window._cbProc||[]).filter(function(p){ return p.id!==id; }); l.push(cl);
+    l.sort(function(a,b){ return (a.ord-b.ord)||(a.ts-b.ts); }); window._cbProc=l; window._cbProcAt=Date.now();
     return _cbProcLoad(true);
   }).then(function(){
     window._cbpBusy=false;
