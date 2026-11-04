@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-3</div>
   </div>
 </div>
 
@@ -26044,10 +26044,10 @@ function abSave(){
     _abRerender();
   }).catch(_abErr).then(function(){ window._abSaving=0; if(btn) btn.disabled=false; });
 }
-// 삭제 — 판매 전(작성 이력만 있는) 내 디비만. 올릴 때 받은 1P를 되돌림(포인트가 없으면 삭제 불가 — 올렸다 지우며 포인트를 쌓는 것 방지)
+// 삭제 — 판매 전(작성 이력만 있는) 내 디비만. 올릴 때 받은 1P를 되돌림(0P면 마이너스 — 올려 받은 포인트로 구매한 뒤 지워도 차감이 남음)
 function abDel(btn){
   var id=_abIdOf(btn), db=_abDb(), me=_abMe(); if(!id||!db||!me.k) return;
-  if(!confirm('이 디비를 마켓에서 내리고 삭제할까요?\n올릴 때 받은 1P가 차감됩니다.')) return;
+  if(!confirm('이 디비를 마켓에서 내리고 삭제할까요?\n올릴 때 받은 1P가 차감됩니다.\n(포인트가 0P면 −1P가 되어, 새 디비를 올려 채울 때까지 구매할 수 없습니다)')) return;
   var ref=db.collection(AB_COL).doc(id), pref=db.collection(AB_PT).doc(me.k);
   db.runTransaction(function(tx){ return Promise.all([tx.get(ref),tx.get(pref)]).then(function(ss){
     var s=ss[0]; if(!s.exists) throw _abFail('이미 삭제된 디비입니다.');
@@ -26055,9 +26055,9 @@ function abDel(btn){
     if(o.wk!==me.k||o.ok!==me.k) throw _abFail('본인이 작성한 디비만 삭제할 수 있습니다.');
     if(o.st!=='m'||(o.hist||[]).length>1) throw _abFail('이미 판매된 디비는 삭제할 수 없습니다.');
     var pt=ss[1].exists?(+(ss[1].data()||{}).pt||0):0;
-    if(pt<1) throw _abFail('포인트가 0P라 삭제할 수 없습니다. (올릴 때 받은 1P를 돌려줘야 합니다)');
+    // v2026.11.04-3: 0P여도 삭제 허용 — 마이너스로 차감(받은 1P를 이미 구매에 썼으면 빚으로 남아 다시 채울 때까지 구매 불가)
     tx.delete(ref); tx.set(pref,{pt:pt-1,nm:me.nm},{merge:true});
-  }); }).then(function(){ toast('삭제했습니다. (−1P)'); _abRerender(); }).catch(_abErr);
+  }); }).then(function(){ toast('삭제했습니다. (−1P)'); _abPtShow(); _abRerender(); }).catch(_abErr);
 }
 // ── 마켓 ──
 function rAbMarket(){
@@ -26105,13 +26105,13 @@ function abBuy(){
     rAbMarket();
   }).catch(function(e){ _abErr(e); rAbMarket(); }).then(function(){ window._abBuying=0; });
 }
-// 관리자: 마켓에서 내리기(포인트 변동 없음 — 부적절한 디비 정리용)
+// 관리자: 마켓에서 내리기(올린 사람 −1P, 마이너스 허용 — 부적절한 디비 정리용)
 function abAdmDel(btn){
   if(!_isAdmin()) return toast('관리자만 사용할 수 있습니다.');
   var id=_abIdOf(btn), db=_abDb(); if(!id||!db) return;
   if(!confirm('이 디비를 마켓에서 내리고 삭제할까요?\n마켓에 올린 사람(지금 소유자)이 받은 1P가 차감됩니다.')) return;
   var ref=db.collection(AB_COL).doc(id), who='';
-  // 내리기도 삭제와 같이 마켓에 올린 사람(ok — 작성자, 재등록이면 재등록한 사람)이 받은 1P를 되돌림(0P면 0에서 멈춤 — 관리자 내리기는 막지 않음)
+  // 내리기도 삭제와 같이 마켓에 올린 사람(ok — 작성자, 재등록이면 재등록한 사람)이 받은 1P를 되돌림(v2026.11.04-3: 0P여도 막지 않고 마이너스로 차감 — 올려서 포인트 받고 구매에 쓴 뒤 내려지는 경우 빚으로 남김. 구매는 pt>=건수만 가능해 마이너스면 막힘)
   db.runTransaction(function(tx){ return tx.get(ref).then(function(s){
     if(!s.exists) throw _abFail('이미 삭제된 디비입니다.');
     var o=s.data()||{};
@@ -26120,8 +26120,8 @@ function abAdmDel(btn){
     var pref=db.collection(AB_PT).doc(o.ok);
     return tx.get(pref).then(function(ps){
       var pt=ps.exists?(+(ps.data()||{}).pt||0):0;
-      tx.delete(ref); tx.set(pref,{pt:Math.max(0,pt-1)},{merge:true});
-      who=(o.owner||'')+(pt>0?' −1P':' (이미 0P)');
+      tx.delete(ref); tx.set(pref,{pt:pt-1},{merge:true});
+      who=(o.owner||'')+' −1P'+(pt<1?' → 보유 '+(pt-1)+'P(마이너스 — 새로 올려 채워야 구매 가능)':'');
     });
   }); }).then(function(){ toast('마켓에서 내렸습니다.'+(who?' ('+who+')':'')); _abPtShow(); rAbMarket(); }).catch(_abErr);
 }
