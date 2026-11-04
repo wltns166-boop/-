@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-7</div>
   </div>
 </div>
 
@@ -6004,7 +6004,16 @@ var CB_CHIPS=['청구 신청 방법','고객 등록','병력정리','출장 신�
 function _cbNz(s){ return String(s==null?'':s).replace(/\s+/g,'').toLowerCase(); }
 function _cbNavOf(e){ return e.nav||CB_NAV[e.k]||('n_'+e.k); }
 // 지금 사용자에게 보이는 안내 목록 — 메뉴 이름·위치는 사이드바에서 실시간으로
+// 업무 순서 + 메뉴 안내 전체 목록
 function _cbCatalog(){
+  var out=[];
+  (window._cbProc||[]).forEach(function(p){
+    out.push({id:'p_'+p.id, t:p.t, p:'업무 순서', kw:p.kw+' '+p.t, a:p.steps.map(function(x,i){ return (i+1)+'. '+x.txt; }).join('\n'), proc:1, steps:p.steps});
+  });
+  return out.concat(_cbMenuCat());
+}
+// 메뉴 안내 목록(지금 사용자에게 보이는 메뉴만)
+function _cbMenuCat(){
   var out=[], seen={};
   CB_GUIDE.forEach(function(e,i){
     var id=e.fn?('f_'+e.fn):e.k;
@@ -6030,6 +6039,7 @@ function _cbScore(q, e){
   var qz=_cbNz(q), s=0;
   var tz=_cbNz(e.t); if(tz.length>=2&&qz.indexOf(tz)>=0) s+=tz.length+3;
   String(e.kw||'').split(/\s+/).forEach(function(w){ var wz=_cbNz(w); if(wz.length>=2&&qz.indexOf(wz)>=0) s+=wz.length; });
+  if(s>0&&e.proc&&CB_PROC_RE.test(String(q))) s+=4;   // "~했어, 다음 뭐 해?"처럼 순서를 묻는 질문이면 업무 순서 우선
   return s;
 }
 function _cbLocal(q, cat){
@@ -6039,6 +6049,7 @@ function _cbLocal(q, cat){
 async function _cbAi(q, cat){
   var list=cat.map(function(e){ return e.id+' | '+e.p+' | '+String(e.kw||'').slice(0,80)+' | '+String(e.a||'').split('\n')[0].slice(0,70); }).join('\n');
   var prompt='너는 보험대리점 인트라넷 "사용법 안내" 봇의 분류기야. 사용자의 질문에 맞는 안내 항목을 아래 목록에서 골라.\n'
+    +'메뉴 위치가 "업무 순서"인 항목은 어떤 일을 한 뒤 다음에 할 일(절차)을 묻는 질문에 먼저 고른다.\n'
     +'규칙: 목록에 있는 id만 쓴다. 맞는 것을 관련 높은 순으로 최대 3개. 맞는 게 없으면 빈 배열. 설명·코드펜스 없이 JSON 한 줄만: {"ids":["id1","id2"]}\n\n'
     +'[목록] id | 메뉴 위치 | 낱말 | 설명\n'+list+'\n\n[질문]\n'+String(q).slice(0,300);
   var mdl=(function(){ try{ return localStorage.getItem('tops_ai_cb_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
@@ -6080,12 +6091,14 @@ function _cbEnsure(){
   var b=document.createElement('button'); b.id='cb_btn'; b.type='button'; b.title='사용법 물어보기'; b.textContent='💬';
   b.onclick=function(){ _cbToggle(); };
   var p=document.createElement('div'); p.id='cb_pop';
-  p.innerHTML='<div id="cb_head">💬 사용법 도우미<span class="x" title="닫기">×</span></div>'
+  p.innerHTML='<div id="cb_head">💬 사용법 도우미'+(_isAdmin()?'<span class="cfg" title="업무 순서 관리 (관리자)" style="margin-left:auto;cursor:pointer;font-size:12.5px;font-weight:600;padding:3px 8px;border:1px solid rgba(255,255,255,.5);border-radius:6px">⚙ 업무 순서</span>':'')+'<span class="x" title="닫기"'+(_isAdmin()?' style="margin-left:10px"':'')+'>×</span></div>'
     +'<div id="cb_body"></div>'
     +'<div id="cb_form"><input id="cb_in" type="text" maxlength="200" placeholder="예) 청구 신청은 어디서 해요?" autocomplete="off"><button id="cb_send" type="button">보내기</button></div>'
     +'<div id="cb_note">인트라넷 사용법만 안내합니다. 고객 개인정보는 입력하지 마세요.</div>';
   app.appendChild(b); app.appendChild(p);
   p.querySelector('.x').onclick=function(){ _cbToggle(false); };
+  var cfgb=p.querySelector('.cfg'); if(cfgb) cfgb.onclick=function(){ _cbpOpen(); };
+  _cbProcLoad();
   g('cb_send').onclick=function(){ _cbAsk(); };
   g('cb_in').onkeydown=function(ev){ if(ev.key==='Enter'&&!ev.isComposing&&ev.keyCode!==229){ ev.preventDefault(); _cbAsk(); } else if(ev.key==='Escape'){ _cbToggle(false); } };
   g('cb_body').onclick=function(ev){
@@ -6100,9 +6113,10 @@ function _cbToggle(on){
   var p=g('cb_pop'); if(!p) return;
   var open=(on===undefined)?!p.classList.contains('open'):!!on;
   p.classList.toggle('open',open);
-  if(open){ _cbDraw(); setTimeout(function(){ try{ g('cb_in').focus(); }catch(e){} },30); }
+  if(open){ _cbProcLoad(); _cbDraw(); setTimeout(function(){ try{ g('cb_in').focus(); }catch(e){} },30); }
 }
 function _cbAnsHtml(e){
+  if(e.proc) return _cbProcHtml(e);
   var h='<div class="cbt">'+_esc(e.t)+'</div>'+(e.p&&e.p!==e.t?'<div class="cbp">위치: '+_esc(e.p)+'</div>':'')
     +_esc(e.a).replace(/\n/g,'<br>');
   return h+'<div><span class="cbgo" data-cbgo="'+_alertEsc(e.id)+'">'+(e.fn?'바로 열기':'바로 가기')+' ›</span></div>';
@@ -6120,10 +6134,12 @@ async function _cbAsk(){
   var q=String(inp.value||'').trim(); if(!q) return;
   if(window._cbBusy){ toast('답을 찾는 중입니다. 잠시만 기다려 주세요.'); return; }
   inp.value=''; _cbPush(1,_esc(q));
+  if(!window._cbProc){ try{ await _cbProcLoad(); }catch(e){} if(!window._cbMsgs) return; }
   var cat=_cbCatalog();
   var loc=_cbLocal(q,cat), picks=[];
   // 낱말이 확실히 맞으면 AI 없이 바로(무료·즉시)
   if(loc.length&&loc[0].s>=4&&(loc.length===1||loc[1].s<=loc[0].s*0.6)) picks=[loc[0].e];
+  else if(loc.length&&loc[0].e.proc&&loc[0].s>=8&&CB_PROC_RE.test(q)&&(loc.length===1||loc[1].s<loc[0].s)) picks=[loc[0].e];   // 순서를 묻는 질문 + 업무 순서가 1등
   else {
     window._cbBusy=true; var sb=g('cb_send'); if(sb) sb.disabled=true;
     var seq=window._cbSeq=(window._cbSeq||0)+1;
@@ -6150,15 +6166,183 @@ async function _cbAsk(){
 function _cbGo(id){
   var e=null; _cbCatalog().some(function(x){ if(x.id===id){ e=x; return true; } return false; });
   if(!e){ toast('지금은 열 수 없는 메뉴입니다.'); return; }
+  if(e.proc){ _cbPush(0,_cbProcHtml(e)); return; }
   try{
     if(e.fn){ window[e.fn](); }
     else { var el=g(e.nav); if(el) el.click(); }
     if(window.innerWidth<=768) _cbToggle(false);
   }catch(err){ toast('화면을 열지 못했습니다.'); }
 }
+// ── 업무 순서(프로세스) 안내 (2026-11-04 — 박지순 요청: "모바일계약 했어, 그다음 뭐 해?") ──
+// 관리자가 채팅 창 머리의 ⚙ → [업무 순서 관리]에서 상황별 단계(글 + 연결할 메뉴)를 적어 두면, 봇이 질문에 맞는 순서를 골라 단계별 [바로 가기]와 함께 보여 준다.
+// 저장: Firestore 컬렉션 cbproc/{id} = {t(상황 이름), kw(찾을 낱말), steps:[{txt, go(메뉴 안내 id — 비면 연결 없음)}], ord, ts, by} — tops/data 미사용(3.12), localStorage 없음(함정 B).
+// 읽기는 로그인한 전원(채팅 창을 열 때 60초마다 새로 읽음), 쓰기는 관리자만(_isAdmin — 클라이언트 가드, firestore.rules 구조적 한계 계열).
+// 단계의 [바로 가기]는 그 사람에게 보이는 메뉴일 때만 표시(_cbMenuCat 기준). 표시 글자 전부 _esc, 조작은 문서 id(함정 A), id 접두 cbp_(함정 E).
+var CB_PROC_MAX=100, CB_STEP_MAX=20;
+function _cbProcClean(id, d){
+  d=d||{};
+  var steps=(Array.isArray(d.steps)?d.steps:[]).slice(0,CB_STEP_MAX).map(function(s){ s=s||{};
+    return {txt:String(s.txt==null?'':s.txt).slice(0,300), go:String(s.go==null?'':s.go).replace(/[^A-Za-z0-9_]/g,'').slice(0,60)}; })
+    .filter(function(s){ return s.txt.trim(); });
+  return {id:String(id), t:String(d.t==null?'':d.t).slice(0,40), kw:String(d.kw==null?'':d.kw).slice(0,200), steps:steps,
+    ord:(typeof d.ord==='number'&&isFinite(d.ord))?d.ord:0, ts:(typeof d.ts==='number')?d.ts:0, by:String(d.by==null?'':d.by).slice(0,20)};
+}
+function _cbProcLoad(force){
+  if(!window.db||!cu) return Promise.resolve(window._cbProc||[]);
+  if(!force&&window._cbProc&&Date.now()-(window._cbProcAt||0)<60000) return Promise.resolve(window._cbProc);
+  if(!force&&window._cbProcP) return window._cbProcP;
+  var seq=window._cbProcSeq=(window._cbProcSeq||0)+1;
+  var pr=window.db.collection('cbproc').get().then(function(qs){
+    var arr=[]; qs.forEach(function(doc){ if(arr.length<CB_PROC_MAX) arr.push(_cbProcClean(doc.id, doc.data())); });
+    arr=arr.filter(function(p){ return p.t.trim()&&p.steps.length; }).sort(function(a,b){ return (a.ord-b.ord)||(a.ts-b.ts); });
+    if(seq===window._cbProcSeq&&cu){ window._cbProc=arr; window._cbProcAt=Date.now(); }
+    return arr;
+  }).catch(function(e){ console.warn('[cbproc] 읽기 실패', e); return window._cbProc||[]; })
+    .then(function(r){ if(window._cbProcP===pr) window._cbProcP=null; return r; });
+  window._cbProcP=pr;
+  return pr;
+}
+var CB_PROC_RE=/다음|그다음|후에|후엔|이후|하고나서|하고 나서|했어|했는데|했어요|끝나면|끝났|순서|절차|프로세스|뭐해|뭐 해|뭘 해|뭐하|어떻게 해/;
+function _cbProcHtml(e){
+  var menu=Object.create(null); _cbMenuCat().forEach(function(m){ menu[m.id]=m; });
+  var h='<div class="cbt">📋 '+_esc(e.t)+'</div><div class="cbp">업무 순서</div><ol style="margin:4px 0 0;padding-left:20px">';
+  (e.steps||[]).forEach(function(s){
+    var m=s.go?menu[s.go]:null;
+    h+='<li style="margin:0 0 7px">'+_esc(s.txt).replace(/\n/g,'<br>')
+      +(m?'<div><span class="cbgo" style="margin-top:4px;padding:3px 9px;font-size:12px" data-cbgo="'+_alertEsc(m.id)+'">'+_esc(m.p||m.t)+' ›</span></div>':'')+'</li>';
+  });
+  return h+'</ol>';
+}
+// ── 관리 화면 (관리자) ──
+function _cbpOpen(){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var old=document.getElementById('cbp_pop'); if(old) old.remove();
+  var o=document.createElement('div'); o.id='cbp_pop';
+  o.style.cssText='position:fixed;inset:0;z-index:9990;background:rgba(10,15,40,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML='<div style="background:#fff;color:#1d2340;border-radius:14px;width:min(720px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:0 16px 40px rgba(0,0,0,.3);font-size:14px">'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid #e3e7f4;font-weight:700;font-size:16px">📋 업무 순서 관리<span data-cbpact="close" style="margin-left:auto;cursor:pointer;font-size:22px;line-height:1;color:#666">×</span></div>'
+    +'<div id="cbp_main" style="padding:14px 18px;overflow-y:auto"><div style="color:#888">불러오는 중…</div></div>'
+    +'</div>';
+  document.body.appendChild(o);
+  o.addEventListener('click',function(ev){
+    if(ev.target===o){ _cbpClose(); return; }
+    var a=ev.target.closest&&ev.target.closest('[data-cbpact]'); if(!a) return;
+    var act=a.getAttribute('data-cbpact');
+    if(act==='close') _cbpClose();
+    else if(act==='new') _cbpSel('');
+    else if(act==='add') _cbpStepAdd();
+    else if(act==='up'||act==='down'||act==='del') _cbpStepOp(a.closest('[data-cbpstep]'),act);
+    else if(act==='save') _cbpSave();
+    else if(act==='remove') _cbpDel();
+  });
+  o.addEventListener('change',function(ev){ if(ev.target&&ev.target.id==='cbp_sel') _cbpSel(ev.target.value, ev.target); });
+  window._cbpSt={cur:'',orig:''};
+  _cbProcLoad(true).then(function(){ if(document.getElementById('cbp_pop')===o){ var l=window._cbProc||[]; _cbpSel(l.length?l[0].id:'', null, true); } });
+}
+function _cbpMenuOpts(sel){
+  var h='<option value="">(연결할 메뉴 없음)</option>';
+  _cbMenuCat().forEach(function(m){ h+='<option value="'+_alertEsc(m.id)+'"'+(m.id===sel?' selected':'')+'>'+_esc(m.p||m.t)+'</option>'; });
+  return h;
+}
+function _cbpStepRow(s){
+  s=s||{txt:'',go:''};
+  return '<div data-cbpstep style="display:flex;gap:6px;align-items:flex-start;margin-bottom:8px;padding:8px;border:1px solid #e3e7f4;border-radius:9px;background:#f8f9fd">'
+    +'<span class="cbpn" style="min-width:20px;font-weight:700;color:#1f3fd1;padding-top:6px"></span>'
+    +'<div style="flex:1;min-width:0"><textarea class="cbptx" rows="2" maxlength="300" placeholder="할 일 (예: 모바일 계약 반영 요청을 올립니다)" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cdd4ec;border-radius:7px;font-size:13.5px;color:#1d2340;background:#fff;resize:vertical">'+_esc(s.txt)+'</textarea>'
+    +'<select class="cbpgo" style="margin-top:5px;width:100%;padding:6px;border:1px solid #cdd4ec;border-radius:7px;font-size:13px;color:#1d2340;background:#fff">'+_cbpMenuOpts(s.go)+'</select></div>'
+    +'<div style="display:flex;flex-direction:column;gap:3px">'
+    +'<button type="button" data-cbpact="up" title="위로" style="border:1px solid #cdd4ec;background:#fff;border-radius:6px;cursor:pointer;padding:2px 7px">▲</button>'
+    +'<button type="button" data-cbpact="down" title="아래로" style="border:1px solid #cdd4ec;background:#fff;border-radius:6px;cursor:pointer;padding:2px 7px">▼</button>'
+    +'<button type="button" data-cbpact="del" title="이 단계 빼기" style="border:1px solid #f0c4c4;background:#fff;color:#c33;border-radius:6px;cursor:pointer;padding:2px 7px">✕</button></div></div>';
+}
+function _cbpNum(){ var m=g('cbp_main'); if(!m) return; m.querySelectorAll('[data-cbpstep]').forEach(function(r,i){ var n=r.querySelector('.cbpn'); if(n) n.textContent=(i+1)+'.'; }); }
+function _cbpCollect(){
+  var m=g('cbp_main'); if(!m||!g('cbp_t')) return null;
+  var steps=[]; m.querySelectorAll('[data-cbpstep]').forEach(function(r){
+    steps.push({txt:String(r.querySelector('.cbptx').value||'').trim().slice(0,300), go:String(r.querySelector('.cbpgo').value||'')}); });
+  return {t:String(g('cbp_t').value||'').trim().slice(0,40), kw:String(g('cbp_kw').value||'').trim().slice(0,200), steps:steps};
+}
+function _cbpDirty(){ var st=window._cbpSt, c=_cbpCollect(); return !!(st&&c&&JSON.stringify(c)!==st.orig); }
+function _cbpSel(id, selEl, noAsk){
+  var st=window._cbpSt; if(!st) return;
+  if(!noAsk&&_cbpDirty()&&!confirm('저장하지 않은 내용이 있습니다. 버리고 넘어갈까요?')){ if(selEl) selEl.value=st.cur; return; }
+  var list=window._cbProc||[], cur=null; list.forEach(function(p){ if(p.id===id) cur=p; });
+  st.cur=cur?cur.id:'';
+  var it=cur||{t:'',kw:'',steps:[{txt:'',go:''}]};
+  var h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
+    +'<select id="cbp_sel" style="flex:1;min-width:180px;padding:7px;border:1px solid #cdd4ec;border-radius:8px;font-size:14px;color:#1d2340;background:#fff">'
+    +(cur?'':'<option value="" selected>(새 업무 순서)</option>')
+    +list.map(function(p){ return '<option value="'+_alertEsc(p.id)+'"'+(p.id===st.cur?' selected':'')+'>'+_esc(p.t)+' ('+p.steps.length+'단계)</option>'; }).join('')+'</select>'
+    +'<button type="button" data-cbpact="new" style="padding:7px 12px;border:1px solid #1f3fd1;background:#fff;color:#1f3fd1;border-radius:8px;font-weight:700;cursor:pointer">＋ 새 업무 순서</button></div>'
+    +'<div style="font-size:12.5px;color:#6b7393;margin-bottom:12px;line-height:1.6">팀원이 "모바일계약 했어, 그다음 뭐 해?"처럼 물으면 봇이 여기 적은 순서를 골라 보여 줍니다. 단계마다 메뉴를 연결하면 [바로 가기] 버튼이 붙습니다.</div>'
+    +'<label style="display:block;font-weight:700;margin-bottom:4px">상황 이름</label>'
+    +'<input id="cbp_t" maxlength="40" placeholder="예: 모바일 계약 후" value="'+_alertEsc(it.t)+'" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cdd4ec;border-radius:8px;font-size:14px;color:#1d2340;background:#fff;margin-bottom:10px">'
+    +'<label style="display:block;font-weight:700;margin-bottom:4px">질문에 나올 낱말 <span style="font-weight:400;color:#888;font-size:12.5px">(띄어쓰기로 구분 — 예: 모바일계약 모바일 체결 청약)</span></label>'
+    +'<input id="cbp_kw" maxlength="200" value="'+_alertEsc(it.kw)+'" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cdd4ec;border-radius:8px;font-size:14px;color:#1d2340;background:#fff;margin-bottom:12px">'
+    +'<label style="display:block;font-weight:700;margin-bottom:6px">단계</label>'
+    +'<div id="cbp_steps">'+(it.steps.length?it.steps:[{txt:'',go:''}]).map(_cbpStepRow).join('')+'</div>'
+    +'<button type="button" data-cbpact="add" style="padding:6px 12px;border:1px dashed #9aa8e0;background:#fff;color:#1f3fd1;border-radius:8px;cursor:pointer;margin-bottom:14px">＋ 단계 추가</button>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #e3e7f4;padding-top:12px">'
+    +(cur?'<button type="button" data-cbpact="remove" style="margin-right:auto;padding:8px 14px;border:1px solid #f0c4c4;background:#fff;color:#c33;border-radius:8px;cursor:pointer">이 순서 삭제</button>':'')
+    +'<button type="button" data-cbpact="close" style="padding:8px 14px;border:1px solid #cdd4ec;background:#fff;border-radius:8px;cursor:pointer">닫기</button>'
+    +'<button type="button" data-cbpact="save" style="padding:8px 18px;border:0;background:#1f3fd1;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">저장</button></div>';
+  g('cbp_main').innerHTML=h; _cbpNum();
+  st.orig=JSON.stringify(_cbpCollect());
+}
+function _cbpStepAdd(){
+  var box=g('cbp_steps'); if(!box) return;
+  if(box.querySelectorAll('[data-cbpstep]').length>=CB_STEP_MAX){ toast('단계는 '+CB_STEP_MAX+'개까지 넣을 수 있습니다.'); return; }
+  box.insertAdjacentHTML('beforeend',_cbpStepRow()); _cbpNum();
+  var t=box.querySelectorAll('.cbptx'); if(t.length) t[t.length-1].focus();
+}
+function _cbpStepOp(row, act){
+  if(!row) return; var box=row.parentElement;
+  if(act==='up'&&row.previousElementSibling) box.insertBefore(row,row.previousElementSibling);
+  else if(act==='down'&&row.nextElementSibling) box.insertBefore(row.nextElementSibling,row);
+  else if(act==='del'){ if(box.querySelectorAll('[data-cbpstep]').length<=1){ row.querySelector('.cbptx').value=''; row.querySelector('.cbpgo').value=''; } else row.remove(); }
+  _cbpNum();
+}
+function _cbpSave(){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var st=window._cbpSt, c=_cbpCollect(); if(!st||!c) return;
+  if(window._cbpBusy) return;
+  c.steps=c.steps.filter(function(s){ return s.txt; });
+  if(!c.t){ toast('상황 이름을 적어 주세요.'); g('cbp_t').focus(); return; }
+  if(!c.steps.length){ toast('단계를 하나 이상 적어 주세요.'); return; }
+  if(!window.db){ toast('저장소에 연결되지 않았습니다.'); return; }
+  var isNew=!st.cur;
+  if(isNew&&(window._cbProc||[]).length>=CB_PROC_MAX){ toast('업무 순서는 '+CB_PROC_MAX+'개까지 만들 수 있습니다.'); return; }
+  var id=st.cur||('pr_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  var prev=null; (window._cbProc||[]).forEach(function(p){ if(p.id===id) prev=p; });
+  var doc={t:c.t, kw:c.kw, steps:c.steps, ord:(prev&&prev.ord)?prev.ord:Date.now(), ts:Date.now(), by:(cu&&cu.name)||''};
+  window._cbpBusy=true;
+  window.db.collection('cbproc').doc(id).set(doc).then(function(){
+    return _cbProcLoad(true);
+  }).then(function(){
+    window._cbpBusy=false;
+    toast('저장했습니다. 이제 채팅 봇이 이 순서를 안내합니다.');
+    if(document.getElementById('cbp_pop')) _cbpSel(id, null, true);
+  }).catch(function(e){ window._cbpBusy=false; toast('저장하지 못했습니다: '+((e&&e.message)||e)); });
+}
+function _cbpDel(){
+  if(!_isAdmin()){ toast('관리자만 삭제할 수 있습니다.'); return; }
+  var st=window._cbpSt; if(!st||!st.cur||window._cbpBusy) return;
+  var nm=''; (window._cbProc||[]).forEach(function(p){ if(p.id===st.cur) nm=p.t; });
+  if(!confirm('"'+nm+'" 업무 순서를 삭제할까요? 되돌릴 수 없습니다.')) return;
+  window._cbpBusy=true; var id=st.cur;
+  window.db.collection('cbproc').doc(id).delete().then(function(){ return _cbProcLoad(true); }).then(function(){
+    window._cbpBusy=false; toast('삭제했습니다.');
+    var l=window._cbProc||[]; if(document.getElementById('cbp_pop')) _cbpSel(l.length?l[0].id:'', null, true);
+  }).catch(function(e){ window._cbpBusy=false; toast('삭제하지 못했습니다: '+((e&&e.message)||e)); });
+}
+function _cbpClose(){
+  if(_cbpDirty()&&!confirm('저장하지 않은 내용이 있습니다. 닫을까요?')) return;
+  var o=document.getElementById('cbp_pop'); if(o) o.remove(); window._cbpSt=null;
+}
 function _cbClear(){
   window._cbMsgs=null; window._cbBusy=false; window._cbSeq=(window._cbSeq||0)+1;
-  ['cb_btn','cb_pop','cb_css'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); });
+  window._cbProc=null; window._cbProcAt=0; window._cbProcP=null; window._cbProcSeq=(window._cbProcSeq||0)+1; window._cbpSt=null; window._cbpBusy=false;
+  ['cb_btn','cb_pop','cb_css','cbp_pop'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); });
 }
 // ===== 예약문자발송 (rsv, 2026-09-26) — 좌 입력(성함·날짜·장소) → 우 문자 미리보기 실시간 완성 =====
 // 입력값(고객 성함·연락처)은 저장·동기화하지 않음(화면에서만 — 로그아웃 시 _rsvClear로 비움).
