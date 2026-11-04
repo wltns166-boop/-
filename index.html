@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-6</div>
   </div>
 </div>
 
@@ -5075,6 +5075,7 @@ function login(){
 }
 function logout(){
   try{ _mhxColStop(); }catch(e){}
+  try{ _cbClear(); }catch(e){}   // 사용법 안내 채팅 봇 대화 지우기
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
@@ -5545,6 +5546,7 @@ function setAdmin(){
   if(memTabSus) memTabSus.style.display=isAdmin?'':'none';
   // 메뉴 환경설정(이름·순서·숨김·추가 메뉴) 재적용 — 위의 권한 표시 처리 뒤에 덮어씀(멱등)
   try{ if(typeof _navApply==='function') _navApply(); }catch(e){}
+  try{ _cbEnsure(); }catch(e){}   // 사용법 안내 채팅 봇 버튼(로그인 후)
 }
 // 자동 로그인 — 저장된 세션 복원
 (function(){
@@ -5937,6 +5939,227 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량'};
+// ===== 사용법 안내 채팅 봇 (cb, 2026-11-04 — 박지순 요청) =====
+// 모든 화면 오른쪽 아래 💬 버튼 → 작은 채팅 창. 질문하면 미리 적어 둔 안내문(CB_GUIDE) 중 맞는 것을 골라 보여 주고 [바로 가기] 버튼으로 그 화면을 연다.
+// 답 고르기: ① 낱말 점수(무료·즉시)가 확실하면 그대로 ② 애매하면 AI(/api/analyze Gemini)가 **목록 안의 id만** 고른다 — 안내 글은 항상 아래 고정 문구(AI가 지어내지 않음).
+// 대상은 지금 사용자에게 보이는 메뉴만(_navSrchMenuOk — 권한·환경설정 숨김 반영), 메뉴 이름·위치는 사이드바에서 실시간으로 읽음(이름 변경 반영).
+// 저장·동기화 없음(대화는 메모리 window._cbMsgs, 로그아웃 _cbClear) — 함정 B 무관. 표시 글자 전부 _esc. 항목 식별은 안내 id(문자열 — 함정 A 무관). id 접두 cb_(함정 E).
+// 새 기능을 만들면 여기 CB_GUIDE에 한 줄 추가할 것(k=페이지 키, kw=찾을 낱말, a=안내 글).
+var CB_NAV={req_unified:'n_req_menu'};   // 페이지 키와 사이드바 id가 다른 것
+var CB_GUIDE=[
+  {k:'home',kw:'홈 첫화면 메인 명예의전당 매니저 연락처',a:'첫 화면입니다. 공지사항·월간 일정표·명예의 전당·보험사 매니저 연락처를 한눈에 봅니다.'},
+  {k:'notice',kw:'공지 공지사항 시책 시책표 교육 프로모션',a:'위쪽 탭(전체/시책/교육/프로모션)으로 분류를 고르고, 제목을 누르면 내용과 첨부(PDF·사진)를 봅니다.\n그림을 누르면 크게 볼 수 있어요.'},
+  {k:'schedule',kw:'일정 지점일정 달력 행사 휴가 총무휴가',a:'달력에서 지점 일정을 확인합니다. 날짜를 누르면 그날 일정이 보입니다.'},
+  {k:'cust_apply',kw:'고객등록 고객 등록 신청 보험사 등록 가족 신분증 통장 외국인 등록증',a:'1. 고객 정보(이름·주민번호·연락처·주소·직업 등)를 입력합니다.\n2. 가족이 있으면 가족 칸을 추가하고, 신분증·통장사본·외국인등록증 사진을 끌어다 놓거나 칸을 누른 뒤 Ctrl+V로 붙여 넣습니다.\n3. 등록을 신청할 보험사를 고르고 저장하면 총무님께 알림이 갑니다.'},
+  {k:'cust_status',kw:'고객등록 현황 진행 완료 미완료 고객정보 고객 목록 리스트',a:'고객등록 신청이 보험사별로 완료됐는지 확인합니다. 고객 이름을 누르면 고객정보 창이 열리고, 값을 누르면 복사됩니다.\n고객 목록의 [보험금청구]를 누르면 그 고객으로 청구신청이 바로 시작됩니다.'},
+  {fn:'insCodeOpen',t:'보험사 코드·비밀번호 관리',p:'화면 맨 위 [🔑 보험사코드관리]',kw:'보험사 코드 비밀번호 아이디 설계사코드 전산',a:'화면 맨 위 [🔑 보험사코드관리]를 누르면 손해·생명보험사별 코드와 비밀번호를 적어 둘 수 있습니다.\n[＋ 추가]로 줄을 넣고, 코드 표 사진·PDF·엑셀을 업로드 칸에 올리면 자동으로 입력됩니다.'},
+  {fn:'openMyProfile',t:'개인정보수정',p:'화면 맨 위 [개인정보수정]',kw:'개인정보 내정보 비밀번호 변경 아이디 연락처 주소 생년월일',a:'화면 맨 위 [개인정보수정]에서 내 연락처·주소·생년월일과 로그인 비밀번호를 바꿀 수 있습니다.'},
+  {k:'prom',kw:'진급 진급평가 승진 직급',a:'진급 기준 대비 나와 팀의 실적을 확인합니다.'},
+  {k:'hierarchy',kw:'계보도 조직도 팀 구성',a:'팀의 상하 관계(누가 누구 소속인지)를 그림으로 봅니다.'},
+  {k:'exam',kw:'시험 시험신청 자격시험 수험표 응시',a:'[신청]을 눌러 이름·시험 종류·시험일을 입력하고 저장합니다. 접수가 끝나면 수험표를 이 화면에서 받을 수 있습니다.'},
+  {k:'meeting',kw:'팀미팅 미팅 피드백 주차 미팅내용 보고서',a:'팀원과 년·월을 고른 뒤 주차별 미팅 내용과 피드백을 적고 [저장]합니다. [보고서]로 인쇄·PDF용 정리본을 만듭니다.'},
+  {k:'wkmt',kw:'주간미팅자료 PPT 피피티 슬라이드 미팅자료',a:'1. 팀장과 기준 주차를 고릅니다.\n2. 시안(디자인)과 넣을 내용(계보도·실적·주마감 등)을 체크합니다.\n3. [PPT 만들기]를 누르면 파워포인트 파일이 내려받아집니다. 아래 미리보기로 먼저 확인할 수 있어요.'},
+  {k:'wclose',kw:'주마감 주마감보고 주간보고 마감',a:'한 주의 활동 수치를 입력해 주마감보고를 제출합니다.'},
+  {k:'bizplan',kw:'사업계획서 월간계획 목표 가망고객 제출',a:'매월 사업계획서(목표·가망고객·참석 모임·리쿠르팅 대상자)를 작성해 제출합니다. 지난달 내용을 불러와 고칠 수도 있습니다.'},
+  {k:'recruit',kw:'리쿠르팅 리쿠르트 대상자 영입 카드',a:'리쿠르팅 대상자를 한 장씩 카드로 적습니다. [페이지 추가]로 새 대상자를 넣고 [저장]·[출력]·[PDF 저장]할 수 있습니다.'},
+  {k:'expect',kw:'예상계약 예상 계약건 계산',a:'예상 계약건을 넣어 실적이 얼마나 될지 미리 계산합니다.'},
+  {k:'trip',kw:'출장 출장보고 출장신청 외근 반려 불가일',a:'달력에서 날짜를 골라 시간·장소·사유를 적고 신청합니다. 상급자가 [확인] 또는 [반려]하면 알림이 옵니다.\n⛔ 표시된 날은 출장 불가일입니다.'},
+  {k:'pc',kw:'현재실적 실적 입력 계약 실적조회',a:'이번 달 내 실적(계약)을 입력하고 확인합니다.'},
+  {k:'team_perf',kw:'팀실적 팀 실적',a:'팀원들의 실적을 모아 봅니다.'},
+  {k:'pm',kw:'월간목표 월목표 목표실적 달성률',a:'월간 목표와 지금까지의 달성률을 봅니다.'},
+  {k:'pw',kw:'주간목표 주목표',a:'주간 목표 대비 실적을 봅니다.'},
+  {k:'ps',kw:'주간업무 업무현황',a:'주간 업무 현황을 봅니다.'},
+  {k:'db_info',kw:'DB정보 디비정보 배정받은 디비 카톡 알림 연동',a:'배정받은 DB(고객) 정보를 봅니다. [카톡 알림 연동]을 하면 DB 배정 알림을 카카오톡으로 받습니다.'},
+  {k:'db_apply',kw:'DB신청 디비신청 신청현황',a:'DB 신청 현황을 봅니다.'},
+  {k:'db_assign',kw:'DB배정 디비배정 배정현황',a:'DB 배정 현황을 봅니다.'},
+  {k:'db_exchange',kw:'DB교환 디비교환 교환신청',a:'받은 DB의 교환을 신청합니다.'},
+  {k:'dbuse',kw:'DB사용량 디비사용량 TA 상담 제안 계약 전환율',a:'받은 DB 고객을 추가하고 TA·상담·제안·계약 단계를 체크합니다. 전체 현황·차트·전환율을 함께 봅니다.'},
+  {k:'ab_write',kw:'부재디비 부재 리스트 작성 올리기 등록 포인트',a:'부재 고객 DB를 작성해 마켓에 올립니다. 1건 올리면 +1P.\n판매 전 내가 지우면 −1P, 포인트가 −3P 이하가 되면 새로 올릴 수 없습니다.'},
+  {k:'ab_market',kw:'부재디비 마켓 구매 사기 포인트',a:'다른 사람이 올린 부재 DB를 체크해 구매합니다. 1건에 −1P(포인트가 모자라면 살 수 없어요). 산 DB는 [구매 리스트]에서 전체 정보를 봅니다.'},
+  {k:'ab_buy',kw:'부재디비 구매리스트 산 디비 재등록',a:'내가 산 부재 DB의 전체 정보(연락처·녹음 등)를 봅니다. 다시 마켓에 올리고 싶으면 재등록을 요청합니다.'},
+  {k:'claim_apply',kw:'청구 보험금청구 청구신청 실비 실손 접수 병원서류 영수증 서명',a:'1. [청구 신청]을 눌러 계약자·피보험자(고객 검색 가능)를 입력합니다.\n2. 병원서류는 사진·PDF를 끌어다 놓거나 칸을 누르고 Ctrl+V로 붙여 넣습니다. 신분증·통장사본은 고객등록에 올려 두면 자동으로 들어갑니다.\n3. 청구할 보험사를 고르고 서명한 뒤 [저장]하면 보험사별 청구파일이 자동으로 만들어집니다.\n고객 목록에서 [보험금청구]를 눌러 시작할 수도 있어요.'},
+  {k:'claim_status',kw:'청구현황 청구 진행 미리보기 다운로드 청구파일 팩스',a:'신청한 청구건의 진행 상태와 보험사별 청구파일을 [미리보기]·[다운로드]로 확인합니다. 내용을 고치려면 [수정]을 누릅니다.'},
+  {k:'claim_docs',kw:'청구서류 필요서류 구비서류 준비물',a:'보험사·청구 종류별로 필요한 서류 목록을 봅니다.'},
+  {k:'wa2',kw:'보장분석 신보장분석 증권분석 보험분석 담보',a:'1. 고객을 등록하거나 [고객 목록]에서 고릅니다.\n2. 보험 증권 PDF를 올리면 담보가 자동으로 인식됩니다(스캔본은 앞 4쪽까지).\n3. 정리된 보장분석을 PDF로 저장합니다. 입력 내용은 자동 저장되고 구글드라이브에도 보관됩니다.'},
+  {k:'wm',kw:'병력정리 병력 진료기록 심평원 고지사항 고지의무 수술 입원 통원',a:'1. 심평원에서 받은 PDF 3종(기본진료·처방조제·세부진료)을 칸에 올리고 고객명을 적은 뒤 [분석]합니다.\n2. 상병코드별로 정리된 표가 나오고 자동 저장됩니다.\n3. 목록의 [고지사항]에서 건강체·간편체 고지 항목을 보고, PDF로 저장합니다.'},
+  {k:'wc',kw:'보험금청구 업무 청구',a:'보험금 청구 관련 업무 화면입니다. 청구서 작성·접수는 [청구관리 › 청구신청]에서 합니다.'},
+  {k:'calc',kw:'실비계산기 실손 계산 본인부담 보상금액',a:'진료비를 넣으면 실손보험으로 받을 수 있는 금액을 계산합니다.'},
+  {k:'report',kw:'보고서 보고서작성',a:'보고서를 작성합니다.'},
+  {k:'binder',kw:'증권바인더 바인더 속지 간병인 치아 치매 운전자',a:'1. 고객명과 담당자명을 적습니다.\n2. 넣을 속지를 체크하고 빈칸(보상금액)을 입력합니다. 오른쪽 미리보기로 확인하세요.\n3. [PDF 저장] 또는 [출력]을 누릅니다.'},
+  {k:'delayreq',kw:'지급지연 지연 요청서 손해사정 지급촉구',a:'보험사·손해사정사·계약 정보를 입력하면 지급지연 사유 확인 요청서가 완성됩니다. [인쇄] 또는 [텍스트 복사]를 누르세요.'},
+  {k:'samdocs',kw:'3종서류 삼종 개인정보처리동의서 고지의무확인서 완전판매 종신',a:'1. 계약자와 계약 건수를 적습니다.\n2. 계약 줄마다 피보험자·보험회사·상품명·증권번호를 입력하고, 종신보험이면 [종신]을 체크합니다(완전판매동의서 추가).\n3. [미리보기]·[다운로드]·[출력]을 누릅니다.'},
+  {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
+  {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
+  {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
+  {k:'rsv',kw:'예약문자 예약 문자 상담예약 문자발송 카톡 명함 지도',a:'1. 고객 성함·상담 날짜·시각·장소를 입력하면 오른쪽에 문자 내용이 완성되고 지도가 자동 첨부됩니다.\n2. 처음 한 번 [내 명함]에 명함 사진을 올려 두세요.\n3. [문자 발송] 또는 [내 카톡으로 보내기]를 누릅니다.'},
+  {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
+  {k:'join_prep',kw:'입사준비 입사 신입 서류',a:'신입 입사 준비 사항을 관리합니다.'},
+  {k:'edu_prep',kw:'교육준비 신입교육 테스트',a:'신입 교육·테스트 준비 상황을 관리합니다.'},
+  {k:'new_check',kw:'신입체크리스트 체크리스트 신입',a:'신입 체크리스트를 확인합니다.'},
+  {k:'dreport',kw:'일일보고서 일일보고 카톡보고',a:'그날의 일일보고서를 보고, 카톡 자동 발송을 설정합니다(관리자).'},
+  {k:'usage',kw:'사용량 접속 메뉴사용',a:'메뉴별·사람별 인트라넷 사용 횟수를 봅니다(관리자).'},
+  {k:'navset',kw:'환경설정 메뉴설정 메뉴이름 숨김 디자인 테마 전산사이트',a:'메뉴 이름·순서·숨김, 홈 화면 꾸미기, 디자인, 보험사 전산 바로가기를 설정합니다(관리자).'}
+];
+var CB_CHIPS=['청구 신청 방법','고객 등록','병력정리','출장 신청','명함 신청','예약 문자 보내기'];
+function _cbNz(s){ return String(s==null?'':s).replace(/\s+/g,'').toLowerCase(); }
+function _cbNavOf(e){ return e.nav||CB_NAV[e.k]||('n_'+e.k); }
+// 지금 사용자에게 보이는 안내 목록 — 메뉴 이름·위치는 사이드바에서 실시간으로
+function _cbCatalog(){
+  var out=[], seen={};
+  CB_GUIDE.forEach(function(e,i){
+    var id=e.fn?('f_'+e.fn):e.k;
+    if(e.fn){ if(typeof window[e.fn]!=='function') return; out.push({id:id,t:e.t,p:e.p,kw:e.kw,a:e.a,fn:e.fn}); seen[id]=1; return; }
+    var nav=_cbNavOf(e); if(!_navSrchMenuOk(nav)) return;
+    var el=g(nav), t=_navSrchText(el)||(PTITLES[e.k]||e.k), p=_navSrchPath(nav)||t;
+    out.push({id:id,t:t,p:p,kw:e.kw,a:e.a,nav:nav}); seen[id]=1;
+  });
+  // 안내문이 없는 메뉴(추가한 내용 페이지·자료실 등)도 위치 안내로
+  try{
+    document.querySelectorAll('#sb .ni[id^="n_"]').forEach(function(el){
+      var nav=el.id, k=nav.slice(2);
+      if(seen[k]||el.querySelector('.nc')||!_navSrchMenuOk(nav)) return;
+      var t=_navSrchText(el); if(!t) return;
+      var p=_navSrchPath(nav)||t;
+      out.push({id:k,t:t,p:p,kw:t,a:'['+p+'] 메뉴에서 볼 수 있습니다. 아래 [바로 가기]를 누르세요.',nav:nav}); seen[k]=1;
+    });
+  }catch(e){}
+  return out;
+}
+// 낱말 점수 — 질문 안에 들어 있는 안내 낱말 길이의 합(제목은 가산)
+function _cbScore(q, e){
+  var qz=_cbNz(q), s=0;
+  var tz=_cbNz(e.t); if(tz.length>=2&&qz.indexOf(tz)>=0) s+=tz.length+3;
+  String(e.kw||'').split(/\s+/).forEach(function(w){ var wz=_cbNz(w); if(wz.length>=2&&qz.indexOf(wz)>=0) s+=wz.length; });
+  return s;
+}
+function _cbLocal(q, cat){
+  return cat.map(function(e){ return {e:e,s:_cbScore(q,e)}; }).filter(function(x){ return x.s>0; })
+    .sort(function(a,b){ return b.s-a.s; });
+}
+async function _cbAi(q, cat){
+  var list=cat.map(function(e){ return e.id+' | '+e.p+' | '+String(e.kw||'').slice(0,80)+' | '+String(e.a||'').split('\n')[0].slice(0,70); }).join('\n');
+  var prompt='너는 보험대리점 인트라넷 "사용법 안내" 봇의 분류기야. 사용자의 질문에 맞는 안내 항목을 아래 목록에서 골라.\n'
+    +'규칙: 목록에 있는 id만 쓴다. 맞는 것을 관련 높은 순으로 최대 3개. 맞는 게 없으면 빈 배열. 설명·코드펜스 없이 JSON 한 줄만: {"ids":["id1","id2"]}\n\n'
+    +'[목록] id | 메뉴 위치 | 낱말 | 설명\n'+list+'\n\n[질문]\n'+String(q).slice(0,300);
+  var mdl=(function(){ try{ return localStorage.getItem('tops_ai_cb_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+  var ac=(typeof AbortController!=='undefined')?new AbortController():null, tmo=ac?setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000):0;
+  var res; try{ res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:mdl,prompt:prompt,max_tokens:300}),signal:ac?ac.signal:undefined}); } finally { clearTimeout(tmo); }
+  var data=null; try{ data=await res.json(); }catch(e){}
+  if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('서버 오류 '+res.status));
+  var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'', m=/\{[\s\S]*\}/.exec(text);
+  if(!m) return [];
+  var o=JSON.parse(m[0]), ids=(o&&Array.isArray(o.ids))?o.ids:[], byId={}, out=[];
+  cat.forEach(function(e){ byId[e.id]=e; });
+  ids.forEach(function(id){ id=String(id); if(byId[id]&&out.indexOf(byId[id])<0&&out.length<3) out.push(byId[id]); });
+  return out;
+}
+function _cbEnsure(){
+  if(/[?&]rr=1/.test(location.search)) return;
+  if(!cu||g('cb_btn')) return;
+  var app=g('app')||document.body;
+  var st=document.createElement('style'); st.id='cb_css';
+  st.textContent='#cb_btn{position:fixed;right:66px;bottom:22px;z-index:900;width:52px;height:52px;border-radius:50%;border:0;background:#1f3fd1;color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 18px rgba(20,40,140,.35);display:flex;align-items:center;justify-content:center}'
+    +'#cb_btn:hover{background:#1733b0}'
+    +'#cb_pop{position:fixed;right:66px;bottom:84px;z-index:901;width:360px;max-width:calc(100vw - 24px);height:520px;max-height:calc(100vh - 110px);background:#fff;color:#1d2340;border:1px solid #d5dbf0;border-radius:14px;box-shadow:0 12px 34px rgba(20,30,90,.25);display:none;flex-direction:column;overflow:hidden;font-size:14px}'
+    +'#cb_pop.open{display:flex}'
+    +'#cb_head{background:#1f3fd1;color:#fff;padding:11px 14px;display:flex;align-items:center;gap:8px;font-weight:700}'
+    +'#cb_head .x{margin-left:auto;cursor:pointer;font-size:20px;line-height:1;opacity:.85}'
+    +'#cb_body{flex:1;overflow-y:auto;padding:12px;background:#f4f6fc}'
+    +'.cbm{max-width:88%;margin:0 0 10px;padding:9px 12px;border-radius:12px;line-height:1.55;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}'
+    +'.cbm.u{margin-left:auto;background:#1f3fd1;color:#fff;border-bottom-right-radius:4px}'
+    +'.cbm.b{background:#fff;color:#1d2340;border:1px solid #e1e5f3;border-bottom-left-radius:4px}'
+    +'.cbm .cbt{font-weight:700;color:#1f3fd1;margin-bottom:3px}.cbm .cbp{font-size:12px;color:#6b7393;margin-bottom:5px}'
+    +'.cbgo{margin-top:7px;display:inline-block;padding:5px 11px;border-radius:7px;background:#e8edff;color:#1f3fd1;border:1px solid #c9d3fb;font-size:13px;font-weight:700;cursor:pointer}'
+    +'.cbchips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}.cbchip{padding:5px 10px;border-radius:14px;border:1px solid #c9d3fb;background:#fff;color:#1f3fd1;font-size:12.5px;cursor:pointer}'
+    +'#cb_form{display:flex;gap:6px;padding:9px;border-top:1px solid #e1e5f3;background:#fff}'
+    +'#cb_in{flex:1;min-width:0;padding:9px 11px;border:1px solid #cdd4ec;border-radius:9px;font-size:14px;color:#1d2340;background:#fff;outline:none}'
+    +'#cb_send{padding:0 14px;border:0;border-radius:9px;background:#1f3fd1;color:#fff;font-weight:700;cursor:pointer}#cb_send:disabled{opacity:.5;cursor:default}'
+    +'#cb_note{font-size:11px;color:#8a90aa;padding:0 10px 7px;background:#fff}'
+    +'@media(max-width:768px){#cb_btn{right:14px;bottom:14px;width:48px;height:48px}#cb_pop{right:12px;bottom:72px;height:min(520px,calc(100vh - 96px))}}';
+  document.head.appendChild(st);
+  var b=document.createElement('button'); b.id='cb_btn'; b.type='button'; b.title='사용법 물어보기'; b.textContent='💬';
+  b.onclick=function(){ _cbToggle(); };
+  var p=document.createElement('div'); p.id='cb_pop';
+  p.innerHTML='<div id="cb_head">💬 사용법 도우미<span class="x" title="닫기">×</span></div>'
+    +'<div id="cb_body"></div>'
+    +'<div id="cb_form"><input id="cb_in" type="text" maxlength="200" placeholder="예) 청구 신청은 어디서 해요?" autocomplete="off"><button id="cb_send" type="button">보내기</button></div>'
+    +'<div id="cb_note">인트라넷 사용법만 안내합니다. 고객 개인정보는 입력하지 마세요.</div>';
+  app.appendChild(b); app.appendChild(p);
+  p.querySelector('.x').onclick=function(){ _cbToggle(false); };
+  g('cb_send').onclick=function(){ _cbAsk(); };
+  g('cb_in').onkeydown=function(ev){ if(ev.key==='Enter'&&!ev.isComposing){ ev.preventDefault(); _cbAsk(); } else if(ev.key==='Escape'){ _cbToggle(false); } };
+  g('cb_body').onclick=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var go=t.closest('[data-cbgo]'); if(go){ _cbGo(go.getAttribute('data-cbgo')); return; }
+    var ch=t.closest('[data-cbchip]'); if(ch){ g('cb_in').value=ch.getAttribute('data-cbchip'); _cbAsk(); }
+  };
+  if(!window._cbMsgs) window._cbMsgs=[];
+  _cbDraw();
+}
+function _cbToggle(on){
+  var p=g('cb_pop'); if(!p) return;
+  var open=(on===undefined)?!p.classList.contains('open'):!!on;
+  p.classList.toggle('open',open);
+  if(open){ _cbDraw(); setTimeout(function(){ try{ g('cb_in').focus(); }catch(e){} },30); }
+}
+function _cbAnsHtml(e){
+  var h='<div class="cbt">'+_esc(e.t)+'</div>'+(e.p&&e.p!==e.t?'<div class="cbp">위치: '+_esc(e.p)+'</div>':'')
+    +_esc(e.a).replace(/\n/g,'<br>');
+  return h+'<div><span class="cbgo" data-cbgo="'+_alertEsc(e.id)+'">'+(e.fn?'바로 열기':'바로 가기')+' ›</span></div>';
+}
+function _cbDraw(){
+  var body=g('cb_body'); if(!body) return;
+  var h='<div class="cbm b">안녕하세요'+(cu&&cu.name?' '+_esc(cu.name)+'님':'')+'! 인트라넷에서 하고 싶은 일을 물어보세요.<br>메뉴 위치와 사용 방법을 알려 드리고 그 화면으로 바로 보내 드려요.</div>'
+    +'<div class="cbchips">'+CB_CHIPS.map(function(c){ return '<span class="cbchip" data-cbchip="'+_alertEsc(c)+'">'+_esc(c)+'</span>'; }).join('')+'</div>';
+  (window._cbMsgs||[]).forEach(function(m){ h+='<div class="cbm '+(m.u?'u':'b')+'">'+m.h+'</div>'; });
+  body.innerHTML=h; body.scrollTop=body.scrollHeight;
+}
+function _cbPush(u, html){ (window._cbMsgs=window._cbMsgs||[]).push({u:u?1:0,h:html}); if(window._cbMsgs.length>60) window._cbMsgs.splice(0,window._cbMsgs.length-60); _cbDraw(); }
+async function _cbAsk(){
+  var inp=g('cb_in'); if(!inp) return;
+  var q=String(inp.value||'').trim(); if(!q) return;
+  if(window._cbBusy){ toast('답을 찾는 중입니다. 잠시만 기다려 주세요.'); return; }
+  inp.value=''; _cbPush(1,_esc(q));
+  var cat=_cbCatalog();
+  var loc=_cbLocal(q,cat), picks=[];
+  // 낱말이 확실히 맞으면 AI 없이 바로(무료·즉시)
+  if(loc.length&&loc[0].s>=4&&(loc.length===1||loc[1].s<=loc[0].s*0.6)) picks=[loc[0].e];
+  else {
+    window._cbBusy=true; var sb=g('cb_send'); if(sb) sb.disabled=true;
+    _cbPush(0,'<span style="color:#8a90aa">찾는 중…</span>');
+    var seq=window._cbSeq=(window._cbSeq||0)+1;
+    try{ picks=await _cbAi(q,cat); }catch(e){ picks=null; }
+    window._cbBusy=false; if(sb) sb.disabled=false;
+    if(seq!==window._cbSeq||!window._cbMsgs) return;   // 로그아웃·초기화됨
+    window._cbMsgs.pop();   // '찾는 중…' 지우기
+    if(picks===null){   // AI 연결 실패 → 낱말로 찾은 후보만 보여 줌(확신이 없으니 답 대신 목록으로)
+      var cand=loc.slice(0,3).map(function(x){ return x.e; });
+      if(!cand.length){ _cbPush(0,'지금은 답을 찾지 못했어요(연결 오류). 잠시 뒤 다시 물어보시거나 왼쪽 위 <b>메뉴·자료·파일 검색</b> 칸을 써 보세요.'); return; }
+      _cbPush(0,'연결이 잠시 원활하지 않아 낱말로 찾아봤어요. 이 중에 있을까요?<div class="cbchips" style="margin:6px 0 0">'+cand.map(function(e){ return '<span class="cbgo" style="margin:0" data-cbgo="'+_alertEsc(e.id)+'">'+_esc(e.p||e.t)+' ›</span>'; }).join('')+'</div>');
+      return;
+    }
+  }
+  if(!picks.length){
+    _cbPush(0,'죄송해요, 맞는 안내를 찾지 못했어요. 다른 말로 물어보시거나 왼쪽 위 <b>메뉴·자료·파일 검색</b> 칸에 낱말을 넣어 보세요.');
+    return;
+  }
+  _cbPush(0,_cbAnsHtml(picks[0]));
+  if(picks.length>1) _cbPush(0,'혹시 이걸 찾으셨나요?<div class="cbchips" style="margin:6px 0 0">'+picks.slice(1).map(function(e){ return '<span class="cbgo" style="margin:0" data-cbgo="'+_alertEsc(e.id)+'">'+_esc(e.p||e.t)+' ›</span>'; }).join('')+'</div>');
+}
+// [바로 가기] — 누른 시점에 목록을 다시 만들어 권한을 다시 확인(그 사이 숨김·로그아웃 반영)
+function _cbGo(id){
+  var e=null; _cbCatalog().some(function(x){ if(x.id===id){ e=x; return true; } return false; });
+  if(!e){ toast('지금은 열 수 없는 메뉴입니다.'); return; }
+  try{
+    if(e.fn){ window[e.fn](); }
+    else { var el=g(e.nav); if(el) el.click(); }
+    if(window.innerWidth<=768) _cbToggle(false);
+  }catch(err){ toast('화면을 열지 못했습니다.'); }
+}
+function _cbClear(){
+  window._cbMsgs=null; window._cbBusy=false; window._cbSeq=(window._cbSeq||0)+1;
+  ['cb_btn','cb_pop','cb_css'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); });
+}
 // ===== 예약문자발송 (rsv, 2026-09-26) — 좌 입력(성함·날짜·장소) → 우 문자 미리보기 실시간 완성 =====
 // 입력값(고객 성함·연락처)은 저장·동기화하지 않음(화면에서만 — 로그아웃 시 _rsvClear로 비움).
 // 문구 틀만 사용자별로 저장: 동기화 키 tops_rsvcfg = {tpl:{사용자이름: 문구}} (텍스트만, 함정 B).
