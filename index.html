@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-14</div>
   </div>
 </div>
 
@@ -23155,6 +23155,16 @@ function _wkmtTeam(leader){
   })(leader);
   return team;
 }
+// 계보도 슬라이드의 직속 칸 — 관리자(총무 제외, 박지순=탑스 1지점) 먼저, 팀원은 코드순 (2026-11-04 백동현 요청)
+var WKMT_BRANCH={'박지순':'탑스 1지점'};
+function _wkmtKids(leader){
+  var out=[];
+  ADMINS.forEach(function(a){ if(a&&a.name&&a.name!==leader&&a.role!=='총무'&&_admBelongOf(a)===leader) out.push({name:a.name,code:''}); });
+  (Array.isArray(mem)?mem:[]).filter(function(m){ return m&&m.name&&m.belong===leader&&m.name!==leader&&!out.some(function(o){ return o.name===m.name; }); })
+    .sort(function(a,b){ return (+a.code||0)-(+b.code||0); }).forEach(function(m){ out.push(m); });
+  return out;
+}
+function _wkmtKidNm(n){ return n+(WKMT_BRANCH[n]?' ('+WKMT_BRANCH[n]+')':''); }
 function _wkmtHasSub(n){ return _wkmtTeam(n).length>1; }
 function _wkmtYm(wk){ return String(wk).slice(0,7); }
 function _wkmtWkLabel(wk){
@@ -23487,7 +23497,7 @@ function _wkmtBuild(d, th, items, mock){
   chosen.forEach(function(it){
     if(it.k==='tree'){
       sect('계보도',function(s2,y0){
-        var kidsAll=mem.filter(function(m){ return m&&m.name&&m.belong===d.leader&&m.name!==d.leader; }).sort(function(a,b){ return (+a.code||0)-(+b.code||0); });
+        var kidsAll=_wkmtKids(d.leader);
         var kids=kidsAll.slice(0,18);   // 3줄(18칸)까지 — 넘치면 아래 안내
         if(kidsAll.length>18) TXT(s2,'외 '+(kidsAll.length-18)+'명: '+kidsAll.slice(18).map(function(m){ return m.name; }).join(', '),{x:X,y:5.05,w:W*0.6,h:0.22,fontSize:8,color:T.mu,fit:'shrink'});
         var bw=2.0, bh=0.62; panel(s2,X+(W-bw)/2-0.05,y0,bw+0.1,bh+0.1);
@@ -23497,8 +23507,8 @@ function _wkmtBuild(d, th, items, mock){
         s2.addShape(SH.line,{x:X+W/2,y:y0+bh+0.1,w:0,h:0.25,line:{color:T.mu,width:1.25}});
         kids.forEach(function(k,i){ var r=Math.floor(i/6), c=i%6, cx=X+c*(cw+0.15), cy=y0+1.15+r*(ch+0.15);
           panel(s2,cx,cy,cw,ch);
-          var subs=_drSubTeam(k.name).filter(function(n){ return n!==k.name; }), v=d.agg[k.name]||{a:0};
-          TXT(s2,[{text:k.name,options:{fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,breakLine:true}},{text:(_wkmtRank(k.name)||'')+' · '+_wkmtMan(v.a).toLocaleString()+'만원',options:{fontSize:8.5,color:T.acc,breakLine:true}},
+          var subs=_wkmtTeam(k.name).filter(function(n){ return n!==k.name; }), v=d.agg[k.name]||{a:0};
+          TXT(s2,[{text:_wkmtKidNm(k.name),options:{fontSize:12,bold:true,color:th==='widget'?T.hf:T.fg,breakLine:true}},{text:(_wkmtRank(k.name)||'')+' · '+_wkmtMan(v.a).toLocaleString()+'만원',options:{fontSize:8.5,color:T.acc,breakLine:true}},
             {text:subs.length?('하부 '+subs.length+'명: '+subs.slice(0,6).join(', ')+(subs.length>6?' 외':'')):'하부 없음',options:{fontSize:8,color:T.mu}}],{x:cx+0.08,y:cy+0.05,w:cw-0.16,h:ch-0.1,align:'center',valign:'top',fit:'shrink'}); });
       });
     } else if(it.k==='exam'){
@@ -23548,8 +23558,8 @@ function _wkmtBuild(d, th, items, mock){
       sect('팀별실적',function(s2,y0){
         var ts=d.teams.slice().sort(function(a,b){ return b.t.a-a.t.a; });
         if(!ts.length){ TXT(s2,'하부 팀(팀원이 있는 팀장)이 없습니다.',{x:X,y:y0+1.2,w:W,h:0.4,fontSize:13,color:T.mu,align:'center'}); return; }
-        bar(s2,0.4,y0,4.6,5.15-y0,ts.map(function(t){ return t.L+' 팀'; }),ts.map(function(t){ return _wkmtMan(t.t.a); }),{dir:'col',title:'팀별 인정실적 (만원)'});
-        table(s2,5.2,y0+0.1,4.3,['팀','인원','건수','인정실적','영수실적'],ts.slice(0,12).map(function(t){ return [t.L+' 팀',t.n+'명',t.t.c,_wkmtWon(t.t.a),_wkmtWon(t.t.ay)]; }),[1.6,0.8,0.8,1.7,1.7],{fs:9,rh:0.3});
+        bar(s2,0.4,y0,4.6,5.15-y0,ts.map(function(t){ return _wkmtKidNm(t.L)+' 팀'; }),ts.map(function(t){ return _wkmtMan(t.t.a); }),{dir:'col',title:'팀별 인정실적 (만원)'});
+        table(s2,5.2,y0+0.1,4.3,['팀','인원','건수','인정실적','영수실적'],ts.slice(0,12).map(function(t){ return [_wkmtKidNm(t.L)+' 팀',t.n+'명',t.t.c,_wkmtWon(t.t.a),_wkmtWon(t.t.ay)]; }),[1.6,0.8,0.8,1.7,1.7],{fs:9,rh:0.3});
       },_mtYmLabel(d.ym));
     } else if(it.k==='goal'){
       var gr=d.team.map(function(n){ var gl=d.goals[n], v=d.agg[n], ga=gl?(+gl.a||0):0, gc=gl?(+gl.c||0):0, rt=ga>0?Math.round(v.a/ga*100):null;
@@ -23749,17 +23759,17 @@ function _wkmtBuildRpt(d, th, items, mock, onlySum){
   var rowsH=function(y,n,max){ return Math.min(max||0.34,(5.1-y)/(n+1)); };
   chosen.forEach(function(it){
     if(it.k==='tree'){
-      var kidsAll=mem.filter(function(m){ return m&&m.name&&m.belong===d.leader&&m.name!==d.leader; }).sort(function(x,y){ return (+x.code||0)-(+y.code||0); }), kids=kidsAll.slice(0,18);
+      var kidsAll=_wkmtKids(d.leader), kids=kidsAll.slice(0,18);
       sect('계보도','직속 '+kidsAll.length+'명 · 팀 전체 '+d.team.length+'명 · 팀 인정실적 '+fmt(man(d.tot.a))+'만원',function(s2,a2){
         var bw=2.2, bh=0.62, cx0=a2.x+(a2.w-bw)/2; R(s2,{x:cx0,y:a2.y,w:bw,h:bh,fill:{color:P.d}});
         T(s2,[{text:d.leader+' '+(_wkmtRank(d.leader)||''),options:{fontSize:12,bold:true,color:'FFFFFF',breakLine:true}},{text:'팀 '+d.team.length+'명 · '+fmt(man(d.tot.a))+'만원',options:{fontSize:8.5,color:'D5DAE2'}}],{x:cx0,y:a2.y,w:bw,h:bh,align:'center'});
         if(!kids.length){ empty(s2,a2.x,a2.y+1.2,a2.w,0.4,'하부 인원이 없습니다.'); return; }
         var per=Math.min(kids.length,6), rows=Math.ceil(kids.length/6), cw2=(a2.w-0.15*(per-1))/per, top=a2.y+bh+0.45, ch=Math.min(1.25,(5.1-top)/rows-0.15);
         L(s2,a2.x+a2.w/2,a2.y+bh,0,0.22,P.ln,1); L(s2,a2.x+cw2/2,a2.y+bh+0.22,(per-1)*(cw2+0.15),0,P.ln,1);
-        kids.forEach(function(k,i){ var r=Math.floor(i/6), cc=i%6, x=a2.x+cc*(cw2+0.15), y=top+r*(ch+0.15), v=d.agg[k.name]||{a:0}, subs=_drSubTeam(k.name).filter(function(n){ return n!==k.name; });
+        kids.forEach(function(k,i){ var r=Math.floor(i/6), cc=i%6, x=a2.x+cc*(cw2+0.15), y=top+r*(ch+0.15), v=d.agg[k.name]||{a:0}, subs=_wkmtTeam(k.name).filter(function(n){ return n!==k.name; });
           if(r===0) L(s2,x+cw2/2,a2.y+bh+0.22,0,top-(a2.y+bh+0.22),P.ln,1);
           R(s2,{x:x,y:y,w:cw2,h:ch,fill:{color:'FFFFFF'},line:{color:P.ln,width:0.75}}); R(s2,{x:x,y:y,w:cw2,h:0.04,fill:{color:i===0?P.a:P.d}});
-          T(s2,[{text:k.name,options:{fontSize:11,bold:true,breakLine:true}},{text:(_wkmtRank(k.name)||'')+' · '+fmt(man(v.a))+'만원',options:{fontSize:8,color:P.a,breakLine:true}},{text:subs.length?('하부 '+subs.length+'명'):'하부 없음',options:{fontSize:7.5,color:P.mu}}],{x:x+0.06,y:y+0.08,w:cw2-0.12,h:ch-0.12,align:'center',fit:'shrink'}); });
+          T(s2,[{text:_wkmtKidNm(k.name),options:{fontSize:11,bold:true,breakLine:true}},{text:(_wkmtRank(k.name)||'')+' · '+fmt(man(v.a))+'만원',options:{fontSize:8,color:P.a,breakLine:true}},{text:subs.length?('하부 '+subs.length+'명'):'하부 없음',options:{fontSize:7.5,color:P.mu}}],{x:x+0.06,y:y+0.08,w:cw2-0.12,h:ch-0.12,align:'center',fit:'shrink'}); });
         if(kidsAll.length>18) T(s2,'외 '+(kidsAll.length-18)+'명: '+kidsAll.slice(18).map(function(m){ return m.name; }).join(', '),{x:a2.x,y:5.05,w:a2.w*0.7,h:0.18,fontSize:7.5,color:P.mu,fit:'shrink'}); });
     } else if(it.k==='exam'){
       var wait=d.exs.filter(function(e){ return !e.done; }).length;
@@ -23804,7 +23814,7 @@ function _wkmtBuildRpt(d, th, items, mock, onlySum){
       sect('팀별실적',ts.length?'하부 팀 '+ts.length+'개 · 1위 '+ts[0].L+' 팀 '+fmt(man(ts[0].t.a))+'만원':'하부 팀 없음',function(s2,a2){
         if(!ts.length){ empty(s2,a2.x,a2.y+1.2,a2.w,0.4,'하부 팀(팀원이 있는 팀장)이 없습니다.'); return; }
         var hw=(a2.w-0.3)/2, y=cap(s2,a2.x,a2.y,hw,'팀별 인정실적','(만원)'); colsC(s2,a2.x,y+0.05,hw,5.1-y-0.05,ts.slice(0,8).map(function(t){ return [t.L,man(t.t.a)]; }),{avg:ts.length>1});
-        y=cap(s2,a2.x+hw+0.3,a2.y,hw,'팀별 상세','(원)'); var rows=ts.slice(0,12).map(function(t){ return [t.L+' 팀',t.n+'명',String(t.t.c),fmt(t.t.a),fmt(t.t.ay)]; });
+        y=cap(s2,a2.x+hw+0.3,a2.y,hw,'팀별 상세','(원)'); var rows=ts.slice(0,12).map(function(t){ return [_wkmtKidNm(t.L)+' 팀',t.n+'명',String(t.t.c),fmt(t.t.a),fmt(t.t.ay)]; });
         table(s2,a2.x+hw+0.3,y,hw,['팀','인원','건수','인정실적','영수실적'],rows,[1.6,0.8,0.8,1.7,1.7],{rh:rowsH(y,rows.length,0.3),fs:8.5,b0:1}); },_mtYmLabel(d.ym));
     } else if(it.k==='goal'){
       var gr=d.team.map(function(n){ var gl=d.goals[n], v=d.agg[n], ga=gl?(+gl.a||0):0, gc=gl?(+gl.c||0):0, rt=ga>0?Math.round(v.a/ga*100):null;
