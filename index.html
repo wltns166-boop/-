@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-7</div>
   </div>
 </div>
 
@@ -6115,11 +6115,41 @@ function _cbDraw(){
   body.innerHTML=h; body.scrollTop=body.scrollHeight;
 }
 function _cbPush(u, html, ph){ (window._cbMsgs=window._cbMsgs||[]).push({u:u?1:0,h:html,ph:ph||0}); if(window._cbMsgs.length>60) window._cbMsgs.splice(0,window._cbMsgs.length-60); _cbDraw(); }
+// 매니저 연락처 답변 (v2026.11.04-7, 백동현 요청) — 홈 '매니저 연락처' 표(mgrs, 전원 열람)에서 찾아 그대로 보여 줌(AI 미사용).
+// 연락처 낱말(연락처·번호·전화…)이 있고 회사명·이름이 표의 값과 맞을 때만 — 다른 질문을 가로채지 않게
+function _cbContact(q){
+  var nq=_cbNz(q);
+  // 강한 낱말(연락처·전화…)은 바로, 약한 낱말(번호·지점장·매니저)은 회사명이 맞고 다른 업무 낱말이 없을 때만 — 리뷰 반영(가로채기 방지)
+  var strong=/연락처|전화|핸드폰|휴대폰|전번|폰번호/.test(nq);
+  var weak=!strong&&/번호|지점장|매니저/.test(nq)&&!/증권|청구|설계|입력|코드|계약|주민|계좌|접수|고객/.test(nq);
+  if(!strong&&!weak) return '';
+  var rows=[];
+  try{ ['son','saeng'].forEach(function(sd){ ((mgrs&&mgrs[sd])||[]).forEach(function(r){ if(r&&(r.co||r.nm)) rows.push({sd:sd,co:String(r.co||''),mg:String(r.mg||''),nm:String(r.nm||''),ph:String(r.ph||'')}); }); }); }catch(e){ return ''; }
+  if(!rows.length) return '';
+  var shortOf=function(co){ return _cbNz(co).replace(/\(주\)|주식회사/g,'').replace(/(손해보험|생명보험|화재해상보험|해상화재보험|화재보험|해상보험|손보|생명|화재|보험)$/,''); };
+  var full=rows.filter(function(r){ var k=_cbNz(r.co).replace(/\(주\)|주식회사/g,''); return k.length>=2&&nq.indexOf(k)>=0; });
+  var hit=full.length?full:rows.filter(function(r){ var k=shortOf(r.co); return k.length>=2&&nq.indexOf(k)>=0; });
+  var byNm=rows.filter(function(r){ var k=_cbNz(r.nm); return k.length>=2&&nq.indexOf(k)>=0; });
+  if(byNm.length&&strong){ var both=hit.filter(function(r){ return byNm.indexOf(r)>=0; }); hit=both.length?both:byNm; }
+  if(!hit.length) return '';
+  // 직책(지점장·매니저 등)을 물었으면 그 직책 줄만 — 맞는 줄이 없으면 그 회사 전체
+  var mgw=(nq.match(/지점장|부지점장|센터장|팀장|본부장|매니저|실장|과장|대리/)||[])[0];
+  if(mgw){ var f=hit.filter(function(r){ return _cbNz(r.mg).indexOf(mgw)>=0; }); if(f.length) hit=f; }
+  hit=hit.slice(0,8);
+  return '<div class="cbt">매니저 연락처</div><div class="cbp">위치: 홈 화면 › 매니저 연락처 표</div>'
+    +hit.map(function(r){
+      var ph=(r.ph.match(/\d[\d\- ]{6,}\d/)||[''])[0].replace(/[^\d\-]/g,'');   // 첫 번호만 링크(내선 숫자 섞임 방지)
+      return '<div style="margin:4px 0"><b>'+_esc(r.co||'-')+'</b>'+(r.mg?' · '+_esc(r.mg):'')+(r.nm?' · '+_esc(r.nm):'')
+        +'<br>'+(ph?'📞 <a href="tel:'+_alertEsc(ph)+'" style="color:#2f6bd8">'+_esc(r.ph)+'</a>':'번호 미등록')+'</div>';
+    }).join('');
+}
 async function _cbAsk(){
   var inp=g('cb_in'); if(!inp) return;
   var q=String(inp.value||'').trim(); if(!q) return;
   if(window._cbBusy){ toast('답을 찾는 중입니다. 잠시만 기다려 주세요.'); return; }
   inp.value=''; _cbPush(1,_esc(q));
+  var ctH=''; try{ ctH=_cbContact(q); }catch(e){}
+  if(ctH){ _cbPush(0,ctH); return; }
   var cat=_cbCatalog();
   var loc=_cbLocal(q,cat), picks=[];
   // 낱말이 확실히 맞으면 AI 없이 바로(무료·즉시)
