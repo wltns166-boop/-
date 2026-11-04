@@ -467,7 +467,7 @@
 - **2026-11-04 3차 실사고 — 문서 99.9%(1,047,201B)로 병력정리 저장 거부(김하은 — 조단아 고객, 목록에 없음)**: 이번엔 mhx의 note(원문 마크다운)만으로 437KB.
   **병력정리 저장소를 컬렉션 `mhx/{id}`(기록 1건=문서 1개)로 이전**(v2026.11.04-2): `_mhxCloudMergeNow`가 컬렉션을 읽어 mutator 적용 후 **바뀐 문서만 set/delete**(batch),
   표시는 `_mhxColStart` 실시간 구독(loadFromFirestore·rWm에서 시작, logout `_mhxColStop`), 실패는 토스트 + 자동 저장 실패면 `_lastMedSavedId`를 비워 [목록 저장]으로 재시도.
-  `_mhxMigrate`가 tops/data에 남은 mhx를 컬렉션에 없는 것만 옮긴 뒤 필드 삭제(어느 기기든 멱등 — 무id 옛 기록은 내용 해시 id `_mhxLegacyId`, 옛 캐시 버전 기기가 다시 써 넣어도 다음 수신 때 다시 옮김).
+  `_mhxMigrate`가 tops/data에 남은 mhx를 컬렉션에 없는 것만 옮긴 뒤 필드 삭제+이전 시각 `mhxMig` 기록(그 뒤 옛 캐시 기기가 배열을 다시 써 넣으면 mhxMig 이후에 만든 기록만 옮김 — 지운 기록 부활 방지. 어느 기기든 멱등 — 무id 옛 기록은 내용 해시 id `_mhxLegacyId`, 옛 캐시 버전 기기가 다시 써 넣어도 다음 수신 때 다시 옮김).
   전체 업로드(FS_DOC.set)·m_wm 저장에서도 mhx 제외. ⚠️ **mhx를 sv('tops_mhx')로 tops/data에 다시 넣지 말 것.** 문서 크기는 이전 후 약 59%.
   저장이 거부된 조단아 기록은 복구 불가 — 다시 분석해야 함.
 

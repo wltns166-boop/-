@@ -4495,7 +4495,7 @@ async function loadFromFirestore(){
     if(d.dbs&&d.dbs.length)    { dbs=d.dbs;     try{ localStorage.setItem('tops_dbs',JSON.stringify(_slimForStorage('tops_dbs',dbs))); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); } }
     if(d.ana&&d.ana.length)    { ana=d.ana;     try{ localStorage.setItem('tops_ana',JSON.stringify(ana)); }catch(e){ console.warn('localStorage tops_ana 저장 실패:',e); } }
     // 병력정리는 컬렉션 mhx/{id}로 이전(2026-11-04 — tops/data 1MiB 한도 99.9% 실사고). tops/data에 남은 옛 mhx는 컬렉션으로 옮기고 필드 삭제.
-    try{ _mhxColStart(); if(Array.isArray(d.mhx)) _mhxMigrate(d.mhx); }catch(e){ console.warn('mhx 컬렉션 시작 실패:',e); }
+    try{ _mhxColStart(); if(Array.isArray(d.mhx)) _mhxMigrate(d.mhx, d.mhxMig); }catch(e){ console.warn('mhx 컬렉션 시작 실패:',e); }
     if(d.clm&&d.clm.length)    { clm=d.clm;     try{ localStorage.setItem('tops_clm',JSON.stringify(clm)); }catch(e){ console.warn('localStorage tops_clm 저장 실패:',e); } }
     if(d.wst&&d.wst.length)    { wst=d.wst;     try{ localStorage.setItem('tops_wst',JSON.stringify(wst)); }catch(e){ console.warn('localStorage tops_wst 저장 실패:',e); } }
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } }
@@ -4575,6 +4575,7 @@ async function loadFromFirestore(){
 // 실시간 감지 - 다른 기기에서 변경 시 자동 반영
 function startRealtimeSync(){
   if(!FS_DOC) return;
+  try{ _mhxColStart(); }catch(e){}
   FS_DOC.onSnapshot(function(doc){
     if(!doc.exists||!cu) return;
     const d = doc.data();
@@ -4587,7 +4588,7 @@ function startRealtimeSync(){
     if(d.prm)     { prm=d.prm;      try{ localStorage.setItem('tops_prm',JSON.stringify(prm)); }catch(e){ console.warn('localStorage tops_prm 저장 실패:',e); }      changed=true; }
     if(d.dba)     { dba=d.dba;      try{ localStorage.setItem('tops_dba',JSON.stringify(dba)); }catch(e){ console.warn('localStorage tops_dba 저장 실패:',e); }      changed=true; }
     if(d.dbs)     { dbs=d.dbs;      try{ localStorage.setItem('tops_dbs',JSON.stringify(_slimForStorage('tops_dbs',dbs))); }catch(e){ console.warn('localStorage tops_dbs 저장 실패:',e); }      changed=true; }
-    if(Array.isArray(d.mhx)&&d.mhx.length){ try{ _mhxMigrate(d.mhx); }catch(e){} }   // 옛 버전 기기가 다시 써 넣은 병력정리 → 컬렉션으로 옮김(표시는 컬렉션 구독이 담당)
+    if(Array.isArray(d.mhx)){ try{ _mhxMigrate(d.mhx, d.mhxMig); }catch(e){} }   // 옛 버전 기기가 다시 써 넣은 병력정리 → 컬렉션으로 옮김(표시는 컬렉션 구독이 담당)
     if(d.consults){ consults=d.consults; try{ localStorage.setItem('tops_consults',JSON.stringify(consults)); }catch(e){ console.warn('localStorage tops_consults 저장 실패:',e); } changed=true; }
     if(d.dbInfo)  { dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } changed=true; }
     if(d.wclose)  { wclose=d.wclose; try{ localStorage.setItem('tops_wclose',JSON.stringify(wclose)); }catch(e){} changed=true; }
@@ -12331,7 +12332,7 @@ function deleteMedByIdx(i){
       }).then(function(){
         rWm();
         toast(found?'삭제되었습니다.':'클라우드에서 해당 항목을 찾지 못했습니다 — 새로고침 후 다시 시도해주세요.');
-      });
+      }).catch(function(){});
     }
     window._delMedIdx=null;
   } else {
@@ -15720,28 +15721,35 @@ function _mhxCache(){ try{ _lsSet('tops_mhx', JSON.stringify(_slimForStorage('to
 // 옛 무id 기록용 결정적 id — 여러 기기가 동시에 옮겨도 같은 문서로 모이게(중복 방지)
 function _mhxLegacyId(m){ var str=JSON.stringify([m.dt,m.cust,m.m,m.note||m.items||'']), h1=5381, h2=52711; for(var i=0;i<str.length;i++){ var c=str.charCodeAt(i); h1=((h1<<5)+h1+c)|0; h2=((h2<<5)+h2^c)|0; } return 'lg_'+(h1>>>0).toString(36)+(h2>>>0).toString(36); }
 // 컬렉션 실시간 구독 — 로그인 세션 1회(로그아웃에서 해제)
+function _mhxIdOk(id){ return typeof id==='string'&&id.length>0&&id.length<200&&id.indexOf('/')<0&&id!=='.'&&id!=='..'; }
 function _mhxColStart(){
   var col=_mhxColRef(); if(!col||window._mhxUnsub||!cu) return;
   window._mhxUnsub=col.onSnapshot(function(snap){
     if(!cu) return;
+    if(snap.empty&&snap.metadata&&snap.metadata.fromCache) return;   // 기기 캐시발 빈 첫 스냅샷으로 목록을 비우지 않음
     var a=[]; snap.forEach(function(d){ var o=d.data()||{}; o.id=o.id||d.id; a.push(o); });
     mhx=_mhxSortArr(a); window._mhxColLoaded=true; _mhxCache();
     try{ if(window._curPage==='wm'&&typeof rWm==='function') rWm(); }catch(e){}
-  }, function(e){ console.warn('mhx 구독 오류:',e); window._mhxUnsub=null; });
+  }, function(e){ console.warn('mhx 구독 오류:',e); window._mhxUnsub=null; setTimeout(function(){ try{ if(cu) _mhxColStart(); }catch(_){} },15000); });
 }
 function _mhxColStop(){ try{ if(window._mhxUnsub) window._mhxUnsub(); }catch(e){} window._mhxUnsub=null; window._mhxColLoaded=false; }
 // tops/data.mhx(옛 저장) → 컬렉션으로 옮긴 뒤 필드 삭제. 컬렉션에 이미 있는 문서는 건드리지 않음(멱등, 어느 기기든 실행 가능)
-function _mhxMigrate(arr){
+// migTs(tops/data.mhxMig): 이전을 끝낸 시각. 그 뒤 옛 캐시 버전 기기가 배열을 통째 다시 써 넣으면, 그 시각 이후에 만든 기록만 옮김
+//   (이미 지운 옛 기록이 되살아나지 않게 — 리뷰 반영). 이전 표식과 필드 삭제는 같은 update로.
+function _mhxMigrate(arr, migTs){
   var col=_mhxColRef(); if(!col||!window.FS_DOC||!Array.isArray(arr)||window._mhxMigBusy) return;
+  migTs=+migTs||0;
   window._mhxMigBusy=true;
   col.get().then(function(snap){
     var have={}; snap.forEach(function(d){ have[d.id]=1; });
-    var adds=[]; arr.forEach(function(m,i){ if(!m||typeof m!=='object') return; var o=_mhxDocOf(m); if(!o.id) o.id=_mhxLegacyId(m); if(!_mhxOrdOf(o)) o.o=1e12+i; if(!have[o.id]){ have[o.id]=1; adds.push(o); } });
-    var chunks=[]; for(var i=0;i<adds.length;i+=400) chunks.push(adds.slice(i,i+400));
+    var adds=[]; arr.forEach(function(m,i){ if(!m||typeof m!=='object') return; var o=_mhxDocOf(m); if(!o.id||!_mhxIdOk(o.id)) o.id=_mhxLegacyId(m); if(!_mhxOrdOf(o)) o.o=1e12+i;
+      if(migTs&&!(_mhxOrdOf(o)>migTs)) return;   // 이전 완료 뒤엔 그 뒤에 만든 기록만
+      if(!have[o.id]){ have[o.id]=1; adds.push(o); } });
+    var chunks=[]; for(var i=0;i<adds.length;i+=100) chunks.push(adds.slice(i,i+100));
     return chunks.reduce(function(p,ch){ return p.then(function(){ var b=window.db.batch(); ch.forEach(function(o){ b.set(col.doc(o.id),o); }); return b.commit(); }); }, Promise.resolve())
-      .then(function(){ return window.FS_DOC.update({mhx:firebase.firestore.FieldValue.delete()}); })
+      .then(function(){ return window.FS_DOC.update({mhx:firebase.firestore.FieldValue.delete(), mhxMig:migTs||Date.now()}); })
       .then(function(){ console.log('병력정리 컬렉션 이전: '+adds.length+'건 추가 · tops/data.mhx 삭제'); });
-  }).catch(function(e){ console.warn('병력정리 컬렉션 이전 실패(다음 접속 때 다시 시도):',e); })
+  }).catch(function(e){ console.warn('병력정리 컬렉션 이전 실패(다음 접속 때 다시 시도):',e); try{ if(_isAdmin()) toast('⚠ 병력정리 저장소 이전 실패 — 새로고침 후에도 반복되면 알려 주세요.'); }catch(_){} })
     .then(function(){ window._mhxMigBusy=false; });
 }
 async function _mhxCloudMergeNow(mutator){
@@ -15754,16 +15762,16 @@ async function _mhxCloudMergeNow(mutator){
   }catch(e){ console.warn('mhx 클라우드 조회 실패 — 화면 목록 기준으로 저장:', e); base=(mhx||[]).map(function(m){ return JSON.parse(JSON.stringify(m)); }); }
   base.forEach(function(m){ if(m&&m.id) baseMap[m.id]=JSON.stringify(_mhxDocOf(m)); });
   var res=mutator(base.map(function(m){ return JSON.parse(JSON.stringify(m)); }))||base;
-  var b=window.db.batch(), n=0, keep={};
+  var ops=[], keep={};
   res.forEach(function(m){
     if(!m||typeof m!=='object') return;
-    if(!m.id) m.id=_mhxLegacyId(m);
-    var o=_mhxDocOf(m); m.o=o.o; keep[m.id]=1;
-    if(baseMap[m.id]!==JSON.stringify(o)){ b.set(col.doc(m.id),o); n++; }
+    if(!m.id||!_mhxIdOk(m.id)) m.id=_mhxLegacyId(m);
+    var o=_mhxDocOf(m); o.id=m.id; m.o=o.o; keep[m.id]=1;
+    if(baseMap[m.id]!==JSON.stringify(o)) ops.push(['s',m.id,o]);
   });
-  Object.keys(baseMap).forEach(function(id){ if(!keep[id]){ b.delete(col.doc(id)); n++; } });
-  if(n){
-    try{ await b.commit(); }
+  Object.keys(baseMap).forEach(function(id){ if(!keep[id]) ops.push(['d',id]); });
+  if(ops.length){
+    try{ for(var ci=0;ci<ops.length;ci+=400){ var b=window.db.batch(); ops.slice(ci,ci+400).forEach(function(op){ if(op[0]==='s') b.set(col.doc(op[1]),op[2]); else b.delete(col.doc(op[1])); }); await b.commit(); } }
     catch(e){ console.warn('병력정리 저장 실패:',e); toast('⚠ 병력정리를 클라우드에 저장하지 못했습니다: '+((e&&e.message)||e)); throw e; }
   }
   mhx=_mhxSortArr(res.filter(function(m){ return m&&typeof m==='object'; }));
@@ -15795,7 +15803,7 @@ function saveMedResult(){
     const custNow=(document.getElementById('med_cust').value||'(미입력)');
     _mhxCloudMerge(function(arr){ arr.forEach(function(m){ if(m&&m.id===savedId) m.cust=custNow; }); return arr; }).then(function(){
       rWm(); toast('이미 저장된 결과입니다 — 고객명을 "'+custNow+'"(으)로 갱신했습니다.');
-    });
+    }).catch(function(){});
     return;
   }
   const e=_mhxNewEntry(text,html);
