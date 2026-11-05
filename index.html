@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.04-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-1</div>
   </div>
 </div>
 
@@ -4626,7 +4626,7 @@ function startRealtimeSync(){
     if(d.claim_coords_v2 && typeof d.claim_coords_v2==='object'){ window._ccCoordsMem=d.claim_coords_v2; try{ localStorage.setItem('tops_claim_coords_v2', JSON.stringify(d.claim_coords_v2)); }catch(e){ console.warn('localStorage tops_claim_coords_v2 저장 실패:',e); } }
     if(d.tplver && typeof d.tplver==='object' && !Array.isArray(d.tplver)){ window._tplVer=d.tplver; _lsSet('tops_tplver', JSON.stringify(d.tplver)); }   // 양식 교체·삭제 도장(2026-10-06 — 다른 기기의 옛 양식 캐시 무효화)
     if(d.wa_before && typeof d.wa_before==='object'){ try{ localStorage.setItem('tops_wa_before', JSON.stringify(d.wa_before)); }catch(e){ console.warn('localStorage tops_wa_before 저장 실패:',e); } if(typeof renderWaBeforeView==='function') renderWaBeforeView(); }
-    if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if(_mh&&_mh.classList.contains('open')) renderHiraGuide(); }catch(e){} }
+    if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if((_mh&&_mh.classList.contains('open'))||_hiraWinOk()) renderHiraGuide(); }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
     if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
@@ -5080,6 +5080,7 @@ function logout(){
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
   try{ _mcrClose(); }catch(e){}   // 모바일 계약 신청 새 창 닫기(개인정보 잔존 방지)
   try{ _icClose(); }catch(e){}   // 보험사 코드 창(새 창·모달) 닫기(비밀번호 잔존 방지)
+  try{ _hiraClose(); }catch(e){}   // 병력정리 서류 발급 방법 창 닫기
   try{ ['kkreg_popup','kkdbmgr_popup'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); }); }catch(e){}   // 카톡 등록·연동 관리 창 제거
   try{ window._medLastPw=''; }catch(_){}
   try{ _wa2Clear(); }catch(_){}   // 신보장분석작성 창(고객 보험 정보) 정리
@@ -21977,18 +21978,70 @@ function _hiraData(){
   if(!window._hiraGuide || typeof window._hiraGuide!=='object') window._hiraGuide={};
   return window._hiraGuide;
 }
+// 새 창(PC) — 휴대폰·태블릿·팝업 차단이면 기존 모달 (2026-11-05, 사용자 요청 — 보험사 코드 창과 같은 방식)
+function _hiraWinOk(){ var w=window._hiraWin; try{ return (w&&!w.closed)?w:null; }catch(e){ return null; } }
+function _hiraEl(id){ var w=_hiraWinOk(); if(w){ try{ var el=w.document.getElementById(id); if(el) return el; }catch(e){} } return g(id); }
+function _hiraToast(m){
+  var w=_hiraWinOk();
+  if(w){ try{ if(typeof w._hiraT==='function'){ w._hiraT(m); return; } }catch(e){} }
+  toast(m);
+}
+function _hiraPopupOpen(){
+  try{ if(!(window.matchMedia&&window.matchMedia('(pointer:fine)').matches)||(window.innerWidth||0)<900) return null; }catch(e){ return null; }
+  var w=null;
+  try{
+    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-820), T=(window.screenY||0)+60;
+    w=window.open('', 'hira_win', 'width=780,height=900,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
+  }catch(e){ w=null; }
+  if(!w||w.closed) return null;   // 차단 시 닫힌 창 객체를 돌려주는 브라우저 대비
+  // 창 안 버튼은 메인 창 함수를 부른다(같은 이름 래퍼 — renderHiraGuide가 만드는 onclick 그대로 동작)
+  var fw=function(n){ return 'function '+n+'(a,b){try{var o=window.opener;if(o&&!o.closed&&typeof o.'+n+'==="function")o.'+n+'(a,b);}catch(e){}}'; };
+  var sc='<scr'+'ipt>'
+    +fw('hiraTab')+fw('uploadHiraImg')+fw('openHiraFull')+fw('delHiraImg')
+    +'function _hiraT(m){var t=document.querySelector(".hira_toast");if(!t)return;t.textContent=m;t.style.display="block";clearTimeout(window._hiraTT);window._hiraTT=setTimeout(function(){t.style.display="none";},2400);}'
+    +'setInterval(function(){try{var o=window.opener;if(!o||o.closed||typeof o._hiraAlive!=="function"||!o._hiraAlive(window))window.close();}catch(e){window.close();}},1500);'
+    +'</scr'+'ipt>';
+  // 내용은 모달(#m_hira)의 마크업을 그대로 복사(× 머리 제외) — 같은 id를 두 곳에 적지 않게
+  var inner='';
+  try{ var mo=g('m_hira').querySelector('.mo').cloneNode(true); var hd=mo.querySelector('.mth'); if(hd) hd.remove(); inner=mo.innerHTML; }catch(e){ return null; }
+  var html='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>서류 발급 방법</title>'
+    +'<style>html,body{margin:0;padding:0;background:#fff;color:#1a1a2e;font-family:"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif}'
+    +'.hira_wrap{max-width:900px;margin:0 auto;padding:18px 20px 30px}'
+    +'.hira_toast{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:10;max-width:80vw}</style>'
+    +'</head><body><div class="hira_wrap">'
+    +'<div style="font-size:17px;font-weight:700;margin-bottom:12px">📄 서류 발급 방법</div>'
+    +inner
+    +'</div><div class="hira_toast"></div>'+sc+'</body></html>';
+  try{ w.document.open(); w.document.write(html); w.document.close(); }
+  catch(e){ try{ w.close(); }catch(_e){} return null; }
+  window._hiraWin=w;
+  try{ w.addEventListener('pagehide', function(){ if(window._hiraWin===w) window._hiraWin=null; setTimeout(function(){ try{ if(!w.closed) w.close(); }catch(e){} },0); }); }catch(e){}
+  try{ w.focus(); }catch(e){}
+  return w;
+}
+try{ window.addEventListener('pagehide', function(){ _hiraClose(); }); }catch(e){}   // 메인 창 새로고침·닫기 때 함께 닫음
+window._hiraAlive=function(w){ try{ return !!cu && window._hiraWin===w; }catch(e){ return false; } };
+function _hiraClose(){
+  var w=window._hiraWin; window._hiraWin=null;
+  try{ if(w&&!w.closed) w.close(); }catch(e){}
+  try{ var mb=g('m_hira'); if(mb) mb.classList.remove('open'); }catch(e){}
+}
 function openHiraGuide(){
   window._hiraTab=window._hiraTab||'internet';
-  var bar=g('hira_admin_bar'); if(bar) bar.style.display=_isAdmin()?'flex':'none';
+  var w=_hiraWinOk();
+  if(w){ try{ w.focus(); }catch(e){} renderHiraGuide(); return; }   // 이미 떠 있으면 앞으로
+  w=_hiraPopupOpen();
+  var bar=_hiraEl('hira_admin_bar'); if(bar) bar.style.display=_isAdmin()?'flex':'none';
   renderHiraGuide();
-  var mb=g('m_hira'); if(mb) mb.classList.add('open');
+  if(!w){ var mb=g('m_hira'); if(mb) mb.classList.add('open'); }
 }
 function hiraTab(k){ window._hiraTab=(k==='phone')?'phone':'internet'; renderHiraGuide(); }
 function renderHiraGuide(){
-  var body=g('hira_body'); if(!body) return;
+  var body=_hiraEl('hira_body'); if(!body) return;
   var k=window._hiraTab||'internet';
   ['internet','phone'].forEach(function(t){
-    var b=g('hira_tab_'+t); if(!b) return;
+    var b=_hiraEl('hira_tab_'+t); if(!b) return;
     b.style.background=(t===k)?'#4858cc':'#f0f1f8';
     b.style.color=(t===k)?'#fff':'#2a2a4a';
     b.style.border=(t===k)?'1px solid #4858cc':'1px solid #ccd0e8';
@@ -22021,36 +22074,39 @@ function renderHiraGuide(){
 function openHiraFull(k,ts){
   ts=+ts||0;
   var d=_hiraData(); var it=(Array.isArray(d[k])?d[k]:[]).find(function(x){return x&&+(x.ts)===ts;});
-  if(it&&it.url&&/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(it.url))) window.open(String(it.url),'_blank','noopener');
+  if(it&&it.url&&/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(it.url))) (_hiraWinOk()||window).open(String(it.url),'_blank','noopener');   // 클릭한 창에서 열어야 팝업 차단을 피함
 }
 function uploadHiraImg(){
-  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(!_isAdmin()){ _hiraToast('관리자만 사용할 수 있습니다.'); return; }
   var k=window._hiraTab||'internet';
-  var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+  var D=document; var hw=_hiraWinOk(); if(hw){ try{ D=hw.document; }catch(e){} }   // 새 창에서 누르면 그 창에서 파일 선택(사용자 동작이 그 창에 있음)
+  var inp=D.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true;
   inp.onchange=async function(){
     var files=Array.prototype.slice.call(inp.files||[]); if(!files.length) return;
-    if(typeof firebase==='undefined'||!firebase.storage){ toast('Storage 미연결 — 사진을 올릴 수 없습니다.'); return; }
+    if(typeof firebase==='undefined'||!firebase.storage){ _hiraToast('Storage 미연결 — 사진을 올릴 수 없습니다.'); return; }
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
-    toast('사진 업로드 중...');
+    _hiraToast('사진 업로드 중...');
     var d=_hiraData(); if(!Array.isArray(d[k])) d[k]=[];
     var okCnt=0;
     for(var i=0;i<files.length;i++){
       var f=files[i];
-      if(f.size>10*1024*1024){ toast(f.name+' — 10MB 이하 이미지만 올릴 수 있습니다.'); continue; }
+      if(f.size>10*1024*1024){ _hiraToast(f.name+' — 10MB 이하 이미지만 올릴 수 있습니다.'); continue; }
       try{
         var ts=Date.now()+i;
         var ref=firebase.storage().ref('hira_guide/'+k+'/'+ts);
-        await ref.put(f,{contentType:f.type||'image/jpeg'});
+        // 새 창에서 고른 파일은 다른 창의 File 객체 — SDK의 instanceof Blob 검사를 통과하도록 메인 창 Blob으로 다시 만듦
+        var blob=(f instanceof Blob)?f:new Blob([await f.arrayBuffer()],{type:f.type||'image/jpeg'});
+        await ref.put(blob,{contentType:f.type||'image/jpeg'});
         var url=await ref.getDownloadURL();
         d[k].push({ts:ts,url:url,name:f.name||''});
         okCnt++;
-      }catch(e){ console.warn('hira upload err:',e); toast('업로드 실패: '+e.message); }
+      }catch(e){ console.warn('hira upload err:',e); _hiraToast('업로드 실패: '+e.message); }
     }
     if(okCnt){
       window._hiraGuide=d;
       try{ sv('tops_hira_guide', d); }catch(e){}
       renderHiraGuide();
-      toast('사진 '+okCnt+'장이 등록되었습니다.');
+      _hiraToast('사진 '+okCnt+'장이 등록되었습니다.');
     }
   };
   inp.click();
@@ -22060,7 +22116,7 @@ function delHiraImg(k,ts){
   var key='hira_'+k+'_'+ts;
   if(window._delHiraConfirm!==key){
     window._delHiraConfirm=key;
-    toast('한 번 더 누르면 삭제됩니다.');
+    _hiraToast('한 번 더 누르면 삭제됩니다.');
     setTimeout(function(){window._delHiraConfirm=null;},3000);
     return;
   }
@@ -22072,7 +22128,7 @@ function delHiraImg(k,ts){
   try{ sv('tops_hira_guide', d); }catch(e){}
   try{ firebase.storage().ref('hira_guide/'+k+'/'+ts).delete().catch(function(){}); }catch(e){}
   renderHiraGuide();
-  toast('삭제되었습니다.');
+  _hiraToast('삭제되었습니다.');
 }
 
 function requestMeritz(){
