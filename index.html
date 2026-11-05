@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-7</div>
   </div>
 </div>
 
@@ -31919,39 +31919,47 @@ function rTeamPerf(){
     agg[p.m].c+=+p.c; agg[p.m].a+=(+p.a||0); agg[p.m].ay+=(+p.ay||0);
   });
 
-  // 산하 인원 재귀 수집
-  function getSubs(leaderName){
-    return mem.filter(function(m){return m.name&&m.belong===leaderName&&m.name!==leaderName;});
-  }
-  function getAllSubs(leaderName){
-    var result=[];
-    getSubs(leaderName).forEach(function(m){
-      result.push(m);
-      getAllSubs(m.name).forEach(function(s){result.push(s);});
-    });
-    return result;
-  }
-
-  // 산하 인원 있는 구성원만 추출 (팀장) — 비관리자는 본인 산하로 한정
+  // 팀 = 하부 전원(팀원 소속 + 관리자 소속 재귀, 총무 제외 — 주간미팅자료 _wkmtTeam과 같은 기준, 2026-11-05 백동현 요청:
+  //   백동현·박지순 지점장 팀과 지점장 직할 인원도 나오게). 어느 팀에도 안 잡힌 인원·실적만 있는 이름은 맨 아래 '소속 팀 없음'.
   var myTeamForPerf=getMyTeam(); // null=전체, 배열=산하
-  var leaders=mem.filter(function(m){
-    if(!m.name || getSubs(m.name).length===0) return false;
-    if(myTeamForPerf===null) return true;
-    return myTeamForPerf.includes(m.name);
-  });
-
-  if(!leaders.length){
+  var _tpRank=function(n){ return _wkmtRank(n)||''; };
+  var _tpCode=function(n){ var m=mem.find(function(x){ return x&&x.name===n; }); return m?(+m.code||0):-1; };
+  var leaders=[];
+  (typeof _admList==='function'?_admList():ADMINS).forEach(function(a){ if(a&&a.name&&a.role!=='총무'&&_wkmtHasSub(a.name)&&leaders.indexOf(a.name)<0) leaders.push(a.name); });
+  // 관리자 팀장: 위 관리자(소속 없는 관리자)가 먼저 — 백동현 팀(전원) → 박지순 팀
+  leaders.sort(function(x,y){ var bx=_admBelongOf({name:x})?1:0, by=_admBelongOf({name:y})?1:0; return bx-by; });
+  mem.filter(function(m){ return m&&m.name&&_wkmtHasSub(m.name); }).sort(function(a,b){return (+a.code||0)-(+b.code||0);})
+    .forEach(function(m){ if(leaders.indexOf(m.name)<0) leaders.push(m.name); });
+  if(myTeamForPerf!==null) leaders=leaders.filter(function(n){ return myTeamForPerf.indexOf(n)>=0; });
+  var teamsOf={}, covered={};
+  leaders.forEach(function(L){ teamsOf[L]=_wkmtTeam(L); teamsOf[L].forEach(function(n){ covered[n]=1; }); });
+  var others=[];
+  if(myTeamForPerf===null){
+    mem.forEach(function(m){ if(m&&m.name&&m.name.trim()&&!covered[m.name]&&others.indexOf(m.name)<0) others.push(m.name); });
+    Object.keys(agg).forEach(function(n){ if(n&&!covered[n]&&others.indexOf(n)<0) others.push(n); });
+  }
+  if(!leaders.length&&!others.length){
     wrap.innerHTML='<div class="card"><div class="em">팀장/산하 구성원 데이터가 없습니다.<br><span style="font-size:14px">구성원에서 소속을 설정해주세요.</span></div></div>';
     return;
   }
-
-  // 팀장 코드순 정렬
-  leaders.sort(function(a,b){return (+a.code||0)-(+b.code||0);});
+  // 팀 안 표시 순서: 팀장 → 그 아래를 계보 순서대로(위 사람 바로 밑에 그 산하) — 들여쓰기 깊이 표시
+  var _tpOrder=function(L){
+    var out=[{n:L,d:0}], seen={}; seen[L]=1;
+    (function walk(p,d){
+      var kids=[];
+      ADMINS.forEach(function(a){ if(a&&a.name&&a.role!=='총무'&&!seen[a.name]&&_admBelongOf(a)===p) kids.push(a.name); });
+      mem.filter(function(m){ return m&&m.name&&!seen[m.name]&&m.belong===p; }).sort(function(a,b){return (+a.code||0)-(+b.code||0);}).forEach(function(m){ if(kids.indexOf(m.name)<0) kids.push(m.name); });
+      kids.forEach(function(k){ if(seen[k]) return; seen[k]=1; out.push({n:k,d:d}); walk(k,d+1); });
+    })(L,1);
+    return out;
+  };
+  var cards=leaders.map(function(L){ return {L:L,list:_tpOrder(L)}; });
+  if(others.length) cards.push({L:'',list:others.sort(function(x,y){ return _tpCode(x)-_tpCode(y); }).map(function(n){ return {n:n,d:1}; })});
 
   var html='';
-  leaders.forEach(function(leader){
-    var subs=getAllSubs(leader.name);
-    var allMembers=[leader].concat(subs);
+  cards.forEach(function(cd){
+    var leader={name:cd.L,rank:cd.L?_tpRank(cd.L):''};
+    var allMembers=cd.list.map(function(o){ return {name:o.n,rank:_tpRank(o.n),d:o.d}; });
 
     // 팀 합계
     var teamTotal={c:0,a:0,ay:0};
@@ -31963,9 +31971,9 @@ function rTeamPerf(){
       var perf=agg[m.name]||{c:0,a:0,ay:0};
       var isLeader=m.name===leader.name;
       return '<tr style="'+(isLeader?'background:rgba(72,88,204,.05);font-weight:700':'')+'">'
-        +'<td style="padding-left:'+(isLeader?'10':'24')+'px;font-size:15px;color:#1a1a3a">'
+        +'<td style="padding-left:'+(isLeader?10:10+14*(m.d||1))+'px;font-size:15px;color:#1a1a3a">'
           +(isLeader?'':'<span style="color:#ccc;margin-right:4px">└</span>')
-          +m.name+'<span style="font-size:13px;color:#8888bb;margin-left:5px">'+(m.rank||'')+'</span>'
+          +_esc(_wkmtKidNm(m.name))+'<span style="font-size:13px;color:#8888bb;margin-left:5px">'+_esc(m.rank||'')+'</span>'
         +'</td>'
         +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.c||0)+'건</td>'
         +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.a||0).toLocaleString()+'원</td>'
@@ -31976,8 +31984,8 @@ function rTeamPerf(){
     html+='<div class="card" style="margin-bottom:14px">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(72,88,204,.12)">'
         +'<div style="font-size:15px;font-weight:700;color:#4858cc">'
-          +'<i class="ti ti-users"></i> '+leader.name+' 팀'
-          +(leader.rank?'<span class="rb" style="margin-left:6px">'+leader.rank+'</span>':'')
+          +'<i class="ti ti-users"></i> '+(leader.name?_esc(_wkmtKidNm(leader.name))+' 팀':'소속 팀 없음')
+          +(leader.rank?'<span class="rb" style="margin-left:6px">'+_esc(leader.rank)+'</span>':'')
           +'<span style="font-size:13px;color:#8888bb;font-weight:400;margin-left:8px">총 '+allMembers.length+'명</span>'
         +'</div>'
         +'<div style="display:flex;gap:16px;font-size:14px">'
