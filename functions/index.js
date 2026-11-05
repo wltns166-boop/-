@@ -955,6 +955,59 @@ async function _kkHandle(body, res) {
       res.json({ ok: sentR >= msgsR.length, sent: sentR, total: msgsR.length, textParts: partsR.length, nick: uR.nick || "", error: lastErrR || (cutR ? "문구가 길어 뒷부분이 생략됨" : undefined) });
       return;
     }
+    if (action === "hirasend") {
+      // 병력정리 [서류 발급 방법] 카톡 나에게 보내기(2026-11-05, 사용자 요청) — 그 탭의 안내 사진을 본인 '나와의 채팅'으로(사진 1장=카드 1통).
+      //   매칭·제한은 rsvsend와 같은 방식(member 정확 일치·승인 계정, 10초 간격·하루 30회). 사진은 이 버킷 hira_guide/ 경로만 허용.
+      const memberH = String(body.member || "").trim();
+      if (!memberH) { res.status(400).json({ error: { message: "member가 없습니다." } }); return; }
+      const HIRA_TABS = { internet: "인터넷 발급 방법", phone: "핸드폰 발급 방법", minor: "미성년자(자녀) 발급 방법" };
+      const tabH = String(body.tab || "");
+      if (!Object.prototype.hasOwnProperty.call(HIRA_TABS, tabH)) { res.status(400).json({ error: { message: "탭 값이 올바르지 않습니다." } }); return; }
+      const HIRA_RE = new RegExp("^https://firebasestorage\\.googleapis\\.com/v0/b/team-tops-intranet\\.firebasestorage\\.app/o/hira_guide%2F" + tabH + "%2F\\d+\\?alt=media&token=[\\w-]+$");
+      const imgsH = (Array.isArray(body.imgs) ? body.imgs.slice(0, 15) : []).map((u) => String(u || "").slice(0, 2048)).filter((u) => HIRA_RE.test(u));
+      if (!imgsH.length) { res.json({ ok: false, error: "보낼 사진이 없습니다." }); return; }
+      const [cfgSnapH, tokSnapH] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
+      const cfgH = cfgSnapH.exists ? (cfgSnapH.data() || {}) : {};
+      const usersH = (tokSnapH.exists && (tokSnapH.data() || {}).users) || {};
+      if (!cfgH.restKey) { res.json({ ok: false, error: "카톡 연동 설정(REST API 키)이 없습니다 — 관리자에게 문의하세요." }); return; }
+      const matchedH = Object.keys(usersH).filter((id) => usersH[id] && usersH[id].approved && String(usersH[id].member || "") === memberH);
+      if (!matchedH.length) { res.json({ ok: false, error: "카톡 미연동/미승인(" + memberH + ") — DB 정보 [카톡 알림 연동]으로 연동한 뒤 관리자 승인을 받으세요." }); return; }
+      if (matchedH.length > 1) { res.json({ ok: false, error: "'" + memberH + "' 매핑 계정이 " + matchedH.length + "개입니다 — 중복 연동을 정리한 뒤 다시 시도하세요." }); return; }
+      const kidH = matchedH[0];
+      const ldh = (cfgH.lastHiraSend && typeof cfgH.lastHiraSend === "object") ? cfgH.lastHiraSend : {};
+      if (ldh[kidH] && Date.now() - ldh[kidH] < 10 * 1000) { res.status(429).json({ error: { message: "10초에 1회만 보낼 수 있습니다." } }); return; }
+      const dayH = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const dch = (cfgH.hiraDaily && typeof cfgH.hiraDaily === "object") ? cfgH.hiraDaily : {};
+      const dcH = (dch[kidH] && dch[kidH].d === dayH) ? dch[kidH] : { d: dayH, n: 0 };
+      if (dcH.n >= 30) { res.status(429).json({ error: { message: "오늘 보낼 수 있는 횟수(30회)를 넘었습니다." } }); return; }
+      dcH.n++; dch[kidH] = dcH;
+      Object.keys(dch).forEach((k) => { if (!dch[k] || dch[k].d !== dayH) delete dch[k]; });
+      ldh[kidH] = Date.now();
+      Object.keys(ldh).forEach((k) => { if (Date.now() - ldh[k] > 3600 * 1000) delete ldh[k]; });
+      await KK_CFG().set({ lastHiraSend: ldh, hiraDaily: dch }, { merge: true }).catch(() => {});
+      const uH = usersH[kidH];
+      const tH = await _kkAccessToken(cfgH, uH);
+      if (!tH.at) {
+        if (tH.relink) { uH.needsRelink = true; await KK_TOK().set({ users: usersH }, { merge: true }).catch(() => {}); }
+        res.json({ ok: false, error: "토큰 갱신 실패 — 카톡 재연동이 필요합니다." });
+        return;
+      }
+      if (tH.upd) { Object.assign(uH, tH.upd); uH.needsRelink = false; await KK_TOK().set({ users: usersH }, { merge: true }).catch(() => {}); }
+      const nmH = HIRA_TABS[tabH];
+      const msgsH = imgsH.map((u, i) => JSON.stringify({
+        object_type: "feed",
+        content: { title: "📄 " + nmH + " — STEP " + (i + 1) + "/" + imgsH.length, description: "병력정리 서류 발급 안내", image_url: u, link: { web_url: u, mobile_web_url: u } },
+        buttons: [{ title: "크게 보기", link: { web_url: u, mobile_web_url: u } }]
+      }));
+      let sentH = 0, lastErrH = "";
+      for (const tpl of msgsH) {
+        const sr = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tpl }, tH.at);
+        if (sr.ok) sentH++;
+        else { lastErrH = _kkErrKo((sr.data && (sr.data.msg || sr.data.error_description)) || ("전송 실패 " + sr.status)); break; }
+      }
+      res.json({ ok: sentH >= msgsH.length, sent: sentH, total: msgsH.length, nick: uH.nick || "", error: lastErrH || undefined });
+      return;
+    }
     if (action === "kktest") {
       // 연동 관리 화면 [테스트] — 해당 계정의 카톡으로 간단한 확인 메시지 발송 (보고서 캡처 없음)
       const kidT = String(body.id || "");
