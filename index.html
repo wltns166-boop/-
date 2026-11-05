@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-3</div>
   </div>
 </div>
 
@@ -22098,6 +22098,52 @@ function renderHiraGuide(){
       +del+'</div>'
     +'<div style="font-size:12px;color:#8890bb;text-align:center;margin-top:6px">좌우 버튼(키보드 ← →)으로 다음 사진 · 사진을 누르면 크게 보기</div>';
 }
+// 묶음 사진 — 탭 사진들을 STEP 번호와 함께 격자로 합친 JPEG 한 장(Storage hira_guide/sheets/<탭>_<해시>.jpg).
+//   이름은 사진 목록의 해시라 같은 구성이면 이미 만든 파일을 다시 씀(보낼 때마다 새 파일이 쌓이지 않게). 반환 {u,w,h,n}
+async function _hiraSheet(k, list){
+  if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
+  var key=list.map(function(it){ return (+it.ts||0)+'|'+String(it.url); }).join('\n'), h=5381;
+  for(var i=0;i<key.length;i++){ h=((h*33)^key.charCodeAt(i))>>>0; }
+  var name=(h.toString(36)+list.length.toString(36)).slice(0,16);
+  var ref=firebase.storage().ref('hira_guide/sheets/'+k+'_'+name+'.jpg');
+  try{
+    var md=await ref.getMetadata(); var cm=(md&&md.customMetadata)||{};
+    if(+cm.w>0&&+cm.h>0) return {u:await ref.getDownloadURL(), w:+cm.w, h:+cm.h, n:list.length};
+  }catch(e){}   // 없으면 새로 만듦
+  var imgs=[];
+  for(var j=0;j<list.length;j++){
+    var res=await fetch(String(list[j].url)); if(!res.ok) throw new Error('사진 '+(j+1)+' 불러오기 실패('+res.status+')');
+    imgs.push(await createImageBitmap(await res.blob()));
+  }
+  var n=imgs.length, cols=n===1?1:(n<=4?2:3), gap=18, pad=28, top=86, lab=46;
+  var W=720, rows=[];
+  for(var r0=0;r0<n;r0+=cols) rows.push(imgs.slice(r0,r0+cols));
+  var calc=function(cw){ var tot=top+pad; rows.forEach(function(row){ var mh=0; row.forEach(function(im){ mh=Math.max(mh, im.height*cw/im.width); }); tot+=lab+mh+gap; }); return tot; };
+  while(W>360&&calc(W)>11500) W-=40;   // 카카오 카드 이미지 세로 한도 안으로
+  var CW=pad*2+cols*W+(cols-1)*gap, CH=Math.round(calc(W));
+  var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
+  var x=cv.getContext('2d'); x.fillStyle='#ffffff'; x.fillRect(0,0,CW,CH);
+  x.fillStyle='#1a1a2e'; x.font='bold 40px "Noto Sans KR","Malgun Gothic",sans-serif'; x.textBaseline='middle';
+  x.fillText(HIRA_TAB_NM[k]+' ('+n+'단계)', pad, top/2+6);
+  var y=top, si=0;
+  rows.forEach(function(row){
+    var mh=0; row.forEach(function(im){ mh=Math.max(mh, im.height*W/im.width); });
+    row.forEach(function(im,c){
+      var cx=pad+c*(W+gap); si++;
+      x.fillStyle='#4858cc'; x.fillRect(cx, y+4, 150, lab-12);
+      x.fillStyle='#ffffff'; x.font='bold 26px "Noto Sans KR","Malgun Gothic",sans-serif'; x.fillText('STEP '+si, cx+16, y+4+(lab-12)/2+1);
+      var ih=im.height*W/im.width;
+      x.drawImage(im, cx, y+lab, W, ih);
+      x.strokeStyle='#d4d8ec'; x.lineWidth=2; x.strokeRect(cx+1, y+lab+1, W-2, ih-2);
+    });
+    y+=lab+mh+gap;
+  });
+  imgs.forEach(function(im){ try{ im.close(); }catch(e){} });
+  var blob=await new Promise(function(ok){ cv.toBlob(ok,'image/jpeg',0.85); });
+  if(!blob) throw new Error('사진 합치기 실패');
+  await ref.put(blob,{contentType:'image/jpeg', customMetadata:{w:String(CW), h:String(CH)}});
+  return {u:await ref.getDownloadURL(), w:CW, h:CH, n:n};
+}
 // 카톡 나에게 보내기 — 지금 탭의 사진 전부를 본인 '나와의 채팅'으로(사진 1장=카드 1통, 최대 15장)
 async function hiraKakao(){
   var me=(cu&&cu.name)?String(cu.name):''; if(!me){ _hiraToast('로그인 후 이용해 주세요.'); return; }
@@ -22106,10 +22152,14 @@ async function hiraKakao(){
   if(!list.length){ _hiraToast('보낼 사진이 없습니다.'); return; }
   var urls=list.slice(0,15).map(function(it){ return String(it.url); });
   window._hiraKkBusy=true; renderHiraGuide();
-  _hiraToast(HIRA_TAB_NM[k]+' 사진 '+urls.length+'장을 카톡으로 보내는 중...');
+  _hiraToast(HIRA_TAB_NM[k]+' 사진 '+urls.length+'장을 한 장으로 묶는 중...');
   try{
-    var r=await _kkApi('hirasend',{member:me, tab:k, imgs:urls});
-    if(r&&r.ok) _hiraToast('내 카톡(나와의 채팅)으로 '+r.sent+'장 보냈습니다'+(list.length>15?' (앞 15장까지)':'')+'. 카톡에서 고객에게 전달하세요.');
+    // ① 묶음 — 사진을 한 장으로 합쳐 카드 1통(사용자 요청). 만들기 실패면 ② 한 장씩 보내기로 대체
+    var sheet=null, sheetErr='';
+    try{ sheet=await _hiraSheet(k, list.slice(0,15)); }catch(e){ sheetErr=(e&&e.message)||String(e); console.warn('hira sheet err:', e); }
+    var r=await _kkApi('hirasend', sheet?{member:me, tab:k, sheet:sheet}:{member:me, tab:k, imgs:urls});
+    if(r&&r.ok&&r.sheet) _hiraToast('내 카톡(나와의 채팅)으로 사진 '+sheet.n+'장을 한 장으로 묶어 보냈습니다'+(list.length>15?' (앞 15장까지)':'')+'. 카톡에서 고객에게 전달하세요.');
+    else if(r&&r.ok) _hiraToast('묶음 사진을 만들지 못해 '+r.sent+'장을 하나씩 보냈습니다'+(sheetErr?' ('+sheetErr+')':'')+'.');
     else if(r&&r.sent>0) _hiraToast('일부만 보냈습니다('+r.sent+'/'+r.total+'장): '+(r.error||''));
     else _hiraToast('카톡으로 보내지 못했습니다: '+((r&&((r.error&&r.error.message)||r.error))||'알 수 없는 오류'));
   }catch(e){ console.warn('hira kakao err:', e); _hiraToast('카톡으로 보내지 못했습니다: '+((e&&e.message)||e)); }

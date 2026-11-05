@@ -965,7 +965,11 @@ async function _kkHandle(body, res) {
       if (!Object.prototype.hasOwnProperty.call(HIRA_TABS, tabH)) { res.status(400).json({ error: { message: "탭 값이 올바르지 않습니다." } }); return; }
       const HIRA_RE = new RegExp("^https://firebasestorage\\.googleapis\\.com/v0/b/team-tops-intranet\\.firebasestorage\\.app/o/hira_guide%2F" + tabH + "%2F\\d+\\?alt=media&token=[\\w-]+$");
       const imgsH = (Array.isArray(body.imgs) ? body.imgs.slice(0, 15) : []).map((u) => String(u || "").slice(0, 2048)).filter((u) => HIRA_RE.test(u));
-      if (!imgsH.length) { res.json({ ok: false, error: "보낼 사진이 없습니다." }); return; }
+      // 묶음 모드(2026-11-05, 사용자 요청 "하나씩 말고 묶어서") — 그 탭 사진을 합친 한 장(hira_guide/sheets/<탭>_<해시>.jpg)을 카드 1통으로
+      const SHEET_RE = new RegExp("^https://firebasestorage\\.googleapis\\.com/v0/b/team-tops-intranet\\.firebasestorage\\.app/o/hira_guide%2Fsheets%2F" + tabH + "_[a-z0-9]{1,16}\\.jpg\\?alt=media&token=[\\w-]+$");
+      const sheetH = (body.sheet && typeof body.sheet === "object") ? { u: String(body.sheet.u || "").slice(0, 2048), w: Math.round(+body.sheet.w) || 0, h: Math.round(+body.sheet.h) || 0, n: Math.round(+body.sheet.n) || 0 } : null;
+      const useSheet = !!(sheetH && SHEET_RE.test(sheetH.u));
+      if (!useSheet && !imgsH.length) { res.json({ ok: false, error: "보낼 사진이 없습니다." }); return; }
       const [cfgSnapH, tokSnapH] = await Promise.all([KK_CFG().get(), KK_TOK().get()]);
       const cfgH = cfgSnapH.exists ? (cfgSnapH.data() || {}) : {};
       const usersH = (tokSnapH.exists && (tokSnapH.data() || {}).users) || {};
@@ -994,6 +998,15 @@ async function _kkHandle(body, res) {
       }
       if (tH.upd) { Object.assign(uH, tH.upd); uH.needsRelink = false; await KK_TOK().set({ users: usersH }, { merge: true }).catch(() => {}); }
       const nmH = HIRA_TABS[tabH];
+      if (useSheet) {
+        const contH = { title: "📄 " + nmH + (sheetH.n > 0 ? " (" + sheetH.n + "단계)" : ""), description: "병력정리 서류 발급 안내 — [크게 보기]로 전체 사진", image_url: sheetH.u, link: { web_url: sheetH.u, mobile_web_url: sheetH.u } };
+        if (sheetH.w > 0 && sheetH.h > 0 && sheetH.w <= 4000 && sheetH.h <= 12000) { contH.image_width = sheetH.w; contH.image_height = sheetH.h; }
+        const tplH = JSON.stringify({ object_type: "feed", content: contH, buttons: [{ title: "크게 보기", link: { web_url: sheetH.u, mobile_web_url: sheetH.u } }] });
+        const sh = await _kkForm("https://kapi.kakao.com/v2/api/talk/memo/default/send", { template_object: tplH }, tH.at);
+        if (sh.ok) res.json({ ok: true, sent: 1, total: 1, sheet: true, nick: uH.nick || "" });
+        else res.json({ ok: false, sent: 0, total: 1, error: _kkErrKo((sh.data && (sh.data.msg || sh.data.error_description)) || ("전송 실패 " + sh.status)) });
+        return;
+      }
       const msgsH = imgsH.map((u, i) => JSON.stringify({
         object_type: "feed",
         content: { title: "📄 " + nmH + " — STEP " + (i + 1) + "/" + imgsH.length, description: "병력정리 서류 발급 안내", image_url: u, link: { web_url: u, mobile_web_url: u } },
