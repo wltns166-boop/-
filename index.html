@@ -88,7 +88,7 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .ntabs{display:flex;gap:6px;flex-wrap:wrap}
 .ntab{padding:6px 16px;border:1px solid rgba(80,90,180,.3);border-radius:18px;background:#fff;color:#4a5690;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .ntab.on{background:#4858cc;border-color:#4858cc;color:#fff}
-body:has(#notpop_pop) .toast,body:has(#cbp_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
+body:has(#notpop_pop) .toast,body:has(#cbp_pop) .toast,body:has(#bday_pop) .toast{z-index:100001} /* 공지 팝업(100000) 위에서도 안내 토스트가 보이게 */
 .ntabs.sm .ntab{padding:3px 12px;font-size:12.5px}
 .npop{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
 .npop.on{background:rgba(72,88,204,.1);color:#3848b8;border:1px solid rgba(72,88,204,.3)}
@@ -769,7 +769,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-11</div>
   </div>
 </div>
 
@@ -9573,6 +9573,27 @@ function _bdayToday(){
   (Array.isArray(mem)?mem:[]).forEach(function(m){ if(!m||!m.name||!m.name.trim()||m.suspended||seen[m.name]) return; if(hit(m.birth)){ seen[m.name]=1; out.push({n:m.name,r:m.rank||'',b:m.belong||'',y:+String(m.birth).slice(0,4)}); } });
   return out;
 }
+function _bdayMobile(){ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')&&!!navigator.share; }
+// 카톡으로 축하 보내기 — 카카오 API는 특정 사람 대화방을 바로 열 수 없어(친구 API는 비즈 앱 심사 필요),
+// 휴대폰은 공유 창(카톡 선택 → 받는 사람 선택 → 메시지가 입력된 채로 대화방), PC는 클립보드 복사 후 붙여넣기 안내.
+function _bdaySend(nm){
+  if(!nm) return;
+  var txt='🎂 '+nm+'님, 생일 진심으로 축하드려요!\n오늘 하루 가장 행복하고 빛나는 날 되세요 🎉'+(cu&&cu.name&&cu.name!==nm?'\n- '+cu.name+' 드림':'');
+  var copy=function(msg){
+    var ok=function(){ toast(msg); };
+    try{ if(navigator.clipboard&&window.isSecureContext){ navigator.clipboard.writeText(txt).then(ok,function(){ fb(); }); return; } }catch(e){}
+    fb();
+    function fb(){ try{ var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); }catch(e){ toast('복사하지 못했습니다. 직접 입력해 주세요.'); } }
+  };
+  if(_bdayMobile()){
+    navigator.share({text:txt}).catch(function(e){
+      if(e&&e.name==='AbortError') return;                  // 사용자가 공유 창을 닫음
+      copy('공유 창을 열지 못해 메시지를 복사했습니다 — 카톡 대화창에 붙여넣으세요.');
+    });
+    return;
+  }
+  copy('축하 메시지를 복사했습니다 — 카카오톡에서 '+nm+'님 대화창을 열고 붙여넣기(Ctrl+V) 하세요.');
+}
 function _bdayHidden(){ try{ var o=JSON.parse(localStorage.getItem('tops_bday_hide')||'{}'); return !!(cu&&o[cu.name]===td()); }catch(e){ return false; } }
 function _bdayPopup(){
   try{
@@ -9603,7 +9624,10 @@ function _bdayPopup(){
       +'<div id="bday_who"></div>'
       +'<div style="margin:16px 26px 0;background:#fff4f7;border-radius:12px;padding:13px;font-size:14.5px;color:#444;line-height:1.65">TEAM TOPS 가족 모두가 진심으로 축하드립니다 🎉<br>오늘 하루 가장 행복한 날 되세요!</div>'
       +(list.length>1?'<div style="margin:12px 26px 0;font-size:13px;color:#666;background:#f5f7ff;border-radius:10px;padding:8px 6px">오늘 생일 '+list.length+'명 · 이름을 누르면 바뀝니다<div id="bday_chips" style="margin-top:4px"></div></div>':'')
-      +'<div style="padding:18px 26px 8px"><button id="bday_close" style="width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,#ff7aa2,#ff9f5a);color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit">🎉 축하합니다!</button></div>'
+      +'<div style="display:flex;gap:8px;padding:18px 26px 8px">'
+        +'<button id="bday_kk" style="flex:1.4;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,#ff7aa2,#ff9f5a);color:#fff;font-weight:800;font-size:14.5px;cursor:pointer;font-family:inherit">💬 카톡으로 축하 보내기</button>'
+        +'<button id="bday_close" style="flex:1;padding:12px;border:0;border-radius:12px;background:#f0f0f4;color:#444;font-weight:700;font-size:14.5px;cursor:pointer;font-family:inherit">닫기</button></div>'
+      +'<div id="bday_kkhint" style="font-size:12px;color:#999;padding:0 26px">휴대폰: 카톡을 고르고 받는 사람을 누르면 축하 메시지가 바로 들어갑니다</div>'
       +'<label style="display:inline-flex;align-items:center;gap:6px;padding:4px 0 18px;font-size:12.5px;color:#999;cursor:pointer;user-select:none"><input type="checkbox" id="bday_hide_cb" style="width:15px;height:15px;accent-color:#ff7aa2;margin:0">오늘 하루 보지 않기</label>'
       +'</div>';
     document.body.appendChild(ov);
@@ -9618,6 +9642,8 @@ function _bdayPopup(){
     var close=function(){ try{ ov.remove(); }catch(e){} };
     ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
     g('bday_close').onclick=close;
+    g('bday_kk').onclick=function(){ _bdaySend(list[cur]&&list[cur].n); };
+    if(!_bdayMobile()){ var hn=g('bday_kkhint'); if(hn) hn.textContent='PC: 축하 메시지가 복사됩니다 — 카톡에서 그 사람 대화창에 붙여넣기(Ctrl+V)'; }
     var ch=g('bday_chips'); if(ch) ch.addEventListener('click',function(e){ var el=e.target.closest('[data-bdi]'); if(!el) return; cur=+el.getAttribute('data-bdi')||0; draw(); });
     g('bday_hide_cb').addEventListener('change',function(){
       try{ var o=JSON.parse(localStorage.getItem('tops_bday_hide')||'{}'); if(this.checked) o[cu.name]=td(); else delete o[cu.name]; _lsSet('tops_bday_hide',JSON.stringify(o)); }catch(e){}
