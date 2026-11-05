@@ -343,6 +343,10 @@ table.dt tr:last-child td{border-bottom:none;}
 .sanl{font-size:12.5px;color:#28304a;font-weight:600;opacity:0;transition:opacity .15s;overflow:hidden;text-overflow:ellipsis}
 #san_rail:hover .sanl{opacity:1}
 .sandv{border-top:1px solid #e4e7f2;margin:5px 4px}
+.sanicbox{position:relative;width:38px;height:38px;flex:0 0 38px;border:2px dashed #c9cfe6;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fafbff}
+.sanicbox:hover{border-color:#8a96d8}.sanicbox.sel,.sanicbox.over{border:2px solid #2a9d4a;background:#eefaf1}
+.sanicbox img{width:26px;height:26px;object-fit:contain;border-radius:5px}.sanicbox .sanfb{width:26px;height:26px}
+.sanicx{position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;background:#d0465a;color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:800}
 body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 끝을 가리지 않도록 본문 여백 확보 */
 .uni-drop{outline:2px dashed #2ea043!important;outline-offset:-2px;background:rgba(46,160,67,.07)!important} /* 파일을 끌어온 업로드 칸 표시 */
 /* 공지 등록 모달 — 흰 카드 스코프 오버라이드(함정 D 역방향 — 전역 .fi/.fl은 건드리지 않음) */
@@ -779,7 +783,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-16</div>
   </div>
 </div>
 
@@ -1318,7 +1322,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-building-bank"></i> 전산 사이트 관리</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
           화면 오른쪽 가장자리에 표시되는 <b>보험사 전산 바로가기</b>를 관리합니다. 평소엔 로고 아이콘만 보이고, 마우스를 올리면 이름까지 펼쳐집니다.<br>
-          <b>링크 주소가 입력된 항목만</b> 바로가기에 표시됩니다. 아이콘은 입력한 사이트의 로고(파비콘)를 자동으로 가져옵니다.<br>
+          <b>링크 주소가 입력된 항목만</b> 바로가기에 표시됩니다. 아이콘은 사이트 로고(파비콘)를 자동으로 가져오고, <b>줄 맨 앞 네모 칸에 로고 사진을 올리면 그 사진으로 바뀝니다</b>(칸을 눌러 파일 선택 · 사진 끌어다 놓기 · 칸을 누른 뒤 Ctrl+V).<br>
           아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
         </div>
         <div id="san_list"></div>
@@ -26225,7 +26229,9 @@ function _sanColor(nm){
   return 'hsl('+(h%360)+',55%,50%)';
 }
 // 아이콘: 사이트 파비콘 자동 로드, 실패하면 이름 첫 글자 색 원으로 대체
+function _sanIcOk(u){ return typeof u==='string'&&_HERO_URL_RE.test(u)&&!/["'<>\s]/.test(u); }
 function _sanIconHtml(it){
+  if(it&&_sanIcOk(it.ic)) return '<img src="'+_esc(it.ic)+'" alt="" loading="lazy">';   // 관리자가 올린 로고 사진 우선(2026-11-05 백동현 요청)
   var host=''; try{ host=new URL(_sanUrlClean(it.url)).hostname; }catch(e){}
   var fb='<span class="sanfb" style="background:'+_sanColor(it.nm||'?')+(host?';display:none':'')+'">'+_esc((it.nm||'?').charAt(0))+'</span>';
   if(!host) return fb;
@@ -26510,6 +26516,10 @@ function _sanDraw(){
       return '<option value="'+o[0]+'"'+((it.grp||'etc')===o[0]?' selected':'')+'>'+o[1]+'</option>';
     }).join('');
     return '<div class="nsrow">'
+      +'<div data-sanic="'+sid+'" title="로고 사진 올리기 — 클릭해 파일 선택 · 끌어다 놓기 · 클릭 후 Ctrl+V" class="sanicbox'+(window._sanIcSel===it.id?' sel':'')+'">'
+        +(_sanIcOk(it.ic)?'<img src="'+_esc(it.ic)+'" alt="">':_sanIconHtml(it))
+        +(_sanIcOk(it.ic)?'<span data-sanicx="'+sid+'" title="올린 로고 빼기(자동 아이콘으로)" class="sanicx">✕</span>':'')
+      +'</div>'
       +'<select data-sang="'+sid+'" style="padding:6px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#111;background:#fff">'+opts+'</select>'
       +'<input data-sann="'+sid+'" value="'+_esc(it.nm||'')+'" placeholder="이름" style="width:120px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff;font-weight:700">'
       +'<input data-sanu="'+sid+'" value="'+_esc(it.url||'')+'" placeholder="전산 사이트 주소 (https://...)" style="flex:1;min-width:160px;padding:6px 9px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13px;color:#111;background:#fff">'
@@ -26519,6 +26529,20 @@ function _sanDraw(){
       +'<button data-sand="'+sid+'" title="행 삭제" style="'+sb+'color:#c03030;border-color:#e0b0b0;background:#fdf3f3"><i class="ti ti-trash"></i></button>'
       +'</span></div>';
   }).join('');
+  box.querySelectorAll('[data-sanic]').forEach(function(el){
+    var id=el.getAttribute('data-sanic');
+    el.addEventListener('click',function(e){
+      if(e.target.closest('[data-sanicx]')){ e.stopPropagation(); _sanCollect(); (window._sanWork||[]).forEach(function(x){ if(x.id===id) delete x.ic; }); _sanDraw(); toast('올린 로고를 뺐습니다. [저장]을 눌러야 반영됩니다.'); return; }
+      window._sanIcSel=id; _sanIcPaint();
+      var f=document.createElement('input'); f.type='file'; f.accept='image/*';
+      f.onchange=function(){ if(f.files&&f.files[0]) _sanIcFile(id,f.files[0]); };
+      f.click();
+    });
+    el.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); el.classList.add('over'); });
+    el.addEventListener('dragleave',function(){ el.classList.remove('over'); });
+    el.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); el.classList.remove('over');
+      var fl=e.dataTransfer&&e.dataTransfer.files; if(fl&&fl[0]) _sanIcFile(id,fl[0]); });
+  });
   box.querySelectorAll('[data-sanm]').forEach(function(b){
     b.addEventListener('click',function(){
       _sanCollect();
@@ -26540,6 +26564,46 @@ function _sanDraw(){
     });
   });
 }
+// ── 로고 사진 올리기 (2026-11-05 — 백동현 요청 "전산사이트 바로가기 이미지 짜친다") ──
+// 사진을 128px 안쪽 PNG(투명 유지)로 줄여 Storage home_bg/ 에 올리고 편집본 it.ic에 URL만(함정 B). [저장]해야 반영.
+function _sanIcPaint(){ document.querySelectorAll('[data-sanic]').forEach(function(el){ el.classList.toggle('sel',el.getAttribute('data-sanic')===window._sanIcSel); }); }
+function _sanIcFile(id,file){
+  if(!_isAdmin()){ toast('관리자만 바꿀 수 있습니다.'); return; }
+  if(!file||!/^image\//.test(file.type||'')){ toast('사진 파일(PNG·JPG 등)만 올릴 수 있습니다.'); return; }
+  if(file.size>10*1024*1024){ toast('10MB 이하 사진만 올릴 수 있습니다.'); return; }
+  if(window._sanIcBusy){ toast('앞 사진을 올리는 중입니다. 잠시 뒤 다시 해 주세요.'); return; }
+  window._sanIcBusy=1;
+  var seq=window._sanIcSeq=(window._sanIcSeq||0)+1;
+  toast('로고 올리는 중…');
+  new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){ var im=new Image(); im.onload=function(){ res(im); }; im.onerror=function(){ rej(new Error('이미지를 읽을 수 없습니다')); }; im.src=fr.result; }; fr.onerror=function(){ rej(new Error('파일 읽기 실패')); }; fr.readAsDataURL(file); })
+  .then(function(im){
+    var M=128, w=im.width, h=im.height, r=Math.min(1,M/Math.max(w,h)); w=Math.max(1,Math.round(w*r)); h=Math.max(1,Math.round(h*r));
+    var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h);
+    return new Promise(function(res){ cv.toBlob(res,'image/png'); });
+  }).then(function(blob){
+    if(!blob) throw new Error('이미지 변환 실패');
+    var ref=firebase.storage().ref('home_bg/san_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.png');
+    return ref.put(blob,{contentType:'image/png'}).then(function(){ return ref.getDownloadURL(); });
+  }).then(function(url){
+    if(seq!==window._sanIcSeq||!g('san_list')) return;
+    _sanCollect();
+    var hit=false; (window._sanWork||[]).forEach(function(x){ if(x.id===id){ x.ic=url; hit=true; } });
+    if(!hit){ toast('그 줄이 없어졌습니다. 다시 올려 주세요.'); return; }
+    _sanDraw(); toast('로고를 올렸습니다. [저장]을 눌러야 전 팀원에게 반영됩니다.');
+  }).catch(function(e){ toast('로고를 올리지 못했습니다: '+((e&&e.message)||e)); })
+  .then(function(){ window._sanIcBusy=0; });
+}
+document.addEventListener('paste',function(e){
+  try{
+    var id=window._sanIcSel; if(!id) return;
+    var pg=g('pg_navset'), tb=g('ns_tab_san');
+    if(!pg||!pg.classList.contains('active')||!tb||tb.style.display==='none') return;
+    var t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return;   // 칸에 글 붙여넣기는 그대로
+    var items=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<items.length;i++){ if(items[i].kind==='file'&&/^image\//.test(items[i].type)){ var f=items[i].getAsFile(); if(f){ e.preventDefault(); e.stopPropagation(); _sanIcFile(id,f); return; } } }
+  }catch(err){}
+},true);
+document.addEventListener('mousedown',function(e){ if(window._sanIcSel&&!(e.target.closest&&e.target.closest('[data-sanic]'))){ window._sanIcSel=null; _sanIcPaint(); } },true);
 function sanAddRow(){
   _sanCollect();
   (window._sanWork=window._sanWork||[]).push({id:'sn_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), grp:'son', nm:'', url:''});
@@ -26556,7 +26620,9 @@ function sanSave(){
   if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
   _sanCollect();
   var items=(window._sanWork||[]).filter(function(it){ return it&&(String(it.nm||'').trim()||String(it.url||'').trim()); }).map(function(it){
-    return {id:it.id, grp:(it.grp==='son'||it.grp==='saeng')?it.grp:'etc', nm:String(it.nm||'').trim(), url:_sanUrlClean(it.url)};
+    var o={id:it.id, grp:(it.grp==='son'||it.grp==='saeng')?it.grp:'etc', nm:String(it.nm||'').trim(), url:_sanUrlClean(it.url)};
+    if(_sanIcOk(it.ic)) o.ic=it.ic;
+    return o;
   });
   var data={items:items};
   window.sansites=data;
