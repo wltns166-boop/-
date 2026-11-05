@@ -779,7 +779,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-15</div>
   </div>
 </div>
 
@@ -2038,7 +2038,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
-          <div><div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:5px">팀장</div>
+          <div><div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:5px">팀 (리더)</div>
             <select id="wkmt_leader" onchange="wkmtSet('leader',this.value)" style="padding:7px 12px;border-radius:8px;border:1px solid #d0d4e8;background:#fff;color:#2a2a5a;font-size:14px;font-weight:600;font-family:inherit;min-width:170px"></select></div>
           <div><div style="font-size:13px;font-weight:700;color:#4a5090;margin-bottom:5px">기준 주차</div>
             <div style="display:flex;align-items:center;gap:6px">
@@ -5133,6 +5133,7 @@ function logout(){
   window._notPopShown=false; window._notHomeCat=''; window._notPageCat='';   // 공지 팝업·분류 탭(2026-09-29)
   try{ var _npp=g('notpop_pop'); if(_npp) _npp.remove(); }catch(e){}
   window._bdayShown=false; try{ var _bdp=g('bday_pop'); if(_bdp) _bdp.remove(); }catch(e){}
+  window._remShown=false; try{ var _rmp=g('remind_pop'); if(_rmp) _rmp.remove(); }catch(e){}
   // 업무 현황 팝업 설정 편집 초안 리셋 — 같은 탭에서 다른 관리자 로그인 시 미저장 편집이 넘어가는 것 방지(2026-09-10 리뷰)
   window._rsWork=null; window._rsOrder=null; window._rsAddOpen=null;
   // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
@@ -9494,6 +9495,8 @@ function rHome(){
   try{ _notPopup(); }catch(e){}
   // 생일 팝업(2026-11-05 백동현 요청) — 오늘 생일인 지점원(팀원 mem.birth·관리자 admov.birth)을 전원에게 접속당 1회
   try{ _bdayPopup(); }catch(e){}
+  // 주마감보고(매주 월 09시~ 지난주 미작성)·사업계획서(매달 1일 09시~ 이번 달 미제출) 알림(2026-11-05 백동현 요청)
+  try{ _remindPopup(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -9607,6 +9610,72 @@ function _bdayToday(){
   (typeof _admList==='function'?_admList():ADMINS).forEach(function(a){ if(!a||!a.name||seen[a.name]) return; var ov=_admOv(a.name)||{}; if(hit(ov.birth)){ seen[a.name]=1; out.push({n:a.name,r:_admRankOf(a)||a.role||'',b:_admBelongOf(a),y:+String(ov.birth).slice(0,4)}); } });
   (Array.isArray(mem)?mem:[]).forEach(function(m){ if(!m||!m.name||!m.name.trim()||m.suspended||seen[m.name]) return; if(hit(m.birth)){ seen[m.name]=1; out.push({n:m.name,r:m.rank||'',b:m.belong||'',y:+String(m.birth).slice(0,4)}); } });
   return out;
+}
+// ── 주마감보고·사업계획서 미작성 알림 (2026-11-05 — 백동현 요청) ──
+// 주마감: 이번 주 월요일 09:00(기기 시각) 이후 → 지난주 주마감(wcRec(이름, 지난주 월요일 키))이 없으면.
+// 사업계획서: 매달 1일 09:00 이후 → 이번 달 제출(bizplan.subs, _bizSubYm)이 없으면(제출 기한 1일 10시 안내).
+// 대상: 작성대상자 명단(wcWriters / bizplan.writers)이 있으면 그 명단, 없으면 관리자가 아닌 사용정지 아닌 팀원.
+// 클라우드 수신(_fsLoaded) 전엔 판단하지 않음(옛 캐시로 잘못 띄우지 않게) — 수신 뒤 홈 재렌더에서 다시 시도. 접속당 1회(_remShown, logout 리셋).
+function _remTarget(list){
+  if(!cu||!cu.name) return false;
+  if(Array.isArray(list)&&list.length) return list.indexOf(cu.name)>=0;
+  if(_isAdmin()) return false;
+  var m=(Array.isArray(mem)?mem:[]).find(function(x){ return x&&x.name===cu.name; });
+  return !!(m&&!m.suspended);
+}
+function _remItems(){
+  var out=[], now=new Date();
+  try{
+    if(_remTarget(wcWriters)){
+      var mon=wcMonday(now), due=new Date(mon); due.setHours(9,0,0,0);
+      if(now>=due){
+        var pw=new Date(mon); pw.setDate(pw.getDate()-7); var pk=wcKey(pw);
+        if(!wcRec(cu.name,pk)) out.push({k:'wclose',wk:pk,t:'주마감보고',ic:'📋',
+          msg:'주마감 보고를 작성하지 않았습니다.<br>주마감 보고를 작성해주시기 바랍니다.',sub:'대상 주: '+wcLabel(pk).replace(/\s*\(.*\)$/,''),btn:'주마감보고 작성하기'});
+      }
+    }
+  }catch(e){}
+  try{
+    var bw=(bizplan&&Array.isArray(bizplan.writers))?bizplan.writers:null;
+    if(_remTarget(bw)&&(now.getDate()>1||now.getHours()>=9)){
+      var ym=_curYm(), subs=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs:[];
+      var done=subs.some(function(x){ return x&&x.m===cu.name&&_bizSubYm(x)===ym; });
+      if(!done) out.push({k:'bizplan',t:'사업계획서',ic:'📝',
+        msg:'사업계획서를 제출하지 않았습니다.<br>사업계획서를 작성해주시기 바랍니다.',sub:(+ym.slice(5))+'월 사업계획서 · 제출 기한 매달 1일 오전 10시',btn:'사업계획서 작성하기'});
+    }
+  }catch(e){}
+  return out;
+}
+function _remindPopup(){
+  try{
+    if(!cu) return;
+    if(/[?&]rr=1/.test(location.search)) return;
+    if(window._remShown||g('remind_pop')) return;
+    if(!window._fsLoaded) return;
+    var items=_remItems(); if(!items.length) return;
+    window._remShown=true;
+    var ov=document.createElement('div'); ov.id='remind_pop';
+    // 공지(100000) 위 — 꼭 봐야 하는 안내
+    ov.style.cssText='position:fixed;inset:0;z-index:100002;display:flex;align-items:center;justify-content:center;background:rgba(10,14,40,.55);padding:16px';
+    ov.innerHTML='<div style="width:420px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 20px 56px rgba(0,0,0,.35);overflow:hidden;font-family:inherit">'
+      +'<div style="background:#d0465a;color:#fff;padding:16px 20px;font-size:17px;font-weight:800">⚠ 작성하지 않은 보고가 있습니다</div>'
+      +items.map(function(it){ return '<div style="padding:18px 20px;border-bottom:1px solid #eee">'
+        +'<div style="font-size:15px;font-weight:800;color:#222">'+it.ic+' '+it.t+'</div>'
+        +'<div style="font-size:15px;color:#333;line-height:1.6;margin-top:6px">'+it.msg+'</div>'
+        +'<div style="font-size:12.5px;color:#8a8fa8;margin-top:4px">'+_esc(it.sub)+'</div>'
+        +'<button data-remgo="'+it.k+'"'+(it.wk?' data-remwk="'+_esc(it.wk)+'"':'')+' style="margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:#4858cc;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer;font-family:inherit">'+it.btn+' →</button></div>'; }).join('')
+      +'<div style="padding:12px 20px;text-align:right"><button id="remind_close" style="padding:8px 18px;border:1px solid #ccd;border-radius:8px;background:#fff;color:#555;font-weight:700;cursor:pointer;font-family:inherit">나중에</button></div></div>';
+    document.body.appendChild(ov);
+    var close=function(){ try{ ov.remove(); }catch(e){} };
+    g('remind_close').onclick=close;
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest&&e.target.closest('[data-remgo]'); if(!b) return;
+      var k=b.getAttribute('data-remgo'), wk=b.getAttribute('data-remwk');
+      close();
+      if(k==='wclose'&&/^\d{4}-\d{2}-\d{2}$/.test(wk||'')) _wcCur=wk;   // 지난주를 바로 열어 작성
+      showPage(k);
+    });
+  }catch(e){ console.warn('[미작성 알림]',e); }
 }
 function _bdayMobile(){ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')&&!!navigator.share; }
 // 카톡으로 축하 보내기 — 카카오 API는 특정 사람 대화방을 바로 열 수 없어(친구 API는 비즈 앱 심사 필요),
@@ -17413,7 +17482,7 @@ var REQSTAT_DEF={
   bm:   ['trip','req','jp','edu','exam'],
   chong:['cust','claim','exam','jp']
 };
-var REQSTAT_ROLE_LABEL={mem:'팀원', lead:'팀장', bm:'지점장', chong:'총무'};
+var REQSTAT_ROLE_LABEL={mem:'FA', lead:'TL', bm:'BM·SBM', chong:'총무'};   // 2026-11-05 직급 표기 통일(SBM·BM·TL·FA)
 function _reqStatRole(){
   if(_isChongmu()) return 'chong';
   if(_isAdmin()) return 'bm';
@@ -24446,7 +24515,7 @@ function _bizFormHtml(){
     var fbSub=null;
     try{ fbSub=(bizplan&&Array.isArray(bizplan.subs))?bizplan.subs.find(function(x){return x.m===_bizFormOwner;}):null; }catch(e){}
     g4='<div style="font-weight:700;color:#2a2a4a;margin:18px 0 6px"><i class="ti ti-caret-right-filled" style="font-size:12px"></i> 관리자 피드백 <span style="font-weight:400;font-size:12px;color:#b0b0c8">(관리자만 보임)</span>'
-      +((fbSub&&fbSub.fb&&fbSub.fbBy)?' <span style="font-weight:400;font-size:12.5px;color:#8888aa">— '+_esc(fbSub.fbBy+(fbSub.fbByRole?' '+fbSub.fbByRole:''))+(fbSub.fbTs?' · '+new Date(fbSub.fbTs).toLocaleDateString():'')+'</span>':'')
+      +((fbSub&&fbSub.fb&&fbSub.fbBy)?' <span style="font-weight:400;font-size:12.5px;color:#8888aa">— '+_esc(fbSub.fbBy+(_bizFbRole(fbSub)?' '+_bizFbRole(fbSub):''))+(fbSub.fbTs?' · '+new Date(fbSub.fbTs).toLocaleDateString():'')+'</span>':'')
       +'</div>'
       +((fbSub&&fbSub.fb)
         ?'<div style="border:1px solid rgba(45,65,170,.22);border-radius:8px;padding:12px 14px;background:#f8f9ff;color:#1a1a2e;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word">'+_esc(fbSub.fb)+'</div>'
@@ -24579,7 +24648,7 @@ function rBizPlan(keepForm){
           var _fs='padding:2px 9px;font-size:12px;border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;';
           if(admin) fbBtnCell='<button onclick="'+_bzf('openBizFbModal')+'" style="'+_fs+'background:rgba(200,120,20,.12);border:1px solid rgba(200,120,20,.35);color:#a06010"><i class="ti ti-message-2"></i> '+(s.fb?'수정':'작성')+'</button>';
           fbStCell=s.fb?'<span style="color:#1a7040;font-weight:700">완료</span>':'<span style="color:#c04040">미완료</span>';
-          fbByCell=(s.fb&&s.fbBy)?_esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:'')):'-';
+          fbByCell=(s.fb&&s.fbBy)?_esc(s.fbBy+(_bizFbRole(s)?' '+_bizFbRole(s):'')):'-';
           var prTxt=s.fbPrintTs?'<span style="color:#1a7040;font-weight:700">출력완료</span>':'<span style="color:#999">미출력</span>';
           fbPrCell=(admin&&s.form?('<button onclick="'+_bzf('bizFbPrint')+'" style="'+_fs+'background:rgba(100,100,120,.1);border:1px solid rgba(100,100,120,.3);color:#44485a"><i class="ti ti-printer"></i> 출력</button> '):'')+prTxt;
         }
@@ -24713,7 +24782,7 @@ function _bizFormDoc(name, opts){
     +'<h2>리쿠르팅 대상자</h2><table><tr><th>구분</th><th>이름</th><th>나이</th><th>직업</th><th>TA 일시</th><th>만남 일시</th><th>만남 여부</th><th>입과 여부</th></tr>'
     +(rc||'<tr><td colspan="8">작성된 리쿠르팅 대상자가 없습니다.</td></tr>')+'</table>'+edAdd('r','리쿠르팅 대상자')
     +(_bizFbVisible(s,name)?('<h2>관리자 피드백</h2><div style="border:1px solid #aab;border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;text-align:left">'+esc(s.fb)+'</div>'
-      +(s.fbBy?'<div style="font-size:12px;color:#555;margin-top:4px;text-align:right">— '+esc(s.fbBy+(s.fbByRole?' '+s.fbByRole:''))+'</div>':'')):'')
+      +(s.fbBy?'<div style="font-size:12px;color:#555;margin-top:4px;text-align:right">— '+esc(s.fbBy+(_bizFbRole(s)?' '+_bizFbRole(s):''))+'</div>':'')):'')
     +saveScript+printScript+(ED?_bizEdScript(name, s):'')
     +'</body></html>';
   return {html:html, fileBase:fileBase};
@@ -24842,6 +24911,8 @@ function printBizForm(name){
 }
 // ===== 사업계획서 관리자 피드백 (2026-08-03, 관리자 전용) =====
 // 데이터: 제출 건(bizplan.subs[i])에 fb(내용)/fbBy(작성자)/fbByRole(호칭)/fbTs/fbPrintTs/fbPrintBy.
+// 표시 직급은 지금 직급(SBM·BM…) 우선 — 옛 기록의 '지점장' 호칭도 바뀌어 보이게(2026-11-05)
+function _bizFbRole(s){ if(!s) return ''; if(s.fbByRole==='총무') return '총무'; var r=''; try{ r=_liveRankOf(s.fbBy)||''; }catch(e){} return r||(s.fbByRole==='지점장'?'':(s.fbByRole||'')); }
 // 새 달 계획으로 대체되면 피드백도 함께 초기화(같은 달 재제출은 유지).
 var _bizFbTarget=null;
 function _bizFbGrow(el){ try{ el.style.height='auto'; el.style.height=Math.max(120, el.scrollHeight+2)+'px'; }catch(e){} }
@@ -24899,7 +24970,7 @@ async function saveBizFb(){
   if(val){
     s.fb=val;
     s.fbBy=(cu&&cu.name)||'';
-    s.fbByRole=(cu&&cu.role==='총무')?'총무':'지점장';
+    s.fbByRole=(cu&&cu.role==='총무')?'총무':(_liveRankOf(cu.name)||'BM');   // 2026-11-05 직급 표기 통일 — '지점장' 대신 SBM·BM
     s.fbTs=Date.now();
   } else {
     delete s.fb; delete s.fbBy; delete s.fbByRole; delete s.fbTs; delete s.fbPrintTs; delete s.fbPrintBy;
@@ -27207,6 +27278,9 @@ var DBU_STAGES=[['ta','TA'],['consult','상담'],['proposal','제안'],['contrac
 var DBU_TYPES=['KS','디웨스','굿데이터','인카DB(실버)','인카DB(일반)'];
 var DBU_REGIONS=['수도권','충청권'];
 var DBU_COLORS=['#2f6fdb','#e0833a','#2a9d8f','#b5527f','#7a6bd1','#8aa63a','#c9a227','#5a6b7d'];
+// 전체 고객 목록에서 남의 고객 결과(부재·거절)를 고칠 수 있는 사람(2026-11-05 백동현 요청 — 본인 + 작성자만)
+var DBU_RES_EDITORS=['백동현'];
+function _dbuResCan(key){ return !!cu&&(key===_dbuKey()||DBU_RES_EDITORS.indexOf(cu.name)>=0); }
 var DBU_MAX_ROWS=1500;   // 문서 1MiB 한도 안쪽(행당 수백 바이트)
 function _dbuKey(){ return _rsvKey(); }
 function _dbuMyName(){ return (cu&&cu.name)?String(cu.name):''; }
@@ -27251,6 +27325,19 @@ function _dbuInitForm(){
       +'<input type="text" class="dbui" id="dbu_n_'+s[0]+'" maxlength="120" placeholder="'+s[1]+' 특이사항" style="display:none"></div>';
   }).join('');
   var dt=g('dbu_date'); if(dt&&!dt.value) dt.value=td();
+  var dl=g('dbu_list');
+  if(dl) dl.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-lres]'); if(!b) return;
+    var w=b.closest('[data-lkey]'); if(!w) return;
+    var key=w.getAttribute('data-lkey'), id=w.getAttribute('data-lid'), v=b.getAttribute('data-lres');
+    if(!_dbuResCan(key)){ toast('작성자와 '+DBU_RES_EDITORS.join('·')+'만 고칠 수 있습니다.'); return; }
+    var row=(window._dbuAllRows||[]).find(function(x){ return x.key===key&&x.id===id; });
+    var on=!b.classList.contains('on');
+    if(on&&v==='absent'&&row&&DBU_STAGES.some(function(s2){ return row[s2[0]]; })&&!confirm('진행 단계(TA·상담 등)가 체크된 고객입니다. 부재로 바꾸면 단계 체크가 풀립니다. 계속할까요?')) return;
+    w.querySelectorAll('[data-lres]').forEach(function(x){ x.classList.toggle('on',x===b&&on); });
+    _dbuMutate(function(rows){ return rows.map(function(r){ if(r.id!==id) return r; r=JSON.parse(JSON.stringify(r)); r.res=on?v:''; if(r.res==='absent'){ DBU_STAGES.forEach(function(s2){ r[s2[0]]=false; }); r.notes={}; } return r; }); }, key===_dbuKey()?null:key)
+      .then(function(){ toast('결과를 저장했습니다.'); }).catch(function(e){ _dbuErr(e); toast(e&&e.code==='gone'?'그 사이 삭제된 기록입니다.':'저장하지 못했습니다. 다시 시도하세요.'); _dbuRender(); });
+  });
   var rf=g('dbu_resf');
   if(rf) rf.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-fres]'); if(!b) return;
     var v=b.getAttribute('data-fres'); window._dbuFormRes=(window._dbuFormRes===v)?'':v; _dbuFormResDraw(); });
@@ -27295,8 +27382,8 @@ function _dbuErr(e){
   _dbuSt(c==='nodb'?'저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.':c==='full'?'입력이 너무 많습니다('+DBU_MAX_ROWS+'건 상한).':c==='permission-denied'?'저장 권한이 없습니다.':'저장하지 못했습니다. 잠시 후 다시 시도하세요.',true);
 }
 // 내 문서에 변경 적용 — 트랜잭션으로 최신본을 읽어 고친 뒤 저장(같은 기기 내 호출은 순서대로)
-function _dbuMutate(fn){
-  var db=_abDb(), key=_dbuKey(), nm=_dbuMyName();
+function _dbuMutate(fn,otherKey){
+  var db=_abDb(), key=otherKey||_dbuKey(), nm=_dbuMyName();
   if(!db||!key){ var er=new Error('nodb'); er.code='nodb'; return Promise.reject(er); }
   var ref=db.collection(DBU_COL).doc(key);
   var run=(window._dbuChain||Promise.resolve()).catch(function(){}).then(function(){
@@ -27306,7 +27393,9 @@ function _dbuMutate(fn){
         var rows=(Array.isArray(d.rows)?d.rows:[]).map(_dbuClean);
         rows=fn(rows).map(_dbuClean);
         if(rows.length>DBU_MAX_ROWS){ var e=new Error('full'); e.code='full'; throw e; }
-        tx.set(ref,{name:nm, key:key, rows:JSON.parse(JSON.stringify(rows)), updated:Date.now()});
+        if(otherKey&&!snap.exists){ var e2=new Error('gone'); e2.code='gone'; throw e2; }
+        // 남의 문서를 고칠 땐(결과 수정 — DBU_RES_EDITORS) 문서 주인 이름은 그대로 둔다
+        tx.set(ref,{name:otherKey?(d.name||''):nm, key:key, rows:JSON.parse(JSON.stringify(rows)), updated:otherKey?(+d.updated||Date.now()):Date.now(), resBy:otherKey?nm:(d.resBy||null)});
       });
     });
   });
@@ -27423,7 +27512,7 @@ function _dbuListHtml(rows){
   function cell(r,k){ return r[k]?'<span class="dbuchk">✓</span>'+(r.notes[k]?'<span class="dbusn">'+_esc(r.notes[k])+'</span>':''):'<span class="dbudash">–</span>'; }
   return '<table class="dbutb"><thead><tr><th>배정일</th><th>담당자</th><th>고객명</th><th>DB</th><th>권역</th>'+DBU_STAGES.map(function(s){ return '<th class="c">'+s[1]+'</th>'; }).join('')+'<th class="c">결과</th><th>비고</th></tr></thead><tbody>'
     +rows.map(function(r){ return '<tr><td style="white-space:nowrap">'+_esc(r.assigned)+'</td><td>'+_esc(r.owner)+'</td><td>'+_esc(r.customer)+'</td><td>'+_esc(r.dbType)+'</td><td>'+_esc(r.region)+'</td>'
-      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td class="c">'+(r.res?'<span class="dburtag '+r.res+'">'+(r.res==='absent'?'부재':'거절')+'</span>':'<span class="dbudash">–</span>')+'</td><td>'+_esc(r.remark)+'</td></tr>'; }).join('')+'</tbody></table>';
+      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td class="c" style="white-space:nowrap">'+(_dbuResCan(r.key)?'<span data-lkey="'+_esc(r.key)+'" data-lid="'+_esc(r.id)+'"><button type="button" class="dburb absent'+(r.res==='absent'?' on':'')+'" data-lres="absent">부재</button> <button type="button" class="dburb reject'+(r.res==='reject'?' on':'')+'" data-lres="reject">거절</button></span>':(r.res?'<span class="dburtag '+r.res+'">'+(r.res==='absent'?'부재':'거절')+'</span>':'<span class="dbudash">–</span>'))+'</td><td>'+_esc(r.remark)+'</td></tr>'; }).join('')+'</tbody></table>';
 }
 function _dbuKeepSel(sel,first,opts){
   if(!sel) return; var cur=sel.value;
@@ -32207,7 +32296,7 @@ function rTeamPerf(){
   if(!window._tpOpen) window._tpOpen={};
   var DEP_C=['#4858cc','#2a8a4a','#d07a10','#8a3fc0','#7a7f99'];   // 깊이별 색: 팀장·직도입(초록)·간접 1단(주황)·2단(보라)·그 아래
   var html='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:13px;color:#5a5f80;margin:0 0 10px 2px">'
-    +'<span><span class="tpbd" style="background:#e3f4e8;color:#1f7a3e">직도입</span> 팀장이 직접 도입</span>'
+    +'<span><span class="tpbd" style="background:#e3f4e8;color:#1f7a3e">직도입</span> 팀 리더가 직접 도입</span>'
     +'<span><span class="tpbd" style="background:#fdefd9;color:#b0640a">간접</span> 팀원이 도입 (누가 도입했는지 표시)</span>'
     +'<span style="color:#8a8fb0">카드 제목을 누르면 접히고 펴집니다</span>'
     +'<span style="margin-left:auto"><button class="be" onclick="tpToggleAll(1)" style="font-size:12.5px">모두 펴기</button> <button class="be" onclick="tpToggleAll(0)" style="font-size:12.5px">모두 접기</button></span></div>';
@@ -32233,7 +32322,7 @@ function rTeamPerf(){
         for(var i=0;i<m.pre.length-1;i++) tree+='<span class="tpln">'+(m.pre[i]?'':'│')+'</span>';
         tree+='<span class="tpln" style="color:'+col+'">'+(m.pre[m.pre.length-1]?'└':'├')+'─</span>';
       }
-      var badge=isLeader?'<span class="tpbd" style="background:#e6e9fb;color:#3848cc">팀장</span>'
+      var badge=isLeader?'<span class="tpbd" style="background:#e6e9fb;color:#3848cc">'+_esc(m.rank||'리더')+'</span>'
         :m.none?'<span class="tpbd" style="background:#eee;color:#777">소속 없음</span>'
         :m.d===1?'<span class="tpbd" style="background:#e3f4e8;color:#1f7a3e">직도입</span>'
         :'<span class="tpbd" style="background:#fdefd9;color:#b0640a">간접</span><span style="font-size:12.5px;color:#9a6a20;margin-left:4px">'+_esc(m.p)+' 도입</span>';
