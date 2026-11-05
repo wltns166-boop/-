@@ -767,7 +767,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-6</div>
   </div>
 </div>
 
@@ -3551,7 +3551,7 @@ function rSchedulePage(){
 </div></div>
 
 <!-- 병력정리 → 서류 발급 방법 안내 (밝은 모달 — 함정 D: 인라인으로 배경/글씨색 오버라이드) -->
-<div class="mb" id="m_hira"><div class="mo" style="width:720px;max-height:88vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+<div class="mb" id="m_hira"><div class="mo" style="--hira-h:88vh;--hira-o:390px;width:720px;max-height:88vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
   <div class="mth" style="color:#1a1a2e"><span>📄 심평원 서류발급방법</span><span class="mc" onclick="g('m_hira').classList.remove('open')" style="color:#555">×</span></div>
   <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <button id="hira_tab_internet" onclick="hiraTab('internet')" style="flex:1;min-width:180px;padding:9px 12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">💻 인터넷을 통한 발급방법</button>
@@ -22099,18 +22099,18 @@ function renderHiraGuide(){
   var del=_isAdmin()
     ?'<div onclick="'+('delHiraImg('+JSON.stringify(k)+','+ts+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'" style="position:absolute;top:6px;right:8px;background:rgba(200,40,40,.85);color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">삭제</div>'
     :'';
-  var nb=function(d,dis,ch){ return '<button onclick="hiraNav('+d+')"'+(dis?' disabled':'')+' style="flex:0 0 auto;position:sticky;top:42vh;width:46px;height:46px;border-radius:50%;border:1px solid #ccd0e8;background:'+(dis?'#f4f5fa':'#fff')+';color:'+(dis?'#c4c8dc':'#3a48cc')+';font-size:24px;font-weight:700;cursor:'+(dis?'default':'pointer')+';box-shadow:0 2px 6px rgba(40,50,120,.12)">'+ch+'</button>'; };
+  var nb=function(d,dis,ch){ return '<button onclick="hiraNav('+d+')"'+(dis?' disabled':'')+' style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;border:1px solid #ccd0e8;background:'+(dis?'#f4f5fa':'#fff')+';color:'+(dis?'#c4c8dc':'#3a48cc')+';font-size:24px;font-weight:700;cursor:'+(dis?'default':'pointer')+';box-shadow:0 2px 6px rgba(40,50,120,.12)">'+ch+'</button>'; };
   var dots=list.map(function(x,j){ return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 3px;background:'+(j===i?'#4858cc':'#d4d8ec')+'"></span>'; }).join('');
   body.innerHTML='<div style="position:relative;border:1px solid #e3e6f3;border-radius:10px;overflow:hidden;background:#fafbff">'
       +'<div style="font-size:13px;color:#4858cc;padding:6px 10px;border-bottom:1px solid #eef0f8;font-weight:700">STEP '+(i+1)+' / '+list.length+'</div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;padding:8px">'
+      +'<div style="display:flex;align-items:center;gap:8px;padding:8px">'
         +nb(-1,i===0,'‹')
-        +'<div style="flex:1;min-width:0;text-align:center"><img src="'+_esc(url)+'" onclick="'+oc+'" title="크게 보기" style="width:100%;max-width:'+(+it.w>0?+it.w:1200)+'px;height:auto;display:inline-block;cursor:zoom-in;border-radius:6px;image-rendering:-webkit-optimize-contrast"></div>'
+        +'<div style="flex:1;min-width:0;text-align:center"><img src="'+_esc(url)+'" onclick="'+oc+'" title="크게 보기" style="max-width:100%;max-height:max(240px,calc(var(--hira-h,100vh) - var(--hira-o,330px)));width:auto;height:auto;display:inline-block;cursor:zoom-in;border-radius:6px"></div>'
         +nb(1,i===list.length-1,'›')
       +'</div>'
       +'<div style="text-align:center;padding:4px 0 10px">'+dots+'</div>'
       +del+'</div>'
-    +'<div style="font-size:12px;color:#8890bb;text-align:center;margin-top:6px">좌우 버튼(키보드 ← →)으로 다음 사진 · 사진을 누르면 크게 보기</div>';
+    +'<div style="font-size:12px;color:#8890bb;text-align:center;margin-top:6px">좌우 버튼(키보드 ← →)으로 다음 사진 · 사진을 누르면 원본 크기로 크게 보기</div>';
 }
 // 묶음 사진 — 탭 사진들을 STEP 번호와 함께 격자로 합친 JPEG 한 장(Storage hira_guide/sheets/<탭>_<해시>.jpg).
 //   이름은 사진 목록의 해시라 같은 구성이면 이미 만든 파일을 다시 씀(보낼 때마다 새 파일이 쌓이지 않게). 반환 {u,w,h,n}
