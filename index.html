@@ -783,7 +783,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-17</div>
   </div>
 </div>
 
@@ -1322,7 +1322,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div style="font-weight:700;font-size:16px;color:#2a2a4a;margin-bottom:4px"><i class="ti ti-building-bank"></i> 전산 사이트 관리</div>
         <div style="font-size:12.5px;color:#8888aa;margin-bottom:12px;line-height:1.6">
           화면 오른쪽 가장자리에 표시되는 <b>보험사 전산 바로가기</b>를 관리합니다. 평소엔 로고 아이콘만 보이고, 마우스를 올리면 이름까지 펼쳐집니다.<br>
-          <b>링크 주소가 입력된 항목만</b> 바로가기에 표시됩니다. 아이콘은 사이트 로고(파비콘)를 자동으로 가져오고, <b>줄 맨 앞 네모 칸에 로고 사진을 올리면 그 사진으로 바뀝니다</b>(칸을 눌러 파일 선택 · 사진 끌어다 놓기 · 칸을 누른 뒤 Ctrl+V).<br>
+          <b>링크 주소가 입력된 항목만</b> 바로가기에 표시됩니다. 아이콘은 사이트 로고(파비콘)를 자동으로 가져오고, <b>줄 맨 앞 네모 칸에 로고를 붙여넣으면 그 사진으로 바뀝니다</b> — 사이트 로고를 <b>오른쪽 클릭 › 이미지 복사</b>(또는 캡처) 한 뒤, 칸을 누르거나 마우스를 올리고 <b>Ctrl+V</b>. 끌어다 놓기·두 번 눌러 파일 선택도 됩니다.<br>
           아래에서 편집한 뒤 <b>[저장]을 눌러야 전 팀원에게 적용</b>됩니다.
         </div>
         <div id="san_list"></div>
@@ -26516,7 +26516,7 @@ function _sanDraw(){
       return '<option value="'+o[0]+'"'+((it.grp||'etc')===o[0]?' selected':'')+'>'+o[1]+'</option>';
     }).join('');
     return '<div class="nsrow">'
-      +'<div data-sanic="'+sid+'" title="로고 사진 올리기 — 클릭해 파일 선택 · 끌어다 놓기 · 클릭 후 Ctrl+V" class="sanicbox'+(window._sanIcSel===it.id?' sel':'')+'">'
+      +'<div data-sanic="'+sid+'" title="로고 붙여넣기 — 칸을 누르거나 마우스를 올리고 Ctrl+V · 끌어다 놓기 · 두 번 누르면 파일 선택" class="sanicbox'+(window._sanIcSel===it.id?' sel':'')+'">'
         +(_sanIcOk(it.ic)?'<img src="'+_esc(it.ic)+'" alt="">':_sanIconHtml(it))
         +(_sanIcOk(it.ic)?'<span data-sanicx="'+sid+'" title="올린 로고 빼기(자동 아이콘으로)" class="sanicx">✕</span>':'')
       +'</div>'
@@ -26533,11 +26533,16 @@ function _sanDraw(){
     var id=el.getAttribute('data-sanic');
     el.addEventListener('click',function(e){
       if(e.target.closest('[data-sanicx]')){ e.stopPropagation(); _sanCollect(); (window._sanWork||[]).forEach(function(x){ if(x.id===id) delete x.ic; }); _sanDraw(); toast('올린 로고를 뺐습니다. [저장]을 눌러야 반영됩니다.'); return; }
-      window._sanIcSel=id; _sanIcPaint();
+      window._sanIcSel=id; _sanIcPaint();   // 클릭 = 선택만(파일 창 안 띄움) — 이제 Ctrl+V로 붙여넣기(2026-11-05 사용자 요청)
+    });
+    el.addEventListener('dblclick',function(e){
+      if(e.target.closest('[data-sanicx]')) return;
       var f=document.createElement('input'); f.type='file'; f.accept='image/*';
       f.onchange=function(){ if(f.files&&f.files[0]) _sanIcFile(id,f.files[0]); };
       f.click();
     });
+    el.addEventListener('mouseenter',function(){ window._sanIcHover=id; });
+    el.addEventListener('mouseleave',function(){ if(window._sanIcHover===id) window._sanIcHover=null; });
     el.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); el.classList.add('over'); });
     el.addEventListener('dragleave',function(){ el.classList.remove('over'); });
     el.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); el.classList.remove('over');
@@ -26595,7 +26600,7 @@ function _sanIcFile(id,file){
 }
 document.addEventListener('paste',function(e){
   try{
-    var id=window._sanIcSel; if(!id) return;
+    var id=window._sanIcHover||window._sanIcSel; if(!id) return;   // 마우스를 올린 칸 우선, 없으면 선택한 칸
     var pg=g('pg_navset'), tb=g('ns_tab_san');
     if(!pg||!pg.classList.contains('active')||!tb||tb.style.display==='none') return;
     var t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return;   // 칸에 글 붙여넣기는 그대로
