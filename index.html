@@ -769,7 +769,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-9</div>
   </div>
 </div>
 
@@ -5516,7 +5516,8 @@ function setAdmin(){
   });
   // TL 이상 전용 nav 항목 (계보도·시험신청·팀실적·요청관리·신입관리)
   var isLeader=_isLeader();
-  var leaderNavIds=['n_team_perf','n_req_menu','n_new_menu','n_wkmt'];   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
+  var leaderNavIds=['n_req_menu','n_new_menu','n_wkmt'];   // n_team_perf는 전원 표시(2026-11-05 — 팀원은 본인 실적만)
+  var _ntp=g('n_team_perf'); if(_ntp) _ntp.style.display='';   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
   var _ne=g('n_exam'); if(_ne) _ne.style.display='';
   leaderNavIds.forEach(function(id){
     var el=g(id); if(!el) return;
@@ -9255,7 +9256,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
   }
-  if(['team_perf','req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
+  if(['req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -17304,7 +17305,7 @@ function _rsPageAllowed(role,pg){
   // DB 관리 4종 — showPage가 아닌 사이드바 클릭 핸들러에서만 관리자 가드(고객 PII 페이지).
   // 팝업 바로가기는 showPage를 직접 호출해 그 가드를 우회하므로 여기서 반드시 차단(2026-09-10 intranet-guard 치명 지적)
   if((role==='mem'||role==='lead') && ['db_apply','db_assign','db_info','db_exchange'].indexOf(pg)>=0) return false;
-  if(role==='mem' && ['exam','team_perf','req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(pg)>=0) return false; // 팀장 이상
+  if(role==='mem' && ['exam','req_unified','join_prep','edu_prep','new_check','meeting','wkmt'].indexOf(pg)>=0) return false; // 팀장 이상
   return true;
 }
 // 항목 해석 — 고정 카탈로그(REQSTAT_ITEMS) 또는 동적 바로가기 키 'pg:<페이지키>'
@@ -31909,7 +31910,7 @@ function downloadTicket(idx,eid){
 }
 
 function rTeamPerf(){
-  if(!_isLeader()){ g('team_perf_wrap').innerHTML='<div class="em" style="padding:40px">TL 이상만 볼 수 있습니다.</div>'; return; }
+  if(!cu){ return; }
   var wrap = g('team_perf_wrap');
   if(!wrap) return;
 
@@ -31932,7 +31933,9 @@ function rTeamPerf(){
   leaders.sort(function(x,y){ var bx=_admBelongOf({name:x})?1:0, by=_admBelongOf({name:y})?1:0; return bx-by; });
   mem.filter(function(m){ return m&&m.name&&_wkmtHasSub(m.name); }).sort(function(a,b){return (+a.code||0)-(+b.code||0);})
     .forEach(function(m){ if(leaders.indexOf(m.name)<0) leaders.push(m.name); });
-  if(myTeamForPerf!==null) leaders=leaders.filter(function(n){ return myTeamForPerf.indexOf(n)>=0; });
+  // 관리자(지점장·총무)가 아니면 본인 팀 카드 하나만 — 팀이 없으면 본인 실적 줄만(2026-11-05 백동현 요청: 산하 팀장의 팀 카드는 따로 보이지 않음)
+  var _tpSelf=!_isAdmin();
+  if(_tpSelf) leaders=[];
   var teamsOf={}, covered={};
   leaders.forEach(function(L){ teamsOf[L]=_wkmtTeam(L); teamsOf[L].forEach(function(n){ covered[n]=1; }); });
   var others=[];
@@ -31940,7 +31943,7 @@ function rTeamPerf(){
     mem.forEach(function(m){ if(m&&m.name&&m.name.trim()&&!covered[m.name]&&others.indexOf(m.name)<0) others.push(m.name); });
     Object.keys(agg).forEach(function(n){ if(n&&!covered[n]&&others.indexOf(n)<0) others.push(n); });
   }
-  if(!leaders.length&&!others.length){
+  if(!leaders.length&&!others.length&&!_tpSelf){
     wrap.innerHTML='<div class="card"><div class="em">팀장/산하 구성원 데이터가 없습니다.<br><span style="font-size:14px">구성원에서 소속을 설정해주세요.</span></div></div>';
     return;
   }
@@ -31957,7 +31960,7 @@ function rTeamPerf(){
     })(L,1,[]);
     return out;
   };
-  var cards=leaders.map(function(L){ return {L:L,list:_tpOrder(L)}; });
+  var cards=_tpSelf?[{L:cu.name,list:_tpOrder(cu.name)}]:leaders.map(function(L){ return {L:L,list:_tpOrder(L)}; });
   if(others.length) cards.push({L:'',list:others.sort(function(x,y){ return _tpCode(x)-_tpCode(y); }).map(function(n,i,arr){ return {n:n,d:1,p:'',pre:[i===arr.length-1],none:1}; })});
 
   if(!window._tpOpen) window._tpOpen={};
@@ -32010,10 +32013,10 @@ function rTeamPerf(){
       +'<div data-tpk="'+_alertEsc(key)+'" onclick="tpToggle(this)" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;'+(open?'margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(72,88,204,.12)':'')+'">'
         +'<div style="font-size:15px;font-weight:700;color:#4858cc">'
           +'<span style="display:inline-block;width:16px;color:#8890c0">'+(open?'▾':'▸')+'</span>'
-          +'<i class="ti ti-users"></i> '+(leader.name?_esc(_wkmtKidNm(leader.name))+' 팀':'소속 팀 없음')
+          +'<i class="ti ti-users"></i> '+(leader.name?_esc(_wkmtKidNm(leader.name))+(allMembers.length>1?' 팀':' · 내 실적'):'소속 팀 없음')
           +(leader.rank?'<span class="rb" style="margin-left:6px">'+_esc(leader.rank)+'</span>':'')
           +'<span style="font-size:13px;color:#8888bb;font-weight:400;margin-left:8px">총 '+allMembers.length+'명'
-            +(leader.name?' · <span style="color:#1f7a3e">직도입 '+nDir+'</span> · <span style="color:#b0640a">간접 '+nInd+'</span>':'')+'</span>'
+            +(leader.name&&allMembers.length>1?' · <span style="color:#1f7a3e">직도입 '+nDir+'</span> · <span style="color:#b0640a">간접 '+nInd+'</span>':'')+'</span>'
         +'</div>'
         +'<div style="display:flex;gap:16px;font-size:14px">'
           +'<span style="color:#3848cc;font-weight:700">팀 합계: '+teamTotal.c+'건</span>'
