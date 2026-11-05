@@ -533,6 +533,16 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .dbuchart{position:relative;height:300px}
 .dbuscroll{overflow-x:auto}
 .dbutb{border-collapse:collapse;width:100%}
+.dbures{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.dbures .dbulb{margin:0 4px 0 0}
+.dburb{padding:5px 12px;border-radius:14px;border:1px solid #d3d9e3;background:#fff;color:#4a5566;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.dburb.on.absent{background:#7a869a;border-color:#7a869a;color:#fff}.dburb.on.reject{background:#d0465a;border-color:#d0465a;color:#fff}
+.dburtag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11.5px;font-weight:700;color:#fff}.dburtag.absent{background:#7a869a}.dburtag.reject{background:#d0465a}
+.dbrper{display:flex;gap:4px;flex-wrap:wrap}.dbrper button{padding:6px 12px;border-radius:16px;border:1px solid #d3d9e3;background:#fff;color:#3a4068;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}.dbrper button.on{background:#2f6fdb;border-color:#2f6fdb;color:#fff}
+.dbrrec{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.dbrcard{border:1px solid #d9e0e6;border-radius:8px;padding:12px 14px;background:#fff}.dbrcard.good{border-color:#9fd3b0;background:#f3fbf5}.dbrcard.bad{border-color:#efb5bd;background:#fdf4f5}
+.dbrcard .t{font-size:12px;font-weight:800;margin-bottom:4px}.dbrcard.good .t{color:#1f7a3e}.dbrcard.bad .t{color:#b0303f}
+.dbrcard .n{font-size:17px;font-weight:800;color:#17202a}.dbrcard .d{font-size:12.5px;color:#55606e;margin-top:4px;line-height:1.55}
+.dbrhi{font-weight:800}.dbrlow{color:#a0a8b4}
 .dbutb th,.dbutb td{padding:7px 10px;text-align:left;border-bottom:1px solid #e3e8ee;vertical-align:top;color:#17202a;font-size:13.5px}
 .dbutb th{font-size:12px;color:#5d6b78;font-weight:600;white-space:nowrap;background:#f6f8fa}
 .dbutb .n{text-align:right;font-variant-numeric:tabular-nums}.dbutb .c{text-align:center}
@@ -769,7 +779,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-13</div>
   </div>
 </div>
 
@@ -892,6 +902,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_db_info">DB 정보</div></div>
       <div class="ns"><div class="ni" id="n_db_exchange">교환신청</div></div>
       <div class="ns"><div class="ni" id="n_dbuse">DB사용량</div></div>
+      <div class="ns"><div class="ni" id="n_dbrec">DB추천시스템</div></div>
     </div>
 
     <div class="ni" id="n_ab_menu"><i class="ti ti-arrows-exchange"></i>부재디비교환<i class="ti ti-chevron-down nc" id="nc_ab"></i></div>
@@ -1215,6 +1226,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
               <div class="dbuseg"><label><input type="radio" name="dbu_region" value="수도권" checked> 수도권</label><label><input type="radio" name="dbu_region" value="충청권"> 충청권</label></div></div>
             <div class="dbuf"><label for="dbu_date">배정일</label><input type="date" id="dbu_date" class="dbui"></div>
             <div class="dbuf dbufull"><span class="dbulb">진행 단계 (체크하면 특이사항을 적을 수 있습니다)</span><div class="dbustages" id="dbu_stages"></div></div>
+            <div class="dbuf dbufull"><div class="dbures" id="dbu_resf"><span class="dbulb">결과</span><button type="button" class="dburb absent" data-fres="absent">부재</button><button type="button" class="dburb reject" data-fres="reject">거절</button><span class="dbunote">연결 안 됨=부재, 바로 거절=거절 (다시 누르면 해제)</span></div></div>
             <div class="dbuf dbufull"><label for="dbu_remark">비고</label><input type="text" id="dbu_remark" class="dbui" maxlength="120" placeholder="자유롭게 입력"></div>
             <div class="dbufull"><button class="abbtn pri" id="dbu_save" onclick="dbuAdd()">저장</button><span class="dbust" id="dbu_st"></span></div>
           </div>
@@ -1252,6 +1264,27 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="card"><div class="dbuh">권역 × DB 종류 (건수)</div><div class="dbuscroll" id="dbu_matrix"></div></div>
       <div class="card"><div class="dbuh">전체 고객 목록</div><div class="dbuscroll" id="dbu_list"></div></div>
       <div id="dbu_report" aria-hidden="true"></div>
+    </div>
+    <div class="pg" id="pg_dbrec">
+      <div class="sh"><div class="st"><i class="ti ti-target-arrow"></i>DB추천시스템</div>
+        <button class="bp" onclick="rDbRec()"><i class="ti ti-refresh"></i> 새로고침</button></div>
+      <div class="abnote">DB사용량에 지점원들이 남긴 기록(배정일 기준)으로 DB 업체·권역별 효율을 계산합니다. 부재·거절은 DB사용량의 [부재]/[거절] 버튼, 상담·계약은 진행 단계 체크로 기록됩니다. 결과를 남기지 않은 건이 많으면 비율이 실제보다 낮게 보입니다.</div>
+      <div class="card">
+        <div class="dburow"><div class="dbuh">기간 · 권역</div>
+          <div class="dbufilters"><div class="dbrper" id="dbr_per"></div>
+            <select id="dbr_rg" class="dbusel" onchange="_dbrRender()"><option value="">권역 전체</option><option>수도권</option><option>충청권</option></select></div></div>
+        <div class="dbunote" id="dbr_range" style="margin:2px 0 10px"></div>
+        <div class="dbukpis" id="dbr_kpis"></div>
+      </div>
+      <div class="card"><div class="dbuh">추천</div><div id="dbr_rec"></div></div>
+      <div class="card">
+        <div class="dburow"><div class="dbuh">효율 표</div>
+          <div class="dbufilters"><select id="dbr_by" class="dbusel" onchange="_dbrRender()"><option value="tr">업체 × 권역</option><option value="t">업체별</option><option value="r">권역별</option></select></div></div>
+        <div class="dbuscroll" id="dbr_tb"></div>
+        <div class="dbunote" style="margin-top:8px">비율은 모두 배정 건수 대비입니다. 미기록 = 배정 후 7일이 지났는데 진행 단계·부재·거절이 하나도 없는 건.</div>
+      </div>
+      <div class="card"><div class="dbuh">기간별 추이 (업체별)</div><div class="dbuscroll" id="dbr_trend"></div></div>
+      <div class="card"><div class="dbuh">기록 모니터링 (지점원별)</div><div class="dbuscroll" id="dbr_mon"></div></div>
     </div>
 
     <!-- 환경설정 — 메뉴 구성 / 전산 사이트 관리 (관리자 전용) -->
@@ -5904,6 +5937,7 @@ g('n_ab_buy').addEventListener('click',function(){showPage('ab_buy');});
 g('n_ab_rereg').addEventListener('click',function(){showPage('ab_rereg');});   // 관리자 전용 — showPage 가드
 g('n_ab_stat').addEventListener('click',function(){showPage('ab_stat');});
 g('n_dbuse').addEventListener('click',function(){showPage('dbuse');});
+g('n_dbrec').addEventListener('click',function(){showPage('dbrec');});
 g('n_claim_menu').addEventListener('click',function(){tnav('claim');});
 g('n_claim_apply').addEventListener('click',function(){showPage('claim_apply');});
 g('n_claim_status').addEventListener('click',function(){showPage('claim_status');});
@@ -5946,7 +5980,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
-  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량'};
+  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템'};
 // ===== 사용법 안내 채팅 봇 (cb, 2026-11-04 — 박지순 요청) =====
 // 모든 화면 오른쪽 아래 💬 버튼 → 작은 채팅 창. 질문하면 미리 적어 둔 안내문(CB_GUIDE) 중 맞는 것을 골라 보여 주고 [바로 가기] 버튼으로 그 화면을 연다.
 // 답 고르기: ① 낱말 점수(무료·즉시)가 확실하면 그대로 ② 애매하면 AI(/api/analyze Gemini)가 **목록 안의 id만** 고른다 — 안내 글은 항상 아래 고정 문구(AI가 지어내지 않음).
@@ -5985,7 +6019,8 @@ var CB_GUIDE=[
   {k:'db_apply',kw:'DB신청 디비신청 신청현황',a:'DB 신청 현황을 봅니다.'},
   {k:'db_assign',kw:'DB배정 디비배정 배정현황',a:'DB 배정 현황을 봅니다.'},
   {k:'db_exchange',kw:'DB교환 디비교환 교환신청',a:'받은 DB의 교환을 신청합니다.'},
-  {k:'dbuse',kw:'DB사용량 디비사용량 TA 상담 제안 계약 전환율',a:'받은 DB 고객을 추가하고 TA·상담·제안·계약 단계를 체크합니다. 전체 현황·차트·전환율을 함께 봅니다.'},
+  {k:'dbuse',kw:'DB사용량 디비사용량 TA 상담 제안 계약 전환율 부재 거절',a:'받은 DB 고객을 추가하고 TA·상담·제안·계약 단계를 체크합니다. 연결이 안 되면 [부재], 바로 거절하면 [거절]을 누릅니다. 전체 현황·차트·전환율을 함께 봅니다.'},
+  {k:'dbrec',kw:'DB추천시스템 디비추천 DB효율 부재율 거절율 상담율 계약율 업체 권역 추천',a:'DB사용량 기록으로 DB 업체·권역별 부재율·거절율·상담율·계약율을 전월·3개월·6개월·1년 단위로 보여 주고, 효율 좋은 조합을 추천합니다.\n지점원별 기록 현황(결과 미기록 건)도 함께 봅니다.'},
   {k:'ab_write',kw:'부재디비 부재 리스트 작성 올리기 등록 포인트',a:'부재 고객 DB를 작성해 마켓에 올립니다. 1건 올리면 +1P.\n판매 전 내가 지우면 −1P, 포인트가 −3P 이하가 되면 새로 올릴 수 없습니다.'},
   {k:'ab_market',kw:'부재디비 마켓 구매 사기 포인트',a:'다른 사람이 올린 부재 DB를 체크해 구매합니다. 1건에 −1P(포인트가 모자라면 살 수 없어요). 산 DB는 [구매 리스트]에서 전체 정보를 봅니다.'},
   {k:'ab_buy',kw:'부재디비 구매리스트 산 디비 재등록',a:'내가 산 부재 DB의 전체 정보(연락처·녹음 등)를 봅니다. 다시 마켓에 올리고 싶으면 재등록을 요청합니다.'},
@@ -9284,7 +9319,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -27184,7 +27219,7 @@ function _dbuClean(r){
   var o={id:_dbuStr(r.id,40)||_dbuRid(), dbType:_dbuStr(r.dbType,30)||'-', customer:_dbuStr(r.customer,40),
     region:DBU_REGIONS.indexOf(r.region)>=0?r.region:'수도권',
     assigned:/^\d{4}-\d{2}-\d{2}$/.test(String(r.assigned||''))?String(r.assigned):'',
-    remark:_dbuStr(r.remark,120), notes:{}};
+    remark:_dbuStr(r.remark,120), res:(r.res==='absent'||r.res==='reject')?r.res:'', notes:{}};
   var nt=(r.notes&&typeof r.notes==='object')?r.notes:{};
   DBU_STAGES.forEach(function(s){ o[s[0]]=!!r[s[0]]; o.notes[s[0]]=o[s[0]]?_dbuStr(nt[s[0]],120):''; });
   return o;
@@ -27216,6 +27251,9 @@ function _dbuInitForm(){
       +'<input type="text" class="dbui" id="dbu_n_'+s[0]+'" maxlength="120" placeholder="'+s[1]+' 특이사항" style="display:none"></div>';
   }).join('');
   var dt=g('dbu_date'); if(dt&&!dt.value) dt.value=td();
+  var rf=g('dbu_resf');
+  if(rf) rf.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-fres]'); if(!b) return;
+    var v=b.getAttribute('data-fres'); window._dbuFormRes=(window._dbuFormRes===v)?'':v; _dbuFormResDraw(); });
   var m=g('dbu_mine');
   if(m){
     m.addEventListener('change',function(e){
@@ -27223,7 +27261,7 @@ function _dbuInitForm(){
       var id=card.getAttribute('data-dbuid'), k=el.getAttribute('data-k'), nk=el.getAttribute('data-note');
       if(el.type==='checkbox'&&k){
         var on=el.checked, n=card.querySelector('[data-note="'+k+'"]'); if(n){ n.style.display=on?'':'none'; if(!on) n.value=''; }
-        _dbuUpdateRow(id,function(r){ r[k]=on; r.notes=r.notes||{}; if(!on) r.notes[k]=''; return r; });
+        _dbuUpdateRow(id,function(r){ r[k]=on; r.notes=r.notes||{}; if(!on) r.notes[k]=''; if(on&&r.res==='absent') r.res=''; return r; });   // 단계 체크 = 연결됨 → 부재 해제
       } else if(nk){
         var v=_dbuStr(el.value,120); _dbuUpdateRow(id,function(r){ r.notes=r.notes||{}; r.notes[nk]=v; return r; });
       } else if(k==='remark'){
@@ -27231,6 +27269,13 @@ function _dbuInitForm(){
       }
     });
     m.addEventListener('click',function(e){
+      var rb=e.target.closest&&e.target.closest('[data-dbures]');
+      if(rb){ var cd=rb.closest('[data-dbuid]'); if(!cd) return; var rid=cd.getAttribute('data-dbuid'), rv2=rb.getAttribute('data-dbures');
+        var turnOn=!rb.classList.contains('on'), hasStage=DBU_STAGES.some(function(s2){ var c2=cd.querySelector('[data-k="'+s2[0]+'"]'); return c2&&c2.checked; });
+        // 부재(연결 안 됨)와 진행 단계는 함께 있을 수 없음 — 단계가 체크돼 있으면 확인 후 단계를 풀고 부재로(리뷰 반영: 부재율·상담율 이중 집계 방지)
+        if(turnOn&&rv2==='absent'&&hasStage&&!confirm('진행 단계(TA·상담 등)가 체크돼 있습니다. 부재로 바꾸면 단계 체크가 풀립니다. 계속할까요?')) return;
+        rb.classList.toggle('on'); var sib=cd.querySelectorAll('[data-dbures]'); sib.forEach(function(x){ if(x!==rb) x.classList.remove('on'); });
+        _dbuUpdateRow(rid,function(r){ r.res=turnOn?rv2:''; if(r.res==='absent'){ DBU_STAGES.forEach(function(s2){ r[s2[0]]=false; }); r.notes={}; } return r; }); return; }
       var b=e.target.closest&&e.target.closest('[data-dbudel]'); if(!b) return;
       var id=b.getAttribute('data-dbudel'), nm=b.getAttribute('data-dbunm')||'';
       if(!confirm((nm?'"'+nm+'" ':'')+'고객을 삭제할까요?')) return;
@@ -27239,6 +27284,7 @@ function _dbuInitForm(){
     m.addEventListener('focusout',function(){ setTimeout(_dbuRenderMine,0); });
   }
 }
+function _dbuFormResDraw(){ var f=g('dbu_resf'); if(!f) return; f.querySelectorAll('[data-fres]').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-fres')===window._dbuFormRes); }); }
 function _dbuFormStage(k){
   var c=g('dbu_c_'+k), n=g('dbu_n_'+k); if(!c||!n) return;
   n.style.display=c.checked?'':'none'; if(c.checked) n.focus(); else n.value='';
@@ -27279,12 +27325,13 @@ function dbuAdd(){
   if(!customer){ _dbuSt('고객명을 입력하세요.',true); g('dbu_cust').focus(); return; }
   if(!/^\d{4}-\d{2}-\d{2}$/.test(assigned)){ _dbuSt('배정일을 입력하세요.',true); g('dbu_date').focus(); return; }
   var rg=document.querySelector('input[name="dbu_region"]:checked');
-  var r={id:_dbuRid(), dbType:dbType, customer:customer, region:rg?rg.value:'수도권', assigned:assigned, remark:_dbuStr(g('dbu_remark').value,120), notes:{}};
+  var r={id:_dbuRid(), dbType:dbType, customer:customer, region:rg?rg.value:'수도권', assigned:assigned, remark:_dbuStr(g('dbu_remark').value,120), res:window._dbuFormRes||'', notes:{}};
   DBU_STAGES.forEach(function(s){ var c=g('dbu_c_'+s[0]); r[s[0]]=!!(c&&c.checked); r.notes[s[0]]=r[s[0]]?_dbuStr(g('dbu_n_'+s[0]).value,120):''; });
+  if(r.res==='absent'&&DBU_STAGES.some(function(s){ return r[s[0]]; })){ _dbuSt('부재(연결 안 됨)와 진행 단계는 함께 고를 수 없습니다. 하나만 고르세요.',true); return; }
   var btn=g('dbu_save'); if(btn.disabled) return; btn.disabled=true; _dbuSt('저장 중…');
   _dbuMutate(function(rows){ return [r].concat(rows); }).then(function(){
     _dbuSt('저장했습니다.');
-    g('dbu_cust').value=''; g('dbu_remark').value='';
+    g('dbu_cust').value=''; g('dbu_remark').value=''; window._dbuFormRes=''; _dbuFormResDraw();
     DBU_STAGES.forEach(function(s){ var c=g('dbu_c_'+s[0]), n=g('dbu_n_'+s[0]); if(c) c.checked=false; if(n){ n.value=''; n.style.display='none'; } });
   }).catch(_dbuErr).then(function(){ btn.disabled=false; });
 }
@@ -27300,6 +27347,7 @@ function _dbuSub(){
     window._dbuDocs=o; window._dbuLoaded=true;
     if(g('dbu_st')&&/불러오는/.test(g('dbu_st').textContent)) _dbuSt('');
     _dbuRender();
+    try{ var _pr=g('pg_dbrec'); if(_pr&&_pr.classList.contains('active')) _dbrRender(); }catch(e){}
   }, function(e){ if(seq!==window._dbuSeq) return; console.warn('DB사용량 불러오기 실패:', e); _dbuUnsubscribe(); _dbuSt('데이터를 불러오지 못했습니다. [새로고침]을 눌러 다시 시도하세요.',true); });   // 오류 뒤 구독을 비워 다음 rDbUse가 다시 구독(리뷰 반영)
 }
 function _dbuUnsubscribe(){
@@ -27325,20 +27373,23 @@ function _dbuRenderMine(){
   if(!window._dbuLoaded){ box.innerHTML='<div class="dbuempty">불러오는 중…</div>'; return; }
   box.innerHTML=rows.length?rows.map(function(r){
     return '<div class="dbucard" data-dbuid="'+_esc(r.id)+'">'
-      +'<div class="dbuhd"><div><b>'+_esc(r.customer)+'</b><div class="dbumeta">'+_esc(r.dbType)+' · '+_esc(r.region)+' · 배정 '+_esc(r.assigned||'-')+'</div></div>'
+      +'<div class="dbuhd"><div><b>'+_esc(r.customer)+'</b>'+(r.res?' <span class="dburtag '+r.res+'">'+(r.res==='absent'?'부재':'거절')+'</span>':'')+'<div class="dbumeta">'+_esc(r.dbType)+' · '+_esc(r.region)+' · 배정 '+_esc(r.assigned||'-')+'</div></div>'
       +'<button class="dbudel" data-dbudel="'+_esc(r.id)+'" data-dbunm="'+_esc(r.customer)+'">삭제</button></div>'
       +'<div class="dbustages">'+DBU_STAGES.map(function(s){
         var k=s[0];
         return '<div class="dbustage"><label><input type="checkbox" data-k="'+k+'"'+(r[k]?' checked':'')+'> '+s[1]+'</label>'
           +'<input type="text" class="dbui" data-note="'+k+'" maxlength="120" value="'+_esc(r.notes[k])+'" placeholder="'+s[1]+' 특이사항"'+(r[k]?'':' style="display:none"')+'></div>';
       }).join('')+'</div>'
+      +'<div class="dbures" style="margin:6px 0"><span class="dbulb">결과</span><button type="button" class="dburb absent'+(r.res==='absent'?' on':'')+'" data-dbures="absent">부재</button><button type="button" class="dburb reject'+(r.res==='reject'?' on':'')+'" data-dbures="reject">거절</button></div>'
       +'<div class="dbuf"><label>비고</label><input type="text" class="dbui" data-k="remark" maxlength="120" value="'+_esc(r.remark)+'"></div></div>';
   }).join(''):'<div class="dbuempty">아직 입력한 고객이 없습니다.<br>왼쪽에서 첫 고객을 저장하세요.</div>';
 }
 function _dbuPct(p){ return p.toFixed(1).replace(/\.0$/,'')+'%'; }
 function _dbuKpiHtml(rows){
   var n=rows.length;
+  var kp=function(lb,c){ var p=n?c/n*100:0; return '<div class="dbukpi"><div class="k">'+lb+'</div><div class="v">'+c+'</div><div class="dbunote">배정 대비 '+(n?_dbuPct(p):'–')+'</div><div class="dbubar"><i style="width:'+p+'%"></i></div></div>'; };
   return '<div class="dbukpi"><div class="k">전체 고객</div><div class="v">'+n+'</div></div>'
+    +kp('부재',rows.filter(function(r){ return r.res==='absent'; }).length)+kp('거절',rows.filter(function(r){ return r.res==='reject'; }).length)
     +DBU_STAGES.map(function(s){ var c=rows.filter(function(r){ return r[s[0]]; }).length, p=n?c/n*100:0;
       return '<div class="dbukpi"><div class="k">'+s[1]+'</div><div class="v">'+c+'</div><div class="dbunote">배정 대비 '+(n?_dbuPct(p):'–')+'</div><div class="dbubar"><i style="width:'+p+'%"></i></div></div>'; }).join('');
 }
@@ -27370,9 +27421,9 @@ function _dbuMatrixHtml(rows){
 function _dbuListHtml(rows){
   if(!rows.length) return '<div class="dbuempty">아직 입력된 고객이 없습니다.</div>';
   function cell(r,k){ return r[k]?'<span class="dbuchk">✓</span>'+(r.notes[k]?'<span class="dbusn">'+_esc(r.notes[k])+'</span>':''):'<span class="dbudash">–</span>'; }
-  return '<table class="dbutb"><thead><tr><th>배정일</th><th>담당자</th><th>고객명</th><th>DB</th><th>권역</th>'+DBU_STAGES.map(function(s){ return '<th class="c">'+s[1]+'</th>'; }).join('')+'<th>비고</th></tr></thead><tbody>'
+  return '<table class="dbutb"><thead><tr><th>배정일</th><th>담당자</th><th>고객명</th><th>DB</th><th>권역</th>'+DBU_STAGES.map(function(s){ return '<th class="c">'+s[1]+'</th>'; }).join('')+'<th class="c">결과</th><th>비고</th></tr></thead><tbody>'
     +rows.map(function(r){ return '<tr><td style="white-space:nowrap">'+_esc(r.assigned)+'</td><td>'+_esc(r.owner)+'</td><td>'+_esc(r.customer)+'</td><td>'+_esc(r.dbType)+'</td><td>'+_esc(r.region)+'</td>'
-      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td>'+_esc(r.remark)+'</td></tr>'; }).join('')+'</tbody></table>';
+      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td class="c">'+(r.res?'<span class="dburtag '+r.res+'">'+(r.res==='absent'?'부재':'거절')+'</span>':'<span class="dbudash">–</span>')+'</td><td>'+_esc(r.remark)+'</td></tr>'; }).join('')+'</tbody></table>';
 }
 function _dbuKeepSel(sel,first,opts){
   if(!sel) return; var cur=sel.value;
@@ -27478,11 +27529,111 @@ async function dbuPdf(){
   finally{ btn.disabled=false; rep.innerHTML=''; }
 }
 // 로그아웃 — 구독 해제·화면의 고객명 비우기(다음 사용자에게 남지 않게)
+// ===== DB추천시스템 (dbrec, 2026-11-05 — 백동현 요청) =====
+// DB사용량(dbuse 컬렉션) 기록을 배정일 기준으로 기간별 집계 — 부재율·거절율·상담율·계약율(모두 배정 대비).
+// 기간: 이번 달(진행 중) · 전월 · 최근 3/6/12개월(이번 달 제외 — 결과가 아직 덜 남은 달이 비율을 깎지 않게). 데이터 구독은 _dbuSub 공용.
+var DBR_PERIODS=[['cur','이번 달'],['m1','전월'],['m3','최근 3개월'],['m6','최근 6개월'],['m12','최근 1년']];
+var DBR_MIN=10;   // 추천에 쓰는 최소 배정 건수(조합당)
+function _dbrRange(k){
+  var t=td(), y=+t.slice(0,4), m=+t.slice(5,7);
+  var ymd=function(yy,mm,dd){ return yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0'); };
+  if(k==='cur') return [ymd(y,m,1),t];
+  var n=+k.slice(1)||1, d0=new Date(y,m-1-n,1), d1=new Date(y,m-1,0);
+  return [ymd(d0.getFullYear(),d0.getMonth()+1,1), ymd(d1.getFullYear(),d1.getMonth()+1,d1.getDate())];
+}
+function _dbrStale(r){ if(!r.assigned) return false; var a=new Date(r.assigned+'T12:00:00'), now=new Date(td()+'T12:00:00'); return (now-a)/864e5>=7; }
+function _dbrStat(rows){
+  var o={n:rows.length,ab:0,rj:0,cs:0,ct:0,pr:0,ta:0,none:0};
+  rows.forEach(function(r){ if(r.res==='absent'){ o.ab++; return; } if(r.res==='reject') o.rj++; if(r.consult) o.cs++; if(r.contract) o.ct++; if(r.proposal) o.pr++; if(r.ta) o.ta++;
+    if(!r.res&&!r.ta&&!r.consult&&!r.proposal&&!r.contract&&_dbrStale(r)) o.none++; });
+  var p=function(c){ return o.n?c/o.n*100:0; };
+  o.pab=p(o.ab); o.prj=p(o.rj); o.pcs=p(o.cs); o.pct=p(o.ct); o.pnone=p(o.none);
+  return o;
+}
+function _dbrRows(k,rg){
+  var rr=_dbrRange(k), all=window._dbuAllRows||_dbuAll();
+  return all.filter(function(r){ return r.assigned&&r.assigned>=rr[0]&&r.assigned<=rr[1]&&(!rg||r.region===rg); });
+}
+function _dbrP(v,n){ return n?_dbuPct(v):'–'; }
+function rDbRec(){
+  if(!_abDb()){ var b=g('dbr_rec'); if(b) b.innerHTML='<div class="dbuempty">저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.</div>'; return; }
+  if(!window._dbrPer) window._dbrPer='m3';
+  var pe=g('dbr_per'); if(pe&&!pe._bound){ pe._bound=1; pe.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-dbrp]'); if(!b) return; window._dbrPer=b.getAttribute('data-dbrp'); _dbrRender(); }); }
+  if(!_dbuKey()){ var b2=g('dbr_rec'); if(b2) b2.innerHTML='<div class="dbuempty">로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.</div>'; return; }
+  _dbuSub();
+  _dbrRender();
+}
+function _dbrRender(){
+  var pg=g('pg_dbrec'); if(!pg) return;
+  var per=window._dbrPer||'m3', rg=(g('dbr_rg')||{}).value||'', by=(g('dbr_by')||{}).value||'tr';
+  var pe=g('dbr_per'); if(pe) pe.innerHTML=DBR_PERIODS.map(function(x){ return '<button type="button" data-dbrp="'+x[0]+'" class="'+(x[0]===per?'on':'')+'">'+x[1]+'</button>'; }).join('');
+  if(!window._dbuLoaded){ g('dbr_rec').innerHTML='<div class="dbuempty">불러오는 중…</div>'; return; }
+  window._dbuAllRows=_dbuAll();
+  var rr=_dbrRange(per), rows=_dbrRows(per,rg), st=_dbrStat(rows);
+  g('dbr_range').textContent='배정일 '+rr[0]+' ~ '+rr[1]+(rg?' · '+rg:' · 권역 전체')+(per==='cur'?' · 진행 중인 달이라 결과가 아직 덜 남았을 수 있습니다':'');
+  var kp=function(lb,c,p,col){ return '<div class="dbukpi"><div class="k">'+lb+'</div><div class="v" style="color:'+col+'">'+(st.n?_dbuPct(p):'–')+'</div><div class="dbunote">'+c+'건 / 배정 '+st.n+'건</div><div class="dbubar"><i style="width:'+p+'%;background:'+col+'"></i></div></div>'; };
+  g('dbr_kpis').innerHTML='<div class="dbukpi"><div class="k">배정</div><div class="v">'+st.n+'</div><div class="dbunote">미기록 '+st.none+'건</div></div>'
+    +kp('부재율',st.ab,st.pab,'#7a869a')+kp('거절율',st.rj,st.prj,'#d0465a')+kp('상담율',st.cs,st.pcs,'#2f6fdb')+kp('계약율',st.ct,st.pct,'#1f7a3e');
+  // 그룹
+  var keyOf=by==='t'?function(r){ return r.dbType; }:by==='r'?function(r){ return r.region; }:function(r){ return r.dbType+' · '+r.region; };
+  var gm={}; rows.forEach(function(r){ var k=keyOf(r); (gm[k]=gm[k]||[]).push(r); });
+  var groups=Object.keys(gm).map(function(k){ var s2=_dbrStat(gm[k]); s2.k=k; return s2; });
+  // 추천 — 업체×권역 조합(표 보기 방식과 무관), 배정 DBR_MIN건 이상만. 계약율 → 상담율 → 거절·부재 적은 순
+  var cm={}; rows.forEach(function(r){ var k=r.dbType+' · '+r.region; (cm[k]=cm[k]||[]).push(r); });
+  var combos=Object.keys(cm).map(function(k){ var s2=_dbrStat(cm[k]); s2.k=k; return s2; });
+  var ok=combos.filter(function(c){ return c.n>=DBR_MIN; });
+  var desc=function(c){ return '계약 <b>'+_dbuPct(c.pct)+'</b> · 상담 '+_dbuPct(c.pcs)+'<br>부재 '+_dbuPct(c.pab)+' · 거절 '+_dbuPct(c.prj)+' · 배정 '+c.n+'건'; };
+  var rec='';
+  if(!rows.length) rec='<div class="dbuempty">이 기간에 배정된 기록이 없습니다.</div>';
+  else if(!ok.length){
+    var ref=combos.filter(function(c){ return c.n>=3; }).sort(function(a,b){ return b.pct-a.pct||b.pcs-a.pcs; }).slice(0,3);
+    rec='<div class="dbunote" style="margin-bottom:8px">업체·권역 조합마다 배정 '+DBR_MIN+'건 이상 쌓여야 추천합니다. 아래는 표본이 적은 참고 값입니다 — 기간을 늘려 보세요.</div>'
+      +(ref.length?'<div class="dbrrec">'+ref.map(function(c){ return '<div class="dbrcard"><div class="t">참고 (표본 적음)</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')+'</div>':'');
+  } else {
+    var good=ok.slice().sort(function(a,b){ return b.pct-a.pct||b.pcs-a.pcs||(a.pab+a.prj)-(b.pab+b.prj); }).slice(0,3);
+    var bad=ok.slice().sort(function(a,b){ return (b.pab+b.prj)-(a.pab+a.prj)||a.pct-b.pct; }).filter(function(c){ return good.indexOf(c)<0&&(c.pab+c.prj)>=40; }).slice(0,2);
+    rec='<div class="dbrrec">'+good.map(function(c,i){ return '<div class="dbrcard good"><div class="t">추천 '+(i+1)+'</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')
+      +bad.map(function(c){ return '<div class="dbrcard bad"><div class="t">주의 — 부재·거절 많음</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')+'</div>'
+      +'<div class="dbunote" style="margin-top:8px">추천 순서: 계약율 → 상담율 → 부재·거절이 적은 순. 주의는 부재+거절이 40% 이상인 조합. 배정 '+DBR_MIN+'건 미만 조합은 제외.</div>';
+  }
+  g('dbr_rec').innerHTML=rec;
+  // 효율 표
+  var best={}; ['pab','prj','pcs','pct'].forEach(function(f){ var v=groups.filter(function(x){ return x.n>=DBR_MIN; }).map(function(x){ return x[f]; }); best[f]=v.length?((f==='pab'||f==='prj')?Math.min.apply(null,v):Math.max.apply(null,v)):null; });
+  var cell=function(x,f,col){ var hi=best[f]!==null&&x.n>=DBR_MIN&&x[f]===best[f]; return '<td class="n"'+(x.n<DBR_MIN?' style="color:#a0a8b4"':'')+'><span'+(hi?' class="dbrhi" style="color:'+col+'"':'')+'>'+_dbrP(x[f],x.n)+'</span><div class="dbubar"><i style="width:'+x[f]+'%;background:'+col+'"></i></div></td>'; };
+  groups.sort(function(a,b){ return b.n-a.n; });
+  var line=function(x,strong){ return '<tr><td>'+(strong?'<b>'+_esc(x.k)+'</b>':_esc(x.k))+(x.n<DBR_MIN&&!strong?' <span class="dbunote">(표본 적음)</span>':'')+'</td><td class="n">'+x.n+'</td>'+cell(x,'pab','#7a869a')+cell(x,'prj','#d0465a')+cell(x,'pcs','#2f6fdb')+cell(x,'pct','#1f7a3e')+'<td class="n">'+(x.none||'<span class="dbudash">–</span>')+'</td></tr>'; };
+  var tot=_dbrStat(rows); tot.k='전체';
+  g('dbr_tb').innerHTML=rows.length?'<table class="dbutb"><thead><tr><th>구분</th><th class="n">배정</th><th class="n">부재율</th><th class="n">거절율</th><th class="n">상담율</th><th class="n">계약율</th><th class="n">미기록</th></tr></thead><tbody>'
+    +groups.map(function(x){ return line(x); }).join('')+'</tbody><tfoot>'+line(tot,true)+'</tfoot></table>':'<div class="dbuempty">이 기간에 배정된 기록이 없습니다.</div>';
+  // 기간별 추이 — 업체별, 기간 4개(전월·3·6·12개월)
+  var ps=['m1','m3','m6','m12'], types={};
+  ps.forEach(function(k){ _dbrRows(k,rg).forEach(function(r){ types[r.dbType]=1; }); });
+  var tl=Object.keys(types).sort(function(a,b){ return a.localeCompare(b,'ko'); });
+  g('dbr_trend').innerHTML=tl.length?'<table class="dbutb"><thead><tr><th>업체</th>'+ps.map(function(k){ var nm=DBR_PERIODS.filter(function(x){ return x[0]===k; })[0][1]; return '<th class="n">'+nm+'</th>'; }).join('')+'</tr></thead><tbody>'
+    +tl.map(function(t){ return '<tr><td>'+_esc(t)+'</td>'+ps.map(function(k){ var x=_dbrStat(_dbrRows(k,rg).filter(function(r){ return r.dbType===t; }));
+      return '<td class="n"'+(x.n&&x.n<DBR_MIN?' style="color:#a0a8b4"':'')+'>'+(x.n?'<b style="color:#1f7a3e">계약 '+_dbuPct(x.pct)+'</b><div class="dbunote">상담 '+_dbuPct(x.pcs)+' · 부재 '+_dbuPct(x.pab)+' · 거절 '+_dbuPct(x.prj)+'</div><div class="dbunote">배정 '+x.n+'건</div>':'<span class="dbudash">–</span>')+'</td>'; }).join('')+'</tr>'; }).join('')+'</tbody></table>'
+    +'<div class="dbunote" style="margin-top:8px">회색 글씨는 배정 '+DBR_MIN+'건 미만(표본 적음). 기간은 이번 달을 뺀 완료된 달 기준.</div>'
+    :'<div class="dbuempty">최근 1년 기록이 없습니다.</div>';
+  // 기록 모니터링 — 지점원별(전체 기간): 배정, 이 기간 배정, 결과 미기록(7일 지남), 마지막 저장
+  var docs=window._dbuDocs||{}, mon=[];
+  Object.keys(docs).forEach(function(k){ var d=docs[k]||{}, rs=(Array.isArray(d.rows)?d.rows:[]).map(_dbuClean); if(!rs.length) return;
+    var inP=rs.filter(function(r){ return r.assigned&&r.assigned>=rr[0]&&r.assigned<=rr[1]&&(!rg||r.region===rg); });
+    var none=rs.filter(function(r){ return !r.res&&!r.ta&&!r.consult&&!r.proposal&&!r.contract&&_dbrStale(r); }).length;
+    mon.push({nm:_dbuStr(d.name,20)||'이름 없음',all:rs.length,p:inP.length,ps:_dbrStat(inP),none:none,up:+d.updated||0}); });
+  mon.sort(function(a,b){ return b.none-a.none||b.p-a.p; });
+  var ago=function(ts){ if(!ts) return '-'; var dd=Math.floor((Date.now()-ts)/864e5); return dd<=0?'오늘':dd+'일 전'; };
+  g('dbr_mon').innerHTML=mon.length?'<table class="dbutb"><thead><tr><th>담당자</th><th class="n">전체 배정</th><th class="n">이 기간 배정</th><th class="n">이 기간 계약율</th><th class="n">결과 미기록</th><th class="n">마지막 기록</th></tr></thead><tbody>'
+    +mon.map(function(x){ var old=x.up&&(Date.now()-x.up)>7*864e5;
+      return '<tr><td>'+_esc(x.nm)+'</td><td class="n">'+x.all+'</td><td class="n">'+x.p+'</td><td class="n">'+_dbrP(x.ps.pct,x.p)+'</td><td class="n">'+(x.none?'<b style="color:#d0465a">'+x.none+'건</b>':'<span style="color:#1f7a3e">0</span>')+'</td><td class="n"'+(old?' style="color:#d0465a;font-weight:700"':'')+'>'+ago(x.up)+'</td></tr>'; }).join('')+'</tbody></table>'
+    +'<div class="dbunote" style="margin-top:8px">결과 미기록 = 배정 7일이 지났는데 진행 단계·부재·거절이 하나도 없는 건(전체 기간). 마지막 기록이 7일 넘으면 빨간색.</div>'
+    :'<div class="dbuempty">아직 DB사용량 기록이 없습니다.</div>';
+}
 function _dbuClear(){
   _dbuUnsubscribe();
   window._dbuDocs=null; window._dbuLoaded=false; window._dbuRows=null; window._dbuAllRows=null;
   if(window._dbuChart){ try{ window._dbuChart.destroy(); }catch(e){} window._dbuChart=null; }
-  ['dbu_mine','dbu_kpis','dbu_rate','dbu_matrix','dbu_list','dbu_report'].forEach(function(id){ var b=g(id); if(b) b.innerHTML=''; });
+  window._dbuFormRes=''; try{ _dbuFormResDraw(); }catch(e){}
+  ['dbu_mine','dbu_kpis','dbu_rate','dbu_matrix','dbu_list','dbu_report','dbr_kpis','dbr_rec','dbr_tb','dbr_trend','dbr_mon','dbr_range'].forEach(function(id){ var b=g(id); if(b) b.innerHTML=''; });
   ['dbu_name','dbu_cust','dbu_remark','dbu_other'].forEach(function(id){ var b=g(id); if(b) b.value=''; });
   DBU_STAGES.forEach(function(s){ var c=g('dbu_c_'+s[0]), n=g('dbu_n_'+s[0]); if(c) c.checked=false; if(n){ n.value=''; n.style.display='none'; } });
   var c=g('dbu_mine_cnt'); if(c) c.textContent='';
