@@ -769,7 +769,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-10</div>
   </div>
 </div>
 
@@ -5099,6 +5099,7 @@ function logout(){
   try{ var _rsp=g('reqstat_pop'); if(_rsp) _rsp.remove(); }catch(e){}
   window._notPopShown=false; window._notHomeCat=''; window._notPageCat='';   // 공지 팝업·분류 탭(2026-09-29)
   try{ var _npp=g('notpop_pop'); if(_npp) _npp.remove(); }catch(e){}
+  window._bdayShown=false; try{ var _bdp=g('bday_pop'); if(_bdp) _bdp.remove(); }catch(e){}
   // 업무 현황 팝업 설정 편집 초안 리셋 — 같은 탭에서 다른 관리자 로그인 시 미저장 편집이 넘어가는 것 방지(2026-09-10 리뷰)
   window._rsWork=null; window._rsOrder=null; window._rsAddOpen=null;
   // 대리발급 입력 버퍼 리셋(2026-09-10 리뷰) — SPA 로그아웃 뒤 다른 사용자가 같은 탭을 열면
@@ -9456,6 +9457,8 @@ function rHome(){
   try{ _reqStatPopup(); }catch(e){}
   // 공지 팝업(2026-09-29) — 팝업 기간 중인 공지를 로그인(접속)당 1회 표시, [오늘 하루 보지 않음] 지원
   try{ _notPopup(); }catch(e){}
+  // 생일 팝업(2026-11-05 백동현 요청) — 오늘 생일인 지점원(팀원 mem.birth·관리자 admov.birth)을 전원에게 접속당 1회
+  try{ _bdayPopup(); }catch(e){}
 }
 function rNotices(){
   const el=g('notice_list');
@@ -9559,6 +9562,67 @@ function _notPopImgs(n){
     else if(/^image\//i.test(f.type||'')||/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name||'')) out.push(f.url);
   });
   return out.filter(function(u){ return /^https:\/\//i.test(String(u||'')); }).slice(0,10);
+}
+// ── 생일 팝업 (2026-11-05 — 백동현 요청, B안 디자인) ──
+// 생년월일 = 팀원 mem[].birth · 관리자 admov[이름].birth('YYYY-MM-DD'). 사용정지 팀원·총무 포함 여부: 사용정지만 제외.
+// 2월 29일생은 평년엔 2월 28일에 표시. [오늘 하루 보지 않기]는 기기·사용자별 로컬(tops_bday_hide — 동기화 없음).
+function _bdayToday(){
+  var t=td(), md=t.slice(5), y=+t.slice(0,4), leap=(y%4===0&&y%100!==0)||y%400===0, out=[], seen={};
+  var hit=function(b){ b=String(b||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(b)) return false; var m=b.slice(5); return m===md||(!leap&&m==='02-29'&&md==='02-28'); };
+  (typeof _admList==='function'?_admList():ADMINS).forEach(function(a){ if(!a||!a.name||seen[a.name]) return; var ov=_admOv(a.name)||{}; if(hit(ov.birth)){ seen[a.name]=1; out.push({n:a.name,r:_admRankOf(a)||a.role||'',b:_admBelongOf(a),y:+String(ov.birth).slice(0,4)}); } });
+  (Array.isArray(mem)?mem:[]).forEach(function(m){ if(!m||!m.name||!m.name.trim()||m.suspended||seen[m.name]) return; if(hit(m.birth)){ seen[m.name]=1; out.push({n:m.name,r:m.rank||'',b:m.belong||'',y:+String(m.birth).slice(0,4)}); } });
+  return out;
+}
+function _bdayHidden(){ try{ var o=JSON.parse(localStorage.getItem('tops_bday_hide')||'{}'); return !!(cu&&o[cu.name]===td()); }catch(e){ return false; } }
+function _bdayPopup(){
+  try{
+    if(!cu) return;
+    if(/[?&]rr=1/.test(location.search)) return;
+    if(window._bdayShown||g('bday_pop')) return;
+    if(_bdayHidden()) return;
+    var list=_bdayToday();
+    if(!list.length) return;                              // 없으면 플래그 안 세움 — 클라우드 수신 후 홈 재렌더 때 재시도
+    window._bdayShown=true;
+    var t=td(), dl=(+t.slice(5,7))+'월 '+(+t.slice(8,10))+'일', cur=0;
+    if(!g('bday_css')){ var st=document.createElement('style'); st.id='bday_css';
+      st.textContent='@keyframes bdayFall{0%{transform:translateY(-30px) rotate(0)}100%{transform:translateY(190px) rotate(540deg);opacity:.2}}'
+        +'@keyframes bdayPop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}'
+        +'#bday_pop .bdcf{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;animation:bdayFall linear infinite}'
+        +'#bday_pop .bdchip{display:inline-block;margin:3px;padding:4px 10px;border-radius:14px;background:#fff;border:1px solid #f3c2d1;color:#d0466e;font-weight:700;cursor:pointer}'
+        +'#bday_pop .bdchip.on{background:#ff7aa2;color:#fff;border-color:#ff7aa2}';
+      document.head.appendChild(st); }
+    var cf='', cols=['#fff','#fff59d','#b3f0ff','#ffe0ef','#c8f7c5'];
+    for(var i=0;i<16;i++) cf+='<span class="bdcf" style="left:'+(4+i*6)+'%;background:'+cols[i%5]+';animation-duration:'+(2.6+(i%5)*0.5)+'s;animation-delay:'+((i*0.37)%2.4).toFixed(2)+'s"></span>';
+    var ov=document.createElement('div'); ov.id='bday_pop';
+    ov.style.cssText='position:fixed;inset:0;z-index:99997;display:flex;align-items:center;justify-content:center;background:rgba(20,20,30,.5);padding:16px';
+    ov.innerHTML='<div id="bday_card" style="width:410px;max-width:100%;background:#fff;border-radius:22px;box-shadow:0 22px 60px rgba(0,0,0,.35);overflow:hidden;text-align:center;animation:bdayPop .35s ease-out;font-family:inherit">'
+      +'<div style="position:relative;overflow:hidden;background:linear-gradient(135deg,#ff7aa2,#ffb84d 55%,#7ad0ff);padding:28px 20px 62px;color:#fff">'+cf
+        +'<div style="position:relative;font-size:15px;font-weight:700;letter-spacing:1px">🎈 HAPPY BIRTHDAY 🎈</div>'
+        +'<div style="position:relative;font-size:30px;font-weight:900;margin-top:6px;text-shadow:0 2px 6px rgba(0,0,0,.15)">생일 축하합니다!</div></div>'
+      +'<div style="width:96px;height:96px;border-radius:50%;background:#fff;border:5px solid #fff;margin:-50px auto 0;position:relative;box-shadow:0 6px 18px rgba(0,0,0,.18);font-size:52px;line-height:96px">🎂</div>'
+      +'<div id="bday_who"></div>'
+      +'<div style="margin:16px 26px 0;background:#fff4f7;border-radius:12px;padding:13px;font-size:14.5px;color:#444;line-height:1.65">TEAM TOPS 가족 모두가 진심으로 축하드립니다 🎉<br>오늘 하루 가장 행복한 날 되세요!</div>'
+      +(list.length>1?'<div style="margin:12px 26px 0;font-size:13px;color:#666;background:#f5f7ff;border-radius:10px;padding:8px 6px">오늘 생일 '+list.length+'명 · 이름을 누르면 바뀝니다<div id="bday_chips" style="margin-top:4px"></div></div>':'')
+      +'<div style="padding:18px 26px 8px"><button id="bday_close" style="width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,#ff7aa2,#ff9f5a);color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit">🎉 축하합니다!</button></div>'
+      +'<label style="display:inline-flex;align-items:center;gap:6px;padding:4px 0 18px;font-size:12.5px;color:#999;cursor:pointer;user-select:none"><input type="checkbox" id="bday_hide_cb" style="width:15px;height:15px;accent-color:#ff7aa2;margin:0">오늘 하루 보지 않기</label>'
+      +'</div>';
+    document.body.appendChild(ov);
+    var draw=function(){
+      var p=list[cur], age=p.y?(+t.slice(0,4)-p.y):0;
+      g('bday_who').innerHTML='<div style="font-size:24px;font-weight:900;color:#222;margin-top:10px">'+_esc(p.n)
+        +'<span style="font-size:14px;color:#ff6a8f;font-weight:700;margin-left:6px">'+_esc([p.r,p.b?(p.b+' 소속'):''].filter(Boolean).join(' · '))+'</span></div>'
+        +'<div style="font-size:13px;color:#888;margin-top:2px">'+dl+' · 오늘</div>';
+      var ch=g('bday_chips'); if(ch) ch.innerHTML=list.map(function(x,i){ return '<span class="bdchip'+(i===cur?' on':'')+'" data-bdi="'+i+'">'+_esc(x.n)+'</span>'; }).join('');
+    };
+    draw();
+    var close=function(){ try{ ov.remove(); }catch(e){} };
+    ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
+    g('bday_close').onclick=close;
+    var ch=g('bday_chips'); if(ch) ch.addEventListener('click',function(e){ var el=e.target.closest('[data-bdi]'); if(!el) return; cur=+el.getAttribute('data-bdi')||0; draw(); });
+    g('bday_hide_cb').addEventListener('change',function(){
+      try{ var o=JSON.parse(localStorage.getItem('tops_bday_hide')||'{}'); if(this.checked) o[cu.name]=td(); else delete o[cu.name]; _lsSet('tops_bday_hide',JSON.stringify(o)); }catch(e){}
+    });
+  }catch(e){ console.warn('[생일 팝업]',e); }
 }
 function _notPopup(){
   try{
