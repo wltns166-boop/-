@@ -703,6 +703,8 @@ html.th-h-h066 #cal_wrap .ch:first-child{color:#b04040}
 html.th-h-h066 #cal_wrap .cd{border-right:1px solid rgba(13,13,13,.14);border-bottom:1px solid rgba(13,13,13,.14);border-radius:0;text-align:left;padding:6px 7px;font-size:12px;color:#0d0d0d}
 html.th-h-h066 #cal_wrap .cd:nth-child(7n+8){color:#b04040}
 html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d0d;font-weight:700;box-shadow:inset 0 2px 0 #0d0d0d}
+#team_perf_wrap .tpln{display:inline-block;width:18px;font-family:monospace;color:#b8bfe0;font-weight:400}
+#team_perf_wrap .tpbd{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12.5px;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -767,7 +769,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.05-8</div>
   </div>
 </div>
 
@@ -31943,50 +31945,75 @@ function rTeamPerf(){
     return;
   }
   // 팀 안 표시 순서: 팀장 → 그 아래를 계보 순서대로(위 사람 바로 밑에 그 산하) — 들여쓰기 깊이 표시
+  // 팀 안 표시 순서: 팀장 → 그 아래를 계보 순서대로 — 부모(p)·깊이(d)·마지막 자식 여부(가지 선 그리기용)
   var _tpOrder=function(L){
-    var out=[{n:L,d:0}], seen={}; seen[L]=1;
-    (function walk(p,d){
+    var out=[{n:L,d:0,p:'',pre:[]}], seen={}; seen[L]=1;
+    (function walk(p,d,pre){
       var kids=[];
       ADMINS.forEach(function(a){ if(a&&a.name&&a.role!=='총무'&&!seen[a.name]&&_admBelongOf(a)===p) kids.push(a.name); });
       mem.filter(function(m){ return m&&m.name&&!seen[m.name]&&m.belong===p; }).sort(function(a,b){return (+a.code||0)-(+b.code||0);}).forEach(function(m){ if(kids.indexOf(m.name)<0) kids.push(m.name); });
-      kids.forEach(function(k){ if(seen[k]) return; seen[k]=1; out.push({n:k,d:d}); walk(k,d+1); });
-    })(L,1);
+      kids=kids.filter(function(k){ if(seen[k]) return false; seen[k]=1; return true; });
+      kids.forEach(function(k,i){ var last=i===kids.length-1; out.push({n:k,d:d,p:p,pre:pre.concat([last])}); walk(k,d+1,pre.concat([last])); });
+    })(L,1,[]);
     return out;
   };
   var cards=leaders.map(function(L){ return {L:L,list:_tpOrder(L)}; });
-  if(others.length) cards.push({L:'',list:others.sort(function(x,y){ return _tpCode(x)-_tpCode(y); }).map(function(n){ return {n:n,d:1}; })});
+  if(others.length) cards.push({L:'',list:others.sort(function(x,y){ return _tpCode(x)-_tpCode(y); }).map(function(n,i,arr){ return {n:n,d:1,p:'',pre:[i===arr.length-1],none:1}; })});
 
-  var html='';
+  if(!window._tpOpen) window._tpOpen={};
+  var DEP_C=['#4858cc','#2a8a4a','#d07a10','#8a3fc0','#7a7f99'];   // 깊이별 색: 팀장·직도입(초록)·간접 1단(주황)·2단(보라)·그 아래
+  var html='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:13px;color:#5a5f80;margin:0 0 10px 2px">'
+    +'<span><span class="tpbd" style="background:#e3f4e8;color:#1f7a3e">직도입</span> 팀장이 직접 도입</span>'
+    +'<span><span class="tpbd" style="background:#fdefd9;color:#b0640a">간접</span> 팀원이 도입 (누가 도입했는지 표시)</span>'
+    +'<span style="color:#8a8fb0">카드 제목을 누르면 접히고 펴집니다</span>'
+    +'<span style="margin-left:auto"><button class="be" onclick="tpToggleAll(1)" style="font-size:12.5px">모두 펴기</button> <button class="be" onclick="tpToggleAll(0)" style="font-size:12.5px">모두 접기</button></span></div>';
   cards.forEach(function(cd){
     var leader={name:cd.L,rank:cd.L?_tpRank(cd.L):''};
-    var allMembers=cd.list.map(function(o){ return {name:o.n,rank:_tpRank(o.n),d:o.d}; });
+    var allMembers=cd.list.map(function(o){ return {name:o.n,rank:_tpRank(o.n),d:o.d,p:o.p,pre:o.pre,none:o.none}; });
+    var key=cd.L||'_none', open=window._tpOpen[key]!==false;
 
     // 팀 합계
-    var teamTotal={c:0,a:0,ay:0};
+    var teamTotal={c:0,a:0,ay:0}, nDir=0, nInd=0;
     allMembers.forEach(function(m){
       if(agg[m.name]){teamTotal.c+=agg[m.name].c;teamTotal.a+=agg[m.name].a;teamTotal.ay+=(agg[m.name].ay||0);}
+      if(!m.none&&m.d===1) nDir++; else if(!m.none&&m.d>1) nInd++;
     });
 
-    var rows=allMembers.map(function(m, mi){
+    var rows=allMembers.map(function(m){
       var perf=agg[m.name]||{c:0,a:0,ay:0};
-      var isLeader=m.name===leader.name;
-      return '<tr style="'+(isLeader?'background:rgba(72,88,204,.05);font-weight:700':'')+'">'
-        +'<td style="padding-left:'+(isLeader?10:10+14*(m.d||1))+'px;font-size:15px;color:#1a1a3a">'
-          +(isLeader?'':'<span style="color:#ccc;margin-right:4px">└</span>')
-          +_esc(_wkmtKidNm(m.name))+'<span style="font-size:13px;color:#8888bb;margin-left:5px">'+_esc(m.rank||'')+'</span>'
+      var isLeader=!m.none&&m.d===0;
+      var col=DEP_C[Math.min(m.d,DEP_C.length-1)];
+      // 가지 선: 조상 단계마다 │ 또는 빈칸, 자기 단계는 ├ / └
+      var tree='';
+      if(!isLeader&&!m.none){
+        for(var i=0;i<m.pre.length-1;i++) tree+='<span class="tpln">'+(m.pre[i]?'':'│')+'</span>';
+        tree+='<span class="tpln" style="color:'+col+'">'+(m.pre[m.pre.length-1]?'└':'├')+'─</span>';
+      }
+      var badge=isLeader?'<span class="tpbd" style="background:#e6e9fb;color:#3848cc">팀장</span>'
+        :m.none?'<span class="tpbd" style="background:#eee;color:#777">소속 없음</span>'
+        :m.d===1?'<span class="tpbd" style="background:#e3f4e8;color:#1f7a3e">직도입</span>'
+        :'<span class="tpbd" style="background:#fdefd9;color:#b0640a">간접</span><span style="font-size:12.5px;color:#9a6a20;margin-left:4px">'+_esc(m.p)+' 도입</span>';
+      var w=isLeader?'700':'500';
+      return '<tr style="'+(isLeader?'background:rgba(72,88,204,.06);':'')+'box-shadow:inset 4px 0 0 '+col+'">'
+        +'<td style="padding-left:10px;font-size:15px;color:#1a1a3a;white-space:nowrap">'+tree
+          +'<span style="font-weight:'+(isLeader||m.d===1?'700':'500')+';color:'+(isLeader?'#1a1a3a':col)+'">'+_esc(_wkmtKidNm(m.name))+'</span>'
+          +'<span style="font-size:13px;color:#8888bb;margin-left:5px">'+_esc(m.rank||'')+'</span>'
         +'</td>'
-        +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.c||0)+'건</td>'
-        +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+(isLeader?'700':'500')+'">'+(perf.a||0).toLocaleString()+'원</td>'
-        +'<td style="text-align:right;font-size:15px;color:#1a7040;font-weight:'+(isLeader?'700':'500')+'">'+(perf.ay||0).toLocaleString()+'원</td>'
+        +'<td style="white-space:nowrap">'+badge+'</td>'
+        +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+w+'">'+(perf.c||0)+'건</td>'
+        +'<td style="text-align:right;font-size:15px;color:#3848cc;font-weight:'+w+'">'+(perf.a||0).toLocaleString()+'원</td>'
+        +'<td style="text-align:right;font-size:15px;color:#1a7040;font-weight:'+w+'">'+(perf.ay||0).toLocaleString()+'원</td>'
         +'</tr>';
     }).join('');
 
     html+='<div class="card" style="margin-bottom:14px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(72,88,204,.12)">'
+      +'<div data-tpk="'+_alertEsc(key)+'" onclick="tpToggle(this)" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;'+(open?'margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(72,88,204,.12)':'')+'">'
         +'<div style="font-size:15px;font-weight:700;color:#4858cc">'
+          +'<span style="display:inline-block;width:16px;color:#8890c0">'+(open?'▾':'▸')+'</span>'
           +'<i class="ti ti-users"></i> '+(leader.name?_esc(_wkmtKidNm(leader.name))+' 팀':'소속 팀 없음')
           +(leader.rank?'<span class="rb" style="margin-left:6px">'+_esc(leader.rank)+'</span>':'')
-          +'<span style="font-size:13px;color:#8888bb;font-weight:400;margin-left:8px">총 '+allMembers.length+'명</span>'
+          +'<span style="font-size:13px;color:#8888bb;font-weight:400;margin-left:8px">총 '+allMembers.length+'명'
+            +(leader.name?' · <span style="color:#1f7a3e">직도입 '+nDir+'</span> · <span style="color:#b0640a">간접 '+nInd+'</span>':'')+'</span>'
         +'</div>'
         +'<div style="display:flex;gap:16px;font-size:14px">'
           +'<span style="color:#3848cc;font-weight:700">팀 합계: '+teamTotal.c+'건</span>'
@@ -31994,12 +32021,25 @@ function rTeamPerf(){
           +'<span style="color:#1a7040;font-weight:700">영수 '+teamTotal.ay.toLocaleString()+'원</span>'
         +'</div>'
       +'</div>'
-      +'<table class="dt" style="margin:0"><thead><tr><th>구성원</th><th style="width:70px;text-align:right">건수</th><th style="width:110px;text-align:right">인정실적</th><th style="width:110px;text-align:right">영수실적</th></tr></thead>'
-      +'<tbody>'+rows+'</tbody></table>'
+      +(open?'<div style="overflow-x:auto"><table class="dt" style="margin:0"><thead><tr><th>구성원</th><th style="width:150px">도입</th><th style="width:70px;text-align:right">건수</th><th style="width:110px;text-align:right">인정실적</th><th style="width:110px;text-align:right">영수실적</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table></div>':'')
       +'</div>';
   });
-
   wrap.innerHTML=html;
+}
+
+// 팀실적 카드 접기·펴기 — 키는 팀장 이름(소속 없음 '_none'), 상태는 메모리만(저장 없음)
+function tpToggle(el){
+  var k=el&&el.getAttribute('data-tpk'); if(!k) return;
+  if(!window._tpOpen) window._tpOpen={};
+  window._tpOpen[k]=(window._tpOpen[k]===false);
+  rTeamPerf();
+}
+function tpToggleAll(on){
+  if(!window._tpOpen) window._tpOpen={};
+  var w=g('team_perf_wrap'); if(!w) return;
+  w.querySelectorAll('[data-tpk]').forEach(function(el){ window._tpOpen[el.getAttribute('data-tpk')]=!!on; });
+  rTeamPerf();
 }
 
 function rDbExchange(){
