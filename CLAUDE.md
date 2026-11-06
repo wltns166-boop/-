@@ -2374,6 +2374,17 @@
   설명 글씨는 화면 내용을 가리지 않는 빈 곳에 두고 화살표로 대상과 잇는다. 결과 PNG는 SendUserFile로 전달(저장소에 커밋하지 않음).
 - 참고 스크립트: 예약문자발송 편(scratchpad `rsvguide/annot.js`)과 같은 구조로 페이지마다 새로 작성.
 
+## 6.95 PPT 제작은 오픈슬라이드로 (2026-11-06, 백동현 요청)
+
+- 사용자가 "PPT 만들어줘"(상담자료·보고서·교육자료 등 **새 PPT 파일**)라고 하면 **open-slide 2.x**(React로 슬라이드 작성 → PPTX 내보내기)로 만든다. python-pptx·PptxGenJS 직접 작성으로 시작하지 말 것.
+  ⚠️ 인트라넷 **안의 [주간미팅자료] PPT 생성기(4.67 `_wkmtBuild`, PptxGenJS)는 별개 기능** — 이 규칙으로 바꾸지 않는다(바꾸려면 사용자 확인).
+- **작업 폴더는 저장소 밖**(스크래치패드): `npx -y @open-slide/cli init my-deck --no-git` → `npm run sync:skills`(기본 스킬 갱신) → `slides/<kebab-id>/index.tsx` 작성. 저장소(index.html 등)에 슬라이드 파일·node_modules를 넣지 말 것. Node 20.19 이상 필요(이 환경 v22 확인).
+- 작성 규칙은 만든 폴더의 `AGENTS.md`·`.agents/skills/slide-authoring`(1920×1080 캔버스, 세로 예산, 타입 스케일, `design` const)를 따른다. 사용자가 분위기·장수·글 양·움직임을 안 정하면 **묻지 말고 정해서 만들고 가정을 알린다**(백동현 요청 방식). 숫자는 가정 예시면 슬라이드에 "예시"라고 적는다.
+- **내보내기**: 개발 서버(`npm run dev`, 5173)를 띄우고 Playwright로 `/s/<id>`의 `button[aria-label="Download"]` → [Export as PPTX](글자·도형 수정 가능)·[Export as image PPTX](그림, 수정 불가). 둘 다 `SendUserFile`로 전달.
+  PDF 내보내기는 90초 안에 다운로드가 시작되지 않았음(2026-11-06) — 필요하면 PPTX를 LibreOffice(`soffice --headless --convert-to pdf`)로 변환.
+- 검증: 화면 캡처(Playwright 스크린샷)로 각 장 확인 + PPTX는 python-pptx(`python3 -I`)로 장수·글자, LibreOffice 변환으로 렌더 확인. 한글 글꼴은 `"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic"` 순서로 지정.
+- 결과물은 이 세션 임시 폴더에만 남으므로 사용자에게 파일을 보내 보관하게 한다.
+
 ## 7. 작업 마무리 체크리스트 (커밋 전 매번)
 
 1. **문법 검사**:
