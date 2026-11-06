@@ -320,6 +320,15 @@ table.dt tr:last-child td{border-bottom:none;}
 .nsrow.nsdrop-a{box-shadow:inset 0 -3px 0 #4858cc}
 /* 홈 매니저 연락처 표 — 마우스가 가리키는 줄 하이라이트 (흰 카드 위) */
 .mgrow:hover{background:rgba(80,100,220,.12)}
+.mgrtitle{font-size:17px;font-weight:800;color:#1a1a2e;margin:18px 0 8px}
+.mgrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.mgrco{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #dfe3f1;border-radius:10px;background:#fff;cursor:pointer;font-family:inherit;text-align:left;min-width:0}
+.mgrco:hover{border-color:#8a96d8;background:#f5f7ff}.mgrco.on{border:2px solid #4858cc;background:#eef1ff;padding:7px 9px}.mgrco.empty{opacity:.55}
+.mgrco img,.mgrco .sanfb{width:26px;height:26px;flex:0 0 26px;border-radius:6px;object-fit:contain}.mgrco .sanfb{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.mgrco b{font-size:13.5px;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}.mgrco small{font-size:11.5px;color:#7a809a;display:block}
+.mgrco.drop{outline:3px solid #2a9d4a}
+.mgrbox{margin-top:12px;border:1px solid #dfe3f1;border-radius:10px;padding:8px 10px;background:#fafbff}
+.mgrboxh{font-size:14.5px;font-weight:800;color:#1a1a2e;margin:2px 2px 6px;display:flex;align-items:center;gap:8px}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
 .bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
 @media(max-width:900px){.bdgrid{grid-template-columns:repeat(2,1fr)}}
@@ -807,7 +816,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.06-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.06-4</div>
   </div>
 </div>
 
@@ -1040,14 +1049,15 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           <div id="cal_wrap"></div>
         </div>
       </div>
-      <!-- 매니저 연락처 — 좌: 손보사 / 우: 생보사 -->
+      <!-- 매니저 연락처 — 좌: 손보사 / 우: 생보사 (2026-11-06: 회사 버튼 → 누르면 연락처 표) -->
+      <div class="mgrtitle"><i class="ti ti-phone"></i> 각 보험사 지점장/매니저 업무 연락처</div>
       <div class="hg">
         <div class="hc" style="min-height:0">
-          <div class="hct"><span><i class="ti ti-phone"></i> 손보사 매니저</span><button class="bp bsm ao" onclick="mgrEdit('son')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
+          <div class="hct"><span><i class="ti ti-building"></i> 손해보험사</span><button class="bp bsm ao" onclick="mgrEdit('son')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
           <div id="mgr_son"></div>
         </div>
         <div class="hc" style="min-height:0">
-          <div class="hct"><span><i class="ti ti-phone"></i> 생보사 매니저</span><button class="bp bsm ao" onclick="mgrEdit('saeng')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
+          <div class="hct"><span><i class="ti ti-building"></i> 생명보험사</span><button class="bp bsm ao" onclick="mgrEdit('saeng')" style="background:#4858cc;color:#fff;border:1px solid #4858cc"><i class="ti ti-plus"></i> 등록</button></div>
           <div id="mgr_saeng"></div>
         </div>
       </div>
@@ -4614,7 +4624,7 @@ async function loadFromFirestore(){
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
-    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
+    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.themecfg && typeof d.themecfg==='object' && !Array.isArray(d.themecfg)){ window.themecfg=d.themecfg; _lsSet('tops_themecfg', JSON.stringify(d.themecfg)); try{ if(typeof _themeApply==='function'&&!window._thDraft) _themeApply(); }catch(e){} }   // 홈페이지 디자인(2026-10-22) — 관리자가 미리보기 중이면 화면 유지
@@ -4703,7 +4713,7 @@ function startRealtimeSync(){
     if(d.hira_guide && typeof d.hira_guide==='object'){ try{ localStorage.setItem('tops_hira_guide', JSON.stringify(d.hira_guide)); }catch(e){} try{ window._hiraGuide=d.hira_guide; }catch(e){} try{ var _mh=g('m_hira'); if((_mh&&_mh.classList.contains('open'))||_hiraWinOk()) renderHiraGuide(); }catch(e){} }
     if(d.reqins && typeof d.reqins==='object' && !Array.isArray(d.reqins)){ try{ localStorage.setItem('tops_reqins', JSON.stringify(d.reqins)); }catch(e){} try{ window._reqIns=d.reqins; }catch(e){} }
     if(d.claim_docs && typeof d.claim_docs==='object' && !Array.isArray(d.claim_docs)){ try{ localStorage.setItem('tops_claim_docs', JSON.stringify(d.claim_docs)); }catch(e){} try{ window._claimDocs=d.claim_docs; }catch(e){} }
-    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} }
+    if(d.sansites && typeof d.sansites==='object' && !Array.isArray(d.sansites) && Array.isArray(d.sansites.items)){ window.sansites=d.sansites; try{ localStorage.setItem('tops_sansites', JSON.stringify(d.sansites)); }catch(e){} try{ if(typeof rSanRail==='function') rSanRail(); }catch(e){} try{ if(typeof rMgrs==='function') rMgrs(); }catch(e){} }
     if(d.herocfg && typeof d.herocfg==='object' && !Array.isArray(d.herocfg)){ window.herocfg=d.herocfg; try{ localStorage.setItem('tops_herocfg', JSON.stringify(d.herocfg)); }catch(e){} try{ if(typeof _heroApply==='function') _heroApply(); }catch(e){} }
     if(d.brandcfg && typeof d.brandcfg==='object' && !Array.isArray(d.brandcfg)){ window.brandcfg=d.brandcfg; try{ localStorage.setItem('tops_brandcfg', JSON.stringify(d.brandcfg)); }catch(e){} try{ if(typeof _brandApply==='function') _brandApply(); }catch(e){} }
     if(d.themecfg && typeof d.themecfg==='object' && !Array.isArray(d.themecfg)){ window.themecfg=d.themecfg; _lsSet('tops_themecfg', JSON.stringify(d.themecfg)); try{ if(typeof _themeApply==='function'&&!window._thDraft) _themeApply(); }catch(e){} }   // 홈페이지 디자인(2026-10-22) — 관리자가 미리보기 중이면 화면 유지
@@ -9926,26 +9936,69 @@ function _mgrHead(withMng, withEdit){
     +(withEdit?'<th style="padding:7px 4px;border-bottom:2px solid rgba(60,80,180,.25);width:96px"></th>':'')+'</tr>';
 }
 function rMgrs(){ ['son','saeng'].forEach(function(s){ if(!window._mgrEditing[s]) _mgrDraw(s); }); }
+// 회사 버튼 목록 = 오른쪽 전산 바로가기 회사(링크 있는 항목, 같은 구역) + 연락처에만 있는 회사 — 로고는 전산 바로가기 로고 공용(2026-11-06 백동현 요청)
+function _mgrCoKey(s){ try{ return _icNameKey(s); }catch(e){ return String(s||'').replace(/\s/g,'').toLowerCase(); } }
+function _mgrCoMatch(co,nm){ var a=_mgrCoKey(co), b=_mgrCoKey(nm); if(!a||!b) return 0; if(a===b) return 2;
+  // 괄호 안팎을 따로도 비교 — "MG손보(예별)" ↔ "예별손해보험(구MG)"
+  var pa=[a].concat(String(co||'').split(/[()（）]/).map(_mgrCoKey)), pb=[b].concat(String(nm||'').split(/[()（）]/).map(_mgrCoKey));
+  for(var i=0;i<pa.length;i++) for(var j=0;j<pb.length;j++){ var x=pa[i].replace(/^구/,''), y=pb[j].replace(/^구/,''); if(x.length>=2&&y.length>=2&&(x.indexOf(y)>=0||y.indexOf(x)>=0)) return 1; }
+  return 0; }
+function _mgrCos(side){
+  var sites=[]; try{ var all=(_sanData().items||[]).filter(function(it){ return it&&it.grp===side&&String(it.nm||'').trim(); });
+    var withUrl=all.filter(function(it){ return String(it.url||'').trim(); }); sites=withUrl.length?withUrl:all; }catch(e){}
+  var cos=sites.map(function(it){ return {k:'s:'+it.id, nm:it.nm, it:it, rows:[]}; });
+  _mgrRows(side).forEach(function(r){ if(!r) return; var best=null, sc=0;
+    cos.forEach(function(c){ if(!c.it) return; var m=_mgrCoMatch(r.co,c.nm); if(m>sc){ sc=m; best=c; } });
+    if(!best){ var nm=String(r.co||'').trim()||'(회사 미입력)'; cos.forEach(function(c){ if(!best&&!c.it&&_mgrCoKey(c.nm)===_mgrCoKey(nm)) best=c; });
+      if(!best){ best={k:'c:'+_mgrCoKey(nm), nm:nm, it:null, rows:[]}; cos.push(best); } }
+    best.rows.push(r); });
+  return cos;
+}
 function _mgrDraw(side){
   var el=g('mgr_'+side); if(!el) return;
-  var rows=_mgrRows(side);
-  if(!rows.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 매니저가 없습니다.</div>'; return; }
   var adm=_isAdmin();
   // 행별 [수정]은 id 기준(함정 A) — 옛 데이터에 id가 없으면 표시 시점에 부여(메모리만, 다음 저장 때 함께 기록)
-  if(adm) rows.forEach(function(r){ if(r&&!r.id) r.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); });
+  if(adm) _mgrRows(side).forEach(function(r){ if(r&&!r.id) r.id='mg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); });
+  var cos=_mgrCos(side);
+  if(!cos.length){ el.innerHTML='<div class="em" style="padding:16px;font-size:14px">등록된 회사가 없습니다. 환경설정 › 전산 사이트 관리에 보험사를 넣어 주세요.</div>'; return; }
+  window._mgrOpen=window._mgrOpen||{};
   var editing=window._mgrRowEdit&&window._mgrRowEdit.side===side?window._mgrRowEdit.id:null;
-  el.innerHTML='<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false, adm)+'</thead><tbody>'
-    +rows.map(function(r){
-      if(editing&&r.id===editing) return _mgrRowEditHtml(side, r);
-      // 버튼 인자는 onclick 문자열이 아닌 data 속성으로(함정 A 규칙 — id에 따옴표가 섞여도 안전)
-      var btn=adm?'<td style="padding:4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center;white-space:nowrap"><button data-mgract="edit" data-mgrid="'+_esc(r.id||'')+'" style="padding:4px 10px;font-size:12.5px;color:#31419e;background:#fff;border:1px solid #b8c2e8;border-radius:6px;cursor:pointer;font-family:inherit">수정</button></td>':'';
-      return '<tr class="mgrow">'+_MGR_COLS.map(function(c){
-        var red=(c[0]==='mg'&&r.mg==='지점장');   // 지점장 직급은 빨간색 강조
-        var val=(c[0]==='ph')?_mgrPhFmt(r.ph):(r[c[0]]||'');
-        var copy=(c[0]==='ph'&&val)?' onclick="mgrCopyPh(this)" title="클릭하면 번호가 복사됩니다" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"':'';
-        return '<td'+copy+' style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;'+(copy?'cursor:pointer;':'')+'color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(val)+'</td>';
-      }).join('')+btn+'</tr>';
-    }).join('')+'</tbody></table>';
+  if(editing){ cos.forEach(function(c){ if(c.rows.some(function(r){ return r.id===editing; })) window._mgrOpen[side]=c.k; }); }
+  var open=null; cos.forEach(function(c){ if(c.k===window._mgrOpen[side]) open=c; });
+  var html='<div class="mgrgrid">'+cos.map(function(c){
+    var ic=c.it?_sanIconHtml(c.it):'<span class="sanfb" style="background:#9aa3c7">'+_esc(String(c.nm).charAt(0))+'</span>';
+    return '<button type="button" class="mgrco'+(c===open?' on':'')+(c.rows.length?'':' empty')+'" data-mgco="'+_esc(c.k)+'"'+' title="'+_esc(c.nm)+(adm&&c.it?' — 관리자: 마우스를 올리고 Ctrl+V(또는 끌어다 놓기)로 로고 바꾸기':'')+'"'+'>'+ic
+      +'<span style="min-width:0"><b>'+_esc(c.nm)+'</b><small>'+(c.rows.length?('연락처 '+c.rows.length):'미등록')+'</small></span></button>';
+  }).join('')+'</div>';
+  if(open){
+    var rows=open.rows;
+    html+='<div class="mgrbox"><div class="mgrboxh">'+(open.it?_sanIconHtml(open.it):'')+_esc(open.nm)+'<button type="button" data-mgclose="1" style="margin-left:auto;border:none;background:none;color:#888;cursor:pointer;font-size:16px">✕</button></div>'
+      +(rows.length?'<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false, adm)+'</thead><tbody>'
+      +rows.map(function(r){
+        if(editing&&r.id===editing) return _mgrRowEditHtml(side, r);
+        var btn=adm?'<td style="padding:4px;border-bottom:1px solid rgba(80,80,180,.12);text-align:center;white-space:nowrap"><button data-mgract="edit" data-mgrid="'+_esc(r.id||'')+'" style="padding:4px 10px;font-size:12.5px;color:#31419e;background:#fff;border:1px solid #b8c2e8;border-radius:6px;cursor:pointer;font-family:inherit">수정</button></td>':'';
+        return '<tr class="mgrow">'+_MGR_COLS.map(function(c){
+          var red=(c[0]==='mg'&&r.mg==='지점장');   // 지점장 직급은 빨간색 강조
+          var val=(c[0]==='ph')?_mgrPhFmt(r.ph):(r[c[0]]||'');
+          var copy=(c[0]==='ph'&&val)?' onclick="mgrCopyPh(this)" title="클릭하면 번호가 복사됩니다" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"':'';
+          return '<td'+copy+' style="padding:7px 8px;border-bottom:1px solid rgba(80,80,180,.12);font-size:14px;'+(copy?'cursor:pointer;':'')+'color:'+(red?'#d02020;font-weight:700':'#111')+'">'+_esc(val)+'</td>';
+        }).join('')+btn+'</tr>';
+      }).join('')+'</tbody></table>'
+      :'<div class="em" style="padding:12px;font-size:13.5px">등록된 연락처가 없습니다.'+(adm?' 위 [등록]에서 회사 이름을 "'+_esc(open.nm)+'"로 넣어 주세요.':'')+'</div>')+'</div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('[data-mgco]').forEach(function(b){
+    var k=b.getAttribute('data-mgco');
+    b.addEventListener('click',function(){ if(window._mgrRowEdit) { toast('수정 중인 줄을 먼저 [완료]/[취소]해 주세요.'); return; } window._mgrOpen[side]=(window._mgrOpen[side]===k?null:k); _mgrDraw(side); });
+    if(adm&&k.indexOf('s:')===0){ var sid=k.slice(2);
+      b.addEventListener('mouseenter',function(){ window._mgrLogoHover=sid; });
+      b.addEventListener('mouseleave',function(){ if(window._mgrLogoHover===sid) window._mgrLogoHover=null; });
+      b.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); b.classList.add('drop'); });
+      b.addEventListener('dragleave',function(){ b.classList.remove('drop'); });
+      b.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); b.classList.remove('drop'); var f=e.dataTransfer&&e.dataTransfer.files; if(f&&f[0]) _mgrLogoFile(sid,f[0]); });
+    }
+  });
+  var cl=el.querySelector('[data-mgclose]'); if(cl) cl.addEventListener('click',function(){ if(window._mgrRowEdit) return; window._mgrOpen[side]=null; _mgrDraw(side); });
   el.querySelectorAll('button[data-mgract]').forEach(function(b){
     b.addEventListener('click',function(){
       var act=b.getAttribute('data-mgract');
@@ -9955,6 +10008,36 @@ function _mgrDraw(side){
     });
   });
 }
+// 회사 버튼에 로고 붙여넣기(관리자) — 전산 바로가기 항목(sansites)의 ic를 바꿈: 오른쪽 바로가기와 같은 로고
+function _mgrLogoFile(sid,file){
+  if(!_isAdmin()){ toast('관리자만 바꿀 수 있습니다.'); return; }
+  if(!file||!/^image\//.test(file.type||'')){ toast('사진 파일만 올릴 수 있습니다.'); return; }
+  if(file.size>10*1024*1024){ toast('10MB 이하 사진만 올릴 수 있습니다.'); return; }
+  if(window._mgrLogoBusy){ toast('앞 로고를 올리는 중입니다.'); return; }
+  window._mgrLogoBusy=1; toast('로고 올리는 중…');
+  new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){ var im=new Image(); im.onload=function(){ res(im); }; im.onerror=function(){ rej(new Error('이미지를 읽을 수 없습니다')); }; im.src=fr.result; }; fr.onerror=function(){ rej(new Error('파일 읽기 실패')); }; fr.readAsDataURL(file); })
+  .then(function(im){ var M=128, w=im.width, h=im.height, r=Math.min(1,M/Math.max(w,h)); w=Math.max(1,Math.round(w*r)); h=Math.max(1,Math.round(h*r));
+    var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h); return new Promise(function(res){ cv.toBlob(res,'image/png'); }); })
+  .then(function(blob){ if(!blob) throw new Error('이미지 변환 실패');
+    var ref=firebase.storage().ref('home_bg/san_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.png');
+    return ref.put(blob,{contentType:'image/png'}).then(function(){ return ref.getDownloadURL(); }); })
+  .then(function(url){
+    var d=_sanData(), hit=null; (d.items||[]).forEach(function(it){ if(it&&it.id===sid) hit=it; });
+    if(!hit){ toast('그 회사가 전산 사이트 목록에서 없어졌습니다.'); return; }
+    hit.ic=url; window.sansites=d; sv('tops_sansites', d);
+    try{ rSanRail(); }catch(e){} rMgrs(); toast(hit.nm+' 로고를 바꿨습니다(오른쪽 전산 바로가기에도 반영).');
+  }).catch(function(e){ toast('로고를 올리지 못했습니다: '+((e&&e.message)||e)); })
+  .then(function(){ window._mgrLogoBusy=0; });
+}
+document.addEventListener('paste',function(e){
+  try{
+    var sid=window._mgrLogoHover; if(!sid||!_isAdmin()) return;
+    var pg=g('pg_home'); if(!pg||!pg.classList.contains('active')) return;
+    var t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return;
+    var items=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<items.length;i++){ if(items[i].kind==='file'&&/^image\//.test(items[i].type)){ var f=items[i].getAsFile(); if(f){ e.preventDefault(); e.stopPropagation(); _mgrLogoFile(sid,f); return; } } }
+  }catch(err){}
+},true);
 // ── 행별 인라인 수정 (2026-09-04): [수정] → 그 줄만 입력칸 + [완료]/[취소] ──
 // 행 식별은 id(함정 A). 편집 중엔 _mgrEditing[side] 플래그로 실시간 재렌더 생략(전체 편집과 공용 보호).
 // [완료]는 클라우드 최신본에서 같은 id 행만 교체(mgrSave의 병합 취지 — 남의 다른 행 변경 보존).
