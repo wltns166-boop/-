@@ -695,6 +695,14 @@ html.th-h-h066 .ni .nc{font-size:12px;color:rgba(13,13,13,.5)}
 html.th-h-h066 .ns .ni{font-size:12px;padding:5px 20px 5px 30px;color:rgba(13,13,13,.55);font-weight:400}
 html.th-h-h066 .ns .ni:hover{color:#0d0d0d}
 html.th-h-h066 #sb .ni.ni-cur{color:#0d0d0d;border-left-color:#0d0d0d;background:rgba(0,0,0,.05)}
+/* 메뉴 C안(2026-11-06 백동현 요청 — 둥근 버튼·그룹 색 구분). 색 --gc는 _navGrpColors가 그룹 머리·.nch에 넣고 하위 메뉴는 상속 */
+html.th-h-h066 #sb .ni{margin:3px 12px;padding:9px 14px;border-radius:10px;border-left:0;color:#333;font-size:13.5px}
+html.th-h-h066 #sb .ni:hover{background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.07);color:#0d0d0d}
+html.th-h-h066 #sb .ni:has(.nc){background:#fff;border:1px solid rgba(13,13,13,.1);font-weight:800;color:#0d0d0d;margin-top:10px;position:relative;padding-left:26px}
+html.th-h-h066 #sb .ni:has(.nc)::before{content:'';position:absolute;left:11px;top:50%;width:8px;height:8px;border-radius:50%;margin-top:-4px;background:var(--gc,#4858cc)}
+html.th-h-h066 #sb .nch.open{border-left:3px solid var(--gc,#4858cc);margin:4px 12px 4px 22px;border-radius:0 0 0 8px}
+html.th-h-h066 #sb .ns .ni{margin:2px 0 2px 8px;padding:6px 12px;font-size:12.5px;color:#555;font-weight:400}
+html.th-h-h066 #sb .ni.ni-cur{background:var(--gc,#0d0d0d);color:#fff;font-weight:700;box-shadow:none}
 html.th-h-h066 #tb{background:#f6f4ef;border-bottom:1px solid rgba(13,13,13,.14)}
 html.th-h-h066 .tbt{color:#0d0d0d}
 html.th-h-h066 #mtoggle{color:#0d0d0d}
@@ -816,7 +824,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.06-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.06-5</div>
   </div>
 </div>
 
@@ -26282,6 +26290,20 @@ function _navApply(){
     var anchor=g('n_navset')||null;
     seq.forEach(function(b){ sb.insertBefore(b.ni,anchor); if(b.nch) sb.insertBefore(b.nch,anchor); });
   })();
+  _navGrpColors(sb);
+}
+// 그룹 메뉴 색(2026-11-06 백동현 요청 C안 — 그룹마다 색 점·펼친 하위 메뉴 세로줄·현재 메뉴 버튼 색). 보이는 순서대로 색을 돌림.
+var NAV_GRP_COLORS=['#4858cc','#2a9d5a','#d9822b','#c0397b','#2b8fb3','#7a5cc7'];
+function _navGrpColors(sb){
+  try{
+    var i=0;
+    sb.querySelectorAll('.ni').forEach(function(n){
+      if(!n.querySelector('.nc')) return;
+      var nx=n.nextElementSibling; if(!nx||!nx.classList.contains('nch')) return;
+      var c=NAV_GRP_COLORS[i++%NAV_GRP_COLORS.length];
+      n.style.setProperty('--gc',c); nx.style.setProperty('--gc',c);
+    });
+  }catch(e){}
 }
 // 페이지 상단 제목 — 이름 변경·추가 메뉴 반영
 function _ptitle(name){
