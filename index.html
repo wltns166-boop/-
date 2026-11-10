@@ -827,7 +827,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.06-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.10-1</div>
   </div>
 </div>
 
@@ -21194,7 +21194,7 @@ function rCustStatus(){
     //   권한은 모달(openCustInfo)과 동일: 총무 또는 담당자 본인일 때만. 조회도 모달과 같은 _findCustByReqName.
     var infoHtml='';
     try{
-      var _found=_findCustByReqName(name);
+      var _found=_findCustByReqName(name, agentKey);
       if(_found && _found.cust && (isAdmin || (cu && _found.cust.m===cu.name))){
         var _who=_found.member||_found.cust;
         var _items=[];
@@ -21231,7 +21231,7 @@ function rCustStatus(){
       +'</td>'
       +'<td style="vertical-align:middle">'
         +(function(){
-          var oc=('openCustInfo('+JSON.stringify(name)+')').replace(/"/g,'&quot;');
+          var oc=('openCustInfo('+JSON.stringify(name)+','+JSON.stringify(agentKey)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
           var wrapO='<div onclick="'+oc+'" title="고객정보 보기" style="cursor:pointer;display:inline-block">';
           var nameInner;
           var parenIdx=name.indexOf('(');
@@ -21801,7 +21801,9 @@ function _csrCopyVal(el){
   else fallback();
 }
 // 요청명(예: "홍길동" 또는 "철수 (홍길동님 자녀)")으로 custs에서 고객/가족 찾기
-function _findCustByReqName(reqName){
+//   2026-11-10 실사고: 같은 고객이 두 번 등록돼 있으면(옛 기록에 가족 주민번호 오기) 첫 기록만 집어
+//   "박시온 요청인데 박하민 정보가 보임" — 이제 **최근 등록 기록부터** 찾고, agent(요청 담당자)가 주어지면 그 담당자 기록 우선.
+function _findCustByReqName(reqName, agent){
   // 클라우드에서 받은 최신 사본(window._custs) 우선 — rCustList와 동일 패턴.
   //   앱 시작 때 읽은 옛 로컬 사본(전역 custs)만 보면, 다른 팀원이 방금 등록한 고객이
   //   총무 현황에서 "상세정보를 찾을 수 없습니다"로 나온다.
@@ -21810,21 +21812,28 @@ function _findCustByReqName(reqName){
   var main=String(reqName||'').trim(), owner='';
   var p=main.indexOf('(');
   if(p>0){ var inner=main.slice(p+1).replace(')','').trim(); main=main.slice(0,p).trim(); owner=inner.replace(/님.*$/,'').trim(); }
-  if(!owner){
-    var c0=custs.find(function(x){return x&&x.name===main;});
-    if(c0) return {cust:c0, member:null};
+  var ag=String(agent||'').trim();
+  try{ if(ag && typeof _agentReal==='function') ag=String(_agentReal(ag)||ag).trim(); }catch(e){}
+  // 최근 등록(배열 뒤쪽)부터 — 담당자가 주어지면 1차는 그 담당자 기록만, 2차는 전체
+  var passes=ag?[true,false]:[false];
+  for(var ps=0;ps<passes.length;ps++){
+    var onlyAg=passes[ps];
+    var okAg=function(x){ return !onlyAg || (x && String(x.m||'').trim()===ag); };
+    if(!owner){
+      for(var a=custs.length-1;a>=0;a--){ var x0=custs[a]; if(x0&&x0.name===main&&okAg(x0)) return {cust:x0, member:null}; }
+    }
+    for(var i=custs.length-1;i>=0;i--){
+      var cc=custs[i]; if(!cc||!Array.isArray(cc.family)||!okAg(cc)) continue;
+      if(owner && cc.name!==owner) continue;
+      var fm=cc.family.find(function(f){return f&&f.name===main;});
+      if(fm) return {cust:cc, member:fm};
+    }
+    for(var b=custs.length-1;b>=0;b--){ var x1=custs[b]; if(x1&&x1.name===main&&okAg(x1)) return {cust:x1, member:null}; }
   }
-  for(var i=0;i<custs.length;i++){
-    var cc=custs[i]; if(!cc||!Array.isArray(cc.family)) continue;
-    if(owner && cc.name!==owner) continue;
-    var fm=cc.family.find(function(f){return f&&f.name===main;});
-    if(fm) return {cust:cc, member:fm};
-  }
-  var cAny=custs.find(function(x){return x&&x.name===main;});
-  return cAny?{cust:cAny, member:null}:null;
+  return null;
 }
-function openCustInfo(reqName){
-  var found=_findCustByReqName(reqName);
+function openCustInfo(reqName, agent){
+  var found=_findCustByReqName(reqName, agent);
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
   if(!body||!mb) return;
   // 권한: 총무 또는 해당 고객 담당자 본인만
@@ -38310,10 +38319,11 @@ function rMcReq(){
     } else if(r.dt){ dateStr=r.dt; }
     // 고객명(클릭=고객정보 모달 — openCustInfo가 자체 권한 확인) + 상세 인라인(총무 또는 담당자 본인, rCustStatus 계열)
     var nm=String(r.custName||'');
-    var oc=('openCustInfo('+JSON.stringify(nm)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    var _mAg=(agent==='-'?'':agent);
+    var oc=('openCustInfo('+JSON.stringify(nm)+','+JSON.stringify(_mAg)+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     var infoHtml='';
     try{
-      var _found=_findCustByReqName(nm);
+      var _found=_findCustByReqName(nm, _mAg);
       if(_found && _found.cust && (chong || (cu && _found.cust.m===cu.name))){
         var _who=_found.member||_found.cust;
         var _items=[];
