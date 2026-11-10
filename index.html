@@ -827,7 +827,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.10-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.10-4</div>
   </div>
 </div>
 
@@ -27814,13 +27814,30 @@ async function dbuPdf(){
     await _drEnsureLibs();
     var all=window._dbuAllRows||_dbuAll(), today=td();
     // 구간별로 따로 캡처(리뷰 반영 — 한 장으로 그리면 목록이 길 때 캔버스 높이 한도를 넘어 빈 PDF가 됨). 목록은 40줄씩 나눠 행이 쪽 사이에서 잘리지 않게.
-    var blocks=['<h1>DB 사용량 취합 보고서</h1><div class="dbunote">기준일 '+today+' · 전체 '+all.length+'건 · 관리자용</div>'
-      +'<div class="dbuh">진행 현황</div><div class="dbukpis">'+_dbuKpiHtml(all)+'</div>',
-      '<div class="dbuh">단계별 전환율 (DB 종류별, 배정 대비)</div>'+_dbuRateHtml(all,'dbType','base'),
-      '<div class="dbuh">단계별 전환율 (DB 종류별, 전 단계 대비)</div>'+_dbuRateHtml(all,'dbType','prev'),
-      '<div class="dbuh">권역 × DB 종류 (건수)</div>'+_dbuMatrixHtml(all)];
-    if(!all.length) blocks.push('<div class="dbuh">전체 고객 목록</div>'+_dbuListHtml(all));
-    for(var bi=0;bi<all.length;bi+=40) blocks.push('<div class="dbuh">전체 고객 목록'+(all.length>40?' ('+(bi+1)+'~'+Math.min(all.length,bi+40)+')':'')+'</div>'+_dbuListHtml(all.slice(bi,bi+40)));
+    // v2026.11.10-4(백동현 요청): 관리자 보고서 = 업체·권역별 부재율·상담율·거절율 + 부재·거절 코멘트 사례만. 담당자·고객 목록은 넣지 않음.
+    var esc=_esc, pc=function(v,n){ return n?_dbuPct(v):'–'; };
+    var byC={}, byT={};
+    all.forEach(function(r){ var k=r.dbType+'\u0001'+r.region; (byC[k]=byC[k]||[]).push(r); (byT[r.dbType]=byT[r.dbType]||[]).push(r); });
+    var types=Object.keys(byT).sort(function(x,y){ return byT[y].length-byT[x].length||x.localeCompare(y,'ko'); });
+    var th='<th class="n">배정</th><th class="n">부재율</th><th class="n">상담율</th><th class="n">거절율</th>';
+    var tr=function(lb,rows,strong){ var s2=_dbrStat(rows); var w=strong?'font-weight:700;background:#f4f6fa':'';
+      return '<tr style="'+w+'"><td>'+lb+'</td><td class="n">'+s2.n+'</td><td class="n">'+pc(s2.pab,s2.n)+' <span class="dbunote">('+s2.ab+')</span></td><td class="n" style="color:#2f6fdb">'+pc(s2.pcs,s2.n)+' <span class="dbunote">('+s2.cs+')</span></td><td class="n" style="color:#d0465a">'+pc(s2.prj,s2.n)+' <span class="dbunote">('+s2.rj+')</span></td></tr>'; };
+    var body='';
+    types.forEach(function(t){ DBU_REGIONS.forEach(function(rg){ var rr=byC[t+'\u0001'+rg]; if(rr&&rr.length) body+=tr(esc(t)+' · '+esc(rg),rr,false); }); body+=tr(esc(t)+' 합계',byT[t],true); });
+    var blocks=['<h1>DB 사용량 보고서</h1><div class="dbunote">기준일 '+today+' · 전체 배정 '+all.length+'건 · 관리자용 · 비율은 배정 대비, 괄호는 건수</div>'
+      +'<div class="dbuh">업체 · 권역별 부재율 · 상담율 · 거절율</div>'
+      +(all.length?'<table class="dbutb"><thead><tr><th>업체 · 권역</th>'+th+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+tr('전체',all,true)+'</tfoot></table>':'<div class="dbuempty">기록이 없습니다.</div>')];
+    // 부재·거절 코멘트 — 비고·단계 메모에 적힌 내용(고객명·담당자는 빼고 업체·권역·배정일만)
+    var cm=all.filter(function(r){ return r.res==='absent'||r.res==='reject'; }).map(function(r){
+      var tx=[r.remark].concat(DBU_STAGES.map(function(st){ return (r.notes||{})[st[0]]||''; })).map(function(x){ return String(x||'').trim(); }).filter(Boolean);
+      // 비고에 적힌 전화번호·주민번호는 가림(보고서로 밖에 돌 수 있음)
+      var tt=tx.join(' / ').replace(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g,'010-****-****').replace(/\d{6}\s*-\s*[1-8]\d{0,6}/g,'******-*******');
+      return tx.length?{r:r,t:tt}:null; }).filter(Boolean)
+      .sort(function(x,y){ return (x.r.res===y.r.res?0:x.r.res==='reject'?-1:1)||(x.r.dbType+x.r.region).localeCompare(y.r.dbType+y.r.region,'ko')||String(y.r.assigned).localeCompare(String(x.r.assigned)); });
+    var cmHtml=function(list){ return '<table class="dbutb"><thead><tr><th style="width:70px">결과</th><th style="width:170px">업체 · 권역</th><th style="width:100px">배정일</th><th>코멘트 (이런 경우가 있었습니다)</th></tr></thead><tbody>'
+      +list.map(function(c){ var rj=c.r.res==='reject'; return '<tr><td><b style="color:'+(rj?'#d0465a':'#7a869a')+'">'+(rj?'거절':'부재')+'</b></td><td>'+esc(c.r.dbType)+' · '+esc(c.r.region)+'</td><td>'+esc(c.r.assigned||'-')+'</td><td style="white-space:normal;line-height:1.5">'+esc(c.t)+'</td></tr>'; }).join('')+'</tbody></table>'; };
+    if(!cm.length) blocks.push('<div class="dbuh">부재 · 거절 코멘트</div><div class="dbuempty">부재·거절 건에 적힌 코멘트(비고)가 없습니다.</div>');
+    for(var ci=0;ci<cm.length;ci+=30) blocks.push('<div class="dbuh">부재 · 거절 코멘트'+(cm.length>30?' ('+(ci+1)+'~'+Math.min(cm.length,ci+30)+')':' '+cm.length+'건')+'</div>'+cmHtml(cm.slice(ci,ci+30)));
     try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
     var pdf=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
     var PW=297, PH=210, curY=0, first=true;
