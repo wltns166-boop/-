@@ -228,8 +228,8 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .pg .kpi b{font-size:21px;font-weight:700}
 .pg .kpi .hl{background:var(--band)}
 .pg .bars{display:grid;gap:12px}
-.pg .bar{display:grid;grid-template-columns:120px 1fr 92px;gap:12px;align-items:center}
-.pg .bar .nm{font-size:11.5px;font-weight:600}
+.pg .bar{display:grid;grid-template-columns:148px 1fr 92px;gap:12px;align-items:center}
+.pg .bar .nm{font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:7px}
 .pg .bar .tr{display:grid;gap:3px}
 .pg .bar .ln{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--sub)}
 .pg .bar .ln i{display:block;height:11px;border-radius:2px;min-width:2px}
@@ -267,9 +267,19 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .pg .cov tr.mt td.s{color:var(--ink)}
 .pg .cov .miss{color:var(--neg);font-weight:600}
 .pg .cov tr.key .l{font-weight:600}
+.pg .ptg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+.pg .pt{border:1px solid var(--hair);border-radius:6px;padding:10px 10px 9px;display:flex;gap:9px;align-items:flex-start;background:#fff}
+.pg .pt.no{border-color:#efc4bd;background:#fdf6f5}.pg .pt.up{border-color:#b7d8c2;background:#f4faf6}
+.pg .pt .pb{flex:1;min-width:0;display:grid;gap:3px}
+.pg .pt .pn{font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline;gap:4px}.pg .pt .pn span{font-size:9.5px;font-weight:700}
+.pg .pt .pdd{font-size:9.5px;color:var(--sub)}
+.pg .pt .pv2{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}.pg .pt .pv2 b{color:var(--ink);font-weight:600}
+.pg .pt .pv2.a b{font-weight:800;font-size:11.5px}.pg .pt.up .pv2.a b{color:var(--pos)}
+.pg .pt .ptip{font-size:8.8px;color:var(--gold);line-height:1.35;margin-top:2px}
 /* 질환 카드 */
 .pg .dc{border:1px solid var(--hair);border-radius:4px;overflow:hidden}
-.pg .dc .dh{display:flex;align-items:baseline;gap:8px;padding:12px 12px;background:var(--band);border-bottom:1px solid var(--hair)}
+.pg .dc .dh{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--band);border-bottom:1px solid var(--hair)}
+.pg .dc .dd{font-size:9.5px;color:var(--sub);line-height:1.45;padding:7px 12px 6px;border-bottom:1px solid #f0ece3}
 .pg .dc .dh b{font-size:12.5px}
 .pg .dc .dh .tt{margin-left:auto;font-size:10px;color:var(--sub)}
 .pg .dc .dh .tt strong{font-size:14px;color:var(--ink);margin-left:4px}
@@ -278,12 +288,12 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .pg .dc .n{text-align:right}
 .pg .dc .a{font-weight:700}
 /* 치료 여정 */
-.pg .jr{display:grid;grid-template-columns:56px 1fr;gap:12px;margin-top:14px}
-.pg .jr .dz{background:var(--ink);color:#fff;display:grid;place-items:center;font-family:var(--f-disp);font-size:17px;font-weight:700;border-radius:4px}
+.pg .jr{display:grid;grid-template-columns:66px 1fr;gap:12px;margin-top:14px}
+.pg .jr .dz{background:var(--band);color:var(--ink);border:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:var(--f-disp);font-size:15px;font-weight:700;border-radius:4px}
 .pg .jr .st{display:flex;gap:16px}
 .pg .jr .sb{flex:1;border:1px solid var(--hair);border-radius:4px;position:relative;background:#fff}
 .pg .jr .sb:not(:last-child)::after{content:"";position:absolute;right:-12px;top:50%;width:7px;height:7px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold);transform:translateY(-50%) rotate(45deg)}
-.pg .jr .sb .t{text-align:center;font-weight:700;font-size:10.5px;padding:6px 2px;border-bottom:1px solid var(--hair);background:var(--band)}
+.pg .jr .sb .t{text-align:center;font-weight:700;font-size:10.5px;padding:6px 2px 5px;border-bottom:1px solid var(--hair);background:var(--band);display:flex;flex-direction:column;align-items:center;gap:3px}
 .pg .jr .sb .r{display:flex;justify-content:space-between;font-size:10px;padding:4px 8px;color:var(--sub)}
 .pg .jr .sb .r.a{font-weight:700;color:var(--ink);font-size:11px}
 .pg .sm td,.pg .sm th{border-bottom:1px solid var(--hair);padding:5px 8px;font-size:10.5px}
@@ -395,6 +405,41 @@ const JOUR=[
  {name:'뇌',st:[{t:'뇌혈관 진단',k:['brain_vasc']},{t:'수술 진행',k:['surg_brain','surg_dis','ds3']},{t:'중환자실',k:['circ_icu']},{t:'혈전용해',k:['tx_thromb']}]},
  {name:'심장',st:[{t:'심장질환 진단',k:['heart_isch']},{t:'수술 진행',k:['surg_heart','surg_dis','ds3']},{t:'중환자실',k:['circ_icu']},{t:'혈전용해',k:['tx_thromb']}]},
 ];
+/* ───────── 보고서 일러스트 (2026-11-10 백동현 요청 — 고객 설명용 간단 그림, 인라인 SVG라 PDF 캡처에 그대로 찍힘) ───────── */
+const ICO={
+ brain:['#7a5cc7','<path d="M31 15c-3-4-10-4-12 1-5 0-8 5-6 9-4 3-3 10 2 11-1 5 4 9 9 7 2 4 7 4 7-1z"/><path d="M33 15c3-4 10-4 12 1 5 0 8 5 6 9 4 3 3 10-2 11 1 5-4 9-9 7-2 4-7 4-7-1z"/><path d="M22 22c3 0 4 3 3 5M19 31c3-1 6 1 6 4M41 22c-3 0-4 3-3 5M44 31c-3-1-6 1-6 4M27 41c2-2 4-2 4 0M37 41c-2-2-4-2-4 0"/>'],
+ heart:['#d0465a','<path d="M32 51S11 39 11 25a10.5 10.5 0 0 1 21-3 10.5 10.5 0 0 1 21 3c0 14-21 26-21 26z"/><path d="M16 31h8l3-6 4 11 3-7 2 2h11"/>'],
+ ribbon:['#d9822b','<path d="M23 53 37 30c6-9 3-19-5-19s-11 10-5 19l14 23"/>'],
+ scalpel:['#2f6fdb','<path d="M13 51 34 30"/><path d="M34 30 47 17c4-3 7 1 4 4L41 33z"/><path d="M14 18h16M18 15v6M23 15v6M28 15v6"/>'],
+ bed:['#1a8f8a','<path d="M10 46V20M10 38h44v8M16 34a4 4 0 1 0 .1 0"/><path d="M24 30h21a8 8 0 0 1 8 8H24z"/><path d="M44 12v9M39.5 16.5h9"/>'],
+ bone:['#5b7896','<path d="M21 43 43 21"/><path d="M18 40a4 4 0 1 1 3-7M24 46a4 4 0 1 1-7-3M40 18a4 4 0 1 1 7 3M46 24a4 4 0 1 1-3-7"/><path d="M29 29l4 1-1 3 4 1" stroke-width="2.6"/>'],
+ wheel:['#6b6f80','<circle cx="27" cy="40" r="11"/><path d="M28 13a3.5 3.5 0 1 0 .1 0M28 20v14h13l5 10h4M28 26h11"/>'],
+ care:['#c0397b','<path d="M24 30a4 4 0 1 0 .1 0M42 26a4 4 0 1 0 .1 0"/><path d="M17 50V42a7 7 0 0 1 14 0v8M35 50V38a7 7 0 0 1 14 0v12M30 40l6-3"/><path d="M33 14s-5-3-5-6a2.5 2.5 0 0 1 5-1 2.5 2.5 0 0 1 5 1c0 3-5 6-5 6z" fill="currentColor"/>'],
+ umbrella:['#4858cc','<path d="M11 33a21 21 0 0 1 42 0z"/><path d="M32 12v-2M32 33v13a4 4 0 0 1-8 0"/><path d="M22 33c0-8 4-17 10-21 6 4 10 13 10 21"/>'],
+ tooth:['#2b8fb3','<path d="M20 14c-6 2-8 9-5 16 2 5 3 10 4 16 1 4 5 4 6 0l3-10c1-3 5-3 6 0l3 10c1 4 5 4 6 0 1-6 2-11 4-16 3-7 1-14-5-16-4-1-6 1-8 1s-4-2-8-1z"/>'],
+ car:['#3a7d44','<path d="M12 40v-6l5-10c1-2 3-3 5-3h20c2 0 4 1 5 3l5 10v6H12z"/><path d="M14 34h36"/><path d="M21 43a4 4 0 1 0 .1 0M43 43a4 4 0 1 0 .1 0"/>'],
+ flame:['#e0612b','<path d="M32 52c-9 0-15-6-15-14 0-9 8-13 9-22 6 4 8 10 7 15 3-1 5-4 5-7 5 4 9 9 9 15 0 8-6 13-15 13z"/><path d="M32 52c-4 0-6-3-6-6 0-4 4-6 5-10 3 3 7 6 7 10 0 3-2 6-6 6z"/>'],
+ scale:['#8a6d2e','<path d="M32 12v38M22 50h20M14 20h36"/><path d="M14 20 8 34h12zM50 20l-6 14h12z"/><path d="M8 34a6 4 0 0 0 12 0M44 34a6 4 0 0 0 12 0"/>'],
+ iv:['#d9822b','<path d="M24 10h16v20a8 8 0 0 1-16 0z"/><path d="M24 20h16M32 38v6c0 6 8 6 8 10"/><path d="M29 26h6" stroke-width="2.6"/>'],
+ rad:['#b48a12','<circle cx="32" cy="32" r="4"/><path d="M32 26l-6-11a18 18 0 0 1 12 0zM27 35l-12 1a18 18 0 0 1 6-11zM37 35l6 10a18 18 0 0 1-12 2z"/>'],
+ pill:['#1f7a3e','<path d="M18 46a8 8 0 0 1 0-11l17-17a8 8 0 0 1 11 11L29 46a8 8 0 0 1-11 0z"/><path d="M26 26l11 11"/>'],
+ receipt:['#5b6472','<path d="M18 10h28v44l-4-3-5 3-5-3-5 3-5-3-4 3z"/><path d="M24 20h16M24 28h16M24 36h10"/>'],
+ clip:['#2f6fdb','<path d="M22 14h-4v40h28V14h-4"/><path d="M24 10h16v8H24z"/><path d="M24 30l5 5 11-11M24 44h16"/>'],
+ search:['#5b7896','<circle cx="28" cy="28" r="12"/><path d="M37 37l12 12"/><path d="M22 28h12M28 22v12" stroke-width="2.4"/>'],
+ monitor:['#d0465a','<path d="M10 14h44v28H10zM24 50h16M32 42v8"/><path d="M14 30h8l3-7 5 12 3-8 2 3h15"/>'],
+ syringe:['#7a5cc7','<path d="M44 12l8 8M48 16l-6 6M42 22 22 42l-6-2-2-6 20-20"/><path d="M14 50l6-6M27 27l4 4M32 22l4 4"/>'],
+ gut:['#8a5a3c','<path d="M22 12v8c0 4-8 5-8 14 0 10 8 16 18 16s18-6 18-14c0-7-6-11-12-10-5 1-6 6-3 8"/><circle cx="36" cy="36" r="3" fill="currentColor"/>'],
+};
+function ico(n,sz,bg){const d=ICO[n];if(!d)return'';sz=sz||28;return`<svg class="ico" width="${sz}" height="${sz}" viewBox="0 0 64 64" style="flex:none;vertical-align:middle;color:${d[0]}" aria-hidden="true">${bg===false?'':`<circle cx="32" cy="32" r="31" fill="${d[0]}" fill-opacity=".12"/>`}<g fill="none" stroke="${d[0]}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">${d[1]}</g></svg>`}
+const GROUP_ICO={'암':'ribbon','항암':'iv','뇌':'brain','심장':'heart','치료':'pill','수술':'scalpel','질병종수술':'scalpel','상해종수술':'scalpel','후유장해':'wheel','입원':'bed','간병재가':'care','사망':'umbrella','골절':'bone','배상':'scale','화상':'flame','운전':'car','화재':'flame','치아':'tooth','기타진단':'clip','기타수술':'scalpel','기타치료':'pill','실비':'receipt'};
+const SCEN_ICO={cancer:'ribbon',brain:'brain',heart:'heart',polyp:'gut',frac:'bone'};
+const SCEN_DESC={cancer:'암으로 진단받으면 진단비 → 수술비 → 항암치료비가 단계마다 나옵니다.',
+ brain:'뇌혈관이 막히거나(뇌경색) 터지는(뇌출혈) 병 — 진단비·수술비·입원비가 함께 필요합니다.',
+ heart:'심장 혈관이 좁아지거나 막히는 병(협심증·심근경색) — 진단비와 수술비가 핵심입니다.',
+ polyp:'내시경으로 위·대장 용종을 떼어내면 수술비가 나옵니다(건강검진 때 흔한 경우).',
+ frac:'넘어져 뼈가 부러지고 핀을 박는 수술까지 받는 경우 — 진단·수술·깁스 보장이 나옵니다.'};
+const JOUR_ICO={'암':'ribbon','뇌':'brain','심장':'heart'};
+function stageIco(t){return /검사/.test(t)?'search':/진단/.test(t)?'clip':/수술/.test(t)?'scalpel':/방사선/.test(t)?'rad':/항암|약물/.test(t)?'iv':/중환자/.test(t)?'monitor':/혈전/.test(t)?'syringe':'pill'}
 function scenRows(sc,set){return sc.rows.map(([l,k,m])=>({l,v:sumK(set,k)*(m||1)}))}
 function scenTotal(sc,set){return scenRows(sc,set).reduce((s,r)=>s+r.v,0)}
 function stageAmt(st,set){return st.k?st.k.reduce((s,k)=>s+sumK(set,k),0):null}
@@ -427,7 +472,7 @@ function newPolicy(src){return{id:uid('p'),company:'',product:'',joinDate:'',pre
 /* ───────── state ───────── */
 const S={db:null,user:null,sample:null,dl:null,me:null,emps:[],custs:[],cur:null,view:'boot',tab:'before',
   unsubC:null,unsubE:null,saving:false,pend:false,dirty:false,saveT:null,saveMsg:'',jobs:{before:[],proposal:[]},
-  q:'',fcFilter:'',showNew:false,cmpOnlyChanged:true,pr:{hideEmpty:true,checks:true,mats:true,cover:true,before:true,after:true,disease:true,journey:true,diff:false},canSetup:false,loginErr:''};
+  q:'',fcFilter:'',showNew:false,cmpOnlyChanged:true,pr:{hideEmpty:true,checks:true,mats:true,cover:true,pic:true,before:true,after:true,disease:true,journey:true,diff:false},canSetup:false,loginErr:''};
 
 /* ───────── boot ───────── */
 async function boot(){
@@ -916,7 +961,7 @@ function printHTML(){
   const o=S.pr;const ck=(k,l)=>`<label class="chk"><input type="checkbox" data-pr="${k}" ${o[k]?'checked':''}> ${l}</label>`;
   return`<div class="card" style="display:grid;gap:12px"><div class="row"><div><div class="eyebrow">출력</div><h3 style="font-size:16px;margin-top:2px">보장분석 보고서 PDF</h3></div>
    <button class="btn pri" style="margin-left:auto" data-act="pdf" id="pdfBtn" ${S.dl?'':'disabled'}>PDF 다운로드</button></div>
-   <div class="row" style="gap:16px">${ck('cover','한눈에 보는 요약')}${ck('before','보장분석표 (전)')}${ck('after','보장분석표 (후)')}${ck('disease','질환별 보장')}${ck('journey','치료 단계별 수령액')}${ck('diff','항목별 증감표')}${ck('checks','보험 점검 결과')}${ck('mats','선택한 상담자료 '+((S.cur.mats||[]).length)+'장')}<span class="dim">|</span>${ck('hideEmpty','가입금액 없는 항목 빼기')}</div>
+   <div class="row" style="gap:16px">${ck('cover','한눈에 보는 요약')}${ck('pic','그림으로 보는 내 보장')}${ck('before','보장분석표 (전)')}${ck('after','보장분석표 (후)')}${ck('disease','질환별 보장')}${ck('journey','치료 단계별 수령액')}${ck('diff','항목별 증감표')}${ck('checks','보험 점검 결과')}${ck('mats','선택한 상담자료 '+((S.cur.mats||[]).length)+'장')}<span class="dim">|</span>${ck('hideEmpty','가입금액 없는 항목 빼기')}</div>
    ${S.dl?'':'<p class="muted" style="margin:0;font-size:12.5px">이 화면에서는 파일 다운로드를 쓸 수 없습니다.</p>'}<div id="pdfMsg" class="muted" style="font-size:12.5px"></div></div>
    <div class="pv" id="pv"></div>`;
 }
@@ -928,7 +973,7 @@ function pgShell(title,sub,inner){
 const dfP=(d,won)=>d?`<span class="${d>0?'pos':'neg'}">${d>0?'+':''}${won?Math.round(d).toLocaleString('ko-KR')+'원':fmtMan(d)}</span>`:'<span style="color:#b5ad9f">변동 없음</span>';
 function coverPage(){
   const B=setBefore(),A=setAfter();const pb=premium(B),pa=premium(A);
-  const sc=SCEN.map(s=>({n:s.name,b:scenTotal(s,B),a:scenTotal(s,A)}));const mx=Math.max(1,...sc.map(x=>Math.max(x.b,x.a)));
+  const sc=SCEN.map(s=>({n:s.name,ico:SCEN_ICO[s.id],b:scenTotal(s,B),a:scenTotal(s,A)}));const mx=Math.max(1,...sc.map(x=>Math.max(x.b,x.a)));
   const keys=ITEMS.filter(i=>i.key);const added=keys.filter(i=>!sumK(B,i.k)&&sumK(A,i.k));const raised=keys.filter(i=>sumK(B,i.k)&&sumK(A,i.k)>sumK(B,i.k));const still=keys.filter(i=>!sumK(A,i.k));
   const silB=B.find(p=>p.silson),silA=A.find(p=>p.silson);
   const tb=premTotals(B),ta=premTotals(A);const mxM=Math.max(1,tb.month,ta.month),mxL=Math.max(1,tb.left,ta.left);
@@ -936,7 +981,7 @@ function coverPage(){
   let h=`<div class="prem2"><div class="pc"><small>매달 내는 보험료</small><div class="tr">${pb2('지금',tb.month,mxM,'b',fmtWon(tb.month))}${pb2('제안 후',ta.month,mxM,'a',fmtWon(ta.month))}</div><div class="df">${dfP(ta.month-tb.month,1)} / 월</div></div>
    <div class="pc"><small>앞으로 낼 총 보험료</small><div class="tr">${pb2('지금 그대로',tb.left,mxL,'b',fmtBig(tb.left))}${pb2('제안 후',ta.left,mxL,'a',fmtBig(ta.left))}</div><div class="df">${ta.left-tb.left?`<span class="${ta.left>tb.left?'pos':'neg'}">${ta.left>tb.left?'+':''}${fmtMan(Math.round((ta.left-tb.left)/10000))}원</span>`:'<span style="color:#b5ad9f">변동 없음</span>'}</div></div></div>`;
   h+=`<h2 class="st">이런 일이 생기면 받는 금액<span class="legend"><span><i style="background:#d3cdc1"></i>지금</span><span><i style="background:#b98f3f"></i>제안 후</span></span></h2><div class="bars">`;
-  h+=sc.map(x=>`<div class="bar"><div class="nm">${x.n}</div><div class="tr"><div class="ln b"><i style="width:${x.b/mx*100*.78}%"></i>${fmtMan(x.b,'0')}</div><div class="ln a"><i style="width:${x.a/mx*100*.78}%"></i>${fmtMan(x.a,'0')}</div></div><div class="df">${dfP(x.a-x.b)}</div></div>`).join('')+'</div>';
+  h+=sc.map(x=>`<div class="bar"><div class="nm">${ico(x.ico,24)}${x.n}</div><div class="tr"><div class="ln b"><i style="width:${x.b/mx*100*.78}%"></i>${fmtMan(x.b,'0')}</div><div class="ln a"><i style="width:${x.a/mx*100*.78}%"></i>${fmtMan(x.a,'0')}</div></div><div class="df">${dfP(x.a-x.b)}</div></div>`).join('')+'</div>';
   h+=`<div class="two" style="margin-top:6px"><div><h2 class="st">새로 생기거나 늘어나는 보장 <small>${added.length+raised.length}개</small></h2><div class="chips ok">${[...added,...raised].map(i=>`<span>${esc(i.l)}</span>`).join('')||'<span style="color:#6e675b;background:#fff;border-color:#e4ded2">없음</span>'}</div></div>
    <div><h2 class="st">아직 비어 있는 주요 보장 <small>${still.length}개</small></h2><div class="chips no">${still.map(i=>`<span>${esc(i.l)}</span>`).join('')||'<span style="color:#1f7a45;background:#eef7f1;border-color:#b7d8c2">주요 보장 모두 준비됨</span>'}</div></div></div>`;
   h+=`<h2 class="st">가입 현황 <small>앞으로 낼 금액 = 월보험료 × 남은 납입기간</small></h2><table class="sm"><colgroup><col style="width:48px"><col><col style="width:86px"><col style="width:70px"><col style="width:96px"></colgroup><tr><th>구분</th><th>보험</th><th class="n">월보험료</th><th class="n">남은 기간</th><th class="n">앞으로 낼 금액</th></tr>
@@ -946,6 +991,35 @@ function coverPage(){
   if(S.cur.memo)h+=`<h2 class="st">상담 메모</h2><div style="font-size:11px;line-height:1.6">${esc(S.cur.memo)}</div>`;
   h+=`<div class="note">받는 금액은 진단비·수술비·치료비 등 해당 질환에 지급되는 담보를 더한 금액입니다(입원은 1일분, 후유장해는 일정 지급률 가정). 단위 만원.</div>`;
   return pgShell('보장 리모델링 요약','한눈에 보는 요약',h);
+}
+/* 그림으로 보는 내 보장 (2026-11-10) — 큰 그림 + 대표 금액으로 고객 설명용. 금액은 그 칸 담보들 중 가장 큰 값(같은 보장의 범위 차이라 더하면 부풀려짐), 단위 만원 */
+const PIC=[
+ {i:'ribbon',t:'암',d:'암 진단비',k:['cancer_gen','cancer_int'],tip:'우리나라 사람 3명 중 1명이 평생 한 번 겪는 병'},
+ {i:'brain',t:'뇌혈관질환',d:'뇌 진단비',k:['brain_vasc','brain_stroke','brain_hem'],tip:'뇌경색·뇌출혈 — "뇌혈관"이 가장 넓게 보장'},
+ {i:'heart',t:'심장질환',d:'심장 진단비',k:['heart_isch','heart_ami'],tip:'협심증·심근경색 — "허혈성"이 더 넓게 보장'},
+ {i:'scalpel',t:'수술',d:'질병 수술 1회',k:['surg_dis'],tip:'입원 없이 받는 수술도 1회마다 지급'},
+ {i:'bed',t:'입원',d:'질병 입원 1일',k:['hosp_dis'],tip:'병원에 하루 입원할 때마다 지급'},
+ {i:'care',t:'간병',d:'간병인 1일',k:['care_dis_use','care_dis_sup','care_inj_use','care_inj_sup'],tip:'하루 간병비 평균 15만원 이상'},
+ {i:'wheel',t:'후유장해',d:'후유장해(100% 기준)',k:['dis_dis','dis_inj'],tip:'장해가 남으면 장해율만큼 지급'},
+ {i:'bone',t:'골절',d:'골절 진단',k:['frac','frac_surg'],tip:'넘어지거나 다쳐 뼈가 부러졌을 때'},
+ {i:'umbrella',t:'사망',d:'사망보험금',k:['death_gen','death_dis','death_inj'],tip:'남은 가족의 생활비를 지키는 보장'},
+ {i:'car',t:'운전자',d:'교통사고처리지원금',k:['drv_support','drv_lawyer','drv_fine'],tip:'운전 중 사고의 형사·법률 비용'},
+ {i:'tooth',t:'치아',d:'임플란트·크라운',k:['tooth_implant','tooth_crown'],tip:'치과 치료비는 실손으로 거의 안 나옴'},
+ {i:'receipt',t:'실손의료비',d:'병원비 실비',silson:1,tip:'내가 낸 병원비를 돌려받는 기본 보장'},
+];
+function picPage(hasAfter){
+  const B=setBefore(),A=hasAfter?setAfter():null;
+  const amt=(set,k)=>Math.max(0,...k.map(x=>sumK(set,x)));
+  const tile=x=>{
+    let now,aft,st;
+    if(x.silson){const sb=B.find(p=>p.silson),sa=A&&A.find(p=>p.silson);now=sb?silsonGen(sb.joinDate)+' 실손':'없음';aft=A?(sa?(sa===sb?'그대로 유지':silsonGen(sa.joinDate)+' 실손'):'없음'):null;st=(A?sa:sb)?'ok':'no';}
+    else{const b=amt(B,x.k),a=A?amt(A,x.k):null;now=b?fmtMan(b)+'원':'없음';aft=A?(a?fmtMan(a)+'원':'없음'):null;st=(A?a:b)?(A&&a>b?'up':'ok'):'no';}
+    const col={no:'#b3261e',up:'#1f7a45',ok:'#6e675b'}[st],lbl={no:'비어 있음',up:'늘어남',ok:'준비됨'}[st];
+    return`<div class="pt ${st}"><div class="pi">${ico(x.i,52)}</div><div class="pb"><div class="pn">${x.t}<span style="color:${col}">${lbl}</span></div><div class="pdd">${x.d}</div>
+     <div class="pv2"><span>지금</span><b>${esc(now)}</b></div>${aft!=null?`<div class="pv2 a"><span>제안 후</span><b>${esc(aft)}</b></div>`:''}<div class="ptip">${x.tip}</div></div></div>`};
+  const h=`<h2 class="st">주요 보장을 그림으로 한눈에 <small>단위 만원 · 같은 칸의 담보 중 가장 큰 금액</small></h2><div class="ptg">${PIC.map(tile).join('')}</div>
+   <div class="note">빨간 테두리는 ${A?'제안 후에도':'지금'} 비어 있는 보장, 초록은 제안으로 늘어나는 보장입니다. 실제 지급은 각 보험사 약관의 지급 조건을 따릅니다.</div>`;
+  return pgShell('그림으로 보는 내 보장','보장 그림판',h);
 }
 function covPages(cols,title,sub){
   if(!cols.length)return[];
@@ -960,7 +1034,7 @@ function covPages(cols,title,sub){
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료(원)</td><td class="s">${fmtN(premium(cols))}</td>${pc.map(p=>`<td>${fmtN(num(p.premium))}</td>`).join('')}</tr>`;
     h+=`<tr class="gs" style="height:${rh}px"><td class="g">실비</td><td class="l">실손의료비</td><td class="s ${cols.some(p=>p.silson)?'':'miss'}">${cols.some(p=>p.silson)?'가입':'미가입'}</td>${pc.map(p=>`<td style="text-align:center">${p.silson?silsonGen(p.joinDate):''}</td>`).join('')}</tr>`;
     for(const [g,gp,arr] of GROUPS){const vis=arr.filter(([k])=>items.some(i=>i.k===k));vis.forEach(([k,l,key],idx)=>{const sm=sumK(cols,k);
-      h+=`<tr class="${key?'key':''} ${idx===0?'gs':''}" style="height:${rh}px">${idx===0?`<td class="g" rowspan="${vis.length}">${vis.length>2?gp:gp.replace(/<br>/g,'')}</td>`:''}<td class="l">${esc(l)}</td><td class="s ${key&&!sm?'miss':''}">${key&&!sm?'미가입':fmtN(sm)}</td>${pc.map(p=>`<td class="v">${fmtN(eff(p,k))}</td>`).join('')}</tr>`})}
+      h+=`<tr class="${key?'key':''} ${idx===0?'gs':''}" style="height:${rh}px">${idx===0?`<td class="g" rowspan="${vis.length}">${GROUP_ICO[g]&&vis.length*rh>=30?`<div style="line-height:0;margin-bottom:2px">${ico(GROUP_ICO[g],Math.min(22,Math.max(14,Math.floor(rh*1.1))))}</div>`:''}${vis.length>2?gp:gp.replace(/<br>/g,'')}</td>`:''}<td class="l">${esc(l)}</td><td class="s ${key&&!sm?'miss':''}">${key&&!sm?'미가입':fmtN(sm)}</td>${pc.map(p=>`<td class="v">${fmtN(eff(p,k))}</td>`).join('')}</tr>`})}
     h+='</table>';
     out.push(pgShell(title,sub+(cols.length>per?` (${s/per+1}/${Math.ceil(cols.length/per)})`:''),h));
   }
@@ -970,7 +1044,7 @@ function diseasePage(){
   const B=setBefore(),A=setAfter();
   const card=sc=>{const rb=scenRows(sc,B),ra=scenRows(sc,A);const tb=scenTotal(sc,B),ta=scenTotal(sc,A);
     const rows=rb.map((r,i)=>({l:r.l,b:r.v,a:ra[i].v})).filter(r=>r.b||r.a);
-    return`<div class="dc"><div class="dh"><b>${sc.name}</b><span class="tt">${fmtMan(tb,'0')} →<strong>${fmtMan(ta,'0')}</strong></span></div><table><colgroup><col><col style="width:72px"><col style="width:72px"><col style="width:78px"></colgroup><tr><th>지급 항목</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
+    return`<div class="dc"><div class="dh">${ico(SCEN_ICO[sc.id],40)}<b>${sc.name}</b><span class="tt">${fmtMan(tb,'0')} →<strong>${fmtMan(ta,'0')}</strong></span></div>${SCEN_DESC[sc.id]?`<div class="dd">${SCEN_DESC[sc.id]}</div>`:''}<table><colgroup><col><col style="width:72px"><col style="width:72px"><col style="width:78px"></colgroup><tr><th>지급 항목</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
      ${rows.map(r=>`<tr><td>${esc(r.l)}</td><td class="n">${fmtMan(r.b)}</td><td class="n a">${fmtMan(r.a)}</td><td class="n">${r.a-r.b?dfP(r.a-r.b):''}</td></tr>`).join('')||'<tr><td colspan="4" style="color:#9a9284">해당 보장 없음</td></tr>'}</table></div>`};
   const h=`<div class="two" style="margin-top:18px;align-items:start"><div style="display:grid;gap:14px">${card(SCEN[0])}${card(SCEN[3])}</div><div style="display:grid;gap:14px">${card(SCEN[1])}${card(SCEN[2])}${card(SCEN[4])}</div></div>
    <div class="note">입원은 1일분, 후유장해는 항목에 적힌 지급률을 가정한 금액입니다. 금액이 없는 항목은 표에서 뺐습니다. 단위 만원.</div>`;
@@ -979,7 +1053,7 @@ function diseasePage(){
 function journeyPage(){
   const B=setBefore(),A=setAfter();
   let h='<h2 class="st">진단부터 치료까지, 단계마다 받는 금액 <small>단위 만원</small></h2>';
-  for(const j of JOUR){h+=`<div class="jr"><div class="dz">${j.name}</div><div class="st">${j.st.map(s=>{const b=stageAmt(s,B),a=stageAmt(s,A);return`<div class="sb"><div class="t">${s.t}</div>${s.note?`<div class="r" style="justify-content:center;padding:12px 4px">${s.note}</div>`:`<div class="r"><span>지금</span><span>${fmtMan(b)}</span></div><div class="r a"><span>제안 후</span><span>${fmtMan(a)}</span></div>`}</div>`}).join('')}</div></div>`}
+  for(const j of JOUR){h+=`<div class="jr"><div class="dz">${ico(JOUR_ICO[j.name],44)}${j.name}</div><div class="st">${j.st.map(s=>{const b=stageAmt(s,B),a=stageAmt(s,A);return`<div class="sb"><div class="t">${ico(stageIco(s.t),26)}${s.t}</div>${s.note?`<div class="r" style="justify-content:center;padding:12px 4px">${s.note}</div>`:`<div class="r"><span>지금</span><span>${fmtMan(b)}</span></div><div class="r a"><span>제안 후</span><span>${fmtMan(a)}</span></div>`}</div>`}).join('')}</div></div>`}
   h+=`<div class="note" style="margin-top:18px">수술 단계는 해당 수술비에 질병수술비·종수술비를 더한 금액이고, 중환자실·혈전용해는 순환계 주요치료비의 세부 지급액입니다.</div>`;
   return pgShell('치료 단계별 수령액','치료 과정별로 받는 금액',h);
 }
@@ -987,13 +1061,14 @@ function diffPages(){
   const B=setBefore(),A=setAfter();const rows=ITEMS.filter(i=>isVis(i.k,true)).map(i=>({i,b:sumK(B,i.k),a:sumK(A,i.k)})).filter(r=>r.a!==r.b);
   if(!rows.length)return[];const out=[];const per=40;
   for(let s=0;s<rows.length;s+=per){const ch=rows.slice(s,s+per);
-    out.push(pgShell('항목별 보장 증감표','변동된 담보 '+rows.length+'개',`<table class="sm" style="margin-top:16px"><colgroup><col style="width:80px"><col><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tr><th>구분</th><th>담보</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
-    ${ch.map(r=>`<tr><td class="lab">${esc(r.i.g)}</td><td>${esc(r.i.l)}</td><td class="n">${fmtMan(r.b)}</td><td class="n"><b>${fmtMan(r.a)}</b></td><td class="n">${dfP(r.a-r.b)}</td></tr>`).join('')}</table>`))}
+    out.push(pgShell('항목별 보장 증감표','변동된 담보 '+rows.length+'개',`<table class="sm" style="margin-top:16px"><colgroup><col style="width:104px"><col><col style="width:110px"><col style="width:110px"><col style="width:110px"></colgroup><tr><th>구분</th><th>담보</th><th class="n">지금</th><th class="n">제안 후</th><th class="n">증감</th></tr>
+    ${ch.map(r=>`<tr><td class="lab" style="white-space:nowrap">${GROUP_ICO[r.i.g]?ico(GROUP_ICO[r.i.g],16)+' ':''}${esc(r.i.g)}</td><td>${esc(r.i.l)}</td><td class="n">${fmtMan(r.b)}</td><td class="n"><b>${fmtMan(r.a)}</b></td><td class="n">${dfP(r.a-r.b)}</td></tr>`).join('')}</table>`))}
   return out;
 }
 function buildPages(){
   const o=S.pr;let p=[];const hasAfter=S.cur.proposals.length||S.cur.before.some(x=>x.keep);
   if(o.cover&&hasAfter)p.push(coverPage());
+  if(o.pic)p.push(picPage(hasAfter));
   if(o.before)p.push(...covPages(setBefore(),'가입보험 보장분석표','기존 보장현황'));
   if(o.after&&hasAfter)p.push(...covPages(setAfter(),'가입보험 보장분석표','전문가 제안'));
   if(o.disease&&hasAfter)p.push(diseasePage());
