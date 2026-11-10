@@ -827,7 +827,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.10-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.10-2</div>
   </div>
 </div>
 
@@ -33150,6 +33150,9 @@ function setDbExStatus(i, val){
 // ===== 청구신청 =====
 var claims = JSON.parse(localStorage.getItem('tops_claims')||'[]');
 
+// 청구 접수내역 보기 범위(2026-11-10 박지순 확정): 총무=전체, 그 외(팀원·박지순·백동현 BM 포함)=본인이 접수한 건만.
+//   청구신청·청구현황 목록과 팩스번호 보기 가드가 함께 사용 — 범위를 바꿀 땐 이 함수만 고칠 것.
+function _claimMine(c){ return !!(c&&(_isChongmu()||(cu&&c.agent&&c.agent===cu.name))); }
 function rClaimApply(){
   _reloadClaims();
   _claimsPkgSweep(); // 목록에 없는 id의 고아 PDF 캐시 청소(클라우드 수신 후 세션 1회)
@@ -33158,9 +33161,9 @@ function rClaimApply(){
     if(!c.packagePDF){ try{ c.packagePDF=localStorage.getItem('tops_pkg_'+i)||''; }catch(e){} }
   });
   var tb=g('claim_tb'); if(!tb) return;
-  // 본인 것만 (관리자는 전체)
+  // 본인 것만 (총무는 전체 — _claimMine)
   var visibleClaims=[];
-  claims.forEach(function(c,i){ if(_isAdmin()||(cu&&c.agent&&c.agent===cu.name)) visibleClaims.push({c:c,i:i}); });
+  claims.forEach(function(c,i){ if(_claimMine(c)) visibleClaims.push({c:c,i:i}); });
   // 최근 신청이 위로 — 신청일(regDate, 'YYYY.MM.DD' 0패딩이라 문자열 비교 안전) 내림차순,
   // 같은 날은 나중에 등록된 것(원본 인덱스 큰 쪽) 먼저. 핸들러는 {c,i}의 원본 인덱스를
   // 그대로 받으므로 정렬해도 안전(함정 A 예외 패턴 유지).
@@ -34739,12 +34742,12 @@ function rClaimStatus(){
     if(g('claim_ofs_x')) g('claim_ofs_x').value=(+_of.x||0);
     if(g('claim_ofs_y')) g('claim_ofs_y').value=(+_of.y||0);
   }catch(e){}
-  // 본인 것만 (관리자는 전체). 총무 화면에선 완료 건 자동 숨김(2026-08-26) —
+  // 본인 것만 (총무는 전체 — _claimMine). 총무 화면에선 완료 건 자동 숨김(2026-08-26) —
   //   데이터 삭제 아님: 팀원 본인·BM 화면에는 계속 표시되고, 미완료로 되돌리면 총무 화면에도 다시 나타남.
   var visibleStatus=[];
   var _csHideDone=_isChongmu()&&_mfSel('claim')===_mfNow();   // 완료 숨김은 이번 달 보기에서만(지난 달·전체는 완료 기록도 보여 줌 — 월별 보기 v2026.11.04-10)
   claims.forEach(function(c,i){
-    if(!(_isAdmin()||(cu&&c.agent&&c.agent===cu.name))) return;
+    if(!(_claimMine(c))) return;
     visibleStatus.push({c:c,i:i});   // 원본 인덱스 보존(함정 A)
   });
   // 최근 신청이 위로, 과거 내역은 아래로 — 청구신청 목록(rClaimApply, v2026.09.01-6)과 동일 규칙:
@@ -34900,7 +34903,7 @@ function claimFaxMgrSave(){
 function claimFaxView(i){
   _reloadClaims();   // 함정 C — 전용 재로드만 사용
   var c=claims[i]; if(!c){ toast('청구 내역을 찾을 수 없습니다.'); return; }
-  if(!(_isAdmin()||(cu&&c.agent&&c.agent===cu.name))){ toast('본인 담당 청구 건만 조회할 수 있습니다.'); return; } // 화면 필터와 동일 가드(콘솔 직접 호출 방어 — 2026-09-10 리뷰)
+  if(!(_claimMine(c))){ toast('본인 담당 청구 건만 조회할 수 있습니다.'); return; } // 화면 필터와 동일 가드(콘솔 직접 호출 방어 — 2026-09-10 리뷰)
   var insList=(c.insurerList&&c.insurerList.length)?c.insurerList.slice()
     :(c.insurer?String(c.insurer).split(/,\s*/).filter(function(s){return s;}):[]);
   var t=g('cfxv_title'); if(t) t.textContent=(c.custName||'')+' 님 청구 보험사 팩스번호';
