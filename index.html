@@ -850,7 +850,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-10</div>
   </div>
 </div>
 
@@ -1012,6 +1012,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_fp">재무상담 포토폴리오</div></div>
       <div class="ns"><div class="ni" id="n_rsv">예약문자발송</div></div>
       <div class="ns"><div class="ni" id="n_airec">AI상품추천</div></div>
+      <div class="ns"><div class="ni" id="n_fincalc">금융계산기모음</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -2888,10 +2889,19 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     </div>
 
     <!-- 재무상담 포토폴리오 (fp) — 입력 → 맞춤 재무설계 리포트 자동 작성 (좌: 입력 / 우: 미리보기) -->
+    <!-- 금융계산기모음 (fincalc, 2026-11-11 — 백동현 요청 — CLAUDE.md 4.99789) -->
+    <div class="pg" id="pg_fincalc">
+      <div class="sh"><div class="st"><i class="ti ti-calculator"></i>금융계산기모음</div></div>
+      <div id="fc_tabs"></div>
+      <div id="fc_wrap" style="display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:14px;align-items:start">
+        <div id="fc_in" class="fcin" style="background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:16px;color:#1f2433"></div>
+        <div id="fc_out"></div>
+      </div>
+    </div>
     <!-- AI상품추천 (airec, 2026-11-11 — 백동현 요청 — CLAUDE.md 4.99788) -->
     <div class="pg" id="pg_airec">
       <div class="sh"><div class="st"><i class="ti ti-sparkles"></i>AI상품추천</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bp ao" onclick="arMgrOpen()"><i class="ti ti-settings"></i> 상품 관리</button></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bp bnv ao" onclick="arMgrOpen()"><i class="ti ti-settings"></i> 상품 관리</button></div>
       </div>
       <div id="airec_wrap" style="display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px">
         <div class="arcard" oninput="arCalc()" onchange="arCalc()">
@@ -2915,7 +2925,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           <textarea id="airec_hx" class="arfi" rows="3" maxlength="1000" placeholder="예: 2023년 고혈압 약 복용 중" style="resize:vertical"></textarea>
           <label class="arl">보장 종류</label>
           <select id="airec_cat" class="arfi"><option value="">전체</option></select>
-          <div style="display:flex;gap:6px;margin-top:12px"><button class="bp" style="flex:1" onclick="arReset()"><i class="ti ti-eraser"></i> 초기화</button></div>
+          <div style="display:flex;gap:6px;margin-top:12px"><button class="bp bnv" style="flex:1" onclick="arReset()"><i class="ti ti-eraser"></i> 초기화</button></div>
         </div>
         <div class="arcard">
           <div class="arh">추천 결과 <span id="airec_cnt" style="font-weight:400;color:#6b7280;font-size:12px"></span></div>
@@ -5307,6 +5317,7 @@ function logout(){
   try{ if(typeof _abClear==='function') _abClear(); }catch(e){}
   try{ if(typeof _jvClear==='function') _jvClear(); }catch(e){}
   try{ if(typeof _arClear==='function') _arClear(); }catch(e){}   // AI상품추천 — 고객 조건 입력·상품 관리 창 비움
+  try{ if(typeof _fcClear==='function') _fcClear(); }catch(e){}   // 금융계산기모음 — 고객 자산·대출 입력 비움
   try{ if(typeof _cpClear==='function') _cpClear(); }catch(e){}   // 카드납관리 — 구독 해제·카드번호 화면 잔존 차단
   try{ if(typeof _dbuClear==='function') _dbuClear(); }catch(e){}   // DB사용량 — 구독 해제·고객명 화면 잔존 차단    // 부재디비 — 같은 이유
   try{ if(typeof _bndClear==='function') _bndClear(); }catch(e){}   // 증권바인더 — 입력값·미리보기 비움(고객 가입금액 잔존 차단)
@@ -6122,6 +6133,7 @@ g('n_drive') && g('n_drive').addEventListener('click',function(){showPage('drive
 g('n_fp') && g('n_fp').addEventListener('click',function(){showPage('fp');});
 g('n_rsv') && g('n_rsv').addEventListener('click',function(){showPage('rsv');});
 g('n_airec') && g('n_airec').addEventListener('click',function(){showPage('airec');});
+g('n_fincalc') && g('n_fincalc').addEventListener('click',function(){showPage('fincalc');});
 g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
@@ -6143,7 +6155,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',
+  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리'};
@@ -6206,6 +6218,7 @@ var CB_GUIDE=[
   {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
   {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
   {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
+  {k:'fincalc',kw:'금융계산기모음 금융계산기 재무계산기 계산기 은퇴 식비 자녀 교육 결혼 자금 시간가치 수익률 적립 일시금 생활비 단리 복리 대출 상환 원금균등 원리금균등 만기일시',a:'위쪽 탭에서 계산기(은퇴 식비·자녀 자금·시간 가치·수익률·자금 쓰기·단리·복리·대출 상환)를 고르고 왼쪽에 숫자를 넣으면 오른쪽에 결과와 그래프가 바로 나옵니다. [출력]으로 고객용 화면을 인쇄·PDF 저장할 수 있습니다.'},
   {k:'airec',kw:'AI상품추천 상품추천 상품설계 인수 인수기준 보험료 추천',a:'1. 왼쪽에 고객 나이·성별·직업 급수와 고지 내용(3개월 진찰·입원수술·중대질병)을 고르세요.\n2. 오른쪽에 가입 가능한 상품이 보험료 낮은 순으로, 불가 상품은 이유와 함께 나옵니다.\n3. 관리자는 [상품 관리]에서 보험사별 상품의 인수기준과 보험료표를 등록합니다.'},
   {k:'rsv',kw:'예약문자 예약 문자 상담예약 문자발송 카톡 명함 지도',a:'1. 고객 성함·상담 날짜·시각·장소를 입력하면 오른쪽에 문자 내용이 완성되고 지도가 자동 첨부됩니다.\n2. 처음 한 번 [내 명함]에 명함 사진을 올려 두세요.\n3. [문자 발송] 또는 [내 카톡으로 보내기]를 누릅니다.'},
   {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
@@ -9489,7 +9502,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,airec:rAirec};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,airec:rAirec,fincalc:rFincalc};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -28547,6 +28560,183 @@ function jvUpSave(){
 }
 function _jvClear(){ clearTimeout(window._jvQT); window._jvMonths=null; window._jvSt=null; window._jvSeq=(window._jvSeq||0)+1; jvUpClose(); var b=g('jv_body'); if(b) b.innerHTML=''; }
 
+// ===== 금융계산기모음 (fincalc, 2026-11-11 — 백동현 요청, CLAUDE.md 4.99789) =====
+// 상담용 계산 7종. 계산은 일반 금융 공식(월복리 적립·현재가치·대출 상환)이고 화면·문구·그림은 직접 만든 것. 저장 없음 — 입력은 메모리(window._fcState)만, logout에서 비움.
+var FC_GRPS=[['필요자금',['meal','child']],['목표 자금 모으기',['time','rate']],['모은 자금 쓰기',['spend']],['기타 계산',['simple','loan']]];
+var FC_TABS={
+  meal:{nm:'은퇴 식비',col:'#b45309',f:[['age','현재 나이','세',40],['ret','은퇴 나이','세',60],['life','기대 수명','세',85],['inf','물가상승률 (연)','%',3],['meal','지금 한 끼 식비','원',10000],['ppl','함께 식사하는 인원','명',1]]},
+  child:{nm:'자녀 자금',col:'#c2410c',f:[['age','부모 현재 나이','세',40],['ret','부모 은퇴 나이','세',60],['kid','자녀 나이','세',10],['inf','물가상승률 (연)','%',3],['sr','저축 수익률 (연)','%',3],['uni','대학 자금 (지금 가격)','만원',3400,'자녀 20세 · 4년제'],['wed','결혼 자금 (지금 가격)','만원',10000,'자녀 30세']]},
+  time:{nm:'시간 가치',col:'#15803d',f:[['goal','목표 자금','만원',10000],['r','기대 수익률 (연)','%',3],['age','현재 나이','세',45],['to','목표 나이','세',60]]},
+  rate:{nm:'수익률',col:'#4d7c0f',f:[['goal','목표 자금','만원',10000],['yrs','모으는 기간','년',20],['r','기준 수익률 (연)','%',3.5]]},
+  spend:{nm:'자금 쓰기',col:'#1d4ed8',f:[['bal','보유 자금','만원',50000],['mon','월 생활비','만원',300],['r','투자 수익률 (연)','%',3]]},
+  simple:{nm:'단리·복리',col:'#1e40af',f:[['amt','맡길 돈 (거치)','만원',1000],['r','이율 (연)','%',5],['yrs','운용 기간','년',30],['late','늦게 시작','년',10]]},
+  loan:{nm:'대출 상환',col:'#6d28d9',f:[['amt','대출 원금','만원',10000],['r','대출 이율 (연)','%',3.5],['yrs','대출 기간','년',20],['grace','거치 기간','년',0]]}
+};
+function _fcSt(){ if(!window._fcState) window._fcState={tab:'meal',v:{}}; return window._fcState; }   // ⚠️ 상태는 _fcState — 함수 이름과 같은 window 속성에 대입하면 함수가 덮인다(4.997 v-3)
+function _fcVals(tab){ var st=_fcSt(), t=FC_TABS[tab], o={}, sv=st.v[tab]||{};
+  t.f.forEach(function(f){ var x=sv[f[0]]; var n=(x===undefined||x==='')?f[3]:parseFloat(String(x).replace(/,/g,'')); o[f[0]]=isFinite(n)?n:f[3]; }); return o; }
+function _fcN(n){ return Number(Math.round(n)||0).toLocaleString(); }
+// 원 → "4억 9,442만원" (만원 미만 반올림)
+function _fcWon(won){ if(!isFinite(won)) return '-'; var neg=won<0, man=Math.round(Math.abs(won)/1e4), eok=Math.floor(man/1e4), r=man%1e4;
+  var s=(eok?eok.toLocaleString()+'억'+(r?' ':''):'')+(r||!eok?r.toLocaleString()+'만':'')+'원'; return (neg?'-':'')+s; }
+function _fcMan(man){ return _fcWon(man*1e4); }
+function _fcYm(months){ if(!isFinite(months)) return '영구 사용 가능'; if(months>=1200) return '100년 이상'; var y=Math.floor(months/12), m=Math.round((months-y*12)*10)/10; if(m>=12){ y++; m=0; } return (y?y+'년 ':'')+m.toFixed(1)+'개월'; }
+// 월 적립액: 목표 fv를 n개월 동안 매월 말 적립(월복리)
+function _fcPmt(fv,r,n){ if(n<=0) return fv; var i=r/100/12; return i?fv*i/(Math.pow(1+i,n)-1):fv/n; }
+// 자금 쓰기: 첫 12개월 이자 0, 2년째부터 매년 1월 잔액 × 연수익률 ÷ 12 를 그해 매월 이자로.
+function _fcSpend(bal,spend,r){
+  var i=r/100/12, m=0, rows=[];
+  if(spend<=0) return {forever:true,months:Infinity,rows:rows};
+  for(var y=1;y<=100;y++){ var jan=bal, it=y===1?0:Math.round(jan*i), row={y:y,it:it,net:it-spend,start:jan};
+    if(y>1&&it>=spend){ row.end=jan; rows.push(row); return {forever:true,months:Infinity,rows:rows}; }
+    for(var k=0;k<12;k++){ var av=bal+it; if(av<spend){ m+=av/spend; row.end=0; row.last=k+1; rows.push(row); return {forever:false,months:m,rows:rows}; } bal=av-spend; m++; }
+    row.end=bal; rows.push(row);
+  }
+  return {forever:false,over:true,months:1200,rows:rows};   // 100년 넘게 버팀(이자로 충당은 아님)
+}
+// 대출: kind eq(원금균등)|ann(원리금균등)|bul(만기일시), 거치 기간엔 이자만
+function _fcLoan(P,r,yrs,grace,kind){
+  var i=r/100/12, n=Math.round(yrs*12), g=Math.min(Math.round(grace*12),Math.max(n-1,0)), am=n-g, bal=P, pays=[], tot=0;
+  for(var k=1;k<=n;k++){ var it=bal*i, pr=0;
+    if(k<=g) pr=0; else if(kind==='eq') pr=P/am; else if(kind==='ann'){ var pm=i?P*i/(1-Math.pow(1+i,-am)):P/am; pr=pm-it; } else pr=(k===n?bal:0);
+    if(k===n) pr=bal; bal-=pr; pays.push({k:k,it:it,pr:pr}); tot+=it; }
+  var after=pays.slice(g); return {tot:tot, pay:P+tot, first:after.length?after[0].it+after[0].pr:0, last:after.length?after[after.length-1].it+after[after.length-1].pr:0,
+    gm:g?P*i:0, gt:g?P*i*g:0, pays:pays, g:g};
+}
+// ----- 그래프(SVG, id 없음 — 출력 창에도 같은 HTML이 들어감) -----
+function _fcBars(items,color,hi){ // items [{l,v,s}] 세로 막대
+  var W=560,H=190,pad=26,max=Math.max.apply(null,items.map(function(x){ return isFinite(x.v)?x.v:0; }).concat([1])), bw=(W-pad*2)/items.length;
+  return '<svg viewBox="0 0 '+W+' '+(H+34)+'" style="width:100%;max-width:640px;display:block;margin:0 auto">'+items.map(function(x,j){
+    var v=isFinite(x.v)?x.v:max, h=Math.max(2,(H-24)*v/max), xx=pad+j*bw+bw*0.2, w=bw*0.6, on=hi===j;
+    return '<rect x="'+xx.toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="4" fill="'+(on?color:'#cbd5e1')+'"/>'
+      +'<text x="'+(xx+w/2).toFixed(1)+'" y="'+(H-h-6).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="700" fill="'+(on?color:'#475569')+'">'+_esc(x.s)+'</text>'
+      +'<text x="'+(xx+w/2).toFixed(1)+'" y="'+(H+18)+'" text-anchor="middle" font-size="12" fill="#334155">'+_esc(x.l)+'</text>'; }).join('')+'<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+H+'" y2="'+H+'" stroke="#94a3b8"/></svg>';
+}
+function _fcLines(series,labels){ // series [{nm,col,pts:[]}] 같은 길이
+  var W=560,H=200,pad=34,all=[]; series.forEach(function(s){ all=all.concat(s.pts); }); var max=Math.max.apply(null,all.concat([1])), n=labels.length;
+  var X=function(j){ return pad+(W-pad*2)*(n>1?j/(n-1):0); }, Y=function(v){ return H-(H-20)*v/max; };
+  return '<svg viewBox="0 0 '+W+' '+(H+40)+'" style="width:100%;max-width:640px;display:block;margin:0 auto">'
+    +labels.map(function(l,j){ return '<text x="'+X(j).toFixed(1)+'" y="'+(H+16)+'" text-anchor="middle" font-size="11" fill="#475569">'+_esc(l)+'</text>'; }).join('')
+    +'<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+H+'" y2="'+H+'" stroke="#94a3b8"/>'
+    +series.map(function(s,si){ return '<polyline fill="none" stroke="'+s.col+'" stroke-width="3" points="'+s.pts.map(function(v,j){ return X(j).toFixed(1)+','+Y(v).toFixed(1); }).join(' ')+'"/>'
+      +'<text x="'+(pad+si*150)+'" y="'+(H+34)+'" font-size="12" font-weight="700" fill="'+s.col+'">● '+_esc(s.nm)+'</text>'; }).join('')+'</svg>';
+}
+function _fcHero(col,title,lines,note){ return '<div class="fchero" style="--fc:'+col+'"><div class="fcht">'+title+'</div>'+lines.map(function(l){ return '<div class="fchl">'+l+'</div>'; }).join('')+(note?'<div class="fchn">'+note+'</div>':'')+'</div>'; }
+function _fcB(s,col){ return '<b style="color:'+(col||'var(--fc)')+';font-size:1.25em">'+s+'</b>'; }
+function _fcTbl(head,rows,hiRow){ return '<table class="fctb"><thead><tr>'+head.map(function(h){ return '<th>'+h+'</th>'; }).join('')+'</tr></thead><tbody>'
+  +rows.map(function(r,j){ return '<tr'+(j===hiRow?' class="on"':'')+'>'+r.map(function(c){ return '<td>'+c+'</td>'; }).join('')+'</tr>'; }).join('')+'</tbody></table>'; }
+function _fcSec(t,body,sub){ return '<div class="fcsec"><div class="fcst">'+t+'</div>'+(sub?'<div class="fcsub">'+sub+'</div>':'')+body+'</div>'; }
+// ----- 탭별 결과 -----
+function _fcOut(tab,v){
+  var C=FC_TABS[tab].col;
+  if(tab==='meal'){
+    var yrs=Math.max(0,v.life-v.ret), pre=Math.max(0,v.ret-v.age), meals=Math.round(yrs*365*3*Math.max(1,v.ppl)), price=v.meal*Math.pow(1+v.inf/100,pre), tot=meals*price;
+    var rows=[0,1,2,3,4,5].map(function(k){ var inf=k===0?0:k; var p=v.meal*Math.pow(1+inf/100,pre); return [inf+'%', _fcN(p)+'원', _fcWon(meals*p)]; });
+    return _fcHero(C,'은퇴 뒤에도 하루 세 끼는 계속됩니다',[v.ret+'세 은퇴 후 '+v.life+'세까지 '+yrs+'년, 하루 3끼'+(v.ppl>1?' × '+v.ppl+'명':''),'총 '+_fcB(_fcN(meals)+'끼')+' × 한 끼 '+_fcB(_fcN(price)+'원'),'식비만 '+_fcB(_fcWon(tot),C)+' 필요합니다'],'물가상승률 연 '+v.inf+'% 로 은퇴 시점('+pre+'년 뒤) 한 끼 값을 계산하고, 은퇴 후에는 식비가 오르지 않는다고 가정했습니다.')
+      +_fcSec('물가상승률에 따라 달라지는 은퇴 식비',_fcTbl(['물가상승률','은퇴 시점 한 끼','은퇴 기간 총 식비'],rows,Math.round(v.inf)===v.inf&&v.inf>=0&&v.inf<=5?v.inf:-1))
+      +_fcSec('한 달·1년 단위로 보면',_fcTbl(['기간','식비'],[['하루',_fcN(price*3*Math.max(1,v.ppl))+'원'],['한 달 (30일)',_fcWon(price*3*30*Math.max(1,v.ppl))],['1년',_fcWon(price*3*365*Math.max(1,v.ppl))]],-1));
+  }
+  if(tab==='child'){
+    var it=[['대학 자금',v.uni,20],['결혼 자금',v.wed,30]].map(function(x){ var y=Math.max(0,x[2]-v.kid), fut=x[1]*Math.pow(1+v.inf/100,y), pa=v.age+y;
+      return {nm:x[0],now:x[1],y:y,fut:fut,pa:pa,mon:_fcPmt(fut,v.sr,y*12),lump:fut/Math.pow(1+v.sr/100/12,y*12),after:pa>v.ret}; });
+    var sumNow=it[0].now+it[1].now, sumFut=it[0].fut+it[1].fut, sumMon=it[0].mon+it[1].mon, sumLump=it[0].lump+it[1].lump, warn=it.filter(function(x){ return x.after; });
+    return _fcHero(C,'아이가 자라는 동안 필요한 돈도 자랍니다',['지금 가격으로 '+_fcB(_fcMan(sumNow),'#64748b')+'인 대학·결혼 자금이','물가가 연 '+v.inf+'%씩 오르면 '+_fcB(_fcMan(sumFut),C)+'이 됩니다','지금부터 매월 '+_fcB(_fcMan(sumMon))+'씩 모으거나, 한 번에 '+_fcB(_fcMan(sumLump))+'을 준비하면 됩니다'],'저축 수익률 연 '+v.sr+'%(월복리, 매월 말 적립) 기준. 결혼 자금이 대학 자금보다 늦게 필요하므로 각각 따로 계산해 더했습니다.')
+      +_fcSec('항목별 현재 · 미래 필요자금',_fcBars([{l:'대학 · 지금',v:it[0].now,s:_fcMan(it[0].now)},{l:'대학 · '+it[0].y+'년 뒤',v:it[0].fut,s:_fcMan(it[0].fut)},{l:'결혼 · 지금',v:it[1].now,s:_fcMan(it[1].now)},{l:'결혼 · '+it[1].y+'년 뒤',v:it[1].fut,s:_fcMan(it[1].fut)}],C,null)
+        +_fcTbl(['항목','필요 시점','지금 가격','그때 가격','매월 모으면','한 번에 준비하면'],it.map(function(x){ return [x.nm,x.y+'년 뒤 (부모 '+x.pa+'세)',_fcMan(x.now),'<b>'+_fcMan(x.fut)+'</b>',_fcMan(x.mon),_fcMan(x.lump)]; }).concat([['<b>합계</b>','',_fcMan(sumNow),'<b>'+_fcMan(sumFut)+'</b>','<b>'+_fcMan(sumMon)+'</b>','<b>'+_fcMan(sumLump)+'</b>']]),-1))
+      +(warn.length?'<div class="fcwarn">⚠ '+warn.map(function(x){ return x.nm; }).join('·')+'이 필요한 시점에 부모님이 이미 은퇴('+v.ret+'세) 후입니다 — 은퇴 전에 준비를 마쳐야 합니다.</div>':'');
+  }
+  if(tab==='time'){
+    var n=Math.max(0,v.to-v.age)*12, i=v.r/100/12, mon=_fcPmt(v.goal,v.r,n), lump=v.goal/Math.pow(1+i,n);
+    var ages=[20,30,40,50].filter(function(a){ return a<v.to; }); if(ages.indexOf(v.age)<0&&v.age<v.to) ages.push(v.age); ages.sort(function(a,b){ return a-b; });
+    var data=ages.map(function(a){ var m=(v.to-a)*12; return {a:a,mon:_fcPmt(v.goal,v.r,m),lump:v.goal/Math.pow(1+i,m)}; });
+    return _fcHero(C,'재무 준비에서 시간은 돈보다 힘이 셉니다',[v.to+'세에 '+_fcB(_fcMan(v.goal))+'을 만들려면 지금('+v.age+'세)부터','매월 '+_fcB(_fcMan(mon),C)+'씩 모으거나 지금 한 번에 '+_fcB(_fcMan(lump),C)+'을 넣어 두면 됩니다'],'연 '+v.r+'% 월복리 기준. 늦게 시작할수록 매달 내야 할 돈이 빠르게 커집니다.')
+      +_fcSec('시작 나이별 필요 금액',_fcBars(data.map(function(x){ return {l:x.a+'세 시작',v:x.mon,s:'월 '+_fcMan(x.mon)}; }),C,data.map(function(x){ return x.a; }).indexOf(v.age))
+        +_fcTbl(['시작 나이','모으는 기간','매월 모을 돈','한 번에 넣을 돈'],data.map(function(x){ return [x.a+'세',(v.to-x.a)+'년',_fcMan(x.mon),_fcMan(x.lump)]; }),data.map(function(x){ return x.a; }).indexOf(v.age)));
+  }
+  if(tab==='rate'){
+    var rs=[1,3.5,5,7,10]; if(rs.indexOf(v.r)<0){ rs.push(v.r); rs.sort(function(a,b){ return a-b; }); }
+    var mon=function(r,y){ return _fcPmt(v.goal,r,y*12); }, lump=function(r,y){ return v.goal/Math.pow(1+r/100,y); }, ys=[5,10,15,20,25,30];
+    return _fcHero(C,'수익률이 같은 목표를 더 가볍게 만듭니다',[_fcB(_fcMan(v.goal))+'을 '+_fcB(v.yrs+'년')+' 동안 연 '+_fcB(v.r+'%')+'로 모으려면','매월 '+_fcB(_fcMan(mon(v.r,v.yrs)),C)+'씩 모으거나 일시금 '+_fcB(_fcMan(lump(v.r,v.yrs)),C)+'이 필요합니다'],'매월 적립은 월복리·매월 말 적립, 일시금은 연복리 기준입니다.')
+      +_fcSec('수익률별 매월 적립액 ('+v.yrs+'년)',_fcBars(rs.map(function(r){ return {l:'연 '+r+'%',v:mon(r,v.yrs),s:_fcMan(mon(r,v.yrs))}; }),C,rs.indexOf(v.r)))
+      +_fcSec('기간별 · 수익률별 매월 적립액',_fcTbl(['기간'].concat(rs.map(function(r){ return r+'%'; })),ys.map(function(y){ return [y+'년'].concat(rs.map(function(r){ return _fcMan(mon(r,y)); })); }),ys.indexOf(v.yrs)))
+      +_fcSec('기간별 · 수익률별 일시금',_fcTbl(['기간'].concat(rs.map(function(r){ return r+'%'; })),ys.map(function(y){ return [y+'년'].concat(rs.map(function(r){ return _fcMan(lump(r,y)); })); }),ys.indexOf(v.yrs)));
+  }
+  if(tab==='spend'){
+    var B=v.bal*1e4, S=v.mon*1e4, res=_fcSpend(B,S,v.r), rs=[1,3,5,7]; if(rs.indexOf(v.r)<0){ rs.push(v.r); rs.sort(function(a,b){ return a-b; }); }
+    var ms=[50,100,150,200,300,500]; if(ms.indexOf(v.mon)<0){ ms.push(v.mon); ms.sort(function(a,b){ return a-b; }); }
+    var yrRows=res.rows.slice(0,60).map(function(r){ return [r.y+'년',_fcMan(v.mon),_fcWon(r.it),'<span style="color:'+(r.net<0?'#c0392b':'#15803d')+'">'+_fcWon(r.net)+'</span>',_fcWon(r.end)]; });
+    return _fcHero(C,'지금 가진 돈으로 얼마나 버틸 수 있을까요?',['보유 자금 '+_fcB(_fcMan(v.bal))+'을 연 '+_fcB(v.r+'%')+'로 굴리면서','매월 '+_fcB(_fcMan(v.mon))+'씩 생활비로 쓰면',res.forever?_fcB('이자만으로 생활비가 충당되어 계속 쓸 수 있습니다',C):'앞으로 '+_fcB(_fcYm(res.months),C)+' 동안 쓸 수 있습니다'],'첫 1년은 이자 없이 원금만 쓰고, 2년째부터 매년 1월 잔액 × 연 수익률 ÷ 12를 그해 매월 이자로 받는다고 가정했습니다.')
+      +_fcSec('수익률별 사용 가능 기간','<div class="fcgrid">'+rs.map(function(r){ var x=_fcSpend(B,S,r); return '<div class="fcbox'+(r===v.r?' on':'')+'"><div>연 '+r+'%</div><b>'+_fcYm(x.months)+'</b></div>'; }).join('')+'</div>')
+      +_fcSec('월 생활비별 비교',_fcTbl(['월 생활비','사용 가능 기간','모두 쓸 때까지 꺼내 쓴 돈'],ms.map(function(m){ var x=_fcSpend(B,m*1e4,v.r); return [_fcMan(m)+(m===v.mon?' (현재)':''),x.forever?'<b style="color:#15803d">계속 사용 가능</b>':_fcYm(x.months),x.forever||x.over?'-':_fcWon(m*1e4*x.months)]; }),ms.indexOf(v.mon)))
+      +_fcSec('해마다 잔액 변화',_fcTbl(['기간','월 생활비','월 이자','월 순변화','그해 말 잔액'],yrRows,-1),'잔액이 바닥나는 해는 그 달까지만 씁니다.'+(res.rows.length>60?' 60년까지만 표시합니다.':''));
+  }
+  if(tab==='simple'){
+    var r=v.r/100, Y=Math.max(1,Math.round(v.yrs)), L=Math.min(Math.max(0,Math.round(v.late)),Y-1), cp=function(y){ return v.amt*Math.pow(1+r,y); }, sp=function(y){ return v.amt*(1+r*y); };
+    var lbl=[], a=[], b=[]; for(var y=0;y<=Y;y+=Math.max(1,Math.round(Y/10))){ lbl.push(y+'년'); a.push(cp(y)); b.push(sp(y)); }
+    if(lbl[lbl.length-1]!==Y+'년'){ lbl.push(Y+'년'); a.push(cp(Y)); b.push(sp(Y)); }
+    return _fcHero(C,L+'년 먼저 시작한 차이가 복리에서는 크게 벌어집니다',[_fcB(_fcMan(v.amt))+'을 연 '+_fcB(v.r+'%')+' 복리로 맡기면','바로 시작해 '+Y+'년 → '+_fcB(_fcMan(cp(Y)),C),L+'년 늦게 시작해 '+(Y-L)+'년 → '+_fcB(_fcMan(cp(Y-L)),'#64748b'),'차이 '+_fcB(_fcMan(cp(Y)-cp(Y-L)),'#c0392b')],'복리는 이자에 다시 이자가 붙습니다(연복리). 단리는 처음 원금에만 이자가 붙습니다.')
+      +_fcSec('바로 시작 vs '+L+'년 늦게 시작 (복리)',_fcBars([{l:'바로 시작 · '+Y+'년',v:cp(Y),s:_fcMan(cp(Y))},{l:L+'년 늦게 · '+(Y-L)+'년',v:cp(Y-L),s:_fcMan(cp(Y-L))}],C,0))
+      +_fcSec('단리와 복리 비교',_fcLines([{nm:'복리',col:C,pts:a},{nm:'단리',col:'#94a3b8',pts:b}],lbl)+_fcTbl(['기간','단리','복리','차이'],lbl.map(function(l,j){ return [l,_fcMan(b[j]),'<b>'+_fcMan(a[j])+'</b>',_fcMan(a[j]-b[j])]; }),-1));
+  }
+  if(tab==='loan'){
+    var P=v.amt*1e4, ks=[['eq','원금균등','매월 같은 원금 + 줄어드는 이자'],['ann','원리금균등','매월 같은 금액(원금+이자)'],['bul','만기일시','기간 중 이자만, 만기에 원금']];
+    var R=ks.map(function(k){ return {k:k,x:_fcLoan(P,v.r,v.yrs,v.grace,k[0])}; }), best=R.slice().sort(function(a,b){ return a.x.tot-b.x.tot; })[0];
+    var card=function(o){ var x=o.x, k=o.k[0];
+      var pay=k==='eq'?'첫 달 '+_fcWon(x.first)+'<br>마지막 달 '+_fcWon(x.last):(k==='ann'?_fcWon(x.first):_fcWon(x.first===x.last?x.first:x.pays[x.g].it)+' (이자만)<br>만기 '+_fcWon(x.last));
+      return '<div class="fcbox'+(o===best?' on':'')+'" style="text-align:left"><div style="font-weight:800;font-size:15px;color:#1f2433">'+o.k[1]+'</div><div style="font-size:11.5px;color:#64748b;margin-bottom:6px">'+o.k[2]+'</div>'
+        +'<div class="fcrow"><span>갚을 돈 합계</span><b>'+_fcWon(x.pay)+'</b></div><div class="fcrow"><span>총 이자</span><b style="color:'+(o===best?'#15803d':'#c0392b')+'">'+_fcWon(x.tot)+'</b></div><div class="fcrow" style="font-size:11px"><span></span><span>원금 대비 '+(P>0?(x.tot/P*100).toFixed(1)+'%':'-')+'</span></div>'
+        +'<div class="fcrow"><span>월 상환액</span><b style="text-align:right">'+pay+'</b></div>'+(x.g?'<div class="fcrow"><span>거치 중 월 이자</span><b>'+_fcWon(x.gm)+'</b></div><div class="fcrow"><span>거치 중 총 이자</span><b>'+_fcWon(x.gt)+'</b></div>':'')+'</div>'; };
+    var yrs=Math.ceil(v.yrs), yl=[], ser=R.map(function(o,si){ return {nm:o.k[1],col:['#1d4ed8','#7c3aed','#f59e0b'][si],pts:[]}; });
+    for(var y=1;y<=yrs;y++){ yl.push(y+'년'); R.forEach(function(o,si){ var s=0; o.x.pays.slice((y-1)*12,y*12).forEach(function(p){ s+=p.it; }); ser[si].pts.push(s); }); }
+    var step=Math.max(1,Math.ceil(yrs/10)), keep=function(arr){ return arr.filter(function(_,j){ return j%step===0||j===arr.length-1; }); };
+    return _fcHero(C,'갚는 방식에 따라 이자가 달라집니다',[_fcB(_fcMan(v.amt))+'을 연 '+_fcB(v.r+'%')+'로 '+_fcB(v.yrs+'년')+(v.grace?'(거치 '+v.grace+'년)':'')+' 빌리면','이자가 가장 적은 방식은 '+_fcB(best.k[1],C)+' — 총 이자 '+_fcB(_fcWon(best.x.tot),C)],'실제 대출은 금리 변동·중도상환 수수료 등에 따라 달라질 수 있습니다.')
+      +_fcSec('방식별 비교','<div class="fcgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">'+R.map(card).join('')+'</div>')
+      +_fcSec('해마다 내는 이자',_fcLines(ser.map(function(s){ return {nm:s.nm,col:s.col,pts:keep(s.pts)}; }),keep(yl))
+        +_fcTbl(['기간'].concat(ks.map(function(k){ return k[1]; })),yl.map(function(l,j){ return [l].concat(ser.map(function(s){ return _fcWon(s.pts[j]); })); }),-1),'원금 상환은 빼고 이자만 비교했습니다. 만기일시는 원금이 그대로라 이자가 끝까지 줄지 않습니다.');
+  }
+  return '';
+}
+function _fcCss(sc){ sc=sc||''; return sc+'.fchero{border-radius:14px;padding:26px 26px 20px;background:linear-gradient(135deg,#fff 0%,color-mix(in srgb,var(--fc) 9%,#fff) 100%);border:1px solid color-mix(in srgb,var(--fc) 25%,#e5e7eb);border-left:6px solid var(--fc);color:#1f2433}'
+  +sc+'.fcht{font-size:22px;font-weight:800;color:var(--fc);margin-bottom:12px}'+sc+'.fchl{font-size:17px;line-height:1.75}'+sc+'.fchn{font-size:12px;color:#64748b;margin-top:10px}'
+  +sc+'.fcsec{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:16px;margin-top:14px;color:#1f2433;break-inside:avoid}'+sc+'.fcst{font-weight:800;font-size:14.5px;margin-bottom:6px}'+sc+'.fcsub{font-size:12px;color:#64748b;margin-bottom:8px}'
+  +sc+'.fctb{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}'+sc+'.fctb th{background:#f6f7fb;color:#555;font-weight:600;padding:7px 6px;text-align:center}'+sc+'.fctb td{padding:7px 6px;border-bottom:1px solid #eef0f4;text-align:center}'+sc+'.fctb tr.on td{background:#eef4ff;font-weight:700}'
+  +sc+'.fcgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}'+sc+'.fcbox{border:1px solid #e3e6ee;border-left:4px solid #cbd5e1;border-radius:10px;padding:12px;font-size:13px;color:#475569}'+sc+'.fcbox b{display:block;font-size:17px;color:#1f2433;margin-top:4px}'
+  +sc+'.fcbox.on{border-left-color:var(--fc,#2563eb);background:#f5f8ff}'+sc+'.fcrow{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #eef0f4}'+sc+'.fcrow b{display:inline;font-size:13.5px;margin:0}'
+  +sc+'.fcwarn{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:13px}';
+}
+function rFincalc(){
+  if(!g('fc_css')){ var s=document.createElement('style'); s.id='fc_css'; s.textContent=_fcCss('#pg_fincalc ')+'#pg_fincalc .fcin label{display:block;font-size:12px;color:#555;margin:9px 0 3px}#pg_fincalc .fcin .fcu{position:relative}#pg_fincalc .fcin input{width:100%;padding:8px 44px 8px 10px;border:1px solid #ccd2de;border-radius:7px;color:#1f2433;background:#fff;box-sizing:border-box;font-size:14px}#pg_fincalc .fcin .fcu span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8}#pg_fincalc .fcin small{display:block;font-size:11px;color:#94a3b8;margin-top:-1px}#fc_tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}#fc_tabs .fcg{border:1px solid #e3e6ee;border-radius:10px;background:#fff;padding:4px 6px 6px}#fc_tabs .fcgt{font-size:11px;color:#64748b;text-align:center;margin-bottom:3px}#fc_tabs button{border:1px solid transparent;background:none;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;color:#334155;font-family:inherit}#fc_tabs button.on{background:var(--fc);color:#fff;font-weight:700}@media(max-width:900px){#fc_wrap{grid-template-columns:1fr!important}}'; document.head.appendChild(s); }
+  var st=_fcSt(), tb=g('fc_tabs'); if(!tb) return;
+  tb.innerHTML=FC_GRPS.map(function(gr){ return '<div class="fcg"><div class="fcgt">'+gr[0]+'</div>'+gr[1].map(function(k){ return '<button data-fctab="'+k+'" class="'+(k===st.tab?'on':'')+'" style="--fc:'+FC_TABS[k].col+'">'+FC_TABS[k].nm+'</button>'; }).join('')+'</div>'; }).join('');
+  tb.querySelectorAll('[data-fctab]').forEach(function(b){ b.onclick=function(){ st.tab=b.getAttribute('data-fctab'); rFincalc(); }; });
+  var t=FC_TABS[st.tab], vals=st.v[st.tab]||{}, inp=g('fc_in');
+  inp.innerHTML='<div style="font-weight:800;font-size:14px;margin-bottom:4px">'+t.nm+' 입력</div>'+t.f.map(function(f){ var cur=vals[f[0]]!==undefined?vals[f[0]]:f[3];
+    return '<label>'+f[1]+'</label>'+(f[4]?'<small>'+f[4]+'</small>':'')+'<div class="fcu"><input data-fck="'+f[0]+'" inputmode="decimal" value="'+_alertEsc((f[2]==='만원'||f[2]==='원')&&typeof cur==='number'?_fcN(cur):cur)+'"><span>'+f[2]+'</span></div>'; }).join('')
+    +'<div style="display:flex;gap:6px;margin-top:14px"><button class="bp bnv" style="flex:1" onclick="fcReset()">초기화</button><button class="bp bnv" style="flex:1;background:'+t.col+';color:#fff" onclick="fcPrint()">출력</button></div>';
+  inp.querySelectorAll('[data-fck]').forEach(function(el){ el.oninput=function(){ var k=el.getAttribute('data-fck'), f=t.f.filter(function(x){ return x[0]===k; })[0];
+    if(f[2]==='만원'||f[2]==='원'){ var d=el.value.replace(/[^\d]/g,''); el.value=d?Number(d).toLocaleString():''; }
+    (st.v[st.tab]=st.v[st.tab]||{})[k]=el.value; _fcDraw(); }; });
+  _fcDraw();
+}
+function _fcDraw(){ var st=_fcSt(), o=g('fc_out'); if(!o) return; o.style.setProperty('--fc',FC_TABS[st.tab].col);
+  try{ o.innerHTML=_fcOut(st.tab,_fcClamp(st.tab,_fcVals(st.tab)))+'<div style="font-size:11.5px;color:#94a3b8;margin-top:10px">※ 상담 참고용 계산입니다. 세금·수수료·실제 상품 조건은 반영하지 않았습니다.</div>'; }
+  catch(e){ console.warn('재무계산기 오류',e); o.innerHTML='<div class="fcwarn">입력값을 확인해 주세요.</div>'; } }
+// 입력 범위 — 이상한 값이 계산·그래프를 망가뜨리지 않게
+function _fcClamp(tab,v){ var c=function(k,lo,hi){ if(k in v) v[k]=Math.min(hi,Math.max(lo,v[k])); };
+  ['age','ret','life','kid','to'].forEach(function(k){ c(k,0,120); }); ['inf','sr','r'].forEach(function(k){ c(k,0,30); });
+  c('yrs',1,50); c('late',0,49); c('grace',0,49); c('ppl',1,20); ['meal','uni','wed','goal','bal','mon','amt'].forEach(function(k){ c(k,0,1e9); });
+  if(tab==='meal'){ v.ret=Math.max(v.ret,v.age); v.life=Math.max(v.life,v.ret); } if(tab==='time') v.to=Math.max(v.to,v.age); if(tab==='loan') v.grace=Math.min(v.grace,Math.max(0,v.yrs-1));
+  return v; }
+function fcReset(){ var st=_fcSt(); delete st.v[st.tab]; rFincalc(); }
+function fcPrint(){ var st=_fcSt(), t=FC_TABS[st.tab], body;
+  try{ body=_fcOut(st.tab,_fcClamp(st.tab,_fcVals(st.tab))); }catch(e){ toast('계산 결과를 만들지 못했습니다.'); return; }
+  var w=window.open('','_blank'); if(!w){ toast('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  try{ w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>금융계산 - '+_esc(t.nm)+'</title><style>@page{size:A4;margin:11mm}body{margin:0;padding:14px;background:#f4f5fa;font-family:-apple-system,BlinkMacSystemFont,\'Malgun Gothic\',\'맑은 고딕\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.wrap{max-width:760px;margin:0 auto;--fc:'+t.col+'}'
+    +_fcCss('')+'.tb{display:flex;justify-content:flex-end;padding-bottom:10px}.tb button{padding:8px 16px;border:none;border-radius:8px;background:'+t.col+';color:#fff;font-size:14px;font-weight:700;cursor:pointer}@media print{body{background:#fff;padding:0}.tb{display:none}}</style></head><body><div class="wrap"><div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div>'
+    +body+'<div style="font-size:11px;color:#94a3b8;margin-top:12px;text-align:right">TEAM TOPS · '+_esc(td())+(cu&&cu.name?' · 담당 '+_esc(cu.name):'')+' · 상담 참고용</div></div></body></html>'); w.document.close(); }
+  catch(e){ try{ w.close(); }catch(e2){} toast('출력 창을 만들지 못했습니다.'); } }
+function _fcClear(){ window._fcState=null; var o=g('fc_out'); if(o) o.innerHTML=''; var i=g('fc_in'); if(i) i.innerHTML=''; }
+
 // ===== AI상품추천 (airec, 2026-11-11 — 백동현 요청, CLAUDE.md 4.99788) =====
 // 상품별 인수기준·보험료표는 Firestore airec_prod/{id}(상품 1개=문서). 판정은 전부 코드가 기준표와 대조 — AI에게 인수 판정·보험료를 맡기지 않음.
 var AR_COL='airec_prod';
@@ -28645,7 +28835,7 @@ function arMgrOpen(){
   var d=document.createElement('div'); d.id='airec_pop';
   d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto';
   d.innerHTML='<div style="background:#fff;color:#1f2433;border-radius:12px;width:min(980px,100%);padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.25)">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="arh" style="margin:0;flex:1">상품 관리 — 인수기준·보험료표</div><button class="bp" onclick="arMgrClose()">닫기</button></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="arh" style="margin:0;flex:1">상품 관리 — 인수기준·보험료표</div><button class="bp bnv" onclick="arMgrClose()">닫기</button></div>'
     +'<div style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px"><div id="airec_inslist" style="max-height:70vh;overflow:auto;border:1px solid #e3e6ee;border-radius:8px"></div><div id="airec_mbody"></div></div></div>';
   d.addEventListener('mousedown',function(e){ d._down=e.target; });
   d.addEventListener('click',function(e){ if(e.target===d&&d._down===d) arMgrClose(); });
@@ -28665,14 +28855,14 @@ function _arMgrDraw(){
   il.querySelectorAll('[data-arins]').forEach(function(el){ el.onclick=function(){ window._arMgrIns=el.getAttribute('data-arins'); window._arEditId=null; _arMgrDraw(); }; });
   var b=g('airec_mbody'); if(!b) return;
   var mine=ps.filter(function(p){ return p.ins===cur; }).sort(function(a,b){ return a.nm.localeCompare(b.nm); });
-  b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-weight:700;font-size:15px;flex:1">'+_esc(cur||'보험사를 고르세요')+'</div>'+(cur?'<button class="bp" data-aract="new">＋ 상품 추가</button>':'')+'</div>'
+  b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-weight:700;font-size:15px;flex:1">'+_esc(cur||'보험사를 고르세요')+'</div>'+(cur?'<button class="bp bnv" data-aract="new">＋ 상품 추가</button>':'')+'</div>'
     +(mine.length?'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f6f7fb;color:#555;font-size:12px"><th style="text-align:left;padding:6px">상품</th><th style="padding:6px">가입나이</th><th style="padding:6px">기준</th><th style="padding:6px">보험료표</th><th></th></tr></thead><tbody>'
       +mine.map(function(p){ var rs=[]; if(p.jobMax) rs.push('직업 '+p.jobMax+'급'); if(p.r3m) rs.push('3개월'); if(p.rHosp) rs.push(p.rHosp+'년 입원·수술'); if(p.rMajor) rs.push(p.rMajor+'년 중대질병'); if(p.sex) rs.push(p.sex==='M'?'남성':'여성');
         return '<tr><td style="padding:6px;border-bottom:1px solid #eef0f4"><b>'+_esc(p.nm)+'</b><div style="font-size:11px;color:#6b7280">'+_esc(p.cat)+' · '+_esc(p.kind)+'</div></td>'
           +'<td style="padding:6px;border-bottom:1px solid #eef0f4;text-align:center">'+(p.ageMin==null&&p.ageMax==null?'-':(p.ageMin==null?0:p.ageMin)+'~'+(p.ageMax==null?'':p.ageMax))+'</td>'
           +'<td style="padding:6px;border-bottom:1px solid #eef0f4;font-size:12px">'+(rs.length?_esc(rs.join(', ')):'<span style="color:#9ca3af">없음</span>')+'</td>'
           +'<td style="padding:6px;border-bottom:1px solid #eef0f4;text-align:center">'+(p.prem.length?p.prem.length+'줄':'<span style="color:#9ca3af">없음</span>')+'</td>'
-          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;white-space:nowrap;text-align:right"><button class="bp" data-aract="edit" data-arid="'+p.id+'">수정</button> <button class="bp" data-aract="del" data-arid="'+p.id+'" style="color:#c0392b">삭제</button></td></tr>'; }).join('')+'</tbody></table>'
+          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;white-space:nowrap;text-align:right"><button class="bp bnv" data-aract="edit" data-arid="'+p.id+'">수정</button> <button class="bd bdr" data-aract="del" data-arid="'+p.id+'">삭제</button></td></tr>'; }).join('')+'</tbody></table>'
       :'<div style="color:#6b7280;font-size:13px;padding:10px 0">'+(cur?'등록된 상품이 없습니다. [＋ 상품 추가]로 인수기준과 보험료표를 넣으세요.':'')+'</div>')
     +'<div id="airec_form"></div>';
   b.querySelectorAll('[data-aract]').forEach(function(el){ el.onclick=function(){ var a=el.getAttribute('data-aract'), id=_arId(el.getAttribute('data-arid'));
@@ -28703,7 +28893,7 @@ function _arFormDraw(p){
     +'<textarea id="arf_prem" class="arfi" rows="6" placeholder="30\t25000\t22000&#10;35\t28000\t24500&#10;40\t32000\t27000" style="font-family:monospace;resize:vertical">'+_esc(premTxt)+'</textarea>'
     +'<div id="arf_premst" style="font-size:11.5px;color:#6b7280;margin-top:3px"></div>'
     +'<label class="arl">메모 (기준 플랜·가입금액 등)</label><input id="arf_note" class="arfi" maxlength="300" value="'+_alertEsc(p.note||'')+'">'
-    +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><button class="bp" id="arf_cancel">취소</button><button class="bp" id="arf_save" style="background:#2563eb;color:#fff">저장</button></div></div>';
+    +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><button class="bp bnv" id="arf_cancel">취소</button><button class="bp bnv" id="arf_save" style="background:#2563eb;color:#fff">저장</button></div></div>';
   var pt=g('arf_prem'), st=g('arf_premst'); var upd=function(){ var r=_arPremParse(pt.value); st.textContent=r.rows.length+'줄 인식'+(r.bad.length?' · 못 읽은 줄 '+r.bad.length+'개 ('+r.bad.slice(0,3).join(', ')+'번째 줄)':''); st.style.color=r.bad.length?'#c0392b':'#6b7280'; };
   pt.oninput=upd; upd();
   g('arf_cancel').onclick=function(){ window._arEditId=null; f.innerHTML=''; };
