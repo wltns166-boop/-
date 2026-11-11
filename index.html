@@ -204,6 +204,10 @@ table.dt tr:last-child td{border-bottom:none;}
 .bco{padding:9px 19px;background:#4858cc;border:1px solid #4858cc;border-radius:8px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}   /* 저장/확인 버튼 — 진한색(요청) */
 .bco:hover{background:#5a6ae0;}
 .bpd{background:#4858cc !important;color:#fff !important;border:1px solid #4858cc !important;}   /* .bp 강조판 — 주요 동작 버튼 */
+.bnv{background:#1f2a5c !important;color:#fff !important;border:1px solid #1f2a5c !important;font-weight:600;}   /* 진한 남색 버튼 — 새 버튼 기본(흐릿한 .bp 금지, 2026-11-11 박지순) */
+.bnv:hover{background:#141c42 !important;border-color:#141c42 !important;}
+.bdr{background:#c62828 !important;color:#fff !important;border:1px solid #c62828 !important;font-weight:600;}   /* 진한 빨강 삭제 버튼 */
+.bdr:hover{background:#9f1d1d !important;}
 .bca{padding:9px 19px;background:transparent;border:1px solid rgba(45,65,170,.18);border-radius:8px;color:#5868a0;font-size:15px;cursor:pointer;font-family:inherit;}
 
 /* UTIL MODALS */
@@ -846,7 +850,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-9</div>
   </div>
 </div>
 
@@ -2825,7 +2829,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <!-- 카드납관리 (cardpay, 2026-11-11 — 박지순 요청) — Firestore 컬렉션 cardpay/{id}, localStorage 없음 -->
     <div class="pg" id="pg_cardpay">
       <div class="sh"><div class="st"><i class="ti ti-credit-card"></i>카드납관리</div>
-        <button class="bp" onclick="cpFormOpen()"><i class="ti ti-plus"></i> 등록</button></div>
+        <button class="bp bnv" onclick="cpFormOpen()"><i class="ti ti-plus"></i> 등록</button></div>
       <div class="abnote">카드로 보험료를 내는 계약을 등록해 두면 매달 그 달 기준으로 결제완료 여부를 체크합니다(달이 바뀌면 자동으로 새 달 미완료로 시작). 결제일별로 같은 보험사끼리 묶어 보여 주고, <b>결제일 아침에 화면 오른쪽 위 알림</b>으로 알려 줍니다 — 결제일이 주말·공휴일이면 다음 평일에 알려 줍니다.
         이름을 누르면 고객정보 창, 증권번호·카드주·카드번호를 누르면 복사됩니다. 목록에는 본인이 등록한 것만 보입니다(총무는 전체).</div>
       <div id="cp_form" class="card" style="display:none;margin-bottom:12px">
@@ -2844,16 +2848,16 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <datalist id="cp_nm_list"></datalist><datalist id="cp_ins_list"></datalist>
         <datalist id="cp_cco_list"><option value="삼성카드"><option value="현대카드"><option value="신한카드"><option value="KB국민카드"><option value="롯데카드"><option value="하나카드"><option value="우리카드"><option value="BC카드"><option value="NH농협카드"><option value="IBK기업은행"></datalist>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-          <button class="bp" onclick="cpFormClose()">취소</button>
-          <button class="bp" id="cp_savebtn" onclick="cpSave()"><i class="ti ti-device-floppy"></i> 저장</button>
+          <button class="bp bnv" onclick="cpFormClose()">취소</button>
+          <button class="bp bnv" id="cp_savebtn" onclick="cpSave()"><i class="ti ti-device-floppy"></i> 저장</button>
         </div>
       </div>
       <div class="card">
         <div class="cpmonth">
-          <button class="bp" onclick="cpMonth(-1)">‹</button>
+          <button class="bp bnv" onclick="cpMonth(-1)">‹</button>
           <b id="cp_ym"></b>
-          <button class="bp" onclick="cpMonth(1)">›</button>
-          <button class="bp" onclick="cpMonth(0)">이번 달</button>
+          <button class="bp bnv" onclick="cpMonth(1)">›</button>
+          <button class="bp bnv" onclick="cpMonth(0)">이번 달</button>
           <span id="cp_sum" style="margin-left:auto;font-size:13px;color:#5a6080"></span>
         </div>
         <div id="cp_list"></div>
@@ -6623,7 +6627,7 @@ function _cbpClose(){
 }
 // [바로 가기] 뒤 그 화면에서 누를 곳 표시(2026-11-04 박지순 요청) — 페이지 키: [선택자, 안내 문구]. 버튼이 없거나 숨겨져 있으면 표시하지 않음(화면 이동만).
 var CB_HL={
-  cardpay:['#pg_cardpay .sh .bp','여기서 카드납을 등록하세요'],
+  cardpay:['#pg_cardpay .sh .bnv','여기서 카드납을 등록하세요'],
   claim_apply:['#btn_claim_toggle','여기를 눌러 청구 신청을 시작하세요'],
   cust_apply:['#btn_cust_toggle','[고객등록]을 눌러 시작하세요'],
   mcreq:['#pg_mcreq [onclick="mcrOpen()"]','여기를 눌러 반영 요청을 올리세요'],
@@ -28157,7 +28161,7 @@ function _cpDraw(){
         +'<td style="white-space:nowrap">'+(o.day?o.day+'일':'-')+'</td>'
         +'<td><span class="cppaid '+(paid?'y':'n')+'" data-cpid="'+at(o.id)+'" onclick="cpPaidToggle(this.getAttribute(\'data-cpid\'))" title="'+(paid?at('완료 '+_cpTsTxt(paid.ts)+(paid.by?' · '+paid.by:'')):'누르면 완료로 바뀝니다')+'">'+(paid?'✔ 완료':'미완료')+'</span></td>'
         +(all?'<td>'+esc(o.m||'-')+'</td>':'')
-        +'<td style="white-space:nowrap">'+(mine?'<button class="bp" style="padding:3px 9px;font-size:13px" data-cpid="'+at(o.id)+'" onclick="cpEdit(this.getAttribute(\'data-cpid\'))">수정</button> <button class="bd" style="padding:3px 9px;font-size:13px" data-cpid="'+at(o.id)+'" onclick="cpDel(this.getAttribute(\'data-cpid\'))">삭제</button>':'')+'</td>'
+        +'<td style="white-space:nowrap">'+(mine?'<button class="bp bnv" style="padding:3px 9px;font-size:13px" data-cpid="'+at(o.id)+'" onclick="cpEdit(this.getAttribute(\'data-cpid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-cpid="'+at(o.id)+'" onclick="cpDel(this.getAttribute(\'data-cpid\'))">삭제</button>':'')+'</td>'
         +'</tr>';
     });
     return '<div class="cpday">'+hd+'<div style="overflow-x:auto"><table class="dt"><thead><tr><th>이름</th><th>주민번호</th><th>보험사</th><th>증권번호</th><th>카드주</th><th>카드사</th><th>카드번호</th><th>유효기간</th><th>결제일</th><th>결제완료</th>'+(all?'<th>담당자</th>':'')+'<th>관리</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
