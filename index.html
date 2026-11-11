@@ -845,7 +845,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-6</div>
   </div>
 </div>
 
@@ -28017,6 +28017,7 @@ function _cpDue(ym, day){
   while(!_isWorkday(d)&&guard++<15) d.setDate(d.getDate()+1);
   return d;
 }
+function _cpClamp(ym,day){ var y=+ym.slice(0,4), m=+ym.slice(5,7), last=new Date(y,m,0).getDate(); return ym+'-'+String(Math.min(day,last)).padStart(2,'0'); }
 function _cpDueTxt(d){ return (d.getMonth()+1)+'/'+d.getDate()+'('+'일월화수목금토'.charAt(d.getDay())+')'; }
 // 유효기간(MM/YY)이 그 달보다 앞이면 만료
 function _cpExpired(exp, ym){
@@ -28051,10 +28052,11 @@ function _cpSub(){
   }, function(e){
     if(seq!==window._cpSeq) return;
     console.warn('카드납 불러오기 실패:',e); _cpUnsubscribe();
+    clearTimeout(window._cpRetryT); window._cpRetryT=setTimeout(function(){ try{ if(cu) _cpSub(); }catch(_){} },20000);   // 로그인 때 한 번 실패해도 알림이 꺼진 채 남지 않게
     var b=g('cp_list'); if(b&&!window._cpLoaded) b.innerHTML='<div class="em" style="padding:20px;color:#c62828">불러오지 못했습니다. 잠시 뒤 메뉴를 다시 열어 주세요.</div>';
   });
 }
-function _cpUnsubscribe(){ window._cpSeq=(window._cpSeq||0)+1; try{ if(window._cpUnsub) window._cpUnsub(); }catch(e){} window._cpUnsub=null; window._cpSubKey=null; }
+function _cpUnsubscribe(){ clearTimeout(window._cpRetryT); window._cpSeq=(window._cpSeq||0)+1; try{ if(window._cpUnsub) window._cpUnsub(); }catch(e){} window._cpUnsub=null; window._cpSubKey=null; }
 function _cpClear(){
   _cpUnsubscribe(); window._cpItems=null; window._cpLoaded=false; window._cpYmSel=null; window._cpEditId=null; window._cpBusy=false;
   try{ cpFormClose(); }catch(e){}
@@ -28095,7 +28097,7 @@ function _cpDraw(){
     var un=list.filter(function(o){return !o.paid[ym];}).length;
     var late=due&&dueKey<=today&&un>0&&ym<=_cpYmNow();
     var hd='<div class="cpdayh"><span>매월 '+(day?day+'일':'(결제일 없음)')+'</span>'
-      +(due?'<small>이번 달 알림일 '+_cpDueTxt(due)+(dueKey!==ym+'-'+String(day).padStart(2,'0')?' (주말·공휴일 → 다음 평일)':'')+'</small>':'')
+      +(due?'<small>'+(+ym.slice(5,7))+'월 알림일 '+_cpDueTxt(due)+(dueKey!==_cpClamp(ym,day)?' (주말·공휴일 → 다음 평일)':'')+'</small>':'')
       +'<small style="margin-left:auto">'+list.length+'건 · '+(un?'<b style="color:#c62828">미완료 '+un+'</b>':'<b style="color:#16803c">모두 완료</b>')+(late?' <b style="color:#c62828">· 결제일 지남</b>':'')+'</small></div>';
     var rows='', prevIns=null;
     list.forEach(function(o){
@@ -28203,22 +28205,25 @@ function cpSave(){
 // 이번 달 알림일(주말·공휴일이면 다음 평일) 09:00부터, 이번 달 미완료인 본인 등록 건만. 닫으면 이 기기에서 그 달 그 건은 다시 안 뜸.
 function _cpAlerts(ds){
   if(!cu||!window._cpLoaded) return [];
-  var ym=_cpYmNow(), now=new Date(Date.now()), key=_cpMyKey(), out=[];
+  var ym=_cpYmNow(), now=new Date(Date.now()), key=_cpMyKey(), by={};
   (window._cpItems||[]).forEach(function(o){
     if(o.ok!==key||!o.day||o.paid[ym]) return;
     var c=_cpYmOf(o.ts); if(c&&c>ym) return;
     var due=_cpDue(ym,o.day); due.setHours(9,0,0,0);
     if(now<due) return;
     if(o.ts&&o.ts>due.getTime()) return;   // 이번 달 결제일이 지난 뒤 등록한 건은 이번 달 알림 없음(다음 달부터)
-    var id='cp_'+o.id+'_'+ym; if(ds&&ds.indexOf(id)>=0) return;
-    out.push({id:id, cp:1, type:'카드납 결제일', ts:due.getTime(), fromName:'카드납관리',
-      msg:o.nm+' · '+(o.ins||'')+' — 매월 '+o.day+'일 결제일입니다'+(o.cco?' ('+o.cco+')':'')+'. 결제 확인 후 [결제완료]로 바꿔 주세요.'});
+    (by[o.day]=by[o.day]||{due:due,list:[]}).list.push(o);
   });
-  return out;
+  // 결제일마다 1장(건수가 많아도 카드가 쌓이지 않게) — id cp_<일>_<ym>
+  return Object.keys(by).map(function(d){
+    var g0=by[d], id='cp_'+d+'_'+ym; if(ds&&ds.indexOf(id)>=0) return null;
+    var l=g0.list, first=l[0];
+    return {id:id, cp:1, type:'카드납 결제일', ts:g0.due.getTime(), fromName:'카드납관리',
+      msg:'매월 '+d+'일 결제 미완료 '+l.length+'건 — '+first.nm+(first.ins?'('+first.ins+')':'')+(l.length>1?' 외 '+(l.length-1)+'건':'')+'. 결제 확인 후 [결제완료]로 바꿔 주세요.'};
+  }).filter(Boolean);
 }
+// 알림 카드를 누르면 카드납관리로 이동만(닫지 않음 — 결제완료로 바꾸면 사라짐, 그만 보려면 ✕)
 function cpAlertGo(id){
-  try{ var ds=_dismissedAlertIds(); if(id&&ds.indexOf(id)<0){ ds.push(id); if(ds.length>300) ds=ds.slice(-300); _lsSet('tops_alerts_dismissed', JSON.stringify(ds)); } }catch(e){}
-  try{ rAlerts(); }catch(e){}
   try{ window._cpYmSel=null; showPage('cardpay'); }catch(e){}
 }
 function rJv(){
