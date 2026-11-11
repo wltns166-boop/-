@@ -845,7 +845,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-5</div>
   </div>
 </div>
 
@@ -13869,10 +13869,10 @@ function rAlerts(){
   box.innerHTML=my.map(function(a){
     var dt=new Date(a.ts||Date.now());
     var when=pad(dt.getMonth()+1)+'.'+pad(dt.getDate())+' '+pad(dt.getHours())+':'+pad(dt.getMinutes());
-    if(a.cp) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="cpAlertGo(\''+_alertEsc(a.id)+'\')" title="누르면 카드납관리로 이동합니다">'
+    if(a.cp) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="cpAlertGo(this.getAttribute(\'data-aid\'))" title="누르면 카드납관리로 이동합니다">'
       +'<div class="alert-body"><span class="alert-type">'+_alertEsc(a.type)+'</span><div>'+_alertEsc(a.msg||'')+'</div>'
       +'<div class="alert-meta">'+_alertEsc(a.fromName||'')+' · '+when+'</div></div>'
-      +'<span class="alert-close" onclick="event.stopPropagation();dismissAlert(\''+_alertEsc(a.id)+'\')">✕</span></div>';
+      +'<span class="alert-close" onclick="event.stopPropagation();dismissAlert(this.parentNode.getAttribute(\'data-aid\'))">✕</span></div>';
     return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="dismissAlert(\''+_alertEsc(a.id)+'\')" title="누르면 닫힙니다">'
       +'<div class="alert-body">'
       +'<span class="alert-type">'+_alertEsc(a.type||'알림')+'</span>'
@@ -28044,7 +28044,7 @@ function _cpSub(){
   var q=all?db.collection(CP_COL):db.collection(CP_COL).where('ok','==',key);
   window._cpUnsub=q.onSnapshot(function(snap){
     if(seq!==window._cpSeq||!cu) return;
-    var a=[]; snap.forEach(function(d){ a.push(_cpClean(d.id,d.data())); });
+    var a=[]; snap.forEach(function(d){ if(/^[A-Za-z0-9_-]{1,60}$/.test(d.id)) a.push(_cpClean(d.id,d.data())); });   // 문서 id는 영숫자만(onclick·알림 id에 들어감)
     window._cpItems=a; window._cpLoaded=true;
     try{ rAlerts(); }catch(e){}
     try{ var pg=g('pg_cardpay'); if(pg&&pg.classList.contains('active')) _cpDraw(); }catch(e){}
@@ -28209,6 +28209,7 @@ function _cpAlerts(ds){
     var c=_cpYmOf(o.ts); if(c&&c>ym) return;
     var due=_cpDue(ym,o.day); due.setHours(9,0,0,0);
     if(now<due) return;
+    if(o.ts&&o.ts>due.getTime()) return;   // 이번 달 결제일이 지난 뒤 등록한 건은 이번 달 알림 없음(다음 달부터)
     var id='cp_'+o.id+'_'+ym; if(ds&&ds.indexOf(id)>=0) return;
     out.push({id:id, cp:1, type:'카드납 결제일', ts:due.getTime(), fromName:'카드납관리',
       msg:o.nm+' · '+(o.ins||'')+' — 매월 '+o.day+'일 결제일입니다'+(o.cco?' ('+o.cco+')':'')+'. 결제 확인 후 [결제완료]로 바꿔 주세요.'});
