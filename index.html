@@ -331,6 +331,7 @@ table.dt tr:last-child td{border-bottom:none;}
 .mgrboxh{font-size:14.5px;font-weight:800;color:#1a1a2e;margin:2px 2px 6px;display:flex;align-items:center;gap:8px}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
 .bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
+#pg_airec .arcard{background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:16px;color:#1f2433;min-width:0}#pg_airec .arh,#airec_pop .arh{font-weight:700;font-size:14px;margin-bottom:8px}#pg_airec .arl,#airec_pop .arl{display:block;font-size:12px;color:#555;margin:9px 0 3px}#pg_airec .arfi,#airec_pop .arfi{width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box;font-size:13px}
 @media(max-width:900px){#airec_wrap{grid-template-columns:1fr!important}.bdgrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:980px){#bnd_wrap{grid-template-columns:1fr!important}#bnd_wrap>div:last-child{position:static!important}}
 .bdcard{cursor:pointer}
@@ -845,7 +846,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-8</div>
   </div>
 </div>
 
@@ -2883,32 +2884,39 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     </div>
 
     <!-- 재무상담 포토폴리오 (fp) — 입력 → 맞춤 재무설계 리포트 자동 작성 (좌: 입력 / 우: 미리보기) -->
-    <!-- AI상품추천 (airec, 2026-11-11 — 백동현 요청, 틀만 먼저 — CLAUDE.md 4.99788) -->
+    <!-- AI상품추천 (airec, 2026-11-11 — 백동현 요청 — CLAUDE.md 4.99788) -->
     <div class="pg" id="pg_airec">
-      <div class="sh"><div class="st"><i class="ti ti-sparkles"></i>AI상품추천</div></div>
+      <div class="sh"><div class="st"><i class="ti ti-sparkles"></i>AI상품추천</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bp ao" onclick="arMgrOpen()"><i class="ti ti-settings"></i> 상품 관리</button></div>
+      </div>
       <div id="airec_wrap" style="display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px">
-        <div style="background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:16px;color:#1f2433">
-          <div style="font-weight:700;font-size:14px;margin-bottom:10px">고객 조건</div>
-          <label style="display:block;font-size:12px;color:#555;margin:6px 0 3px">나이</label>
-          <input id="airec_age" type="number" min="0" max="100" placeholder="예: 45" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box">
-          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">성별</label>
-          <select id="airec_sex" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff"><option value="">선택</option><option value="M">남</option><option value="F">여</option></select>
-          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">직업</label>
-          <input id="airec_job" type="text" maxlength="40" placeholder="예: 사무직" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box">
-          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">병력 (고지 내용)</label>
-          <textarea id="airec_hx" rows="4" maxlength="1000" placeholder="예: 2023년 고혈압 약 복용 중" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box;resize:vertical"></textarea>
-          <button class="bp" disabled style="margin-top:12px;width:100%;opacity:.55;cursor:not-allowed"><i class="ti ti-sparkles"></i> 추천 받기 (준비 중)</button>
-        </div>
-        <div style="background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:16px;color:#1f2433">
-          <div style="font-weight:700;font-size:14px;margin-bottom:10px">추천 결과</div>
-          <div style="color:#6b7280;font-size:13px;line-height:1.7">
-            아직 만드는 중인 화면입니다. 앞으로 아래 순서로 채워 갑니다.<br>
-            1. 상품별 인수기준표(가입나이·성별·직업 급수·병력 고지 기준) 등록<br>
-            2. 상품별 보험료표(나이·성별별 최저 보험료) 등록<br>
-            3. 고객 조건과 대조해 가입 가능 / 조건부 / 불가 + 근거 표시<br>
-            4. 고객등록·병력정리 결과 불러오기<br>
-            <span style="color:#b45309">※ 결과는 참고용 — 실제 인수 여부와 보험료는 보험사 설계 시스템에서 확인해야 합니다.</span>
+        <div class="arcard" oninput="arCalc()" onchange="arCalc()">
+          <div class="arh">고객 조건</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><label class="arl">나이(보험나이)</label><input id="airec_age" class="arfi" type="number" min="0" max="100" placeholder="예: 45"></div>
+            <div><label class="arl">성별</label><select id="airec_sex" class="arfi"><option value="">선택</option><option value="M">남</option><option value="F">여</option></select></div>
           </div>
+          <label class="arl">직업</label>
+          <input id="airec_job" class="arfi" type="text" maxlength="40" placeholder="예: 사무직">
+          <label class="arl">직업 급수</label>
+          <select id="airec_jobg" class="arfi"><option value="">모름</option><option value="1">1급</option><option value="2">2급</option><option value="3">3급</option><option value="4">4급</option><option value="5">5급</option></select>
+          <div class="arh" style="margin-top:14px">고지 내용</div>
+          <label class="arl">최근 3개월 이내 진찰·검사·투약</label>
+          <select id="airec_m3" class="arfi"><option value="0">없음</option><option value="1">있음</option></select>
+          <label class="arl">입원·수술 (가장 최근)</label>
+          <select id="airec_hosp" class="arfi"><option value="0">없음</option><option value="1">1년 이내</option><option value="2">2년 이내</option><option value="5">5년 이내</option><option value="10">10년 이내</option></select>
+          <label class="arl">중대질병(암·뇌졸중·심근경색·협심증 등) 진단</label>
+          <select id="airec_major" class="arfi"><option value="0">없음</option><option value="5">5년 이내</option><option value="10">10년 이내</option></select>
+          <label class="arl">병력 메모</label>
+          <textarea id="airec_hx" class="arfi" rows="3" maxlength="1000" placeholder="예: 2023년 고혈압 약 복용 중" style="resize:vertical"></textarea>
+          <label class="arl">보장 종류</label>
+          <select id="airec_cat" class="arfi"><option value="">전체</option></select>
+          <div style="display:flex;gap:6px;margin-top:12px"><button class="bp" style="flex:1" onclick="arReset()"><i class="ti ti-eraser"></i> 초기화</button></div>
+        </div>
+        <div class="arcard">
+          <div class="arh">추천 결과 <span id="airec_cnt" style="font-weight:400;color:#6b7280;font-size:12px"></span></div>
+          <div id="airec_out" style="font-size:13px;color:#1f2433"></div>
+          <div style="margin-top:12px;font-size:11.5px;color:#b45309">※ 결과는 등록된 인수기준표·보험료표로 계산한 참고용입니다. 실제 인수 여부와 보험료는 보험사 설계 시스템에서 확인하세요.</div>
         </div>
       </div>
     </div>
@@ -5294,6 +5302,7 @@ function logout(){
   try{ if(typeof _rsvClear==='function') _rsvClear(); }catch(e){}   // 예약문자 — 고객 성함·연락처가 다음 로그인 사용자에게 남지 않게
   try{ if(typeof _abClear==='function') _abClear(); }catch(e){}
   try{ if(typeof _jvClear==='function') _jvClear(); }catch(e){}
+  try{ if(typeof _arClear==='function') _arClear(); }catch(e){}   // AI상품추천 — 고객 조건 입력·상품 관리 창 비움
   try{ if(typeof _cpClear==='function') _cpClear(); }catch(e){}   // 카드납관리 — 구독 해제·카드번호 화면 잔존 차단
   try{ if(typeof _dbuClear==='function') _dbuClear(); }catch(e){}   // DB사용량 — 구독 해제·고객명 화면 잔존 차단    // 부재디비 — 같은 이유
   try{ if(typeof _bndClear==='function') _bndClear(); }catch(e){}   // 증권바인더 — 입력값·미리보기 비움(고객 가입금액 잔존 차단)
@@ -6193,7 +6202,7 @@ var CB_GUIDE=[
   {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
   {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
   {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
-  {k:'airec',kw:'AI상품추천 상품추천 상품설계 인수 인수기준 보험료 추천',a:'AI상품추천은 아직 만드는 중입니다. 고객 나이·성별·직업·병력으로 가입 가능한 상품과 최저 보험료를 보여주는 화면이 될 예정입니다.'},
+  {k:'airec',kw:'AI상품추천 상품추천 상품설계 인수 인수기준 보험료 추천',a:'1. 왼쪽에 고객 나이·성별·직업 급수와 고지 내용(3개월 진찰·입원수술·중대질병)을 고르세요.\n2. 오른쪽에 가입 가능한 상품이 보험료 낮은 순으로, 불가 상품은 이유와 함께 나옵니다.\n3. 관리자는 [상품 관리]에서 보험사별 상품의 인수기준과 보험료표를 등록합니다.'},
   {k:'rsv',kw:'예약문자 예약 문자 상담예약 문자발송 카톡 명함 지도',a:'1. 고객 성함·상담 날짜·시각·장소를 입력하면 오른쪽에 문자 내용이 완성되고 지도가 자동 첨부됩니다.\n2. 처음 한 번 [내 명함]에 명함 사진을 올려 두세요.\n3. [문자 발송] 또는 [내 카톡으로 보내기]를 누릅니다.'},
   {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
   {k:'join_prep',kw:'입사준비 입사 신입 서류',a:'신입 입사 준비 사항을 관리합니다.'},
@@ -9476,7 +9485,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,airec:function(){}};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,airec:rAirec};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -28533,6 +28542,218 @@ function jvUpSave(){
   }).then(function(){ _jvDraw(); }).catch(function(e){ if(sv) sv.disabled=false; if(e&&e.cancel) return; toast('저장 실패: '+((e&&e.message)||e)); });
 }
 function _jvClear(){ clearTimeout(window._jvQT); window._jvMonths=null; window._jvSt=null; window._jvSeq=(window._jvSeq||0)+1; jvUpClose(); var b=g('jv_body'); if(b) b.innerHTML=''; }
+
+// ===== AI상품추천 (airec, 2026-11-11 — 백동현 요청, CLAUDE.md 4.99788) =====
+// 상품별 인수기준·보험료표는 Firestore airec_prod/{id}(상품 1개=문서). 판정은 전부 코드가 기준표와 대조 — AI에게 인수 판정·보험료를 맡기지 않음.
+var AR_COL='airec_prod';
+var AR_CATS=['종합','암','뇌·심장','실손','간병·치매','운전자','치아','종신·정기','연금·저축','기타'];
+var AR_KINDS=['건강체','간편(3·N·5)','초간편','유병자','기타'];
+function _arDb(){ return window.db||null; }
+function _arId(v){ return /^ap_[A-Za-z0-9_]{4,40}$/.test(String(v||''))?String(v):''; }
+function _arInt(v,min,max){ var n=parseInt(v,10); if(!isFinite(n)) return null; if(min!=null&&n<min) n=min; if(max!=null&&n>max) n=max; return n; }
+function _arStr(v,n){ return String(v==null?'':v).replace(/[\u0000-\u001f]/g,' ').trim().slice(0,n||100); }
+// 받은 문서 정리 — Firestore는 인증 세션이면 누구나 쓸 수 있으므로 화면에 쓰기 전에 형식을 맞춘다.
+function _arClean(d){
+  if(!d||typeof d!=='object') return null; var id=_arId(d.id); if(!id) return null;
+  var ins=_arStr(d.ins,40); if(!ins) return null;
+  var prem=Array.isArray(d.prem)?d.prem.slice(0,120).map(function(r){ r=r||{}; var a=_arInt(r.a,0,120); if(a==null) return null;
+    var m=_arInt(r.m,0,1e9), f=_arInt(r.f,0,1e9); return (m||f)?{a:a,m:m||0,f:f||0}:null; }).filter(Boolean).sort(function(x,y){ return x.a-y.a; }):[];
+  return { id:id, ins:ins, grp:d.grp==='life'?'life':'son', nm:_arStr(d.nm,60)||'(이름 없음)',
+    kind:AR_KINDS.indexOf(d.kind)>=0?d.kind:'기타', cat:AR_CATS.indexOf(d.cat)>=0?d.cat:'기타',
+    ageMin:_arInt(d.ageMin,0,120), ageMax:_arInt(d.ageMax,0,120), sex:(d.sex==='M'||d.sex==='F')?d.sex:'',
+    jobMax:_arInt(d.jobMax,0,5)||0, r3m:d.r3m?1:0, rHosp:[0,1,2,5,10].indexOf(+d.rHosp)>=0?+d.rHosp:0,
+    rMajor:[0,5,10].indexOf(+d.rMajor)>=0?+d.rMajor:0, prem:prem, note:_arStr(d.note,300),
+    ts:+d.ts||0, by:_arStr(d.by,20) };
+}
+function _arLoad(force){
+  var db=_arDb(); if(!db) return Promise.resolve(null);
+  if(!force&&window._arProds) return Promise.resolve(window._arProds);
+  var seq=window._arSeq=(window._arSeq||0)+1;
+  return db.collection(AR_COL).get().then(function(qs){
+    if(seq!==window._arSeq) return window._arProds;
+    var arr=[]; qs.forEach(function(d){ var x=_arClean(Object.assign({},d.data()||{},{id:d.id})); if(x) arr.push(x); });
+    window._arProds=arr; return arr;
+  });
+}
+function rAirec(){
+  var sel=g('airec_cat'); if(sel&&sel.options.length<=1){ AR_CATS.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }); }
+  var out=g('airec_out'); if(out&&!window._arProds) out.innerHTML='<div style="color:#6b7280">상품 목록을 불러오는 중…</div>';
+  _arLoad(false).then(function(){ arCalc(); }).catch(function(e){ var o=g('airec_out'); if(o) o.innerHTML='<div style="color:#c0392b">상품 목록을 불러오지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; });
+}
+function _arCust(){
+  var v=function(id){ var e=g(id); return e?e.value:''; };
+  return { age:_arInt(v('airec_age'),0,120), sex:v('airec_sex'), jobg:_arInt(v('airec_jobg'),1,5), m3:v('airec_m3')==='1',
+    hosp:_arInt(v('airec_hosp'),0,10)||0, major:_arInt(v('airec_major'),0,10)||0, cat:v('airec_cat') };
+}
+// 보험료: 그 나이 줄, 없으면 바로 위 나이 줄(5세 간격 표 — 비싼 쪽으로 보수적), 표보다 나이가 많으면 없음.
+function _arPrem(p,c){
+  if(!p.prem.length||c.age==null) return null; var r=null;
+  for(var i=0;i<p.prem.length;i++){ if(p.prem[i].a>=c.age){ r=p.prem[i]; break; } }
+  if(!r) return null;   // 표의 가장 높은 나이보다 많음 — 보험료 모름
+  var pick=function(v){ return v>0?v:Infinity; };
+  var amt=c.sex==='F'?pick(r.f):(c.sex==='M'?pick(r.m):Math.min(pick(r.m),pick(r.f)));
+  if(!isFinite(amt)) return null; return {amt:amt, a:r.a, exact:r.a===c.age};
+}
+// 판정: ok(가입 가능) / no(불가, 이유) / chk(확인 필요 — 고객 정보가 비어 판정 못 함)
+function _arJudge(p,c){
+  var no=[], chk=[];
+  if(p.ageMin!=null||p.ageMax!=null){ var lo=p.ageMin==null?0:p.ageMin, hi=p.ageMax==null?120:p.ageMax;
+    if(c.age==null) chk.push('나이 입력 필요'); else if(c.age<lo||c.age>hi) no.push('가입나이 '+lo+'~'+hi+'세'); }
+  if(p.sex){ if(!c.sex) chk.push('성별 입력 필요'); else if(c.sex!==p.sex) no.push((p.sex==='M'?'남':'여')+'성 전용'); }
+  if(p.jobMax){ if(!c.jobg) chk.push('직업 급수 확인 필요(' +p.jobMax+'급까지)'); else if(c.jobg>p.jobMax) no.push('직업 '+p.jobMax+'급까지'); }
+  if(p.r3m&&c.m3) no.push('3개월 이내 진찰·투약 있음');
+  if(p.rHosp&&c.hosp&&c.hosp<=p.rHosp) no.push(p.rHosp+'년 이내 입원·수술 있음');
+  if(p.rMajor&&c.major&&c.major<=p.rMajor) no.push(p.rMajor+'년 이내 중대질병 있음');
+  return {st:no.length?'no':(chk.length?'chk':'ok'), why:no.concat(chk)};
+}
+function _arWon(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,',')+'원'; }
+function arCalc(){
+  var out=g('airec_out'); if(!out) return; var ps=window._arProds; if(!ps) return;
+  var c=_arCust(), cnt=g('airec_cnt');
+  if(!ps.length){ if(cnt) cnt.textContent=''; out.innerHTML='<div style="color:#6b7280;line-height:1.7">아직 등록된 상품이 없습니다.'+(_isAdmin()?'<br>위 [상품 관리]에서 보험사별 상품과 인수기준·보험료표를 등록하세요.':'<br>관리자가 상품을 등록하면 여기에 추천이 나옵니다.')+'</div>'; return; }
+  var list=ps.filter(function(p){ return !c.cat||p.cat===c.cat; }).map(function(p){ var j=_arJudge(p,c); return {p:p,j:j,pr:_arPrem(p,c)}; });
+  var ok=list.filter(function(x){ return x.j.st==='ok'; }), chk=list.filter(function(x){ return x.j.st==='chk'; }), no=list.filter(function(x){ return x.j.st==='no'; });
+  var byPrem=function(a,b){ var x=a.pr?a.pr.amt:Infinity, y=b.pr?b.pr.amt:Infinity; return x-y||a.p.ins.localeCompare(b.p.ins); };
+  ok.sort(byPrem); chk.sort(byPrem); no.sort(function(a,b){ return a.p.ins.localeCompare(b.p.ins); });
+  if(cnt) cnt.textContent='· 가입 가능 '+ok.length+' / 확인 필요 '+chk.length+' / 불가 '+no.length;
+  var row=function(x,col){ var p=x.p;
+    var pr=x.pr?'<b>'+_arWon(x.pr.amt)+'</b><div style="font-size:11px;color:#6b7280">'+[x.pr.exact?'':x.pr.a+'세 기준', c.sex?'':'남녀 중 낮은 값'].filter(Boolean).join(' · ')+'</div>':'<span style="color:#9ca3af">'+(p.prem.length&&c.age!=null?'표 나이 범위 밖':'보험료표 없음')+'</span>';
+    return '<tr><td style="padding:7px 6px;border-bottom:1px solid #eef0f4"><div style="font-weight:700">'+_esc(p.ins)+'</div><div style="font-size:11px;color:#6b7280">'+(p.grp==='life'?'생명':'손해')+'</div></td>'
+      +'<td style="padding:7px 6px;border-bottom:1px solid #eef0f4"><div>'+_esc(p.nm)+'</div><div style="font-size:11px;color:#6b7280">'+_esc(p.cat)+' · '+_esc(p.kind)+'</div>'+(p.note?'<div style="font-size:11px;color:#6b7280;margin-top:2px">'+_esc(p.note)+'</div>':'')+'</td>'
+      +'<td style="padding:7px 6px;border-bottom:1px solid #eef0f4;text-align:right;white-space:nowrap">'+pr+'</td>'
+      +(col?'<td style="padding:7px 6px;border-bottom:1px solid #eef0f4;font-size:12px;color:'+col+'">'+x.j.why.map(_esc).join('<br>')+'</td>':'')+'</tr>'; };
+  var tbl=function(t,arr,color,col,open){ if(!arr.length) return '';
+    return '<details '+(open?'open':'')+' style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;color:'+color+'">'+t+' ('+arr.length+')</summary><table style="width:100%;border-collapse:collapse;margin-top:6px"><thead><tr style="background:#f6f7fb;font-size:12px;color:#555"><th style="text-align:left;padding:6px">보험사</th><th style="text-align:left;padding:6px">상품</th><th style="text-align:right;padding:6px">월 보험료</th>'+(col?'<th style="text-align:left;padding:6px">이유</th>':'')+'</tr></thead><tbody>'+arr.map(function(x){ return row(x,col); }).join('')+'</tbody></table></details>'; };
+  out.innerHTML=(c.age==null||!c.sex?'<div style="color:#b45309;font-size:12px;margin-bottom:4px">나이와 성별을 넣으면 가입나이·보험료까지 정확히 계산합니다.</div>':'')
+    +tbl('가입 가능 — 보험료 낮은 순',ok,'#15803d','',true)+tbl('확인 필요',chk,'#b45309','#b45309',true)+tbl('가입 불가',no,'#c0392b','#c0392b',false)
+    +(!ok.length&&!chk.length&&!no.length?'<div style="color:#6b7280">이 보장 종류로 등록된 상품이 없습니다.</div>':'');
+}
+function arReset(){ ['airec_age','airec_job','airec_hx'].forEach(function(id){ var e=g(id); if(e) e.value=''; });
+  ['airec_sex','airec_jobg','airec_cat'].forEach(function(id){ var e=g(id); if(e) e.value=''; });
+  ['airec_m3','airec_hosp','airec_major'].forEach(function(id){ var e=g(id); if(e) e.value='0'; }); arCalc(); }
+
+// ----- 관리자: 상품 관리 창 -----
+function arMgrOpen(){
+  if(!_isAdmin()){ toast('관리자만 상품을 관리할 수 있습니다.'); return; }
+  if(!_arDb()){ toast('클라우드 연결 후 다시 시도하세요.'); return; }
+  arMgrClose(); var L=_reqInsLists();
+  if(!window._arMgrIns) window._arMgrIns=L.son[0]||L.life[0]||'';
+  var d=document.createElement('div'); d.id='airec_pop';
+  d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto';
+  d.innerHTML='<div style="background:#fff;color:#1f2433;border-radius:12px;width:min(980px,100%);padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.25)">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="arh" style="margin:0;flex:1">상품 관리 — 인수기준·보험료표</div><button class="bp" onclick="arMgrClose()">닫기</button></div>'
+    +'<div style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px"><div id="airec_inslist" style="max-height:70vh;overflow:auto;border:1px solid #e3e6ee;border-radius:8px"></div><div id="airec_mbody"></div></div></div>';
+  d.addEventListener('mousedown',function(e){ d._down=e.target; });
+  d.addEventListener('click',function(e){ if(e.target===d&&d._down===d) arMgrClose(); });
+  document.body.appendChild(d);
+  _arLoad(true).then(_arMgrDraw).catch(function(e){ var b=g('airec_mbody'); if(b) b.innerHTML='<div style="color:#c0392b">불러오기 실패: '+_esc(e&&e.message||e)+'</div>'; });
+}
+function arMgrClose(){ var d=g('airec_pop'); if(d) d.remove(); window._arEditId=null; }
+function _arInsGrp(ins){ var L=_reqInsLists(); return L.life.indexOf(ins)>=0?'life':'son'; }
+function _arMgrDraw(){
+  var ps=window._arProds||[], L=_reqInsLists(), cur=window._arMgrIns, il=g('airec_inslist'); if(!il) return;
+  var cntOf=function(ins){ return ps.filter(function(p){ return p.ins===ins; }).length; };
+  var sec=function(t,arr){ return '<div style="padding:6px 10px;background:#f6f7fb;font-size:12px;font-weight:700;color:#555">'+t+'</div>'+arr.map(function(ins){ var n=cntOf(ins);
+    return '<div data-arins="'+_alertEsc(ins)+'" style="padding:7px 10px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;'+(ins===cur?'background:#e8f0ff;font-weight:700':'')+'"><span>'+_esc(ins)+'</span><span style="color:'+(n?'#15803d':'#9ca3af')+'">'+n+'</span></div>'; }).join(''); };
+  // 상품이 등록된 보험사가 목록에서 빠졌어도(보험사 목록 변경) 보이게
+  var extra=[]; ps.forEach(function(p){ if(L.son.indexOf(p.ins)<0&&L.life.indexOf(p.ins)<0&&extra.indexOf(p.ins)<0) extra.push(p.ins); });
+  il.innerHTML=sec('손해보험사',L.son)+sec('생명보험사',L.life)+(extra.length?sec('목록에 없는 보험사',extra):'');
+  il.querySelectorAll('[data-arins]').forEach(function(el){ el.onclick=function(){ window._arMgrIns=el.getAttribute('data-arins'); window._arEditId=null; _arMgrDraw(); }; });
+  var b=g('airec_mbody'); if(!b) return;
+  var mine=ps.filter(function(p){ return p.ins===cur; }).sort(function(a,b){ return a.nm.localeCompare(b.nm); });
+  b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-weight:700;font-size:15px;flex:1">'+_esc(cur||'보험사를 고르세요')+'</div>'+(cur?'<button class="bp" data-aract="new">＋ 상품 추가</button>':'')+'</div>'
+    +(mine.length?'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f6f7fb;color:#555;font-size:12px"><th style="text-align:left;padding:6px">상품</th><th style="padding:6px">가입나이</th><th style="padding:6px">기준</th><th style="padding:6px">보험료표</th><th></th></tr></thead><tbody>'
+      +mine.map(function(p){ var rs=[]; if(p.jobMax) rs.push('직업 '+p.jobMax+'급'); if(p.r3m) rs.push('3개월'); if(p.rHosp) rs.push(p.rHosp+'년 입원·수술'); if(p.rMajor) rs.push(p.rMajor+'년 중대질병'); if(p.sex) rs.push(p.sex==='M'?'남성':'여성');
+        return '<tr><td style="padding:6px;border-bottom:1px solid #eef0f4"><b>'+_esc(p.nm)+'</b><div style="font-size:11px;color:#6b7280">'+_esc(p.cat)+' · '+_esc(p.kind)+'</div></td>'
+          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;text-align:center">'+(p.ageMin==null&&p.ageMax==null?'-':(p.ageMin==null?0:p.ageMin)+'~'+(p.ageMax==null?'':p.ageMax))+'</td>'
+          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;font-size:12px">'+(rs.length?_esc(rs.join(', ')):'<span style="color:#9ca3af">없음</span>')+'</td>'
+          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;text-align:center">'+(p.prem.length?p.prem.length+'줄':'<span style="color:#9ca3af">없음</span>')+'</td>'
+          +'<td style="padding:6px;border-bottom:1px solid #eef0f4;white-space:nowrap;text-align:right"><button class="bp" data-aract="edit" data-arid="'+p.id+'">수정</button> <button class="bp" data-aract="del" data-arid="'+p.id+'" style="color:#c0392b">삭제</button></td></tr>'; }).join('')+'</tbody></table>'
+      :'<div style="color:#6b7280;font-size:13px;padding:10px 0">'+(cur?'등록된 상품이 없습니다. [＋ 상품 추가]로 인수기준과 보험료표를 넣으세요.':'')+'</div>')
+    +'<div id="airec_form"></div>';
+  b.querySelectorAll('[data-aract]').forEach(function(el){ el.onclick=function(){ var a=el.getAttribute('data-aract'), id=_arId(el.getAttribute('data-arid'));
+    if(a==='new'){ window._arEditId='new'; _arFormDraw(null); } else if(a==='edit'){ var p=(window._arProds||[]).filter(function(x){ return x.id===id; })[0]; if(p){ window._arEditId=id; _arFormDraw(p); } } else if(a==='del') arDel(id); }; });
+  if(window._arEditId==='new') _arFormDraw(null);
+  else if(window._arEditId){ var p=ps.filter(function(x){ return x.id===window._arEditId; })[0]; if(p) _arFormDraw(p); else window._arEditId=null; }
+}
+function _arFormDraw(p){
+  var f=g('airec_form'); if(!f) return; p=p||{}; var opt=function(arr,v){ return arr.map(function(x){ var k=Array.isArray(x)?x[0]:x, t=Array.isArray(x)?x[1]:x; return '<option value="'+_alertEsc(k)+'"'+(String(v)===String(k)?' selected':'')+'>'+_esc(t)+'</option>'; }).join(''); };
+  var premTxt=(p.prem||[]).map(function(r){ return r.a+'\t'+(r.m||'')+'\t'+(r.f||''); }).join('\n');
+  f.innerHTML='<div style="margin-top:14px;border:1px solid #c7d7fe;background:#f8faff;border-radius:10px;padding:12px">'
+    +'<div class="arh">'+(p.id?'상품 수정':'새 상품')+' — '+_esc(window._arMgrIns)+'</div>'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px">'
+    +'<div><label class="arl">상품명</label><input id="arf_nm" class="arfi" maxlength="60" value="'+_alertEsc(p.nm||'')+'"></div>'
+    +'<div><label class="arl">보장 종류</label><select id="arf_cat" class="arfi">'+opt(AR_CATS,p.cat||'종합')+'</select></div>'
+    +'<div><label class="arl">심사 유형</label><select id="arf_kind" class="arfi">'+opt(AR_KINDS,p.kind||'건강체')+'</select></div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'
+    +'<div><label class="arl">가입나이 최소</label><input id="arf_amin" class="arfi" type="number" min="0" max="120" value="'+(p.ageMin!=null?p.ageMin:'')+'"></div>'
+    +'<div><label class="arl">가입나이 최대</label><input id="arf_amax" class="arfi" type="number" min="0" max="120" value="'+(p.ageMax!=null?p.ageMax:'')+'"></div>'
+    +'<div><label class="arl">성별</label><select id="arf_sex" class="arfi">'+opt([['','남녀 모두'],['M','남성만'],['F','여성만']],p.sex||'')+'</select></div>'
+    +'<div><label class="arl">직업 급수 한도</label><select id="arf_job" class="arfi">'+opt([['0','제한 없음'],['1','1급까지'],['2','2급까지'],['3','3급까지'],['4','4급까지'],['5','5급까지']],p.jobMax||0)+'</select></div></div>'
+    +'<div class="arl" style="margin-top:10px;font-weight:700;color:#1f2433">고지 기준 — 해당하면 가입 불가</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
+    +'<div><label class="arl">3개월 이내 진찰·투약</label><select id="arf_r3m" class="arfi">'+opt([['0','상관없음'],['1','있으면 불가']],p.r3m||0)+'</select></div>'
+    +'<div><label class="arl">입원·수술</label><select id="arf_rhosp" class="arfi">'+opt([['0','상관없음'],['1','1년 이내 불가'],['2','2년 이내 불가'],['5','5년 이내 불가'],['10','10년 이내 불가']],p.rHosp||0)+'</select></div>'
+    +'<div><label class="arl">중대질병</label><select id="arf_rmajor" class="arfi">'+opt([['0','상관없음'],['5','5년 이내 불가'],['10','10년 이내 불가']],p.rMajor||0)+'</select></div></div>'
+    +'<label class="arl">보험료표 — 한 줄에 "나이, 남자 보험료, 여자 보험료" (엑셀에서 세 칸 복사해 붙여넣기 가능)</label>'
+    +'<textarea id="arf_prem" class="arfi" rows="6" placeholder="30\t25000\t22000&#10;35\t28000\t24500&#10;40\t32000\t27000" style="font-family:monospace;resize:vertical">'+_esc(premTxt)+'</textarea>'
+    +'<div id="arf_premst" style="font-size:11.5px;color:#6b7280;margin-top:3px"></div>'
+    +'<label class="arl">메모 (기준 플랜·가입금액 등)</label><input id="arf_note" class="arfi" maxlength="300" value="'+_alertEsc(p.note||'')+'">'
+    +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><button class="bp" id="arf_cancel">취소</button><button class="bp" id="arf_save" style="background:#2563eb;color:#fff">저장</button></div></div>';
+  var pt=g('arf_prem'), st=g('arf_premst'); var upd=function(){ var r=_arPremParse(pt.value); st.textContent=r.rows.length+'줄 인식'+(r.bad.length?' · 못 읽은 줄 '+r.bad.length+'개 ('+r.bad.slice(0,3).join(', ')+'번째 줄)':''); st.style.color=r.bad.length?'#c0392b':'#6b7280'; };
+  pt.oninput=upd; upd();
+  g('arf_cancel').onclick=function(){ window._arEditId=null; f.innerHTML=''; };
+  g('arf_save').onclick=function(){ arSave(p.id||''); };
+  try{ f.scrollIntoView({block:'nearest'}); }catch(e){}
+}
+function _arPremParse(t){
+  // 열 위치를 지킨다: 나이 | 남 | 여. 칸이 2개뿐이면 남녀 같은 값, 3칸 중 빈 칸은 0(없음). 천 단위 쉼표·원·세는 지움.
+  var rows=[], bad=[], seen={}, first=true;
+  String(t||'').split(/\r?\n/).forEach(function(ln,i){ var s=ln.trim(); if(!s) return;
+    var isFirst=first; first=false;
+    if(isFirst&&!/\d/.test(s)) return;   // 맨 위 머리글(나이 남 여)
+    var tab=/\t/.test(ln), src=(tab?ln.replace(/^ +| +$/g,''):s).replace(/(\d),(?=\d{3}(?!\d))/g,'$1').replace(/[원세]/g,'');
+    var cells=tab?src.split('\t'):src.split(/\s*[,;|]\s*|\s+/);
+    cells=cells.map(function(x){ return x.trim(); });
+    var num=function(x){ return x===''||x==null?0:(/^\d+$/.test(x)?parseInt(x,10):NaN); };
+    var a=num(cells[0]), m=num(cells[1]), f=cells.length>2?num(cells[2]):m;
+    if(cells[0]===''||isNaN(a)||isNaN(m)||isNaN(f)||a>120||!(m||f)){ bad.push(i+1); return; }
+    if(seen[a]) return; seen[a]=1; rows.push({a:a, m:m, f:f});
+  });
+  rows.sort(function(x,y){ return x.a-y.a; }); return {rows:rows.slice(0,120), bad:bad};
+}
+function arSave(id){
+  if(!_isAdmin()){ toast('관리자만 저장할 수 있습니다.'); return; }
+  var db=_arDb(); if(!db) return; if(window._arBusy) return;
+  var ins=window._arMgrIns; if(!ins){ toast('보험사를 고르세요.'); return; }
+  var v=function(k){ var e=g(k); return e?e.value:''; };
+  var nm=_arStr(v('arf_nm'),60); if(!nm){ toast('상품명을 입력하세요.'); var e=g('arf_nm'); if(e) e.focus(); return; }
+  var amin=_arInt(v('arf_amin'),0,120), amax=_arInt(v('arf_amax'),0,120);
+  if(amin!=null&&amax!=null&&amin>amax){ toast('가입나이 최소가 최대보다 큽니다.'); return; }
+  var pp=_arPremParse(v('arf_prem'));
+  if(pp.bad.length&&!confirm('보험료표에서 못 읽은 줄이 '+pp.bad.length+'개 있습니다. 그 줄은 빼고 저장할까요?')) return;
+  var nid=id||('ap_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8));
+  var doc={ id:nid, ins:ins, grp:_arInsGrp(ins), nm:nm, cat:v('arf_cat'), kind:v('arf_kind'), ageMin:amin, ageMax:amax, sex:v('arf_sex'),
+    jobMax:_arInt(v('arf_job'),0,5)||0, r3m:v('arf_r3m')==='1'?1:0, rHosp:_arInt(v('arf_rhosp'),0,10)||0, rMajor:_arInt(v('arf_rmajor'),0,10)||0,
+    prem:pp.rows, note:_arStr(v('arf_note'),300), ts:Date.now(), by:(cu&&cu.name)||'' };
+  var clean=_arClean(doc); if(!clean){ toast('저장할 내용을 확인하세요.'); return; }
+  window._arBusy=true; var btn=g('arf_save'); if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  db.collection(AR_COL).doc(nid).set(JSON.parse(JSON.stringify(clean))).then(function(){
+    toast('저장했습니다: '+ins+' · '+nm); window._arEditId=null;
+    return _arLoad(true).catch(function(){ toast('저장은 됐지만 목록을 다시 읽지 못했습니다. 창을 다시 열어 주세요.'); });
+  }).then(function(){ _arMgrDraw(); arCalc(); }).catch(function(e){ toast('저장 실패: '+(e&&e.message||e)); if(btn){ btn.disabled=false; btn.textContent='저장'; } })
+    .then(function(){ window._arBusy=false; });
+}
+function arDel(id){
+  if(!_isAdmin()||!id) return; var db=_arDb(); if(!db||window._arBusy) return;
+  var p=(window._arProds||[]).filter(function(x){ return x.id===id; })[0]; if(!p) return;
+  if(!confirm(p.ins+' · '+p.nm+' 상품을 삭제할까요?')) return;
+  window._arBusy=true;
+  db.collection(AR_COL).doc(id).delete().then(function(){ toast('삭제했습니다.'); if(window._arEditId===id) window._arEditId=null; return _arLoad(true).catch(function(){ toast('삭제는 됐지만 목록을 다시 읽지 못했습니다.'); }); })
+    .then(function(){ _arMgrDraw(); arCalc(); }).catch(function(e){ toast('삭제 실패: '+(e&&e.message||e)); }).then(function(){ window._arBusy=false; });
+}
+function _arClear(){ window._arProds=null; window._arSeq=(window._arSeq||0)+1; window._arMgrIns=null; window._arEditId=null; window._arBusy=false; arMgrClose();
+  try{ arReset(); }catch(e){} var o=g('airec_out'); if(o) o.innerHTML=''; var c=g('airec_cnt'); if(c) c.textContent=''; }
 
 // ===== DB추천시스템 (dbrec, 2026-11-05 — 백동현 요청) =====
 // DB사용량(dbuse 컬렉션) 기록을 배정일 기준으로 기간별 집계 — 부재율·거절율·상담율·계약율(모두 배정 대비).
