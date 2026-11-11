@@ -331,7 +331,7 @@ table.dt tr:last-child td{border-bottom:none;}
 .mgrboxh{font-size:14.5px;font-weight:800;color:#1a1a2e;margin:2px 2px 6px;display:flex;align-items:center;gap:8px}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
 .bdgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 16px;margin-top:16px}
-@media(max-width:900px){.bdgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){#airec_wrap{grid-template-columns:1fr!important}.bdgrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:980px){#bnd_wrap{grid-template-columns:1fr!important}#bnd_wrap>div:last-child{position:static!important}}
 .bdcard{cursor:pointer}
 .bdthumb{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#eef0f6;border:1px solid #e2e4ee;display:flex;align-items:center;justify-content:center;transition:.15s}
@@ -845,7 +845,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-7</div>
   </div>
 </div>
 
@@ -1006,6 +1006,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_drive">내 자료함</div></div>
       <div class="ns"><div class="ni" id="n_fp">재무상담 포토폴리오</div></div>
       <div class="ns"><div class="ni" id="n_rsv">예약문자발송</div></div>
+      <div class="ns"><div class="ni" id="n_airec">AI상품추천</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -2882,6 +2883,35 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     </div>
 
     <!-- 재무상담 포토폴리오 (fp) — 입력 → 맞춤 재무설계 리포트 자동 작성 (좌: 입력 / 우: 미리보기) -->
+    <!-- AI상품추천 (airec, 2026-11-11 — 백동현 요청, 틀만 먼저 — CLAUDE.md 4.99788) -->
+    <div class="pg" id="pg_airec">
+      <div class="sh"><div class="st"><i class="ti ti-sparkles"></i>AI상품추천</div></div>
+      <div id="airec_wrap" style="display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px">
+        <div style="background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:16px;color:#1f2433">
+          <div style="font-weight:700;font-size:14px;margin-bottom:10px">고객 조건</div>
+          <label style="display:block;font-size:12px;color:#555;margin:6px 0 3px">나이</label>
+          <input id="airec_age" type="number" min="0" max="100" placeholder="예: 45" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">성별</label>
+          <select id="airec_sex" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff"><option value="">선택</option><option value="M">남</option><option value="F">여</option></select>
+          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">직업</label>
+          <input id="airec_job" type="text" maxlength="40" placeholder="예: 사무직" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box">
+          <label style="display:block;font-size:12px;color:#555;margin:10px 0 3px">병력 (고지 내용)</label>
+          <textarea id="airec_hx" rows="4" maxlength="1000" placeholder="예: 2023년 고혈압 약 복용 중" style="width:100%;padding:7px 9px;border:1px solid #ccd2de;border-radius:6px;color:#1f2433;background:#fff;box-sizing:border-box;resize:vertical"></textarea>
+          <button class="bp" disabled style="margin-top:12px;width:100%;opacity:.55;cursor:not-allowed"><i class="ti ti-sparkles"></i> 추천 받기 (준비 중)</button>
+        </div>
+        <div style="background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:16px;color:#1f2433">
+          <div style="font-weight:700;font-size:14px;margin-bottom:10px">추천 결과</div>
+          <div style="color:#6b7280;font-size:13px;line-height:1.7">
+            아직 만드는 중인 화면입니다. 앞으로 아래 순서로 채워 갑니다.<br>
+            1. 상품별 인수기준표(가입나이·성별·직업 급수·병력 고지 기준) 등록<br>
+            2. 상품별 보험료표(나이·성별별 최저 보험료) 등록<br>
+            3. 고객 조건과 대조해 가입 가능 / 조건부 / 불가 + 근거 표시<br>
+            4. 고객등록·병력정리 결과 불러오기<br>
+            <span style="color:#b45309">※ 결과는 참고용 — 실제 인수 여부와 보험료는 보험사 설계 시스템에서 확인해야 합니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="pg" id="pg_fp">
       <div class="sh"><div class="st"><i class="ti ti-chart-pie"></i>재무상담 포토폴리오</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -6078,6 +6108,7 @@ g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq
 g('n_drive') && g('n_drive').addEventListener('click',function(){showPage('drive');});
 g('n_fp') && g('n_fp').addEventListener('click',function(){showPage('fp');});
 g('n_rsv') && g('n_rsv').addEventListener('click',function(){showPage('rsv');});
+g('n_airec') && g('n_airec').addEventListener('click',function(){showPage('airec');});
 g('n_req_menu').addEventListener('click',function(){showPage('req_unified');});
 g('n_edu_apply').addEventListener('click',function(){showPage('edu_apply');});
 g('n_goods_apply').addEventListener('click',function(){showPage('goods_apply');});
@@ -6099,7 +6130,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',
+  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리'};
@@ -6162,6 +6193,7 @@ var CB_GUIDE=[
   {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
   {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
   {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
+  {k:'airec',kw:'AI상품추천 상품추천 상품설계 인수 인수기준 보험료 추천',a:'AI상품추천은 아직 만드는 중입니다. 고객 나이·성별·직업·병력으로 가입 가능한 상품과 최저 보험료를 보여주는 화면이 될 예정입니다.'},
   {k:'rsv',kw:'예약문자 예약 문자 상담예약 문자발송 카톡 명함 지도',a:'1. 고객 성함·상담 날짜·시각·장소를 입력하면 오른쪽에 문자 내용이 완성되고 지도가 자동 첨부됩니다.\n2. 처음 한 번 [내 명함]에 명함 사진을 올려 두세요.\n3. [문자 발송] 또는 [내 카톡으로 보내기]를 누릅니다.'},
   {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
   {k:'join_prep',kw:'입사준비 입사 신입 서류',a:'신입 입사 준비 사항을 관리합니다.'},
@@ -9444,7 +9476,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,airec:function(){}};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
