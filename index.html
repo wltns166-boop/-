@@ -853,7 +853,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-13</div>
   </div>
 </div>
 
@@ -28761,7 +28761,8 @@ function rFincalc(){
   var t=FC_TABS[st.tab], vals=st.v[st.tab]||{}, inp=g('fc_in');
   inp.innerHTML='<div style="font-weight:800;font-size:14px;margin-bottom:4px">'+t.nm+' 입력</div>'+t.f.map(function(f){ var cur=vals[f[0]]!==undefined?vals[f[0]]:f[3];
     return '<label>'+f[1]+'</label>'+(f[4]?'<small>'+f[4]+'</small>':'')+'<div class="fcu"><input data-fck="'+f[0]+'" inputmode="decimal" value="'+_alertEsc((f[2]==='만원'||f[2]==='원')&&typeof cur==='number'?_fcN(cur):cur)+'"><span>'+f[2]+'</span></div>'; }).join('')
-    +'<div style="display:flex;gap:6px;margin-top:14px"><button class="bp bnv" style="flex:1" onclick="fcReset()">초기화</button><button class="bp bnv" style="flex:1;background:'+t.col+';color:#fff" onclick="fcPrint()">출력</button></div>';
+    +'<div style="display:flex;gap:6px;margin-top:14px"><button class="bp bnv" style="flex:1" onclick="fcReset()">초기화</button><button class="bp bnv" style="flex:1" onclick="fcPrint()">출력</button></div>'
+    +'<button class="bp bnv" id="fc_pdfbtn" style="width:100%;margin-top:6px" onclick="fcPdf()">PDF 저장</button>';
   inp.querySelectorAll('[data-fck]').forEach(function(el){ el.oninput=function(){ var k=el.getAttribute('data-fck'), f=t.f.filter(function(x){ return x[0]===k; })[0];
     if(f[2]==='만원'||f[2]==='원'){ var d=el.value.replace(/[^\d]/g,''); el.value=d?Number(d).toLocaleString():''; }
     (st.v[st.tab]=st.v[st.tab]||{})[k]=el.value; _fcDraw(); }; });
@@ -28784,6 +28785,41 @@ function fcPrint(){ var st=_fcSt(), t=FC_TABS[st.tab], body;
     +_fcCss('')+'.tb{display:flex;justify-content:flex-end;padding-bottom:10px}.tb button{padding:8px 16px;border:none;border-radius:8px;background:'+t.col+';color:#fff;font-size:14px;font-weight:700;cursor:pointer}@media print{body{background:#fff;padding:0}.tb{display:none}}</style></head><body><div class="wrap"><div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div>'
     +body+'<div style="font-size:11px;color:#94a3b8;margin-top:12px;text-align:right">TEAM TOPS · '+_esc(td())+(cu&&cu.name?' · 담당 '+_esc(cu.name):'')+' · 상담 참고용</div></div></body></html>'); w.document.close(); }
   catch(e){ try{ w.close(); }catch(e2){} toast('출력 창을 만들지 못했습니다.'); } }
+// PDF 저장: 결과를 화면 밖 760px 상자에 다시 그려 블록(배너·표 상자)마다 캡처 → A4에 차례로 놓는다(블록이 쪽 경계에서 잘리지 않게, 한 쪽보다 긴 블록만 나눔).
+async function fcPdf(){
+  if(window._fcPdfBusy) return; var st=_fcSt(), tab=st.tab, t=FC_TABS[tab], body;
+  try{ body=_fcOut(tab,_fcClamp(tab,_fcVals(tab))); }catch(e){ toast('계산 결과를 만들지 못했습니다.'); return; }
+  window._fcPdfBusy=true; var btn=g('fc_pdfbtn'); if(btn){ btn.disabled=true; btn.textContent='PDF 만드는 중…'; }
+  var box=document.createElement('div'); box.id='fc_pdfbox';
+  box.style.cssText='position:absolute;left:-10000px;top:0;width:760px;padding:0;background:#fff;--fc:'+t.col;
+  try{
+    await _drEnsureLibs();
+    box.innerHTML='<style>'+_fcCss('#fc_pdfbox ')+'#fc_pdfbox *{animation:none!important}#fc_pdfbox>*{margin:0 0 12px}</style>'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-end;font-family:inherit;color:#1f2433;padding:4px 2px 2px"><div style="font-size:20px;font-weight:900">금융계산 · '+_esc(t.nm)+'</div><div style="font-size:11px;color:#64748b">'+_esc(td())+(cu&&cu.name?' · 담당 '+_esc(cu.name):'')+'</div></div>'
+      +body+'<div style="font-size:11px;color:#94a3b8;text-align:right">TEAM TOPS · 상담 참고용 계산입니다. 세금·수수료·실제 상품 조건은 반영하지 않았습니다.</div>';
+    document.body.appendChild(box);
+    await Promise.all([].slice.call(box.querySelectorAll('img')).map(function(im){ return im.complete?0:new Promise(function(r){ im.onload=im.onerror=r; setTimeout(r,4000); }); }));
+    // html2canvas는 viewBox만 있는 SVG 그림의 크기를 잘못 잡아 잘라 그림 → 보이는 크기의 2배 PNG로 바꿔 넣는다(같은 출처 그림이라 캔버스 오염 없음)
+    await Promise.all([].slice.call(box.querySelectorAll('img')).map(function(im){ try{ var w=im.clientWidth||im.width, h=im.clientHeight||im.height; if(!w||!h||!im.naturalWidth) return 0;
+      var cv=document.createElement('canvas'); cv.width=w*2; cv.height=h*2; cv.getContext('2d').drawImage(im,0,0,w*2,h*2); var u=cv.toDataURL('image/png');
+      return new Promise(function(r){ im.onload=im.onerror=r; im.style.width=w+'px'; im.style.height=h+'px'; im.src=u; setTimeout(r,3000); }); }catch(e){ return 0; } }));
+    var blocks=[].slice.call(box.children).filter(function(el){ return el.tagName!=='STYLE'; });
+    var pdf=new window.jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4'}), M=10, PW=190, PH=277, y=M, first=true;
+    for(var b=0;b<blocks.length;b++){
+      var c=await html2canvas(blocks[b],{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:800});
+      var pxmm=c.width/PW, hmm=c.height/pxmm;
+      if(hmm<=PH){ if(!first&&y+hmm>M+PH){ pdf.addPage(); y=M; } pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',M,y,PW,hmm); y+=hmm+3; first=false; continue; }
+      // 한 쪽보다 긴 블록(긴 연도별 표 등): 새 쪽에서 시작해 쪽 높이로 나눔
+      if(!first&&y>M){ pdf.addPage(); y=M; } var slice=Math.floor(PH*pxmm);
+      for(var off=0;off<c.height;off+=slice){ var h=Math.min(slice,c.height-off), tmp=document.createElement('canvas'); tmp.width=c.width; tmp.height=h;
+        tmp.getContext('2d').drawImage(c,0,off,c.width,h,0,0,c.width,h); if(off>0){ pdf.addPage(); y=M; }
+        pdf.addImage(tmp.toDataURL('image/jpeg',0.92),'JPEG',M,y,PW,h/pxmm); y+=h/pxmm+3; }
+      first=false;
+    }
+    pdf.save('금융계산_'+t.nm.replace(/[\\/:*?"<>|·]/g,'')+'_'+td()+'.pdf'); toast('PDF를 저장했습니다.');
+  }catch(e){ console.warn('금융계산 PDF 오류',e); toast('PDF를 만들지 못했습니다: '+(e&&e.message||e)); }
+  finally{ box.remove(); window._fcPdfBusy=false; var b2=g('fc_pdfbtn'); if(b2){ b2.disabled=false; b2.textContent='PDF 저장'; } }
+}
 function _fcClear(){ window._fcState=null; var o=g('fc_out'); if(o) o.innerHTML=''; var i=g('fc_in'); if(i) i.innerHTML=''; }
 
 // ===== AI상품추천 (airec, 2026-11-11 — 백동현 요청, CLAUDE.md 4.99788) =====
