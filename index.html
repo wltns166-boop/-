@@ -828,7 +828,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.11-3</div>
   </div>
 </div>
 
@@ -1327,7 +1327,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg" id="pg_dbrec">
       <div class="sh"><div class="st"><i class="ti ti-target-arrow"></i>DB추천시스템</div>
         <button class="bp" onclick="rDbRec()"><i class="ti ti-refresh"></i> 새로고침</button></div>
-      <div class="abnote">DB사용량에 지점원들이 남긴 기록(배정일 기준)으로 DB 업체·권역별 효율을 계산합니다. 부재·거절은 DB사용량의 [부재]/[거절] 버튼, 상담·계약은 진행 단계 체크로 기록됩니다. 결과를 남기지 않은 건이 많으면 비율이 실제보다 낮게 보입니다.</div>
+      <div class="abnote">DB사용량에 지점원들이 남긴 기록(배정일 기준)으로 DB 업체·권역별 효율을 계산합니다. 부재·거절·진행중·노쇼·최종거절·진행불가는 DB사용량의 결과 버튼, 상담·계약은 진행 단계 체크로 기록됩니다. 결과를 남기지 않은 건이 많으면 비율이 실제보다 낮게 보입니다.</div>
       <div class="card">
         <div class="dburow"><div class="dbuh">기간 · 권역</div>
           <div class="dbufilters"><div class="dbrper" id="dbr_per"></div>
@@ -1340,7 +1340,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div class="dburow"><div class="dbuh">효율 표</div>
           <div class="dbufilters"><select id="dbr_by" class="dbusel" onchange="_dbrRender()"><option value="tr">업체 × 권역</option><option value="t">업체별</option><option value="r">권역별</option></select></div></div>
         <div class="dbuscroll" id="dbr_tb"></div>
-        <div class="dbunote" style="margin-top:8px">비율은 모두 배정 건수 대비입니다. 미기록 = 배정 후 7일이 지났는데 진행 단계·부재·거절이 하나도 없는 건.</div>
+        <div class="dbunote" style="margin-top:8px">비율은 모두 배정 건수 대비입니다. 미기록 = 배정 후 7일이 지났는데 진행 단계·결과 버튼이 하나도 없는 건.</div>
       </div>
       <div class="card"><div class="dbuh">기간별 추이 (업체별)</div><div class="dbuscroll" id="dbr_trend"></div></div>
       <div class="card"><div class="dbuh">기록 모니터링 (지점원별)</div><div class="dbuscroll" id="dbr_mon"></div></div>
@@ -28235,6 +28235,7 @@ function _dbrRows(k,rg){
   var rr=_dbrRange(k), all=window._dbuAllRows||_dbuAll();
   return all.filter(function(r){ return r.assigned&&r.assigned>=rr[0]&&r.assigned<=rr[1]&&(!rg||r.region===rg); });
 }
+function _dbrNeg(c){ return c.pab+c.prj+(c.pns||0)+(c.pfr||0)+(c.png||0); }  // 부재+거절+노쇼+최종거절+진행불가 (v2026.11.11-3)
 function _dbrP(v,n){ return n?_dbuPct(v):'–'; }
 function rDbRec(){
   if(!_abDb()){ var b=g('dbr_rec'); if(b) b.innerHTML='<div class="dbuempty">저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.</div>'; return; }
@@ -28254,7 +28255,7 @@ function _dbrRender(){
   g('dbr_range').textContent='배정일 '+rr[0]+' ~ '+rr[1]+(rg?' · '+rg:' · 권역 전체')+(per!=='m1'?' · 이번 달(진행 중)은 결과가 아직 덜 남았을 수 있습니다':'');
   var kp=function(lb,c,p,col){ return '<div class="dbukpi"><div class="k">'+lb+'</div><div class="v" style="color:'+col+'">'+(st.n?_dbuPct(p):'–')+'</div><div class="dbunote">'+c+'건 / 배정 '+st.n+'건</div><div class="dbubar"><i style="width:'+p+'%;background:'+col+'"></i></div></div>'; };
   g('dbr_kpis').innerHTML='<div class="dbukpi"><div class="k">배정</div><div class="v">'+st.n+'</div><div class="dbunote">미기록 '+st.none+'건</div></div>'
-    +kp('부재율',st.ab,st.pab,'#7a869a')+kp('거절율',st.rj,st.prj,'#d0465a')+kp('상담율',st.cs,st.pcs,'#2f6fdb')+kp('계약율',st.ct,st.pct,'#1f7a3e');
+    +kp('부재율',st.ab,st.pab,'#7a869a')+kp('거절율',st.rj,st.prj,'#d0465a')+kp('노쇼율',st.ns,st.pns,'#d9822b')+kp('최종거절율',st.fr,st.pfr,'#8a1c2c')+kp('진행불가율',st.ng,st.png,'#3a3f4a')+kp('진행중',st.ing,st.ping,'#5b8def')+kp('상담율',st.cs,st.pcs,'#2f6fdb')+kp('계약율',st.ct,st.pct,'#1f7a3e');
   // 그룹
   var keyOf=by==='t'?function(r){ return r.dbType; }:by==='r'?function(r){ return r.region; }:function(r){ return r.dbType+' · '+r.region; };
   var gm={}; rows.forEach(function(r){ var k=keyOf(r); (gm[k]=gm[k]||[]).push(r); });
@@ -28265,7 +28266,7 @@ function _dbrRender(){
   var ok=combos.filter(function(c){ return c.n>=DBR_MIN; });
   // v2026.11.10-3: 권역별로 나누면 표본이 모자란 업체(KS 수도권 5·충청권 5 등)는 권역 합산으로 후보에 넣음 — 기록이 있는 업체는 모두 자동으로 비교 대상
   Object.keys(tm).forEach(function(t){ if(ok.some(function(c){ return c.t===t; })) return; var s2=_dbrStat(tm[t]); s2.k=t+' · 권역 전체'; s2.t=t; if(s2.n>=DBR_MIN){ ok.push(s2); combos.push(s2); } });
-  var desc=function(c){ return '계약 <b>'+_dbuPct(c.pct)+'</b> · 상담 '+_dbuPct(c.pcs)+'<br>부재 '+_dbuPct(c.pab)+' · 거절 '+_dbuPct(c.prj)+' · 배정 '+c.n+'건'; };
+  var desc=function(c){ return '계약 <b>'+_dbuPct(c.pct)+'</b> · 상담 '+_dbuPct(c.pcs)+'<br>부재 '+_dbuPct(c.pab)+' · 거절 '+_dbuPct(c.prj)+(c.ns?' · 노쇼 '+_dbuPct(c.pns):'')+(c.fr?' · 최종거절 '+_dbuPct(c.pfr):'')+(c.ng?' · 진행불가 '+_dbuPct(c.png):'')+' · 배정 '+c.n+'건'; };
   var rec='';
   if(!rows.length) rec='<div class="dbuempty">이 기간에 배정된 기록이 없습니다.</div>';
   else if(!ok.length){
@@ -28273,22 +28274,22 @@ function _dbrRender(){
     rec='<div class="dbunote" style="margin-bottom:8px">업체·권역 조합마다 배정 '+DBR_MIN+'건 이상 쌓여야 추천합니다. 아래는 표본이 적은 참고 값입니다 — 기간을 늘려 보세요.</div>'
       +(ref.length?'<div class="dbrrec">'+ref.map(function(c){ return '<div class="dbrcard"><div class="t">참고 (표본 적음)</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')+'</div>':'');
   } else {
-    var good=ok.slice().sort(function(a,b){ return b.pct-a.pct||b.pcs-a.pcs||(a.pab+a.prj)-(b.pab+b.prj); }).slice(0,3);
-    var bad=ok.slice().sort(function(a,b){ return (b.pab+b.prj)-(a.pab+a.prj)||a.pct-b.pct; }).filter(function(c){ return good.indexOf(c)<0&&(c.pab+c.prj)>=40; }).slice(0,2);
+    var good=ok.slice().sort(function(a,b){ return b.pct-a.pct||b.pcs-a.pcs||_dbrNeg(a)-_dbrNeg(b); }).slice(0,3);
+    var bad=ok.slice().sort(function(a,b){ return _dbrNeg(b)-_dbrNeg(a)||a.pct-b.pct; }).filter(function(c){ return good.indexOf(c)<0&&_dbrNeg(c)>=40; }).slice(0,2);
     rec='<div class="dbrrec">'+good.map(function(c,i){ return '<div class="dbrcard good"><div class="t">추천 '+(i+1)+'</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')
-      +bad.map(function(c){ return '<div class="dbrcard bad"><div class="t">주의 — 부재·거절 많음</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')+'</div>'
-      +'<div class="dbunote" style="margin-top:8px">추천 순서: 계약율 → 상담율 → 부재·거절이 적은 순. 주의는 부재+거절이 40% 이상인 조합. 업체×권역 배정 '+DBR_MIN+'건 미만이면 그 업체는 권역 합산으로 비교.</div>'
+      +bad.map(function(c){ return '<div class="dbrcard bad"><div class="t">주의 — 부재·거절 등 많음</div><div class="n">'+_esc(c.k)+'</div><div class="d">'+desc(c)+'</div></div>'; }).join('')+'</div>'
+      +'<div class="dbunote" style="margin-top:8px">추천 순서: 계약율 → 상담율 → 안 좋은 결과(부재·거절·노쇼·최종거절·진행불가)가 적은 순. 주의는 그 합이 40% 이상인 조합. 업체×권역 배정 '+DBR_MIN+'건 미만이면 그 업체는 권역 합산으로 비교.</div>'
       +(function(){ var inc={}; ok.forEach(function(c){ inc[c.t]=1; }); var miss=Object.keys(tm).filter(function(t){ return !inc[t]; });
         return miss.length?'<div class="dbunote" style="margin-top:4px">표본이 적어 추천에서 빠진 업체: '+miss.map(function(t){ return _esc(t)+' '+tm[t].length+'건'; }).join(', ')+' — 아래 효율 표에서 확인하세요.</div>':''; })();
   }
   g('dbr_rec').innerHTML=rec;
   // 효율 표
-  var best={}; ['pab','prj','pcs','pct'].forEach(function(f){ var v=groups.filter(function(x){ return x.n>=DBR_MIN; }).map(function(x){ return x[f]; }); best[f]=v.length?((f==='pab'||f==='prj')?Math.min.apply(null,v):Math.max.apply(null,v)):null; });
+  var best={}; ['pab','prj','pns','pfr','png','pcs','pct'].forEach(function(f){ var v=groups.filter(function(x){ return x.n>=DBR_MIN; }).map(function(x){ return x[f]; }); best[f]=v.length?((f!=='pcs'&&f!=='pct')?Math.min.apply(null,v):Math.max.apply(null,v)):null; });
   var cell=function(x,f,col){ var hi=best[f]!==null&&x.n>=DBR_MIN&&x[f]===best[f]; return '<td class="n"'+(x.n<DBR_MIN?' style="color:#a0a8b4"':'')+'><span'+(hi?' class="dbrhi" style="color:'+col+'"':'')+'>'+_dbrP(x[f],x.n)+'</span><div class="dbubar"><i style="width:'+x[f]+'%;background:'+col+'"></i></div></td>'; };
   groups.sort(function(a,b){ return b.n-a.n; });
-  var line=function(x,strong){ return '<tr><td>'+(strong?'<b>'+_esc(x.k)+'</b>':_esc(x.k))+(x.n<DBR_MIN&&!strong?' <span class="dbunote">(표본 적음)</span>':'')+'</td><td class="n">'+x.n+'</td>'+cell(x,'pab','#7a869a')+cell(x,'prj','#d0465a')+cell(x,'pcs','#2f6fdb')+cell(x,'pct','#1f7a3e')+'<td class="n">'+(x.none||'<span class="dbudash">–</span>')+'</td></tr>'; };
+  var line=function(x,strong){ return '<tr><td>'+(strong?'<b>'+_esc(x.k)+'</b>':_esc(x.k))+(x.n<DBR_MIN&&!strong?' <span class="dbunote">(표본 적음)</span>':'')+'</td><td class="n">'+x.n+'</td>'+cell(x,'pab','#7a869a')+cell(x,'prj','#d0465a')+cell(x,'pns','#d9822b')+cell(x,'pfr','#8a1c2c')+cell(x,'png','#3a3f4a')+cell(x,'pcs','#2f6fdb')+cell(x,'pct','#1f7a3e')+'<td class="n">'+(x.none||'<span class="dbudash">–</span>')+'</td></tr>'; };
   var tot=_dbrStat(rows); tot.k='전체';
-  g('dbr_tb').innerHTML=rows.length?'<table class="dbutb"><thead><tr><th>구분</th><th class="n">배정</th><th class="n">부재율</th><th class="n">거절율</th><th class="n">상담율</th><th class="n">계약율</th><th class="n">미기록</th></tr></thead><tbody>'
+  g('dbr_tb').innerHTML=rows.length?'<table class="dbutb"><thead><tr><th>구분</th><th class="n">배정</th><th class="n">부재율</th><th class="n">거절율</th><th class="n">노쇼율</th><th class="n">최종거절율</th><th class="n">진행불가율</th><th class="n">상담율</th><th class="n">계약율</th><th class="n">미기록</th></tr></thead><tbody>'
     +groups.map(function(x){ return line(x); }).join('')+'</tbody><tfoot>'+line(tot,true)+'</tfoot></table>':'<div class="dbuempty">이 기간에 배정된 기록이 없습니다.</div>';
   // 기간별 추이 — 업체별, 기간 4개(전월·3·6·12개월)
   var ps=['m1','m3','m6','m12'], types={};
@@ -28296,7 +28297,7 @@ function _dbrRender(){
   var tl=Object.keys(types).sort(function(a,b){ return a.localeCompare(b,'ko'); });
   g('dbr_trend').innerHTML=tl.length?'<table class="dbutb"><thead><tr><th>업체</th>'+ps.map(function(k){ var nm=DBR_PERIODS.filter(function(x){ return x[0]===k; })[0][1]; return '<th class="n">'+nm+'</th>'; }).join('')+'</tr></thead><tbody>'
     +tl.map(function(t){ return '<tr><td>'+_esc(t)+'</td>'+ps.map(function(k){ var x=_dbrStat(_dbrRows(k,rg).filter(function(r){ return r.dbType===t; }));
-      return '<td class="n"'+(x.n&&x.n<DBR_MIN?' style="color:#a0a8b4"':'')+'>'+(x.n?'<b style="color:#1f7a3e">계약 '+_dbuPct(x.pct)+'</b><div class="dbunote">상담 '+_dbuPct(x.pcs)+' · 부재 '+_dbuPct(x.pab)+' · 거절 '+_dbuPct(x.prj)+'</div><div class="dbunote">배정 '+x.n+'건</div>':'<span class="dbudash">–</span>')+'</td>'; }).join('')+'</tr>'; }).join('')+'</tbody></table>'
+      return '<td class="n"'+(x.n&&x.n<DBR_MIN?' style="color:#a0a8b4"':'')+'>'+(x.n?'<b style="color:#1f7a3e">계약 '+_dbuPct(x.pct)+'</b><div class="dbunote">상담 '+_dbuPct(x.pcs)+' · 부재 '+_dbuPct(x.pab)+' · 거절 '+_dbuPct(x.prj)+(x.ns?' · 노쇼 '+_dbuPct(x.pns):'')+(x.fr?' · 최종거절 '+_dbuPct(x.pfr):'')+(x.ng?' · 진행불가 '+_dbuPct(x.png):'')+'</div><div class="dbunote">배정 '+x.n+'건</div>':'<span class="dbudash">–</span>')+'</td>'; }).join('')+'</tr>'; }).join('')+'</tbody></table>'
     +'<div class="dbunote" style="margin-top:8px">회색 글씨는 배정 '+DBR_MIN+'건 미만(표본 적음). 최근 3·6·12개월은 이번 달(진행 중) 포함.</div>'
     :'<div class="dbuempty">최근 1년 기록이 없습니다.</div>';
   // 기록 모니터링 — 지점원별(전체 기간): 배정, 이 기간 배정, 결과 미기록(7일 지남), 마지막 저장
@@ -28310,7 +28311,7 @@ function _dbrRender(){
   g('dbr_mon').innerHTML=mon.length?'<table class="dbutb"><thead><tr><th>담당자</th><th class="n">전체 배정</th><th class="n">이 기간 배정</th><th class="n">이 기간 계약율</th><th class="n">결과 미기록</th><th class="n">마지막 기록</th></tr></thead><tbody>'
     +mon.map(function(x){ var old=x.up&&(Date.now()-x.up)>7*864e5;
       return '<tr><td>'+_esc(x.nm)+'</td><td class="n">'+x.all+'</td><td class="n">'+x.p+'</td><td class="n">'+_dbrP(x.ps.pct,x.p)+'</td><td class="n">'+(x.none?'<b style="color:#d0465a">'+x.none+'건</b>':'<span style="color:#1f7a3e">0</span>')+'</td><td class="n"'+(old?' style="color:#d0465a;font-weight:700"':'')+'>'+ago(x.up)+'</td></tr>'; }).join('')+'</tbody></table>'
-    +'<div class="dbunote" style="margin-top:8px">결과 미기록 = 배정 7일이 지났는데 진행 단계·부재·거절이 하나도 없는 건(전체 기간). 마지막 기록이 7일 넘으면 빨간색.</div>'
+    +'<div class="dbunote" style="margin-top:8px">결과 미기록 = 배정 7일이 지났는데 진행 단계·결과 버튼이 하나도 없는 건(전체 기간). 마지막 기록이 7일 넘으면 빨간색.</div>'
     :'<div class="dbuempty">아직 DB사용량 기록이 없습니다.</div>';
 }
 function _dbuClear(){
