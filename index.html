@@ -583,6 +583,15 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpday{margin-top:14px;border:1px solid #e1e6f5;border-radius:10px;overflow:hidden}
 .cpdayh{background:#eef1fc;padding:9px 13px;font-weight:700;color:#1a2060;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .cpdayh small{font-weight:500;color:#5a6080;font-size:13px}
+#cp_cfg_pop{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+#cp_cfg_pop .cpc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(680px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#cp_cfg_pop .cpc_body{overflow:auto;padding:12px 18px}
+#cp_cfg_pop table{width:100%;border-collapse:collapse}#cp_cfg_pop th,#cp_cfg_pop td{border-bottom:1px solid #e3e8f0;padding:5px 4px;font-size:13px;color:#1c2631;text-align:center}
+#cp_cfg_pop input[type=text]{width:100%;padding:6px 8px;border:1px solid #cfd5ee;border-radius:6px;font:inherit;font-size:14px;color:#111;background:#fff;box-sizing:border-box}
+#cp_cfg_pop input[type=color]{width:46px;height:30px;border:1px solid #cfd5ee;border-radius:6px;padding:1px;cursor:pointer;background:#fff}
+#cp_cfg_pop .cpc_mv{background:#eef1f8;border:1px solid #cfd5ee;border-radius:5px;padding:2px 7px;cursor:pointer;color:#1f2a5c}
+#cp_cfg_pop input[type=color][data-none]{opacity:.3}
+#cp_cfg_pop .cpc_pv{display:inline-block;white-space:nowrap;min-width:90px;padding:4px 8px;border-radius:5px;font-weight:700;font-size:13px;text-align:left}
 .cpins td{background:#f8f9fe;color:#3a4290!important;font-weight:700;font-size:14px!important;padding:6px 13px!important}
 .cpcp{cursor:pointer;border-bottom:1px dashed #9aa4d8}
 .cpcp:hover{background:#eef2ff}
@@ -902,7 +911,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-9</div>
   </div>
 </div>
 
@@ -2882,7 +2891,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <!-- 카드납관리 (cardpay, 2026-11-11 — 박지순 요청) — Firestore 컬렉션 cardpay/{id}, localStorage 없음 -->
     <div class="pg" id="pg_cardpay">
       <div class="sh"><div class="st"><i class="ti ti-credit-card"></i>카드납관리</div>
-        <button class="bp bnv" onclick="cpFormOpen()"><i class="ti ti-plus"></i> 등록</button></div>
+        <div style="display:flex;gap:8px"><button class="bp bnv" onclick="cpFormOpen()"><i class="ti ti-plus"></i> 등록</button><button class="bp bnv" id="cp_setbtn" style="display:none" onclick="cpCfgOpen()"><i class="ti ti-settings"></i> 설정</button></div></div>
       <div class="abnote">카드로 보험료를 내는 계약을 등록해 두면 매달 그 달 기준으로 결제완료 여부를 체크합니다(달이 바뀌면 자동으로 새 달 미완료로 시작). 결제일별로 같은 보험사끼리 묶어 보여 주고, <b>결제일 아침에 화면 오른쪽 위 알림</b>으로 알려 줍니다 — 결제일이 주말·공휴일이면 다음 평일에 알려 줍니다.
         이름을 누르면 고객정보 창, 증권번호·카드주·카드번호를 누르면 복사됩니다. 목록에는 본인이 등록한 것만 보입니다(총무는 전체).</div>
       <div id="cp_form" class="card" style="display:none;margin-bottom:12px">
@@ -28166,6 +28175,76 @@ function _cpClean(id,o){
   return r;
 }
 // 구독 — 로그인 세션 동안(결제일 알림에 필요). 총무는 전체, 그 외는 본인 키만
+// 설정(관리자) — 보험사 목록(등록 창 보험사 칸 목록)과 보험사별 색(목록의 보험사 묶음 줄). Firestore cardpaycfg/cfg = {ins:[{nm,c}],ts,by}, 없으면 _reqInsLists 전체·색 없음.
+function _cpCfgClean(a){
+  if(!Array.isArray(a)) return null; var out=[], seen={};
+  a.forEach(function(x){ if(!x||out.length>=80) return; var nm=String(x.nm||'').replace(/[<>"]/g,'').trim().slice(0,30); if(!nm||seen[nm]) return; seen[nm]=1;
+    var c=/^#[0-9a-fA-F]{6}$/.test(x.c||'')?String(x.c).toLowerCase():''; out.push({nm:nm,c:c}); });
+  return out;
+}
+function _cpCfgIns(){ if(window._cpCfg&&window._cpCfg.length) return window._cpCfg; var L=_reqInsLists(); return [].concat(L.son||[],L.life||[]).map(function(n){ return {nm:n,c:''}; }); }
+function _cpCfgLoad(){
+  var db=_cpDb(); if(!db) return Promise.resolve();
+  return db.collection('cardpaycfg').doc('cfg').get().then(function(d){ window._cpCfg=d.exists?_cpCfgClean((d.data()||{}).ins):null; window._cpCfgOk=1; })
+    .catch(function(e){ console.warn('cardpaycfg',e); });
+}
+function _cpInsColor(nm){
+  var L=window._cpCfg||[], k=(typeof _icNameKey==='function')?_icNameKey(nm):String(nm||'');
+  for(var i=0;i<L.length;i++){ if(L[i].c&&(L[i].nm===nm||((typeof _icNameKey==='function')&&_icNameKey(L[i].nm)===k))) return L[i].c; }
+  return '';
+}
+function _cpCfgRow(x){ x=x||{nm:'',c:''}; var c=x.c||'#3a4290';
+  return '<tr class="cpc_row"><td style="white-space:nowrap"><button class="cpc_mv" data-mv="-1">▲</button> <button class="cpc_mv" data-mv="1">▼</button></td>'
+   +'<td><input type="text" class="cpc_nm" maxlength="30" value="'+_alertEsc(x.nm)+'" placeholder="보험사 이름"></td>'
+   +'<td><input type="color" class="cpc_c" value="'+c+'"'+(x.c?'':' data-none="1"')+'></td>'
+   +'<td><span class="cpc_pv"></span></td>'
+   +'<td><button class="bp bnv" style="padding:3px 8px;font-size:12px" data-clr="1">색 없음</button></td>'
+   +'<td><button class="bd bdr" style="padding:3px 9px;font-size:12px" data-del="1">삭제</button></td></tr>'; }
+function _cpCfgPv(tr){ var i=tr.querySelector('.cpc_c'), p=tr.querySelector('.cpc_pv'), nm=tr.querySelector('.cpc_nm').value||'보험사';
+  p.textContent=nm+' · 2건'; if(i.getAttribute('data-none')){ p.style.cssText=''; p.style.background='#f8f9fe'; p.style.color='#3a4290'; } else { p.style.background=i.value+'26'; p.style.color=i.value; p.style.borderLeft='4px solid '+i.value; } }
+function cpCfgOpen(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  _cpCfgLoad().then(function(){
+    var old=g('cp_cfg_pop'); if(old) old.remove();
+    var d=document.createElement('div'); d.id='cp_cfg_pop';
+    d.innerHTML='<div class="cpc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
+     +'<b style="font-size:16px;color:#1f2a5c">카드납관리 설정 — 보험사 목록·색상</b><button class="cpc_mv" data-close="1" style="font-size:16px">✕</button></div>'
+     +'<div class="cpc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">여기 목록이 등록 창 <b>보험사</b> 칸에 나오는 순서대로의 보험사 목록이 됩니다. 색을 고르면 카드납 목록의 보험사 묶음 줄(예: <b>DB손보 · 2건</b>)이 그 색으로 표시됩니다. 저장하면 모든 사람에게 같이 적용됩니다.</div>'
+     +'<table><tr><th style="width:70px">순서</th><th>보험사</th><th style="width:60px">색상</th><th style="width:160px">미리보기</th><th style="width:70px"></th><th style="width:56px"></th></tr><tbody id="cpc_tb">'+_cpCfgIns().map(_cpCfgRow).join('')+'</tbody></table>'
+     +'<button class="bp bnv" style="margin-top:10px" data-add="1"><i class="ti ti-plus"></i> 보험사 추가</button></div>'
+     +'<div style="display:flex;gap:8px;justify-content:space-between;padding:12px 18px;border-top:1px solid #e3e8f0">'
+     +'<button class="bp bnv" data-reset="1">기본 보험사 목록으로</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="cpc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
+    document.body.appendChild(d);
+    var tb=g('cpc_tb'), pvAll=function(){ [].forEach.call(tb.querySelectorAll('.cpc_row'),_cpCfgPv); }; pvAll();
+    d.addEventListener('input',function(e){ var tr=e.target.closest('.cpc_row'); if(!tr) return; if(e.target.classList.contains('cpc_c')) e.target.removeAttribute('data-none'); _cpCfgPv(tr); });
+    d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
+    d.addEventListener('click',function(e){
+      var t=e.target.closest('button');
+      if(!t){ if(e.target===d&&d._down) d.remove(); return; }
+      if(t.getAttribute('data-close')) d.remove();
+      else if(t.getAttribute('data-add')){ if(tb.children.length>=80){ toast('최대 80개까지입니다.'); return; } tb.insertAdjacentHTML('beforeend',_cpCfgRow()); _cpCfgPv(tb.lastElementChild); tb.lastElementChild.querySelector('.cpc_nm').focus(); }
+      else if(t.getAttribute('data-del')) t.closest('tr').remove();
+      else if(t.getAttribute('data-clr')){ var tr=t.closest('tr'); tr.querySelector('.cpc_c').setAttribute('data-none','1'); _cpCfgPv(tr); }
+      else if(t.getAttribute('data-mv')){ var tr2=t.closest('tr'), up=t.getAttribute('data-mv')==='-1';
+        if(up&&tr2.previousElementSibling) tb.insertBefore(tr2,tr2.previousElementSibling); else if(!up&&tr2.nextElementSibling) tb.insertBefore(tr2.nextElementSibling,tr2); }
+      else if(t.getAttribute('data-reset')){ if(confirm('보험사 목록을 기본 목록(고객등록 보험사 전체)으로 되돌릴까요? 색은 같은 이름이면 유지됩니다. ([저장]해야 반영)')){
+        var keep={}; [].forEach.call(tb.querySelectorAll('.cpc_row'),function(tr){ var i=tr.querySelector('.cpc_c'); if(!i.getAttribute('data-none')) keep[tr.querySelector('.cpc_nm').value.trim()]=i.value; });
+        var L=_reqInsLists(); tb.innerHTML=[].concat(L.son||[],L.life||[]).map(function(n){ return _cpCfgRow({nm:n,c:keep[n]||''}); }).join(''); pvAll(); } }
+      else if(t.getAttribute('data-save')) _cpCfgSave(d);
+    });
+  });
+}
+function _cpCfgSave(d){
+  if(!_isAdmin()) return;
+  var raw=[].map.call(d.querySelectorAll('#cpc_tb .cpc_row'),function(tr){ var i=tr.querySelector('.cpc_c'); return {nm:tr.querySelector('.cpc_nm').value,c:i.getAttribute('data-none')?'':i.value}; });
+  if(raw.some(function(r){ return !String(r.nm).trim(); })){ toast('이름이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
+  var ins=_cpCfgClean(raw); if(!ins||!ins.length){ toast('보험사를 1개 이상 넣어 주세요.'); return; }
+  var db=_cpDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
+  var btn=g('cpc_save'); if(btn) btn.disabled=true;
+  db.collection('cardpaycfg').doc('cfg').set({ins:ins,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+    window._cpCfg=ins; d.remove(); toast('설정을 저장했습니다.'); _cpDraw();
+  }).catch(function(e){ if(btn) btn.disabled=false; console.warn('cardpaycfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
+}
 function _cpSub(){
   var db=_cpDb(); if(!db||!cu) return;
   var key=_rsvKey(), all=_isChongmu(), sk=(all?'*':key);
@@ -28190,7 +28269,7 @@ function _cpSub(){
 }
 function _cpUnsubscribe(){ clearTimeout(window._cpRetryT); window._cpSeq=(window._cpSeq||0)+1; try{ if(window._cpUnsub) window._cpUnsub(); }catch(e){} window._cpUnsub=null; window._cpSubKey=null; }
 function _cpClear(){
-  _cpUnsubscribe(); window._cpItems=null; window._cpLoaded=false; window._cpYmSel=null; window._cpDaySel=null; window._cpEditId=null; window._cpBusy=false;
+  _cpUnsubscribe(); window._cpItems=null; window._cpLoaded=false; window._cpYmSel=null; window._cpDaySel=null; try{ var _cpc=g('cp_cfg_pop'); if(_cpc) _cpc.remove(); }catch(e){} window._cpEditId=null; window._cpBusy=false;
   try{ cpFormClose(); }catch(e){}
   var b=g('cp_list'); if(b) b.innerHTML='';
 }
@@ -28201,7 +28280,9 @@ function _cpFind(id){ return (window._cpItems||[]).find(function(o){ return o.id
 function rCardPay(){
   if(!_cpDb()){ var b=g('cp_list'); if(b) b.innerHTML='<div class="em" style="padding:20px">저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.</div>'; return; }
   _cpSub();
+  var sb=g('cp_setbtn'); if(sb) sb.style.display=_isAdmin()?'':'none';
   _cpDraw();
+  _cpCfgLoad().then(function(){ try{ var pg=g('pg_cardpay'); if(pg&&pg.classList.contains('active')) _cpDraw(); }catch(e){} });
 }
 function cpMonth(d){
   if(!d){ window._cpYmSel=null; }
@@ -28241,7 +28322,7 @@ function _cpDraw(){
       +'<small style="margin-left:auto">'+list.length+'건 · '+(un?'<b style="color:#c62828">미완료 '+un+'</b>':'<b style="color:#16803c">모두 완료</b>')+(late?' <b style="color:#c62828">· 결제일 지남</b>':'')+'</small></div>';
     var rows='', prevIns=null;
     list.forEach(function(o){
-      if(o.ins!==prevIns){ prevIns=o.ins; rows+='<tr class="cpins"><td colspan="'+cols+'">'+esc(o.ins||'(보험사 없음)')+' · '+list.filter(function(x){return x.ins===o.ins;}).length+'건</td></tr>'; }
+      if(o.ins!==prevIns){ prevIns=o.ins; var ic=_cpInsColor(o.ins); rows+='<tr class="cpins"><td colspan="'+cols+'"'+(ic?' style="background:'+ic+'26;color:'+ic+'!important;border-left:4px solid '+ic+'"':'')+'>'+esc(o.ins||'(보험사 없음)')+' · '+list.filter(function(x){return x.ins===o.ins;}).length+'건</td></tr>'; }
       var paid=o.paid[ym], ex=_cpExpired(o.exp,ym), mine=_cpCanEdit(o);
       var ocNm=('openCustInfo('+JSON.stringify(o.nm)+','+JSON.stringify(o.m||'')+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
       rows+='<tr>'
@@ -28300,7 +28381,7 @@ function _cpFormFill(o){
     cs.forEach(function(c){ if(!c||(!_isChongmu()&&c.m!==(cu&&cu.name))) return;
       [c.name].concat((c.family||[]).map(function(f){return f&&f.name;})).forEach(function(n){ n=String(n||'').trim(); if(n&&!seen[n]){ seen[n]=1; opts.push('<option value="'+_alertEsc(n)+'">'); } }); });
     var nl=g('cp_nm_list'); if(nl) nl.innerHTML=opts.join('');
-    var L=_reqInsLists(), il=g('cp_ins_list'); if(il) il.innerHTML=[].concat(L.son||[],L.life||[]).map(function(n){return '<option value="'+_alertEsc(n)+'">';}).join('');
+    var il=g('cp_ins_list'); if(il) il.innerHTML=_cpCfgIns().map(function(x){return '<option value="'+_alertEsc(x.nm)+'">';}).join('');
   }catch(e){}
 }
 function cpFormOpen(){
