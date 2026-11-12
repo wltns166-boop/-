@@ -542,8 +542,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .rkp_sec.shown .val{filter:none;user-select:text}.rkp_sec .hint{font-size:12px;font-weight:500;color:#5a6776;margin-left:8px}.rkp_sec.shown .hint{display:none}
 .rkp_in .rkp_foot{margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;color:#5a6776;font-size:12px}
 .rkp_in .rkp_seal{flex:0 0 auto;width:58px;height:58px;border:2px solid #c0392b;border-radius:50%;color:#c0392b;display:grid;place-items:center;text-align:center;font-weight:800;font-size:11px;line-height:1.2;transform:rotate(-8deg)}
+#rkp_setbtn,#rkp_lv{width:82px;height:35px;box-sizing:border-box;justify-content:center;padding-left:6px;padding-right:6px}
+.rkp_lvsel{appearance:none;-webkit-appearance:none;cursor:pointer;text-align:center;text-align-last:center;font-family:inherit}
+.rkp_lvsel option{background:#fff;color:#1f2a5c}
+#rkp_cfg_pop .rkc_lv{width:17px;height:17px;cursor:pointer}
 #rkp_cfg_pop{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
-#rkp_cfg_pop .rkc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(760px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#rkp_cfg_pop .rkc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(940px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #rkp_cfg_pop .rkc_body{overflow:auto;padding:12px 18px}
 #rkp_cfg_pop table{width:100%;border-collapse:collapse}#rkp_cfg_pop th,#rkp_cfg_pop td{border-bottom:1px solid #e3e8f0;padding:5px 4px;font-size:13px;color:#1c2631;text-align:center}
 #rkp_cfg_pop input[type=text],#rkp_cfg_pop input[type=number]{width:100%;padding:5px 6px;border:1px solid #cfd5ee;border-radius:6px;font:inherit;font-size:13px;color:#111;background:#fff}
@@ -893,7 +897,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-7</div>
   </div>
 </div>
 
@@ -3261,8 +3265,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <!-- 신입증권분석 (교육준비 하위 — 연습용 가상 증권) -->
     <div class="pg" id="pg_rkpol">
       <div class="sh"><div class="st"><i class="ti ti-file-certificate"></i>신입증권분석</div>
-        <div style="display:flex;gap:10px;align-items:center"><span id="rkp_count" style="font-size:13px;color:#5a6080"></span><button class="bp bnv" onclick="rkpGen()"><i class="ti ti-refresh"></i> 새 증권 생성</button><button class="bp bnv" id="rkp_setbtn" onclick="rkpCfgOpen()"><i class="ti ti-settings"></i> 설정</button></div></div>
-      <div class="abnote">신입 교육용 <b>가상 증권</b>입니다. 버튼을 누를 때마다 나이·보험료·담보가 무작위로 바뀝니다. 증권을 보고 계약사항·보장내용을 읽는 연습을 하고, <b>총 납입보험료</b>는 직접 계산한 뒤 눌러서 답을 확인하세요.</div>
+        <div style="display:flex;gap:10px;align-items:center"><span id="rkp_count" style="font-size:13px;color:#5a6080"></span><button class="bp bnv" onclick="rkpGen()"><i class="ti ti-refresh"></i> 새 증권 생성</button><button class="bp bnv" id="rkp_setbtn" onclick="rkpCfgOpen()"><i class="ti ti-settings"></i> 설정</button><select class="bp bnv rkp_lvsel" id="rkp_lv" onchange="rkpLvSet(this.value)"><option value="1">레벨 1</option><option value="2">레벨 2</option><option value="3">레벨 3</option><option value="4">레벨 4</option><option value="5">레벨 5</option></select></div></div>
       <div class="rkp_paper"><div class="rkp_in" id="rkp_policy"></div></div>
     </div>
 
@@ -36979,10 +36982,11 @@ function _rkpWon(n){ return n.toLocaleString('ko-KR')+'원'; }
 function _rkpKor(n){ var e=Math.floor(n/1e8), m=Math.floor((n%1e8)/1e4); if(e&&m) return e+'억 '+m.toLocaleString('ko-KR')+'만원'; if(e) return e+'억원'; return m.toLocaleString('ko-KR')+'만원'; }
 function _rkpDate(d){ var p=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'년 '+p(d.getMonth()+1)+'월 '+p(d.getDate())+'일'; }
 // 담보 목록 기본값 — 금액은 만원 단위. opt=1이면 30% 확률로 미가입(표에서 빠짐). 설정 창에서 바꾸면 Firestore edu_cfg/rkpol에 저장(전원 공용).
-var RKP_DEF_COV=[{nm:'실손의료비',mn:5000,mx:5000,st:100,opt:0},{nm:'암진단금',mn:500,mx:10000,st:100,opt:0},{nm:'암치료비',mn:100,mx:1000,st:100,opt:1},
- {nm:'뇌혈관질환진단비',mn:100,mx:5000,st:100,opt:1},{nm:'뇌졸중진단비',mn:100,mx:3000,st:100,opt:1},{nm:'뇌출혈진단비',mn:100,mx:5000,st:100,opt:1},
- {nm:'허혈성심장질환진단비',mn:100,mx:5000,st:100,opt:1},{nm:'급성심근경색증진단비',mn:100,mx:5000,st:100,opt:1},{nm:'질병수술비',mn:10,mx:50,st:10,opt:1},
- {nm:'뇌혈관질환수술비',mn:100,mx:3000,st:100,opt:1},{nm:'허혈성심장질환수술비',mn:100,mx:3000,st:100,opt:1}];
+var RKP_DEF_COV=[{nm:'실손의료비',mn:5000,mx:5000,st:100,opt:0,lv:'12345'},{nm:'암진단금',mn:500,mx:10000,st:100,opt:0,lv:'12345'},{nm:'암치료비',mn:100,mx:1000,st:100,opt:1,lv:'345'},
+ {nm:'뇌혈관질환진단비',mn:100,mx:5000,st:100,opt:1,lv:'2345'},{nm:'뇌졸중진단비',mn:100,mx:3000,st:100,opt:1,lv:'345'},{nm:'뇌출혈진단비',mn:100,mx:5000,st:100,opt:1,lv:'45'},
+ {nm:'허혈성심장질환진단비',mn:100,mx:5000,st:100,opt:1,lv:'2345'},{nm:'급성심근경색증진단비',mn:100,mx:5000,st:100,opt:1,lv:'345'},{nm:'질병수술비',mn:10,mx:50,st:10,opt:1,lv:'2345'},
+ {nm:'뇌혈관질환수술비',mn:100,mx:3000,st:100,opt:1,lv:'45'},{nm:'허혈성심장질환수술비',mn:100,mx:3000,st:100,opt:1,lv:'5'}];
+// 레벨(1~5): 특약마다 lv='12345'처럼 나오는 레벨 번호 문자열(Firestore 배열 중첩 피하려고 문자열). lv 없는 옛 저장본=전 레벨.
 var RKP_MAXN=40;
 function _rkpCovClean(arr){
   if(!Array.isArray(arr)) return null;
@@ -36991,11 +36995,14 @@ function _rkpCovClean(arr){
     var nm=String(c.nm||'').replace(/[<>]/g,'').trim().slice(0,30); if(!nm) return;
     var n=function(v,d){ v=Math.round(+v); return isFinite(v)&&v>0?Math.min(v,1000000):d; };
     var st=n(c.st,10), mn=n(c.mn,st), mx=n(c.mx,mn); if(mx<mn){ var t=mx; mx=mn; mn=t; } if(st>mx) st=mx;
-    out.push({nm:nm,mn:mn,mx:mx,st:st,opt:c.opt?1:0});
+    var lv=(c.lv==null)?'12345':String(c.lv).replace(/[^1-5]/g,'').split('').filter(function(x,i,a){return a.indexOf(x)===i;}).sort().join('');
+    out.push({nm:nm,mn:mn,mx:mx,st:st,opt:c.opt?1:0,lv:lv});
   });
   return out.length?out:null;
 }
 function _rkpCov(){ return window._rkpCfgCov||RKP_DEF_COV; }
+function _rkpLv(){ var v=parseInt(window._rkpLvSel,10); return v>=1&&v<=5?v:1; }
+function rkpLvSet(v){ window._rkpLvSel=parseInt(v,10)||1; rkpGen(); }
 function _rkpCfgLoad(){
   var db=window.db; if(!db) return Promise.resolve();
   return db.collection('edu_cfg').doc('rkpol').get().then(function(d){
@@ -37007,7 +37014,8 @@ function _rkpMake(){
   var mat=_rkpPick([80,90,100].filter(function(m){ return m>=age+term; }));
   var from=new Date(2008,6,1).getTime(), to=new Date(); to.setFullYear(to.getFullYear()-2);
   var c=new Date(_rkpRi(from,to.getTime())); c.setHours(0,0,0,0);
-  var cov=_rkpCov().map(function(x){
+  var L=String(_rkpLv());
+  var cov=_rkpCov().filter(function(x){ return (x.lv==null?'12345':x.lv).indexOf(L)>=0; }).map(function(x){
     var amt=(x.opt&&Math.random()<0.3)?0:_rkpStep(x.mn,x.mx,x.st);
     if(!amt&&!x.opt) amt=x.mn;
     return [x.nm, amt*M];
@@ -37033,21 +37041,24 @@ function rkpGen(){
    +'</table></div><h3>보장내용</h3>'
    +(rows.length>6?'<div class="rkp_covs">'+covTbl(rows.slice(0,half),0)+covTbl(rows.slice(half),half)+'</div>':covTbl(rows,0))
    +'<div class="rkp_foot"><div>※ 본 증권은 신입 교육용으로 무작위 생성된 가상의 증권이며, 실제 보험계약과 무관합니다.<br>발행일 '+_rkpDate(st)+'</div><div class="rkp_seal">교육생명<br>대표이사</div></div>';
-  var ct=g('rkp_count'); if(ct) ct.textContent=(++_rkpIssued)+'번째 증권';
+  var ct=g('rkp_count'); if(ct) ct.textContent='레벨 '+_rkpLv()+' · '+(++_rkpIssued)+'번째 증권';
 }
 function rRkPol(){
   var sb=g('rkp_setbtn'); if(sb) sb.style.display=_isAdmin()?'':'none';
+  var ls=g('rkp_lv'); if(ls) ls.value=String(_rkpLv());
   var box=g('rkp_policy');
   _rkpCfgLoad().then(function(){ if(box&&!box.innerHTML) rkpGen(); });
 }
 // 설정 창 — 보장내용 담보 목록(관리자). 줄은 화면 순서 그대로 저장(인덱스로 원본을 찾지 않음 — 함정 A 무관).
 function _rkpCfgRow(c){
-  c=c||{nm:'',mn:100,mx:1000,st:100,opt:1};
+  c=c||{nm:'',mn:100,mx:1000,st:100,opt:1,lv:'12345'};
+  var lv=(c.lv==null)?'12345':String(c.lv), lvh='';
+  for(var L=1;L<=5;L++) lvh+='<td><input type="checkbox" class="rkc_lv" data-lv="'+L+'"'+(lv.indexOf(String(L))>=0?' checked':'')+'></td>';
   return '<tr class="rkc_row"><td style="white-space:nowrap"><button class="rkc_mv" data-mv="-1">▲</button> <button class="rkc_mv" data-mv="1">▼</button></td>'
    +'<td><input type="text" class="rkc_nm" maxlength="30" value="'+_alertEsc(c.nm)+'" placeholder="담보명"></td>'
    +'<td><input type="number" class="rkc_mn" min="1" value="'+c.mn+'"></td><td><input type="number" class="rkc_mx" min="1" value="'+c.mx+'"></td>'
    +'<td><input type="number" class="rkc_st" min="1" value="'+c.st+'"></td>'
-   +'<td><input type="checkbox" class="rkc_opt"'+(c.opt?' checked':'')+'></td>'
+   +'<td><input type="checkbox" class="rkc_opt"'+(c.opt?' checked':'')+'></td>'+lvh
    +'<td><button class="bd bdr" style="padding:3px 9px;font-size:12px" data-del="1">삭제</button></td></tr>';
 }
 function rkpCfgOpen(){
@@ -37056,8 +37067,8 @@ function rkpCfgOpen(){
   var d=document.createElement('div'); d.id='rkp_cfg_pop';
   d.innerHTML='<div class="rkc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
    +'<b style="font-size:16px;color:#1f2a5c">보장내용 특약 설정</b><button class="rkc_mv" data-close="1" style="font-size:16px">✕</button></div>'
-   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">금액은 <b>만원</b> 단위입니다. 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. 저장하면 모든 사람의 화면에 같이 적용됩니다.</div>'
-   +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:90px">최소(만원)</th><th style="width:90px">최대(만원)</th><th style="width:80px">단위(만원)</th><th style="width:70px">미가입 가능</th><th style="width:60px"></th></tr>'
+   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">금액은 <b>만원</b> 단위입니다. 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. <b>레벨 1~5</b> 칸에 체크한 레벨의 증권에만 그 특약이 나옵니다. 저장하면 모든 사람의 화면에 같이 적용됩니다.</div>'
+   +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:90px">최소(만원)</th><th style="width:90px">최대(만원)</th><th style="width:80px">단위(만원)</th><th style="width:64px">미가입 가능</th><th style="width:42px">레벨1</th><th style="width:42px">레벨2</th><th style="width:42px">레벨3</th><th style="width:42px">레벨4</th><th style="width:42px">레벨5</th><th style="width:60px"></th></tr>'
    +'<tbody id="rkc_tb">'+_rkpCov().map(_rkpCfgRow).join('')+'</tbody></table>'
    +'<button class="bp bnv" style="margin-top:10px" data-add="1"><i class="ti ti-plus"></i> 특약 추가</button></div>'
    +'<div style="display:flex;gap:8px;justify-content:space-between;padding:12px 18px;border-top:1px solid #e3e8f0">'
@@ -37079,9 +37090,12 @@ function rkpCfgOpen(){
 function _rkpCfgSave(d){
   if(!_isAdmin()) return;
   var raw=[].map.call(d.querySelectorAll('#rkc_tb .rkc_row'),function(tr){ var q=function(c){ return tr.querySelector(c); };
-    return {nm:q('.rkc_nm').value,mn:q('.rkc_mn').value,mx:q('.rkc_mx').value,st:q('.rkc_st').value,opt:q('.rkc_opt').checked}; });
+    return {nm:q('.rkc_nm').value,mn:q('.rkc_mn').value,mx:q('.rkc_mx').value,st:q('.rkc_st').value,opt:q('.rkc_opt').checked,
+      lv:[].filter.call(tr.querySelectorAll('.rkc_lv'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-lv'); }).join('')}; });
   if(raw.some(function(r){ return !String(r.nm).trim(); })){ toast('담보명이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
   var items=_rkpCovClean(raw); if(!items){ toast('특약을 1개 이상 넣어 주세요.'); return; }
+  var emptyLv=[1,2,3,4,5].filter(function(L){ return !items.some(function(x){ return x.lv.indexOf(String(L))>=0; }); });
+  if(emptyLv.length){ toast('레벨 '+emptyLv.join(', ')+'에 나오는 특약이 없습니다. 특약을 1개 이상 체크해 주세요.'); return; }
   var db=window.db; if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('rkc_save'); if(btn) btn.disabled=true;
   db.collection('edu_cfg').doc('rkpol').set({items:items,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
