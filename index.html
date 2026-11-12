@@ -545,6 +545,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #rkp_setbtn,#rkp_lv{width:82px;height:35px;box-sizing:border-box;justify-content:center;padding-left:6px;padding-right:6px}
 .rkp_lvsel{appearance:none;-webkit-appearance:none;cursor:pointer;text-align:center;text-align-last:center;font-family:inherit}
 .rkp_lvsel option{background:#fff;color:#1f2a5c}
+#rkp_cfg_pop .rkc_nm{cursor:grab}
+#rkp_cfg_pop tr.rkc_drag td{background:#e7ecfb}
+#rkp_cfg_pop tr.rkc_drag .rkc_nm{cursor:grabbing;border-color:#1f2a5c}
 #rkp_cfg_pop .rkc_tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;border-bottom:2px solid #1f2a5c;padding-bottom:0}
 #rkp_cfg_pop .rkc_tab{border:1px solid #cfd5ee;border-bottom:none;background:#f1f3fa;color:#1f2a5c;font-weight:700;font-size:14px;padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-family:inherit}
 #rkp_cfg_pop .rkc_tab.on{background:#1f2a5c;border-color:#1f2a5c;color:#fff}
@@ -913,7 +916,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-11</div>
   </div>
 </div>
 
@@ -37179,7 +37182,7 @@ function rkpCfgOpen(){
   var tabs=''; for(var k=1;k<=5;k++) tabs+='<button class="rkc_tab" data-lvtab="'+k+'">레벨 '+k+'</button>';
   d.innerHTML='<div class="rkc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
    +'<b style="font-size:16px;color:#1f2a5c">보장내용 특약 설정</b><button class="rkc_mv" data-close="1" style="font-size:16px">✕</button></div>'
-   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">레벨마다 따로 설정합니다. 금액은 <b>만원</b> 단위이고, 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. 저장하면 다섯 레벨이 한꺼번에 저장되고 모든 사람의 화면에 같이 적용됩니다.</div>'
+   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">레벨마다 따로 설정합니다. 금액은 <b>만원</b> 단위이고, 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. <b>담보명 칸을 누른 채 위아래로 끌면</b> 순서가 바뀝니다. 저장하면 다섯 레벨이 한꺼번에 저장되고 모든 사람의 화면에 같이 적용됩니다.</div>'
    +'<div class="rkc_tabs">'+tabs+'</div><div id="rkc_lvh" style="font-weight:700;color:#1f2a5c;margin:4px 0 6px"></div>'
    +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:100px">최소(만원)</th><th style="width:100px">최대(만원)</th><th style="width:90px">단위(만원)</th><th style="width:70px">미가입 가능</th><th style="width:60px"></th></tr>'
    +'<tbody id="rkc_tb"></tbody></table>'
@@ -37189,6 +37192,21 @@ function rkpCfgOpen(){
   document.body.appendChild(d);
   d._cur=0; _rkpCfgShow(d,_rkpLv());
   d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
+  // 담보명 칸을 누른 채 위아래로 끌면 줄 순서 이동(6px 넘게 움직였을 때만 — 그냥 누르면 평소처럼 글자 입력)
+  d.addEventListener('pointerdown',function(e){
+    var nm=e.target.closest&&e.target.closest('.rkc_nm'); if(!nm||e.button) return;
+    var row=nm.closest('tr'), tb=g('rkc_tb'), y0=e.clientY, drag=false;
+    var mv=function(ev){
+      if(!drag){ if(Math.abs(ev.clientY-y0)<6) return; drag=true; nm.blur(); row.classList.add('rkc_drag'); document.body.style.userSelect='none'; }
+      ev.preventDefault(); try{ window.getSelection().removeAllRanges(); }catch(_){}
+      var rows=[].filter.call(tb.children,function(r){ return r!==row; }), placed=false;
+      for(var i=0;i<rows.length;i++){ var rc=rows[i].getBoundingClientRect(); if(ev.clientY<rc.top+rc.height/2){ if(row.nextElementSibling!==rows[i]) tb.insertBefore(row,rows[i]); placed=true; break; } }
+      if(!placed&&tb.lastElementChild!==row) tb.appendChild(row);
+    };
+    var up=function(){ document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',up);
+      if(drag){ row.classList.remove('rkc_drag'); document.body.style.userSelect=''; d._down=false; } };
+    document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
+  });
   d.addEventListener('click',function(e){
     var t=e.target.closest('button'), tb=g('rkc_tb');
     if(!t){ if(e.target===d&&d._down) d.remove(); return; }
