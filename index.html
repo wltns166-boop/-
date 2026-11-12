@@ -552,6 +552,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 @media(max-width:640px){.rkp_in{padding:14px 10px}.rkp_in .rkp_head{flex-direction:column;align-items:center}.rkp_in .rkp_title h2{font-size:24px;letter-spacing:6px}.rkp_in .rkp_wm{font-size:48px}.rkp_in th,.rkp_in td{padding:7px 8px;font-size:13.5px}.rkp_in .rkp_info th,.rkp_in .rkp_info td{display:block;width:100%}.rkp_in .rkp_info tr{display:contents}}
 .abnote{font-size:13px;color:#5a6080;background:#f5f7fd;border:1px solid #e1e6f5;border-radius:8px;padding:9px 12px;margin-bottom:12px;line-height:1.6}
 .cpgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+.cpgrid.cpg2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cpgrid.cpg5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cpcs{position:absolute;left:0;top:calc(100% + 6px);z-index:50;width:320px;background:#fff;border:1px solid #cfd5ee;border-radius:9px;box-shadow:0 8px 24px rgba(20,30,80,.18);padding:10px}
+.cpcs .cpi{width:100%;box-sizing:border-box}
+#cp_cs_res{max-height:260px;overflow:auto;margin-top:6px}
+.cpcsr{padding:7px 9px;border-radius:6px;cursor:pointer;font-size:14px;color:#1f2a5c}
+.cpcsr:hover{background:#eef1fb}
+.cpcsr span{font-size:12px;color:#8890b8;margin-left:4px}
 .cprow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:10px 14px;align-items:end;padding:8px 10px;background:#f4f6fc;border:1px solid #dfe4f5;border-radius:8px}
 .cprow b{font-size:13px;color:#2a3070;padding-bottom:9px;white-space:nowrap}
 .cprow label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#4a5090;font-weight:600}
@@ -570,7 +578,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cppaid.y{background:#e6f7ec;color:#16803c;border-color:#8fd3a6}
 .cppaid.n{background:#fdecec;color:#c62828;border-color:#f0a5a5}
 .cpexp{color:#c62828;font-weight:700;font-size:12px}
-@media(max-width:768px){.cpgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.cpgrid,.cpgrid.cpg5{grid-template-columns:repeat(2,minmax(0,1fr))}.cpcs{width:min(320px,86vw)}}
 .abpt{font-size:14px;color:#3a4068}.abpt b{color:#1a8a50;font-size:16px}
 .abwrap{overflow-x:auto}
 .abdt td,.abdt th{white-space:nowrap;font-size:14px}
@@ -881,7 +889,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-3</div>
   </div>
 </div>
 
@@ -2867,10 +2875,13 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div id="cp_form" class="card" style="display:none;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px"><span style="font-weight:700;color:#2a3070" id="cp_form_t">카드납 등록</span>
           <label id="cp_cnt_wrap" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#4a5090;font-weight:600">건수<select class="cpi" id="cp_cnt" style="padding:5px 8px" onchange="_cpRowsSync()"></select></label>
-          <span style="font-size:12px;color:#7078a8">카드·결제 정보는 공통, 계약마다 보험사·증권번호만 입력</span></div>
-        <div class="cpgrid">
-          <label>이름<input class="cpi" id="cp_f_nm" list="cp_nm_list" maxlength="30" autocomplete="off" onchange="_cpNmFill()"></label>
+          <span style="position:relative"><button class="bp bnv" type="button" onclick="cpCsToggle()"><i class="ti ti-search"></i> 고객검색</button>
+            <div id="cp_cs_box" class="cpcs" style="display:none"><input class="cpi" id="cp_cs_q" placeholder="고객 이름 입력" autocomplete="off" oninput="cpCsRun()" onkeydown="if(event.key==='Escape')cpCsToggle(0)"><div id="cp_cs_res"></div></div></span></div>
+        <div class="cpgrid cpg2">
+          <label>계약자<input class="cpi" id="cp_f_nm" list="cp_nm_list" maxlength="30" autocomplete="off" onchange="_cpNmFill()"></label>
           <label>주민번호<input class="cpi" id="cp_f_rrn" maxlength="14" inputmode="numeric" oninput="this.value=_bdrFmtRrnStr(this.value)"></label>
+        </div>
+        <div class="cpgrid cpg5" style="margin-top:10px">
           <label>카드주<input class="cpi" id="cp_f_cown" maxlength="30"></label>
           <label>카드사<input class="cpi" id="cp_f_cco" list="cp_cco_list" maxlength="20" autocomplete="off"></label>
           <label>카드번호<input class="cpi" id="cp_f_cno" maxlength="23" inputmode="numeric" oninput="this.value=_cpFmtCard(this.value)"></label>
@@ -28277,7 +28288,7 @@ function cpEdit(id){
   var t=g('cp_form_t'); if(t) t.textContent='카드납 수정 — '+o.nm;
   var f=g('cp_form'); if(f){ f.style.display=''; f.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
-function cpFormClose(){ window._cpEditId=null; var f=g('cp_form'); if(f) f.style.display='none'; CP_FC.forEach(function(k){ var el=g('cp_f_'+k); if(el) el.value=''; }); var ds=g('cp_f_day'); if(ds) ds.value=''; var rw=g('cp_rows'); if(rw) rw.innerHTML=''; var cs=g('cp_cnt'); if(cs) cs.value='1'; }
+function cpFormClose(){ window._cpEditId=null; var f=g('cp_form'); if(f) f.style.display='none'; CP_FC.forEach(function(k){ var el=g('cp_f_'+k); if(el) el.value=''; }); var ds=g('cp_f_day'); if(ds) ds.value=''; var rw=g('cp_rows'); if(rw) rw.innerHTML=''; var cs=g('cp_cnt'); if(cs) cs.value='1'; var cb=g('cp_cs_box'); if(cb) cb.style.display='none'; var cr=g('cp_cs_res'); if(cr) cr.innerHTML=''; }
 // 계약 줄(보험사·증권번호)을 건수에 맞춤 — 늘리면 끝에 빈 줄, 줄이면 끝에서 뺌(값 있는 줄은 확인). 수정 모드는 1줄.
 function _cpRowsSync(pre){
   var rw=g('cp_rows'), cs=g('cp_cnt'); if(!rw) return;
@@ -28295,6 +28306,35 @@ function _cpRowsSync(pre){
     rw.appendChild(d);
   }
 }
+// [고객검색] — 내 고객(총무는 전체)과 가족을 이름으로 찾아 계약자·주민번호 채움(rCustList 가시성과 같음)
+function cpCsToggle(on){
+  var b=g('cp_cs_box'); if(!b) return;
+  if(on===undefined) on=b.style.display==='none';
+  b.style.display=on?'':'none';
+  if(on){ var q=g('cp_cs_q'); if(q){ q.value=''; q.focus(); } cpCsRun(); }
+}
+function cpCsRun(){
+  var r=g('cp_cs_res'), qi=g('cp_cs_q'); if(!r||!qi) return;
+  var q=qi.value.trim().toLowerCase();
+  var cs=Array.isArray(window._custs)?window._custs:(Array.isArray(custs)?custs:[]);
+  var chong=_isChongmu(), out=[];
+  cs.forEach(function(c){
+    if(!c||!c.name||(!chong&&c.m!==(cu&&cu.name))) return;
+    if(!q||String(c.name).toLowerCase().indexOf(q)>=0) out.push({nm:c.name,rrn:c.rrn||'',sub:(c.rrn?String(c.rrn).slice(0,6):'')+(chong&&c.m?' · '+c.m:'')});
+    (c.family||[]).forEach(function(f){ if(f&&f.name&&(!q||String(f.name).toLowerCase().indexOf(q)>=0)) out.push({nm:f.name,rrn:f.rrn||'',sub:c.name+'님 가족'}); });
+  });
+  out=out.slice(0,30);
+  r.innerHTML=out.length?out.map(function(o){
+    return '<div class="cpcsr" data-nm="'+_alertEsc(o.nm)+'" data-rrn="'+_alertEsc(o.rrn)+'" onclick="cpCsPick(this)">'+_esc(o.nm)+(o.sub?'<span>'+_esc(o.sub)+'</span>':'')+'</div>';
+  }).join(''):'<div style="padding:8px;font-size:13px;color:#98a">'+(q?'일치하는 고객이 없습니다.':'등록된 고객이 없습니다.')+'</div>';
+}
+function cpCsPick(el){
+  var n=g('cp_f_nm'), r=g('cp_f_rrn');
+  if(n) n.value=el.getAttribute('data-nm')||'';
+  var rv=el.getAttribute('data-rrn')||''; if(r) r.value=rv?_bdrFmtRrnStr(rv):'';
+  cpCsToggle(0);
+}
+document.addEventListener('mousedown',function(e){ var b=document.getElementById('cp_cs_box'); if(b&&b.style.display!=='none'&&!b.parentNode.contains(e.target)) b.style.display='none'; });
 // 이름을 고르면 고객 목록에서 주민번호 자동 채움(비어 있을 때만)
 function _cpNmFill(){
   var n=g('cp_f_nm'), r=g('cp_f_rrn'); if(!n||!r||r.value.trim()) return;
@@ -28307,7 +28347,7 @@ function cpSave(){
   v.day=_cpDayOk((g('cp_f_day')||{}).value);
   var rws=[].slice.call(document.querySelectorAll('#cp_rows .cprow')), items=rws.map(function(r){
     return {ins:String((r.querySelector('.cp_r_ins')||{}).value||'').trim().slice(0,60), pol:String((r.querySelector('.cp_r_pol')||{}).value||'').trim().slice(0,60), el:r.querySelector('.cp_r_ins')}; });
-  if(!v.nm){ toast('이름을 입력하세요.'); g('cp_f_nm').focus(); return; }
+  if(!v.nm){ toast('계약자를 입력하세요.'); g('cp_f_nm').focus(); return; }
   if(!items.length){ toast('계약 줄이 없습니다. 건수를 다시 골라 주세요.'); return; }
   for(var ii=0;ii<items.length;ii++){ if(!items[ii].ins){ toast((items.length>1?(ii+1)+'번 계약의 ':'')+'보험사를 입력하세요.'); if(items[ii].el) items[ii].el.focus(); return; } }
   if(!v.day){ toast('결제일을 고르세요.'); g('cp_f_day').focus(); return; }
