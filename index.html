@@ -564,8 +564,8 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpcsr{padding:7px 9px;border-radius:6px;cursor:pointer;font-size:14px;color:#1f2a5c}
 .cpcsr:hover{background:#eef1fb}
 .cpcsr span{font-size:12px;color:#8890b8;margin-left:4px}
-.cprow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:10px 14px;align-items:end;padding:8px 10px;background:#f4f6fc;border:1px solid #dfe4f5;border-radius:8px}
-.cprow b{font-size:13px;color:#2a3070;padding-bottom:9px;white-space:nowrap}
+.cprow{padding-top:8px;border-top:1px dashed #d5dbf0}
+.cprow b{display:block;font-size:13px;color:#2a3070;margin-bottom:4px;white-space:nowrap}
 .cprow label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#4a5090;font-weight:600}
 .cpgrid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#4a5090;font-weight:600}
 .cpi{padding:8px 10px;border:1px solid #cfd5ee;border-radius:7px;font-size:15px;color:#111;background:#fff;font-family:inherit}
@@ -893,7 +893,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-6</div>
   </div>
 </div>
 
@@ -28122,10 +28122,10 @@ function _jvLoad(force){
 function _jvYms(kind){ var o=window._jvMonths||{}; return Object.keys(o).filter(function(ym){ return o[ym][kind]&&o[ym][kind].length; }).sort(); }
 // ===== 카드납관리 (cardpay, 2026-11-11 — 박지순 요청) =====
 // 저장: Firestore 컬렉션 cardpay/{id}(1건=문서, tops/data 미사용 — 3.12) · localStorage 없음(카드번호 기기 잔존 방지 — inscode 계열).
-// 문서 {id, ok(등록자 키 _rsvKey), m(등록자 이름), nm,rrn,ins,pol,cown,crrn(카드주 주민번호),cco,cno,exp,day, paid:{'YYYY-MM':{ts,by}}, ts, by, ut}
+// 문서 {id, ok(등록자 키 _rsvKey), m(등록자 이름), nm,rrn,ins,pol,prod(상품명),cown,crrn(카드주 주민번호),cco,cno,exp,day, paid:{'YYYY-MM':{ts,by}}, ts, by, ut}
 // 보기: 본인 등록분만, 총무는 전체(3장 고객 데이터 규칙). 결제완료는 달마다 따로(paid[ym]) — 달이 바뀌면 새 달은 미완료로 시작.
 var CP_COL='cardpay';
-var CP_F=['nm','rrn','ins','pol','cown','crrn','cco','cno','exp'];
+var CP_F=['nm','rrn','ins','pol','prod','cown','crrn','cco','cno','exp'];
 var CP_FC=['nm','rrn','cown','crrn','cco','cno','exp'];   // 등록 창 공통 칸(보험사·증권번호는 계약 줄 #cp_rows)
 var CP_MAXN=10;
 function _cpDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
@@ -28232,7 +28232,7 @@ function _cpDraw(){
         +'<td><span class="cpnm" onclick="'+ocNm+'" title="고객정보 새 창">'+esc(o.nm||'-')+'</span></td>'
         +'<td style="white-space:nowrap">'+esc(o.rrn||'-')+'</td>'
         +'<td>'+esc(o.ins||'-')+'</td>'
-        +'<td>'+cp(o.pol,'증권번호')+'</td>'
+        +'<td>'+cp(o.pol,'증권번호')+(o.prod?'<div style="font-size:12px;color:#7078a8">'+esc(o.prod)+'</div>':'')+'</td>'
         +'<td>'+cp(o.cown,'카드주')+(o.crrn?'<div style="font-size:12px;color:#7078a8;white-space:nowrap">'+esc(o.crrn)+'</div>':'')+'</td>'
         +'<td>'+esc(o.cco||'-')+'</td>'
         +'<td style="white-space:nowrap">'+cp(o.cno,'카드번호')+'</td>'
@@ -28273,7 +28273,7 @@ function _cpFormFill(o){
   var sm=g('cp_same'); if(sm) sm.checked=!!(o.nm&&o.cown===o.nm&&(o.crrn||'')===(o.rrn||''));
   var cs=g('cp_cnt'); if(cs){ if(!cs.options.length){ var hc=''; for(var j=1;j<=CP_MAXN;j++) hc+='<option value="'+j+'">'+j+'건</option>'; cs.innerHTML=hc; } cs.value='1'; }
   var rw=g('cp_rows'); if(rw) rw.innerHTML='';
-  _cpRowsSync([{ins:o.ins||'',pol:o.pol||''}]);
+  _cpRowsSync([{ins:o.ins||'',pol:o.pol||'',prod:o.prod||''}]);
   var cw=g('cp_cnt_wrap'); if(cw) cw.style.display=window._cpEditId?'none':'';
   var ds=g('cp_f_day');
   if(ds){ if(!ds.options.length){ var h='<option value="">선택</option>'; for(var i=1;i<=31;i++) h+='<option value="'+i+'">'+i+'일</option>'; ds.innerHTML=h; } ds.value=o.day?String(o.day):''; }
@@ -28312,8 +28312,9 @@ function _cpRowsSync(pre){
   }
   for(var i=rw.querySelectorAll('.cprow').length;i<n;i++){
     var p=(pre&&pre[i])||{}, d=document.createElement('div'); d.className='cprow';
-    d.innerHTML='<b>'+(i+1)+'번 계약</b><label>보험사<input class="cpi cp_r_ins" list="cp_ins_list" maxlength="30" autocomplete="off" value="'+_alertEsc(p.ins||'')+'"></label>'
-      +'<label>증권번호<input class="cpi cp_r_pol" maxlength="40" value="'+_alertEsc(p.pol||'')+'"></label>';
+    d.innerHTML='<b>'+(i+1)+'번 계약</b><div class="cpgrid cpg5"><label>보험사<input class="cpi cp_r_ins" list="cp_ins_list" maxlength="30" autocomplete="off" value="'+_alertEsc(p.ins||'')+'"></label>'
+      +'<label>증권번호<input class="cpi cp_r_pol" maxlength="40" value="'+_alertEsc(p.pol||'')+'"></label>'
+      +'<label>상품명<input class="cpi cp_r_prod" maxlength="60" value="'+_alertEsc(p.prod||'')+'"></label></div>';
     rw.appendChild(d);
   }
 }
@@ -28372,7 +28373,7 @@ function cpSave(){
   var v={}; CP_FC.forEach(function(k){ var el=g('cp_f_'+k); v[k]=el?String(el.value||'').trim().slice(0,60):''; });
   v.day=_cpDayOk((g('cp_f_day')||{}).value);
   var rws=[].slice.call(document.querySelectorAll('#cp_rows .cprow')), items=rws.map(function(r){
-    return {ins:String((r.querySelector('.cp_r_ins')||{}).value||'').trim().slice(0,60), pol:String((r.querySelector('.cp_r_pol')||{}).value||'').trim().slice(0,60), el:r.querySelector('.cp_r_ins')}; });
+    return {ins:String((r.querySelector('.cp_r_ins')||{}).value||'').trim().slice(0,60), pol:String((r.querySelector('.cp_r_pol')||{}).value||'').trim().slice(0,60), prod:String((r.querySelector('.cp_r_prod')||{}).value||'').trim().slice(0,60), el:r.querySelector('.cp_r_ins')}; });
   if(!v.nm){ toast('계약자를 입력하세요.'); g('cp_f_nm').focus(); return; }
   if(!items.length){ toast('계약 줄이 없습니다. 건수를 다시 골라 주세요.'); return; }
   for(var ii=0;ii<items.length;ii++){ if(!items[ii].ins){ toast((items.length>1?(ii+1)+'번 계약의 ':'')+'보험사를 입력하세요.'); if(items[ii].el) items[ii].el.focus(); return; } }
@@ -28384,14 +28385,14 @@ function cpSave(){
   if(eid){
     var o=_cpFind(eid);
     if(!o){ done(); toast('그 사이 삭제된 건입니다.'); cpFormClose(); return; }
-    v.ins=items[0].ins; v.pol=items[0].pol; v.ut=Date.now(); v.eby=cu.name||'';
+    v.ins=items[0].ins; v.pol=items[0].pol; v.prod=items[0].prod; v.ut=Date.now(); v.eby=cu.name||'';
     p=db.collection(CP_COL).doc(eid).update(v);
   } else {
     // 계약 1건 = 문서 1개(달마다 결제완료·알림·보험사별 묶음이 계약 단위) — 공통 칸은 각 문서에 복사, 한 번에 batch 저장
     var bt=db.batch(), now=Date.now();
     items.forEach(function(it,k){
       var id='cp'+now.toString(36)+k+Math.random().toString(36).slice(2,7), d={};
-      CP_FC.forEach(function(f){ d[f]=v[f]; }); d.day=v.day; d.ins=it.ins; d.pol=it.pol;
+      CP_FC.forEach(function(f){ d[f]=v[f]; }); d.day=v.day; d.ins=it.ins; d.pol=it.pol; d.prod=it.prod;
       d.id=id; d.ok=_cpMyKey(); d.m=cu.name||''; d.ts=now; d.by=cu.name||''; d.paid={};
       bt.set(db.collection(CP_COL).doc(id), d);
     });
