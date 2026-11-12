@@ -545,9 +545,11 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #rkp_setbtn,#rkp_lv{width:82px;height:35px;box-sizing:border-box;justify-content:center;padding-left:6px;padding-right:6px}
 .rkp_lvsel{appearance:none;-webkit-appearance:none;cursor:pointer;text-align:center;text-align-last:center;font-family:inherit}
 .rkp_lvsel option{background:#fff;color:#1f2a5c}
-#rkp_cfg_pop .rkc_lv{width:17px;height:17px;cursor:pointer}
+#rkp_cfg_pop .rkc_tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;border-bottom:2px solid #1f2a5c;padding-bottom:0}
+#rkp_cfg_pop .rkc_tab{border:1px solid #cfd5ee;border-bottom:none;background:#f1f3fa;color:#1f2a5c;font-weight:700;font-size:14px;padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-family:inherit}
+#rkp_cfg_pop .rkc_tab.on{background:#1f2a5c;border-color:#1f2a5c;color:#fff}
 #rkp_cfg_pop{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
-#rkp_cfg_pop .rkc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(940px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#rkp_cfg_pop .rkc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(820px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #rkp_cfg_pop .rkc_body{overflow:auto;padding:12px 18px}
 #rkp_cfg_pop table{width:100%;border-collapse:collapse}#rkp_cfg_pop th,#rkp_cfg_pop td{border-bottom:1px solid #e3e8f0;padding:5px 4px;font-size:13px;color:#1c2631;text-align:center}
 #rkp_cfg_pop input[type=text],#rkp_cfg_pop input[type=number]{width:100%;padding:5px 6px;border:1px solid #cfd5ee;border-radius:6px;font:inherit;font-size:13px;color:#111;background:#fff}
@@ -911,7 +913,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-10</div>
   </div>
 </div>
 
@@ -37095,13 +37097,18 @@ function _rkpCovClean(arr){
   });
   return out.length?out:null;
 }
-function _rkpCov(){ return window._rkpCfgCov||RKP_DEF_COV; }
+// 레벨별 특약 목록 — 레벨마다 따로(Firestore edu_cfg/rkpol.lv = {'1':[…],…,'5':[…]}). 옛 저장본(items+lv 문자열)은 레벨별로 나눠 읽음.
+function _rkpSplit(items){ var o={}; for(var L=1;L<=5;L++){ o[L]=(items||[]).filter(function(x){ return (x.lv==null?'12345':String(x.lv)).indexOf(String(L))>=0; }).map(function(x){ return {nm:x.nm,mn:x.mn,mx:x.mx,st:x.st,opt:x.opt}; }); } return o; }
+function _rkpLvCov(L){ var c=window._rkpCfgLv; if(c&&c[L]&&c[L].length) return c[L]; return _rkpSplit(RKP_DEF_COV)[L]; }
 function _rkpLv(){ var v=parseInt(window._rkpLvSel,10); return v>=1&&v<=5?v:1; }
 function rkpLvSet(v){ window._rkpLvSel=parseInt(v,10)||1; rkpGen(); }
 function _rkpCfgLoad(){
   var db=window.db; if(!db) return Promise.resolve();
   return db.collection('edu_cfg').doc('rkpol').get().then(function(d){
-    var v=d.exists?_rkpCovClean((d.data()||{}).items):null; window._rkpCfgCov=v;
+    var dt=d.exists?(d.data()||{}):{}, o=null;
+    if(dt.lv&&typeof dt.lv==='object'){ o={}; for(var L=1;L<=5;L++){ o[L]=_rkpCovClean(dt.lv[L]||dt.lv[String(L)])||[]; } }
+    else { var it=_rkpCovClean(dt.items); if(it) o=_rkpSplit(it); }
+    window._rkpCfgLv=o;
   }).catch(function(e){ console.warn('rkp cfg',e); });
 }
 function _rkpMake(){
@@ -37110,7 +37117,7 @@ function _rkpMake(){
   var from=new Date(2008,6,1).getTime(), to=new Date(); to.setFullYear(to.getFullYear()-2);
   var c=new Date(_rkpRi(from,to.getTime())); c.setHours(0,0,0,0);
   var L=String(_rkpLv());
-  var cov=_rkpCov().filter(function(x){ return (x.lv==null?'12345':x.lv).indexOf(L)>=0; }).map(function(x){
+  var cov=_rkpLvCov(+L).map(function(x){
     var amt=(x.opt&&Math.random()<0.3)?0:_rkpStep(x.mn,x.mx,x.st);
     if(!amt&&!x.opt) amt=x.mn;
     return [x.nm, amt*M];
@@ -37146,55 +37153,71 @@ function rRkPol(){
 }
 // 설정 창 — 보장내용 담보 목록(관리자). 줄은 화면 순서 그대로 저장(인덱스로 원본을 찾지 않음 — 함정 A 무관).
 function _rkpCfgRow(c){
-  c=c||{nm:'',mn:100,mx:1000,st:100,opt:1,lv:'12345'};
-  var lv=(c.lv==null)?'12345':String(c.lv), lvh='';
-  for(var L=1;L<=5;L++) lvh+='<td><input type="checkbox" class="rkc_lv" data-lv="'+L+'"'+(lv.indexOf(String(L))>=0?' checked':'')+'></td>';
+  c=c||{nm:'',mn:100,mx:1000,st:100,opt:1};
   return '<tr class="rkc_row"><td style="white-space:nowrap"><button class="rkc_mv" data-mv="-1">▲</button> <button class="rkc_mv" data-mv="1">▼</button></td>'
    +'<td><input type="text" class="rkc_nm" maxlength="30" value="'+_alertEsc(c.nm)+'" placeholder="담보명"></td>'
    +'<td><input type="number" class="rkc_mn" min="1" value="'+c.mn+'"></td><td><input type="number" class="rkc_mx" min="1" value="'+c.mx+'"></td>'
    +'<td><input type="number" class="rkc_st" min="1" value="'+c.st+'"></td>'
-   +'<td><input type="checkbox" class="rkc_opt"'+(c.opt?' checked':'')+'></td>'+lvh
+   +'<td><input type="checkbox" class="rkc_opt"'+(c.opt?' checked':'')+'></td>'
    +'<td><button class="bd bdr" style="padding:3px 9px;font-size:12px" data-del="1">삭제</button></td></tr>';
+}
+function _rkpCfgCollect(){ return [].map.call(document.querySelectorAll('#rkc_tb .rkc_row'),function(tr){ var q=function(c){ return tr.querySelector(c); };
+  return {nm:q('.rkc_nm').value,mn:q('.rkc_mn').value,mx:q('.rkc_mx').value,st:q('.rkc_st').value,opt:q('.rkc_opt').checked?1:0}; }); }
+function _rkpCfgShow(d,L){
+  if(d._cur) d._draft[d._cur]=_rkpCfgCollect();
+  d._cur=L;
+  [].forEach.call(d.querySelectorAll('[data-lvtab]'),function(b){ var on=+b.getAttribute('data-lvtab')===L; b.classList.toggle('on',on); b.textContent='레벨 '+b.getAttribute('data-lvtab')+' ('+(d._draft[+b.getAttribute('data-lvtab')]||[]).length+')'; });
+  g('rkc_tb').innerHTML=(d._draft[L]||[]).map(_rkpCfgRow).join('');
+  var cp=d.querySelector('[data-copy]'); if(cp){ cp.style.display=L>1?'':'none'; cp.innerHTML='<i class="ti ti-copy"></i> 레벨 '+(L-1)+' 목록 가져오기'; }
+  var h=g('rkc_lvh'); if(h) h.textContent='레벨 '+L+' 증권에 나오는 특약';
 }
 function rkpCfgOpen(){
   if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
   var old=g('rkp_cfg_pop'); if(old) old.remove();
   var d=document.createElement('div'); d.id='rkp_cfg_pop';
+  d._draft={}; for(var L=1;L<=5;L++) d._draft[L]=_rkpLvCov(L).map(function(x){ return Object.assign({},x); });
+  var tabs=''; for(var k=1;k<=5;k++) tabs+='<button class="rkc_tab" data-lvtab="'+k+'">레벨 '+k+'</button>';
   d.innerHTML='<div class="rkc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
    +'<b style="font-size:16px;color:#1f2a5c">보장내용 특약 설정</b><button class="rkc_mv" data-close="1" style="font-size:16px">✕</button></div>'
-   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">금액은 <b>만원</b> 단위입니다. 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. <b>레벨 1~5</b> 칸에 체크한 레벨의 증권에만 그 특약이 나옵니다. 저장하면 모든 사람의 화면에 같이 적용됩니다.</div>'
-   +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:90px">최소(만원)</th><th style="width:90px">최대(만원)</th><th style="width:80px">단위(만원)</th><th style="width:64px">미가입 가능</th><th style="width:42px">레벨1</th><th style="width:42px">레벨2</th><th style="width:42px">레벨3</th><th style="width:42px">레벨4</th><th style="width:42px">레벨5</th><th style="width:60px"></th></tr>'
-   +'<tbody id="rkc_tb">'+_rkpCov().map(_rkpCfgRow).join('')+'</tbody></table>'
-   +'<button class="bp bnv" style="margin-top:10px" data-add="1"><i class="ti ti-plus"></i> 특약 추가</button></div>'
+   +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">레벨마다 따로 설정합니다. 금액은 <b>만원</b> 단위이고, 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. 저장하면 다섯 레벨이 한꺼번에 저장되고 모든 사람의 화면에 같이 적용됩니다.</div>'
+   +'<div class="rkc_tabs">'+tabs+'</div><div id="rkc_lvh" style="font-weight:700;color:#1f2a5c;margin:4px 0 6px"></div>'
+   +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:100px">최소(만원)</th><th style="width:100px">최대(만원)</th><th style="width:90px">단위(만원)</th><th style="width:70px">미가입 가능</th><th style="width:60px"></th></tr>'
+   +'<tbody id="rkc_tb"></tbody></table>'
+   +'<div style="display:flex;gap:8px;margin-top:10px"><button class="bp bnv" data-add="1"><i class="ti ti-plus"></i> 특약 추가</button><button class="bp bnv" data-copy="1"></button></div></div>'
    +'<div style="display:flex;gap:8px;justify-content:space-between;padding:12px 18px;border-top:1px solid #e3e8f0">'
-   +'<button class="bp bnv" data-reset="1">기본값으로</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="rkc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
+   +'<button class="bp bnv" data-reset="1">이 레벨 기본값으로</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="rkc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
   document.body.appendChild(d);
+  d._cur=0; _rkpCfgShow(d,_rkpLv());
   d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
   d.addEventListener('click',function(e){
     var t=e.target.closest('button'), tb=g('rkc_tb');
     if(!t){ if(e.target===d&&d._down) d.remove(); return; }
     if(t.getAttribute('data-close')) d.remove();
+    else if(t.getAttribute('data-lvtab')) _rkpCfgShow(d,+t.getAttribute('data-lvtab'));
     else if(t.getAttribute('data-add')){ if(tb.children.length>=RKP_MAXN){ toast('최대 '+RKP_MAXN+'개까지입니다.'); return; } tb.insertAdjacentHTML('beforeend',_rkpCfgRow()); tb.lastElementChild.querySelector('.rkc_nm').focus(); }
     else if(t.getAttribute('data-del')){ t.closest('tr').remove(); }
     else if(t.getAttribute('data-mv')){ var tr=t.closest('tr'), up=t.getAttribute('data-mv')==='-1';
       if(up&&tr.previousElementSibling) tb.insertBefore(tr,tr.previousElementSibling); else if(!up&&tr.nextElementSibling) tb.insertBefore(tr.nextElementSibling,tr); }
-    else if(t.getAttribute('data-reset')){ if(confirm('기본 특약 11개로 되돌릴까요? ([저장]해야 반영됩니다)')) tb.innerHTML=RKP_DEF_COV.map(_rkpCfgRow).join(''); }
+    else if(t.getAttribute('data-copy')){ var P=d._cur-1; if(P<1) return; if(tb.children.length&&!confirm('레벨 '+d._cur+' 목록을 레벨 '+P+' 목록으로 바꿀까요? ([저장]해야 반영됩니다)')) return;
+      tb.innerHTML=(d._draft[P]||[]).map(_rkpCfgRow).join(''); }
+    else if(t.getAttribute('data-reset')){ if(confirm('레벨 '+d._cur+'의 특약을 기본값으로 되돌릴까요? ([저장]해야 반영됩니다)')) tb.innerHTML=_rkpSplit(RKP_DEF_COV)[d._cur].map(_rkpCfgRow).join(''); }
     else if(t.getAttribute('data-save')) _rkpCfgSave(d);
   });
 }
 function _rkpCfgSave(d){
   if(!_isAdmin()) return;
-  var raw=[].map.call(d.querySelectorAll('#rkc_tb .rkc_row'),function(tr){ var q=function(c){ return tr.querySelector(c); };
-    return {nm:q('.rkc_nm').value,mn:q('.rkc_mn').value,mx:q('.rkc_mx').value,st:q('.rkc_st').value,opt:q('.rkc_opt').checked,
-      lv:[].filter.call(tr.querySelectorAll('.rkc_lv'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-lv'); }).join('')}; });
-  if(raw.some(function(r){ return !String(r.nm).trim(); })){ toast('담보명이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
-  var items=_rkpCovClean(raw); if(!items){ toast('특약을 1개 이상 넣어 주세요.'); return; }
-  var emptyLv=[1,2,3,4,5].filter(function(L){ return !items.some(function(x){ return x.lv.indexOf(String(L))>=0; }); });
-  if(emptyLv.length){ toast('레벨 '+emptyLv.join(', ')+'에 나오는 특약이 없습니다. 특약을 1개 이상 체크해 주세요.'); return; }
+  d._draft[d._cur]=_rkpCfgCollect();
+  var out={};
+  for(var L=1;L<=5;L++){
+    var raw=d._draft[L]||[];
+    if(raw.some(function(r){ return !String(r.nm).trim(); })){ _rkpCfgShow(d,L); toast('레벨 '+L+'에 담보명이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
+    var it=_rkpCovClean(raw); if(!it){ _rkpCfgShow(d,L); toast('레벨 '+L+'에 특약을 1개 이상 넣어 주세요.'); return; }
+    out[String(L)]=it.map(function(x){ return {nm:x.nm,mn:x.mn,mx:x.mx,st:x.st,opt:x.opt}; });
+  }
   var db=window.db; if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('rkc_save'); if(btn) btn.disabled=true;
-  db.collection('edu_cfg').doc('rkpol').set({items:items,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
-    window._rkpCfgCov=items; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
+  db.collection('edu_cfg').doc('rkpol').set({lv:out,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+    var o={}; for(var L=1;L<=5;L++) o[L]=out[String(L)]; window._rkpCfgLv=o; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('rkp cfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
 function rEduPrep(){
