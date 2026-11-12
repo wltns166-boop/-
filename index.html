@@ -554,6 +554,10 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
 .cpgrid.cpg2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpgrid.cpg5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cpcsw{position:relative;display:inline-block}
+.cpsamew{grid-column:span 2;display:flex;align-items:flex-end;gap:14px;padding-bottom:2px}
+.cpgrid label.cpsame{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:#1f2a5c;cursor:pointer;padding-bottom:8px}
+.cpsame input{width:17px;height:17px;cursor:pointer}
 .cpcs{position:absolute;left:0;top:calc(100% + 6px);z-index:50;width:320px;background:#fff;border:1px solid #cfd5ee;border-radius:9px;box-shadow:0 8px 24px rgba(20,30,80,.18);padding:10px}
 .cpcs .cpi{width:100%;box-sizing:border-box}
 #cp_cs_res{max-height:260px;overflow:auto;margin-top:6px}
@@ -578,7 +582,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cppaid.y{background:#e6f7ec;color:#16803c;border-color:#8fd3a6}
 .cppaid.n{background:#fdecec;color:#c62828;border-color:#f0a5a5}
 .cpexp{color:#c62828;font-weight:700;font-size:12px}
-@media(max-width:768px){.cpgrid,.cpgrid.cpg5{grid-template-columns:repeat(2,minmax(0,1fr))}.cpcs{width:min(320px,86vw)}}
+@media(max-width:768px){.cpgrid,.cpgrid.cpg5{grid-template-columns:repeat(2,minmax(0,1fr))}.cpsamew{flex-wrap:wrap}.cpcs{width:min(320px,86vw)}}
 .abpt{font-size:14px;color:#3a4068}.abpt b{color:#1a8a50;font-size:16px}
 .abwrap{overflow-x:auto}
 .abdt td,.abdt th{white-space:nowrap;font-size:14px}
@@ -889,7 +893,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-4</div>
   </div>
 </div>
 
@@ -2875,14 +2879,19 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div id="cp_form" class="card" style="display:none;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px"><span style="font-weight:700;color:#2a3070" id="cp_form_t">카드납 등록</span>
           <label id="cp_cnt_wrap" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#4a5090;font-weight:600">건수<select class="cpi" id="cp_cnt" style="padding:5px 8px" onchange="_cpRowsSync()"></select></label>
-          <span style="position:relative"><button class="bp bnv" type="button" onclick="cpCsToggle()"><i class="ti ti-search"></i> 고객검색</button>
+          <span class="cpcsw"><button class="bp bnv" type="button" onclick="cpCsToggle(this,'ct')"><i class="ti ti-search"></i> 고객검색</button>
             <div id="cp_cs_box" class="cpcs" style="display:none"><input class="cpi" id="cp_cs_q" placeholder="고객 이름 입력" autocomplete="off" oninput="cpCsRun()" onkeydown="if(event.key==='Escape')cpCsToggle(0)"><div id="cp_cs_res"></div></div></span></div>
-        <div class="cpgrid cpg2">
-          <label>계약자<input class="cpi" id="cp_f_nm" list="cp_nm_list" maxlength="30" autocomplete="off" onchange="_cpNmFill()"></label>
-          <label>주민번호<input class="cpi" id="cp_f_rrn" maxlength="14" inputmode="numeric" oninput="this.value=_bdrFmtRrnStr(this.value)"></label>
+        <div class="cpgrid cpg5">
+          <label>계약자<input class="cpi" id="cp_f_nm" list="cp_nm_list" maxlength="30" autocomplete="off" onchange="_cpNmFill();_cpSameSync()" oninput="_cpSameSync()"></label>
+          <label>주민번호<input class="cpi" id="cp_f_rrn" maxlength="14" inputmode="numeric" oninput="this.value=_bdrFmtRrnStr(this.value);_cpSameSync()"></label>
         </div>
         <div class="cpgrid cpg5" style="margin-top:10px">
-          <label>카드주<input class="cpi" id="cp_f_cown" maxlength="30"></label>
+          <label>카드주<input class="cpi" id="cp_f_cown" maxlength="30" oninput="_cpSameOff()"></label>
+          <label>주민번호<input class="cpi" id="cp_f_crrn" maxlength="14" inputmode="numeric" oninput="this.value=_bdrFmtRrnStr(this.value);_cpSameOff()"></label>
+          <div class="cpsamew"><span class="cpcsw"><button class="bp bnv" type="button" onclick="cpCsToggle(this,'co')"><i class="ti ti-search"></i> 고객검색</button></span>
+            <label class="cpsame"><input type="checkbox" id="cp_same" onchange="_cpSameSync(1)"> 계약자와 동일</label></div>
+        </div>
+        <div class="cpgrid cpg5" style="margin-top:10px">
           <label>카드사<input class="cpi" id="cp_f_cco" list="cp_cco_list" maxlength="20" autocomplete="off"></label>
           <label>카드번호<input class="cpi" id="cp_f_cno" maxlength="23" inputmode="numeric" oninput="this.value=_cpFmtCard(this.value)"></label>
           <label>유효기간<input class="cpi" id="cp_f_exp" maxlength="5" inputmode="numeric" placeholder="MM/YY" oninput="this.value=_cpFmtExp(this.value)"></label>
@@ -28112,11 +28121,11 @@ function _jvLoad(force){
 function _jvYms(kind){ var o=window._jvMonths||{}; return Object.keys(o).filter(function(ym){ return o[ym][kind]&&o[ym][kind].length; }).sort(); }
 // ===== 카드납관리 (cardpay, 2026-11-11 — 박지순 요청) =====
 // 저장: Firestore 컬렉션 cardpay/{id}(1건=문서, tops/data 미사용 — 3.12) · localStorage 없음(카드번호 기기 잔존 방지 — inscode 계열).
-// 문서 {id, ok(등록자 키 _rsvKey), m(등록자 이름), nm,rrn,ins,pol,cown,cco,cno,exp,day, paid:{'YYYY-MM':{ts,by}}, ts, by, ut}
+// 문서 {id, ok(등록자 키 _rsvKey), m(등록자 이름), nm,rrn,ins,pol,cown,crrn(카드주 주민번호),cco,cno,exp,day, paid:{'YYYY-MM':{ts,by}}, ts, by, ut}
 // 보기: 본인 등록분만, 총무는 전체(3장 고객 데이터 규칙). 결제완료는 달마다 따로(paid[ym]) — 달이 바뀌면 새 달은 미완료로 시작.
 var CP_COL='cardpay';
-var CP_F=['nm','rrn','ins','pol','cown','cco','cno','exp'];
-var CP_FC=['nm','rrn','cown','cco','cno','exp'];   // 등록 창 공통 칸(보험사·증권번호는 계약 줄 #cp_rows)
+var CP_F=['nm','rrn','ins','pol','cown','crrn','cco','cno','exp'];
+var CP_FC=['nm','rrn','cown','crrn','cco','cno','exp'];   // 등록 창 공통 칸(보험사·증권번호는 계약 줄 #cp_rows)
 var CP_MAXN=10;
 function _cpDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
 function _cpYmNow(){ return td().slice(0,7); }
@@ -28223,7 +28232,7 @@ function _cpDraw(){
         +'<td style="white-space:nowrap">'+esc(o.rrn||'-')+'</td>'
         +'<td>'+esc(o.ins||'-')+'</td>'
         +'<td>'+cp(o.pol,'증권번호')+'</td>'
-        +'<td>'+cp(o.cown,'카드주')+'</td>'
+        +'<td>'+cp(o.cown,'카드주')+(o.crrn?'<div style="font-size:12px;color:#7078a8;white-space:nowrap">'+esc(o.crrn)+'</div>':'')+'</td>'
         +'<td>'+esc(o.cco||'-')+'</td>'
         +'<td style="white-space:nowrap">'+cp(o.cno,'카드번호')+'</td>'
         +'<td style="white-space:nowrap">'+esc(o.exp||'-')+(ex?' <span class="cpexp">만료</span>':'')+'</td>'
@@ -28260,6 +28269,7 @@ function cpDel(id){
 function _cpFormFill(o){
   o=o||{};
   CP_FC.forEach(function(k){ var el=g('cp_f_'+k); if(el) el.value=o[k]||''; });
+  var sm=g('cp_same'); if(sm) sm.checked=!!(o.nm&&o.cown===o.nm&&(o.crrn||'')===(o.rrn||''));
   var cs=g('cp_cnt'); if(cs){ if(!cs.options.length){ var hc=''; for(var j=1;j<=CP_MAXN;j++) hc+='<option value="'+j+'">'+j+'건</option>'; cs.innerHTML=hc; } cs.value='1'; }
   var rw=g('cp_rows'); if(rw) rw.innerHTML='';
   _cpRowsSync([{ins:o.ins||'',pol:o.pol||''}]);
@@ -28288,7 +28298,7 @@ function cpEdit(id){
   var t=g('cp_form_t'); if(t) t.textContent='카드납 수정 — '+o.nm;
   var f=g('cp_form'); if(f){ f.style.display=''; f.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
-function cpFormClose(){ window._cpEditId=null; var f=g('cp_form'); if(f) f.style.display='none'; CP_FC.forEach(function(k){ var el=g('cp_f_'+k); if(el) el.value=''; }); var ds=g('cp_f_day'); if(ds) ds.value=''; var rw=g('cp_rows'); if(rw) rw.innerHTML=''; var cs=g('cp_cnt'); if(cs) cs.value='1'; var cb=g('cp_cs_box'); if(cb) cb.style.display='none'; var cr=g('cp_cs_res'); if(cr) cr.innerHTML=''; }
+function cpFormClose(){ window._cpEditId=null; var f=g('cp_form'); if(f) f.style.display='none'; CP_FC.forEach(function(k){ var el=g('cp_f_'+k); if(el) el.value=''; }); var ds=g('cp_f_day'); if(ds) ds.value=''; var rw=g('cp_rows'); if(rw) rw.innerHTML=''; var cs=g('cp_cnt'); if(cs) cs.value='1'; var cb=g('cp_cs_box'); if(cb) cb.style.display='none'; var sm=g('cp_same'); if(sm) sm.checked=false; var cr=g('cp_cs_res'); if(cr) cr.innerHTML=''; }
 // 계약 줄(보험사·증권번호)을 건수에 맞춤 — 늘리면 끝에 빈 줄, 줄이면 끝에서 뺌(값 있는 줄은 확인). 수정 모드는 1줄.
 function _cpRowsSync(pre){
   var rw=g('cp_rows'), cs=g('cp_cnt'); if(!rw) return;
@@ -28307,9 +28317,14 @@ function _cpRowsSync(pre){
   }
 }
 // [고객검색] — 내 고객(총무는 전체)과 가족을 이름으로 찾아 계약자·주민번호 채움(rCustList 가시성과 같음)
-function cpCsToggle(on){
+function cpCsToggle(btn,tgt){
   var b=g('cp_cs_box'); if(!b) return;
-  if(on===undefined) on=b.style.display==='none';
+  var on;
+  if(btn&&btn.parentNode){
+    on=!(b.style.display!=='none'&&b.parentNode===btn.parentNode);   // 같은 버튼 다시 누르면 닫힘
+    if(b.parentNode!==btn.parentNode) btn.parentNode.appendChild(b);
+    window._cpCsTgt=(tgt==='co')?'co':'ct';
+  } else on=!!btn;
   b.style.display=on?'':'none';
   if(on){ var q=g('cp_cs_q'); if(q){ q.value=''; q.focus(); } cpCsRun(); }
 }
@@ -28329,11 +28344,21 @@ function cpCsRun(){
   }).join(''):'<div style="padding:8px;font-size:13px;color:#98a">'+(q?'일치하는 고객이 없습니다.':'등록된 고객이 없습니다.')+'</div>';
 }
 function cpCsPick(el){
-  var n=g('cp_f_nm'), r=g('cp_f_rrn');
+  var co=window._cpCsTgt==='co';
+  var n=g(co?'cp_f_cown':'cp_f_nm'), r=g(co?'cp_f_crrn':'cp_f_rrn');
   if(n) n.value=el.getAttribute('data-nm')||'';
   var rv=el.getAttribute('data-rrn')||''; if(r) r.value=rv?_bdrFmtRrnStr(rv):'';
+  if(co) _cpSameOff(); else _cpSameSync();
   cpCsToggle(0);
 }
+// [계약자와 동일] — 체크하면 카드주·주민번호가 계약자 칸을 따라감(체크 중 계약자를 고치면 같이 바뀜)
+function _cpSameSync(force){
+  var sm=g('cp_same'); if(!sm||!sm.checked) return;
+  var a=g('cp_f_nm'), b=g('cp_f_rrn'), c=g('cp_f_cown'), d=g('cp_f_crrn');
+  if(c&&a) c.value=a.value; if(d&&b) d.value=b.value;
+}
+function _cpSameOff(){ var sm=g('cp_same'), a=g('cp_f_nm'), b=g('cp_f_rrn'), c=g('cp_f_cown'), d=g('cp_f_crrn');
+  if(sm&&sm.checked&&!(a&&c&&a.value===c.value&&b&&d&&b.value===d.value)) sm.checked=false; }
 document.addEventListener('mousedown',function(e){ var b=document.getElementById('cp_cs_box'); if(b&&b.style.display!=='none'&&!b.parentNode.contains(e.target)) b.style.display='none'; });
 // 이름을 고르면 고객 목록에서 주민번호 자동 채움(비어 있을 때만)
 function _cpNmFill(){
