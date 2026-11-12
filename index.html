@@ -546,6 +546,14 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .rkp_lvsel{appearance:none;-webkit-appearance:none;cursor:pointer;text-align:center;text-align-last:center;font-family:inherit}
 .rkp_lvsel option{background:#fff;color:#1f2a5c}
 #rkp_cfg_pop .rkc_nm{cursor:grab}
+#rkp_cfg_pop .rkc_tablay{margin-left:auto}
+#rkc_lay{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#rkc_lay .rkc_chip{display:flex;align-items:center;gap:8px;border:1px solid #c8d1db;background:#eaf1f8;border-radius:8px;padding:10px 12px;cursor:grab;touch-action:none;user-select:none}
+#rkc_lay .rkc_chip b{flex:1;color:#1c2631;font-size:14px}
+#rkc_lay .rkc_chip label{font-size:12.5px;color:#4a5090;display:flex;align-items:center;gap:4px;cursor:pointer}
+#rkc_lay .rkc_grip{color:#8a93b8;font-size:13px}
+#rkc_lay .rkc_chip.off{background:#f4f4f6;opacity:.6}
+#rkc_lay .rkc_chip.drag{border-color:#1f2a5c;background:#dfe6fb;box-shadow:0 4px 12px rgba(20,30,80,.2);cursor:grabbing}
 #rkp_cfg_pop tr.rkc_drag td{background:#e7ecfb}
 #rkp_cfg_pop tr.rkc_drag .rkc_nm{cursor:grabbing;border-color:#1f2a5c}
 #rkp_cfg_pop .rkc_tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;border-bottom:2px solid #1f2a5c;padding-bottom:0}
@@ -916,7 +924,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-12</div>
   </div>
 </div>
 
@@ -37105,6 +37113,16 @@ function _rkpSplit(items){ var o={}; for(var L=1;L<=5;L++){ o[L]=(items||[]).fil
 function _rkpLvCov(L){ var c=window._rkpCfgLv; if(c&&c[L]&&c[L].length) return c[L]; return _rkpSplit(RKP_DEF_COV)[L]; }
 function _rkpLv(){ var v=parseInt(window._rkpLvSel,10); return v>=1&&v<=5?v:1; }
 function rkpLvSet(v){ window._rkpLvSel=parseInt(v,10)||1; rkpGen(); }
+// 계약사항 칸(위치·표시는 설정 [계약사항 위치] 탭 — Firestore edu_cfg/rkpol.lay=[{k,h}], h=1이면 숨김)
+var RKP_INFO=[['ct','계약자'],['ins','피보험자'],['age','가입나이'],['cdt','계약일'],['prem','월 보험료'],['cyc','납입주기'],['term','납입기간'],['pend','납입만기일'],['per','보험기간'],['mat','만기일'],['tot','총 납입보험료']];
+function _rkpInfoNm(k){ for(var i=0;i<RKP_INFO.length;i++) if(RKP_INFO[i][0]===k) return RKP_INFO[i][1]; return ''; }
+function _rkpLayClean(a){
+  var out=[], seen={};
+  (Array.isArray(a)?a:[]).forEach(function(x){ var k=x&&String(x.k||''); if(!_rkpInfoNm(k)||seen[k]) return; seen[k]=1; out.push({k:k,h:x.h?1:0}); });
+  RKP_INFO.forEach(function(r){ if(!seen[r[0]]) out.push({k:r[0],h:0}); });
+  return out;
+}
+function _rkpLay(){ return window._rkpLayCfg||_rkpLayClean([]); }
 function _rkpCfgLoad(){
   var db=window.db; if(!db) return Promise.resolve();
   return db.collection('edu_cfg').doc('rkpol').get().then(function(d){
@@ -37112,6 +37130,7 @@ function _rkpCfgLoad(){
     if(dt.lv&&typeof dt.lv==='object'){ o={}; for(var L=1;L<=5;L++){ o[L]=_rkpCovClean(dt.lv[L]||dt.lv[String(L)])||[]; } }
     else { var it=_rkpCovClean(dt.items); if(it) o=_rkpSplit(it); }
     window._rkpCfgLv=o;
+    window._rkpLayCfg=Array.isArray(dt.lay)?_rkpLayClean(dt.lay):null;
   }).catch(function(e){ console.warn('rkp cfg',e); });
 }
 function _rkpMake(){
@@ -37125,7 +37144,9 @@ function _rkpMake(){
     if(!amt&&!x.opt) amt=x.mn;
     return [x.nm, amt*M];
   });
-  return {name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),term:term,
+  var co='교육생명';
+  if(+L>=3){ try{ var IL=_reqInsLists(), all=[].concat(IL.son||[],IL.life||[]).filter(function(n){ return n&&!/가설동/.test(n); }); if(all.length) co=_rkpPick(all); }catch(e){} }
+  return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),term:term,
     no:'EDU-'+new Date().getFullYear()+'-'+String(_rkpRi(0,99999999)).padStart(8,'0'),cov:cov};
 }
 function rkpGen(){
@@ -37134,19 +37155,30 @@ function rkpGen(){
   pe.setFullYear(st.getFullYear()+p.term); en.setFullYear(st.getFullYear()+(p.mat-p.age));
   var tot=p.premium*12*p.term, rows=p.cov.filter(function(c){ return c[1]>0; });
   var half=Math.ceil(rows.length/2);
+  var val={ct:_esc(p.name),ins:_esc(p.name),age:p.age+'세 ('+p.gender+')',cdt:_rkpDate(st),prem:'<b>'+_rkpWon(p.premium)+'</b>',cyc:'월납',
+    term:p.term+'년납 ('+(p.age+p.term)+'세 완료)',pend:_rkpDate(pe),per:p.mat+'세 만기',mat:_rkpDate(en),
+    tot:'<button type="button" class="rkp_sec" onclick="this.classList.toggle(\'shown\')"><span class="val">'+_rkpWon(tot)+' ('+_rkpKor(tot)+')</span><span class="hint">클릭하면 보입니다</span></button>'};
+  var coE=_esc(p.co||'교육생명');
   var covTbl=function(list,base){ return '<table class="rkp_cov"><tr><th>No</th><th>담보명</th><th>가입금액</th></tr>'
     +list.map(function(c,i){ return '<tr><td class="num">'+(base+i+1)+'</td><td>'+_esc(c[0])+'</td><td class="amt">'+_rkpKor(c[1])+'</td></tr>'; }).join('')+'</table>'; };
   box.innerHTML='<div class="rkp_wm">교육용 샘플</div>'
-   +'<div class="rkp_head"><div class="rkp_co"><b>교육생명</b>신입 교육용</div><div class="rkp_title"><h2>보험증권</h2><p>무배당 종합건강보험 (교육용)</p></div><div class="rkp_no">증권번호<br><b>'+p.no+'</b></div></div>'
-   +'<h3>계약사항</h3><div style="overflow-x:auto"><table class="rkp_info">'
-   +'<tr><th>계약자</th><td>'+p.name+'</td><th>피보험자</th><td>'+p.name+'</td><th>가입나이</th><td>'+p.age+'세 ('+p.gender+')</td></tr>'
-   +'<tr><th>계약일</th><td>'+_rkpDate(st)+'</td><th>월 보험료</th><td><b>'+_rkpWon(p.premium)+'</b></td><th>납입주기</th><td>월납</td></tr>'
-   +'<tr><th>납입기간</th><td>'+p.term+'년납 ('+(p.age+p.term)+'세 완료)</td><th>납입만기일</th><td>'+_rkpDate(pe)+'</td><th>보험기간</th><td>'+p.mat+'세 만기</td></tr>'
-   +'<tr><th>만기일</th><td>'+_rkpDate(en)+'</td><th>총 납입보험료</th><td colspan="3"><button type="button" class="rkp_sec" onclick="this.classList.toggle(\'shown\')"><span class="val">'+_rkpWon(tot)+' ('+_rkpKor(tot)+')</span><span class="hint">클릭하면 보입니다</span></button></td></tr>'
+   +'<div class="rkp_head"><div class="rkp_co"><b>'+coE+'</b>신입 교육용</div><div class="rkp_title"><h2>보험증권</h2><p>무배당 종합건강보험 (교육용)</p></div><div class="rkp_no">증권번호<br><b>'+p.no+'</b></div></div>'
+   +'<h3>계약사항</h3><div style="overflow-x:auto"><table class="rkp_info">'+_rkpInfoRows(val)
    +'</table></div><h3>보장내용</h3>'
    +(rows.length>6?'<div class="rkp_covs">'+covTbl(rows.slice(0,half),0)+covTbl(rows.slice(half),half)+'</div>':covTbl(rows,0))
-   +'<div class="rkp_foot"><div>※ 본 증권은 신입 교육용으로 무작위 생성된 가상의 증권이며, 실제 보험계약과 무관합니다.<br>발행일 '+_rkpDate(st)+'</div><div class="rkp_seal">교육생명<br>대표이사</div></div>';
+   +'<div class="rkp_foot"><div>※ 본 증권은 신입 교육용으로 무작위 생성된 가상의 증권이며, 실제 보험계약과 무관합니다.<br>발행일 '+_rkpDate(st)+'</div><div class="rkp_seal"'+((p.co||'').length>5?' style="font-size:'+((p.co||'').length>6?8.5:9.5)+'px"':'')+'>'+coE+'<br>대표이사</div></div>';
   var ct=g('rkp_count'); if(ct) ct.textContent='레벨 '+_rkpLv()+' · '+(++_rkpIssued)+'번째 증권';
+}
+// 계약사항 표 — 한 줄에 3칸, 총 납입보험료는 그 줄 끝까지 넓게(그 뒤는 새 줄)
+function _rkpInfoRows(val){
+  var vis=_rkpLay().filter(function(x){ return !x.h; }), h='', n=0, row='';
+  var flush=function(){ if(n){ if(n<3) row=row.replace(/<td>(?![\s\S]*<td>)/,'<td colspan="'+(1+2*(3-n))+'">'); h+='<tr>'+row+'</tr>'; } row=''; n=0; };
+  vis.forEach(function(x){
+    row+='<th>'+_rkpInfoNm(x.k)+'</th><td>'+(val[x.k]||'')+'</td>'; n++;
+    if(x.k==='tot'||n===3) flush();
+  });
+  flush();
+  return h;
 }
 function rRkPol(){
   var sb=g('rkp_setbtn'); if(sb) sb.style.display=_isAdmin()?'':'none';
@@ -37166,10 +37198,21 @@ function _rkpCfgRow(c){
 }
 function _rkpCfgCollect(){ return [].map.call(document.querySelectorAll('#rkc_tb .rkc_row'),function(tr){ var q=function(c){ return tr.querySelector(c); };
   return {nm:q('.rkc_nm').value,mn:q('.rkc_mn').value,mx:q('.rkc_mx').value,st:q('.rkc_st').value,opt:q('.rkc_opt').checked?1:0}; }); }
+function _rkpLayCollect(){ return [].map.call(document.querySelectorAll('#rkc_lay .rkc_chip'),function(c){ return {k:c.getAttribute('data-k'),h:c.querySelector('input').checked?0:1}; }); }
+function _rkpLayDraw(lay){
+  var b=g('rkc_lay'); if(!b) return;
+  b.innerHTML=lay.map(function(x){ return '<div class="rkc_chip'+(x.h?' off':'')+'" data-k="'+x.k+'"><span class="rkc_grip">⋮⋮</span><b>'+_rkpInfoNm(x.k)+'</b>'
+    +'<label onclick="event.stopPropagation()"><input type="checkbox"'+(x.h?'':' checked')+' onchange="this.closest(\'.rkc_chip\').classList.toggle(\'off\',!this.checked)"> 표시</label></div>'; }).join('');
+}
+function _rkpCfgStash(d){ if(d._cur==='lay') d._lay=_rkpLayCollect(); else if(d._cur) d._draft[d._cur]=_rkpCfgCollect(); }
 function _rkpCfgShow(d,L){
-  if(d._cur) d._draft[d._cur]=_rkpCfgCollect();
+  _rkpCfgStash(d);
   d._cur=L;
-  [].forEach.call(d.querySelectorAll('[data-lvtab]'),function(b){ var on=+b.getAttribute('data-lvtab')===L; b.classList.toggle('on',on); b.textContent='레벨 '+b.getAttribute('data-lvtab')+' ('+(d._draft[+b.getAttribute('data-lvtab')]||[]).length+')'; });
+  var lay=(L==='lay');
+  [].forEach.call(d.querySelectorAll('[data-lvtab]'),function(b){ var k=b.getAttribute('data-lvtab'); b.classList.toggle('on',String(L)===k); if(k!=='lay') b.textContent='레벨 '+k+' ('+(d._draft[+k]||[]).length+')'; });
+  var w1=g('rkc_lvwrap'), w2=g('rkc_laywrap'); if(w1) w1.style.display=lay?'none':''; if(w2) w2.style.display=lay?'':'none';
+  var rs=d.querySelector('[data-reset]'); if(rs) rs.textContent=lay?'계약사항 기본 위치로':'이 레벨 기본값으로';
+  if(lay){ _rkpLayDraw(d._lay); return; }
   g('rkc_tb').innerHTML=(d._draft[L]||[]).map(_rkpCfgRow).join('');
   var cp=d.querySelector('[data-copy]'); if(cp){ cp.style.display=L>1?'':'none'; cp.innerHTML='<i class="ti ti-copy"></i> 레벨 '+(L-1)+' 목록 가져오기'; }
   var h=g('rkc_lvh'); if(h) h.textContent='레벨 '+L+' 증권에 나오는 특약';
@@ -37179,20 +37222,42 @@ function rkpCfgOpen(){
   var old=g('rkp_cfg_pop'); if(old) old.remove();
   var d=document.createElement('div'); d.id='rkp_cfg_pop';
   d._draft={}; for(var L=1;L<=5;L++) d._draft[L]=_rkpLvCov(L).map(function(x){ return Object.assign({},x); });
+  d._lay=_rkpLay().map(function(x){ return {k:x.k,h:x.h}; });
   var tabs=''; for(var k=1;k<=5;k++) tabs+='<button class="rkc_tab" data-lvtab="'+k+'">레벨 '+k+'</button>';
+  tabs+='<button class="rkc_tab rkc_tablay" data-lvtab="lay">계약사항 위치</button>';
   d.innerHTML='<div class="rkc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
    +'<b style="font-size:16px;color:#1f2a5c">보장내용 특약 설정</b><button class="rkc_mv" data-close="1" style="font-size:16px">✕</button></div>'
    +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">레벨마다 따로 설정합니다. 금액은 <b>만원</b> 단위이고, 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. <b>담보명 칸을 누른 채 위아래로 끌면</b> 순서가 바뀝니다. 저장하면 다섯 레벨이 한꺼번에 저장되고 모든 사람의 화면에 같이 적용됩니다.</div>'
-   +'<div class="rkc_tabs">'+tabs+'</div><div id="rkc_lvh" style="font-weight:700;color:#1f2a5c;margin:4px 0 6px"></div>'
+   +'<div class="rkc_tabs">'+tabs+'</div>'
+   +'<div id="rkc_laywrap" style="display:none"><div style="font-weight:700;color:#1f2a5c;margin:4px 0 4px">증권 계약사항 칸 위치</div>'
+   +'<div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">칸을 <b>마우스로 끌어다 놓으면</b> 위치가 바뀝니다(왼쪽→오른쪽, 한 줄에 3칸 — 증권과 같은 배치). <b>총 납입보험료</b>는 그 줄 끝까지 넓게 차지합니다. [표시]를 끄면 증권에서 빠집니다. 모든 레벨에 같이 적용됩니다.</div>'
+   +'<div id="rkc_lay"></div></div>'
+   +'<div id="rkc_lvwrap"><div id="rkc_lvh" style="font-weight:700;color:#1f2a5c;margin:4px 0 6px"></div>'
    +'<table><tr><th style="width:70px">순서</th><th>담보명</th><th style="width:100px">최소(만원)</th><th style="width:100px">최대(만원)</th><th style="width:90px">단위(만원)</th><th style="width:70px">미가입 가능</th><th style="width:60px"></th></tr>'
    +'<tbody id="rkc_tb"></tbody></table>'
-   +'<div style="display:flex;gap:8px;margin-top:10px"><button class="bp bnv" data-add="1"><i class="ti ti-plus"></i> 특약 추가</button><button class="bp bnv" data-copy="1"></button></div></div>'
+   +'<div style="display:flex;gap:8px;margin-top:10px"><button class="bp bnv" data-add="1"><i class="ti ti-plus"></i> 특약 추가</button><button class="bp bnv" data-copy="1"></button></div></div></div>'
    +'<div style="display:flex;gap:8px;justify-content:space-between;padding:12px 18px;border-top:1px solid #e3e8f0">'
    +'<button class="bp bnv" data-reset="1">이 레벨 기본값으로</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="rkc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
   document.body.appendChild(d);
   d._cur=0; _rkpCfgShow(d,_rkpLv());
   d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
   // 담보명 칸을 누른 채 위아래로 끌면 줄 순서 이동(6px 넘게 움직였을 때만 — 그냥 누르면 평소처럼 글자 입력)
+  // 계약사항 위치: 칸을 끌어 다른 칸 앞/뒤에 놓기
+  d.addEventListener('pointerdown',function(e){
+    var ch=e.target.closest&&e.target.closest('.rkc_chip'); if(!ch||e.button||e.target.closest('label')) return;
+    var box=g('rkc_lay'), x0=e.clientX, y0=e.clientY, drag=false; e.preventDefault();
+    var mv=function(ev){
+      if(!drag){ if(Math.abs(ev.clientX-x0)+Math.abs(ev.clientY-y0)<6) return; drag=true; ch.classList.add('drag'); document.body.style.userSelect='none'; }
+      ev.preventDefault();
+      var el=document.elementFromPoint(ev.clientX,ev.clientY), t=el&&el.closest&&el.closest('.rkc_chip');
+      if(!t||t===ch||t.parentNode!==box) return;
+      var rc=t.getBoundingClientRect(), after=ev.clientX>rc.left+rc.width/2;
+      if(after){ if(t.nextElementSibling!==ch) box.insertBefore(ch,t.nextElementSibling); } else if(t.previousElementSibling!==ch) box.insertBefore(ch,t);
+    };
+    var up=function(){ document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',up);
+      if(drag){ ch.classList.remove('drag'); document.body.style.userSelect=''; d._down=false; } };
+    document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
+  });
   d.addEventListener('pointerdown',function(e){
     var nm=e.target.closest&&e.target.closest('.rkc_nm'); if(!nm||e.button) return;
     var row=nm.closest('tr'), tb=g('rkc_tb'), y0=e.clientY, drag=false;
@@ -37211,20 +37276,23 @@ function rkpCfgOpen(){
     var t=e.target.closest('button'), tb=g('rkc_tb');
     if(!t){ if(e.target===d&&d._down) d.remove(); return; }
     if(t.getAttribute('data-close')) d.remove();
-    else if(t.getAttribute('data-lvtab')) _rkpCfgShow(d,+t.getAttribute('data-lvtab'));
+    else if(t.getAttribute('data-lvtab')){ var tk=t.getAttribute('data-lvtab'); _rkpCfgShow(d,tk==='lay'?'lay':+tk); }
     else if(t.getAttribute('data-add')){ if(tb.children.length>=RKP_MAXN){ toast('최대 '+RKP_MAXN+'개까지입니다.'); return; } tb.insertAdjacentHTML('beforeend',_rkpCfgRow()); tb.lastElementChild.querySelector('.rkc_nm').focus(); }
     else if(t.getAttribute('data-del')){ t.closest('tr').remove(); }
     else if(t.getAttribute('data-mv')){ var tr=t.closest('tr'), up=t.getAttribute('data-mv')==='-1';
       if(up&&tr.previousElementSibling) tb.insertBefore(tr,tr.previousElementSibling); else if(!up&&tr.nextElementSibling) tb.insertBefore(tr.nextElementSibling,tr); }
     else if(t.getAttribute('data-copy')){ var P=d._cur-1; if(P<1) return; if(tb.children.length&&!confirm('레벨 '+d._cur+' 목록을 레벨 '+P+' 목록으로 바꿀까요? ([저장]해야 반영됩니다)')) return;
       tb.innerHTML=(d._draft[P]||[]).map(_rkpCfgRow).join(''); }
+    else if(t.getAttribute('data-reset')&&d._cur==='lay'){ if(confirm('계약사항 칸 위치를 처음 배치로 되돌릴까요? ([저장]해야 반영됩니다)')){ d._lay=_rkpLayClean([]); _rkpLayDraw(d._lay); } }
     else if(t.getAttribute('data-reset')){ if(confirm('레벨 '+d._cur+'의 특약을 기본값으로 되돌릴까요? ([저장]해야 반영됩니다)')) tb.innerHTML=_rkpSplit(RKP_DEF_COV)[d._cur].map(_rkpCfgRow).join(''); }
     else if(t.getAttribute('data-save')) _rkpCfgSave(d);
   });
 }
 function _rkpCfgSave(d){
   if(!_isAdmin()) return;
-  d._draft[d._cur]=_rkpCfgCollect();
+  _rkpCfgStash(d);
+  var lay=_rkpLayClean(d._lay);
+  if(!lay.some(function(x){ return !x.h; })){ _rkpCfgShow(d,'lay'); toast('계약사항 칸을 하나 이상 표시해 주세요.'); return; }
   var out={};
   for(var L=1;L<=5;L++){
     var raw=d._draft[L]||[];
@@ -37234,8 +37302,8 @@ function _rkpCfgSave(d){
   }
   var db=window.db; if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('rkc_save'); if(btn) btn.disabled=true;
-  db.collection('edu_cfg').doc('rkpol').set({lv:out,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
-    var o={}; for(var L=1;L<=5;L++) o[L]=out[String(L)]; window._rkpCfgLv=o; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
+  db.collection('edu_cfg').doc('rkpol').set({lv:out,lay:lay,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+    var o={}; for(var L=1;L<=5;L++) o[L]=out[String(L)]; window._rkpCfgLv=o; window._rkpLayCfg=lay; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('rkp cfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
 function rEduPrep(){
