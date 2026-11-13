@@ -926,7 +926,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-7</div>
   </div>
 </div>
 
@@ -23975,7 +23975,8 @@ function wkmtAll(on){ var st=_wkmtSt(); Object.keys(st.items).forEach(function(k
 //   저장은 Firestore bojang_customers/bojang_config/bojang_fcprefs (tops/data와 분리 — 3.12), localStorage 없음.
 window._bojangUser=function(){
   if(!cu||!cu.name) return null;
-  return { sabun:String(cu.code||cu.name), name:String(cu.name), role:_isAdmin()?'admin':'fc' };
+  // v2026.11.13-7 (박지순 요청): 관리자도 본인이 진행한 고객만 — 지점 전체 보기(role admin) 끔
+  return { sabun:String(cu.code||cu.name), name:String(cu.name), role:'fc' };
 };
 function _wa2Key(){ var u=window._bojangUser(); return u?(u.sabun+'|'+u.role):''; }
 function rWa2(force){
