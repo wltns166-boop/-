@@ -1151,8 +1151,8 @@ async function pdfRead(file,password){
   }
   return{pdf,text:out.join('\n'),chars,pages:pdf.numPages};
 }
-async function pdfImages(pdf,max){
-  const blobs=[];for(let i=1;i<=Math.min(pdf.numPages,max);i++){const pg=await pdf.getPage(i);const v0=pg.getViewport({scale:1});const sc=Math.min(2.2,1500/v0.width);const vp=pg.getViewport({scale:sc});
+async function pdfImages(pdf,max,from){
+  const blobs=[];for(let i=from||1;i<=Math.min(pdf.numPages,max);i++){const pg=await pdf.getPage(i);const v0=pg.getViewport({scale:1});const sc=Math.min(2.2,1500/v0.width);const vp=pg.getViewport({scale:sc});
     const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
     blobs.push(await new Promise(r=>cv.toBlob(r,'image/jpeg',.85)))}
   return blobs;
@@ -1205,6 +1205,45 @@ async function recognize(files,mode){
   if(!window.pdfjsLib)return toast('PDF 읽기 도구를 불러오지 못했습니다. 새로고침해 주세요.');
   for(const f of pdfs){const job={id:uid('j'),name:f.name,file:f,mode,st:'run',msg:'PDF 읽는 중…'};S.jobs[mode].unshift(job);updJobs(mode);await processJob(job)}
 }
+const BIG_CHUNK=15000,BIG_SCAN_MAX=40,BIG_TEXT_MAX=30;   // 글자 PDF는 조각 30개(약 45만 자)까지
+function isBigErr(e){return !!e&&(e.code==='too_long'||e.code==='too_big')}
+function pageChunks(text,maxChars){
+  const pages=String(text||'').split(/(?=^=== \d+쪽 ===$)/m).filter(x=>x.trim());const out=[];let cur='';
+  for(const p of pages){if(cur&&cur.length+p.length>maxChars){out.push(cur);cur=''}cur+=(cur?'\n':'')+p}
+  if(cur)out.push(cur);return out;
+}
+function splitChunk(ch){
+  if(ch.imgs){if(ch.imgs.length<2)return[ch];const h=Math.ceil(ch.imgs.length/2);return[{imgs:ch.imgs.slice(0,h)},{imgs:ch.imgs.slice(h)}]}
+  const ps=pageChunks(ch.text,Math.ceil(ch.text.length/2));return ps.length>1?ps.map(t=>({text:t})):[ch];
+}
+/* 나눠 읽은 결과 합치기 — 같은 보험사+상품은 한 계약으로, 같은 담보명+금액은 한 번만. 머리 정보 없는 조각은 바로 앞 계약에 이어 붙임 */
+function mergeRes(list){
+  const nk=x=>String(x||'').replace(/\s+/g,'').toLowerCase();const pols=[];let cust=null;
+  for(const r of list){if(!r)continue;if(r.customer){cust=cust||{};for(const f of['birth','gender'])if(!cust[f]&&r.customer[f])cust[f]=r.customer[f]}
+    for(const q of(Array.isArray(r.policies)?r.policies:[])){if(!q)continue;const key=nk(q.company)+'|'+nk(q.product);
+      // 상품명이 안 보이는 조각 = 바로 앞 계약의 이어진 부분. 같은 보험사+상품이라도 가입일이 서로 다르면 다른 계약으로 둔다
+      const t=!nk(q.product)?pols[pols.length-1]:pols.find(x=>nk(x.company)+'|'+nk(x.product)===key&&!(x.joinDate&&q.joinDate&&String(x.joinDate)!==String(q.joinDate)));
+      if(!t){pols.push({...q,coverages:[...(q.coverages||[])],items:{...(q.items||{})}});continue}
+      const seen=new Set(t.coverages.map(c=>nk(c&&c.name)+'|'+num(c&&c.amount)));
+      for(const c of(q.coverages||[])){if(!c||!c.name)continue;const k=nk(c.name)+'|'+num(c.amount);if(seen.has(k))continue;t.coverages.push(c)}   // 앞 조각에 이미 있던 것만 뺀다(같은 조각 안의 같은 이름·금액 두 줄은 그대로)
+      for(const[k,v]of Object.entries(q.items||{})){if(!num(t.items[k]))t.items[k]=v}
+      for(const f of['joinDate','renewal','expiry'])if(!t[f]&&q[f])t[f]=q[f];
+      for(const f of['premium','payYears'])if(!num(t[f])&&num(q[f]))t[f]=q[f];
+      if(q.silson)t.silson=true;if(q.summary)t.summary=true;
+    }}
+  return{customer:cust,policies:pols};
+}
+const PART_NOTE='[참고] 이 자료는 큰 문서를 여러 조각으로 나눈 것 중 하나입니다. 이 조각에 실제로 보이는 계약·담보만 쓰세요. 보험사·상품명이 이 조각에 안 보이면 company와 product를 ""로 두세요(앞 조각의 계약에 이어 붙입니다).\n\n';
+async function aiBig(src,mode,job,part,total){
+  const out=[];let n=0;
+  const run=async(ch,depth)=>{
+    try{return[await S.sample.json((part||depth?PART_NOTE:'')+aiPrompt(ch.text||'',mode,!!ch.imgs),{modelTier:'complex',...(ch.imgs?{images:ch.imgs}:{})})]}
+    catch(e){if(!isBigErr(e)||depth>=4)throw e;const ps=splitChunk(ch);if(ps.length<2)throw e;let acc=[];for(const p of ps)acc=acc.concat(await run(p,depth+1));return acc}
+  };
+  const it=typeof src==='function'?src():src;const tot=total||(Array.isArray(src)?src.length:0);
+  for await(const ch of it){n++;if(part){job.msg=`큰 문서 — 나눠서 읽는 중… (${n}${tot?'/'+tot:''})`;updJobs(mode)}out.push(...await run(ch,0))}
+  return out.length===1&&!part?out[0]:mergeRes(out);
+}
 async function processJob(job,pw){
   const mode=job.mode,f=job.file;job.st='run';job.msg='PDF 읽는 중…';updJobs(mode);
   try{
@@ -1215,14 +1254,25 @@ async function processJob(job,pw){
     if(r.chars<r.pages*40){const lim=await S.sample.limits().catch(()=>null);
       if(lim&&lim.images){job.msg='스캔 문서 — 이미지로 분석 준비 중…';updJobs(mode);imgs=await pdfImages(r.pdf,Math.min(lim.images.maxCount||8,20))}
       else if(r.chars<20){job.st='bad';job.msg='글자를 읽을 수 없는 스캔 PDF입니다';updJobs(mode);return}}
-    const enc=new TextEncoder();while(enc.encode(text).length>230000)text=text.slice(0,Math.floor(text.length*.85));
+    /* 큰 문서 나눠 읽기 (인트라넷 2026-11-13 — "용량이 커서 안 됨" 제보): 한 번에 보내서 응답이 잘리거나(too_long) 서버 시간·크기 제한(too_big)에 걸리면
+       쪽 단위로 나눠 여러 번 읽고 합친다. 스캔본은 4쪽씩 전부(최대 BIG_SCAN_MAX쪽) 읽는다(옛 동작: 앞 4쪽만). */
+    let res,split=false,cutNote='';
     job.msg='AI가 담보를 읽는 중… (30초~1분)';updJobs(mode);
-    const res=await S.sample.json(aiPrompt(text,mode,!!imgs),{modelTier:'complex',...(imgs?{images:imgs}:{})});
+    if(imgs){
+      const per=imgs.length,total=Math.min(r.pages,BIG_SCAN_MAX);
+      if(r.pages>BIG_SCAN_MAX)cutNote=` · 앞 ${BIG_SCAN_MAX}쪽만 읽음(전체 ${r.pages}쪽)`;
+      if(total<=per){res=await aiBig([{imgs}],mode,job,false)}
+      else{split=true;res=await aiBig(async function*(){yield{imgs};for(let p=per+1;p<=total;p+=per)yield{imgs:await pdfImages(r.pdf,Math.min(p+per-1,total),p)}},mode,job,true,Math.ceil(total/per))}
+    }else{
+      const enc=new TextEncoder();const big=enc.encode(text).length>230000;
+      if(!big){try{res=await S.sample.json(aiPrompt(text,mode,false),{modelTier:'complex'})}catch(e){if(!isBigErr(e))throw e;split=true}}else split=true;
+      if(split){let cks=pageChunks(text,BIG_CHUNK);if(cks.length>BIG_TEXT_MAX){cutNote=` · 문서가 너무 길어 앞부분(조각 ${BIG_TEXT_MAX}/${cks.length})만 읽음 — 나머지는 PDF를 나눠 올려 주세요`;cks=cks.slice(0,BIG_TEXT_MAX)}res=await aiBig(cks.map(t=>({text:t})),mode,job,true)}
+    }
     const st=applyResult(res,mode,f.name);
-    job.st='ok';job.msg=`${st.n}건 · 담보 ${st.cov}개 (미분류 ${st.none})`;job.file=null;
+    job.st='ok';job.msg=`${st.n}건 · 담보 ${st.cov}개 (미분류 ${st.none})`+(split?' · 큰 문서라 나눠 읽음 — 겹쳐 들어간 담보가 없는지 확인':'')+cutNote;job.file=null;
     logHist(`${mode==='before'?'기존보험':'제안서'} PDF 인식: ${f.name} (${st.n}건)`);
     markDirty();renderTab();
-  }catch(e){job.st='bad';const c=e&&e.code;job.msg=c==='not_granted'?'Claude 사용 허용이 필요합니다':c==='rate_limited'?'요청이 많습니다. 잠시 후 다시 시도':c==='invalid_json'?'결과를 해석하지 못했습니다. 다시 올려주세요':c==='usage_limit'?'사용량 한도에 도달했습니다':('오류: '+(e&&(e.message||c)||e));updJobs(mode)}
+  }catch(e){job.st='bad';const c=e&&e.code;job.msg=c==='not_granted'?'Claude 사용 허용이 필요합니다':c==='rate_limited'?'요청이 많습니다. 잠시 후 다시 시도':c==='invalid_json'?'결과를 해석하지 못했습니다. 다시 올려주세요':c==='usage_limit'?'사용량 한도에 도달했습니다':isBigErr(e)?'문서가 너무 커서 읽지 못했습니다 — PDF를 쪽 수를 나눠 올려 주세요':('오류: '+(e&&(e.message||c)||e));updJobs(mode)}
 }
 function applyResult(res,mode,fname){
   const pols=Array.isArray(res?.policies)?res.policies:[];const c=S.cur;let ncov=0,nnone=0;

@@ -111,11 +111,11 @@
         return r.json().catch(function(){ return {}; }).then(function(d){
           if(!r.ok){
             var e=new Error((d&&d.error&&d.error.message)||('AI 서버 오류 '+r.status));
-            e.code = r.status===429?'rate_limited':'ai_error';
+            e.code = r.status===429?'rate_limited':(/^(408|413|504)$/.test(String(r.status))?'too_big':'ai_error');   // too_big = 서버 시간·크기 제한 — 프로그램이 문서를 나눠 다시 읽음
             throw e;
           }
           var txt=((d&&d.content)||[]).map(function(c){ return (c&&c.text)||''; }).join('');
-          if(/MAX_TOKENS/i.test(String(d&&d.stop||''))){ try{ return pickJson(txt); }catch(e){ var e3=new Error('AI 응답이 너무 길어 잘렸습니다. PDF를 나눠서 올려 주세요'); e3.code='ai_error'; throw e3; } }
+          if(/MAX_TOKENS/i.test(String(d&&d.stop||''))){ try{ return pickJson(txt); }catch(e){ var e3=new Error('AI 응답이 너무 길어 잘렸습니다. PDF를 나눠서 올려 주세요'); e3.code='too_long'; throw e3; } }
           return pickJson(txt);
         });
       });
