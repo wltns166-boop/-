@@ -617,6 +617,12 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpday{margin-top:14px;border:1px solid #e1e6f5;border-radius:10px;overflow:hidden}
 .cpdayh{background:#eef1fc;padding:9px 13px;font-weight:700;color:#1a2060;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .cpdayh small{font-weight:500;color:#5a6080;font-size:13px}
+#car_cfg_pop{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+#car_cfg_pop .ccc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#car_cfg_pop .ccc_body{overflow:auto;padding:12px 18px}
+#car_cfg_pop table{width:100%;border-collapse:collapse}#car_cfg_pop th,#car_cfg_pop td{border-bottom:1px solid #e3e8f0;padding:5px 4px;font-size:13px;color:#1c2631;text-align:center}
+#car_cfg_pop input[type=text]{width:100%;padding:6px 8px;border:1px solid #cfd5ee;border-radius:6px;font:inherit;font-size:14px;color:#111;background:#fff;box-sizing:border-box}
+#car_cfg_pop .ccc_mv{background:#eef1f8;border:1px solid #cfd5ee;border-radius:5px;padding:2px 7px;cursor:pointer;color:#1f2a5c}
 #cp_cfg_pop{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 #cp_cfg_pop .cpc_card{background:#fff;color:#1c2631;border-radius:12px;width:min(680px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #cp_cfg_pop .cpc_body{overflow:auto;padding:12px 18px}
@@ -945,7 +951,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-15</div>
   </div>
 </div>
 
@@ -2974,7 +2980,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <!-- 자동차보험관리 (carins, 2026-11-13 — 박지순 요청) — Firestore 컬렉션 carins/{id}, 증권사진은 Storage claim_packages/carins/ URL만 -->
     <div class="pg" id="pg_carins">
       <div class="sh"><div class="st"><i class="ti ti-car"></i>자동차보험관리</div>
-        <div style="display:flex;gap:8px"><button class="bp bnv" onclick="carFormOpen()"><i class="ti ti-plus"></i> 등록</button></div></div>
+        <div style="display:flex;gap:8px"><button class="bp bnv" onclick="carFormOpen()"><i class="ti ti-plus"></i> 등록</button><button class="bp bnv" id="car_setbtn" style="display:none" onclick="carCfgOpen()"><i class="ti ti-settings"></i> 설정</button></div></div>
       <div id="car_form" class="card" style="display:none;margin-bottom:12px">
         <div style="font-weight:700;color:#2a3070;margin-bottom:10px" id="car_form_t">자동차보험 등록</div>
         <div class="cpgrid cpg5">
@@ -28656,7 +28662,7 @@ function _carSub(){
 }
 function _carUnsubscribe(){ clearTimeout(window._carRetryT); window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
-  var _wasBusy=window._carBusy; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
+  var _wasBusy=window._carBusy; try{ var _ccp=g('car_cfg_pop'); if(_ccp) _ccp.remove(); }catch(e){} window._carCfg=null; window._carCfgOk=0; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
   window._carBusy=false;
   window._carGen=(window._carGen||0)+1;   // 늦게 끝난 업로드 폐기
@@ -28668,6 +28674,8 @@ function _carFind(id){ return (window._carItems||[]).find(function(o){ return o.
 function rCarIns(){
   if(!_carDb()){ var b=g('car_list'); if(b) b.innerHTML='<div class="em" style="padding:20px">저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.</div>'; return; }
   _carSub(); _carDraw();
+  var sb=g('car_setbtn'); if(sb) sb.style.display=_isAdmin()?'':'none';
+  _carCfgLoad().then(function(){ try{ var pg=g('pg_carins'); if(pg&&pg.classList.contains('active')) _carDraw(); }catch(e){} });
 }
 function _carDraw(){
   var box=g('car_list'); if(!box) return;
@@ -28692,7 +28700,7 @@ function _carDraw(){
   var mb1=g('car_mon'); if(mb1) mb1.innerHTML='<button class="cpdc'+(sel==null?' on':'')+'" data-carmon="*" onclick="carMonSel(this.getAttribute(\'data-carmon\'))">전체 <span>'+items.length+'건</span></button>'
     +mons.map(function(k){ return '<button class="cpdc'+(sel===k?' on':'')+'" data-carmon="'+at(k)+'" onclick="carMonSel(this.getAttribute(\'data-carmon\'))">'+esc(mLbl(k))+' <span>'+byM[k].length+'건</span></button>'; }).join('');
   if(sel!=null) mons=[sel];
-  var head='<thead><tr><th>계약자</th><th>차주</th><th>차종</th><th>차량번호</th><th>가입일</th><th>만기일</th><th>가입 보험사</th><th>진행 방식</th><th>증권사진</th>'+(all?'<th>담당자</th>':'')+'<th>관리</th></tr></thead>';
+  var head='<thead><tr><th>계약자</th><th>차주</th><th>차종</th><th>차량번호</th><th>가입일</th><th>만기일</th><th>가입 보험사</th><th>콜센터</th><th>진행 방식</th><th>증권사진</th>'+(all?'<th>담당자</th>':'')+'<th>관리</th></tr></thead>';
   var today=td();
   var rowOf=function(o){
     var ph=o.ph.map(function(p){ return p.k==='pdf'?'<a class="carpdf" href="'+at(p.u)+'" target="_blank" rel="noopener">PDF</a>':'<img class="carthumb" src="'+at(p.u)+'" alt="증권" data-carid="'+at(o.id)+'" data-u="'+at(p.u)+'" onclick="carView(this)" title="눌러서 크게 보기">'; }).join('');
@@ -28704,6 +28712,7 @@ function _carDraw(){
       +'<td style="white-space:nowrap">'+esc(o.dt||'-')+'</td>'
       +'<td style="white-space:nowrap">'+esc(o.ex||'-')+(o.ex&&o.ex<today?' <span class="cpexp">만기</span>':'')+'</td>'
       +'<td>'+esc(o.ins||'-')+'</td>'
+      +'<td style="white-space:nowrap">'+cp(_carTelOf(o.ins),'콜센터 번호')+'</td>'
       +'<td>'+esc(o.way||'-')+'</td>'
       +'<td>'+(ph||'-')+'</td>'
       +(all?'<td>'+esc(o.m||'-')+'</td>':'')
@@ -28735,6 +28744,77 @@ function _carAlerts(ds){
 function carAlertGo(id){
   var m=/_(\d{4}-\d{2})-\d{2}$/.exec(String(id||''));
   try{ showPage('carins'); var mb=g('car_mb'); if(mb) mb.value='ex'; window._carMon=m?m[1]:null; _carDraw(); }catch(e){}
+}
+// ===== 보험사 콜센터 번호 (2026-11-13 — 박지순 요청) — Firestore carinscfg/cfg = {tel:[{nm,ph}],ts,by} (전원 공용, 손해보험사만), 편집은 관리자 [설정]
+function _carCfgClean(a){
+  if(!Array.isArray(a)) return null;
+  var out=[], seen={};
+  a.slice(0,80).forEach(function(x){ if(!x) return; var nm=String(x.nm||'').replace(/[<>]/g,'').trim().slice(0,30), ph=String(x.ph||'').replace(/[^0-9\-+() ]/g,'').trim().slice(0,20);
+    if(!nm||seen[nm]) return; seen[nm]=1; out.push({nm:nm,ph:ph}); });
+  return out;
+}
+function _carCfgLoad(){
+  var db=_carDb(); if(!db) return Promise.resolve();
+  return db.collection('carinscfg').doc('cfg').get().then(function(d){ window._carCfg=d.exists?_carCfgClean((d.data()||{}).tel):null; window._carCfgOk=1; })
+    .catch(function(e){ window._carCfgOk=0; console.warn('carinscfg',e); });
+}
+function _carTelList(){ if(window._carCfg) return window._carCfg; var L=_reqInsLists(); return (L.son||[]).map(function(n){ return {nm:n,ph:''}; }); }
+function _carTelOf(ins){
+  ins=String(ins||'').trim(); if(!ins) return '';
+  var L=window._carCfg||[], kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(ins);
+  for(var i=0;i<L.length;i++){ if(L[i].ph&&(L[i].nm===ins||kf(L[i].nm)===k)) return L[i].ph; }
+  return '';
+}
+function _carCfgRow(x){ x=x||{nm:'',ph:''};
+  return '<tr class="ccc_row"><td style="white-space:nowrap"><button class="ccc_mv" data-mv="-1">▲</button> <button class="ccc_mv" data-mv="1">▼</button></td>'
+   +'<td><input type="text" class="ccc_nm" maxlength="30" value="'+_alertEsc(x.nm)+'" placeholder="손해보험사 이름"></td>'
+   +'<td><input type="text" class="ccc_ph" maxlength="20" inputmode="tel" value="'+_alertEsc(x.ph)+'" placeholder="예: 1588-0000"></td>'
+   +'<td><button class="bd bdr" style="padding:3px 9px;font-size:13px" data-del="1">삭제</button></td></tr>';
+}
+function carCfgOpen(){
+  if(!_isAdmin()){ toast('관리자만 설정할 수 있습니다.'); return; }
+  var who=cu&&cu.name;
+  _carCfgLoad().then(function(){
+    if(!cu||cu.name!==who) return;   // 불러오는 사이 로그아웃·사용자 전환
+    if(!window._carCfgOk){ toast('저장된 번호를 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'); return; }   // 빈 목록으로 저장해 기존 번호를 지우지 않게
+    var old=g('car_cfg_pop'); if(old) old.remove();
+    var d=document.createElement('div'); d.id='car_cfg_pop';
+    d.innerHTML='<div class="ccc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
+     +'<b style="font-size:16px;color:#1f2a5c">자동차보험관리 설정 — 손해보험사 콜센터 번호</b><button class="ccc_mv" data-close="1" style="font-size:16px">✕</button></div>'
+     +'<div class="ccc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">여기 적은 번호가 목록의 <b>콜센터</b> 칸에 나옵니다(보험사 이름이 같은 건 — DB손보·DB손해보험처럼 줄임말도 같은 회사로 봄). 저장하면 모든 사람에게 같이 적용됩니다.</div>'
+     +'<table><tr><th style="width:70px">순서</th><th>손해보험사</th><th style="width:170px">콜센터 번호</th><th style="width:60px"></th></tr><tbody id="ccc_tb">'+_carTelList().map(_carCfgRow).join('')+'</tbody></table>'
+     +'<button class="bp bnv" style="margin-top:10px" data-add="1"><i class="ti ti-plus"></i> 보험사 추가</button></div>'
+     +'<div style="display:flex;gap:8px;justify-content:space-between;padding:12px 18px;border-top:1px solid #e3e8f0">'
+     +'<button class="bp bnv" data-reset="1">손해보험사 목록 다시 불러오기</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="ccc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
+    document.body.appendChild(d);
+    var tb=g('ccc_tb');
+    d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
+    d.addEventListener('click',function(e){
+      var t=e.target.closest('button');
+      if(!t){ if(e.target===d&&d._down) d.remove(); return; }
+      if(t.getAttribute('data-close')) d.remove();
+      else if(t.getAttribute('data-add')){ if(tb.children.length>=80){ toast('최대 80개까지입니다.'); return; } tb.insertAdjacentHTML('beforeend',_carCfgRow()); tb.lastElementChild.querySelector('.ccc_nm').focus(); }
+      else if(t.getAttribute('data-del')) t.closest('tr').remove();
+      else if(t.getAttribute('data-mv')){ var tr=t.closest('tr'), up=t.getAttribute('data-mv')==='-1';
+        if(up&&tr.previousElementSibling) tb.insertBefore(tr,tr.previousElementSibling); else if(!up&&tr.nextElementSibling) tb.insertBefore(tr.nextElementSibling,tr); }
+      else if(t.getAttribute('data-reset')){ if(confirm('손해보험사 목록(고객등록 보험사의 손해보험 쪽)으로 다시 채울까요? 같은 이름의 번호는 그대로 둡니다. ([저장]해야 반영)')){
+        var keep={}; [].forEach.call(tb.querySelectorAll('.ccc_row'),function(tr){ keep[tr.querySelector('.ccc_nm').value.trim()]=tr.querySelector('.ccc_ph').value.trim(); });
+        tb.innerHTML=(_reqInsLists().son||[]).map(function(n){ return _carCfgRow({nm:n,ph:keep[n]||''}); }).join(''); } }
+      else if(t.getAttribute('data-save')) _carCfgSave(d);
+    });
+  });
+}
+function _carCfgSave(d){
+  if(!_isAdmin()) return;
+  var raw=[].map.call(d.querySelectorAll('#ccc_tb .ccc_row'),function(tr){ return {nm:tr.querySelector('.ccc_nm').value,ph:tr.querySelector('.ccc_ph').value}; });
+  if(raw.some(function(r){ return !String(r.nm).trim(); })){ toast('이름이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
+  var dup={}, dn=raw.map(function(r){ return String(r.nm).trim(); }).filter(function(n){ var x=dup[n]; dup[n]=1; return x; });
+  if(dn.length){ toast('같은 이름이 두 번 있습니다: '+dn[0]+' — 하나를 지워 주세요.'); return; }
+  var tel=_carCfgClean(raw)||[], db=_carDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
+  var btn=g('ccc_save'); if(btn) btn.disabled=true;
+  db.collection('carinscfg').doc('cfg').set({tel:tel,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+    window._carCfg=tel; d.remove(); toast('콜센터 번호를 저장했습니다.'); _carDraw();
+  }).catch(function(e){ if(btn) btn.disabled=false; console.warn('carinscfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
 function carMonSel(k){ k=String(k==null?'*':k); window._carMon=(k==='*'||!/^(\d{4}-\d{2})?$/.test(k))?null:k; _carDraw(); }
 // 가입일 1년 뒤(만기일) — 2월 29일은 다음 해 2월 28일
