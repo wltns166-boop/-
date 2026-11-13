@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-25</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-26</div>
   </div>
 </div>
 
@@ -6857,7 +6857,7 @@ function _cbRegFill(q){
     ;
   _cbPush(0,h);
   window._cbReg={tok:Date.now(), name:String(main.name||'').slice(0,30), pend:pend, i:0, saved:0};
-  if(pend.length) _cbPush(0,_cbRegAskHtml()); else _cbPush(0,_cbRegSummaryHtml());
+  if(pend.length) _cbPush(0,_cbRegAskHtml()); else _cbPush(0,_cbRegSummaryHtml(),'regsum');
 }
 // 운전여부 질문 카드 — 버튼(운전안함·승용차·자가용·영업용)을 누르면 그 칸을 채우고 다음 질문 또는 정리 카드
 var CBR_DRIVES=['승용차','자가용','영업용','운전안함'];
@@ -6903,7 +6903,7 @@ function _cbRegAct(a){
     if(!val||!_cbrSel(p.id, val)){ toast('운전여부 칸을 찾지 못했어요.'); return; }
     _cbPush(1,'🚗 '+_esc(p.who)+' — '+_esc(val));
     st.i++;
-    _cbPush(0, st.i<st.pend.length?_cbRegAskHtml():_cbRegSummaryHtml());
+    if(st.i<st.pend.length) _cbPush(0,_cbRegAskHtml()); else _cbPush(0,_cbRegSummaryHtml(),'regsum');
     return;
   }
   if(ps[0]==='s'){
@@ -6915,7 +6915,9 @@ function _cbRegAct(a){
     if(st.i<st.pend.length&&!confirm('운전여부를 아직 고르지 않았어요. 비운 채 저장할까요?')) return;
     try{ saveCust(); }catch(e){ toast('저장 중 오류: '+(e&&e.message||e)); return; }
     var w2=g('cust_form_wrap');
-    if(w2&&w2.style.display==='none'){ st.saved=1; _cbPush(0,'✅ <b>'+_esc(nm)+'</b> 고객을 저장했어요. 고객 목록에서 확인할 수 있어요.'); }
+    if(w2&&w2.style.display==='none'){ st.saved=1;
+      (window._cbMsgs||[]).forEach(function(m){ if(m.ph==='regsum'){ m.ph=0; m.h='<div class="cbt">📋 정리된 내용</div><span style="color:#8a90aa">저장을 마쳐 대화 창에서는 지웠어요.</span>'; } });   // 저장 뒤 주민번호 등을 대화에 남기지 않음
+      _cbPush(0,'✅ <b>'+_esc(nm)+'</b> 고객을 저장했어요. 고객 목록에서 확인할 수 있어요.'); }
     else _cbPush(0,'저장하지 못했어요. 화면의 안내를 확인해 주세요.');
   }
 }
