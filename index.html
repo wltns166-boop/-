@@ -331,6 +331,10 @@ table.dt tr:last-child td{border-bottom:none;}
 .mgrco img,.mgrco .sanfb{width:26px;height:26px;flex:0 0 26px;border-radius:6px;object-fit:contain}.mgrco .sanfb{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
 .mgrco b{font-size:13.5px;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}.mgrco small{font-size:11.5px;color:#7a809a;display:block}
 .mgrco.drop{outline:3px solid #2a9d4a}
+.mgrco small.mgrtel{color:#1f4fb8;font-weight:700}
+.mgrtelh{font-size:14px;font-weight:700;color:#1f4fb8;margin-left:10px}
+.mgrtelb{padding:3px 10px !important;font-size:12.5px !important}
+.mgrtelin{margin-left:10px;width:150px;padding:4px 8px;border:1px solid #b8c2e8;border-radius:6px;font:inherit;font-size:14px;color:#111;background:#fff}
 .mgrbox{margin-top:12px;border:1px solid #dfe3f1;border-radius:10px;padding:8px 10px;background:#fafbff}
 .mgrboxh{font-size:14.5px;font-weight:800;color:#1a1a2e;margin:2px 2px 6px;display:flex;align-items:center;gap:8px}
 /* 게시판 카드 그리드 — 대표이미지+제목, 한 줄 4개(모바일 2개) */
@@ -951,7 +955,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-15</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-16</div>
   </div>
 </div>
 
@@ -10239,7 +10243,12 @@ function _mgrHead(withMng, withEdit){
     +(withMng?'<th style="padding:7px 8px;border-bottom:2px solid rgba(60,80,180,.25);font-size:14px;color:#111;text-align:center;font-weight:700;width:52px">삭제</th>':'')
     +(withEdit?'<th style="padding:7px 4px;border-bottom:2px solid rgba(60,80,180,.25);width:96px"></th>':'')+'</tr>';
 }
-function rMgrs(){ ['son','saeng'].forEach(function(s){ if(!window._mgrEditing[s]) _mgrDraw(s); }); }
+function rMgrs(){
+  var draw=function(){ ['son','saeng'].forEach(function(s){ if(!window._mgrEditing[s]&&!(window._mgrTelEd&&window._mgrTelEd.indexOf(s+'|')===0)) _mgrDraw(s); }); };   // 콜센터 번호 수정 중인 쪽은 다시 그리지 않음(입력 보존)
+  draw();
+  // 콜센터 번호(자동차보험관리 설정 carinscfg와 공용) — 접속당 한 번 불러와 다시 그림(실패하면 다음에 다시 시도)
+  if(cu&&!window._carCfgTry&&typeof _carCfgLoad==='function'){ window._carCfgTry=1; _carCfgLoad().then(function(){ if(!window._carCfgOk){ window._carCfgTry=0; return; } if(cu) draw(); }); }
+}
 // 회사 버튼 목록 = 오른쪽 전산 바로가기 회사(링크 있는 항목, 같은 구역) + 연락처에만 있는 회사 — 로고는 전산 바로가기 로고 공용(2026-11-06 백동현 요청)
 function _mgrCoKey(s){ try{ return _icNameKey(s); }catch(e){ return String(s||'').replace(/\s/g,'').toLowerCase(); } }
 function _mgrCoMatch(co,nm){ var a=_mgrCoKey(co), b=_mgrCoKey(nm); if(!a||!b) return 0; if(a===b) return 2;
@@ -10272,11 +10281,15 @@ function _mgrDraw(side){
   var html='<div class="mgrgrid">'+cos.map(function(c){
     var ic=c.it?_sanIconHtml(c.it):'<span class="sanfb" style="background:#9aa3c7">'+_esc(String(c.nm).charAt(0))+'</span>';
     return '<button type="button" class="mgrco'+(c===open?' on':'')+(c.rows.length?'':' empty')+'" data-mgco="'+_esc(c.k)+'"'+' title="'+_esc(c.nm)+(adm&&c.it?' — 관리자: 마우스를 올리고 Ctrl+V(또는 끌어다 놓기)로 로고 바꾸기':'')+'"'+'>'+ic
-      +'<span style="min-width:0"><b>'+_esc(c.nm)+'</b><small>'+(c.rows.length?('연락처 '+c.rows.length):'미등록')+'</small></span></button>';
+      +'<span style="min-width:0"><b>'+_esc(c.nm)+'</b>'+(side==='son'&&_carTelOf(c.nm)?'<small class="mgrtel">'+_esc(_carTelOf(c.nm))+'</small>':'')+'<small>'+(c.rows.length?('연락처 '+c.rows.length):'미등록')+'</small></span></button>';
   }).join('')+'</div>';
   if(open){
     var rows=open.rows;
-    html+='<div class="mgrbox"><div class="mgrboxh">'+(open.it?_sanIconHtml(open.it):'')+_esc(open.nm)+'<button type="button" data-mgclose="1" style="margin-left:auto;border:none;background:none;color:#888;cursor:pointer;font-size:16px">✕</button></div>'
+    var tel=_carTelOf(open.nm), telEd=window._mgrTelEd===side+'|'+open.k;
+    var telHtml=side!=='son'?'':telEd?'<input type="text" class="mgrtelin" maxlength="20" inputmode="tel" value="'+_esc(tel)+'" placeholder="콜센터 번호"><button type="button" class="bp bnv mgrtelb" data-mgtel="save">저장</button><button type="button" class="bp bnv mgrtelb" data-mgtel="cancel">취소</button>'
+      :'<span class="mgrtelh">'+(tel?'<span data-copy="'+_esc(tel)+'" data-cplb="콜센터 번호" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다" style="cursor:pointer">콜센터 '+_esc(tel)+'</span>':'<span style="color:#9aa0bf;font-weight:500">콜센터 번호 없음</span>')+'</span>'
+        +(adm?'<button type="button" class="bp bnv mgrtelb" data-mgtel="edit">수정</button>':'');
+    html+='<div class="mgrbox"><div class="mgrboxh">'+(open.it?_sanIconHtml(open.it):'')+_esc(open.nm)+telHtml+'<button type="button" data-mgclose="1" style="margin-left:auto;border:none;background:none;color:#888;cursor:pointer;font-size:16px">✕</button></div>'
       +(rows.length?'<table style="width:100%;border-collapse:collapse"><thead>'+_mgrHead(false, adm)+'</thead><tbody>'
       +rows.map(function(r){
         if(editing&&r.id===editing) return _mgrRowEditHtml(side, r);
@@ -10302,7 +10315,17 @@ function _mgrDraw(side){
       b.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); b.classList.remove('drop'); var f=e.dataTransfer&&e.dataTransfer.files; if(f&&f[0]) _mgrLogoFile(sid,f[0]); });
     }
   });
-  var cl=el.querySelector('[data-mgclose]'); if(cl) cl.addEventListener('click',function(){ if(window._mgrRowEdit) return; window._mgrOpen[side]=null; _mgrDraw(side); });
+  var cl=el.querySelector('[data-mgclose]'); if(cl) cl.addEventListener('click',function(){ if(window._mgrRowEdit) return; window._mgrTelEd=null; window._mgrOpen[side]=null; _mgrDraw(side); });
+  el.querySelectorAll('[data-mgtel]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var a=b.getAttribute('data-mgtel');
+      if(window._mgrRowEdit){ toast('수정 중인 줄을 먼저 [완료]/[취소]해 주세요.'); return; }
+      if(a==='edit'){ if(!_isAdmin()) return; window._mgrTelEd=side+'|'+open.k; _mgrDraw(side); var i=el.querySelector('.mgrtelin'); if(i){ i.focus(); i.select(); } }
+      else if(a==='cancel'){ window._mgrTelEd=null; _mgrDraw(side); }
+      else if(a==='save'){ var i2=el.querySelector('.mgrtelin'); _mgrTelSave(side, open.nm, i2?i2.value:'', b); }
+    });
+  });
+  var ti=el.querySelector('.mgrtelin'); if(ti) ti.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); var sb=el.querySelector('[data-mgtel=save]'); if(sb) sb.click(); } else if(e.key==='Escape'){ window._mgrTelEd=null; _mgrDraw(side); } });
   el.querySelectorAll('button[data-mgract]').forEach(function(b){
     b.addEventListener('click',function(){
       var act=b.getAttribute('data-mgract');
@@ -10368,6 +10391,7 @@ function mgrRowEdit(side,id){
   if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
   if(!id) return;
   if(window._mgrRowEdit){ toast('다른 행을 편집 중입니다. 먼저 [완료] 또는 [취소]를 눌러주세요.'); return; }
+  if(window._mgrTelEd){ toast('콜센터 번호 수정을 먼저 [저장]/[취소]해 주세요.'); return; }
   if(window._mgrEditing[side]) return;   // 전체 편집([등록]) 중이면 무시
   var row=null; _mgrRows(side).forEach(function(r){ if(r&&r.id===id) row=r; });
   if(!row) return;
@@ -28662,7 +28686,7 @@ function _carSub(){
 }
 function _carUnsubscribe(){ clearTimeout(window._carRetryT); window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
-  var _wasBusy=window._carBusy; try{ var _ccp=g('car_cfg_pop'); if(_ccp) _ccp.remove(); }catch(e){} window._carCfg=null; window._carCfgOk=0; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
+  var _wasBusy=window._carBusy; try{ var _ccp=g('car_cfg_pop'); if(_ccp) _ccp.remove(); }catch(e){} window._carCfg=null; window._carCfgOk=0; window._carCfgTry=0; window._mgrTelEd=null; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
   window._carBusy=false;
   window._carGen=(window._carGen||0)+1;   // 늦게 끝난 업로드 폐기
@@ -28813,8 +28837,30 @@ function _carCfgSave(d){
   var tel=_carCfgClean(raw)||[], db=_carDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('ccc_save'); if(btn) btn.disabled=true;
   db.collection('carinscfg').doc('cfg').set({tel:tel,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
-    window._carCfg=tel; d.remove(); toast('콜센터 번호를 저장했습니다.'); _carDraw();
+    window._carCfg=tel; d.remove(); toast('콜센터 번호를 저장했습니다.'); _carDraw(); try{ rMgrs(); }catch(e){}
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('carinscfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
+}
+// 매니저 연락처 회사 칸의 콜센터 번호 수정(관리자) — carinscfg/cfg(자동차보험관리 설정과 공용)를 최신본으로 다시 읽어 그 회사 줄만 바꿈(없으면 추가)
+function _mgrTelSave(side, nm, ph, btn){
+  if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
+  var db=_carDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
+  ph=String(ph||'').replace(/[^0-9\-+() ]/g,'').trim().slice(0,20);
+  if(btn) btn.disabled=true;
+  var ref=db.collection('carinscfg').doc('cfg'), kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(nm);
+  db.runTransaction(function(tx){
+    return tx.get(ref).then(function(d){
+      var L=(d.exists?_carCfgClean((d.data()||{}).tel):null);
+      if(!L) L=_carTelList().map(function(x){ return {nm:x.nm,ph:x.ph}; });
+      var hit=null; L.forEach(function(x){ if(!hit&&(x.nm===nm||kf(x.nm)===k)) hit=x; });
+      if(hit) hit.ph=ph; else L.push({nm:String(nm).replace(/[<>]/g,'').slice(0,30), ph:ph});
+      L=_carCfgClean(L);
+      tx.set(ref,{tel:L,ts:Date.now(),by:(cu&&cu.name)||''});
+      return L;
+    });
+  }).then(function(L){
+    window._carCfg=L; window._carCfgOk=1; window._mgrTelEd=null; toast('콜센터 번호를 저장했습니다.');
+    _mgrDraw(side); try{ var pg=g('pg_carins'); if(pg&&pg.classList.contains('active')) _carDraw(); }catch(e){}
+  }).catch(function(e){ if(btn) btn.disabled=false; console.warn('mgr tel save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
 function carMonSel(k){ k=String(k==null?'*':k); window._carMon=(k==='*'||!/^(\d{4}-\d{2})?$/.test(k))?null:k; _carDraw(); }
 // 가입일 1년 뒤(만기일) — 2월 29일은 다음 해 2월 28일
