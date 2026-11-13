@@ -955,7 +955,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-17</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-18</div>
   </div>
 </div>
 
@@ -10281,12 +10281,12 @@ function _mgrDraw(side){
   var html='<div class="mgrgrid">'+cos.map(function(c){
     var ic=c.it?_sanIconHtml(c.it):'<span class="sanfb" style="background:#9aa3c7">'+_esc(String(c.nm).charAt(0))+'</span>';
     return '<button type="button" class="mgrco'+(c===open?' on':'')+(c.rows.length?'':' empty')+'" data-mgco="'+_esc(c.k)+'"'+' title="'+_esc(c.nm)+(adm&&c.it?' — 관리자: 마우스를 올리고 Ctrl+V(또는 끌어다 놓기)로 로고 바꾸기':'')+'"'+'>'+ic
-      +'<span style="min-width:0"><b>'+_esc(c.nm)+'</b>'+(side==='son'&&_carTelOf(c.nm)?'<small class="mgrtel">'+_esc(_carTelOf(c.nm))+'</small>':'')+'<small>'+(c.rows.length?('연락처 '+c.rows.length):'미등록')+'</small></span></button>';
+      +'<span style="min-width:0"><b>'+_esc(c.nm)+'</b>'+(_carTelOf(c.nm,side)?'<small class="mgrtel">'+_esc(_carTelOf(c.nm,side))+'</small>':'')+'<small>'+(c.rows.length?('연락처 '+c.rows.length):'미등록')+'</small></span></button>';
   }).join('')+'</div>';
   if(open){
     var rows=open.rows;
-    var tel=_carTelOf(open.nm), telEd=window._mgrTelEd===side+'|'+open.k;
-    var telHtml=side!=='son'?'':telEd?'<input type="text" class="mgrtelin" maxlength="20" inputmode="tel" value="'+_esc(tel)+'" placeholder="콜센터 번호"><button type="button" class="bp bnv mgrtelb" data-mgtel="save">저장</button><button type="button" class="bp bnv mgrtelb" data-mgtel="cancel">취소</button>'
+    var tel=_carTelOf(open.nm,side), telEd=window._mgrTelEd===side+'|'+open.k;
+    var telHtml=telEd?'<input type="text" class="mgrtelin" maxlength="20" inputmode="tel" value="'+_esc(tel)+'" placeholder="콜센터 번호"><button type="button" class="bp bnv mgrtelb" data-mgtel="save">저장</button><button type="button" class="bp bnv mgrtelb" data-mgtel="cancel">취소</button>'
       :'<span class="mgrtelh">'+(tel?'<span data-copy="'+_esc(tel)+'" data-cplb="콜센터 번호" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다" style="cursor:pointer">콜센터 '+_esc(tel)+'</span>':'<span style="color:#9aa0bf;font-weight:500">콜센터 번호 없음</span>')+'</span>'
         +(adm?'<button type="button" class="bp bnv mgrtelb" data-mgtel="edit">수정</button>':'');
     html+='<div class="mgrbox"><div class="mgrboxh">'+(open.it?_sanIconHtml(open.it):'')+_esc(open.nm)+telHtml+'<button type="button" data-mgclose="1" style="margin-left:auto;border:none;background:none;color:#888;cursor:pointer;font-size:16px">✕</button></div>'
@@ -28660,6 +28660,7 @@ function _carDb(){ return (window.db&&window.firebase&&firebase.firestore)?windo
 function _carClean(id,o){
   o=o||{}; var r={id:String(id), ok:String(o.ok||''), m:String(o.m||'').slice(0,30), ts:+o.ts||0, ph:[]};
   CAR_F.forEach(function(k){ r[k]=String(o[k]==null?'':o[k]).slice(0,60); });
+  r.rn=(o.rn&&typeof o.rn==='object'&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.rn.ex||'')))?{ex:String(o.rn.ex),ts:+o.rn.ts||0,by:String(o.rn.by||'').slice(0,30)}:null;
   if(Array.isArray(o.ph)) o.ph.slice(0,20).forEach(function(p){ if(p&&_CAR_URL_RE.test(String(p.u||''))) r.ph.push({u:String(p.u), n:String(p.n||'').slice(0,80), k:p.k==='pdf'?'pdf':'img'}); });
   return r;
 }
@@ -28687,7 +28688,7 @@ function _carSub(){
 }
 function _carUnsubscribe(){ clearTimeout(window._carRetryT); window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
-  var _wasBusy=window._carBusy; try{ var _ccp=g('car_cfg_pop'); if(_ccp) _ccp.remove(); }catch(e){} window._carCfg=null; window._carCfgOk=0; window._carCfgTry=0; window._mgrTelEd=null; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
+  var _wasBusy=window._carBusy; try{ var _ccp=g('car_cfg_pop'); if(_ccp) _ccp.remove(); }catch(e){} window._carCfg=null; window._carCfgL=null; window._carCfgOk=0; window._carCfgTry=0; window._mgrTelEd=null; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
   window._carBusy=false;
   window._carGen=(window._carGen||0)+1;   // 늦게 끝난 업로드 폐기
@@ -28741,7 +28742,7 @@ function _carDraw(){
       +'<td>'+esc(o.way||'-')+'</td>'
       +'<td>'+(ph||'-')+'</td>'
       +(all?'<td>'+esc(o.m||'-')+'</td>':'')
-      +'<td style="white-space:nowrap">'+(_carCanEdit(o)?'<button class="bp bnv" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carEdit(this.getAttribute(\'data-carid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carDel(this.getAttribute(\'data-carid\'))">삭제</button>':'')+'</td>'
+      +'<td style="white-space:nowrap">'+(_carCanEdit(o)?'<div style="margin-bottom:5px"><span class="cppaid '+(_carRnDone(o)?'y':'n')+'" data-carid="'+at(o.id)+'" onclick="carRnToggle(this.getAttribute(\'data-carid\'))" title="'+(_carRnDone(o)?at('갱신완료'+(o.rn.by?' · '+o.rn.by:'')+' — 누르면 갱신미완료로'):'누르면 갱신완료로 바뀝니다')+'">'+(_carRnDone(o)?'✔ 갱신완료':'갱신미완료')+'</span></div><button class="bp bnv" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carEdit(this.getAttribute(\'data-carid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carDel(this.getAttribute(\'data-carid\'))">삭제</button>':'')+'</td>'
       +'</tr>';
   };
   box.innerHTML=mons.map(function(k){
@@ -28756,7 +28757,7 @@ function _carAlerts(ds){
   if(!cu||!window._carLoaded) return [];
   var key=_rsvKey(), today=td(), out=[];
   (window._carItems||[]).forEach(function(o){
-    if(o.ok!==key||!/^\d{4}-\d{2}-\d{2}$/.test(o.ex)) return;
+    if(o.ok!==key||!/^\d{4}-\d{2}-\d{2}$/.test(o.ex)||_carRnDone(o)) return;   // 갱신완료로 표시한 건은 알림 없음
     var left=_carDayDiff(o.ex,today); if(!(left>=0&&left<=CAR_ALERT_DAYS)) return;
     var id='car_'+o.id+'_'+o.ex; if(ds&&ds.indexOf(id)>=0) return;
     var st=new Date(o.ex+'T09:00:00'); st.setDate(st.getDate()-CAR_ALERT_DAYS);
@@ -28780,13 +28781,13 @@ function _carCfgClean(a){
 }
 function _carCfgLoad(){
   var db=_carDb(); if(!db) return Promise.resolve();
-  return db.collection('carinscfg').doc('cfg').get().then(function(d){ window._carCfg=d.exists?_carCfgClean((d.data()||{}).tel):null; window._carCfgOk=1; })
+  return db.collection('carinscfg').doc('cfg').get().then(function(d){ window._carCfg=d.exists?_carCfgClean((d.data()||{}).tel):null; window._carCfgL=(d.exists?_carCfgClean((d.data()||{}).ltel):null)||[]; window._carCfgOk=1; })
     .catch(function(e){ window._carCfgOk=0; console.warn('carinscfg',e); });
 }
 function _carTelList(){ if(window._carCfg) return window._carCfg; var L=_reqInsLists(); return (L.son||[]).map(function(n){ return {nm:n,ph:''}; }); }
-function _carTelOf(ins){
+function _carTelOf(ins, side){   // side 'saeng' = 생명보험사 번호(ltel — 홈 매니저 연락처 전용), 그 밖은 손해보험사(tel)
   ins=String(ins||'').trim(); if(!ins) return '';
-  var L=window._carCfg||[], kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(ins);
+  var L=(side==='saeng'?window._carCfgL:window._carCfg)||[], kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(ins);
   for(var i=0;i<L.length;i++){ if(L[i].ph&&(L[i].nm===ins||kf(L[i].nm)===k)) return L[i].ph; }
   return '';
 }
@@ -28847,7 +28848,7 @@ function _carCfgSave(d){
   if(dn.length){ toast('같은 이름이 두 번 있습니다: '+dn[0]+' — 하나를 지워 주세요.'); return; }
   var tel=_carCfgClean(raw)||[], db=_carDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('ccc_save'); if(btn) btn.disabled=true;
-  db.collection('carinscfg').doc('cfg').set({tel:tel,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+  db.collection('carinscfg').doc('cfg').set({tel:tel,ts:Date.now(),by:(cu&&cu.name)||''},{merge:true}).then(function(){
     window._carCfg=tel; d.remove(); toast('콜센터 번호를 저장했습니다.'); _carDraw(); try{ rMgrs(); }catch(e){}
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('carinscfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
@@ -28860,16 +28861,17 @@ function _mgrTelSave(side, nm, ph, btn){
   var ref=db.collection('carinscfg').doc('cfg'), kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(nm);
   db.runTransaction(function(tx){
     return tx.get(ref).then(function(d){
-      var L=(d.exists?_carCfgClean((d.data()||{}).tel):null);
-      if(!L) L=_carTelList().map(function(x){ return {nm:x.nm,ph:x.ph}; });
+      var life=(side==='saeng'), L=(d.exists?_carCfgClean((d.data()||{})[life?'ltel':'tel']):null);
+      if(!L) L=life?[]:_carTelList().map(function(x){ return {nm:x.nm,ph:x.ph}; });
       var hit=null; L.forEach(function(x){ if(!hit&&(x.nm===nm||kf(x.nm)===k)) hit=x; });
       if(hit) hit.ph=ph; else L.push({nm:String(nm).replace(/[<>]/g,'').slice(0,30), ph:ph});
       L=_carCfgClean(L);
-      tx.set(ref,{tel:L,ts:Date.now(),by:(cu&&cu.name)||''});
+      var w={ts:Date.now(),by:(cu&&cu.name)||''}; w[life?'ltel':'tel']=L;   // 배열은 merge에서도 통째 교체 — 반대쪽(손해/생명) 목록은 그대로
+      tx.set(ref,w,{merge:true});
       return L;
     });
   }).then(function(L){
-    window._carCfg=L; window._carCfgOk=1; window._mgrTelEd=null; toast('콜센터 번호를 저장했습니다.');
+    if(side==='saeng') window._carCfgL=L; else window._carCfg=L; window._carCfgOk=1; window._mgrTelEd=null; toast('콜센터 번호를 저장했습니다.');
     _mgrDraw(side); try{ var pg=g('pg_carins'); if(pg&&pg.classList.contains('active')) _carDraw(); }catch(e){}
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('mgr tel save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
@@ -28886,6 +28888,20 @@ function _carExAuto(){
   var a=g('car_f_dt'), b=g('car_f_ex'); if(!a||!b) return;
   if(b.dataset.hand==='1'&&b.value) return;
   var v=_carPlus1y(a.value); if(v||!a.value) b.value=v; b.dataset.hand='';
+}
+// 갱신완료/갱신미완료 — 그 만기일(ex)에 대한 표시(rn.ex===ex). 만기일을 새로 고치면(다음 해) 자동으로 갱신미완료로 돌아감. 문서 id 기준(함정 A)
+function _carRnDone(o){ return !!(o&&o.rn&&o.rn.ex===(o.ex||'')); }
+function carRnToggle(id){
+  var o=_carFind(id), db=_carDb(); if(!o||!db) return;
+  if(!_carCanEdit(o)){ toast('본인이 등록한 건만 바꿀 수 있습니다.'); return; }
+  window._carRnBusy=window._carRnBusy||{}; if(window._carRnBusy[id]) return;
+  var done=_carRnDone(o), FV=firebase.firestore.FieldValue;
+  if(!done&&!/^\d{4}-\d{2}-\d{2}$/.test(o.ex||'')){ toast('만기일이 없습니다 — [수정]에서 만기일을 넣은 뒤 눌러 주세요.'); return; }
+  if(done&&!confirm((o.ct||'')+' · '+(o.no||o.car||'')+' — 갱신미완료로 되돌릴까요?')) return;
+  window._carRnBusy[id]=1;
+  db.collection(CAR_COL).doc(id).update({rn:done?FV.delete():{ex:o.ex,ts:Date.now(),by:(cu&&cu.name)||''}}).then(function(){
+    delete window._carRnBusy[id]; toast(done?'갱신미완료로 바꿨습니다.':'갱신완료로 표시했습니다.'); try{ rAlerts(); }catch(e){}
+  }).catch(function(e){ delete window._carRnBusy[id]; console.warn('car rn',e); toast('저장 실패 — 다시 시도해 주세요.'); });
 }
 function carDel(id){
   var o=_carFind(id), db=_carDb(); if(!o||!db) return;
