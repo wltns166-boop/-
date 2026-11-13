@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-22</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-23</div>
   </div>
 </div>
 
@@ -6688,7 +6688,7 @@ var CBR_LB=[
 var CBR_KEY=(function(){ var m=Object.create(null); CBR_LB.forEach(function(r){ r[1].forEach(function(a){ m[a]=r[0]; }); }); return m; })();
 var CBR_KNAME={name:'이름',rrn:'주민번호',phone:'연락처',carrier:'통신사',region:'지역',addr:'주소',height:'키',weight:'몸무게',job:'직업',drive:'운전',bankName:'은행',bankNum:'계좌번호',disease:'병력',note:'특이사항',rel:'관계'};
 var CBR_REL_W='배우자|남편|아내|와이프|부인|자녀|아들|딸|부모|아버지|어머니|아빠|엄마|부친|모친|형제|자매|형|누나|오빠|언니|남동생|여동생|동생';
-var CBR_REL_RE=new RegExp('^(\\d+번째)?(가족구성원|가족)?\\d*(번째)?('+CBR_REL_W+')?\\d*(정보)?$');
+var CBR_REL_RE=new RegExp('^(\\d+번째)?(가족구성원|가족)?\\d*(번째)?(('+CBR_REL_W+')\\d*)*(정보)?$');
 function _cbrIsHead(nl){ return !!nl&&CBR_REL_RE.test(nl)&&new RegExp('가족|'+CBR_REL_W).test(nl); }
 function _cbrNorm(s){ return String(s||'').toLowerCase().replace(/[\s\[\]()<>【】「」『』★☆■□◆◇●○▶►☞✔✓\-•·*#]/g,''); }
 function _cbrRel(s){
@@ -6707,7 +6707,7 @@ function _cbRegDetect(q){
   var head=/^[\[\(<【★☆■]*\s*고객\s*등록/.test(lines[0]);
   var p=_cbRegParse(s);
   var m=p.blocks[0]||{};
-  if(head) return p.labeled>=1;
+  if(head) return !!m.name||p.labeled>=2;
   return !!(m.name&&(m.rrn||m.phone)&&p.labeled>=2);
 }
 function _cbRegSplit(s){
@@ -6730,6 +6730,7 @@ function _cbRegParse(q){
     }
     if(mm){
       var key=CBR_KEY[_cbrNorm(mm[1])], v=mm[2].trim();
+      if(!key&&v&&_cbrIsHead(_cbrNorm(mm[1]))&&!/^가족/.test(_cbrNorm(mm[1]))){ blocks.push({rel:_cbrRel(mm[1]), name:v.slice(0,30)}); cur=blocks.length-1; lastKey='name'; labeled++; return; }   // '배우자: 김영희'
       if(key){
         labeled++;
         if(!v){ lastKey=key; return; }
@@ -6738,13 +6739,15 @@ function _cbRegParse(q){
         else if(key==='rel'&&cur===0){ blocks.push({}); cur=blocks.length-1; b=blocks[cur]; }
         if(key==='name'){ var pr=v.match(/^(.*?)\s*[\(（]\s*([^)）]{1,8})\s*[\)）]\s*$/); if(pr&&cur>0){ v=pr[1].trim(); if(!b.rel) b.rel=_cbrRel(pr[2]); } }
         if(key==='rel') v=_cbrRel(v)||v;
-        if((key==='disease'||key==='note')&&b[key]) b[key]+='\n'+v; else b[key]=v;
+        if((key==='disease'||key==='note')&&b[key]) b[key]+='\n'+v;
+        else if(b[key]&&key!=='rel'){ warns.push((b.name||'고객')+': '+(CBR_KNAME[key]||key)+' 항목이 두 번 나와 첫 값만 넣었습니다'); }
+        else b[key]=v;
         lastKey=key; return;
       }
       if(/^(\d+번째)?가족(구성원)?\d*(번째)?$/.test(_cbrNorm(mm[1]))){ blocks.push({rel:_cbrRel(v)}); cur=blocks.length-1; lastKey=''; return; }   // '가족1: 배우자'
       if(!/^https?$/i.test(mm[1].trim())){ unknown.push(mm[1].trim()); return; }
     }
-    if(lastKey&&/^(addr|disease|note|job)$/.test(lastKey)&&blocks[cur][lastKey]!=null){ blocks[cur][lastKey]+=(lastKey==='addr'||lastKey==='job'?' ':'\n')+l; return; }
+    if(lastKey&&/^(addr|disease|note)$/.test(lastKey)&&blocks[cur][lastKey]!=null&&!/^(감사|고맙|잘\s*부탁|부탁|이상입니다|이상$|끝$|수고)/.test(l)){ blocks[cur][lastKey]+=(lastKey==='addr'||lastKey==='job'?' ':'\n')+l; return; }
     if(lastKey&&blocks[cur][lastKey]==null){ blocks[cur][lastKey]=l; return; }   // '주소:' 다음 줄에 값
     if(!/^고객\s*등록/.test(l)) unknown.push(l.length>14?l.slice(0,14)+'…':l);
   });
@@ -6764,15 +6767,15 @@ function _cbrCarrier(s){
   return b?(b+(alt?' 알뜰폰':'')):'';
 }
 function _cbrDrive(s){
-  var t=String(s||'').replace(/\s/g,'');
+  var t=String(s||'').replace(/[\(（\[][^\)）\]]*[\)）\]]/g,'').replace(/\s/g,'').toLowerCase();
+  if(/^(운전)?(안함|안해요?|않음|안합니다|없음|무|x|no|n|아니(오|요)?|미운전|비운전|안함요|해당없음|못함|면허없음)$/.test(t)) return '운전안함';
   if(/영업|화물|택시|버스|트럭|배달|오토바이|이륜/.test(t)) return '영업용';
-  if(/안|않|무|없|X|x|^no$|^n$|^아니/.test(t)) return '운전안함';
-  if(/승용|자가|자차|^o$|^O$|^예$|^네$|^함$|^유$|^있|^yes$|^y$|운전함|운전해/.test(t)) return '승용차';
+  if(/승용|자가|자차|suv|^o$|^예$|^네$|^함$|^유$|^있|^yes$|^y$|운전함|운전해|운전합니다/.test(t)) return '승용차';
   return '';
 }
 function _cbrBank(s, sel){
   var n=function(x){ return String(x||'').toLowerCase().replace(/\s|은행/g,''); };
-  var t=n(s); if(!t||!sel) return '';
+  var t=n(s); if(!t||t.length<2||!sel) return '';
   var A={kb:'국민',ibk:'기업',nh:'농협',sc:'sc제일',제일:'sc제일',k뱅크:'케이뱅크',카뱅:'카카오뱅크',카카오:'카카오뱅크',토스:'토스뱅크',im:'대구',아이엠:'대구',새마을:'새마을금고',citi:'씨티',시티:'씨티'};
   Object.keys(A).forEach(function(k){ if(t.indexOf(k)===0) t=A[k]+t.slice(k.length); });
   var hit=''; Array.prototype.some.call(sel.options,function(o){ var on=n(o.text); if(on&&(on===t||t.indexOf(on)===0||on.indexOf(t)===0)){ hit=o.text; return true; } return false; });
@@ -6786,12 +6789,16 @@ function _cbrFillOne(b, ids, who, warns){
   if(b.hw){ var nn=String(b.hw).match(/\d{2,3}(\.\d)?/g)||[]; if(!b.height&&nn[0]) b.height=nn[0]; if(!b.weight&&nn[1]) b.weight=nn[1]; }
   _cbrSet(ids.name, String(b.name||'').slice(0,30));
   // 주민번호 — 숫자만 모아 000000-0000000(생년월일 8자리는 6자리로)
-  var rd=String(b.rrn||'').replace(/\D/g,''); var rv='';
+  var rs=String(b.rrn||''), dm=rs.match(/^\s*(\d{2}|\d{4})\s*[.\/년\-]\s*(\d{1,2})\s*[.\/월\-]\s*(\d{1,2})\s*일?\s*$/);
+  if(dm&&!/\d{6}\s*-\s*\d{7}/.test(rs)) rs=dm[1].slice(-2)+('0'+dm[2]).slice(-2)+('0'+dm[3]).slice(-2);
+  var rd=rs.replace(/\D/g,''); var rv='';
   if(rd.length===8&&/^(19|20)/.test(rd)) rd=rd.slice(2);
   if(rd){ rv=rd.length>6?rd.slice(0,6)+'-'+rd.slice(6,13):rd; if(/\*/.test(b.rrn||'')) w('주민번호 일부가 가려져 있어 앞자리만 넣었습니다'); else if(rd.length!==13&&rd.length!==6) w('주민번호 자릿수('+rd.length+')를 확인하세요'); else if(rd.length===6) w('주민번호 뒷자리가 없어 생년월일만 넣었습니다'); }
   _cbrSet(ids.rrn, rv);
-  var pd=String(b.phone||'').replace(/\D/g,'').slice(0,11), pv='';
-  if(pd){ pv=pd.length>7?pd.slice(0,3)+'-'+pd.slice(3,pd.length-4)+'-'+pd.slice(-4):pd; if(!/^01\d{8,9}$/.test(pd)) w('연락처 형식을 확인하세요'); }
+  var ps=String(b.phone||'').replace(/\+\s*82[\s\-]*0?/,'0'), pm=ps.match(/0\d[\d\s\-.]{6,13}\d/g)||[];
+  var pd=(pm[0]||ps).replace(/\D/g,'').slice(0,11), pv='';
+  if(pm.length>1) w('연락처가 여러 개라 첫 번호만 넣었습니다');
+  if(pd){ var a=/^02/.test(pd)?2:3; pv=pd.length>a+4?pd.slice(0,a)+'-'+pd.slice(a,pd.length-4)+'-'+pd.slice(-4):pd; if(!/^01\d{8,9}$/.test(pd)) w('연락처 형식을 확인하세요'); }
   _cbrSet(ids.phone, pv);
   var cr=_cbrCarrier(b.carrier); if(b.carrier&&!cr) w('통신사 "'+String(b.carrier).slice(0,10)+'"를 목록에서 못 찾아 비워 뒀습니다'); _cbrSel(ids.carrier, cr);
   var rg=_cbrRegion(b.region)||_cbrRegion(b.addr); if(b.region&&!_cbrRegion(b.region)) w('지역 "'+String(b.region).slice(0,10)+'"를 목록에서 못 찾았습니다'); _cbrSel(ids.region, rg);
@@ -6811,7 +6818,7 @@ function _cbrFillOne(b, ids, who, warns){
 function _cbRegFill(q){
   var p=_cbRegParse(q), main=p.blocks[0]||{}, fam=p.blocks.slice(1).filter(function(b){ return Object.keys(b).some(function(k){ return k!=='rel'&&b[k]; })||b.rel; });
   if(!main.name){ _cbPush(0,'고객 <b>이름</b>을 찾지 못했어요. 첫 줄에 <b>이름: 홍길동</b>처럼 적어 주세요.'); return; }
-  var warns=[];
+  var warns=p.warns.slice();
   if(fam.length>10){ warns.push('가족은 10명까지만 넣었습니다('+fam.length+'명 중)'); fam=fam.slice(0,10); }
   // 작성 중인 고객등록·수정 내용이 있으면 확인
   var wrap=g('cust_form_wrap');
