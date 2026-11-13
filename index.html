@@ -955,7 +955,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-17</div>
   </div>
 </div>
 
@@ -10325,7 +10325,8 @@ function _mgrDraw(side){
       else if(a==='save'){ var i2=el.querySelector('.mgrtelin'); _mgrTelSave(side, open.nm, i2?i2.value:'', b); }
     });
   });
-  var ti=el.querySelector('.mgrtelin'); if(ti) ti.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); var sb=el.querySelector('[data-mgtel=save]'); if(sb) sb.click(); } else if(e.key==='Escape'){ window._mgrTelEd=null; _mgrDraw(side); } });
+  var ti=el.querySelector('.mgrtelin'); if(ti) ti.addEventListener('input',function(){ _carTelIn(ti); });
+  if(ti) ti.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); var sb=el.querySelector('[data-mgtel=save]'); if(sb) sb.click(); } else if(e.key==='Escape'){ window._mgrTelEd=null; _mgrDraw(side); } });
   el.querySelectorAll('button[data-mgract]').forEach(function(b){
     b.addEventListener('click',function(){
       var act=b.getAttribute('data-mgract');
@@ -28789,6 +28790,15 @@ function _carTelOf(ins){
   for(var i=0;i<L.length;i++){ if(L[i].ph&&(L[i].nm===ins||kf(L[i].nm)===k)) return L[i].ph; }
   return '';
 }
+// 콜센터 번호 자동 하이픈 — 15667711 → 1566-7711, 0261120728 → 02-6112-0728, 01012345678 → 010-1234-5678 (그 밖의 모양은 친 그대로)
+function _carTelFmt(v){
+  v=String(v||''); var d=v.replace(/\D/g,'');
+  if(/^1[5-9]/.test(d)){ d=d.slice(0,8); return d.length>4?d.slice(0,4)+'-'+d.slice(4):d; }
+  if(/^02/.test(d)){ d=d.slice(0,10); if(d.length<=2) return d; if(d.length<=5) return '02-'+d.slice(2); if(d.length<=9) return '02-'+d.slice(2,5)+'-'+d.slice(5); return '02-'+d.slice(2,6)+'-'+d.slice(6); }
+  if(/^0/.test(d)){ d=d.slice(0,11); if(d.length<=3) return d; if(d.length<=6) return d.slice(0,3)+'-'+d.slice(3); if(d.length<=10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7); }
+  return v.replace(/[^0-9\-+() ]/g,'').slice(0,20);
+}
+function _carTelIn(el){ var f=_carTelFmt(el.value); if(f!==el.value) el.value=f; }
 function _carCfgRow(x){ x=x||{nm:'',ph:''};
   return '<tr class="ccc_row"><td style="white-space:nowrap"><button class="ccc_mv" data-mv="-1">▲</button> <button class="ccc_mv" data-mv="1">▼</button></td>'
    +'<td><input type="text" class="ccc_nm" maxlength="30" value="'+_alertEsc(x.nm)+'" placeholder="손해보험사 이름"></td>'
@@ -28812,6 +28822,7 @@ function carCfgOpen(){
      +'<button class="bp bnv" data-reset="1">손해보험사 목록 다시 불러오기</button><div style="display:flex;gap:8px"><button class="bp bnv" data-close="1">취소</button><button class="bp bnv" id="ccc_save" data-save="1"><i class="ti ti-device-floppy"></i> 저장</button></div></div></div>';
     document.body.appendChild(d);
     var tb=g('ccc_tb');
+    d.addEventListener('input',function(e){ if(e.target.classList&&e.target.classList.contains('ccc_ph')) _carTelIn(e.target); });
     d.addEventListener('mousedown',function(e){ d._down=(e.target===d); });
     d.addEventListener('click',function(e){
       var t=e.target.closest('button');
@@ -28830,7 +28841,7 @@ function carCfgOpen(){
 }
 function _carCfgSave(d){
   if(!_isAdmin()) return;
-  var raw=[].map.call(d.querySelectorAll('#ccc_tb .ccc_row'),function(tr){ return {nm:tr.querySelector('.ccc_nm').value,ph:tr.querySelector('.ccc_ph').value}; });
+  var raw=[].map.call(d.querySelectorAll('#ccc_tb .ccc_row'),function(tr){ return {nm:tr.querySelector('.ccc_nm').value,ph:_carTelFmt(tr.querySelector('.ccc_ph').value)}; });
   if(raw.some(function(r){ return !String(r.nm).trim(); })){ toast('이름이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
   var dup={}, dn=raw.map(function(r){ return String(r.nm).trim(); }).filter(function(n){ var x=dup[n]; dup[n]=1; return x; });
   if(dn.length){ toast('같은 이름이 두 번 있습니다: '+dn[0]+' — 하나를 지워 주세요.'); return; }
@@ -28844,7 +28855,7 @@ function _carCfgSave(d){
 function _mgrTelSave(side, nm, ph, btn){
   if(!_isAdmin()){ toast('관리자만 수정할 수 있습니다.'); return; }
   var db=_carDb(); if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
-  ph=String(ph||'').replace(/[^0-9\-+() ]/g,'').trim().slice(0,20);
+  ph=_carTelFmt(ph).trim().slice(0,20);
   if(btn) btn.disabled=true;
   var ref=db.collection('carinscfg').doc('cfg'), kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(nm);
   db.runTransaction(function(tx){
