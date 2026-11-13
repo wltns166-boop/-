@@ -924,7 +924,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.12-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-1</div>
   </div>
 </div>
 
@@ -1363,7 +1363,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg" id="pg_dbuse">
       <div class="sh"><div class="st"><i class="ti ti-chart-bar"></i>DB사용량</div>
         <button class="bp" onclick="rDbUse()"><i class="ti ti-refresh"></i> 새로고침</button></div>
-      <div class="abnote">고객별 DB 종류·권역·배정일과 진행 단계(TA·상담·제안·계약)를 각자 입력하면 아래에 합산됩니다. 화면에서는 내가 입력한 고객만 고칠 수 있습니다.</div>
+      <div class="abnote">고객별 DB 종류·권역·배정일과 진행 단계(TA·상담·제안·계약)를 각자 입력하면 아래에 합산됩니다. 현황·목록에는 내가 입력한 고객만 보입니다.</div>
       <div class="dbutop">
         <div class="card">
           <div class="dbuh">고객 추가</div>
@@ -1390,7 +1390,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
             <select id="dbu_fr" class="dbusel" onchange="_dbuRender()"><option value="">권역 전체</option><option>수도권</option><option>충청권</option></select>
             <select id="dbu_fd" class="dbusel" onchange="_dbuRender()"><option value="">DB 전체</option></select>
             <select id="dbu_fp" class="dbusel" onchange="_dbuRender()"><option value="">담당자 전체</option></select>
-            <button class="abbtn" id="dbu_pdf" onclick="dbuPdf()" style="display:none"><i class="ti ti-file-type-pdf"></i> PDF 보고서 (관리자)</button>
+            <button class="abbtn" id="dbu_pdf" onclick="dbuPdf()" style="display:none"><i class="ti ti-file-type-pdf"></i> PDF 보고서</button>
           </div></div>
         <div class="dbukpis" id="dbu_kpis"></div>
       </div>
@@ -1413,7 +1413,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div class="dbunote" style="margin-top:8px">배정 대비는 배정 건수를 100%로, 전 단계 대비는 TA → 상담 → 제안 → 계약 순서의 바로 앞 단계를 100%로 합니다. 위 필터가 반영됩니다.</div>
       </div>
       <div class="card"><div class="dbuh">권역 × DB 종류 (건수)</div><div class="dbuscroll" id="dbu_matrix"></div></div>
-      <div class="card"><div class="dbuh">전체 고객 목록</div><div class="dbuscroll" id="dbu_list"></div></div>
+      <div class="card"><div class="dbuh" id="dbu_pp_h">전체 고객 목록</div><div class="dbuscroll" id="dbu_list"></div></div>
       <div id="dbu_report" aria-hidden="true"></div>
     </div>
     <div class="pg" id="pg_jv">
@@ -27727,6 +27727,9 @@ var DBU_REGIONS=['수도권','충청권'];
 var DBU_COLORS=['#2f6fdb','#e0833a','#2a9d8f','#b5527f','#7a6bd1','#8aa63a','#c9a227','#5a6b7d'];
 // 전체 고객 목록에서 남의 고객 결과(부재·거절)를 고칠 수 있는 사람(2026-11-05 백동현 요청 — 본인 + 작성자만)
 var DBU_RES_EDITORS=['백동현'];
+// 전체 현황(다른 사람이 입력한 고객)을 볼 수 있는 사람(2026-11-13 백동현 요청 — 백동현만, 나머지는 본인 입력분만). DB추천시스템은 전원 전체 값 그대로.
+var DBU_SEE_ALL=['백동현'];
+function _dbuSeeAll(){ return !!(cu&&DBU_SEE_ALL.indexOf(cu.name)>=0); }
 // 결과 버튼 (v2026.11.11-1 백동현 요청: 부재·거절 옆에 진행중·노쇼·최종거절)
 var DBU_RES=[['absent','부재'],['reject','거절'],['ing','진행중'],['noshow','노쇼'],['final','최종거절'],['nogo','진행불가']];
 function _dbuResLbl(v){ for(var i=0;i<DBU_RES.length;i++) if(DBU_RES[i][0]===v) return DBU_RES[i][1]; return ''; }
@@ -27898,7 +27901,8 @@ function _dbuUnsubscribe(){
 function rDbUse(){
   _dbuInitForm();
   var nm=g('dbu_name'); if(nm) nm.value=_dbuMyName();
-  var pb=g('dbu_pdf'); if(pb) pb.style.display=_isAdmin()?'':'none';
+  var pb=g('dbu_pdf'); if(pb) pb.style.display=_dbuSeeAll()?'':'none';
+  var ph=g('dbu_pp_h'); if(ph) ph.textContent=_dbuSeeAll()?'전체 고객 목록':'내가 입력한 고객 목록';
   if(!_abDb()){ _dbuSt('저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.',true); return; }
   if(!window._dbuLoaded) _dbuSt('불러오는 중…');
   _dbuSub();
@@ -27973,7 +27977,8 @@ function _dbuKeepSel(sel,first,opts){
 function _dbuRender(){
   if(!g('pg_dbuse')) return;
   _dbuRenderMine();
-  var all=_dbuAll(); window._dbuAllRows=all;
+  var all=_dbuAll(); window._dbuAllRows=all;   // DB추천시스템·PDF용 전체 목록은 그대로
+  if(!_dbuSeeAll()){ var mk=_dbuKey(); all=all.filter(function(r){ return r.key===mk; }); }   // 화면 표시는 본인 입력분만
   var dbs=[], ppl=[];
   all.forEach(function(r){ if(dbs.indexOf(r.dbType)<0) dbs.push(r.dbType); if(ppl.indexOf(r.owner)<0) ppl.push(r.owner); });
   dbs.sort(); ppl.sort(function(a,b){ return a.localeCompare(b,'ko'); });
@@ -28029,7 +28034,7 @@ function _dbuChartDraw(){
 }
 // PDF 보고서 (관리자 전용) — 필터와 상관없이 전체 기준
 async function dbuPdf(){
-  if(!_isAdmin()){ toast('관리자만 사용할 수 있습니다.'); return; }
+  if(!_dbuSeeAll()){ toast('사용 권한이 없습니다.'); return; }
   var btn=g('dbu_pdf'); if(!btn||btn.disabled) return;
   btn.disabled=true;
   var rep=g('dbu_report');
