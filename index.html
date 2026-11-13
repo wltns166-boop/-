@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-23</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-24</div>
   </div>
 </div>
 
@@ -6667,10 +6667,10 @@ async function _cbAsk(){
 // 고객등록 화면(pg_cust_apply)의 입력칸·가족 칸을 채운다(_cbRegFill). 저장은 하지 않음 — 사람이 확인 후 [저장](saveCust 그대로 — 중복·알림·서류 연동 유지).
 // 형식: '항목: 값' 줄. 두 번째 '이름:' 또는 [가족1]·배우자·자녀 같은 머리 줄 = 다음 가족구성원. 채팅 기록에는 이름만 남김(주민번호 등은 대화 창에 안 남김).
 var CBR_LB=[
-  ['hw',['키/몸무게','키몸무게','신장/체중','키/체중','신장/몸무게']],
+  ['hw',['키/몸무게','키몸무게','신장/체중','키/체중','신장/몸무게','신체','신체조건','체격']],
   ['name',['이름','성함','성명','고객명','고객이름','가족이름']],
   ['rrn',['주민등록번호','주민번호','주민','생년월일','생일']],
-  ['phone',['핸드폰번호','휴대폰번호','휴대전화','전화번호','핸드폰','휴대폰','연락처','전화','폰번호','폰','hp']],
+  ['phone',['핸드폰번호','휴대폰번호','휴대전화','전화번호','핸드폰','휴대폰','휴대','연락처','전화','폰번호','폰','hp']],
   ['carrier',['통신사']],
   ['region',['지역','시도']],
   ['addr',['상세주소','집주소','주소','거주지']],
@@ -6701,10 +6701,11 @@ function _cbrRel(s){
   return '';
 }
 // 이 글이 고객등록 글인가 — 사용법 질문을 가로채지 않게 '항목: 값' 줄이 실제로 있어야 함
+var CBR_HEAD_RE=/^[\[\(<【★☆■]*\s*(고객\s*등록|고객\s*(정보|양식)|고등\s*양식)/;   // '고등 양식'은 '고객 양식' 오타(2026-11-13 박지순 예시)
 function _cbRegDetect(q){
   var s=String(q||''); var lines=s.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
   if(!lines.length) return false;
-  var head=/^[\[\(<【★☆■]*\s*고객\s*등록/.test(lines[0]);
+  var head=CBR_HEAD_RE.test(lines[0]);
   var p=_cbRegParse(s);
   var m=p.blocks[0]||{};
   if(head) return !!m.name||p.labeled>=2;
@@ -6721,15 +6722,15 @@ function _cbRegParse(q){
   var lines=_cbRegSplit(q).split(/\r?\n/);
   var blocks=[{}], cur=0, lastKey='', labeled=0, unknown=[], warns=[];
   lines.forEach(function(raw){
-    var l=String(raw||'').trim(); if(!l) return;
+    var l=String(raw||'').trim().replace(/^(\d{1,2}|[①-⑳])\s*[.)．]\s*/,''); if(!l) return;
     var mm=l.match(/^[-•·*▶►☞✔✓]?\s*([^:：]{1,14}?)\s*[:：]\s*(.*)$/);
     var nl=_cbrNorm(l.replace(/[:：]\s*$/,''));
     if(!mm||!mm[2].trim()){
-      if(/^고객(등록|정보)?$|^본인(정보)?$|^계약자(정보)?$/.test(nl)){ cur=0; lastKey=''; return; }
+      if(/^(고객|고등)(등록)?(정보|양식)?$|^본인(정보)?$|^계약자(정보)?$/.test(nl)){ cur=0; lastKey=''; return; }
       if(_cbrIsHead(nl)){ blocks.push({rel:_cbrRel(nl)}); cur=blocks.length-1; lastKey=''; return; }
     }
     if(mm){
-      var key=CBR_KEY[_cbrNorm(mm[1])], v=mm[2].trim();
+      var key=CBR_KEY[_cbrNorm(mm[1])], v=mm[2].trim().replace(/[\s,，;]+$/,'');
       if(!key&&v&&_cbrIsHead(_cbrNorm(mm[1]))&&!/^가족/.test(_cbrNorm(mm[1]))){ blocks.push({rel:_cbrRel(mm[1]), name:v.slice(0,30)}); cur=blocks.length-1; lastKey='name'; labeled++; return; }   // '배우자: 김영희'
       if(key){
         labeled++;
@@ -6786,7 +6787,9 @@ function _cbrSel(id, v){ var el=g(id); if(!el) return false; if(!v){ el.value=''
 // 한 사람 값 → 입력칸. pre='cust_'(본인) 또는 'fam_…_i'. 확인이 필요한 것은 warns에 '누구: 내용'으로
 function _cbrFillOne(b, ids, who, warns){
   var w=function(m){ warns.push(who+': '+m); };
-  if(b.hw){ var nn=String(b.hw).match(/\d{2,3}(\.\d)?/g)||[]; if(!b.height&&nn[0]) b.height=nn[0]; if(!b.weight&&nn[1]) b.weight=nn[1]; }
+  if(b.hw){ var hs=String(b.hw).trim(), hm=hs.match(/^(\d{2,3})\s*(?:cm)?\s*[.\/,·\-\s]\s*(\d{2,3})\s*(?:kg)?$/i);
+    var nn=hm?[hm[1],hm[2]]:(hs.match(/\d{2,3}(\.\d)?/g)||[]);   // '160.50'=키 160·몸무게 50(소수 키 160.5보다 흔한 표기)
+    if(!b.height&&nn[0]) b.height=nn[0]; if(!b.weight&&nn[1]) b.weight=nn[1]; }
   _cbrSet(ids.name, String(b.name||'').slice(0,30));
   // 주민번호 — 숫자만 모아 000000-0000000(생년월일 8자리는 6자리로)
   var rs=String(b.rrn||''), dm=rs.match(/^\s*(\d{2}|\d{4})\s*[.\/년\-]\s*(\d{1,2})\s*[.\/월\-]\s*(\d{1,2})\s*일?\s*$/);
