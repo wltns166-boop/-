@@ -926,7 +926,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-6</div>
   </div>
 </div>
 
@@ -37195,7 +37195,7 @@ function _rkpMake(){
   if(!list.some(function(x){ return /실손/.test(x.nm); })) list.push({nm:'실손의료비',mn:5000,mx:5000,st:100,opt:0,k:'s'});
   list.forEach(function(x){ if(/실손/.test(x.nm)){ x.opt=0; x.k='s'; } });
   // 주계약 사망 — 손해보험사: 상해사망·질병사망 / 생명보험사: 일반사망 (금액은 상품 설정 범위)
-  var mains=[], dmn=prod.mn||3000, dmx=prod.mx||10000, dst=prod.st||1000;
+  var mains=[], ciS=[], dmn=prod.mn||3000, dmx=prod.mx||10000, dst=prod.st||1000;
   var dAmt=function(){ return _rkpStep(dmn,dmx,dst)||dmn; };
   var die=dAmt();
   list=list.filter(function(x){ return !/일반사망|상해사망|질병사망/.test(x.nm); });
@@ -37205,12 +37205,12 @@ function _rkpMake(){
     if(prod.t==='ci'){
       var pct=_rkpPick([0.5,0.8]);
       list=list.filter(function(x){ return !/^(암진단|뇌졸중진단|급성심근경색)/.test(x.nm); });
-      ['암진단금','뇌졸중진단금','급성심근경색진단금'].forEach(function(nm){ mains.push([nm,Math.round(die*pct)*M,'m']); });
+      ['암진단금','뇌졸중진단금','급성심근경색진단금'].forEach(function(nm){ ciS.push([nm,Math.round(die*pct)*M,'s']); });
     }
     list.forEach(function(x){ x.k='s'; });
   }
   var amtOf=function(x){ var amt=(x.opt&&Math.random()<0.3)?0:_rkpStep(x.mn,x.mx,x.st); if(!amt&&!x.opt) amt=x.mn; return [x.nm,amt*M,x.k==='m'?'m':'s']; };
-  var cov=mains.concat(list.filter(function(x){ return x.k==='m'; }).map(amtOf),list.filter(function(x){ return x.k!=='m'; }).map(amtOf));
+  var cov=mains.concat(list.filter(function(x){ return x.k==='m'; }).map(amtOf),ciS,list.filter(function(x){ return x.k!=='m'; }).map(amtOf));
   var pnm=String(prod.nm).replace(/\{보험사\}/g,_rkpCoShort(co));
   return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),savR:son?0.05+Math.random()*0.25:0,term:term,
     no:'EDU-'+new Date().getFullYear()+'-'+String(_rkpRi(0,99999999)).padStart(8,'0'),cov:cov,prod:pnm,pt:prod.t};
