@@ -3,6 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+/* 태블릿·휴대폰 화면 고정 (2026-11-13 박지순 요청) — 로그인 뒤에는 PC 배치(폭 1280)를 그대로 두고 화면에 맞게 통째로 축소해 보여 준다
+   (좁은 화면에서 표·버튼이 눌려 찌그러지는 것 방지 — 두 손가락으로 확대해서 봄). 로그인 화면·카톡 PDF 공유 화면(?pdf=)은 원래대로.
+   PC 브라우저는 viewport 설정을 무시하므로 영향 없음. 끄려면 이 기기에서 localStorage tops_vpfix='0'. */
+function _vpFix(on){
+  try{
+    var m=document.querySelector('meta[name=viewport]'); if(!m) return;
+    var touch=(navigator.maxTouchPoints>0)||(window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+    var off=false; try{ off=localStorage.getItem('tops_vpfix')==='0'; }catch(e){}
+    var want=(on&&touch&&!off&&!/[?&](pdf|rr)=/.test(location.search))?'width=1280':'width=device-width,initial-scale=1.0';
+    if(m.getAttribute('content')!==want) m.setAttribute('content',want);
+  }catch(e){}
+}
+</script>
 <title>TIMS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%233f51b5'/%3E%3Ctext x='32' y='44' font-size='34' font-family='Arial,sans-serif' font-weight='bold' fill='%23fff' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -955,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-19</div>
   </div>
 </div>
 
@@ -5449,6 +5463,7 @@ function login(){
   });
 }
 function logout(){
+  try{ _vpFix(0); }catch(e){}
   window._mfSelMap={};
   try{ var _rkc=document.getElementById('rkp_cfg_pop'); if(_rkc) _rkc.remove(); }catch(e){}
   try{ _mhxColStop(); }catch(e){}
@@ -5883,6 +5898,7 @@ function saveMyProfile(){
   g('m_myprofile').classList.remove('open');
 }
 function setAdmin(){
+  try{ _vpFix(!!cu); }catch(e){}
   const isAdmin = cu && cu.admin;
   document.querySelectorAll('.ao').forEach(el=>{
     if(!isAdmin){ el.style.display='none'; return; }
