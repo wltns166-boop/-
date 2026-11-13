@@ -924,7 +924,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-2</div>
   </div>
 </div>
 
@@ -37119,12 +37119,18 @@ function _rkpLvCov(L){ var c=window._rkpCfgLv; if(c&&c[L]&&c[L].length) return c
 function _rkpLv(){ var v=parseInt(window._rkpLvSel,10); return v>=1&&v<=5?v:1; }
 function rkpLvSet(v){ window._rkpLvSel=parseInt(v,10)||1; rkpGen(); }
 // 계약사항 칸(위치·표시는 설정 [계약사항 위치] 탭 — Firestore edu_cfg/rkpol.lay=[{k,h}], h=1이면 숨김)
-var RKP_INFO=[['ct','계약자'],['ins','피보험자'],['age','가입나이'],['cdt','계약일'],['prem','월 보험료'],['cyc','납입주기'],['term','납입기간'],['pend','납입만기일'],['per','보험기간'],['mat','만기일'],['tot','총 납입보험료']];
+var RKP_INFO=[['ct','계약자'],['ins','피보험자'],['age','가입나이'],['cdt','계약일'],['prem','월 보험료'],['prot','보장성보험료'],['sav','적립보험료'],['cyc','납입주기'],['term','납입기간'],['pend','납입만기일'],['per','보험기간'],['mat','만기일'],['tot','총 납입보험료']];
 function _rkpInfoNm(k){ for(var i=0;i<RKP_INFO.length;i++) if(RKP_INFO[i][0]===k) return RKP_INFO[i][1]; return ''; }
 function _rkpLayClean(a){
   var out=[], seen={};
   (Array.isArray(a)?a:[]).forEach(function(x){ var k=x&&String(x.k||''); if(!_rkpInfoNm(k)||seen[k]) return; seen[k]=1; out.push({k:k,h:x.h?1:0}); });
-  RKP_INFO.forEach(function(r){ if(!seen[r[0]]) out.push({k:r[0],h:0}); });
+  // 저장본에 없는 칸(새로 생긴 칸)은 기본 순서상 바로 앞 칸 뒤에 끼움(보장성·적립보험료는 월 보험료 뒤)
+  RKP_INFO.forEach(function(r,i){
+    if(seen[r[0]]) return; seen[r[0]]=1;
+    var at=out.length;
+    for(var j=i-1;j>=0;j--){ var pi=-1; for(var q=0;q<out.length;q++) if(out[q].k===RKP_INFO[j][0]){ pi=q; break; } if(pi>=0){ at=pi+1; break; } }
+    out.splice(at,0,{k:r[0],h:0});
+  });
   return out;
 }
 function _rkpLay(){ return window._rkpLayCfg||_rkpLayClean([]); }
@@ -37151,16 +37157,16 @@ function _rkpMake(){
   });
   var co='교육생명';
   if(+L>=3){ try{ var IL=_reqInsLists(), all=[].concat(IL.son||[],IL.life||[]).filter(function(n){ return n&&!/가설동/.test(n); }); if(all.length) co=_rkpPick(all); }catch(e){} }
-  return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),term:term,
+  return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),savR:Math.random()<0.2?0:0.05+Math.random()*0.25,term:term,
     no:'EDU-'+new Date().getFullYear()+'-'+String(_rkpRi(0,99999999)).padStart(8,'0'),cov:cov};
 }
 function rkpGen(){
   var box=g('rkp_policy'); if(!box) return;
   var p=_rkpMake(), st=p.contract, pe=new Date(st), en=new Date(st);
   pe.setFullYear(st.getFullYear()+p.term); en.setFullYear(st.getFullYear()+(p.mat-p.age));
-  var tot=p.premium*12*p.term, rows=p.cov.filter(function(c){ return c[1]>0; });
+  var tot=p.premium*12*p.term, sav=Math.round(p.premium*(p.savR||0)/1000)*1000, prot=p.premium-sav, rows=p.cov.filter(function(c){ return c[1]>0; });
   var half=Math.ceil(rows.length/2);
-  var val={ct:_esc(p.name),ins:_esc(p.name),age:p.age+'세 ('+p.gender+')',cdt:_rkpDate(st),prem:'<b>'+_rkpWon(p.premium)+'</b>',cyc:'월납',
+  var val={ct:_esc(p.name),ins:_esc(p.name),age:p.age+'세 ('+p.gender+')',cdt:_rkpDate(st),prem:'<b>'+_rkpWon(p.premium)+'</b>',prot:_rkpWon(prot),sav:_rkpWon(sav),cyc:'월납',
     term:p.term+'년납 ('+(p.age+p.term)+'세 완료)',pend:_rkpDate(pe),per:p.mat+'세 만기',mat:_rkpDate(en),
     tot:'<button type="button" class="rkp_sec" onclick="this.classList.toggle(\'shown\')"><span class="val">'+_rkpWon(tot)+' ('+_rkpKor(tot)+')</span><span class="hint">클릭하면 보입니다</span></button>'};
   var coE=_esc(p.co||'교육생명');
