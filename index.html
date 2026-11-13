@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-21</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-22</div>
   </div>
 </div>
 
@@ -6624,6 +6624,12 @@ async function _cbAsk(){
     try{ _cbRegFill(q); }catch(e){ console.error(e); _cbPush(0,'칸을 채우다 오류가 났어요: '+_esc(e&&e.message||e)); }
     return;
   }
+  // 고객등록으로 못 읽었지만 주민번호·전화번호 모양이 있거나 '고객등록'으로 시작하면 AI로 보내지 않음(개인정보 유출 방지)
+  if(/^[\s\[\(<【★☆■]*고객\s*등록\s*\S/.test(q)&&/\n/.test(q)||/\d{6}\s*-?\s*[1-8][\d*]{6}/.test(q)||/01\d[\s\-.]?\d{3,4}[\s\-.]?\d{4}/.test(q)){
+    inp.value=''; _cbInFit(); _cbPush(1,'📝 (개인정보가 든 글 — 기록하지 않음)');
+    _cbPush(0,'주민번호·전화번호가 든 글은 AI로 보내지 않아요. 고객등록이라면 아래처럼 <b>항목: 값</b>을 한 줄에 하나씩 적어 다시 보내 주세요.<div style="margin-top:6px;padding:6px 8px;background:#f3f5fc;border-radius:7px;font-size:12.5px;line-height:1.6">고객등록<br>이름: 홍길동<br>주민번호: 900101-1234567<br>연락처: 010-1234-5678<br>주소: 서울시 …<br>[가족1] 배우자<br>이름: 김영희<br>주민번호: …</div>');
+    return;
+  }
   inp.value=''; _cbInFit(); _cbPush(1,_esc(q));
   var ctH=''; try{ ctH=_cbContact(q); }catch(e){}
   if(ctH){ _cbPush(0,ctH); return; }
@@ -6809,7 +6815,9 @@ function _cbRegFill(q){
   if(fam.length>10){ warns.push('가족은 10명까지만 넣었습니다('+fam.length+'명 중)'); fam=fam.slice(0,10); }
   // 작성 중인 고객등록·수정 내용이 있으면 확인
   var wrap=g('cust_form_wrap');
-  var busy=wrap&&wrap.style.display!=='none'&&(((g('cust_name')||{}).value||'').trim()||((g('cust_edit_idx')||{}).value||'')!==''||(parseInt((g('cust_family_cnt')||{}).value)||0)>0);
+  var busy=wrap&&wrap.style.display!=='none'&&(['cust_name','cust_rrn','cust_phone','cust_addr','cust_job','cust_bank_num','cust_disease','cust_note'].some(function(id){ return ((g(id)||{}).value||'').trim(); })
+    ||((g('cust_edit_idx')||{}).value||'')!==''||(parseInt((g('cust_family_cnt')||{}).value)||0)>0
+    ||(Array.isArray(window._custAlien)&&window._custAlien.length>0)||!!(window._custDoc&&(window._custDoc.id||window._custDoc.bank)));
   if(busy&&!confirm('고객등록 창에 작성 중인 내용이 있습니다.\n지우고 채팅에 붙여 넣은 내용으로 채울까요?')){ _cbPush(0,'취소했어요. 작성 중이던 내용은 그대로 있습니다.'); return; }
   try{ showPage('cust_apply'); }catch(e){}
   wrap=g('cust_form_wrap'); if(!wrap||!g('cust_name')){ _cbPush(0,'고객등록 화면을 열지 못했어요. 왼쪽 메뉴에서 고객등록을 연 뒤 다시 보내 주세요.'); return; }
