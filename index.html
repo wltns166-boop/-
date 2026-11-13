@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-24</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-25</div>
   </div>
 </div>
 
@@ -2006,7 +2006,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           </div>
           <div class="fr">
             <div class="fg" style="flex:2"><div class="fl">직업</div><input class="fi" id="cust_job" placeholder="직업 (예: 회사원, 자영업, 주부 등)"></div>
-            <div class="fg" style="flex:1"><div class="fl">운전여부</div><select class="fs" id="cust_drive"><option value="">선택</option><option>운전안함</option><option>승용차</option><option>영업용</option></select></div>
+            <div class="fg" style="flex:1"><div class="fl">운전여부</div><select class="fs" id="cust_drive"><option value="">선택</option><option>운전안함</option><option>승용차</option><option>자가용</option><option>영업용</option></select></div>
           </div>
           <div class="fr">
             <div class="fg" style="flex:1"><div class="fl">은행명</div>
@@ -6550,6 +6550,7 @@ function _cbEnsure(){
   g('cb_in').oninput=_cbInFit;
   g('cb_body').onclick=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
+    var rg=t.closest('[data-cbreg]'); if(rg){ _cbRegAct(rg.getAttribute('data-cbreg')); return; }
     var go=t.closest('[data-cbgo]'); if(go){ _cbGo(go.getAttribute('data-cbgo')); return; }
     var ch=t.closest('[data-cbchip]'); if(ch){ if(window._cbBusy){ toast('답을 찾는 중입니다. 잠시만 기다려 주세요.'); return; } g('cb_in').value=ch.getAttribute('data-cbchip'); _cbAsk(); }
   };
@@ -6771,7 +6772,8 @@ function _cbrDrive(s){
   var t=String(s||'').replace(/[\(（\[][^\)）\]]*[\)）\]]/g,'').replace(/\s/g,'').toLowerCase();
   if(/^(운전)?(안함|안해요?|않음|안합니다|없음|무|x|no|n|아니(오|요)?|미운전|비운전|안함요|해당없음|못함|면허없음)$/.test(t)) return '운전안함';
   if(/영업|화물|택시|버스|트럭|배달|오토바이|이륜/.test(t)) return '영업용';
-  if(/승용|자가|자차|suv|^o$|^예$|^네$|^함$|^유$|^있|^yes$|^y$|운전함|운전해|운전합니다/.test(t)) return '승용차';
+  if(/자가|자차/.test(t)) return '자가용';
+  if(/승용|suv|^o$|^예$|^네$|^함$|^유$|^있|^yes$|^y$|운전함|운전해|운전합니다/.test(t)) return '승용차';
   return '';
 }
 function _cbrBank(s, sel){
@@ -6785,7 +6787,7 @@ function _cbrBank(s, sel){
 function _cbrSet(id, v){ var el=g(id); if(!el) return false; el.value=v==null?'':String(v); return el.value===String(v==null?'':v); }
 function _cbrSel(id, v){ var el=g(id); if(!el) return false; if(!v){ el.value=''; return true; } var ok=Array.prototype.some.call(el.options,function(o){ return o.text===v||o.value===v; }); el.value=ok?v:''; return ok; }
 // 한 사람 값 → 입력칸. pre='cust_'(본인) 또는 'fam_…_i'. 확인이 필요한 것은 warns에 '누구: 내용'으로
-function _cbrFillOne(b, ids, who, warns){
+function _cbrFillOne(b, ids, who, warns, pend){
   var w=function(m){ warns.push(who+': '+m); };
   if(b.hw){ var hs=String(b.hw).trim(), hm=hs.match(/^(\d{2,3})\s*(?:cm)?\s*[.\/,·\-\s]\s*(\d{2,3})\s*(?:kg)?$/i);
     var nn=hm?[hm[1],hm[2]]:(hs.match(/\d{2,3}(\.\d)?/g)||[]);   // '160.50'=키 160·몸무게 50(소수 키 160.5보다 흔한 표기)
@@ -6809,7 +6811,7 @@ function _cbrFillOne(b, ids, who, warns){
   var hv=(String(b.height||'').match(/\d{2,3}(\.\d)?/)||[''])[0], wv=(String(b.weight||'').match(/\d{2,3}(\.\d)?/)||[''])[0];
   _cbrSet(ids.height, hv); _cbrSet(ids.weight, wv);
   _cbrSet(ids.job, String(b.job||'').slice(0,60));
-  var dv=_cbrDrive(b.drive); if(b.drive&&!dv) w('운전여부 "'+String(b.drive).slice(0,10)+'"를 알 수 없어 비워 뒀습니다'); _cbrSel(ids.drive, dv);
+  var dv=_cbrDrive(b.drive); if(b.drive&&!dv){ if(pend) pend.push({id:ids.drive, who:who, raw:String(b.drive).slice(0,10)}); else w('운전여부 "'+String(b.drive).slice(0,10)+'"를 알 수 없어 비워 뒀습니다'); } _cbrSel(ids.drive, dv);
   // 계좌 칸에 '국민 123-…'처럼 은행이 섞여 오면 나눔
   var bn=String(b.bankName||''), num=String(b.bankNum||'');
   var sp=num.match(/^([^\d]+?)\s*([\d][\d\-\s]*)$/); if(sp&&!bn){ bn=sp[1]; num=sp[2]; }
@@ -6821,7 +6823,7 @@ function _cbrFillOne(b, ids, who, warns){
 function _cbRegFill(q){
   var p=_cbRegParse(q), main=p.blocks[0]||{}, fam=p.blocks.slice(1).filter(function(b){ return Object.keys(b).some(function(k){ return k!=='rel'&&b[k]; })||b.rel; });
   if(!main.name){ _cbPush(0,'고객 <b>이름</b>을 찾지 못했어요. 첫 줄에 <b>이름: 홍길동</b>처럼 적어 주세요.'); return; }
-  var warns=p.warns.slice();
+  var warns=p.warns.slice(), pend=[];
   if(fam.length>10){ warns.push('가족은 10명까지만 넣었습니다('+fam.length+'명 중)'); fam=fam.slice(0,10); }
   // 작성 중인 고객등록·수정 내용이 있으면 확인
   var wrap=g('cust_form_wrap');
@@ -6833,13 +6835,13 @@ function _cbRegFill(q){
   wrap=g('cust_form_wrap'); if(!wrap||!g('cust_name')){ _cbPush(0,'고객등록 화면을 열지 못했어요. 왼쪽 메뉴에서 고객등록을 연 뒤 다시 보내 주세요.'); return; }
   if(wrap.style.display!=='none') cancelCustForm();
   toggleCustForm();   // 새 고객등록(빈 칸·가족·서류 초기화)
-  _cbrFillOne(main, {name:'cust_name',rrn:'cust_rrn',phone:'cust_phone',carrier:'cust_carrier',region:'cust_region',addr:'cust_addr',height:'cust_height',weight:'cust_weight',job:'cust_job',drive:'cust_drive',bankName:'cust_bank_name',bankNum:'cust_bank_num',disease:'cust_disease',note:'cust_note'}, main.name, warns);
+  _cbrFillOne(main, {name:'cust_name',rrn:'cust_rrn',phone:'cust_phone',carrier:'cust_carrier',region:'cust_region',addr:'cust_addr',height:'cust_height',weight:'cust_weight',job:'cust_job',drive:'cust_drive',bankName:'cust_bank_name',bankNum:'cust_bank_num',disease:'cust_disease',note:'cust_note'}, main.name, warns, pend);
   var fc=g('cust_family_cnt'); if(fc){ fc.value=fam.length||''; window._famStash=[]; renderFamilyFields(); }
   fam.forEach(function(f,i){
     var who=f.name||((i+1)+'번째 가족');
     var same=/^(같음|동일|상동|위와\s*같|본인과\s*같|좌동|같은\s*주소)/.test(String(f.addr||'').trim());
     if(same) f.addr='';
-    _cbrFillOne(f, {name:'fam_name_'+i,rrn:'fam_rrn_'+i,phone:'fam_phone_'+i,carrier:'fam_carrier_'+i,region:'fam_region_'+i,addr:'fam_addr_'+i,height:'fam_height_'+i,weight:'fam_weight_'+i,job:'fam_job_'+i,drive:'fam_drive_'+i,bankName:'fam_bank_name_'+i,bankNum:'fam_bank_num_'+i,disease:'fam_disease_'+i,note:''}, who, warns);
+    _cbrFillOne(f, {name:'fam_name_'+i,rrn:'fam_rrn_'+i,phone:'fam_phone_'+i,carrier:'fam_carrier_'+i,region:'fam_region_'+i,addr:'fam_addr_'+i,height:'fam_height_'+i,weight:'fam_weight_'+i,job:'fam_job_'+i,drive:'fam_drive_'+i,bankName:'fam_bank_name_'+i,bankNum:'fam_bank_num_'+i,disease:'fam_disease_'+i,note:''}, who, warns, pend);
     if(!f.name) warns.push(who+': 이름이 없습니다');
     if(!_cbrSel('fam_rel_'+i, f.rel||'')) warns.push(who+': 관계 "'+String(f.rel).slice(0,8)+'"를 목록에서 못 찾았습니다');
     else if(!f.rel) warns.push(who+': 관계를 골라 주세요');
@@ -6852,9 +6854,70 @@ function _cbRegFill(q){
     +'고객: <b>'+_esc(main.name)+'</b>'
     +(fam.length?'<br>가족 '+fam.length+'명: '+fam.map(function(f){ return _esc(f.name||'(이름 없음)')+(f.rel?' ('+_esc(f.rel)+')':''); }).join(', '):'')
     +(warns.length?'<div style="margin-top:6px;padding:6px 8px;border-radius:7px;background:#fff6e5;border:1px solid #f3d08a;color:#7a4b00;font-size:12.5px">⚠ 확인해 주세요<br>'+warns.map(function(x){ return '· '+_esc(x); }).join('<br>')+'</div>':'')
-    +'<div style="margin-top:6px"><b style="color:#c62828">아직 저장되지 않았습니다.</b> 화면에서 주민번호·연락처·계좌를 확인하고, 신분증·통장사본이 있으면 올린 뒤 맨 아래 <b>[저장]</b>을 눌러 주세요.</div>';
+    ;
   _cbPush(0,h);
-  if(window.innerWidth<=768) _cbToggle(false);
+  window._cbReg={tok:Date.now(), name:String(main.name||'').slice(0,30), pend:pend, i:0, saved:0};
+  if(pend.length) _cbPush(0,_cbRegAskHtml()); else _cbPush(0,_cbRegSummaryHtml());
+}
+// 운전여부 질문 카드 — 버튼(운전안함·승용차·자가용·영업용)을 누르면 그 칸을 채우고 다음 질문 또는 정리 카드
+var CBR_DRIVES=['승용차','자가용','영업용','운전안함'];
+function _cbRegAskHtml(){
+  var st=window._cbReg; if(!st||!st.pend[st.i]) return '';
+  var p=st.pend[st.i];
+  return '<div class="cbt">🚗 운전여부를 골라 주세요</div><b>'+_esc(p.who)+'</b> — 적힌 값 "'+_esc(p.raw)+'"'
+    +'<div class="cbchips" style="margin:6px 0 0">'+CBR_DRIVES.map(function(v){ return '<span class="cbgo" style="margin:0" data-cbreg="'+_alertEsc('d|'+st.tok+'|'+st.i+'|'+v)+'">'+_esc(v)+'</span>'; }).join('')+'</div>';
+}
+// 정리 카드 — 지금 고객등록 화면에 들어 있는 값(=저장될 값)을 그대로 보여 줌
+function _cbRegSummaryHtml(){
+  var st=window._cbReg; if(!st) return '';
+  var v=function(id){ var el=g(id); return el?String(el.value||'').trim():''; };
+  var row=function(l,x){ return x?'<tr><td style="color:#6b7393;padding:1px 8px 1px 0;white-space:nowrap;vertical-align:top">'+l+'</td><td style="padding:1px 0;word-break:break-all">'+_esc(x).replace(/\n/g,'<br>')+'</td></tr>':''; };
+  var hw=function(a,b){ return (a?a+'cm':'')+(a&&b?' / ':'')+(b?b+'kg':''); };
+  var bank=function(a,b){ return [a,b].filter(Boolean).join(' '); };
+  var adr=function(r,a){ return (a&&r&&_cbrRegion(a)===r)?a:[r,a].filter(Boolean).join(' · '); };   // 주소가 그 지역으로 시작하면 지역을 두 번 쓰지 않음
+  var h='<div class="cbt">📋 정리된 내용</div><table style="border-collapse:collapse;font-size:12.5px;margin-top:2px">'
+    +row('성함',v('cust_name'))+row('주민번호',v('cust_rrn'))+row('연락처',[v('cust_phone'),v('cust_carrier')].filter(Boolean).join(' · '))
+    +row('주소',adr(v('cust_region'),v('cust_addr')))+row('키/몸무게',hw(v('cust_height'),v('cust_weight')))
+    +row('직업',v('cust_job'))+row('운전',v('cust_drive'))+row('계좌',bank(v('cust_bank_name'),v('cust_bank_num')))
+    +row('병력',v('cust_disease'))+row('특이사항',v('cust_note'))+'</table>';
+  for(var i=0;g('fam_name_'+i);i++){
+    var f=function(k){ return v('fam_'+k+'_'+i); };
+    h+='<div style="margin-top:6px;padding-top:5px;border-top:1px dashed #d6dbef;font-weight:700;color:#1f3fd1;font-size:12.5px">👤 가족 '+(i+1)+(f('rel')?' ('+_esc(f('rel'))+')':'')+'</div>'
+      +'<table style="border-collapse:collapse;font-size:12.5px">'+row('이름',f('name'))+row('주민번호',f('rrn'))+row('연락처',[f('phone'),f('carrier')].filter(Boolean).join(' · '))
+      +row('주소',adr(f('region'),f('addr')))+row('키/몸무게',hw(f('height'),f('weight')))+row('직업',f('job'))+row('운전',f('drive'))
+      +row('계좌',bank(f('bank_name'),f('bank_num')))+row('병력',f('disease'))+'</table>';
+  }
+  h+='<div style="margin-top:7px;font-size:12px;color:#5a6280">고칠 곳은 화면에서 고친 뒤 눌러도 됩니다. 신분증·통장사본·계좌는 없어도 저장돼요.</div>'
+    +'<div style="margin-top:6px"><span class="cbgo" data-cbreg="'+_alertEsc('s|'+st.tok)+'" style="margin:0;background:#1f2a5c;color:#fff;border-color:#1f2a5c;padding:7px 16px">💾 저장</span></div>';
+  return h;
+}
+function _cbRegAct(a){
+  var st=window._cbReg, ps=String(a||'').split('|');
+  if(!st||ps[1]!==String(st.tok)){ toast('지난 안내예요. 고객등록 글을 다시 붙여 넣어 주세요.'); return; }
+  if(st.saved){ toast('이미 저장했어요.'); return; }
+  var wrap=g('cust_form_wrap'), open=wrap&&wrap.style.display!=='none';
+  if(ps[0]==='d'){
+    if(+ps[2]!==st.i||!st.pend[st.i]) return;   // 이미 고른 질문의 버튼
+    if(!open){ toast('고객등록 화면이 닫혀 있어요. 다시 붙여 넣어 주세요.'); return; }
+    var p=st.pend[st.i], val=CBR_DRIVES.indexOf(ps[3])>=0?ps[3]:'';
+    if(!val||!_cbrSel(p.id, val)){ toast('운전여부 칸을 찾지 못했어요.'); return; }
+    _cbPush(1,'🚗 '+_esc(p.who)+' — '+_esc(val));
+    st.i++;
+    _cbPush(0, st.i<st.pend.length?_cbRegAskHtml():_cbRegSummaryHtml());
+    return;
+  }
+  if(ps[0]==='s'){
+    if(!open){ toast('고객등록 화면이 닫혀 있어요. 다시 붙여 넣어 주세요.'); return; }
+    var nm=((g('cust_name')||{}).value||'').trim();
+    if(((g('cust_edit_idx')||{}).value||'')!==''||nm!==st.name){
+      if(!confirm('고객등록 화면 내용이 붙여 넣은 내용과 달라졌어요(성함 "'+nm+'").\n지금 화면에 있는 내용으로 저장할까요?')) return;
+    }
+    if(st.i<st.pend.length&&!confirm('운전여부를 아직 고르지 않았어요. 비운 채 저장할까요?')) return;
+    try{ saveCust(); }catch(e){ toast('저장 중 오류: '+(e&&e.message||e)); return; }
+    var w2=g('cust_form_wrap');
+    if(w2&&w2.style.display==='none'){ st.saved=1; _cbPush(0,'✅ <b>'+_esc(nm)+'</b> 고객을 저장했어요. 고객 목록에서 확인할 수 있어요.'); }
+    else _cbPush(0,'저장하지 못했어요. 화면의 안내를 확인해 주세요.');
+  }
 }
 // [바로 가기] — 누른 시점에 목록을 다시 만들어 권한을 다시 확인(그 사이 숨김·로그아웃 반영)
 function _cbGo(id){
@@ -7106,7 +7169,7 @@ function _cbPoint(sel, msg){
   window._cbHlT=setTimeout(find,250);   // showPage의 0ms 렌더 뒤
 }
 function _cbClear(){
-  window._cbMsgs=null; window._cbBusy=false; window._cbSeq=(window._cbSeq||0)+1;
+  window._cbReg=null; window._cbMsgs=null; window._cbBusy=false; window._cbSeq=(window._cbSeq||0)+1;
   try{ _cbHlClear(); }catch(e){}
   window._cbProc=null; window._cbProcAt=0; window._cbProcP=null; window._cbProcSeq=(window._cbProcSeq||0)+1; window._cbpSt=null; window._cbpBusy=false;
   ['cb_btn','cb_pop','cb_css','cbp_pop'].forEach(function(i){ var x=document.getElementById(i); if(x) x.remove(); });
@@ -20744,7 +20807,7 @@ function renderFamilyFields(){
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">'
         +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">통신사</div><select class="fs" id="fam_carrier_'+i+'" style="font-size:14px">'+carriers+'</select></div>'
         +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">직업</div><input class="fi" id="fam_job_'+i+'" placeholder="직업" style="font-size:14px"></div>'
-        +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">운전여부</div><select class="fs" id="fam_drive_'+i+'" style="font-size:14px"><option value="">선택</option><option>운전안함</option><option>승용차</option><option>영업용</option></select></div>'
+        +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">운전여부</div><select class="fs" id="fam_drive_'+i+'" style="font-size:14px"><option value="">선택</option><option>운전안함</option><option>승용차</option><option>자가용</option><option>영업용</option></select></div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">'
         +'<div><div style="font-size:13px;color:#6070aa;margin-bottom:3px">키(cm)</div><input class="fi" type="number" id="fam_height_'+i+'" placeholder="170" style="font-size:14px"></div>'
