@@ -926,7 +926,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-4</div>
   </div>
 </div>
 
@@ -37177,17 +37177,20 @@ function _rkpMake(){
   var L=String(_rkpLv());
   // 상품 — 그 레벨에 나오는 상품 중 무작위(종신·CI는 생명보험사에서만)
   var pl=_rkpProds().filter(function(x){ return x.lv.indexOf(L)>=0; }), prod=pl.length?_rkpPick(pl):{nm:'무배당 종합건강보험',t:'g'};
-  var co='교육생명';
-  if(+L>=3){ try{ var IL=_reqInsLists(), ok=function(n){ return n&&!/가설동/.test(n); }, all=(prod.t==='g'?[].concat(IL.son||[],IL.life||[]):[].concat(IL.life||[])).filter(ok); if(all.length) co=_rkpPick(all); }catch(e){} }
+  var co='교육생명', son=false;
+  if(+L>=3){ try{ var IL=_reqInsLists(), ok=function(n){ return n&&!/가설동/.test(n); }, all=(prod.t==='g'?[].concat(IL.son||[],IL.life||[]):[].concat(IL.life||[])).filter(ok); if(all.length){ co=_rkpPick(all); son=(IL.son||[]).indexOf(co)>=0; } }catch(e){} }
   // 특약 — 실손의료비는 무조건 특약으로, 주계약은 위·특약은 아래
   var list=_rkpLvCov(+L).map(function(x){ return Object.assign({},x); });
   if(!list.some(function(x){ return /실손/.test(x.nm); })) list.push({nm:'실손의료비',mn:5000,mx:5000,st:100,opt:0,k:'s'});
   list.forEach(function(x){ if(/실손/.test(x.nm)){ x.opt=0; x.k='s'; } });
-  var mains=[];
+  // 주계약 사망 — 손해보험사: 상해사망·질병사망 / 생명보험사: 일반사망 (금액은 상품 설정 범위)
+  var mains=[], dmn=prod.mn||3000, dmx=prod.mx||10000, dst=prod.st||1000;
+  var dAmt=function(){ return _rkpStep(dmn,dmx,dst)||dmn; };
+  var die=dAmt();
+  list=list.filter(function(x){ return !/일반사망|상해사망|질병사망/.test(x.nm); });
+  if(son){ mains.push(['상해사망',die*M,'m']); mains.push(['질병사망',dAmt()*M,'m']); }
+  else mains.push(['일반사망',die*M,'m']);
   if(prod.t==='w'||prod.t==='ci'){
-    var die=_rkpStep(prod.mn||3000,prod.mx||10000,prod.st||1000)||prod.mn||3000;
-    mains.push(['일반사망',die*M,'m']);
-    list=list.filter(function(x){ return !/일반사망/.test(x.nm); });
     if(prod.t==='ci'){
       var pct=_rkpPick([0.5,0.8]);
       list=list.filter(function(x){ return !/^(암진단|뇌졸중진단|급성심근경색)/.test(x.nm); });
@@ -37198,7 +37201,7 @@ function _rkpMake(){
   var amtOf=function(x){ var amt=(x.opt&&Math.random()<0.3)?0:_rkpStep(x.mn,x.mx,x.st); if(!amt&&!x.opt) amt=x.mn; return [x.nm,amt*M,x.k==='m'?'m':'s']; };
   var cov=mains.concat(list.filter(function(x){ return x.k==='m'; }).map(amtOf),list.filter(function(x){ return x.k!=='m'; }).map(amtOf));
   var pnm=String(prod.nm).replace(/\{보험사\}/g,_rkpCoShort(co));
-  return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),savR:Math.random()<0.2?0:0.05+Math.random()*0.25,term:term,
+  return {co:co,name:_rkpName(),age:age,mat:mat,contract:c,gender:_rkpPick(['남','여']),premium:_rkpStep(100000,700000,1000),savR:son?0.05+Math.random()*0.25:0,term:term,
     no:'EDU-'+new Date().getFullYear()+'-'+String(_rkpRi(0,99999999)).padStart(8,'0'),cov:cov,prod:pnm,pt:prod.t};
 }
 function rkpGen(){
@@ -37301,8 +37304,8 @@ function rkpCfgOpen(){
    +'<div id="rkc_lay"></div></div>'
    +'<div id="rkc_prodwrap" style="display:none"><div style="font-weight:700;color:#1f2a5c;margin:4px 0 4px">증권 상품명</div>'
    +'<div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">증권 맨 위에 나오는 상품명입니다. 증권을 만들 때 그 레벨에 체크된 상품 중 하나가 무작위로 나옵니다. 이름에 <b>{보험사}</b>를 쓰면 증권 보험사 이름으로 바뀝니다.<br>'
-   +'<b>종신</b>: 주계약 일반사망(오른쪽 금액 범위, 만원). <b>CI</b>: 주계약 일반사망 + 암진단금·뇌졸중진단금·급성심근경색진단금이 일반사망의 50% 또는 80%(셋 다 같은 비율). 종신·CI 상품이면 설정한 주계약은 특약으로 나오고, 보험사는 생명보험사에서만 나옵니다.</div>'
-   +'<table><tr><th style="width:70px">순서</th><th>상품명</th><th style="width:80px">종류</th><th style="width:150px">나오는 레벨</th><th style="width:200px">일반사망(만원, 종신·CI)</th><th style="width:60px"></th></tr><tbody id="rkc_ptb"></tbody></table>'
+   +'모든 상품의 주계약에 사망보장이 나옵니다 — <b>생명보험사</b>는 일반사망, <b>손해보험사</b>는 상해사망·질병사망(금액은 오른쪽 범위, 만원). 적립보험료는 손해보험사일 때만 나오고 생명보험사는 0원입니다.<br><b>CI</b>: 암진단금·뇌졸중진단금·급성심근경색진단금이 일반사망의 50% 또는 80%(셋 다 같은 비율). 종신·CI 상품이면 설정한 다른 주계약은 특약으로 나오고, 보험사는 생명보험사에서만 나옵니다.</div>'
+   +'<table><tr><th style="width:70px">순서</th><th>상품명</th><th style="width:80px">종류</th><th style="width:150px">나오는 레벨</th><th style="width:200px">사망 주계약(만원)</th><th style="width:60px"></th></tr><tbody id="rkc_ptb"></tbody></table>'
    +'<div style="margin-top:10px"><button class="bp bnv" data-padd="1"><i class="ti ti-plus"></i> 상품 추가</button></div></div>'
    +'<div id="rkc_lvwrap"><div id="rkc_lvh" style="font-weight:700;color:#1f2a5c;margin:4px 0 6px"></div>'
    +'<table><tr><th style="width:70px">순서</th><th style="width:80px">구분</th><th>담보명</th><th style="width:100px">최소(만원)</th><th style="width:100px">최대(만원)</th><th style="width:90px">단위(만원)</th><th style="width:70px">미가입 가능</th><th style="width:60px"></th></tr>'
