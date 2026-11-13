@@ -926,7 +926,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-5</div>
   </div>
 </div>
 
@@ -37124,6 +37124,15 @@ var RKP_DEF_PROD=[{nm:'무배당 종합건강보험',t:'g',lv:'12345'},{nm:'무�
  {nm:'{보험사} CI보험',t:'ci',lv:'45',mn:3000,mx:10000,st:1000},{nm:'{보험사} CI종신',t:'ci',lv:'45',mn:3000,mx:10000,st:1000},
  {nm:'리빙케어 종신보험',t:'w',lv:'45',mn:5000,mx:20000,st:1000},{nm:'변액 유니버셜 종신보험',t:'w',lv:'45',mn:5000,mx:20000,st:1000},{nm:'변액CI종신',t:'ci',lv:'45',mn:3000,mx:10000,st:1000}];
 var RKP_PT={g:'일반',w:'종신',ci:'CI'};
+// 증권 보험사(설정 [보험사] 탭 — edu_cfg/rkpol.cos=[{nm,t}], t: son 손해 / life 생명). 손해=주계약 상해·질병사망+적립보험료, 생명=일반사망·적립 0원.
+var RKP_DEF_COS=[{nm:'삼성화재',t:'son'},{nm:'메리츠화재',t:'son'},{nm:'한화손해보험',t:'son'},{nm:'KB손해보험',t:'son'},{nm:'DB손해보험',t:'son'},{nm:'롯데손해보험',t:'son'},
+ {nm:'흥국생명',t:'life'},{nm:'교보생명',t:'life'},{nm:'삼성생명',t:'life'},{nm:'ABL생명',t:'life'},{nm:'동양생명',t:'life'}];
+function _rkpCosClean(arr){
+  if(!Array.isArray(arr)) return null;
+  var out=[]; arr.forEach(function(c){ if(!c||out.length>=RKP_MAXN) return; var nm=String(c.nm||'').replace(/[<>]/g,'').trim().slice(0,20); if(!nm) return; out.push({nm:nm,t:c.t==='life'?'life':'son'}); });
+  return out.length?out:null;
+}
+function _rkpCos(){ return window._rkpCosCfg||_rkpCosClean(RKP_DEF_COS); }
 function _rkpProdClean(arr){
   if(!Array.isArray(arr)) return null;
   var out=[]; arr.forEach(function(c){
@@ -37167,6 +37176,7 @@ function _rkpCfgLoad(){
     window._rkpCfgLv=o;
     window._rkpLayCfg=Array.isArray(dt.lay)?_rkpLayClean(dt.lay):null;
     window._rkpProdCfg=_rkpProdClean(dt.prod);
+    window._rkpCosCfg=_rkpCosClean(dt.cos);
   }).catch(function(e){ console.warn('rkp cfg',e); });
 }
 function _rkpMake(){
@@ -37177,8 +37187,9 @@ function _rkpMake(){
   var L=String(_rkpLv());
   // 상품 — 그 레벨에 나오는 상품 중 무작위(종신·CI는 생명보험사에서만)
   var pl=_rkpProds().filter(function(x){ return x.lv.indexOf(L)>=0; }), prod=pl.length?_rkpPick(pl):{nm:'무배당 종합건강보험',t:'g'};
-  var co='교육생명', son=false;
-  if(+L>=3){ try{ var IL=_reqInsLists(), ok=function(n){ return n&&!/가설동/.test(n); }, all=(prod.t==='g'?[].concat(IL.son||[],IL.life||[]):[].concat(IL.life||[])).filter(ok); if(all.length){ co=_rkpPick(all); son=(IL.son||[]).indexOf(co)>=0; } }catch(e){} }
+  // 보험사 — 설정 목록에서 무작위(종신·CI 상품은 생명보험사만, 생명보험사가 없으면 전체)
+  var cl=_rkpCos(), cp=prod.t==='g'?cl:cl.filter(function(x){ return x.t==='life'; }); if(!cp.length) cp=cl;
+  var cpick=_rkpPick(cp), co=cpick.nm, son=cpick.t==='son';
   // 특약 — 실손의료비는 무조건 특약으로, 주계약은 위·특약은 아래
   var list=_rkpLvCov(+L).map(function(x){ return Object.assign({},x); });
   if(!list.some(function(x){ return /실손/.test(x.nm); })) list.push({nm:'실손의료비',mn:5000,mx:5000,st:100,opt:0,k:'s'});
@@ -37213,11 +37224,11 @@ function rkpGen(){
   var val={ct:_esc(p.name),ins:_esc(p.name),age:p.age+'세 ('+p.gender+')',cdt:_rkpDate(st),prem:'<b>'+_rkpWon(p.premium)+'</b>',prot:_rkpWon(prot),sav:_rkpWon(sav),cyc:'월납',
     term:p.term+'년납 ('+(p.age+p.term)+'세 완료)',pend:_rkpDate(pe),per:p.mat+'세 만기',mat:_rkpDate(en),
     tot:'<button type="button" class="rkp_sec" onclick="this.classList.toggle(\'shown\')"><span class="val">'+_rkpWon(tot)+' ('+_rkpKor(tot)+')</span><span class="hint">클릭하면 보입니다</span></button>'};
-  var coE=_esc(p.co||'교육생명');
+  var coE=_esc(p.co||'');
   var covTbl=function(list,base){ return '<table class="rkp_cov"><tr><th>No</th><th>구분</th><th>담보명</th><th>가입금액</th></tr>'
     +list.map(function(c,i){ return '<tr'+(c[2]==='m'?' class="rkp_main"':'')+'><td class="num">'+(base+i+1)+'</td><td class="knd">'+(c[2]==='m'?'주계약':'특약')+'</td><td>'+_esc(c[0])+'</td><td class="amt">'+_rkpKor(c[1])+'</td></tr>'; }).join('')+'</table>'; };
   box.innerHTML='<div class="rkp_wm">교육용 샘플</div>'
-   +'<div class="rkp_head"><div class="rkp_co"><b>'+coE+'</b>신입 교육용</div><div class="rkp_title"><h2>'+_esc(p.prod||'')+'</h2></div><div class="rkp_no">증권번호<br><b>'+p.no+'</b></div></div>'
+   +'<div class="rkp_head"><div class="rkp_co"><b>'+coE+'</b></div><div class="rkp_title"><h2>'+_esc(p.prod||'')+'</h2></div><div class="rkp_no">증권번호<br><b>'+p.no+'</b></div></div>'
    +'<h3>계약사항</h3><div style="overflow-x:auto"><table class="rkp_info">'+_rkpInfoRows(val)
    +'</table></div><h3>보장내용</h3>'
    +(rows.length>6?'<div class="rkp_covs">'+covTbl(rows.slice(0,half),0)+covTbl(rows.slice(half),half)+'</div>':covTbl(rows,0))
@@ -37272,14 +37283,23 @@ function _rkpProdRow(c){
 }
 function _rkpProdCollect(){ return [].map.call(document.querySelectorAll('#rkc_ptb .rkc_prow'),function(tr){ var q=function(c){ return tr.querySelector(c); };
   return {nm:q('.rkp_pnm').value,t:q('.rkp_pt').value,lv:[].map.call(tr.querySelectorAll('.rkp_plv:checked'),function(i){ return i.value; }).join(''),mn:q('.rkp_pmn').value,mx:q('.rkp_pmx').value,st:1000}; }); }
-function _rkpCfgStash(d){ if(d._cur==='lay') d._lay=_rkpLayCollect(); else if(d._cur==='prod') d._prod=_rkpProdCollect(); else if(d._cur) d._draft[d._cur]=_rkpCfgCollect(); }
+function _rkpCosRow(c){
+  c=c||{nm:'',t:'son'};
+  return '<tr class="rkc_crow"><td style="white-space:nowrap"><button class="rkc_mv" data-mv="-1">▲</button> <button class="rkc_mv" data-mv="1">▼</button></td>'
+   +'<td><input type="text" class="rkp_cnm" maxlength="20" value="'+_alertEsc(c.nm)+'" placeholder="보험사 이름"></td>'
+   +'<td><select class="rkp_ct"><option value="son"'+(c.t!=='life'?' selected':'')+'>손해보험사</option><option value="life"'+(c.t==='life'?' selected':'')+'>생명보험사</option></select></td>'
+   +'<td><button class="bd bdr" style="padding:3px 9px;font-size:12px" data-del="1">삭제</button></td></tr>';
+}
+function _rkpCosCollect(){ return [].map.call(document.querySelectorAll('#rkc_ctb .rkc_crow'),function(tr){ return {nm:tr.querySelector('.rkp_cnm').value,t:tr.querySelector('.rkp_ct').value}; }); }
+function _rkpCfgStash(d){ if(d._cur==='lay') d._lay=_rkpLayCollect(); else if(d._cur==='prod') d._prod=_rkpProdCollect(); else if(d._cur==='cos') d._cos=_rkpCosCollect(); else if(d._cur) d._draft[d._cur]=_rkpCfgCollect(); }
 function _rkpCfgShow(d,L){
   _rkpCfgStash(d);
   d._cur=L;
-  var lay=(L==='lay'), pr=(L==='prod');
-  [].forEach.call(d.querySelectorAll('[data-lvtab]'),function(b){ var k=b.getAttribute('data-lvtab'); b.classList.toggle('on',String(L)===k); if(k!=='lay'&&k!=='prod') b.textContent='레벨 '+k+' ('+(d._draft[+k]||[]).length+')'; });
-  var w1=g('rkc_lvwrap'), w2=g('rkc_laywrap'), w3=g('rkc_prodwrap'); if(w1) w1.style.display=(lay||pr)?'none':''; if(w2) w2.style.display=lay?'':'none'; if(w3) w3.style.display=pr?'':'none';
-  var rs=d.querySelector('[data-reset]'); if(rs) rs.textContent=lay?'계약사항 기본 위치로':(pr?'상품명 기본값으로':'이 레벨 기본값으로');
+  var lay=(L==='lay'), pr=(L==='prod'), cs=(L==='cos');
+  [].forEach.call(d.querySelectorAll('[data-lvtab]'),function(b){ var k=b.getAttribute('data-lvtab'); b.classList.toggle('on',String(L)===k); if(!isNaN(+k)) b.textContent='레벨 '+k+' ('+(d._draft[+k]||[]).length+')'; });
+  var w1=g('rkc_lvwrap'), w2=g('rkc_laywrap'), w3=g('rkc_prodwrap'), w4=g('rkc_coswrap'); if(w1) w1.style.display=(lay||pr||cs)?'none':''; if(w2) w2.style.display=lay?'':'none'; if(w3) w3.style.display=pr?'':'none'; if(w4) w4.style.display=cs?'':'none';
+  var rs=d.querySelector('[data-reset]'); if(rs) rs.textContent=lay?'계약사항 기본 위치로':(pr?'상품명 기본값으로':(cs?'보험사 기본값으로':'이 레벨 기본값으로'));
+  if(cs){ g('rkc_ctb').innerHTML=(d._cos||[]).map(_rkpCosRow).join(''); return; }
   if(lay){ _rkpLayDraw(d._lay); return; }
   if(pr){ g('rkc_ptb').innerHTML=(d._prod||[]).map(_rkpProdRow).join(''); return; }
   g('rkc_tb').innerHTML=(d._draft[L]||[]).map(_rkpCfgRow).join('');
@@ -37293,8 +37313,9 @@ function rkpCfgOpen(){
   d._draft={}; for(var L=1;L<=5;L++) d._draft[L]=_rkpLvCov(L).map(function(x){ return Object.assign({},x); });
   d._lay=_rkpLay().map(function(x){ return {k:x.k,h:x.h}; });
   d._prod=_rkpProds().map(function(x){ return Object.assign({},x); });
+  d._cos=_rkpCos().map(function(x){ return Object.assign({},x); });
   var tabs=''; for(var k=1;k<=5;k++) tabs+='<button class="rkc_tab" data-lvtab="'+k+'">레벨 '+k+'</button>';
-  tabs+='<button class="rkc_tab rkc_tablay" data-lvtab="prod">상품명</button><button class="rkc_tab" data-lvtab="lay">계약사항 위치</button>';
+  tabs+='<button class="rkc_tab rkc_tablay" data-lvtab="prod">상품명</button><button class="rkc_tab" data-lvtab="cos">보험사</button><button class="rkc_tab" data-lvtab="lay">계약사항 위치</button>';
   d.innerHTML='<div class="rkc_card"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e8f0">'
    +'<b style="font-size:16px;color:#1f2a5c">신입증권분석 설정</b><button class="rkc_mv" data-close="1" style="font-size:16px">✕</button></div>'
    +'<div class="rkc_body"><div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">레벨마다 따로 설정합니다. 금액은 <b>만원</b> 단위이고, 최소~최대 사이에서 단위 금액 간격으로 무작위로 정해집니다. <b>미가입 가능</b>을 체크하면 30% 확률로 그 특약이 빠집니다. <b>담보명 칸을 누른 채 위아래로 끌면</b> 순서가 바뀝니다. 저장하면 다섯 레벨이 한꺼번에 저장되고 모든 사람의 화면에 같이 적용됩니다.</div>'
@@ -37302,6 +37323,10 @@ function rkpCfgOpen(){
    +'<div id="rkc_laywrap" style="display:none"><div style="font-weight:700;color:#1f2a5c;margin:4px 0 4px">증권 계약사항 칸 위치</div>'
    +'<div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">칸을 <b>마우스로 끌어다 놓으면</b> 위치가 바뀝니다(왼쪽→오른쪽, 한 줄에 3칸 — 증권과 같은 배치). <b>총 납입보험료</b>는 그 줄 끝까지 넓게 차지합니다. [표시]를 끄면 증권에서 빠집니다. 모든 레벨에 같이 적용됩니다.</div>'
    +'<div id="rkc_lay"></div></div>'
+   +'<div id="rkc_coswrap" style="display:none"><div style="font-weight:700;color:#1f2a5c;margin:4px 0 4px">증권 보험사</div>'
+   +'<div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">증권 왼쪽 위와 도장에 나오는 보험사입니다. 증권을 만들 때 이 목록에서 무작위로 나옵니다(종신·CI 상품은 생명보험사만).<br><b>손해보험사</b>: 주계약 상해사망·질병사망, 적립보험료 있음. <b>생명보험사</b>: 주계약 일반사망, 적립보험료 0원.</div>'
+   +'<table><tr><th style="width:70px">순서</th><th>보험사 이름</th><th style="width:140px">종류</th><th style="width:60px"></th></tr><tbody id="rkc_ctb"></tbody></table>'
+   +'<div style="margin-top:10px"><button class="bp bnv" data-cadd="1"><i class="ti ti-plus"></i> 보험사 추가</button></div></div>'
    +'<div id="rkc_prodwrap" style="display:none"><div style="font-weight:700;color:#1f2a5c;margin:4px 0 4px">증권 상품명</div>'
    +'<div style="font-size:12.5px;color:#5a6080;margin-bottom:8px">증권 맨 위에 나오는 상품명입니다. 증권을 만들 때 그 레벨에 체크된 상품 중 하나가 무작위로 나옵니다. 이름에 <b>{보험사}</b>를 쓰면 증권 보험사 이름으로 바뀝니다.<br>'
    +'모든 상품의 주계약에 사망보장이 나옵니다 — <b>생명보험사</b>는 일반사망, <b>손해보험사</b>는 상해사망·질병사망(금액은 오른쪽 범위, 만원). 적립보험료는 손해보험사일 때만 나오고 생명보험사는 0원입니다.<br><b>CI</b>: 암진단금·뇌졸중진단금·급성심근경색진단금이 일반사망의 50% 또는 80%(셋 다 같은 비율). 종신·CI 상품이면 설정한 다른 주계약은 특약으로 나오고, 보험사는 생명보험사에서만 나옵니다.</div>'
@@ -37351,7 +37376,8 @@ function rkpCfgOpen(){
     var t=e.target.closest('button'), tb=g('rkc_tb');
     if(!t){ if(e.target===d&&d._down) d.remove(); return; }
     if(t.getAttribute('data-close')) d.remove();
-    else if(t.getAttribute('data-lvtab')){ var tk=t.getAttribute('data-lvtab'); _rkpCfgShow(d,(tk==='lay'||tk==='prod')?tk:+tk); }
+    else if(t.getAttribute('data-lvtab')){ var tk=t.getAttribute('data-lvtab'); _rkpCfgShow(d,isNaN(+tk)?tk:+tk); }
+    else if(t.getAttribute('data-cadd')){ var ct=g('rkc_ctb'); if(ct.children.length>=RKP_MAXN){ toast('최대 '+RKP_MAXN+'개까지입니다.'); return; } ct.insertAdjacentHTML('beforeend',_rkpCosRow()); ct.lastElementChild.querySelector('.rkp_cnm').focus(); }
     else if(t.getAttribute('data-padd')){ var pt=g('rkc_ptb'); if(pt.children.length>=RKP_MAXN){ toast('최대 '+RKP_MAXN+'개까지입니다.'); return; } pt.insertAdjacentHTML('beforeend',_rkpProdRow()); pt.lastElementChild.querySelector('.rkp_pnm').focus(); }
     else if(t.getAttribute('data-add')){ if(tb.children.length>=RKP_MAXN){ toast('최대 '+RKP_MAXN+'개까지입니다.'); return; } tb.insertAdjacentHTML('beforeend',_rkpCfgRow()); tb.lastElementChild.querySelector('.rkc_nm').focus(); }
     else if(t.getAttribute('data-del')){ t.closest('tr').remove(); }
@@ -37359,6 +37385,7 @@ function rkpCfgOpen(){
       var pa=tr.parentNode; if(up&&tr.previousElementSibling) pa.insertBefore(tr,tr.previousElementSibling); else if(!up&&tr.nextElementSibling) pa.insertBefore(tr.nextElementSibling,tr); }
     else if(t.getAttribute('data-copy')){ var P=d._cur-1; if(P<1) return; if(tb.children.length&&!confirm('레벨 '+d._cur+' 목록을 레벨 '+P+' 목록으로 바꿀까요? ([저장]해야 반영됩니다)')) return;
       tb.innerHTML=(d._draft[P]||[]).map(_rkpCfgRow).join(''); }
+    else if(t.getAttribute('data-reset')&&d._cur==='cos'){ if(confirm('보험사를 기본 목록으로 되돌릴까요? ([저장]해야 반영됩니다)')) g('rkc_ctb').innerHTML=_rkpCosClean(RKP_DEF_COS).map(_rkpCosRow).join(''); }
     else if(t.getAttribute('data-reset')&&d._cur==='prod'){ if(confirm('상품명을 기본 목록으로 되돌릴까요? ([저장]해야 반영됩니다)')) g('rkc_ptb').innerHTML=_rkpProdClean(RKP_DEF_PROD).map(_rkpProdRow).join(''); }
     else if(t.getAttribute('data-reset')&&d._cur==='lay'){ if(confirm('계약사항 칸 위치를 처음 배치로 되돌릴까요? ([저장]해야 반영됩니다)')){ d._lay=_rkpLayClean([]); _rkpLayDraw(d._lay); } }
     else if(t.getAttribute('data-reset')){ if(confirm('레벨 '+d._cur+'의 특약을 기본값으로 되돌릴까요? ([저장]해야 반영됩니다)')) tb.innerHTML=_rkpSplit(RKP_DEF_COV)[d._cur].map(_rkpCfgRow).join(''); }
@@ -37371,6 +37398,8 @@ function _rkpCfgSave(d){
   var lay=_rkpLayClean(d._lay);
   if(!lay.some(function(x){ return !x.h; })){ _rkpCfgShow(d,'lay'); toast('계약사항 칸을 하나 이상 표시해 주세요.'); return; }
   if((d._prod||[]).some(function(r){ return !String(r.nm).trim(); })){ _rkpCfgShow(d,'prod'); toast('상품명이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
+  if((d._cos||[]).some(function(r){ return !String(r.nm).trim(); })){ _rkpCfgShow(d,'cos'); toast('보험사 이름이 빈 줄이 있습니다. 채우거나 삭제하세요.'); return; }
+  var cos=_rkpCosClean(d._cos); if(!cos){ _rkpCfgShow(d,'cos'); toast('보험사를 1개 이상 넣어 주세요.'); return; }
   var prod=_rkpProdClean(d._prod); if(!prod){ _rkpCfgShow(d,'prod'); toast('상품명을 1개 이상 넣어 주세요.'); return; }
   for(var PL=1;PL<=5;PL++){ if(!prod.some(function(x){ return x.lv.indexOf(String(PL))>=0; })){ _rkpCfgShow(d,'prod'); toast('레벨 '+PL+'에 나오는 상품이 없습니다. 상품의 레벨을 체크하세요.'); return; } }
   var out={};
@@ -37382,8 +37411,8 @@ function _rkpCfgSave(d){
   }
   var db=window.db; if(!db){ toast('저장소에 연결되지 않았습니다.'); return; }
   var btn=g('rkc_save'); if(btn) btn.disabled=true;
-  db.collection('edu_cfg').doc('rkpol').set({lv:out,lay:lay,prod:prod,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
-    var o={}; for(var L=1;L<=5;L++) o[L]=out[String(L)]; window._rkpCfgLv=o; window._rkpLayCfg=lay; window._rkpProdCfg=prod; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
+  db.collection('edu_cfg').doc('rkpol').set({lv:out,lay:lay,prod:prod,cos:cos,ts:Date.now(),by:(cu&&cu.name)||''}).then(function(){
+    var o={}; for(var L=1;L<=5;L++) o[L]=out[String(L)]; window._rkpCfgLv=o; window._rkpLayCfg=lay; window._rkpProdCfg=prod; window._rkpCosCfg=cos; d.remove(); toast('특약 설정을 저장했습니다.'); rkpGen();
   }).catch(function(e){ if(btn) btn.disabled=false; console.warn('rkp cfg save',e); toast('저장 실패 — 네트워크 확인 후 다시 시도해 주세요.'); });
 }
 function rEduPrep(){
