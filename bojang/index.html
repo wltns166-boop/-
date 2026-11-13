@@ -645,7 +645,7 @@ function itemCfgHTML(){
 }
 function renderCfgModal(){
   let m=$('#cfgModal');
-  if(!S.showCfg||!S.me){if(m)m.remove();return}
+  if(!S.showCfg||!S.me||!S.cur||!$('#tabBody')){if(m)m.remove();if(!S.cur||!$('#tabBody'))S.showCfg=false;return}
   const box=m&&m.querySelector('.cmbody');const sy=box?box.scrollTop:0;
   if(!m){m=document.createElement('div');m.id='cfgModal';m.className='cm';document.body.appendChild(m)}
   m.innerHTML=`<div class="cmbg" data-act="itemCfg"></div><div class="cmbox" role="dialog" aria-label="항목 표시 설정" style="width:min(1100px,96vw)">
@@ -1336,7 +1336,7 @@ document.addEventListener('click',async e=>{
   if(act==='matClear'){S.cur.mats=[];markDirty();return renderTab()}
   if(act==='matView'){e.preventDefault();const v=$('#matViewer');v.innerHTML=`<div class="mv" data-act="matClose"><img src="${matSrc(id)}" alt=""><span>${esc(MAT[id].t)} · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
   if(act==='matClose'){$('#matViewer').hidden=true;return}
-  if(act==='itemCfg'){S.showCfg=!S.showCfg;return renderTab()}
+  if(act==='itemCfg'){S.showCfg=!S.showCfg;renderTab();return renderCfgModal()}
   if(act==='colAll'){const v=($('#colAllPick')||{}).value||COL_DEF;S.col=S.col||{};Object.keys(S.col).forEach(k=>S.col[k]=v);saveHidden();return renderTab()}
   if(act==='colClear'){S.col={};saveHidden();return renderTab()}
   if(act==='cfgAll'){S.hidden=new Set();S.shown=new Set(ITEMS.filter(i=>i.extra).map(i=>i.k));saveHidden();return renderTab()}
