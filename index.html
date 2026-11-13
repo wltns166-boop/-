@@ -945,7 +945,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-14</div>
   </div>
 </div>
 
@@ -4857,6 +4857,7 @@ async function loadFromFirestore(){
     // 병력정리는 컬렉션 mhx/{id}로 이전(2026-11-04 — tops/data 1MiB 한도 99.9% 실사고). tops/data에 남은 옛 mhx는 컬렉션으로 옮기고 필드 삭제.
     try{ _mhxColStart(); if(Array.isArray(d.mhx)) _mhxMigrate(d.mhx, d.mhxMig); }catch(e){ console.warn('mhx 컬렉션 시작 실패:',e); }
     try{ _cpSub(); }catch(e){}   // 카드납관리 — 결제일 알림용 구독
+    try{ _carSub(); }catch(e){}   // 자동차보험관리 — 만기 25일 전 알림용 구독
     if(d.clm&&d.clm.length)    { clm=d.clm;     try{ localStorage.setItem('tops_clm',JSON.stringify(clm)); }catch(e){ console.warn('localStorage tops_clm 저장 실패:',e); } }
     if(d.wst&&d.wst.length)    { wst=d.wst;     try{ localStorage.setItem('tops_wst',JSON.stringify(wst)); }catch(e){ console.warn('localStorage tops_wst 저장 실패:',e); } }
     if(d.dbInfo&&d.dbInfo.length){ dbInfo=d.dbInfo; try{ localStorage.setItem('tops_dbInfo',JSON.stringify(dbInfo)); }catch(e){ console.warn('localStorage tops_dbInfo 저장 실패:',e); } }
@@ -4938,6 +4939,7 @@ function startRealtimeSync(){
   if(!FS_DOC) return;
   try{ _mhxColStart(); }catch(e){}
   try{ _cpSub(); }catch(e){}
+  try{ _carSub(); }catch(e){}
   FS_DOC.onSnapshot(function(doc){
     if(!doc.exists||!cu) return;
     const d = doc.data();
@@ -14085,13 +14087,14 @@ function rAlerts(){
     return true;
   });
   try{ my=my.concat(_cpAlerts(_ds)); }catch(e){}   // 카드납 결제일 알림(가상 — 저장 안 함)
+  try{ my=my.concat(_carAlerts(_ds)); }catch(e){}   // 자동차보험 만기 25일 전 알림(가상 — 저장 안 함)
   if(!my.length){ box.innerHTML=''; return; }
   my.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
   var pad=function(n){return n<10?'0'+n:''+n;};
   box.innerHTML=my.map(function(a){
     var dt=new Date(a.ts||Date.now());
     var when=pad(dt.getMonth()+1)+'.'+pad(dt.getDate())+' '+pad(dt.getHours())+':'+pad(dt.getMinutes());
-    if(a.cp) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="cpAlertGo(this.getAttribute(\'data-aid\'))" title="누르면 카드납관리로 이동합니다">'
+    if(a.cp||a.car) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="'+(a.car?'carAlertGo':'cpAlertGo')+'(this.getAttribute(\'data-aid\'))" title="누르면 '+(a.car?'자동차보험관리':'카드납관리')+'로 이동합니다">'
       +'<div class="alert-body"><span class="alert-type">'+_alertEsc(a.type)+'</span><div>'+_alertEsc(a.msg||'')+'</div>'
       +'<div class="alert-meta">'+_alertEsc(a.fromName||'')+' · '+when+'</div></div>'
       +'<span class="alert-close" onclick="event.stopPropagation();dismissAlert(this.parentNode.getAttribute(\'data-aid\'))">✕</span></div>';
@@ -28642,14 +28645,16 @@ function _carSub(){
     if(seq!==window._carSeq||!cu) return;
     var a=[]; snap.forEach(function(d){ if(/^[A-Za-z0-9_-]{1,60}$/.test(d.id)) a.push(_carClean(d.id,d.data())); });
     window._carItems=a; window._carLoaded=true;
+    try{ rAlerts(); }catch(e){}
     try{ var pg=g('pg_carins'); if(pg&&pg.classList.contains('active')) _carDraw(); }catch(e){}
   }, function(e){
     if(seq!==window._carSeq) return;
     console.warn('자동차보험 불러오기 실패:',e); _carUnsubscribe();
+    clearTimeout(window._carRetryT); window._carRetryT=setTimeout(function(){ try{ if(cu) _carSub(); }catch(_){} },20000);   // 만기 알림이 꺼진 채 남지 않게
     var b=g('car_list'); if(b&&!window._carLoaded) b.innerHTML='<div class="em" style="padding:20px;color:#c62828">불러오지 못했습니다. 잠시 뒤 메뉴를 다시 열어 주세요.</div>';
   });
 }
-function _carUnsubscribe(){ window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
+function _carUnsubscribe(){ clearTimeout(window._carRetryT); window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
   var _wasBusy=window._carBusy; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
@@ -28708,6 +28713,28 @@ function _carDraw(){
   box.innerHTML=mons.map(function(k){
     return '<div class="carmh">'+esc(mLbl(k))+' <small>'+(mb==='ex'?'만기':'가입')+' '+byM[k].length+'건</small></div><div style="overflow-x:auto"><table class="dt">'+head+'<tbody>'+byM[k].map(rowOf).join('')+'</tbody></table></div>';
   }).join('');
+}
+// 만기 알림 — 본인이 등록한 건 중 만기일까지 CAR_ALERT_DAYS(25)일 이하로 남은 것(만기일 당일까지). rAlerts가 붙여 보여 주는 가상 알림(저장 안 함).
+// 계약마다 1장, id car_<문서id>_<만기일> — ✕로 닫으면 이 기기에서는 그 만기에 다시 안 뜸(만기일을 고치면 새 알림).
+var CAR_ALERT_DAYS=25;
+function _carDayDiff(a,b){ var p=function(s){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m?Date.UTC(+m[1],+m[2]-1,+m[3]):NaN; }; return Math.round((p(a)-p(b))/864e5); }
+function _carAlerts(ds){
+  if(!cu||!window._carLoaded) return [];
+  var key=_rsvKey(), today=td(), out=[];
+  (window._carItems||[]).forEach(function(o){
+    if(o.ok!==key||!/^\d{4}-\d{2}-\d{2}$/.test(o.ex)) return;
+    var left=_carDayDiff(o.ex,today); if(!(left>=0&&left<=CAR_ALERT_DAYS)) return;
+    var id='car_'+o.id+'_'+o.ex; if(ds&&ds.indexOf(id)>=0) return;
+    var st=new Date(o.ex+'T09:00:00'); st.setDate(st.getDate()-CAR_ALERT_DAYS);
+    out.push({id:id, car:1, type:'자동차보험 만기 '+(left?'D-'+left:'오늘'), ts:st.getTime(), fromName:'자동차보험관리',
+      msg:(o.ct||'')+(o.no?' ('+o.no+')':'')+(o.ins?' · '+o.ins:'')+' — 만기일 '+o.ex+(left?' ('+left+'일 남음)':' (오늘 만기)')+'. 갱신 안내해 주세요.'});
+  });
+  return out;
+}
+// 알림을 누르면 자동차보험관리로 — 만기일 기준, 그 만기 달을 펼쳐 보여 줌(닫지 않음 — 그만 보려면 ✕)
+function carAlertGo(id){
+  var m=/_(\d{4}-\d{2})-\d{2}$/.exec(String(id||''));
+  try{ showPage('carins'); var mb=g('car_mb'); if(mb) mb.value='ex'; window._carMon=m?m[1]:null; _carDraw(); }catch(e){}
 }
 function carMonSel(k){ k=String(k==null?'*':k); window._carMon=(k==='*'||!/^(\d{4}-\d{2})?$/.test(k))?null:k; _carDraw(); }
 // 가입일 1년 뒤(만기일) — 2월 29일은 다음 해 2월 28일
