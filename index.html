@@ -594,6 +594,13 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 #car_drop{border:2px dashed #c5cbe8;border-radius:10px;padding:10px 12px;background:#fbfcff;font-size:13px;color:#6a72a8;cursor:pointer}
 #car_drop.sel,#car_drop.over{border-color:#2e9d4f;background:#effaf2}
 .carthumb{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #d5dbf0;cursor:pointer;margin:1px}
+#car_view{position:fixed;inset:0;z-index:100050;background:rgba(10,14,30,.92);display:flex;flex-direction:column}
+#car_view .cvbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:#141a36;color:#fff;font-size:14px}
+#car_view .cvbar button{background:#1f2a5c;color:#fff;border:1px solid #3a4890;border-radius:7px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:600}
+#car_view .cvbar button:hover{background:#2c3a7c}
+#car_view .cvbox{flex:1;overflow:auto;cursor:grab;display:flex;touch-action:none}
+#car_view .cvbox.drag{cursor:grabbing}
+#car_view .cvbox img{margin:auto;display:block;max-width:none;user-select:none;-webkit-user-drag:none;background:#fff}
 .carpdf{display:inline-block;padding:3px 7px;border:1px solid #d5dbf0;border-radius:6px;font-size:12px;color:#2a3070;text-decoration:none;margin:1px}
 .cpi{padding:8px 10px;border:1px solid #cfd5ee;border-radius:7px;font-size:15px;color:#111;background:#fff;font-family:inherit}
 .cpmonth{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
@@ -934,7 +941,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-12</div>
   </div>
 </div>
 
@@ -28638,7 +28645,7 @@ function _carSub(){
 }
 function _carUnsubscribe(){ window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
-  var _wasBusy=window._carBusy; _carUnsubscribe(); window._carItems=null; window._carLoaded=false; window._carEditId=null;
+  var _wasBusy=window._carBusy; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
   window._carBusy=false;
   window._carGen=(window._carGen||0)+1;   // 늦게 끝난 업로드 폐기
@@ -28665,7 +28672,7 @@ function _carDraw(){
   var nmCell=function(nm,o){ if(!nm) return '-'; var oc=('openCustInfo('+JSON.stringify(nm)+','+JSON.stringify(o.m||'')+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); return '<span class="cpnm" onclick="'+oc+'" title="고객정보 새 창">'+esc(nm)+'</span>'; };
   var cp=function(v,lb){ v=String(v||''); if(!v) return '-'; return '<span class="cpcp" data-copy="'+at(v)+'" data-cplb="'+at(lb)+'" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다">'+esc(v)+'</span>'; };
   var rows=items.map(function(o){
-    var ph=o.ph.map(function(p){ return p.k==='pdf'?'<a class="carpdf" href="'+at(p.u)+'" target="_blank" rel="noopener">PDF</a>':'<img class="carthumb" src="'+at(p.u)+'" alt="증권" onclick="window.open(this.src,\'_blank\',\'noopener\')">'; }).join('');
+    var ph=o.ph.map(function(p){ return p.k==='pdf'?'<a class="carpdf" href="'+at(p.u)+'" target="_blank" rel="noopener">PDF</a>':'<img class="carthumb" src="'+at(p.u)+'" alt="증권" data-carid="'+at(o.id)+'" data-u="'+at(p.u)+'" onclick="carView(this)" title="눌러서 크게 보기">'; }).join('');
     return '<tr>'
       +'<td>'+nmCell(o.ct,o)+'</td>'
       +'<td>'+nmCell(o.ow,o)+'</td>'
@@ -28734,7 +28741,7 @@ function carFormClose(force){
 function _carPhDraw(){
   var b=g('car_ph'); if(!b) return;
   var h=(window._carPh||[]).map(function(p,i){
-    return '<div class="it">'+(p.k==='pdf'?'<a href="'+_alertEsc(p.u)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF<br>'+_esc(p.n.slice(0,14))+'</a>':'<img src="'+_alertEsc(p.u)+'" onclick="event.stopPropagation();window.open(this.src,\'_blank\',\'noopener\')">')
+    return '<div class="it">'+(p.k==='pdf'?'<a href="'+_alertEsc(p.u)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF<br>'+_esc(p.n.slice(0,14))+'</a>':'<img src="'+_alertEsc(p.u)+'" data-carid="form" data-u="'+_alertEsc(p.u)+'" onclick="event.stopPropagation();carView(this)" title="눌러서 크게 보기">')
       +'<button type="button" title="빼기" data-carph="'+_alertEsc(p.u)+'" onclick="event.stopPropagation();_carPhDel(this.getAttribute(\'data-carph\'))">×</button></div>';
   }).join('');
   if(window._carUpBusy) h+='<div class="it">올리는 중…<br>'+window._carUpBusy+'개</div>';
@@ -28776,7 +28783,7 @@ async function _carUpload(f,isPdf){
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
     var data, ct;
     if(isPdf){ data=new Uint8Array(await f.arrayBuffer()); ct='application/pdf'; }
-    else { var du=await _custAlienShrink(f); var bin=atob(du.split(',')[1]); data=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) data[i]=bin.charCodeAt(i); ct='image/jpeg'; }
+    else { var du=await _carEnhance(f); var bin=atob(du.split(',')[1]); data=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) data[i]=bin.charCodeAt(i); ct='image/jpeg'; }
     ref=firebase.storage().ref('claim_packages/carins/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+(isPdf?'.pdf':'.jpg'));
     await ref.put(data,{contentType:ct});
     var url=await ref.getDownloadURL();
@@ -28784,6 +28791,103 @@ async function _carUpload(f,isPdf){
     (window._carPh=window._carPh||[]).push({u:url, n:f.name||(isPdf?'증권.pdf':'증권.jpg'), k:isPdf?'pdf':'img'});
   }catch(e){ console.warn('car upload',e); if(gen===(window._carGen||0)) toast('증권 사진 올리기 실패: '+((e&&e.message)||e)); }
   finally{ if(gen===(window._carGen||0)){ window._carUpBusy=Math.max(0,(window._carUpBusy||1)-1); _carPhDraw(); } }
+}
+// ===== 증권사진 크게 보기 (2026-11-13 — 박지순 요청 "모달에서 확대") — 휠·＋－로 10~600%, 끌어서 이동, ‹ ›로 다른 사진, Esc 닫기
+function _carViewList(src){
+  var ph=src==='form'?(window._carPh||[]):((_carFind(src)||{}).ph||[]);
+  return ph.filter(function(p){ return p&&p.k!=='pdf'&&_CAR_URL_RE.test(String(p.u||'')); }).map(function(p){ return p.u; });
+}
+function carView(el){
+  var src=el.getAttribute('data-carid')||'', u=el.getAttribute('data-u')||'';
+  var list=_carViewList(src); if(!list.length) return;
+  var i=Math.max(0,list.indexOf(u));
+  var v=g('car_view'); if(v) v.remove();
+  v=document.createElement('div'); v.id='car_view';
+  v.innerHTML='<div class="cvbar"><button type="button" data-cv="prev">‹</button><span class="cvn"></span><button type="button" data-cv="next">›</button>'
+    +'<span style="width:14px"></span><button type="button" data-cv="out">－</button><span class="cvz" style="min-width:52px;text-align:center"></span><button type="button" data-cv="in">＋</button>'
+    +'<button type="button" data-cv="fit">화면 맞춤</button><button type="button" data-cv="w">가로 맞춤</button><button type="button" data-cv="one">원본 크기</button>'
+    +'<span style="margin-left:auto;font-size:12px;color:#aab3e0">휠=확대·축소 · 끌어서 이동 · Esc 닫기</span><button type="button" data-cv="x" style="background:#c62828;border-color:#c62828">✕ 닫기</button></div>'
+    +'<div class="cvbox"><img alt="증권 사진" draggable="false"></div>';
+  document.body.appendChild(v);
+  var box=v.querySelector('.cvbox'), img=v.querySelector('img'), st={i:i,z:1,nw:0,nh:0};
+  window._carViewSt={list:list,st:st};
+  function fitZ(mode){ var bw=box.clientWidth-20, bh=box.clientHeight-20; if(!st.nw) return 1;
+    return mode==='w'?bw/st.nw:Math.min(bw/st.nw, bh/st.nh); }
+  function apply(z,cx,cy){
+    if(!st.nw) return;
+    z=Math.max(0.1,Math.min(6,z));
+    var ox=box.scrollLeft+(cx==null?box.clientWidth/2:cx), oy=box.scrollTop+(cy==null?box.clientHeight/2:cy), r=z/(st.z||1);
+    st.z=z; img.style.width=Math.round(st.nw*z)+'px'; img.style.height=Math.round(st.nh*z)+'px';
+    box.scrollLeft=ox*r-(cx==null?box.clientWidth/2:cx); box.scrollTop=oy*r-(cy==null?box.clientHeight/2:cy);
+    v.querySelector('.cvz').textContent=Math.round(z*100)+'%';
+  }
+  function show(){
+    st.nw=0; img.style.width=''; img.style.height=''; v.querySelector('.cvn').textContent=(st.i+1)+' / '+list.length;
+    v.querySelector('[data-cv=prev]').disabled=st.i<=0; v.querySelector('[data-cv=next]').disabled=st.i>=list.length-1;
+    img.onload=function(){ st.nw=img.naturalWidth; st.nh=img.naturalHeight; st.z=1; apply(fitZ()); box.scrollLeft=0; box.scrollTop=0; };
+    img.src=list[st.i];
+  }
+  v.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-cv]'); if(!b) return;
+    var a=b.getAttribute('data-cv');
+    if(a==='x') carViewClose();
+    else if(a==='prev'&&st.i>0){ st.i--; show(); }
+    else if(a==='next'&&st.i<list.length-1){ st.i++; show(); }
+    else if(a==='in') apply(st.z*1.25); else if(a==='out') apply(st.z/1.25);
+    else if(a==='fit') apply(fitZ()); else if(a==='w') apply(fitZ('w')); else if(a==='one') apply(1);
+  });
+  box.addEventListener('wheel',function(e){ e.preventDefault(); var r=box.getBoundingClientRect(); apply(st.z*(e.deltaY<0?1.15:1/1.15), e.clientX-r.left, e.clientY-r.top); },{passive:false});
+  var drag=null;
+  box.addEventListener('pointerdown',function(e){ if(e.offsetX>=box.clientWidth||e.offsetY>=box.clientHeight) return; drag={x:e.clientX,y:e.clientY,l:box.scrollLeft,t:box.scrollTop,m:0,bg:e.target===box}; box.classList.add('drag'); try{ box.setPointerCapture(e.pointerId); }catch(_){} });
+  box.addEventListener('pointermove',function(e){ if(!drag) return; var dx=e.clientX-drag.x, dy=e.clientY-drag.y; if(Math.abs(dx)+Math.abs(dy)>4) drag.m=1; box.scrollLeft=drag.l-dx; box.scrollTop=drag.t-dy; });
+  var up=function(e){ var d=drag; drag=null; box.classList.remove('drag'); if(d&&!d.m&&d.bg) carViewClose(); };   // 그림 바깥 빈 곳을 그냥 누르면 닫힘
+  box.addEventListener('pointerup',up); box.addEventListener('pointercancel',function(){ drag=null; box.classList.remove('drag'); });
+  show();
+}
+function carViewClose(){ var v=g('car_view'); if(v) v.remove(); window._carViewSt=null; }
+document.addEventListener('keydown',function(e){
+  if(!g('car_view')) return;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); carViewClose(); }
+  else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){ var b=document.querySelector('#car_view [data-cv='+(e.key==='ArrowLeft'?'prev':'next')+']'); if(b&&!b.disabled){ e.preventDefault(); b.click(); } }
+},true);
+// 증권사진 올릴 때 화질 개선 — 해상도 유지(긴 변 최대 3200px, 1600px보다 작으면 1600px까지 부드럽게 키움) + 밝기·대비 자동 맞춤 + 글자 선명하게(약한 샤프닝), JPEG 0.92
+function _carEnhance(file){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file), img=new Image();
+    img.onload=function(){
+      try{
+        URL.revokeObjectURL(url);
+        var w=img.naturalWidth, h=img.naturalHeight, L=Math.max(w,h), sc=L>3200?3200/L:(L<1600?Math.min(2,1600/L):1);
+        var W=Math.max(1,Math.round(w*sc)), H=Math.max(1,Math.round(h*sc));
+        var cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+        var cx=cv.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+        cx.fillStyle='#fff'; cx.fillRect(0,0,W,H); cx.drawImage(img,0,0,W,H);
+        if(W*H<=12e6){
+          var id=cx.getImageData(0,0,W,H), d=id.data, n=W*H, hist=new Uint32Array(256), i, y;
+          for(i=0;i<d.length;i+=4){ y=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8; hist[y]++; }
+          var lo=0, hi=255, acc=0, cut=n*0.005;
+          for(i=0;i<256;i++){ acc+=hist[i]; if(acc>cut){ lo=i; break; } }
+          acc=0; for(i=255;i>=0;i--){ acc+=hist[i]; if(acc>cut){ hi=i; break; } }
+          var lut=new Uint8ClampedArray(256), span=hi-lo;
+          for(i=0;i<256;i++) lut[i]=span>40?Math.round((i-lo)*255/span):i;   // 밝기 범위가 너무 좁으면(한 색 사진) 건드리지 않음
+          var src=new Uint8ClampedArray(d.length);
+          for(i=0;i<d.length;i+=4){ src[i]=lut[d[i]]; src[i+1]=lut[d[i+1]]; src[i+2]=lut[d[i+2]]; src[i+3]=255; }
+          // 약한 샤프닝(언샤프 3×3, 강도 0.5) — 가장자리는 그대로
+          var k=0.5, row=W*4, x, p, c;
+          for(y=0;y<H;y++) for(x=0;x<W;x++){
+            p=(y*W+x)*4;
+            if(x===0||y===0||x===W-1||y===H-1){ d[p]=src[p]; d[p+1]=src[p+1]; d[p+2]=src[p+2]; d[p+3]=255; continue; }
+            for(c=0;c<3;c++){ var q=p+c, avg=(src[q-4]+src[q+4]+src[q-row]+src[q+row])/4; d[q]=src[q]+k*(src[q]-avg); }
+            d[p+3]=255;
+          }
+          cx.putImageData(id,0,0);
+        }
+        res(cv.toDataURL('image/jpeg',0.92));
+      }catch(e){ rej(e); }
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); rej(new Error('이미지를 읽을 수 없습니다.')); };
+    img.src=url;
+  });
 }
 // [고객검색] — 내 고객(총무는 전체)과 가족(카드납관리와 같은 가시성)
 function carCsToggle(btn,tgt){
