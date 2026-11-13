@@ -573,6 +573,10 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
 .cpgrid.cpg2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpgrid.cpg5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cpgrid.carg6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.carmon{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px}
+.carmh{margin:16px 0 6px;padding:8px 12px;background:#eef1fc;border-left:4px solid #1f2a5c;border-radius:6px;font-weight:700;color:#1a2060;display:flex;gap:10px;align-items:center}
+.carmh small{font-weight:500;color:#5a6080;font-size:13px}
 .cpcsw{position:relative;display:inline-block}
 .cpsamew{grid-column:span 2;display:flex;align-items:flex-end;gap:14px;padding-bottom:2px}
 .cpgrid label.cpsame{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:#1f2a5c;cursor:pointer;padding-bottom:8px}
@@ -941,7 +945,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.13-13</div>
   </div>
 </div>
 
@@ -2983,10 +2987,11 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           <div class="cpsamew"><span class="cpcsw"><button class="bp bnv" type="button" onclick="carCsToggle(this,'ow')"><i class="ti ti-search"></i> 고객검색</button></span>
             <label class="cpsame"><input type="checkbox" id="car_same" onchange="_carSameSync(1)"> 계약자와 동일</label></div>
         </div>
-        <div class="cpgrid cpg5" style="margin-top:10px">
+        <div class="cpgrid cpg5 carg6" style="margin-top:10px">
           <label>차종<input class="cpi" id="car_f_car" maxlength="30" placeholder="예: 그랜저 IG"></label>
           <label>차량번호<input class="cpi" id="car_f_no" maxlength="15" placeholder="예: 12가3456"></label>
-          <label>가입일<input class="cpi" id="car_f_dt" maxlength="10" inputmode="numeric" placeholder="YYYY-MM-DD" oninput="_abFmtBirth(this)"></label>
+          <label>가입일<input class="cpi" id="car_f_dt" maxlength="10" inputmode="numeric" placeholder="YYYY-MM-DD" oninput="_abFmtBirth(this);_carExAuto()"></label>
+          <label>만기일<input class="cpi" id="car_f_ex" maxlength="10" inputmode="numeric" placeholder="가입일 1년 뒤 자동" oninput="_abFmtBirth(this);this.dataset.hand=this.value?'1':''"></label>
           <label>가입 보험사<input class="cpi" id="car_f_ins" list="car_ins_list" maxlength="30" autocomplete="off"></label>
           <label>진행 방식<input class="cpi" id="car_f_way" list="car_way_list" maxlength="40" autocomplete="off" placeholder="골라도 되고 직접 입력"></label>
         </div>
@@ -3004,7 +3009,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         </div>
       </div>
       <div class="card">
-        <div class="cpmonth"><input class="cpi" id="car_q" placeholder="이름·차량번호·차종·보험사 검색" style="min-width:240px" oninput="_carDraw()"><span id="car_sum" style="margin-left:auto;font-size:13px;color:#5a6080"></span></div>
+        <div class="cpmonth"><select class="cpi" id="car_mb" onchange="window._carMon=null;_carDraw()" title="어느 날짜 기준으로 달을 나눌지"><option value="dt">가입일 기준</option><option value="ex">만기일 기준</option></select><input class="cpi" id="car_q" placeholder="이름·차량번호·차종·보험사 검색" style="min-width:240px" oninput="_carDraw()"><span id="car_sum" style="margin-left:auto;font-size:13px;color:#5a6080"></span></div>
+        <div id="car_mon" class="carmon"></div>
         <div id="car_list"></div>
       </div>
     </div>
@@ -28614,7 +28620,7 @@ function cpAlertGo(id){
 // 문서 {id, ok(등록자 키 _rsvKey), m(등록자 이름), ct(계약자), ow(차주), car(차종), no(차량번호), dt(가입일 YYYY-MM-DD), ins, way(진행방식), ph:[{u,n,k('img'|'pdf')}], ts, by, ut, eby}
 // 증권사진 원본은 Storage claim_packages/carins/(기존 규칙 커버), 문서에는 URL만(함정 B). 보기: 본인 등록분만, 총무는 전체(3장 규칙).
 var CAR_COL='carins';
-var CAR_F=['ct','ow','car','no','dt','ins','way'];
+var CAR_F=['ct','ow','car','no','dt','ex','ins','way'];
 var _CAR_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Fcarins%2F/;
 function _carDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
 function _carClean(id,o){
@@ -28645,7 +28651,7 @@ function _carSub(){
 }
 function _carUnsubscribe(){ window._carSeq=(window._carSeq||0)+1; try{ if(window._carUnsub) window._carUnsub(); }catch(e){} window._carUnsub=null; window._carSubKey=null; }
 function _carClear(){
-  var _wasBusy=window._carBusy; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carItems=null; window._carLoaded=false; window._carEditId=null;
+  var _wasBusy=window._carBusy; _carUnsubscribe(); try{ carViewClose(); }catch(e){} window._carMon=null; var _cm=g('car_mon'); if(_cm) _cm.innerHTML=''; var _cmbs=g('car_mb'); if(_cmbs) _cmbs.value='dt'; window._carItems=null; window._carLoaded=false; window._carEditId=null;
   if(_wasBusy){ window._carPh=[]; window._carPhOrig=[]; }   // 저장 중 로그아웃 — 저장될 사진을 지우지 않음
   window._carBusy=false;
   window._carGen=(window._carGen||0)+1;   // 늦게 끝난 업로드 폐기
@@ -28665,13 +28671,25 @@ function _carDraw(){
   var q=String((g('car_q')||{}).value||'').trim().toLowerCase().replace(/\s/g,'');
   var items=(window._carItems||[]).slice().sort(function(a,b){ return (b.dt||'').localeCompare(a.dt||'')||(b.ts-a.ts); });
   var total=items.length;
-  if(q) items=items.filter(function(o){ return [o.ct,o.ow,o.car,o.no,o.ins,o.way,o.m].join('|').toLowerCase().replace(/\s/g,'').indexOf(q)>=0; });
+  if(q) items=items.filter(function(o){ return [o.ct,o.ow,o.car,o.no,o.ins,o.way,o.m,o.dt,o.ex].join('|').toLowerCase().replace(/\s/g,'').indexOf(q)>=0; });
   var sum=g('car_sum'); if(sum) sum.textContent=total?(q?'검색 '+items.length+'건 / ':'')+'전체 '+total+'건':'';
+  var _cmb=g('car_mon'); if(_cmb&&(!total||!items.length)) _cmb.innerHTML='';
   if(!total){ box.innerHTML='<div class="em" style="padding:26px;color:#8888aa;text-align:center">등록된 자동차보험이 없습니다. 오른쪽 위 [등록]을 눌러 추가하세요.</div>'; return; }
   if(!items.length){ box.innerHTML='<div class="em" style="padding:26px;color:#8888aa;text-align:center">검색 결과가 없습니다.</div>'; return; }
   var nmCell=function(nm,o){ if(!nm) return '-'; var oc=('openCustInfo('+JSON.stringify(nm)+','+JSON.stringify(o.m||'')+')').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); return '<span class="cpnm" onclick="'+oc+'" title="고객정보 새 창">'+esc(nm)+'</span>'; };
   var cp=function(v,lb){ v=String(v||''); if(!v) return '-'; return '<span class="cpcp" data-copy="'+at(v)+'" data-cplb="'+at(lb)+'" onclick="_csrCopyVal(this)" title="클릭하면 복사됩니다">'+esc(v)+'</span>'; };
-  var rows=items.map(function(o){
+  // 월별로 나눔 — 기준(가입일/만기일)은 #car_mb, 고른 달은 메모리 window._carMon(null=전체)
+  var mb=((g('car_mb')||{}).value==='ex')?'ex':'dt', mkey=function(o){ var d=String(o[mb]||''); return /^\d{4}-\d{2}/.test(d)?d.slice(0,7):''; };
+  items.sort(function(a,b){ return (b[mb]||'').localeCompare(a[mb]||'')||(b.ts-a.ts); });
+  var byM=Object.create(null), mons=[]; items.forEach(function(o){ var k=mkey(o); if(!byM[k]){ byM[k]=[]; mons.push(k); } byM[k].push(o); });
+  var sel=window._carMon; if(sel!=null&&!byM[sel]){ sel=null; window._carMon=null; }
+  var mLbl=function(k){ return k?(k.slice(0,4)+'년 '+(+k.slice(5,7))+'월'):'날짜 없음'; };
+  var mb1=g('car_mon'); if(mb1) mb1.innerHTML='<button class="cpdc'+(sel==null?' on':'')+'" data-carmon="*" onclick="carMonSel(this.getAttribute(\'data-carmon\'))">전체 <span>'+items.length+'건</span></button>'
+    +mons.map(function(k){ return '<button class="cpdc'+(sel===k?' on':'')+'" data-carmon="'+at(k)+'" onclick="carMonSel(this.getAttribute(\'data-carmon\'))">'+esc(mLbl(k))+' <span>'+byM[k].length+'건</span></button>'; }).join('');
+  if(sel!=null) mons=[sel];
+  var head='<thead><tr><th>계약자</th><th>차주</th><th>차종</th><th>차량번호</th><th>가입일</th><th>만기일</th><th>가입 보험사</th><th>진행 방식</th><th>증권사진</th>'+(all?'<th>담당자</th>':'')+'<th>관리</th></tr></thead>';
+  var today=td();
+  var rowOf=function(o){
     var ph=o.ph.map(function(p){ return p.k==='pdf'?'<a class="carpdf" href="'+at(p.u)+'" target="_blank" rel="noopener">PDF</a>':'<img class="carthumb" src="'+at(p.u)+'" alt="증권" data-carid="'+at(o.id)+'" data-u="'+at(p.u)+'" onclick="carView(this)" title="눌러서 크게 보기">'; }).join('');
     return '<tr>'
       +'<td>'+nmCell(o.ct,o)+'</td>'
@@ -28679,14 +28697,31 @@ function _carDraw(){
       +'<td>'+esc(o.car||'-')+'</td>'
       +'<td style="white-space:nowrap">'+cp(o.no,'차량번호')+'</td>'
       +'<td style="white-space:nowrap">'+esc(o.dt||'-')+'</td>'
+      +'<td style="white-space:nowrap">'+esc(o.ex||'-')+(o.ex&&o.ex<today?' <span class="cpexp">만기</span>':'')+'</td>'
       +'<td>'+esc(o.ins||'-')+'</td>'
       +'<td>'+esc(o.way||'-')+'</td>'
       +'<td>'+(ph||'-')+'</td>'
       +(all?'<td>'+esc(o.m||'-')+'</td>':'')
       +'<td style="white-space:nowrap">'+(_carCanEdit(o)?'<button class="bp bnv" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carEdit(this.getAttribute(\'data-carid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carDel(this.getAttribute(\'data-carid\'))">삭제</button>':'')+'</td>'
       +'</tr>';
+  };
+  box.innerHTML=mons.map(function(k){
+    return '<div class="carmh">'+esc(mLbl(k))+' <small>'+(mb==='ex'?'만기':'가입')+' '+byM[k].length+'건</small></div><div style="overflow-x:auto"><table class="dt">'+head+'<tbody>'+byM[k].map(rowOf).join('')+'</tbody></table></div>';
   }).join('');
-  box.innerHTML='<div style="overflow-x:auto"><table class="dt"><thead><tr><th>계약자</th><th>차주</th><th>차종</th><th>차량번호</th><th>가입일</th><th>가입 보험사</th><th>진행 방식</th><th>증권사진</th>'+(all?'<th>담당자</th>':'')+'<th>관리</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function carMonSel(k){ k=String(k==null?'*':k); window._carMon=(k==='*'||!/^(\d{4}-\d{2})?$/.test(k))?null:k; _carDraw(); }
+// 가입일 1년 뒤(만기일) — 2월 29일은 다음 해 2월 28일
+function _carPlus1y(d){
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d||'')); if(!m) return '';
+  var y=+m[1]+1, mo=+m[2], da=+m[3], last=new Date(y,mo,0).getDate();
+  if(mo<1||mo>12||da<1||da>31) return '';
+  return y+'-'+m[2]+'-'+String(Math.min(da,last)).padStart(2,'0');
+}
+// 가입일을 다 쓰면 만기일 자동 기입(만기일을 직접 고친 뒤에는 덮지 않음 — 만기일 칸을 비우면 다시 자동)
+function _carExAuto(){
+  var a=g('car_f_dt'), b=g('car_f_ex'); if(!a||!b) return;
+  if(b.dataset.hand==='1'&&b.value) return;
+  var v=_carPlus1y(a.value); if(v||!a.value) b.value=v; b.dataset.hand='';
 }
 function carDel(id){
   var o=_carFind(id), db=_carDb(); if(!o||!db) return;
@@ -28701,6 +28736,7 @@ function carDel(id){
 function _carFormFill(o){
   o=o||{};
   CAR_F.forEach(function(k){ var el=g('car_f_'+k); if(el) el.value=o[k]||''; });
+  var exEl=g('car_f_ex'); if(exEl) exEl.dataset.hand=(o.ex&&o.ex!==_carPlus1y(o.dt))?'1':'';
   var sm=g('car_same'); if(sm) sm.checked=!!(o.ct&&o.ow===o.ct);
   window._carPh=(o.ph||[]).map(function(p){ return {u:p.u,n:p.n,k:p.k}; });
   window._carPhOrig=(o.ph||[]).map(function(p){ return p.u; });
@@ -28932,6 +28968,7 @@ function carSave(){
   if(window._carUpBusy){ toast('증권 사진을 올리는 중입니다. 끝난 뒤 저장해 주세요.'); return; }
   var v={}; CAR_F.forEach(function(k){ var el=g('car_f_'+k); v[k]=el?String(el.value||'').trim().slice(0,60):''; });
   if(!v.ct){ toast('계약자 성함을 입력하세요.'); g('car_f_ct').focus(); return; }
+  if(v.ex&&!/^\d{4}-\d{2}-\d{2}$/.test(v.ex)){ toast('만기일은 YYYY-MM-DD로 입력하세요 (숫자 8자리만 쳐도 됩니다).'); g('car_f_ex').focus(); return; }
   if(v.dt&&!/^\d{4}-\d{2}-\d{2}$/.test(v.dt)){ toast('가입일은 YYYY-MM-DD로 입력하세요 (숫자 8자리만 쳐도 됩니다).'); g('car_f_dt').focus(); return; }
   v.ph=(window._carPh||[]).map(function(p){ return {u:p.u,n:p.n,k:p.k}; });
   var eid=window._carEditId, btn=g('car_savebtn'), done=function(){ window._carBusy=false; if(btn) btn.disabled=false; };
