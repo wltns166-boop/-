@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-10</div>
   </div>
 </div>
 
@@ -31150,7 +31150,7 @@ function rCustomPage(name){
       +'</div>':'')
     +'</div>'+catbar+(surgOn?_sgcPanelHtml():daeriPanel+sangPanel+yearPanel+ckPanel+grid+pager)+'</div>';
   _bdBind(body,name);
-  if(surgOn){ try{ _sgcDraw(); var _sq2=g('sgc_q'); if(_sgFocus&&_sq2){ _sq2.focus(); _sq2.setSelectionRange(_sgFocus[0],_sgFocus[1]); } }catch(e){} }   // 결과 최초 표시 + 실시간 재렌더 때 입력 포커스 유지
+  if(surgOn){ try{ if(window._sgcXlErr&&!window._sgcXlBusy) window._sgcXlErr=0; _sgcDraw(); var _sq2=g('sgc_q'); if(_sgFocus&&_sq2){ _sq2.focus(); _sq2.setSelectionRange(_sgFocus[0],_sgFocus[1]); } }catch(e){} }   // 결과 최초 표시 + 실시간 재렌더 때 입력 포커스 유지
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
   if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
   if(yearCat){ try{ _yrCalc(); }catch(e){} }                          // 연말정산도 같은 이유로 최초 1회(빠뜨리면 결과 칸이 빈 채로 보임)
@@ -32724,9 +32724,9 @@ function _sgcCodeHit(code, spec){
 function _sgcTable(t){ return t==='3'?SGC_T3:SGC_T5; }
 // 세부 수술명(박지순 제공 엑셀 — sgc/data.js, 약 195KB)은 이 탭을 처음 열 때 한 번만 불러옴. 행 = [수술코드, 중분류 번호, 수술명, 설명, 종(0=해당 없음), 중지?]
 function _sgcXlLoad(){
-  if(window.SGC_XL||window._sgcXlBusy) return;
-  window._sgcXlBusy=1; window._sgcXlErr=0;
-  var sc=document.createElement('script'); sc.src='sgc/data.js?v=2';
+  if(window.SGC_XL||window._sgcXlBusy||window._sgcXlErr) return;   // 실패하면 다시 시도하지 않음(탭을 다시 열 때 sgcXlRetry — 실패→다시 그리기→재요청 무한 반복 방지)
+  window._sgcXlBusy=1;
+  var sc=document.createElement('script'); sc.src='sgc/data.js?v=3';
   sc.onload=function(){ window._sgcXlBusy=0; try{ _sgcDraw(); }catch(e){} };
   sc.onerror=function(){ window._sgcXlBusy=0; window._sgcXlErr=1; try{ sc.remove(); }catch(e){} try{ _sgcDraw(); }catch(e){} };
   document.head.appendChild(sc);
@@ -32798,8 +32798,8 @@ var _xn=_sgcXl(t); h='<div style="font-size:13px;color:#6a7090;margin:4px 0 10px
     h+='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:14px 0 6px">수술분류표에서 찾은 항목 '+hits.length+'건</div>'+_sgcTbl(hits.map(_sgcRow).join(''));
   }
   // 세부 수술명(엑셀) — 질병코드로 찾을 때는 건너뜀(엑셀에는 질병코드가 없음)
-  var xl=code?[]:_sgcXlFind(t,q), xh='';
-  if(xl===null){ xh='<div style="margin-top:14px;font-size:13px;color:#7a7f98">'+(window._sgcXlErr?'세부 수술명 목록을 불러오지 못했습니다 — 새로고침 후 다시 시도해 주세요.':'세부 수술명 목록을 불러오는 중…')+'</div>'; xl=[]; }
+  var xl=code?[]:_sgcXlFind(t,q), xh='', xlWait=0;
+  if(xl===null){ xlWait=!(window._sgcXlErr||window.SGC_XL); xh='<div style="margin-top:14px;font-size:13px;color:#7a7f98">'+(xlWait?'세부 수술명 목록을 불러오는 중…':'세부 수술명 목록을 불러오지 못했습니다 — 새로고침 후 다시 시도해 주세요.')+'</div>'; xl=[]; }
   else if(xl.length){
     var x0=_sgcXl(t), on=xl.filter(function(r){ return r[4]>0; }).length;
     xh='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:16px 0 6px">세부 수술명 '+xl.length+'건 <span style="font-weight:400;color:#7a7f98;font-size:12.5px">— 수술코드표(엑셀) 기준 · 해당 '+on+'건 / 해당 없음 '+(xl.length-on)+'건</span></div>'
@@ -32807,7 +32807,7 @@ var _xn=_sgcXl(t); h='<div style="font-size:13px;color:#6a7090;margin:4px 0 10px
       +(xl.length>SGC_XL_MAX?'<div style="font-size:12.5px;color:#7a7f98;margin-top:6px">외 '+(xl.length-SGC_XL_MAX)+'건 — 수술명을 더 자세히 입력해 주세요.</div>':'');
   }
   h+=xh;
-  if(!dx.length&&!hits.length&&!xl.length){
+  if(!dx.length&&!hits.length&&!xl.length&&!xlWait){
     h=xh+'<div style="padding:22px 0;text-align:center;color:#7a7f98;font-size:14px;line-height:1.7">\''+_esc(q)+'\'(으)로 찾은 항목이 없습니다.<br>'
       +(code?'이 질병코드는 연결된 수술이 정리돼 있지 않습니다. 질병명이나 진단서의 <b>수술명</b>(예: 절제, 관혈, 내시경)으로 찾아 보세요.':'다른 낱말(예: 디스크 → 추간판, 맹장 → 충수)이나 진단서의 수술명으로 찾아 보세요.')+'</div>';
   }
