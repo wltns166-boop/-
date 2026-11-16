@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-11</div>
   </div>
 </div>
 
@@ -6485,7 +6485,7 @@ function _cbMenuCat(){
       var nav='n_'+c.id; if(!_navSrchMenuOk(nav)) return;
       var id=('sgc_'+c.id).replace(/[^A-Za-z0-9_]/g,''); if(seen[id]) return;
       var path=_navSrchPath(nav)||_navSrchText(g(nav))||'상담자료';
-      out.push({id:id,t:'수술분류 검색',p:path+' › 수술분류 검색',kw:'수술분류 수술분류표 종수술 1~3종 1~5종 몇종 수술비 수술종류',a:'['+path+'] 의 \'수술분류 검색\' 탭에서 1~5종 / 1~3종 수술분류표를 고르고 질병코드·질병명·수술명을 넣으면 해당 수술과 종이 나옵니다.\n아래 [바로 가기]를 누르세요.',nav:nav,bcm:c.id,bcat:'_surg',hl:['[data-bdcat="_surg"]','여기가 \'수술분류 검색\' 탭입니다']}); seen[id]=1;
+      out.push({id:id,t:'수술분류 검색',p:path+' › 수술분류 검색',kw:'수술검색 수술분류 수술분류표 수술분류검색 수술코드 종수술 1~3종 1~5종 몇종 수술비 수술종류',a:'['+path+'] 의 \'수술분류 검색\' 탭에서 1~5종 / 1~3종 수술분류표를 고르고 질병코드·질병명·수술명을 넣으면 해당 수술과 종이 나옵니다.\n아래 [바로 가기]를 누르세요.',nav:nav,bcm:c.id,bcat:'_surg',hl:['[data-bdcat="_surg"]','여기가 \'수술분류 검색\' 탭입니다']}); seen[id]=1;
     });
   }catch(e){}
   return out;
@@ -6654,7 +6654,10 @@ async function _cbAsk(){
   var cat=_cbCatalog();
   var loc=_cbLocal(q,cat), picks=[];
   // 낱말이 확실히 맞으면 AI 없이 바로(무료·즉시)
-  if(loc.length&&loc[0].s>=4&&(loc.length===1||loc[1].s<=loc[0].s*0.6)) picks=[loc[0].e];
+  // '수술'·'수술검색'·'수술분류표'만 치면 바로 수술분류 검색으로(2026-11-16 박지순 — '수술'은 병력정리 낱말과 겹쳐 점수로는 못 가림)
+  var _sgE=/^(수술|수술검색|수술분류|수술분류표|수술분류검색|수술분류표검색|수술코드)$/.test(_cbNz(q))?cat.filter(function(e){ return /^sgc_/.test(String(e.id)); })[0]:null;
+  if(_sgE) picks=[_sgE];
+  else if(loc.length&&loc[0].s>=4&&(loc.length===1||loc[1].s<=loc[0].s*0.6)) picks=[loc[0].e];
   else if(loc.length&&loc[0].e.proc&&loc[0].s>=8&&CB_PROC_RE.test(q)&&(loc.length===1||loc[1].s<loc[0].s)) picks=[loc[0].e];   // 순서를 묻는 질문 + 업무 순서가 1등
   else {
     window._cbBusy=true; var sb=g('cb_send'); if(sb) sb.disabled=true;
