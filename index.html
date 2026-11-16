@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-2</div>
   </div>
 </div>
 
@@ -11363,10 +11363,10 @@ function rTree(){
     delete parentMap[ROOT]; // 선택한 팀장이 이 보기의 루트
   }
   // 보기(전체/팀장)별로 드래그 위치를 따로 저장 — 레이아웃이 달라 서로 섞이면 흩어져 보임
-  const POS_KEY='tops_tree_pos_v2'+(leaderSel?('__'+leaderSel):'');
+  const POS_KEY='tops_tree_pos_v3'+(leaderSel?('__'+leaderSel):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
 
   // ── 좌우 마인드맵 레이아웃: 중앙 루트, 왼쪽 박지순 계보(전체 보기), 오른쪽 직할 ──
-  const BW=124, BH=50, GAP_H=64, GAP_V=18, PAD=60;   // GAP_H: 단계(가로) 간격, GAP_V: 형제(세로) 간격
+  const BW=164, BH=62, GAP_H=72, GAP_V=16, PAD=60;   // GAP_H: 단계(가로) 간격, GAP_V: 형제(세로) 간격
   const STEP=BW+GAP_H;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
@@ -11425,81 +11425,121 @@ function rTree(){
   canvasH=Math.min(canvasH, POS_MAX+BH+PAD);
 
   // ── Canvas 생성 (확대/축소 배율 적용, 총 픽셀 상한으로 메모리 보호) ─────────────────────
-  let Z=Math.min(2,Math.max(0.4,window._treeZoom||1));
+  // 처음 열 때는 화면 폭에 맞춰 한눈에(2026-11-16) — [－][＋]를 누른 뒤엔 그 배율 유지
+  const _fitW=Math.max(300,(wrap.clientWidth||1000)-4);
+  let Z=window._treeZoom?Math.min(2,Math.max(0.4,window._treeZoom)):Math.min(1,Math.max(0.4,Math.floor(_fitW/canvasW*100)/100));
   const _zCap=Math.sqrt(24e6/Math.max(1,canvasW*canvasH));   // 캔버스 최대 2,400만 픽셀(약 96MB)
-  if(Z>_zCap) Z=_zCap;
-  const btnS='padding:5px 12px;background:rgba(70,90,200,.15);border:1px solid rgba(70,90,200,.28);border-radius:6px;color:#7888cc;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap';
+  if(Z>_zCap) Z=_zCap; window._treeZoomCur=Z;
+  // ── 2026-11-16 새 디자인(백동현 요청 "계보도 이쁘게") — 직급별 색·카드·곡선 연결선·마우스 올리면 윗선 경로 강조 ──
+  const _tc=function(role){ var r=String(role||'');
+    if(/SBM/i.test(r)) return {c:'#6d28d9',t:'#f3edff'}; if(/^BM|지점장/i.test(r)) return {c:'#2563eb',t:'#eaf1ff'};
+    if(/총무/.test(r)) return {c:'#059669',t:'#e6f7f0'}; if(/TL|팀장/i.test(r)) return {c:'#0891b2',t:'#e4f6fa'};
+    return {c:'#64748b',t:'#f1f5f9'}; };
+  NODES.forEach(n=>{ const t=_tc(n.role); n.color=t.c; n.bg=t.t; });
+  const desc={};
+  (function cnt(k){ let s=0; (childMap[k]||[]).forEach(c=>{ s+=1+cnt(c); }); desc[k]=s; return s; })(ROOT);
+  const rankCnt={}; NODES.forEach(n=>{ const r=n.role||'-'; rankCnt[r]=(rankCnt[r]||0)+1; });
+  const leaders=NODES.filter(n=>!n.isRoot&&(childMap[n.key]||[]).length).length;
+  const btnS='display:inline-flex;align-items:center;gap:5px;padding:7px 13px;background:#1f2a5c;border:0;border-radius:9px;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,.15)';
+  const btnL='display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1px solid #d6dbe7;border-radius:9px;color:#1f2a5c;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap';
   const leaderSelHtml='<select onchange="setTreeLeader(this.value)" title="전체/팀장별 보기" '
-    +'style="padding:5px 10px;border-radius:6px;border:1px solid rgba(70,90,200,.28);background:#fff;color:#3a48aa;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'
-    +'<option value="">전체</option>'
-    +leaderOpts.map(o=>'<option value="'+_esc(o.key)+'"'+(o.key===leaderSel?' selected':'')+'>'+_esc(o.key)+' '+_esc(o.role||'')+'</option>').join('')
+    +'style="padding:7px 12px;border-radius:9px;border:1px solid #d6dbe7;background:#fff;color:#1f2a5c;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit">'
+    +'<option value="">전체 계보</option>'
+    +leaderOpts.map(o=>'<option value="'+_esc(o.key)+'"'+(o.key===leaderSel?' selected':'')+'>'+_esc(o.key)+' '+_esc(o.role||'')+' 팀</option>').join('')
     +'</select>';
+  const stat=(lb,v,col)=>'<div style="padding:9px 14px;border-radius:11px;background:#fff;border:1px solid #e3e7f0;min-width:92px"><div style="font-size:11.5px;color:#7a8499;font-weight:600">'+lb+'</div><div style="font-size:20px;font-weight:800;color:'+col+';line-height:1.25">'+v+'</div></div>';
+  const legend=Object.keys(rankCnt).sort((x,y)=>rankCnt[y]-rankCnt[x]).map(r=>{ const t=_tc(r); return '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:'+t.t+';color:'+t.c+';font-size:12.5px;font-weight:700"><i style="width:8px;height:8px;border-radius:50%;background:'+t.c+';display:inline-block"></i>'+_esc(r)+' '+rankCnt[r]+'</span>'; }).join('');
   wrap.innerHTML = `
-    <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-bottom:12px">
+      ${stat(leaderSel?'팀 인원':'전체 인원',NODES.length,'#1f2a5c')}
+      ${stat('하부 조직 보유',leaders+'명','#0891b2')}
+      ${stat(leaderSel?'팀장':'대표',_esc(ROOT),'#6d28d9')}
+      <div style="flex:1;min-width:220px;display:flex;flex-wrap:wrap;gap:6px;align-content:center">${legend}</div>
+    </div>
+    <div style="position:relative;display:flex;gap:7px;margin-bottom:10px;align-items:center;flex-wrap:wrap;padding:8px;border-radius:12px;background:#f5f7fb;border:1px solid #e6eaf2">
       ${leaderSelHtml}
-      <button onclick="resetTreePos()" style="${btnS}">↺ 위치 초기화</button>
-      <button onclick="zoomTree(-0.15)" title="축소" style="${btnS}">－ 축소</button>
-      <span style="font-size:13.5px;color:#7888cc;font-weight:700;min-width:44px;text-align:center">${Math.round(Z*100)}%</span>
-      <button onclick="zoomTree(0.15)" title="확대" style="${btnS}">＋ 확대</button>
+      <span style="width:1px;height:22px;background:#d6dbe7;margin:0 3px"></span>
+      <button onclick="zoomTree(-0.15)" title="축소" style="${btnL}">－</button>
+      <span style="font-size:13.5px;color:#1f2a5c;font-weight:800;min-width:46px;text-align:center">${Math.round(Z*100)}%</span>
+      <button onclick="zoomTree(0.15)" title="확대" style="${btnL}">＋</button>
+      <button onclick="resetTreePos()" style="${btnL}">↺ 자리 초기화</button>
+      <span style="flex:1"></span>
       <button onclick="printTree()" style="${btnS}"><i class="ti ti-printer"></i> 출력</button>
       <button onclick="saveTreePdf()" style="${btnS}"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
-      <span style="font-size:13px;color:#9090bb">노드를 드래그해서 위치를 조정하세요</span>
     </div>
-    <div style="overflow:auto;border-radius:10px"><canvas id="tree_canvas" width="${Math.round(canvasW*Z)}" height="${Math.round(canvasH*Z)}" style="display:block;cursor:grab;border-radius:10px;background:#ffffff;border:1px solid rgba(0,0,0,0.08)"></canvas></div>`;
+    <div style="font-size:12.5px;color:#8a93a8;margin:0 0 8px 4px">카드를 끌어 자리를 옮길 수 있고, 마우스를 올리면 그 사람의 윗선이 강조됩니다.</div>
+    <div style="overflow:auto;border-radius:14px;border:1px solid #e3e7f0;background:#fbfcfe"><canvas id="tree_canvas" width="${Math.round(canvasW*Z)}" height="${Math.round(canvasH*Z)}" style="display:block;cursor:grab"></canvas></div>`;
 
   const canvas = document.getElementById('tree_canvas');
   const ctx = canvas.getContext('2d');
   const nodeMap = {};
   NODES.forEach(n=>nodeMap[n.key]=n);
+  let hoverKey=null;
+  const pathOf=function(k){ const o={}; while(k){ o[k]=1; if(k===ROOT) break; k=parentMap[k]; } return o; };
 
   // ── 그리기 (c: 대상 컨텍스트, scale: 배율, whiteBg: 출력/PDF용 흰 배경) ──
   function render(c, scale, whiteBg){
     c.setTransform(scale,0,0,scale,0,0);
     c.clearRect(0,0,canvasW,canvasH);
-    if(whiteBg){ c.fillStyle='#ffffff'; c.fillRect(0,0,canvasW,canvasH); }
-    // 연결선 먼저 — 좌우 방향 직각(ㄷ자) 꺾임. 자식이 부모의 왼쪽/오른쪽 어느 편인지에 따라 면을 선택.
+    c.fillStyle=whiteBg?'#ffffff':'#fbfcfe'; c.fillRect(0,0,canvasW,canvasH);
+    if(!whiteBg){ c.fillStyle='#e4e8f1'; for(let gx=12;gx<canvasW;gx+=24) for(let gy=12;gy<canvasH;gy+=24){ c.fillRect(gx,gy,1.6,1.6); } }
+    const hp=(hoverKey&&!whiteBg)?pathOf(hoverKey):null;
+    // 연결선 — 부드러운 곡선, 자식 직급 색
     NODES.forEach(n=>{
       if(n.isRoot) return;
       const p=parentMap[n.key]; if(!p||!pos[p]||!pos[n.key]) return;
       const pP=pos[p], pN=pos[n.key];
       let x1,x2;
-      if(pN.x+BW/2 >= pP.x+BW/2){ x1=pP.x+BW; x2=pN.x; }   // 자식이 오른쪽 → 부모 오른면에서 자식 왼면으로
-      else { x1=pP.x; x2=pN.x+BW; }                          // 자식이 왼쪽 → 부모 왼면에서 자식 오른면으로
-      const y1=pP.y+BH/2, y2=pN.y+BH/2;
-      const mx=(x1+x2)/2;
-      c.beginPath();
-      c.moveTo(x1,y1);
-      c.lineTo(mx,y1);
-      c.lineTo(mx,y2);
-      c.lineTo(x2,y2);
-      c.strokeStyle='rgba(0,0,0,0.75)';
-      c.lineWidth=1.8;
-      c.stroke();
+      if(pN.x+BW/2 >= pP.x+BW/2){ x1=pP.x+BW; x2=pN.x; } else { x1=pP.x; x2=pN.x+BW; }
+      const y1=pP.y+BH/2, y2=pN.y+BH/2, mx=(x1+x2)/2;
+      const on=hp&&hp[n.key];
+      c.beginPath(); c.moveTo(x1,y1); c.bezierCurveTo(mx,y1,mx,y2,x2,y2);
+      c.strokeStyle=n.color; c.globalAlpha=hp?(on?0.95:0.15):0.55; c.lineWidth=on?3:2; c.stroke();
+      c.beginPath(); c.arc(x2,y2,3.2,0,Math.PI*2); c.fillStyle=n.color; c.fill();
+      c.globalAlpha=1;
     });
-    // 노드 박스
+    // 카드
     NODES.forEach(n=>{
       if(!pos[n.key]) return;
       const {x,y}=pos[n.key];
-      const rnd=n.isRoot?14:n.isMem?7:10;
-      c.shadowColor='rgba(0,0,0,0.4)';
-      c.shadowBlur=10;
-      c.beginPath();
-      c.roundRect(x,y,BW,BH,rnd);
-      c.fillStyle=n.bg;
-      c.fill();
-      c.shadowBlur=0;
-      c.strokeStyle=n.color;
-      c.lineWidth=n.isRoot?2:1.5;
-      c.stroke();
-      c.fillStyle='#111133';
-      c.font=`${n.isRoot?'700':'600'} ${n.isRoot?14:13}px "Noto Sans KR",sans-serif`;
-      c.textAlign='center';
-      c.fillText(n.name, x+BW/2, y+19);
-      c.fillStyle=n.color;
-      c.font=`600 13px "Noto Sans KR",sans-serif`;
-      c.fillText(n.role, x+BW/2, y+38);
+      const dim=hp&&!hp[n.key];
+      c.globalAlpha=dim?0.35:1;
+      c.save();
+      c.shadowColor=(hoverKey===n.key&&!whiteBg)?'rgba(31,42,92,.35)':'rgba(15,23,42,.13)';
+      c.shadowBlur=(hoverKey===n.key&&!whiteBg)?18:10; c.shadowOffsetY=3;
+      c.beginPath(); c.roundRect(x,y,BW,BH,13);
+      if(n.isRoot){ const gr=c.createLinearGradient(x,y,x+BW,y+BH); gr.addColorStop(0,'#7c3aed'); gr.addColorStop(1,'#1f2a5c'); c.fillStyle=gr; }
+      else c.fillStyle='#ffffff';
+      c.fill(); c.restore();
+      if(!n.isRoot){
+        c.save(); c.beginPath(); c.roundRect(x,y,BW,BH,13); c.clip();
+        c.fillStyle=n.color; c.fillRect(x,y,5,BH); c.restore();
+        c.beginPath(); c.roundRect(x+0.5,y+0.5,BW-1,BH-1,13); c.strokeStyle=hoverKey===n.key&&!whiteBg?n.color:'#e3e7f0'; c.lineWidth=1; c.stroke();
+      }
+      // 이름 첫 글자 동그라미
+      const ax=x+30, ay=y+BH/2;
+      c.beginPath(); c.arc(ax,ay,17,0,Math.PI*2); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
+      c.fillStyle=n.isRoot?'#ffffff':n.color; c.font='800 15px "Noto Sans KR",sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText(String(n.name||'?').charAt(0), ax, ay+0.5);
+      // 이름
+      c.textAlign='left'; c.textBaseline='alphabetic';
+      c.fillStyle=n.isRoot?'#ffffff':'#111827'; c.font='800 15px "Noto Sans KR",sans-serif';
+      c.fillText(n.name, x+56, y+26);
+      // 직급 배지
+      c.font='700 11.5px "Noto Sans KR",sans-serif';
+      const rl=String(n.role||'-'), rw=c.measureText(rl).width+14;
+      c.beginPath(); c.roundRect(x+56,y+34,rw,18,9); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
+      c.fillStyle=n.isRoot?'#ffffff':n.color; c.fillText(rl, x+63, y+47);
+      // 하위 인원
+      if(desc[n.key]){
+        c.font='700 11px "Noto Sans KR",sans-serif'; c.textAlign='right';
+        c.fillStyle=n.isRoot?'rgba(255,255,255,.85)':'#94a3b8';
+        c.fillText('하위 '+desc[n.key]+'명', x+BW-10, y+47);
+        c.textAlign='left';
+      }
+      c.globalAlpha=1;
     });
-    c.textAlign='left';
+    c.textAlign='left'; c.textBaseline='alphabetic';
     c.setTransform(1,0,0,1,0,0);
   }
   function draw(){ render(ctx, Z); }
@@ -11530,13 +11570,15 @@ function rTree(){
       pos[dragging.key].y=Math.max(0,Math.min(canvasH-BH,y-offY));
       draw();
     } else {
-      canvas.style.cursor=getNodeAt(x,y)?'grab':'default';
+      const hn=getNodeAt(x,y), hk=hn?hn.key:null;
+      canvas.style.cursor=hn?'grab':'default';
+      if(hk!==hoverKey){ hoverKey=hk; draw(); }
     }
   });
   canvas.addEventListener('mouseup',()=>{
     if(dragging){ saveTreePos(); dragging=null; canvas.style.cursor='grab'; }
   });
-  canvas.addEventListener('mouseleave',()=>{ if(dragging){saveTreePos();dragging=null;} });
+  canvas.addEventListener('mouseleave',()=>{ if(dragging){saveTreePos();dragging=null;} if(hoverKey){ hoverKey=null; draw(); } });
 
   // 터치 지원
   canvas.addEventListener('touchstart',e=>{
@@ -11558,6 +11600,7 @@ function rTree(){
   // 초기화 함수 전역 등록 — 지금 보고 있는 보기(전체/선택한 팀장)의 위치만 초기화
   window.resetTreePos=function(){
     localStorage.removeItem('tops_tree_pos');      // 구버전(상하 트리) 저장분도 정리
+    try{ localStorage.removeItem('tops_tree_pos_v2'+(leaderSel?('__'+leaderSel):'')); }catch(e){}
     localStorage.removeItem(POS_KEY);
     rTree();
     toast('계보도 위치가 초기화되었습니다.');
@@ -11566,7 +11609,7 @@ function rTree(){
   window.setTreeLeader=function(v){ window._treeLeader=v||''; rTree(); };
   // 확대/축소 — 배율 변경 후 다시 그림 (40%~200%)
   window.zoomTree=function(d){
-    window._treeZoom=Math.min(2,Math.max(0.4,(window._treeZoom||1)+d));
+    window._treeZoom=Math.min(2,Math.max(0.4,(window._treeZoom||window._treeZoomCur||1)+d));
     rTree();
   };
   // 고해상도 스냅샷(흰 배경) — 출력·PDF 공용.
