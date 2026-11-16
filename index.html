@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-8</div>
   </div>
 </div>
 
@@ -32713,7 +32713,9 @@ function _sgcCodeHit(code, spec){
   var p3=code.slice(0,3), toks=String(spec||'').split(/\s+/);
   for(var i=0;i<toks.length;i++){
     var t=toks[i]; if(!t) continue;
-    if(t.indexOf('-')>0){ var ab=t.split('-'); if(p3>=ab[0].slice(0,3)&&p3<=ab[1].slice(0,3)) return true; }
+    if(t.indexOf('-')>0){ var ab=t.split('-'), L=Math.max(ab[0].length,ab[1].length);   // 끝점이 4자리 이상('D430-D432')이면 그 자릿수까지 비교(3자리 입력은 앞 3자리만)
+      if(L>3&&code.length>3){ var cx=code.slice(0,L); if(cx>=ab[0]&&cx<=ab[1]) return true; }
+      else if(p3>=ab[0].slice(0,3)&&p3<=ab[1].slice(0,3)) return true; }
     else if(t.length<=3){ if(p3===t) return true; }
     else if(code.indexOf(t)===0||(code.length===3&&t.indexOf(code)===0)) return true;
   }
@@ -32741,6 +32743,7 @@ function _sgcDraw(){
   var dx=SGC_DX.filter(function(d){
     if(code) return _sgcCodeHit(code,d.c);
     if(nq.length<1) return false;
+    if(nq.length===1) return String(d.k).split(/\s+/).indexOf(nq)>=0;   // 한 글자('암')는 찾는 말과 똑같을 때만 — '위'·'1' 같은 입력이 전부 걸리지 않게
     if(_sgcNorm(d.n).indexOf(nq)>=0) return true;
     return String(d.k).split(/\s+/).some(function(w){ var nw=_sgcNorm(w); return nw&&(nw.indexOf(nq)>=0||(nq.length>=2&&nw.length>=2&&nq.indexOf(nw)>=0)); });
   });
@@ -32758,7 +32761,8 @@ function _sgcDraw(){
     }).join('');
   }
   var hits=[];
-  if(!code&&nq.length>=1) tb.forEach(function(gp){ gp[1].forEach(function(it){ if(_sgcNorm(it[1]+' '+(it[3]||'')+' '+it[0]).indexOf(nq)>=0||_sgcNorm(gp[0]).indexOf(nq)>=0) hits.push(it); }); });
+  // 수술명(과 구분 이름)만 — 단서(제외 설명)까지 찾으면 '포경'이 음경 절단수술(3종)로 나오는 식의 오해가 생김
+  if(!code&&nq.length>=2) tb.forEach(function(gp){ var gh=_sgcNorm(gp[0].split('—')[0]).indexOf(nq)>=0; gp[1].forEach(function(it){ if(gh||_sgcNorm(it[1]).indexOf(nq)>=0) hits.push(it); }); });
   if(hits.length){
     h+='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:14px 0 6px">수술분류표에서 찾은 항목 '+hits.length+'건</div>'+_sgcTbl(hits.map(_sgcRow).join(''));
   }
