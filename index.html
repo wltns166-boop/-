@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-12</div>
   </div>
 </div>
 
@@ -1119,7 +1119,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="nch" id="nch_work">
       <!-- 옛 보장분석 작성 — 2026-10-28 사용자 요청으로 메뉴만 숨김(페이지·기능은 그대로) -->
       <div class="ns" style="display:none"><div class="ni" id="n_wa">보장분석 작성</div></div>
-      <div class="ns"><div class="ni" id="n_wa2">신보장분석작성</div></div>
+      <div class="ns"><div class="ni" id="n_wa2">신보장분석작성</div><div class="ni nsub" id="n_pz">└ 가입제안서 담보정리</div></div>
       <div class="ns"><div class="ni" id="n_wm">병력정리</div></div>
       <div class="ns"><div class="ni" id="n_wc">보험금 청구</div></div>
       <div class="ns"><div class="ni" id="n_calc">실비계산기</div></div>
@@ -3064,6 +3064,26 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     </div>
 
     <!-- 재무상담 포토폴리오 (fp) — 입력 → 맞춤 재무설계 리포트 자동 작성 (좌: 입력 / 우: 미리보기) -->
+    <!-- 가입제안서 담보정리 (pz, 2026-11-16 — 박지순 요청 — CLAUDE.md 4.9936) -->
+    <div class="pg" id="pg_pz">
+      <div class="sh"><div class="st"><i class="ti ti-list-details"></i>가입제안서 담보정리</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bp bnv" onclick="pzPrint()"><i class="ti ti-printer"></i> 출력</button><button class="bd bdr" onclick="pzReset()"><i class="ti ti-trash"></i> 모두 지우기</button></div>
+      </div>
+      <div id="pz_wrap" style="display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:14px;align-items:start">
+        <div class="pzcard">
+          <label class="pzl">고객 이름 (출력용·선택)</label><input id="pz_cust" class="pzfi" maxlength="20" placeholder="예: 홍길동" oninput="_pzDraw()">
+          <label class="pzl" style="margin-top:12px">가입제안서 올리기 (최대 4개 — 나란히 비교)</label>
+          <div id="pz_drop" tabindex="0" onclick="_pzSel(true)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="pzDrop(event)">
+            <i class="ti ti-file-upload" style="font-size:28px"></i><div>PDF·사진을 끌어다 놓거나<br>이 칸을 누르고 Ctrl+V</div>
+            <button class="bp bnv" style="margin-top:8px" onclick="event.stopPropagation();g('pz_file').click()">파일 선택</button>
+            <input type="file" id="pz_file" accept=".pdf,application/pdf,image/*" multiple style="display:none" onchange="pzFiles(this.files);this.value=''">
+          </div>
+          <div id="pz_jobs"></div>
+          <div class="pznote">AI는 제안서의 담보 이름·금액을 <b>옮겨 적기만</b> 하고, 분류(암·뇌·심장·수술·간병 등)와 금액 계산은 프로그램이 합니다. 금액은 원본 제안서와 꼭 대조하세요. 올린 파일은 저장하지 않습니다(화면에서만).</div>
+        </div>
+        <div id="pz_out"></div>
+      </div>
+    </div>
     <!-- 금융계산기모음 (fincalc, 2026-11-11 — 백동현 요청 — CLAUDE.md 4.99789) -->
     <div class="pg" id="pg_fincalc">
       <div class="sh"><div class="st"><i class="ti ti-calculator"></i>금융계산기모음</div></div>
@@ -5510,6 +5530,7 @@ function logout(){
   try{ if(typeof _abClear==='function') _abClear(); }catch(e){}
   try{ if(typeof _jvClear==='function') _jvClear(); }catch(e){}
   try{ if(typeof _arClear==='function') _arClear(); }catch(e){}   // AI상품추천 — 고객 조건 입력·상품 관리 창 비움
+  try{ if(typeof _pzClear==='function') _pzClear(); }catch(e){}   // 가입제안서 담보정리 — 고객 제안서 내용 비움
   try{ if(typeof _fcClear==='function') _fcClear(); }catch(e){}   // 금융계산기모음 — 고객 자산·대출 입력 비움
   try{ if(typeof _cpClear==='function') _cpClear(); }catch(e){}   // 카드납관리 — 구독 해제·카드번호 화면 잔존 차단
   try{ if(typeof _carClear==='function') _carClear(); }catch(e){}   // 자동차보험관리 — 구독 해제·화면 비움
@@ -6322,6 +6343,7 @@ g('n_calc') && g('n_calc').addEventListener('click',function(){showPage('calc');
 g('n_report') && g('n_report').addEventListener('click',function(){showPage('report');});
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
 g('n_wa2') && g('n_wa2').addEventListener('click',function(){showPage('wa2');});
+g('n_pz') && g('n_pz').addEventListener('click',function(){showPage('pz');});
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
 g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq');});
@@ -6352,7 +6374,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wa2:'신보장분석작성',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
+  wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석'};
@@ -6416,6 +6438,7 @@ var CB_GUIDE=[
   {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
   {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
   {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
+  {k:'pz',kw:'가입제안서 제안서 설계서 담보정리 담보 정리 비교 암 뇌 심장 치료비 수술비 간병비 진단비 입원 비교표',a:'업무관리 › 신보장분석작성 아래 [가입제안서 담보정리]에서 가입제안서 PDF(또는 사진)를 올리면 담보를 암·뇌·심장(진단·치료·수술), 수술비, 입원·간병, 사망·후유장해, 실손 등으로 나눠 표로 정리합니다.\n제안서를 여러 개 올리면 나란히 비교되고 [출력]으로 인쇄·PDF 저장할 수 있습니다. AI가 옮겨 적은 금액은 원본과 꼭 대조하세요.'},
   {k:'fincalc',kw:'금융계산기모음 금융계산기 재무계산기 계산기 은퇴 식비 자녀 교육 결혼 자금 시간가치 수익률 적립 일시금 생활비 단리 복리 대출 상환 원금균등 원리금균등 만기일시',a:'위쪽 탭에서 계산기(은퇴 식비·자녀 자금·시간 가치·수익률·자금 쓰기·단리·복리·대출 상환)를 고르고 왼쪽에 숫자를 넣으면 오른쪽에 결과와 그래프가 바로 나옵니다. [출력]으로 고객용 화면을 인쇄·PDF 저장할 수 있습니다.'},
   {k:'airec',kw:'AI상품추천 상품추천 상품설계 인수 인수기준 보험료 추천',a:'1. 왼쪽에 고객 나이·성별·직업 급수와 고지 내용(3개월 진찰·입원수술·중대질병)을 고르세요.\n2. 오른쪽에 가입 가능한 상품이 보험료 낮은 순으로, 불가 상품은 이유와 함께 나옵니다.\n3. 관리자는 [상품 관리]에서 보험사별 상품의 인수기준과 보험료표를 등록합니다.'},
   {k:'rsv',kw:'예약문자 예약 문자 상담예약 문자발송 카톡 명함 지도',a:'1. 고객 성함·상담 날짜·시각·장소를 입력하면 오른쪽에 문자 내용이 완성되고 지도가 자동 첨부됩니다.\n2. 처음 한 번 [내 명함]에 명함 사진을 올려 두세요.\n3. [문자 발송] 또는 [내 카톡으로 보내기]를 누릅니다.'},
@@ -9989,7 +10012,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,airec:rAirec,fincalc:rFincalc};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,airec:rAirec,fincalc:rFincalc,pz:rPz};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -30118,6 +30141,193 @@ async function fcPdf(){
   finally{ box.remove(); window._fcPdfBusy=false; var b2=g('fc_pdfbtn'); if(b2){ b2.disabled=false; b2.textContent='PDF 저장'; } }
 }
 function _fcClear(){ window._fcState=null; var o=g('fc_out'); if(o) o.innerHTML=''; var i=g('fc_in'); if(i) i.innerHTML=''; }
+// ===== 가입제안서 담보정리 (pz, 2026-11-16 — 박지순 요청, CLAUDE.md 4.9936) =====
+// AI는 담보 이름·금액 글자를 옮겨 적기만 하고, 분류·금액 해석·비교는 전부 코드(_pzCat/_pzAmt)가 한다. 저장 없음(메모리 window._pzState만).
+var PZ_MAX=4;
+var PZ_GROUPS=[
+  ['cd','암 진단비','암'],['ct','암 치료비','암'],['cs','암 수술비','암'],
+  ['bd','뇌 진단비','뇌'],['bt','뇌 치료비','뇌'],['bs','뇌 수술비','뇌'],
+  ['hd','심장 진단비','심장'],['ht','심장 치료비','심장'],['hs','심장 수술비','심장'],
+  ['sg','수술비 (질병·상해·종수술)','수술'],['hp','입원비','입원·간병'],['cr','간병비','입원·간병'],
+  ['dt','사망','사망·장해'],['ds','후유장해','사망·장해'],['sl','실손의료비','실손'],
+  ['dv','운전자','기타'],['ac','상해·골절 등','기타'],['et','기타','기타']];
+var PZ_GNM={}; PZ_GROUPS.forEach(function(x){ PZ_GNM[x[0]]=x[1]; });
+function _pzN(s){ return String(s||'').replace(/\s+/g,''); }
+// 담보 이름 → 분류 키 (순서가 중요: 실손·사망·간병·입원을 질병보다 먼저 — '암입원일당'은 입원비로)
+function _pzCat(nm){
+  var n=_pzN(nm);
+  if(/벌금|교통사고처리|변호사|운전자|면허/.test(n)) return 'dv';
+  if(/실손|실비|급여의료비|비급여|질병통원|상해통원/.test(n)) return 'sl';
+  if(/사망/.test(n)) return 'dt';
+  if(/후유장해|장해/.test(n)) return 'ds';
+  if(/간병|간호/.test(n)) return 'cr';
+  if(/입원/.test(n)) return 'hp';
+  var dz=null;
+  if(/암|종양|백혈병|림프종|항암|표적|양성자|중입자|세기조절|카티|CAR-?T/i.test(n)) dz='c';
+  else if(/뇌|중풍|혈전용해|뇌졸중/.test(n)) dz='b';
+  else if(/심장|심근|허혈|협심|부정맥|심혈관|관상동맥|대동맥|판막|심부전/.test(n)) dz='h';
+  if(dz){
+    if(/수술/.test(n)) return dz+'s';
+    if(/진단/.test(n)) return dz+'d';
+    if(/치료|항암|방사선|표적|약물|혈전|주사|양성자|중입자|세기조절|통합|카티/i.test(n)) return dz+'t';
+    return dz+'d';
+  }
+  if(/수술/.test(n)) return 'sg';
+  if(/골절|깁스|화상|상해|재해|치아|임플란트|크라운/.test(n)) return 'ac';
+  return 'et';
+}
+// 금액 글자 → 원 (못 읽으면 null — 화면에 빨간 글씨로 확인 유도). "1,000만원"·"3천만원"·"1억 5천만원"·"1억 3천"·"500,000원"
+// 괄호 안·범위(1~5종, 1~180일)·횟수/기간 숫자는 지움. 금액이 둘 이상(구간·한도 병기)이면 null. 단위 없는 숫자는 표 단위(du: AI가 옮긴 "단위: 만원")가 있을 때만.
+function _pzAmt(t,du){
+  var s=String(t||'').replace(/\([^)]*\)|\[[^\]]*\]/g,' ').replace(/,/g,'')
+    .replace(/\d+(?:\.\d+)?\s*[~\-]\s*\d+(?:\.\d+)?\s*(?:회|년|세|일|개월|월|%|종|대|급)/g,' ')
+    .replace(/\d+(?:\.\d+)?\s*(?:회|년|세|일|개월|월|%|종|대|급)/g,' ');
+  s=s.replace(/\s+/g,'');
+  var chunks=s.split(/[^\d.억천백십만원]+/).filter(function(x){ return /\d/.test(x); });
+  if(chunks.length!==1) return null;
+  var c=chunks[0], re=/(\d+(?:\.\d+)?)(억|천만|백만|십만|천|백|만|원)?/g, mm, tot=0, unit=false, seenEok=false;
+  while((mm=re.exec(c))){ var v=parseFloat(mm[1]), u=mm[2]||'', after=c.slice(re.lastIndex), manAfter=/만/.test(after);
+    if(u==='억'){ v*=1e8; seenEok=true; } else if(u==='천만') v*=1e7; else if(u==='백만') v*=1e6; else if(u==='십만') v*=1e5;
+    else if(u==='천') v*=(manAfter||seenEok)?1e7:1e3; else if(u==='백') v*=(manAfter||seenEok)?1e6:1e2;
+    else if(u==='만') v*=1e4;
+    else if(u===''){ if(re.lastIndex<c.length||mm.index>0){ v*=/^만/.test(after)?1:(seenEok?1e4:1); } }
+    if(u) unit=true; tot+=v; }
+  if(!unit){ var d=String(du||'').replace(/\s/g,''); if(/천원/.test(d)) tot*=1e3; else if(/만원/.test(d)) tot*=1e4; else if(!/원/.test(d)) return null; }
+  return isNaN(tot)?null:Math.round(tot);
+}
+function _pzWon(v){ if(v==null||isNaN(v)) return '-'; if(v>=1e8){ var e=Math.floor(v/1e8), r=Math.round((v%1e8)/1e4); return e+'억'+(r?' '+r.toLocaleString()+'만':'')+'원'; } if(v>=1e4) return Math.round(v/1e4).toLocaleString()+'만원'; return v.toLocaleString()+'원'; }
+function _pzSt(){ if(!window._pzState) window._pzState={jobs:[],seq:0,sel:false}; return window._pzState; }
+function _pzCss(sc){ sc=sc||''; return sc+'.pzh{font-size:16px;font-weight:800;color:#1f2a5c;margin:0 0 8px}'+sc+'.pzsum{display:grid;gap:8px;margin-bottom:12px}'+sc+'.pzsc{border:1px solid #e3e6ee;border-radius:10px;padding:10px 12px;background:#fff}'+sc+'.pzsc b{display:block;font-size:13px;color:#1f2a5c;margin-bottom:4px}'+sc+'.pzsc div{font-size:12px;color:#475569;line-height:1.6}'+sc+'table.pzt{width:100%;border-collapse:collapse;background:#fff;font-size:12px;color:#1f2433;table-layout:fixed}'+sc+'.pzt th,'+sc+'.pzt td{border:1px solid #dfe3ec;padding:6px 7px;vertical-align:top;text-align:left;word-break:keep-all;overflow-wrap:anywhere}'+sc+'.pzt thead th{background:#1f2a5c;color:#fff;font-size:12.5px}'+sc+'.pzt .pzg{background:#f1f4fa;font-weight:700;color:#1f2a5c;width:120px}'+sc+'.pzt .pzgb{background:#e6ebf6;font-weight:800;color:#1f2a5c;font-size:12.5px}'+sc+'.pzi{display:flex;justify-content:space-between;gap:6px;padding:1px 0}'+sc+'.pzi span:last-child{white-space:nowrap;font-weight:700}'+sc+'.pzi.pzbad span:last-child{color:#c62828}'+sc+'.pzmax{font-size:11px;color:#2563eb;border-top:1px dashed #cbd5e1;margin-top:3px;padding-top:2px;text-align:right}'+sc+'.pzempty{color:#c62828;font-size:11.5px}'+sc+'.pzfoot{font-size:11px;color:#64748b;margin-top:8px;line-height:1.6}'; }
+function _pzEnsureCss(){ if(g('pz_css')) return; var st=document.createElement('style'); st.id='pz_css'; st.textContent=_pzCss('#pg_pz ')+'#pg_pz .pzcard{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:16px;color:#1f2433}#pg_pz .pzl{display:block;font-size:12px;color:#555;margin-bottom:4px}#pg_pz .pzfi{width:100%;padding:8px 10px;border:1px solid #ccd2de;border-radius:7px;color:#1f2433;background:#fff;box-sizing:border-box;font-size:14px}#pz_drop{border:2px dashed #b8c2d8;border-radius:10px;padding:16px 10px;text-align:center;color:#64748b;font-size:12.5px;cursor:pointer;background:#fafbfe}#pz_drop.sel,#pz_drop.over{border-color:#16a34a;background:#ecfdf3;color:#166534}#pz_jobs{margin-top:10px;display:flex;flex-direction:column;gap:6px}#pg_pz .pzjob{border:1px solid #e3e6ee;border-radius:8px;padding:7px 9px;font-size:12px;display:flex;justify-content:space-between;gap:6px;align-items:center}#pg_pz .pzjob .pzjn{font-weight:700;color:#1f2a5c;word-break:break-all}#pg_pz .pzjob .pzjm{font-size:11px;color:#64748b}#pg_pz .pzjob.err{border-color:#fca5a5;background:#fef2f2}#pg_pz .pznote{font-size:11.5px;color:#64748b;margin-top:12px;line-height:1.6}#pg_pz .pzhint{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:30px;text-align:center;color:#64748b;font-size:13px;line-height:1.8}@media(max-width:900px){#pz_wrap{grid-template-columns:1fr!important}}'; document.head.appendChild(st); }
+function rPz(){ _pzEnsureCss(); _pzJobsDraw(); _pzDraw(); }
+function _pzSel(on){ var st=_pzSt(); st.sel=!!on; var d=g('pz_drop'); if(d) d.classList.toggle('sel',!!on); }
+document.addEventListener('mousedown',function(e){ var st=window._pzState; if(!st||!st.sel) return; if(e.target&&e.target.closest&&e.target.closest('#pz_drop')) return; _pzSel(false); },true);
+document.addEventListener('paste',function(e){
+  var st=window._pzState, pg=g('pg_pz'); if(!st||!st.sel||!pg||!pg.classList.contains('active')) return;
+  var a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  var fs=[]; var it=(e.clipboardData&&e.clipboardData.items)||[]; for(var i=0;i<it.length;i++){ if(it[i].kind==='file'){ var f=it[i].getAsFile(); if(f) fs.push(f); } }
+  if(!fs.length) return; e.preventDefault(); e.stopPropagation(); pzFiles(fs);
+},true);
+function pzDrop(e){ e.preventDefault(); e.stopPropagation(); var d=g('pz_drop'); if(d) d.classList.remove('over'); pzFiles((e.dataTransfer&&e.dataTransfer.files)||[]); }
+function pzFiles(list){
+  var st=_pzSt(), arr=Array.prototype.slice.call(list||[]);
+  arr=arr.filter(function(f){ var ok=/\.pdf$/i.test(f.name||'')||f.type==='application/pdf'||/^image\//.test(f.type||''); if(!ok) toast('PDF·사진만 올릴 수 있습니다: '+(f.name||'')); return ok; });
+  arr.forEach(function(f){
+    if(st.jobs.length>=PZ_MAX){ toast('제안서는 최대 '+PZ_MAX+'개까지 비교할 수 있습니다.'); return; }
+    if(f.size>30*1024*1024){ toast('30MB 이하만 올릴 수 있습니다: '+f.name); return; }
+    var job={id:'pzj'+(++st.seq)+'_'+Date.now().toString(36), fn:String(f.name||'붙여넣은 사진').slice(0,80), st:'ing', msg:'읽는 중…', d:null};
+    st.jobs.push(job); _pzRun(job,f);
+  });
+  _pzJobsDraw(); _pzDraw();
+}
+function _pzJob(id){ var st=window._pzState; if(!st) return null; for(var i=0;i<st.jobs.length;i++) if(st.jobs[i].id===id) return st.jobs[i]; return null; }
+function pzDel(id){ var st=_pzSt(); st.jobs=st.jobs.filter(function(j){ return j.id!==id; }); _pzJobsDraw(); _pzDraw(); }
+function pzReset(){ var st=_pzSt(); if(st.jobs.length&&!confirm('올린 제안서와 정리표를 모두 지울까요?')) return; _pzClear(); rPz(); }
+function _pzClear(){ if(window._pzState) window._pzState.jobs=[]; window._pzState=null; var o=g('pz_out'); if(o) o.innerHTML=''; var j=g('pz_jobs'); if(j) j.innerHTML=''; var c=g('pz_cust'); if(c) c.value=''; var d=g('pz_drop'); if(d) d.classList.remove('sel','over'); }
+function _pzJobsDraw(){
+  var box=g('pz_jobs'), st=window._pzState; if(!box) return; if(!st||!st.jobs.length){ box.innerHTML=''; return; }
+  box.innerHTML=st.jobs.map(function(j,i){
+    var lb=j.st==='ok'?('✓ '+_esc((j.d&&j.d.ins)||'')+' · 담보 '+((j.d&&j.d.items.length)||0)+'개'):_esc(j.msg||'');
+    return '<div class="pzjob'+(j.st==='err'?' err':'')+'"><div><div class="pzjn">'+(i+1)+'. '+_esc(j.fn)+'</div><div class="pzjm">'+lb+'</div></div><button class="bd bdr" style="padding:3px 8px;font-size:11px" data-pzdel="'+_alertEsc(j.id)+'" onclick="pzDel(this.getAttribute(\'data-pzdel\'))">빼기</button></div>';
+  }).join('');
+}
+async function _pzPdfRead(f){
+  var pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise, np=Math.min(pdf.numPages,40), text='';
+  for(var p=1;p<=np;p++){ var pg=await pdf.getPage(p), tc=await pg.getTextContent(), rows={};
+    tc.items.forEach(function(it){ if(!it.str||!it.str.trim()) return; var y=Math.round(it.transform[5]/3); (rows[y]=rows[y]||[]).push(it); });
+    text+='\n[쪽 '+p+']\n'+Object.keys(rows).map(Number).sort(function(a,b){ return b-a; }).map(function(y){ return rows[y].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).map(function(it){ return it.str.trim(); }).join(' '); }).join('\n')+'\n'; }
+  var imgs=[];
+  if(text.replace(/\s|\[쪽 \d+\]/g,'').length<50){ text='';
+    for(var q=1;q<=Math.min(pdf.numPages,8);q++){ var pg2=await pdf.getPage(q), vp=pg2.getViewport({scale:1}), sc=Math.min(2.2,1800/Math.max(vp.width,vp.height)), v2=pg2.getViewport({scale:sc}), cv=document.createElement('canvas');
+      cv.width=Math.round(v2.width); cv.height=Math.round(v2.height); var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); await pg2.render({canvasContext:cx,viewport:v2}).promise; imgs.push(cv.toDataURL('image/jpeg',0.86)); } }
+  try{ pdf.destroy(); }catch(e){}
+  return {text:text, imgs:imgs, cut:pdf.numPages>(text?40:8)?pdf.numPages:0};
+}
+var PZ_PROMPT='아래는 한국 보험 가입제안서(가입설계서)야. 들어 있는 정보를 그대로 옮겨 적어 JSON 하나만 출력해. 설명·코드펜스 없이.\n'
+ +'형식: {"ins":"보험회사","prod":"상품명","who":"피보험자(이름·나이·성별 원문 그대로)","prem":"월 보험료(원문 그대로, 합계)","pay":"납입기간","term":"보험기간","unit":"담보 표 머리의 금액 단위(예: 만원, 원 — 없으면 빈칸)","items":[{"nm":"담보명","amt":"가입금액(원문 그대로)","p":"그 담보 보험료(원문, 없으면 빈칸)"}]}\n'
+ +'규칙: 1) 원문에 없는 값은 만들지 말고 빈 문자열. 2) 금액·보험료 글자는 원문 그대로(숫자만 적힌 표면 숫자 그대로 두고 unit에 표 머리의 단위를 적어). 3) 담보는 주계약·특약 전부, 표에 나온 순서대로, 한 담보는 한 번만(요약표와 상세표에 같은 담보가 두 번 나오면 한 번만). 4) 담보 설명·지급 조건 문장, 해지환급금 표, 합계 줄은 넣지 마. 5) 담보명 앞 번호·기호는 떼.';
+async function _pzAi(text,imgs){
+  var mdl=(function(){ try{ return localStorage.getItem('tops_ai_pz_model')||''; }catch(e){ return ''; } })()||'gemini-2.5-flash';
+  var body={model:mdl,prompt:PZ_PROMPT+(text?'\n\n[제안서]\n'+text:''),max_tokens:16000}; if(imgs&&imgs.length) body.images=imgs;
+  var ctl=(typeof AbortController!=='undefined')?new AbortController():null, tm=ctl?setTimeout(function(){ ctl.abort(); },110000):null;
+  try{
+    var res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined});
+    var data=null; try{ data=await res.json(); }catch(e){}
+    if(!res.ok) throw new Error((data&&data.error&&(data.error.message||data.error))||('서버 오류 '+res.status));
+    var out=(data&&data.content&&data.content[0]&&data.content[0].text)||'', cut=/max_tokens|MAX_TOKENS/.test(String((data&&(data.stop||data.stop_reason))||''));
+    var a=out.indexOf('{'), b=out.lastIndexOf('}'); if(a<0||b<=a) throw new Error('AI 응답에서 담보 목록을 찾지 못했습니다.'+(cut?' (응답이 길어 잘림)':''));
+    var o; try{ o=JSON.parse(out.slice(a,b+1)); }catch(e){ throw new Error('AI 응답을 읽지 못했습니다.'+(cut?' (응답이 길어 잘림 — 담보 표 쪽만 따로 올려 주세요)':'')); }
+    o._cut=cut; return o;
+  }catch(e){ if(e&&e.name==='AbortError') throw new Error('AI 응답이 너무 늦습니다(2분). 담보 표가 있는 쪽만 올려 보세요.'); throw e; }
+  finally{ if(tm) clearTimeout(tm); }
+}
+function _pzS(v,n){ return String(v==null?'':v).replace(/[\r\n\t]+/g,' ').trim().slice(0,n||80); }
+function _pzClean(o){
+  o=o||{}; var items=[], seen={}, du=_pzS(o.unit,10);
+  (Array.isArray(o.items)?o.items:[]).slice(0,300).forEach(function(x){ if(!x) return; var nm=_pzS(x.nm,80).replace(/^(?:\d+[.)]\s*|[\s·•▶■□○●◆◇※\-]+)+/,''), amt=_pzS(x.amt,40), p=_pzS(x.p,30); if(!nm) return;
+    var k=_pzN(nm)+'|'+_pzN(amt); if(seen[k]) return; seen[k]=1; var v=_pzAmt(amt,du); items.push({nm:nm, amt:amt, v:v, p:p, c:_pzCat(nm)}); });
+  return {ins:_pzS(o.ins,30)||'(보험사 미상)', prod:_pzS(o.prod,80), who:_pzS(o.who,60), prem:_pzS(o.prem,30), pay:_pzS(o.pay,30), term:_pzS(o.term,30), items:items, cut:!!o._cut};
+}
+async function _pzRun(job,f){
+  var alive=function(){ return _pzJob(job.id)===job; };
+  try{
+    var text='', imgs=[], cut=0;
+    if(/^image\//.test(f.type||'')){ imgs.push(await _dbKkImgShrink(f)); }
+    else { var r=await _pzPdfRead(f); text=r.text; imgs=r.imgs; cut=r.cut; }
+    if(!alive()) return;
+    var parts=[];
+    if(text){ if(text.length>60000){ cut=cut||1; text=text.slice(0,60000); } parts.push({t:text,im:[]}); }
+    else for(var i=0;i<imgs.length;i+=4) parts.push({t:'',im:imgs.slice(i,i+4)});
+    var acc=null;
+    for(var k=0;k<parts.length;k++){
+      job.msg='AI가 담보를 옮겨 적는 중… '+(parts.length>1?'('+(k+1)+'/'+parts.length+') ':'')+'(수십 초)'; _pzJobsDraw();
+      var o=await _pzAi(parts[k].t,parts[k].im); if(!alive()) return;
+      if(!acc) acc=o; else { ['ins','prod','who','prem','pay','term','unit'].forEach(function(x){ if(!acc[x]&&o[x]) acc[x]=o[x]; }); acc.items=(acc.items||[]).concat(o.items||[]); acc._cut=acc._cut||o._cut; }
+    }
+    var d=_pzClean(acc); d.pgCut=cut;
+    if(!d.items.length) throw new Error('담보를 찾지 못했습니다. 담보 표가 있는 쪽인지 확인해 주세요.');
+    job.d=d; job.st='ok'; job.msg='';
+  }catch(e){ if(!alive()) return; job.st='err'; job.msg='실패: '+((e&&e.message)||e); }
+  _pzJobsDraw(); _pzDraw();
+}
+// 비교표 HTML (화면·출력 공용 — id 없음)
+function _pzBody(forPrint){
+  var st=window._pzState, done=(st?st.jobs:[]).filter(function(j){ return j.st==='ok'&&j.d; });
+  if(!done.length) return forPrint?'':'<div class="pzhint"><i class="ti ti-file-search" style="font-size:34px;color:#94a3b8"></i><br>왼쪽에 가입제안서를 올리면 담보를 분류해 표로 정리합니다.<br>여러 개 올리면 나란히 비교됩니다.</div>';
+  var cust=_pzS((g('pz_cust')||{}).value,20), n=done.length, cw=Math.floor(88/n);
+  var h='<div class="pzh">'+(cust?_esc(cust)+' 고객님 · ':'')+'가입제안서 담보 정리</div>';
+  // 요약 카드: 암·뇌·심 진단비(가장 큰 담보), 월 보험료
+  h+='<div class="pzsum" style="grid-template-columns:repeat('+n+',minmax(0,1fr))">'+done.map(function(j){ var d=j.d;
+    var mx=function(c,ex){ var b=null; d.items.forEach(function(x){ if(x.c===c&&x.v!=null&&!(ex&&ex.test(_pzN(x.nm)))&&(!b||x.v>b.v)) b=x; }); return b?_pzWon(b.v):'<span class="pzempty">없음</span>'; };
+    return '<div class="pzsc"><b>'+_esc(d.ins)+'</b><div>'+_esc(d.prod||'')+'</div><div>'+(d.who?_esc(d.who)+'<br>':'')+'월 보험료 <b style="display:inline;color:#c62828">'+_esc(d.prem||'-')+'</b>'+(d.pay||d.term?' · '+_esc([d.pay,d.term].filter(Boolean).join(' / ')):'')+'</div>'
+      +'<div style="margin-top:4px">암 진단 '+mx('cd',/유사|소액|갑상선|제자리|경계성|기타피부/)+' · 뇌 진단 '+mx('bd')+' · 심장 진단 '+mx('hd')+'</div></div>'; }).join('')+'</div>';
+  h+='<table class="pzt"><colgroup><col style="width:12%">'+done.map(function(){ return '<col style="width:'+cw+'%">'; }).join('')+'</colgroup><thead><tr><th>구분</th>'+done.map(function(j,i){ return '<th>'+(n>1?(i+1)+'. ':'')+_esc(j.d.ins)+'</th>'; }).join('')+'</tr></thead><tbody>';
+  var lastBig='';
+  PZ_GROUPS.forEach(function(gp){
+    var cols=done.map(function(j){ return j.d.items.filter(function(x){ return x.c===gp[0]; }); });
+    var any=cols.some(function(c){ return c.length; });
+    var core=/^[cbh][dts]$/.test(gp[0]);
+    if(!any&&!core) return;
+    if(gp[2]!==lastBig){ lastBig=gp[2]; h+='<tr><td class="pzgb" colspan="'+(n+1)+'">'+_esc(gp[2])+'</td></tr>'; }
+    h+='<tr><td class="pzg">'+_esc(gp[1])+'</td>'+cols.map(function(c){
+      if(!c.length) return '<td><span class="pzempty">가입 없음</span></td>';
+      var sum=0, ok=true; c.forEach(function(x){ if(x.v==null) ok=false; else sum+=x.v; });
+      return '<td>'+c.map(function(x){ return '<div class="pzi'+(x.v==null?' pzbad':'')+'"><span>'+_esc(x.nm)+'</span><span>'+_esc(x.amt||'-')+'</span></div>'; }).join('')
+        +(c.length>1&&ok&&/^[cbh][ts]$|^sg$/.test(gp[0])?'<div class="pzmax">담보 '+c.length+'개</div>':'')+'</td>';
+    }).join('')+'</tr>';
+  });
+  h+='</tbody></table>';
+  var warn=[]; done.forEach(function(j,i){ var d=j.d; if(d.cut) warn.push((i+1)+'번 제안서: AI 응답이 길어 잘림 — 뒤쪽 담보가 빠졌을 수 있습니다'); if(d.pgCut) warn.push((i+1)+'번 제안서: 앞쪽 일부만 읽음(전체 '+d.pgCut+'쪽) — 담보 표 쪽만 따로 올려 보세요'); var bad=d.items.filter(function(x){ return x.v==null; }).length; if(bad) warn.push((i+1)+'번 제안서: 금액을 숫자로 읽지 못한 담보 '+bad+'개(빨간 글씨)'); });
+  h+='<div class="pzfoot">'+(warn.length?'<b style="color:#c62828">⚠ '+warn.map(_esc).join('<br>⚠ ')+'</b><br>':'')+'※ 담보 이름과 금액은 AI가 제안서에서 옮겨 적은 것이고, 분류는 담보 이름의 낱말로 자동으로 나눈 것입니다. 실제 보장 내용·지급 조건은 해당 상품 약관과 원본 제안서를 확인하세요.'+(forPrint?'<br>작성: '+_esc((cu&&cu.name)||'')+' · '+_esc(td()):'')+'</div>';
+  return h;
+}
+function _pzDraw(){ var o=g('pz_out'); if(!o) return; _pzEnsureCss(); o.innerHTML=_pzBody(false); }
+function pzPrint(){
+  var body=_pzBody(true); if(!body){ toast('먼저 가입제안서를 올려 주세요.'); return; }
+  var w=window.open('','_blank'); if(!w){ toast('팝업이 차단되었습니다. 팝업을 허용해 주세요.'); return; }
+  var cust=_pzS((g('pz_cust')||{}).value,20).replace(/[\\/:*?"<>|]/g,'');
+  w.document.open(); w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+_esc((cust?cust+'_':'')+'가입제안서_담보정리_'+td())+'</title><style>body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;margin:14px;color:#1f2433}@page{size:A4;margin:10mm}.np{margin-bottom:10px}@media print{.np{display:none}}'+_pzCss('')+'tr{page-break-inside:avoid}</style></head><body><div class="np"><button onclick="print()" style="padding:8px 16px;background:#1f2a5c;color:#fff;border:0;border-radius:6px;font-size:14px;cursor:pointer">인쇄 / PDF 저장</button></div>'+body+'</body></html>'); w.document.close();
+}
 
 // ===== AI상품추천 (airec, 2026-11-11 — 백동현 요청, CLAUDE.md 4.99788) =====
 // 상품별 인수기준·보험료표는 Firestore airec_prod/{id}(상품 1개=문서). 판정은 전부 코드가 기준표와 대조 — AI에게 인수 판정·보험료를 맡기지 않음.
@@ -36229,8 +36439,8 @@ function _claimDrop(e,t){
   _claimAcceptFiles(t, files, '올렸');
 }
 // 박스 밖에 떨어뜨렸을 때 브라우저가 파일을 열어버리는 것 방지(청구 폼·고객등록 폼·보장분석 페이지가 열려 있는 동안만)
-document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))||(g('pg_carins')&&g('pg_carins').classList.contains('active'))) e.preventDefault(); });
-document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))||(g('pg_carins')&&g('pg_carins').classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('dragover', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))||(g('pg_carins')&&g('pg_carins').classList.contains('active'))||(g('pg_pz')&&g('pg_pz').classList.contains('active'))) e.preventDefault(); });
+document.addEventListener('drop', function(e){ var w=g('claim_form_wrap'), w2=g('cust_alien_box'), w3=g('pg_wa'), w4=g('m_samdocs'), w5=g('m_db'), w6=g('m_notice'), w7=g('m_mcreq'); if(w7&&w7.ownerDocument!==document) w7=null; var w8=g('pg_drive'), w9=g('pg_rsv'), w10=g('ab_pop'); if(document.getElementById('ic_pop')||(w10&&w10.style.display!=='none')||(w9&&w9.classList.contains('active')&&!(e.target&&e.target.closest&&e.target.closest('.rsvatt')))||(w&&w.offsetParent!==null)||(w2&&w2.offsetParent!==null)||(w3&&w3.classList.contains('active'))||(w4&&w4.classList.contains('open'))||(w5&&w5.classList.contains('open'))||(w6&&w6.classList.contains('open'))||(w7&&w7.classList.contains('open'))||(w8&&w8.classList.contains('active'))||(g('pg_carins')&&g('pg_carins').classList.contains('active'))||(g('pg_pz')&&g('pg_pz').classList.contains('active'))) e.preventDefault(); });
 
 // ===== 전역 파일 업로드 공용화 (2026-08-07) — 모든 파일 선택 칸에 드래그앤드롭·붙여넣기 지원 =====
 // 파일 입력(<input type=file>)이 든 영역에 파일을 끌어다 놓거나, 복사한 사진·파일을 Ctrl+V로 붙여넣으면
