@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-5</div>
   </div>
 </div>
 
@@ -4258,7 +4258,13 @@ function _myRank(){ try{ if(cu&&cu.admin) return 'ADMIN'; var m=(mem||[]).find(f
 function _isLeader(){ return !!(cu&&cu.admin)||['FA(예비팀장)','TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // 예비팀장·TL 이상(관리자 포함)
 function _isAdmin(){ return !!(cu&&cu.admin); }
 function _isChongmu(){ return !!(cu&&cu.role==='총무'); }   // 총무 전용 권한
-function _isTreeAdmin(){ return !!(cu&&cu.admin&&(cu.name==='백동현'||cu.name==='박지순')); }   // 계보도 열람 권한(두 관리자만)
+// 계보도 열람 권한(2026-11-16 v-5, 백동현 요청 "각 상위자만 자기 하부 계보만"): 백동현=전체, 그 외=하부 인원이 있는 사람만(자기 계보만 — rTree가 자른다)
+function _treeHasSub(nm){ nm=String(nm||'').trim(); if(!nm) return false;
+  if(nm==='백동현') return true;
+  try{ if((mem||[]).some(function(m){ return m&&m.name&&String(m.belong||'').trim()===nm; })) return true; }catch(e){}
+  try{ var ao=(typeof admov!=='undefined'&&admov)||{}; if(Object.keys(ao).some(function(k){ return ao[k]&&String(ao[k].belong||'').trim()===nm; })) return true; }catch(e){}
+  return false; }
+function _isTreeAdmin(){ return !!(cu&&cu.name&&_treeHasSub(cu.name)); }
 // ===== 실비계산기 (4세대 기준, 참고용) =====
 function rCalc(){ ['calc_pay','calc_nonpay'].forEach(function(id){ var e=g(id); if(e) e.value=''; }); calcSilbi(); }
 // 실손 세대별 자기부담률·통원 최소공제 자동 입력 (일반 기준, 수정 가능)
@@ -9942,7 +9948,7 @@ function showPage(name){
   try{ if(typeof _navSrchClear==='function') _navSrchClear(); }catch(e){}
   // 페이지 접근 권한 가드
   if(name==='hierarchy' && !_isTreeAdmin()){
-    toast('계보도는 백동현·박지순 관리자만 볼 수 있습니다.'); return;
+    toast('계보도는 하부 인원이 있는 사람만 자기 계보를 볼 수 있습니다.'); return;
   }
   if(['req_unified','join_prep','edu_prep','rkpol','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
@@ -11297,7 +11303,8 @@ function editMem(i){
 
 // TREE — 소속 기반 동적 마인드맵 (드래그 가능)
 function rTree(){
-  if(!_isTreeAdmin()){ g('tree_wrap').innerHTML='<div class="em" style="padding:40px">계보도는 백동현·박지순 관리자만 볼 수 있습니다.</div>'; return; }
+  if(!_isTreeAdmin()){ g('tree_wrap').innerHTML='<div class="em" style="padding:40px">계보도는 하부 인원이 있는 사람만 자기 계보를 볼 수 있습니다.</div>'; return; }
+  const MY_ROOT=(cu.name==='백동현')?'':String(cu.name);   // ''=전체, 이름=그 사람 아래만
   const wrap = g('tree_wrap');
 
   // ── 노드 정의 ─────────────────────────────────────────────
@@ -11313,12 +11320,8 @@ function rTree(){
     '방정식':'백동현','이영현':'백동현',
   };
   // 비관리자면 본인 산하 이름 목록으로 필터
-  const myTeamForTree = getMyTeam(); // null=전체(관리자), 배열=본인산하
-  const activeMem = mem.filter(m=>{
-    if(!m.name||!m.name.trim()) return false;
-    if(myTeamForTree===null) return true;
-    return myTeamForTree.includes(m.name);
-  });
+  // 전체 구조로 만든 뒤 아래에서 MY_ROOT의 하부만 남긴다(2026-11-16 v-5)
+  const activeMem = mem.filter(m=>m.name&&m.name.trim());
   // 중복 방지: 고정 노드(임예린·방정식 등 TL)가 구성원 명단(mem)에도 있으면 한 번만 넣는다
   //   — 중복이면 같은 자리에 박스가 겹쳐 그려지고, 세로 간격·팀장별 셀렉트 옵션이 이중으로 계산된다
   const _nodeSeen={};
@@ -11347,15 +11350,18 @@ function rTree(){
   NODES.forEach(n=>{ if(!n.isRoot){ const p=parentMap[n.key]; if(p&&_chTmp[p]) _chTmp[p].push(n.key); } });
   // 셀렉트 옵션: 자식이 1명 이상 있는 노드(루트 백동현 제외) — 필터 적용 전 전체 기준으로 수집(키 중복 방어)
   const _loSeen={};
+  const _mine={};
+  if(MY_ROOT){ (function walk(k){ if(_mine[k]) return; _mine[k]=1; (_chTmp[k]||[]).forEach(walk); })(MY_ROOT); }
+  if(MY_ROOT&&!_chTmp[MY_ROOT]){ g('tree_wrap').innerHTML='<div class="em" style="padding:40px">계보도에서 내 자리를 찾지 못했습니다.</div>'; return; }
   const leaderOpts=NODES.filter(n=>{
     if(n.isRoot||!_chTmp[n.key]||!_chTmp[n.key].length||_loSeen[n.key]) return false;
+    if(MY_ROOT&&(n.key===MY_ROOT||!_mine[n.key])) return false;   // 내 하부의 팀장만
     _loSeen[n.key]=1; return true;
   }).map(n=>({key:n.key,role:n.role}));
   let leaderSel=String(window._treeLeader||'');
   if(leaderSel&&!leaderOpts.some(o=>o.key===leaderSel)){ leaderSel=''; window._treeLeader=''; } // 퇴사·소속변경 등으로 사라진 팀장 방어
-  let ROOT='백동현';
-  if(leaderSel){
-    ROOT=leaderSel;
+  let ROOT=leaderSel||MY_ROOT||'백동현';
+  if(ROOT!=='백동현'){
     const keep={};
     (function walk(k){ if(keep[k]) return; keep[k]=1; (_chTmp[k]||[]).forEach(walk); })(ROOT);
     for(let i=NODES.length-1;i>=0;i--){ if(!keep[NODES[i].key]) NODES.splice(i,1); }
@@ -11363,34 +11369,50 @@ function rTree(){
     delete parentMap[ROOT]; // 선택한 팀장이 이 보기의 루트
   }
   // 보기(전체/팀장)별로 드래그 위치를 따로 저장 — 레이아웃이 달라 서로 섞이면 흩어져 보임
-  const POS_KEY='tops_tree_pos_v4'+(leaderSel?('__'+leaderSel):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
+  const POS_KEY='tops_tree_pos_v5'+(ROOT!=='백동현'?('__'+ROOT):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
 
   // ── 위→아래 트리 레이아웃(2026-11-16 v-3, 백동현 요청 "최상위자부터 맨 위에서 아래로") ──
-  const BW=164, BH=62, GAP_X=10, GAP_Y=36, PAD=30;   // GAP_X: 형제(가로) 간격, GAP_Y: 단계(세로) 간격
-  const STEP_Y=BH+GAP_Y;
+  //   v-5("최대한 좁혀"): 카드 축소 + 자식이 전부 하위 없는 사람(2명 이상)이면 부모 밑에 세로로 쌓음(ST_IN 들여쓰기)
+  const BW=136, BH=50, GAP_X=8, GAP_Y=26, ST_GAP=7, ST_IN=16, PAD=24;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
   // 부모가 현재 노드 목록에 없으면(퇴사자·옛 이름 등) 루트 직할로 편입 — 미배치로 (60,60)에 겹치는 것 방지
   NODES.forEach(n=>{ if(!n.isRoot){ let p=parentMap[n.key]; if(!p||!childMap[p]){ p=ROOT; parentMap[n.key]=p; } childMap[p].push(n.key); }});
-  // 서브트리 가로 폭·세로 깊이
+  // 자식 중 하위 없는 사람(2명 이상)은 한 칸에 세로로 쌓는다 — 하위 있는 사람만 옆으로 펼침(가로 폭 최소화)
+  const stacked={};   // 세로로 쌓인 자식 — 'p'=부모 바로 밑(자식 전부가 하위 없음), 'm'=다른 팀장들 옆 묶음
+  const leafKids=key=>(childMap[key]||[]).filter(c=>!(childMap[c]||[]).length);
+  const unitsOf=key=>{ const ch=childMap[key]||[], lf=leafKids(key);
+    if(lf.length<2) return ch.map(c=>({k:c}));
+    return ch.filter(c=>(childMap[c]||[]).length).map(c=>({k:c})).concat([{st:lf}]); };
+  const isStack=key=>{ const ch=childMap[key]||[]; return ch.length>=2 && leafKids(key).length===ch.length; };
   const W={};
-  function calcW(key){ const ch=childMap[key]||[]; if(!ch.length){ W[key]=BW; return BW; } const t=ch.reduce((s,c)=>s+calcW(c)+GAP_X,0)-GAP_X; W[key]=Math.max(BW,t); return W[key]; }
-  function calcD(key){ const ch=childMap[key]||[]; if(!ch.length) return 1; return 1+Math.max.apply(null,ch.map(calcD)); }
+  const uW=u=>u.st?BW+ST_IN:W[u.k];
+  function calcW(key){ const ch=childMap[key]||[]; if(!ch.length){ W[key]=BW; return BW; }
+    if(isStack(key)){ W[key]=BW+ST_IN; return W[key]; }
+    const us=unitsOf(key); us.forEach(u=>{ if(!u.st) calcW(u.k); });
+    const t=us.reduce((s,u)=>s+uW(u)+GAP_X,0)-GAP_X; W[key]=Math.max(BW,t); return W[key]; }
   calcW(ROOT);
-  const depth=calcD(ROOT);
-  let canvasW=Math.max(PAD*2+W[ROOT], 800);
-  let canvasH=Math.max(PAD*2+depth*STEP_Y-GAP_Y, 400);
-  const left0=(canvasW-W[ROOT])/2;
+  let canvasW=PAD*2+W[ROOT];
+  const left0=PAD;
   const initPos={};
-  // left=배정된 가로 구간의 시작, lv=단계(0=최상위)
-  function layoutDown(key,left,lv){
-    initPos[key]={x:left+W[key]/2-BW/2, y:PAD+lv*STEP_Y};
+  let maxY=0;
+  const putStack=(lf,x,y0,kind)=>{ lf.forEach((c,i)=>{ stacked[c]=kind; initPos[c]={x:x, y:y0+i*(BH+ST_GAP)}; maxY=Math.max(maxY,initPos[c].y+BH); }); };
+  // left=배정된 가로 구간의 시작, top=이 카드의 y
+  function layoutDown(key,left,top){
+    const x=isStack(key)?left+(W[key]-BW-ST_IN)/2:left+W[key]/2-BW/2;
+    initPos[key]={x:x, y:top}; maxY=Math.max(maxY,top+BH);
     const ch=childMap[key]||[];
-    const tot=ch.reduce((s,c)=>s+W[c]+GAP_X,0)-GAP_X;
+    if(!ch.length) return;
+    const cy=top+BH+GAP_Y;
+    if(isStack(key)){ putStack(ch, x+ST_IN, top+BH+ST_GAP*2, 'p'); return; }
+    const us=unitsOf(key);
+    const tot=us.reduce((s,u)=>s+uW(u)+GAP_X,0)-GAP_X;
     let cx=left+(W[key]-tot)/2;
-    ch.forEach(c=>{ layoutDown(c, cx, lv+1); cx+=W[c]+GAP_X; });
+    us.forEach(u=>{ if(u.st) putStack(u.st, cx+ST_IN, cy, 'm'); else layoutDown(u.k, cx, cy); cx+=uW(u)+GAP_X; });
   }
-  layoutDown(ROOT,left0,0);
+  layoutDown(ROOT,left0,PAD);
+  let canvasH=maxY+PAD;
+  if(canvasW<600){ const sh=Math.floor((600-canvasW)/2); Object.keys(initPos).forEach(k=>{ initPos[k].x+=sh; }); canvasW=600; }
 
   // 저장된 위치 불러오기 (없으면 계산값 사용)
   //   v2: 좌우 마인드맵 개편으로 키를 올려 예전(상하 트리) 저장 위치는 자동 무시
@@ -11434,16 +11456,16 @@ function rTree(){
   const btnL='display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1px solid #d6dbe7;border-radius:9px;color:#1f2a5c;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap';
   const leaderSelHtml='<select onchange="setTreeLeader(this.value)" title="전체/팀장별 보기" '
     +'style="padding:7px 12px;border-radius:9px;border:1px solid #d6dbe7;background:#fff;color:#1f2a5c;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit">'
-    +'<option value="">전체 계보</option>'
+    +'<option value="">'+(MY_ROOT?'내 계보 전체':'전체 계보')+'</option>'
     +leaderOpts.map(o=>'<option value="'+_esc(o.key)+'"'+(o.key===leaderSel?' selected':'')+'>'+_esc(o.key)+' '+_esc(o.role||'')+' 팀</option>').join('')
     +'</select>';
   const stat=(lb,v,col)=>'<div style="padding:9px 14px;border-radius:11px;background:#fff;border:1px solid #e3e7f0;min-width:92px"><div style="font-size:11.5px;color:#7a8499;font-weight:600">'+lb+'</div><div style="font-size:20px;font-weight:800;color:'+col+';line-height:1.25">'+v+'</div></div>';
   const legend=Object.keys(rankCnt).sort((x,y)=>rankCnt[y]-rankCnt[x]).map(r=>{ const t=_tc(r); return '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:'+t.t+';color:'+t.c+';font-size:12.5px;font-weight:700"><i style="width:8px;height:8px;border-radius:50%;background:'+t.c+';display:inline-block"></i>'+_esc(r)+' '+rankCnt[r]+'</span>'; }).join('');
   wrap.innerHTML = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-bottom:12px">
-      ${stat(leaderSel?'팀 인원':'전체 인원',NODES.length,'#1f2a5c')}
+      ${stat(ROOT!=='백동현'?'팀 인원':'전체 인원',NODES.length,'#1f2a5c')}
       ${stat('하부 조직 보유',leaders+'명','#0891b2')}
-      ${stat(leaderSel?'팀장':'대표',_esc(ROOT),'#6d28d9')}
+      ${stat(ROOT!=='백동현'?'팀장':'대표',_esc(ROOT),'#6d28d9')}
       <div style="flex:1;min-width:220px;display:flex;flex-wrap:wrap;gap:6px;align-content:center">${legend}</div>
     </div>
     <div style="position:relative;display:flex;gap:7px;margin-bottom:10px;align-items:center;flex-wrap:wrap;padding:8px;border-radius:12px;background:#f5f7fb;border:1px solid #e6eaf2">
@@ -11480,12 +11502,21 @@ function rTree(){
       const p=parentMap[n.key]; if(!p||!pos[p]||!pos[n.key]) return;
       const pP=pos[p], pN=pos[n.key];
       // 위→아래: 부모 카드 아래 가운데 → 자식 카드 위 가운데 (자식이 위로 옮겨졌으면 반대로)
-      let x1=pP.x+BW/2, y1, x2=pN.x+BW/2, y2;
-      if(pN.y>=pP.y){ y1=pP.y+BH; y2=pN.y; } else { y1=pP.y; y2=pN.y+BH; }
-      const my=(y1+y2)/2;
       const on=hp&&hp[n.key];
-      // 꺾은선(2026-11-16 v-4 — "선이 너무 부드러워, 딱딱하게"): 아래 → 가로 → 아래
-      c.beginPath(); c.moveTo(x1,y1); c.lineTo(x1,my); c.lineTo(x2,my); c.lineTo(x2,y2);
+      c.beginPath();
+      if(stacked[n.key] && pN.y>pP.y+BH){
+        // 세로로 쌓인 자식: 카드 왼쪽 세로줄로 이어짐('p'=부모 바로 밑, 'm'=가로줄에서 내려온 묶음)
+        const sx=pN.x-ST_IN/2, cyy=pN.y+BH/2;
+        if(stacked[n.key]==='p'){ c.moveTo(sx,pP.y+BH); }
+        else { const px=pP.x+BW/2, my=pP.y+BH+GAP_Y/2; c.moveTo(px,pP.y+BH); c.lineTo(px,my); c.lineTo(sx,my); }
+        c.lineTo(sx,cyy); c.lineTo(pN.x,cyy);
+      } else {
+        let x1=pP.x+BW/2, y1, x2=pN.x+BW/2, y2;
+        if(pN.y>=pP.y){ y1=pP.y+BH; y2=pN.y; } else { y1=pP.y; y2=pN.y+BH; }
+        const my=y1+(y2-y1)/2;
+        // 꺾은선(2026-11-16 v-4 — "선이 너무 부드러워, 딱딱하게"): 아래 → 가로 → 아래
+        c.moveTo(x1,y1); c.lineTo(x1,my); c.lineTo(x2,my); c.lineTo(x2,y2);
+      }
       c.lineJoin='miter'; c.lineCap='square';
       c.strokeStyle=on?n.color:'#9aa4b8'; c.globalAlpha=hp?(on?1:0.2):1; c.lineWidth=on?2.5:1.5; c.stroke();
       c.globalAlpha=1;
@@ -11499,34 +11530,34 @@ function rTree(){
       c.save();
       c.shadowColor=(hoverKey===n.key&&!whiteBg)?'rgba(31,42,92,.35)':'rgba(15,23,42,.13)';
       c.shadowBlur=(hoverKey===n.key&&!whiteBg)?18:10; c.shadowOffsetY=3;
-      c.beginPath(); c.roundRect(x,y,BW,BH,13);
+      c.beginPath(); c.roundRect(x,y,BW,BH,10);
       if(n.isRoot){ const gr=c.createLinearGradient(x,y,x+BW,y+BH); gr.addColorStop(0,'#7c3aed'); gr.addColorStop(1,'#1f2a5c'); c.fillStyle=gr; }
       else c.fillStyle='#ffffff';
       c.fill(); c.restore();
       if(!n.isRoot){
-        c.save(); c.beginPath(); c.roundRect(x,y,BW,BH,13); c.clip();
-        c.fillStyle=n.color; c.fillRect(x,y,5,BH); c.restore();
-        c.beginPath(); c.roundRect(x+0.5,y+0.5,BW-1,BH-1,13); c.strokeStyle=hoverKey===n.key&&!whiteBg?n.color:'#e3e7f0'; c.lineWidth=1; c.stroke();
+        c.save(); c.beginPath(); c.roundRect(x,y,BW,BH,10); c.clip();
+        c.fillStyle=n.color; c.fillRect(x,y,4,BH); c.restore();
+        c.beginPath(); c.roundRect(x+0.5,y+0.5,BW-1,BH-1,10); c.strokeStyle=hoverKey===n.key&&!whiteBg?n.color:'#e3e7f0'; c.lineWidth=1; c.stroke();
       }
       // 이름 첫 글자 동그라미
-      const ax=x+30, ay=y+BH/2;
-      c.beginPath(); c.arc(ax,ay,17,0,Math.PI*2); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
-      c.fillStyle=n.isRoot?'#ffffff':n.color; c.font='800 15px "Noto Sans KR",sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      const ax=x+23, ay=y+BH/2;
+      c.beginPath(); c.arc(ax,ay,13,0,Math.PI*2); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
+      c.fillStyle=n.isRoot?'#ffffff':n.color; c.font='800 12.5px "Noto Sans KR",sans-serif'; c.textAlign='center'; c.textBaseline='middle';
       c.fillText(String(n.name||'?').charAt(0), ax, ay+0.5);
       // 이름
       c.textAlign='left'; c.textBaseline='alphabetic';
-      c.fillStyle=n.isRoot?'#ffffff':'#111827'; c.font='800 15px "Noto Sans KR",sans-serif';
-      c.fillText(n.name, x+56, y+26);
+      c.fillStyle=n.isRoot?'#ffffff':'#111827'; c.font='800 13.5px "Noto Sans KR",sans-serif';
+      c.fillText(n.name, x+42, y+21);
       // 직급 배지
-      c.font='700 11.5px "Noto Sans KR",sans-serif';
-      const rl=String(n.role||'-'), rw=c.measureText(rl).width+14;
-      c.beginPath(); c.roundRect(x+56,y+34,rw,18,9); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
-      c.fillStyle=n.isRoot?'#ffffff':n.color; c.fillText(rl, x+63, y+47);
+      c.font='700 10.5px "Noto Sans KR",sans-serif';
+      const rl=String(n.role||'-'), rw=c.measureText(rl).width+12;
+      c.beginPath(); c.roundRect(x+42,y+27,rw,16,8); c.fillStyle=n.isRoot?'rgba(255,255,255,.22)':n.bg; c.fill();
+      c.fillStyle=n.isRoot?'#ffffff':n.color; c.fillText(rl, x+48, y+39);
       // 하위 인원
       if(desc[n.key]){
-        c.font='700 11px "Noto Sans KR",sans-serif'; c.textAlign='right';
+        c.font='700 10px "Noto Sans KR",sans-serif'; c.textAlign='right';
         c.fillStyle=n.isRoot?'rgba(255,255,255,.85)':'#94a3b8';
-        c.fillText('하위 '+desc[n.key]+'명', x+BW-10, y+47);
+        c.fillText('하위 '+desc[n.key], x+BW-7, y+39);
         c.textAlign='left';
       }
       c.globalAlpha=1;
@@ -11592,7 +11623,7 @@ function rTree(){
   // 초기화 함수 전역 등록 — 지금 보고 있는 보기(전체/선택한 팀장)의 위치만 초기화
   window.resetTreePos=function(){
     localStorage.removeItem('tops_tree_pos');      // 구버전(상하 트리) 저장분도 정리
-    try{ ['tops_tree_pos_v2','tops_tree_pos_v3'].forEach(function(k){ localStorage.removeItem(k+(leaderSel?('__'+leaderSel):'')); }); }catch(e){}
+    try{ ['tops_tree_pos_v2','tops_tree_pos_v3','tops_tree_pos_v4'].forEach(function(k){ localStorage.removeItem(k+(leaderSel?('__'+leaderSel):'')); }); }catch(e){}
     localStorage.removeItem(POS_KEY);
     rTree();
     toast('계보도 위치가 초기화되었습니다.');
