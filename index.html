@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-7</div>
   </div>
 </div>
 
@@ -6478,6 +6478,14 @@ function _cbMenuCat(){
         var hl=/^[A-Za-z0-9_-]+$/.test(String(c.id))?['[data-bdcat="'+c.id+'"]','여기가 \''+nm+'\' 탭입니다']:null;
         out.push({id:id,t:nm,p:path+' › '+nm,kw:nm,a:a+'\n아래 [바로 가기]를 누르세요.',nav:nav,bcm:cm,bcat:c.id,hl:hl}); seen[id]=1;
       });
+    });
+    // 수술분류 검색(가상 탭 — '상담자료' 게시판, 2026-11-16)
+    _navCustoms().forEach(function(c){
+      if(!c||!_sgcBoardOk(c.id)) return;
+      var nav='n_'+c.id; if(!_navSrchMenuOk(nav)) return;
+      var id=('sgc_'+c.id).replace(/[^A-Za-z0-9_]/g,''); if(seen[id]) return;
+      var path=_navSrchPath(nav)||_navSrchText(g(nav))||'상담자료';
+      out.push({id:id,t:'수술분류 검색',p:path+' › 수술분류 검색',kw:'수술분류 수술분류표 종수술 1~3종 1~5종 몇종 수술비 수술종류',a:'['+path+'] 의 \'수술분류 검색\' 탭에서 1~5종 / 1~3종 수술분류표를 고르고 질병코드·질병명·수술명을 넣으면 해당 수술과 종이 나옵니다.\n아래 [바로 가기]를 누르세요.',nav:nav,bcm:c.id,bcat:'_surg',hl:['[data-bdcat="_surg"]','여기가 \'수술분류 검색\' 탭입니다']}); seen[id]=1;
     });
   }catch(e){}
   return out;
@@ -14496,7 +14504,12 @@ function notifyChongmuReg(custName, count){
   }catch(e){ console.warn('notifyChongmuReg err:', e); }
 }
 // 이 기기에서 닫은 알림 id 목록 (로컬 전용)
-function _dismissedAlertIds(){ try{ return JSON.parse(localStorage.getItem('tops_alerts_dismissed')||'[]'); }catch(e){ return []; } }
+// ⚠️ 메모리 우선(2026-11-16 실사고 "✕ 눌러도 안 없어짐") — 저장공간이 찬 기기는 _lsSet이 조용히 실패해, 매번 localStorage를 다시 읽으면 방금 닫은 알림이 되살아났다(3.89·4.98 계열).
+function _dismissedAlertIds(){
+  if(Array.isArray(window._alDisMem)) return window._alDisMem;
+  var a=[]; try{ a=JSON.parse(localStorage.getItem('tops_alerts_dismissed')||'[]'); }catch(e){ a=[]; }
+  window._alDisMem=Array.isArray(a)?a:[]; return window._alDisMem;
+}
 // 클라우드 연결 전에 만든·닫은 알림을 첫 수신 직후 반영(메모리에도 다시 넣고 클라우드로 보냄)
 function _nalertsFlush(){
   var pd=window._nalertsPend; if(!pd||!window.FS_DOC) return;
@@ -14516,7 +14529,7 @@ function dismissAlert(id){
   // 클라우드 저장이 실패해도, 이 기기에서는 다시 안 뜨게 한다(닫기 무한 반복 방지).
   try{
     var ds=_dismissedAlertIds();
-    if(id && ds.indexOf(id)<0){ ds.push(id); if(ds.length>300) ds=ds.slice(-300); _lsSet('tops_alerts_dismissed', JSON.stringify(ds)); }
+    if(id && ds.indexOf(id)<0){ ds.push(id); if(ds.length>300) ds=ds.slice(-300); window._alDisMem=ds; _lsSet('tops_alerts_dismissed', JSON.stringify(ds)); }
   }catch(e){}
   if(gone.length) _nalertsFsWrite([], gone);   // 카드납 결제일 알림(가상) 같은 저장 안 된 알림은 클라우드 쓰기 없음
   rAlerts();
@@ -14545,7 +14558,7 @@ function rAlerts(){
   box.innerHTML=my.map(function(a){
     var dt=new Date(a.ts||Date.now());
     var when=pad(dt.getMonth()+1)+'.'+pad(dt.getDate())+' '+pad(dt.getHours())+':'+pad(dt.getMinutes());
-    if(a.cp||a.car) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="'+(a.car?'carAlertGo':'cpAlertGo')+'(this.getAttribute(\'data-aid\'))" title="누르면 '+(a.car?'자동차보험관리':'카드납관리')+'로 이동합니다">'
+    if(a.cp||a.car) return '<div class="alert-card" data-aid="'+_alertEsc(a.id)+'" onclick="'+(a.car?'carAlertGo':'cpAlertGo')+'(this.getAttribute(\'data-aid\'))" title="누르면 '+(a.car?'자동차보험관리로 이동하고 알림이 닫힙니다':'카드납관리로 이동합니다')+'">'
       +'<div class="alert-body"><span class="alert-type">'+_alertEsc(a.type)+'</span><div>'+_alertEsc(a.msg||'')+'</div>'
       +'<div class="alert-meta">'+_alertEsc(a.fromName||'')+' · '+when+'</div></div>'
       +'<span class="alert-close" onclick="event.stopPropagation();dismissAlert(this.parentNode.getAttribute(\'data-aid\'))">✕</span></div>';
@@ -29194,10 +29207,11 @@ function _carAlerts(ds){
   });
   return out;
 }
-// 알림을 누르면 자동차보험관리로 — 만기일 기준, 그 만기 달을 펼쳐 보여 줌(닫지 않음 — 그만 보려면 ✕)
+// 알림을 누르면 자동차보험관리로 — 만기일 기준, 그 만기 달을 펼쳐 보여 주고 그 알림은 닫음(✕와 같음)
 function carAlertGo(id){
   var m=/_(\d{4}-\d{2})-\d{2}$/.exec(String(id||''));
   try{ showPage('carins'); var mb=g('car_mb'); if(mb) mb.value='ex'; window._carMon=m?m[1]:null; _carDraw(); }catch(e){}
+  try{ dismissAlert(String(id||'')); }catch(e){}   // 2026-11-16 박지순 — 카드를 눌러도 닫힘(확인한 것으로 봄). 목록의 갱신미완료 배지는 그대로 남음
 }
 // ===== 보험사 콜센터 번호 (2026-11-13 — 박지순 요청) — Firestore carinscfg/cfg = {tel:[{nm,ph}],ts,by} (전원 공용, 손해보험사만), 편집은 관리자 [설정]
 function _carCfgClean(a){
@@ -31059,16 +31073,18 @@ function rCustomPage(name){
   var cats=_bdCats(name);
   window._bdCatSel=window._bdCatSel||{};
   var csel=window._bdCatSel[name]||'';
-  if(csel&&csel!=='_none'&&!cats.some(function(c){ return c.id===csel; })){ csel=''; window._bdCatSel[name]=''; } // 삭제된 분류 → 전체
+  var surgOk=_sgcBoardOk(name), surgOn=(surgOk&&csel==='_surg');   // 가상 탭 [수술분류 검색](2026-11-16 — '상담자료' 게시판만, boardcats에 없는 탭)
+  var _sgFocus=null; try{ var _sq=document.activeElement; if(surgOn&&_sq&&_sq.id==='sgc_q') _sgFocus=[_sq.selectionStart,_sq.selectionEnd]; }catch(e){}
+  if(csel&&csel!=='_none'&&!surgOn&&!cats.some(function(c){ return c.id===csel; })){ csel=''; window._bdCatSel[name]=''; } // 삭제된 분류 → 전체
   var _catIds={}; cats.forEach(function(c){ _catIds[c.id]=1; });
   var _isNone=function(p){ return !p.cat||!_catIds[p.cat]; };
   var fposts=(!cats.length||!csel)?posts:posts.filter(csel==='_none'?_isNone:function(p){ return p.cat===csel; });
   var catbar='';
-  if(cats.length){
-    var hasNone=posts.some(_isNone);
+  if(cats.length||surgOk){
+    var hasNone=cats.length&&posts.some(_isNone);
     var tabBtn=function(id,label,cnt){
       var on=(csel===id);
-      return '<button data-bdcat="'+_esc(id)+'" style="padding:6px 13px;border-radius:16px;border:1px solid '+(on?'#4858cc':'#d0d4e8')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#44485a')+';font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">'+label+' <span style="opacity:.72;font-size:12px">'+cnt+'</span></button>';
+      return '<button data-bdcat="'+_esc(id)+'" style="padding:6px 13px;border-radius:16px;border:1px solid '+(on?'#4858cc':'#d0d4e8')+';background:'+(on?'#4858cc':'#fff')+';color:'+(on?'#fff':'#44485a')+';font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">'+label+(cnt===''?'':' <span style="opacity:.72;font-size:12px">'+cnt+'</span>')+'</button>';
     };
     catbar='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px">'
       +tabBtn('','전체',posts.length+cats.reduce(function(a,c){ return a+(_bdIsDaeri(c)?_bdrParts(c).length:0); },0))
@@ -31077,6 +31093,7 @@ function rCustomPage(name){
         return tabBtn(c.id,_esc(c.nm),n+tp);   // 대리발급 분류는 올린 양식도 건수에 합산(2026-10-22 v-16 사용자 요청 — 별도 "양식 n" 배지 대신)
       }).join('')
       +(hasNone?tabBtn('_none','미분류',posts.filter(_isNone).length):'')
+      +(surgOk?tabBtn('_surg','🔍 수술분류 검색',''):'')
       +'</div>';
   }
   // '대리발급' 분류 탭 선택 시 서류 작성 패널(위임자/위임받는자 입력 + 양식 미리보기 + 좌표설정) 표시 (2026-09-10)
@@ -31131,8 +31148,9 @@ function rCustomPage(name){
       +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
       +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
       +'</div>':'')
-    +'</div>'+catbar+daeriPanel+sangPanel+yearPanel+ckPanel+grid+pager+'</div>';
+    +'</div>'+catbar+(surgOn?_sgcPanelHtml():daeriPanel+sangPanel+yearPanel+ckPanel+grid+pager)+'</div>';
   _bdBind(body,name);
+  if(surgOn){ try{ _sgcDraw(); var _sq2=g('sgc_q'); if(_sgFocus&&_sq2){ _sq2.focus(); _sq2.setSelectionRange(_sgFocus[0],_sgFocus[1]); } }catch(e){} }   // 결과 최초 표시 + 실시간 재렌더 때 입력 포커스 유지
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
   if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
   if(yearCat){ try{ _yrCalc(); }catch(e){} }                          // 연말정산도 같은 이유로 최초 1회(빠뜨리면 결과 칸이 빈 채로 보임)
@@ -32390,6 +32408,386 @@ function ssGuidePrint(kind){
 // ⚠️ 2025년 귀속(2026년 연말정산) 기준 **참고용 간이 계산** — 세법이 바뀌면 아래 YR_RATES/YR_INC_DED/YR 상수만 고치면 된다.
 //   미반영: 주택자금·개인연금저축 등 그 밖의 소득공제, 부녀자·한부모 추가공제, 의료비 본인/65세↑/난임 별도 한도,
 //   체크카드·전통시장·대중교통 추가공제, 중소기업 취업자 감면, 지방소득세(소득세의 10% 별도) — 화면에 명시한다.
+// ===== 수술분류 검색 (sgc, 2026-11-16 — 박지순 요청) =====
+// 내용 페이지 중 메뉴 이름에 '상담자료'가 든 게시판의 분류 탭 끝(미분류 옆)에 가상 탭 [수술분류 검색](csel '_surg' — boardcats에 없는 탭).
+// 1~5종 / 1~3종 수술분류표를 고르고 질병코드·질병명·수술명을 넣으면 해당 수술 항목과 종을 보여 준다. 저장 없음(상수 + 메모리 window._sgcSt).
+// 표 출처: 1~5종 = 삼성화재 약관 [별표] 1~5종 수술 분류표(생명보험 공통 분류와 같은 내용), 1~3종 = 옛 생명보험 1~3종 수술분류표(88항).
+// ⚠️ 질환 → 수술 연결(SGC_DX)은 약관에 있는 것이 아니라 흔한 수술 방법을 기준으로 정리한 참고 목록 — 종은 실제 받은 수술명으로 정해진다(화면에 안내). 표를 고칠 땐 약관 원문과 대조할 것.
+var SGC_T5=[
+ ['피부, 유방의 수술',[
+  ['1','피부이식수술(25㎠ 이상인 경우), 피판수술',3,'피판분리수술, Z flap, W flap 제외'],
+  ['2','피부이식수술(25㎠ 미만인 경우)',1],
+  ['3','유방절단수술(Mastectomy)',3],
+  ['4','기타 유방수술',1,'농양의 절개 및 배액은 제외. 치료목적의 맘모톰(Mammotomy)은 60일 이내 2회 이상 수술을 1회로 봄']]],
+ ['근골(筋骨)의 수술 — 핀 제거 등 내고정물 제거술, 치과 처치·임플란트에 따른 것은 제외',[
+  ['5','골 이식수술',2],
+  ['6','두개골 관혈수술',3,'비골·비중격·상악골·하악골·악관절은 제외'],
+  ['7','비골(코뼈) 수술',1,'비중격 만곡증 수술, 수면 중 무호흡 수술은 제외'],
+  ['8','상악골, 하악골, 악관절 관혈수술',2],
+  ['9','척추골, 골반골, 추간판 관혈수술',3],
+  ['10','쇄골, 견갑골, 늑골, 흉골 관혈수술',2],
+  ['11-1','손가락, 발가락 절단수술',1,'골, 관절의 이단에 따른 것. 다지증 절단수술은 제외'],
+  ['11-2','기타 사지 절단수술',3,'다지증 절단수술은 제외'],
+  ['12','절단된 사지 재접합수술',3,'골, 관절의 이단에 따른 것'],
+  ['13-1','손가락, 발가락의 골 및 관절 관혈수술',1],
+  ['13-2','기타 사지골, 사지관절 관혈수술',2],
+  ['14','근, 건, 인대, 연골 관혈수술',1]]],
+ ['호흡기계·흉부의 수술',[
+  ['15','만성부비강염(축농증) 근본수술',1],
+  ['16','후두 관혈적 절제수술',3],
+  ['17','편도, 아데노이드 절제수술',1],
+  ['18','기관, 기관지, 폐, 흉막 관혈수술',4,'개흉술을 수반하는 것'],
+  ['19','폐장 이식수술',5,'수용자에 한함'],
+  ['20','흉곽 형성수술',3],
+  ['21','종격종양, 흉선 절제수술',4,'개흉술을 수반하는 것']]],
+ ['순환기계, 비장의 수술',[
+  ['22','혈관 관혈수술',3,'하지정맥류 및 손가락·발가락은 제외'],
+  ['23','하지 정맥류 근본수술 및 손가락·발가락 혈관 관혈수술',1],
+  ['24','대동맥, 대정맥, 폐동맥, 관동맥 관혈수술',5,'개흉술, 개복술을 수반하는 것'],
+  ['25','심막 관혈수술',4,'개흉술을 수반하는 것'],
+  ['26','심장내 관혈수술',5,'개흉술을 수반하는 것'],
+  ['27','심장 이식수술',5,'수용자에 한함'],
+  ['28','체내용 인공심박조율기(Pacemaker) 매입술',3],
+  ['29','비장 절제수술',3]]],
+ ['소화기계의 수술',[
+  ['30','이하선 절제수술',3],
+  ['31-1','악하선, 설하선 절제수술',2],
+  ['31-2','기타 타액선 절제수술',1,'타석 제거는 제외'],
+  ['32','식도 이단술',4,'개흉술, 개복술을 수반하는 것'],
+  ['33','위 절제수술(Gastrectomy)',4,'개복술을 수반하는 것'],
+  ['34','기타의 위·식도 관혈수술',3,'개흉술, 개복술을 수반하는 것'],
+  ['35','간장, 췌장 관혈수술',4,'개복술을 수반하는 것'],
+  ['36','담낭, 담도 관혈수술',3,'개복술을 수반하는 것'],
+  ['37','간장 이식수술',5,'수용자에 한함, 개복술을 수반하는 것'],
+  ['38','췌장 이식수술',5,'개복술을 수반하고 수용자에 한함. 랑게르한스 소도 세포 이식수술은 제외'],
+  ['39','탈장 근본수술',1],
+  ['40','전신성 복막염 수술',2],
+  ['41','충수절제술, 맹장봉축술',2,'충수염 관련 충수주위 농양수술, 국한성 복막염 수술 포함'],
+  ['42','직장탈 근본수술',1],
+  ['43','소장, 결장, 직장, 장간막 관혈수술',4,'개복술을 수반하는 것. 직장탈 근본수술은 제외'],
+  ['44','치루, 탈항, 치핵 근본수술',1,'근치를 목적으로 하지 않은 수술은 제외']]],
+ ['비뇨기계·생식기계의 수술 — 인공임신중절수술은 제외',[
+  ['45','신장, 방광, 신우, 요관 관혈수술',4,'개복술을 수반하는 것. 경요도적 조작 및 방광류·요실금 교정수술은 제외'],
+  ['46','요도 관혈수술',2,'경요도적 조작은 제외'],
+  ['47','방광류·요실금 교정수술',1],
+  ['48','신장 이식수술',5,'수용자에 한함'],
+  ['49','음경 절단수술',3,'포경수술 및 음경 이물제거수술은 제외'],
+  ['50','고환, 부고환, 정관, 정색, 정낭 관혈수술, 전립선 관혈수술',2],
+  ['51','음낭 관혈수술',1],
+  ['52','자궁, 난소, 난관 관혈수술',2,'제왕절개만출술 및 경질적인 조작은 제외'],
+  ['53','경질적 자궁, 난소, 난관 수술',1,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['54','제왕절개만출술',1],
+  ['55','질탈 근본수술',1]]],
+ ['내분비기계의 수술',[
+  ['56','뇌하수체종양 절제수술',5],
+  ['57','갑상선·부갑상선 관혈수술',3],
+  ['58','부신 절제수술',4]]],
+ ['신경계의 수술',[
+  ['59','두개내 관혈수술',5,'개두술을 수반하는 것'],
+  ['60','신경 관혈수술',2],
+  ['61','관혈적 척수종양 절제수술',4],
+  ['62','척수경막내외 관혈수술',3]]],
+ ['시각기의 수술 — 약물주입술은 제외',[
+  ['63','안검하수증 수술',1,'안검내반증 제외'],
+  ['64','누소관 형성수술',1,'누관튜브삽입술 포함'],
+  ['65','누낭비강 관혈수술',2],
+  ['66','결막낭 형성수술',2],
+  ['67','각막, 결막, 공막 봉합수술',1],
+  ['68','각막, 공막 이식수술',2],
+  ['69','전방, 홍채, 유리체 관혈수술',2],
+  ['70','녹내장 관혈수술',3],
+  ['71','백내장, 수정체 관혈수술',1],
+  ['72','망막박리 수술',2,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['73','레이저(Laser)에 의한 안구 수술',1,'60일 이내 2회 이상 수술은 1회로 봄. 시력회복·시력개선 목적의 수술은 제외'],
+  ['74','냉동응고에 의한 안구 수술',2,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['75','안구적출술, 조직충전술',3],
+  ['76','안와내 종양 절제수술',3],
+  ['77','관혈적 안와내 이물제거수술',1],
+  ['78','안근 관혈수술',1]]],
+ ['청각기의 수술',[
+  ['79','관혈적 고막 성형술',2,'고막 패치술은 제외'],
+  ['80','유양동 절제술(mastoidectomy)',2],
+  ['81','중이 관혈수술',2,'중이내 튜브유치술 제외'],
+  ['82','중이내 튜브유치술',1,'고막 패치술은 제외. 60일 이내 2회 이상 수술은 1회로 봄'],
+  ['83','내이 관혈수술',3]]],
+ ['상기 이외의 수술 — 검사, 처치, 약물주입요법은 포함하지 않음',[
+  ['84','상기 이외의 개두술',3],
+  ['85','상기 이외의 개흉술',3],
+  ['86','상기 이외의 개복술',2],
+  ['87','체외충격파쇄석술(E.S.W.L)',2,'60일 이내 2회 이상 수술은 1회로 봄. 체외충격파치료술(E.S.W.T)은 제외'],
+  ['88-1','내시경 수술 또는 카테터·고주파 전극 등에 의한 경피적 수술 — 뇌, 심장',3,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['88-2','내시경 수술 또는 카테터·고주파 전극 등에 의한 경피적 수술 — 후두, 흉부장기(심장 제외), 복부장기(비뇨·생식기 제외), 척추, 사지관절(손가락·발가락 제외)',2,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['88-3','내시경 수술 또는 카테터·고주파 전극 등에 의한 경피적 수술 — 비뇨, 생식기 및 손가락, 발가락',1,'60일 이내 2회 이상 수술은 1회로 봄']]],
+ ['악성신생물(암) 치료 목적의 수술',[
+  ['암1','관혈적 악성신생물 근치수술',5,'기타피부암(C44) 제외. 내시경 수술, 카테터·고주파 전극 등의 경피적 수술은 제외'],
+  ['암1-1','관혈적 악성신생물 근치수술 — 기타피부암(C44)',3],
+  ['암2','내시경 수술, 카테터·고주파 전극 등에 의한 악성신생물 수술',3,'60일 이내 2회 이상 수술은 1회로 봄'],
+  ['암3','상기 이외의 기타 악성신생물 수술',3,'60일 이내 2회 이상 수술은 1회로 봄']]],
+ ['악성신생물 근치·두개내 신생물 근치 방사선 조사',[
+  ['방1','악성신생물 근치 방사선 조사',3,'5,000Rad 이상 조사에 한함. 사이버 나이프 정위적 방사선 치료 포함. 60일 이내 2회 이상은 1회로 봄'],
+  ['방2','두개내 신생물 근치 감마 나이프 정위적 방사선 치료',3,'60일 이내 2회 이상은 1회로 봄']]]
+];
+var SGC_T3=[
+ ['피부, 유방의 수술',[
+  ['1','식피술(피부이식)',2,'25㎠ 미만은 제외'],
+  ['2','유방절단술',2]]],
+ ['근골의 수술 — 발정술(핀 제거)은 제외',[
+  ['3','골이식술',2],
+  ['4','골수염, 골결핵 수술',2,'농양의 단순한 절개는 제외'],
+  ['5','두개골 관혈수술',2,'비골, 비중격은 제외'],
+  ['6','비골(코뼈) 관혈수술',1,'비중격만곡증 수술은 제외'],
+  ['7','상악골, 하악골, 악관절 관혈수술',2,'치, 치육의 처치에 따른 것은 제외'],
+  ['8','척추, 골반 관혈수술',2],
+  ['9','쇄골, 견갑골, 늑골, 흉골 관혈수술',1],
+  ['10','사지절단술',2,'손가락, 발가락은 제외'],
+  ['11','절단사지 재접합술',2,'골, 관절의 이단에 따른 것'],
+  ['12','사지골, 사지관절 관혈수술',1,'손가락, 발가락은 제외'],
+  ['13','근, 건, 인대 관혈수술',1,'손가락, 발가락은 제외. 근염, 결절종, 점액종 수술은 제외']]],
+ ['호흡기, 흉부의 수술',[
+  ['14','만성부비강염(축농증) 근본수술',1],
+  ['15','후두 전적제술',2],
+  ['16','기관, 기관지, 폐, 흉막 수술',2],
+  ['17','흉곽 형성술',2],
+  ['18','종격종양 적출술',3]]],
+ ['순환기, 비장의 수술',[
+  ['19','관혈적 혈관 형성술',2,'혈액투석용 Shunt 형성술은 제외'],
+  ['20','정맥류 근본수술',1],
+  ['21','대동맥, 대정맥, 폐동맥, 관동맥 수술',3,'개흉, 개복술을 수반하는 것'],
+  ['22','심막 절개, 봉합술',2],
+  ['23','직시하 심장내 수술',3],
+  ['24','체내용 Pace Maker(심박조율기) 매입술',2],
+  ['25','비장 적제술',2]]],
+ ['소화기의 수술',[
+  ['26','이하선 종양 적출술',2],
+  ['27','악하선 종양 적출술',1],
+  ['28','식도 이단술',3],
+  ['29','위 절제술',3],
+  ['30','기타의 위, 식도 수술',2,'개흉, 개복술을 수반하는 것'],
+  ['31','복막염 수술',2],
+  ['32','간장, 담낭, 담도, 췌장 관혈수술',2],
+  ['33','탈장 근본수술',1],
+  ['34','충수절제술, 맹장봉축술',1],
+  ['35','직장탈 근본수술',2],
+  ['36','기타의 장, 장간막 수술',2,'개복술을 수반하는 것'],
+  ['37','치루, 탈항, 치핵 근본수술',1,'근치를 목적으로 한 것. 처치, 단순한 치핵만의 수술은 제외']]],
+ ['뇨, 성기의 수술',[
+  ['38','신장 이식수술',3,'수용자에 한함'],
+  ['39','신장, 신우, 뇨관, 방광 관혈수술',2,'경뇨도적 조작은 제외'],
+  ['40','요도협착 관혈수술',2,'경뇨도적 조작은 제외'],
+  ['41','요루폐쇄 관혈수술',2,'경뇨도적 조작은 제외'],
+  ['42','음경 절단술',3],
+  ['43','고환, 부고환, 정관, 정색, 정낭, 전립선 수술',2],
+  ['44','음낭수종 근본수술',1],
+  ['45','자궁 광범 전적제술',3,'단순 자궁전적 등의 자궁 전적제술은 제외'],
+  ['46','자궁경관 형성술, 자궁경관 봉축술',1],
+  ['47','제왕절개 만출술',1],
+  ['48','자궁외 임신 수술',2],
+  ['49','자궁탈, 질탈 수술',2],
+  ['50','기타의 자궁 수술',2],
+  ['51','난관, 난소 관혈수술',2,'경질적 조작은 제외'],
+  ['52','기타의 난관, 난소 수술',1]]],
+ ['내분비기의 수술',[
+  ['53','하수체 종양 적제술',3],
+  ['54','갑상선 수술',2],
+  ['55','부신 전적제술',2]]],
+ ['신경의 수술',[
+  ['56','두개내 관혈수술',3],
+  ['57','신경 관혈수술',2,'형성술, 이식술, 절제술, 감압술, 개방술, 염제술'],
+  ['58','관혈적 척수종양 적출수술',3],
+  ['59','척수경막내외 관혈수술',2]]],
+ ['감각기, 시기(눈)의 수술',[
+  ['60','안검하수증 수술',1],
+  ['61','누소관 형성술',1],
+  ['62','누낭비강 문합술',1],
+  ['63','결막낭 형성술',1],
+  ['64','각막 이식술',1],
+  ['65','관혈적 전방, 홍채, 초자체, 안와내 이물 제거술',1],
+  ['66','홍채 전후 유착 박리술',1],
+  ['67','녹내장 관혈수술',2],
+  ['68','백내장, 수정체 관혈수술',2],
+  ['69','초자체(유리체) 관혈수술',1],
+  ['70','망막박리증 수술',1],
+  ['71','Laser, 냉동응고에 의한 안구 수술',1,'시술 개시일부터 60일간에 1회의 급여를 한도로 함'],
+  ['72','안구 적제술, 조직 충전술',2],
+  ['73','안와 종양 적출술',2],
+  ['74','안근 이식술',1]]],
+ ['감각기, 청기(귀)의 수술',[
+  ['75','관혈적 고막, 고실 형성술',2],
+  ['76','유양동 삭개술',1],
+  ['77','중이 근본수술',2],
+  ['78','내이 관혈수술',2],
+  ['79','청신경 종양 적출술',3]]],
+ ['악성신생물(암)의 수술',[
+  ['80','악성신생물 근치수술',3,'⚠ 이 항목은 받은 자료에 빠져 있어 통상 분류표 기준으로 넣었습니다 — 약관에서 확인하세요'],
+  ['81','악성신생물 온열요법',1,'시술 개시일부터 60일간에 1회 한도. ⚠ 받은 자료에 빠져 있어 통상 분류표 기준 — 약관 확인'],
+  ['82','기타의 악성신생물 수술',2,'⚠ 받은 자료에 빠져 있어 통상 분류표 기준 — 약관 확인']]],
+ ['상기 이외의 수술',[
+  ['83','상기 이외의 개두술',2],
+  ['84','상기 이외의 개흉술',2],
+  ['85','상기 이외의 개복술',1],
+  ['86','충격파에 의한 체내 결석 파쇄술',2,'시술 개시일부터 60일간에 1회의 급여를 한도로 함'],
+  ['87','Fiberscope(내시경) 또는 혈관 Basket Catheter에 의한 뇌, 후두, 흉부, 복부 장기 수술',1,'검사, 처치는 포함하지 않음. 시술 개시일부터 60일간에 1회의 급여를 한도로 함']]],
+ ['신생물 근치 방사선 조사',[
+  ['88','신생물 근치 방사선 조사',1,'5,000Rad 이상의 조사. 시술 개시일부터 60일간에 1회의 급여를 한도로 함']]]
+];
+// 질환 → 흔히 받는 수술 항목(참고). n 이름, k 찾는 말, c 질병코드(범위 'H25-H26'·단일 'K35'·세부 'G560'), s5/s3 = 그 표의 항목 번호, m/m5/m3 = 안내
+var SGC_DX=[
+ {n:'백내장',k:'백내장 수정체 인공수정체 렌즈삽입',c:'H25-H26 H28 Q120',s5:['71'],s3:['68']},
+ {n:'녹내장',k:'녹내장 안압',c:'H40 H42',s5:['70','73'],s3:['67','71'],m:'섬유주절제술 등 관혈수술과 레이저 수술의 항목이 다릅니다.'},
+ {n:'망막박리·망막열공',k:'망막박리 망막열공 망막 유리체',c:'H33',s5:['72','69','73','74'],s3:['70','69','71']},
+ {n:'당뇨망막병증',k:'당뇨망막병증 당뇨망막 망막병증 황반',c:'H360 H35',s5:['73','69'],s3:['71','69'],m:'눈 속 주사(약물주입술)는 수술에서 제외됩니다.'},
+ {n:'안검하수',k:'안검하수 눈꺼풀처짐',c:'H024',s5:['63'],s3:['60'],m:'미용 목적은 제외됩니다.'},
+ {n:'눈물길 막힘(비루관폐쇄)',k:'눈물길 비루관 누도 누낭 눈물샘 눈물흘림',c:'H045 H046',s5:['64','65'],s3:['61','62']},
+ {n:'사시',k:'사시 안근',c:'H49-H50',s5:['78'],s3:['74'],m3:'1~3종 표는 "안근 이식술"로 적혀 있어 수술 방법에 따라 달라질 수 있습니다.'},
+ {n:'각막 질환(원추각막·각막혼탁)',k:'각막 원추각막 각막이식 각막혼탁',c:'H17-H18',s5:['68','67'],s3:['64']},
+ {n:'중이염',k:'중이염 삼출성중이염 진주종 환기관 튜브',c:'H65-H66 H71',s5:['82','81','80'],s3:['77','76']},
+ {n:'고막 천공',k:'고막천공 고막 천공 고실성형',c:'H72',s5:['79'],s3:['75'],m5:'고막 패치술은 제외됩니다.'},
+ {n:'축농증(만성 부비동염)',k:'축농증 부비동염 부비강염 비용종 코물혹',c:'J32-J33 J01',s5:['15'],s3:['14']},
+ {n:'편도염·편도비대·아데노이드',k:'편도 편도염 편도비대 아데노이드 편도선',c:'J35 J03 J36',s5:['17'],s3:[],m3:'1~3종 표에는 편도 절제수술 항목이 없습니다.'},
+ {n:'비중격만곡증',k:'비중격만곡증 비중격 코골이 수면무호흡',c:'J342 G473',s5:[],s3:[],m:'비중격만곡증 수술·수면 중 무호흡 수술은 두 분류표 모두 코뼈 수술 항목에서 제외로 적혀 있습니다.'},
+ {n:'성대결절·성대폴립·후두 질환',k:'성대결절 성대폴립 성대 후두 후두용종',c:'J38',s5:['88-2','16'],s3:['87','15']},
+ {n:'추간판탈출증(디스크)',k:'디스크 추간판 추간판탈출 허리디스크 목디스크 추간판장애',c:'M50-M51',s5:['9','88-2'],s3:['8','87'],m5:'절개해서 하는 관혈수술은 9항(3종), 내시경·고주파 등 경피적 수술은 88-2항(2종)입니다. 신경차단술·주사는 수술이 아닙니다.',m3:'관혈수술은 8항. 내시경 수술은 87항 적용 여부를 약관에서 확인하세요.'},
+ {n:'척추관협착증·척추전방전위증',k:'협착증 척추관협착 전방전위 척추유합 척추고정',c:'M480 M431 M47',s5:['9','62','88-2'],s3:['8','59']},
+ {n:'척추 압박골절',k:'압박골절 척추골절 척추성형술 골다공증골절',c:'S220 S320 M80',s5:['9','88-2'],s3:['8'],m5:'경피적 척추성형술(풍선·시멘트)은 88-2항으로 봅니다.'},
+ {n:'골절(팔·다리)',k:'골절 팔골절 다리골절 손목골절 발목골절 대퇴골 요골 척골 경골 비골골절 상완골 금속판 핀고정',c:'S42 S52 S62 S72 S82 S92 T02 T10 T12',s5:['13-2','13-1','10'],s3:['12','9'],m:'절개해서 맞추는 관혈수술만 해당합니다(깁스·도수정복은 제외). 핀·금속판 제거술은 제외입니다.',m3:'1~3종 표는 손가락·발가락이 제외입니다.'},
+ {n:'쇄골·늑골·견갑골 골절',k:'쇄골 쇄골골절 늑골 갈비뼈 견갑골 흉골',c:'S420 S421 S22',s5:['10'],s3:['9']},
+ {n:'코뼈 골절',k:'코뼈 비골골절 코골절 비골',c:'S022',s5:['7'],s3:['6'],m3:'1~3종 표는 관혈수술만 해당합니다.'},
+ {n:'턱뼈 골절·턱관절 질환',k:'턱 턱관절 하악골 상악골 악관절 턱뼈',c:'S024 S026 K076',s5:['8'],s3:['7']},
+ {n:'회전근개 파열·어깨 질환',k:'회전근개 어깨 견봉 오십견 석회성건염 충돌증후군',c:'M75',s5:['88-2','14'],s3:['13','87'],m5:'관절경 수술은 88-2항(2종), 절개하는 관혈수술은 14항(1종)입니다.'},
+ {n:'십자인대·반월상연골 파열(무릎)',k:'십자인대 반월상연골 반월판 연골판 무릎인대 무릎연골 슬관절',c:'S83 M23',s5:['88-2','14'],s3:['13','87'],m5:'관절경 수술은 88-2항(2종), 절개하는 관혈수술은 14항(1종)입니다.'},
+ {n:'퇴행성 관절염(인공관절)',k:'관절염 인공관절 퇴행성관절염 무릎관절 고관절 치환술',c:'M15-M19',s5:['13-2'],s3:['12']},
+ {n:'손목터널증후군',k:'손목터널 수근관 손저림',c:'G560',s5:['60'],s3:['57']},
+ {n:'방아쇠수지·건초염',k:'방아쇠수지 방아쇠 건초염 드퀘르벵',c:'M653 M654',s5:['14'],s3:[],m3:'1~3종 표는 근·건·인대 수술에서 손가락·발가락이 제외입니다.'},
+ {n:'무지외반증',k:'무지외반증 무지외반 엄지발가락',c:'M201',s5:['13-1'],s3:[],m3:'1~3종 표는 사지골 수술에서 손가락·발가락이 제외입니다.'},
+ {n:'아킬레스건·인대 파열',k:'아킬레스건 인대파열 건파열 힘줄 발목인대',c:'S86 S93 M66',s5:['14'],s3:['13']},
+ {n:'충수염(맹장염)',k:'충수염 맹장염 맹장 충수 충수돌기',c:'K35-K37',s5:['41'],s3:['34'],m5:'복강경으로 해도 41항(2종)입니다.'},
+ {n:'담석증·담낭염',k:'담석 담낭염 담낭 쓸개 담도 담관',c:'K80-K83',s5:['36','88-2'],s3:['32','87'],m5:'복강경 담낭절제술은 36항(3종), 내시경(ERCP)으로 담석을 빼는 것은 88-2항(2종)입니다.'},
+ {n:'탈장',k:'탈장 서혜부탈장 배꼽탈장 대퇴탈장',c:'K40-K46',s5:['39'],s3:['33']},
+ {n:'치질(치핵·치루·탈항)',k:'치질 치핵 치루 탈항 항문',c:'K64 I84 K603 K605 K622 K623',s5:['44'],s3:['37'],m:'근치(완전히 낫게 하는) 목적의 수술만 해당합니다. 고무밴드 결찰 같은 처치는 제외될 수 있습니다.'},
+ {n:'대장 용종(폴립)',k:'대장용종 대장폴립 용종 폴립 선종 용종절제 결장용종 직장용종',c:'K635 K621 D12',s5:['88-2'],s3:['87'],m:'내시경 용종절제술입니다. 조직검사만 한 경우는 수술이 아닙니다.'},
+ {n:'위 용종·위 선종',k:'위용종 위폴립 위선종 점막절제 ESD EMR',c:'K317 D131',s5:['88-2'],s3:['87']},
+ {n:'복막염·장천공',k:'복막염 천공 장천공 위천공',c:'K65 K631 K255 K265',s5:['40','43','34'],s3:['31','36','30']},
+ {n:'장폐색·크론병·게실염',k:'장폐색 장유착 크론병 게실염 장절제 대장절제 소장절제',c:'K56 K50-K51 K57',s5:['43'],s3:['36']},
+ {n:'췌장염·췌장 질환',k:'췌장 췌장염 췌장낭종',c:'K85-K86',s5:['35'],s3:['32']},
+ {n:'식도·위 정맥류',k:'식도정맥류 위정맥류 정맥류결찰',c:'I85 I864',s5:['88-2'],s3:['87']},
+ {n:'하지정맥류',k:'하지정맥류 정맥류 다리혈관',c:'I83',s5:['23'],s3:['20'],m:'근본수술(발거술·레이저·고주파 폐쇄술 등)만 해당합니다. 혈관경화요법(주사)은 제외될 수 있습니다.'},
+ {n:'협심증·심근경색',k:'협심증 심근경색 관상동맥 스텐트 풍선확장 관동맥 우회술 허혈성심장',c:'I20-I25',s5:['88-1','24'],s3:['87','21'],m5:'스텐트·풍선확장술(카테터)은 88-1항(3종), 가슴을 여는 관상동맥우회술은 24항(5종)입니다.'},
+ {n:'부정맥',k:'부정맥 심방세동 심박조율기 페이스메이커 전극도자절제 빈맥 서맥',c:'I44-I49',s5:['28','88-1'],s3:['24','87']},
+ {n:'심장판막 질환',k:'판막 심장판막 승모판 대동맥판 판막치환',c:'I05-I08 I34-I37',s5:['26','88-1'],s3:['23']},
+ {n:'대동맥류·대동맥박리',k:'대동맥류 대동맥박리 대동맥',c:'I71',s5:['24'],s3:['21'],m5:'가슴·배를 열지 않는 스텐트 그라프트 시술은 약관(88항) 확인이 필요합니다.'},
+ {n:'뇌출혈·뇌동맥류',k:'뇌출혈 뇌동맥류 지주막하출혈 경막하출혈 코일색전 클립결찰 뇌내출혈',c:'I60-I62 I671 S06',s5:['59','88-1'],s3:['56','87'],m5:'머리를 여는 수술은 59항(5종), 코일색전술 등 카테터 수술은 88-1항(3종)입니다.'},
+ {n:'뇌경색',k:'뇌경색 뇌졸중 혈전제거 경동맥 뇌혈관협착',c:'I63 I65-I66',s5:['88-1','22'],s3:['87','19'],m:'약물(혈전용해제) 치료만 한 경우는 수술이 아닙니다.'},
+ {n:'뇌종양(양성)',k:'뇌종양 뇌수막종 청신경초종 뇌하수체',c:'D32-D33 D352 D430-D432',s5:['59','56','방2'],s3:['56','53','79']},
+ {n:'기흉',k:'기흉 폐기포 흉강경',c:'J93',s5:['18'],s3:['16'],m5:'흉강경 수술도 18항(4종)으로 봅니다. 흉관 삽입(배액)만 한 경우는 제외될 수 있습니다.'},
+ {n:'갑상선 결절·갑상선 질환(양성)',k:'갑상선 갑상선결절 갑상선종 갑상선기능항진 부갑상선',c:'D34 E04-E05 E21',s5:['57'],s3:['54'],m:'갑상선암(C73)은 암 수술 항목을 보세요. 고주파 절제술은 약관 확인이 필요합니다.'},
+ {n:'유방 양성종양(섬유선종·맘모톰)',k:'유방 유방종양 섬유선종 맘모톰 유방결절 유방양성',c:'D24 N60-N63',s5:['4'],s3:[],m5:'치료 목적의 맘모톰은 4항(1종)입니다. 진단 목적 조직검사는 제외입니다.',m3:'1~3종 표에는 유방절단술만 있어 양성종양 절제는 해당 항목이 없습니다.'},
+ {n:'자궁근종·자궁선근증',k:'자궁근종 근종 자궁선근증 자궁적출 자궁절제 하이푸',c:'D25 N800',s5:['52','53'],s3:['50'],m5:'배(복강경 포함)로 하는 수술은 52항(2종), 질을 통해 하는 수술은 53항(1종)입니다.'},
+ {n:'난소낭종·난소 질환',k:'난소낭종 난소 난소혹 난관 기형종 자궁내막증',c:'N83 D27 N80 N70',s5:['52','53'],s3:['51','52']},
+ {n:'자궁경부 이형성증·자궁내막 용종',k:'자궁경부 이형성증 원추절제 자궁내막용종 자궁용종 자궁내막증식 소파술',c:'N84 N85 N87 D06',s5:['53'],s3:['50'],m:'원추절제술·자궁경 용종절제 등 질을 통해 하는 수술입니다.'},
+ {n:'자궁외 임신',k:'자궁외임신 자궁외 난관임신',c:'O00',s5:['52'],s3:['48']},
+ {n:'제왕절개',k:'제왕절개 분만 출산',c:'O82 O84',s5:['54'],s3:['47'],m:'치료를 직접 목적으로 한 경우만 해당합니다(약관의 보장 조건을 확인하세요).'},
+ {n:'자궁탈출·질탈출',k:'자궁탈출 자궁탈 질탈 골반장기탈출 방광류',c:'N81',s5:['55','47','52'],s3:['49']},
+ {n:'요실금',k:'요실금 복압성요실금',c:'N393 N394',s5:['47'],s3:[],m3:'1~3종 표에는 요실금 교정수술 항목이 따로 없습니다 — 약관 확인.'},
+ {n:'요로결석(신장·요관 결석)',k:'요로결석 신장결석 요관결석 방광결석 결석 쇄석',c:'N20-N21',s5:['87','88-3','45'],s3:['86','39'],m5:'체외충격파쇄석술은 87항(2종), 요관경(내시경) 제거는 88-3항(1종), 개복수술은 45항(4종)입니다.'},
+ {n:'전립선비대증',k:'전립선비대 전립선 경요도절제 홀렙',c:'N40',s5:['88-3','50'],s3:['43'],m5:'요도로 하는 내시경 수술(TURP·홀렙)은 88-3항(1종), 절개하는 관혈수술은 50항(2종)입니다.'},
+ {n:'음낭수종·정계정맥류',k:'음낭수종 정계정맥류 고환 부고환 음낭',c:'N43 I861 N44-N45',s5:['51','50'],s3:['44','43']},
+ {n:'요도협착',k:'요도협착 요도',c:'N35',s5:['46'],s3:['40']},
+ {n:'만성 신부전(신장이식·투석혈관)',k:'신부전 신장이식 투석 동정맥루 혈액투석',c:'N18',s5:['48','22'],s3:['38'],m3:'1~3종 표는 혈액투석용 Shunt(동정맥루) 형성술이 제외입니다.'},
+ {n:'화상·피부결손(피부이식)',k:'화상 피부이식 식피 피부결손 욕창 피판',c:'T20-T32 L89',s5:['1','2'],s3:['1']},
+ {n:'침샘(이하선·악하선) 종양',k:'이하선 악하선 침샘 타액선 설하선',c:'D11 K11',s5:['30','31-1','31-2'],s3:['26','27']},
+ {n:'부신 종양',k:'부신 부신종양',c:'D350 D441 E27',s5:['58'],s3:['55']},
+ {n:'암(악성신생물)',k:'암 악성신생물 위암 대장암 폐암 간암 유방암 갑상선암 자궁암 자궁경부암 전립선암 췌장암 담낭암 신장암 방광암 난소암 식도암 뇌암 혈액암 백혈병 림프종 방사선 항암',c:'C00-C97',s5:['암1','암2','암3','방1'],s3:['80','82','81','88'],m5:'절개해서 암을 완전히 떼어내는 근치수술은 5종, 내시경·고주파·색전술 등은 3종입니다. 제자리암·경계성종양은 일반 수술 항목을 적용합니다.'},
+ {n:'기타 피부암',k:'피부암 기저세포암 편평세포암',c:'C44',s5:['암1-1','암3'],s3:['80','82']},
+ {n:'제자리암·경계성종양',k:'제자리암 상피내암 경계성종양 경계성',c:'D00-D09 D37-D48',s5:[],s3:[],m5:'제자리암·경계성종양 수술은 암 수술 항목이 아니라 해당 부위의 일반 수술 항목(1~88항)을 적용합니다. 수술명으로 다시 찾아 보세요.',m3:'수술 부위·방법에 맞는 일반 항목을 수술명으로 찾아 보세요.'}
+];
+function _sgcBoardOk(name){ try{ var c=_navCustomById(name); return !!(c&&c.type!=='link'&&/상담자료/.test(String(c.label||''))); }catch(e){ return false; } }
+function _sgcSt(){ var s=window._sgcState; if(!s||typeof s!=='object') s=window._sgcState={t:'5',q:''}; return s; }
+function _sgcNorm(v){ return String(v==null?'':v).toLowerCase().replace(/[\s·ㆍ,.\-_/()\[\]]/g,''); }
+// 입력이 질병코드 모양이면 정규화한 코드('K358'), 아니면 ''. 심평원 표기 'AM511'(주상병 구분 1자)도 받음
+function _sgcCode(q){
+  var s=String(q||'').toUpperCase().replace(/[\s.\-]/g,'');
+  if(/^[A-Z]{2}\d{2,}$/.test(s)) s=s.slice(1);
+  return /^[A-Z]\d{2,5}$/.test(s)?s:'';
+}
+function _sgcCodeHit(code, spec){
+  var p3=code.slice(0,3), toks=String(spec||'').split(/\s+/);
+  for(var i=0;i<toks.length;i++){
+    var t=toks[i]; if(!t) continue;
+    if(t.indexOf('-')>0){ var ab=t.split('-'); if(p3>=ab[0].slice(0,3)&&p3<=ab[1].slice(0,3)) return true; }
+    else if(t.length<=3){ if(p3===t) return true; }
+    else if(code.indexOf(t)===0||(code.length===3&&t.indexOf(code)===0)) return true;
+  }
+  return false;
+}
+function _sgcTable(t){ return t==='3'?SGC_T3:SGC_T5; }
+function _sgcItem(t,no){ var r=null; _sgcTable(t).forEach(function(gp){ gp[1].forEach(function(it){ if(it[0]===no) r={g:gp[0],it:it}; }); }); return r; }
+function _sgcBadge(n){ var col={1:'#5b6b8c',2:'#2f7d5b',3:'#1f6fb2',4:'#b26a12',5:'#c62828'}[n]||'#555'; return '<span style="display:inline-block;min-width:44px;text-align:center;padding:3px 9px;border-radius:13px;background:'+col+';color:#fff;font-size:13px;font-weight:800;white-space:nowrap">'+n+'종</span>'; }
+function _sgcRow(it){
+  return '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceef5;color:#6a7090;font-size:12.5px;white-space:nowrap;vertical-align:top">'+_esc(it[0])+'</td>'
+    +'<td style="padding:7px 8px;border-bottom:1px solid #eceef5;color:#1f2440;font-size:14px;line-height:1.5">'+_esc(it[1])+(it[3]?'<div style="color:#7a7f98;font-size:12.5px;margin-top:2px">'+_esc(it[3])+'</div>':'')+'</td>'
+    +'<td style="padding:7px 8px;border-bottom:1px solid #eceef5;text-align:right;vertical-align:top">'+_sgcBadge(it[2])+'</td></tr>';
+}
+function _sgcTbl(rows){ return '<table style="width:100%;border-collapse:collapse"><tbody>'+rows+'</tbody></table>'; }
+function _sgcDraw(){
+  var out=g('sgc_out'); if(!out) return;
+  var st=_sgcSt(), t=st.t==='3'?'3':'5', q=String(st.q||'').trim(), tb=_sgcTable(t), tn=(t==='3'?'1~3종':'1~5종');
+  var h='';
+  if(!q){
+    h='<div style="font-size:13px;color:#6a7090;margin:4px 0 10px">'+tn+' 수술분류표 전체입니다. 위 칸에 질병코드·질병명·수술명을 넣으면 해당 항목만 보여 줍니다.</div>'
+      +tb.map(function(gp){ return '<div style="margin-top:12px;padding:6px 10px;background:#1f2a5c;color:#fff;font-size:13.5px;font-weight:700;border-radius:6px">'+_esc(gp[0])+'</div>'+_sgcTbl(gp[1].map(_sgcRow).join('')); }).join('');
+    out.innerHTML=h; return;
+  }
+  var code=_sgcCode(q), nq=_sgcNorm(q);
+  var dx=SGC_DX.filter(function(d){
+    if(code) return _sgcCodeHit(code,d.c);
+    if(nq.length<1) return false;
+    if(_sgcNorm(d.n).indexOf(nq)>=0) return true;
+    return String(d.k).split(/\s+/).some(function(w){ var nw=_sgcNorm(w); return nw&&(nw.indexOf(nq)>=0||(nq.length>=2&&nw.length>=2&&nq.indexOf(nw)>=0)); });
+  });
+  if(code&&dx.length>1){ var sp=dx.filter(function(d){ return d.c.indexOf('C00-C97')<0; }); if(code.slice(0,3)==='C44'&&sp.length) dx=sp; }   // 기타피부암은 전용 항목만
+  if(dx.length){
+    h+='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:6px 0 8px">질환으로 찾은 결과 '+dx.length+'건 <span style="font-weight:400;color:#7a7f98;font-size:12.5px">— 그 질환에서 흔히 받는 수술 기준(참고)</span></div>';
+    h+=dx.map(function(d){
+      var nos=(t==='3'?d.s3:d.s5)||[], rows=nos.map(function(no){ var r=_sgcItem(t,no); return r?_sgcRow(r.it):''; }).join('');
+      var memo=[d.m,(t==='3'?d.m3:d.m5)].filter(Boolean);
+      return '<div style="border:1px solid #d6daec;border-radius:10px;padding:11px 13px;margin-bottom:10px;background:#fbfbfe">'
+        +'<div style="font-size:15px;font-weight:800;color:#1f2440">'+_esc(d.n)+' <span style="font-weight:500;color:#7a7f98;font-size:12.5px">질병코드 '+_esc(String(d.c).replace(/\b([A-Z]\d{2})(\d)\b/g,'$1.$2').replace(/\s+/g,', '))+'</span></div>'
+        +(rows?_sgcTbl(rows):'<div style="color:#c62828;font-size:13.5px;font-weight:700;margin-top:6px">'+tn+' 수술분류표에 해당하는 항목이 없습니다.</div>')
+        +(memo.length?'<div style="margin-top:7px;font-size:13px;color:#8a5a00;background:#fff7e6;border-radius:6px;padding:6px 9px;line-height:1.55">'+memo.map(_esc).join('<br>')+'</div>':'')
+        +'</div>';
+    }).join('');
+  }
+  var hits=[];
+  if(!code&&nq.length>=1) tb.forEach(function(gp){ gp[1].forEach(function(it){ if(_sgcNorm(it[1]+' '+(it[3]||'')+' '+it[0]).indexOf(nq)>=0||_sgcNorm(gp[0]).indexOf(nq)>=0) hits.push(it); }); });
+  if(hits.length){
+    h+='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:14px 0 6px">수술분류표에서 찾은 항목 '+hits.length+'건</div>'+_sgcTbl(hits.map(_sgcRow).join(''));
+  }
+  if(!dx.length&&!hits.length){
+    h='<div style="padding:22px 0;text-align:center;color:#7a7f98;font-size:14px;line-height:1.7">\''+_esc(q)+'\'(으)로 찾은 항목이 없습니다.<br>'
+      +(code?'이 질병코드는 연결된 수술이 정리돼 있지 않습니다. 질병명이나 진단서의 <b>수술명</b>(예: 절제, 관혈, 내시경)으로 찾아 보세요.':'다른 낱말(예: 디스크 → 추간판, 맹장 → 충수)이나 진단서의 수술명으로 찾아 보세요.')+'</div>';
+  }
+  out.innerHTML=h;
+}
+function sgcSetT(t){ _sgcSt().t=(t==='3'?'3':'5'); var p=g('sgc_panel'); if(p) p.outerHTML=_sgcPanelHtml(); _sgcDraw(); var q=g('sgc_q'); if(q){ try{ q.focus(); q.setSelectionRange(q.value.length,q.value.length); }catch(e){} } }
+function sgcInput(el){ _sgcSt().q=String(el&&el.value||'').slice(0,40); _sgcDraw(); }
+function sgcEx(v){ _sgcSt().q=String(v||''); var q=g('sgc_q'); if(q) q.value=_sgcSt().q; _sgcDraw(); }
+function _sgcPanelHtml(){
+  var st=_sgcSt(), t=st.t==='3'?'3':'5';
+  var seg=function(v,lb){ var on=(t===v); return '<button class="bp bnv" onclick="sgcSetT(\''+v+'\')" style="padding:9px 18px;font-size:14.5px;font-weight:800;border-radius:9px;cursor:pointer;'+(on?'':'background:#fff !important;color:#1f2a5c !important;border:1.5px solid #1f2a5c !important;')+'">'+(on?'✔ ':'')+lb+'</button>'; };
+  var ex=['K35','M51.1','백내장','디스크','용종','자궁근종','치핵','스텐트'].map(function(v){ return '<span onclick="sgcEx(this.textContent)" style="cursor:pointer;padding:3px 10px;border:1px solid #cfd4ea;border-radius:13px;font-size:12.5px;color:#3a4478;background:#f4f5fb">'+_esc(v)+'</span>'; }).join(' ');
+  return '<div id="sgc_panel" style="margin-top:12px">'
+    +'<div style="font-size:13.5px;font-weight:700;color:#44485a;margin-bottom:6px">① 수술분류표 고르기</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+seg('5','1~5종 수술분류표')+seg('3','1~3종 수술분류표')+'</div>'
+    +'<div style="font-size:13.5px;font-weight:700;color:#44485a;margin:14px 0 6px">② 질병코드 · 질병명 · 수술명 입력</div>'
+    +'<input id="sgc_q" type="text" maxlength="40" autocomplete="off" oninput="sgcInput(this)" value="'+_alertEsc(st.q||'')+'" placeholder="예: K35 · 백내장 · 디스크 · 충수절제" style="width:100%;max-width:520px;box-sizing:border-box;padding:11px 13px;border:1.5px solid #1f2a5c;border-radius:9px;font-size:15.5px;font-family:inherit;color:#111;background:#fff">'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span style="font-size:12.5px;color:#7a7f98">예시</span> '+ex+'</div>'
+    +'<div id="sgc_out" style="margin-top:14px"></div>'
+    +'<div style="margin-top:16px;padding:10px 12px;background:#f4f5fb;border-radius:8px;font-size:12.5px;color:#5a6080;line-height:1.65">'
+    +'· 참고용입니다. 몇 종인지는 질병이 아니라 <b>실제로 받은 수술 방법(진단서·수술확인서의 수술명)</b>으로 정해지고, 보험사·가입 시기에 따라 분류표가 다를 수 있으니 <b>가입한 약관의 수술분류표</b>를 꼭 확인하세요.<br>'
+    +'· 1~5종: 삼성화재 약관 별표 「1~5종 수술 분류표」 기준(생명보험 공통 분류와 같은 내용) · 1~3종: 옛 생명보험 「1~3종 수술분류표」(88항) 기준.<br>'
+    +'· 흡인·천자(주사기로 뽑기)·신경차단술·약물 주입, 검사·진단 목적 수술(조직검사 등), 미용 목적 수술은 수술보험금 대상이 아닙니다.'
+    +'</div></div>';
+}
 function _bdIsYear(cat){ return !!(cat&&/연말정산/.test(String(cat.nm||''))); }
 // ----- 상담고객체크리스트 (2026-10-27 — v2026.10.27-5, 사용자 요청) -----
 // 게시판 분류 이름에 '체크리스트'가 들어간 탭 → 담당자·핸드폰 입력(로그인 팀원 정보 자동) + 미리보기 + [바로 출력]/[PDF 저장].
