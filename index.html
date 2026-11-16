@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-3</div>
   </div>
 </div>
 
@@ -11363,44 +11363,34 @@ function rTree(){
     delete parentMap[ROOT]; // 선택한 팀장이 이 보기의 루트
   }
   // 보기(전체/팀장)별로 드래그 위치를 따로 저장 — 레이아웃이 달라 서로 섞이면 흩어져 보임
-  const POS_KEY='tops_tree_pos_v3'+(leaderSel?('__'+leaderSel):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
+  const POS_KEY='tops_tree_pos_v4'+(leaderSel?('__'+leaderSel):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
 
-  // ── 좌우 마인드맵 레이아웃: 중앙 루트, 왼쪽 박지순 계보(전체 보기), 오른쪽 직할 ──
-  const BW=164, BH=62, GAP_H=72, GAP_V=16, PAD=60;   // GAP_H: 단계(가로) 간격, GAP_V: 형제(세로) 간격
-  const STEP=BW+GAP_H;
+  // ── 위→아래 트리 레이아웃(2026-11-16 v-3, 백동현 요청 "최상위자부터 맨 위에서 아래로") ──
+  const BW=164, BH=62, GAP_X=22, GAP_Y=58, PAD=50;   // GAP_X: 형제(가로) 간격, GAP_Y: 단계(세로) 간격
+  const STEP_Y=BH+GAP_Y;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
   // 부모가 현재 노드 목록에 없으면(퇴사자·옛 이름 등) 루트 직할로 편입 — 미배치로 (60,60)에 겹치는 것 방지
   NODES.forEach(n=>{ if(!n.isRoot){ let p=parentMap[n.key]; if(!p||!childMap[p]){ p=ROOT; parentMap[n.key]=p; } childMap[p].push(n.key); }});
-  const rootCh=childMap[ROOT]||[];
-  const leftRoots=rootCh.filter(k=>k==='박지순');        // 왼쪽: 박지순 계보
-  const rightRoots=rootCh.filter(k=>k!=='박지순');       // 오른쪽: 직할
-  // 서브트리 세로 높이·가로 깊이 계산
-  const H={};
-  function calcH(key){ const ch=childMap[key]||[]; if(!ch.length){ H[key]=BH; return BH; } const t=ch.reduce((s,c)=>s+calcH(c)+GAP_V,0)-GAP_V; H[key]=Math.max(BH,t); return H[key]; }
+  // 서브트리 가로 폭·세로 깊이
+  const W={};
+  function calcW(key){ const ch=childMap[key]||[]; if(!ch.length){ W[key]=BW; return BW; } const t=ch.reduce((s,c)=>s+calcW(c)+GAP_X,0)-GAP_X; W[key]=Math.max(BW,t); return W[key]; }
   function calcD(key){ const ch=childMap[key]||[]; if(!ch.length) return 1; return 1+Math.max.apply(null,ch.map(calcD)); }
-  leftRoots.forEach(calcH); rightRoots.forEach(calcH);
-  const sumH=list=>list.reduce((s,k)=>s+H[k]+GAP_V,0)-(list.length?GAP_V:0);
-  const leftH=leftRoots.length?sumH(leftRoots):0;
-  const rightH=rightRoots.length?sumH(rightRoots):0;
-  const leftD=leftRoots.length?Math.max.apply(null,leftRoots.map(calcD)):0;
-  const rightD=rightRoots.length?Math.max.apply(null,rightRoots.map(calcD)):0;
-  let canvasW=PAD*2+BW+(leftD+rightD)*STEP;
-  let rootX=PAD+leftD*STEP;
-  if(canvasW<800){ rootX+=Math.floor((800-canvasW)/2); canvasW=800; }
-  let canvasH=Math.max(Math.max(leftH,rightH,BH)+PAD*2, 500);
+  calcW(ROOT);
+  const depth=calcD(ROOT);
+  let canvasW=Math.max(PAD*2+W[ROOT], 800);
+  let canvasH=Math.max(PAD*2+depth*STEP_Y-GAP_Y, 400);
+  const left0=(canvasW-W[ROOT])/2;
   const initPos={};
-  // dir: -1=왼쪽으로 뻗음, +1=오른쪽으로 뻗음. top=배정된 세로 구간의 시작.
-  function layoutSide(key,x,top,dir){
-    initPos[key]={x:x, y:top+H[key]/2-BH/2};
-    let cy=top;
-    (childMap[key]||[]).forEach(c=>{ layoutSide(c, x+dir*STEP, cy, dir); cy+=H[c]+GAP_V; });
+  // left=배정된 가로 구간의 시작, lv=단계(0=최상위)
+  function layoutDown(key,left,lv){
+    initPos[key]={x:left+W[key]/2-BW/2, y:PAD+lv*STEP_Y};
+    const ch=childMap[key]||[];
+    const tot=ch.reduce((s,c)=>s+W[c]+GAP_X,0)-GAP_X;
+    let cx=left+(W[key]-tot)/2;
+    ch.forEach(c=>{ layoutDown(c, cx, lv+1); cx+=W[c]+GAP_X; });
   }
-  initPos[ROOT]={x:rootX, y:canvasH/2-BH/2};
-  let ly=canvasH/2-leftH/2;
-  leftRoots.forEach(k=>{ layoutSide(k, rootX-STEP, ly, -1); ly+=H[k]+GAP_V; });
-  let ry=canvasH/2-rightH/2;
-  rightRoots.forEach(k=>{ layoutSide(k, rootX+STEP, ry, +1); ry+=H[k]+GAP_V; });
+  layoutDown(ROOT,left0,0);
 
   // 저장된 위치 불러오기 (없으면 계산값 사용)
   //   v2: 좌우 마인드맵 개편으로 키를 올려 예전(상하 트리) 저장 위치는 자동 무시
@@ -11489,11 +11479,12 @@ function rTree(){
       if(n.isRoot) return;
       const p=parentMap[n.key]; if(!p||!pos[p]||!pos[n.key]) return;
       const pP=pos[p], pN=pos[n.key];
-      let x1,x2;
-      if(pN.x+BW/2 >= pP.x+BW/2){ x1=pP.x+BW; x2=pN.x; } else { x1=pP.x; x2=pN.x+BW; }
-      const y1=pP.y+BH/2, y2=pN.y+BH/2, mx=(x1+x2)/2;
+      // 위→아래: 부모 카드 아래 가운데 → 자식 카드 위 가운데 (자식이 위로 옮겨졌으면 반대로)
+      let x1=pP.x+BW/2, y1, x2=pN.x+BW/2, y2;
+      if(pN.y>=pP.y){ y1=pP.y+BH; y2=pN.y; } else { y1=pP.y; y2=pN.y+BH; }
+      const my=(y1+y2)/2;
       const on=hp&&hp[n.key];
-      c.beginPath(); c.moveTo(x1,y1); c.bezierCurveTo(mx,y1,mx,y2,x2,y2);
+      c.beginPath(); c.moveTo(x1,y1); c.bezierCurveTo(x1,my,x2,my,x2,y2);
       c.strokeStyle=n.color; c.globalAlpha=hp?(on?0.95:0.15):0.55; c.lineWidth=on?3:2; c.stroke();
       c.beginPath(); c.arc(x2,y2,3.2,0,Math.PI*2); c.fillStyle=n.color; c.fill();
       c.globalAlpha=1;
@@ -11600,7 +11591,7 @@ function rTree(){
   // 초기화 함수 전역 등록 — 지금 보고 있는 보기(전체/선택한 팀장)의 위치만 초기화
   window.resetTreePos=function(){
     localStorage.removeItem('tops_tree_pos');      // 구버전(상하 트리) 저장분도 정리
-    try{ localStorage.removeItem('tops_tree_pos_v2'+(leaderSel?('__'+leaderSel):'')); }catch(e){}
+    try{ ['tops_tree_pos_v2','tops_tree_pos_v3'].forEach(function(k){ localStorage.removeItem(k+(leaderSel?('__'+leaderSel):'')); }); }catch(e){}
     localStorage.removeItem(POS_KEY);
     rTree();
     toast('계보도 위치가 초기화되었습니다.');
