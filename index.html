@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-9</div>
   </div>
 </div>
 
@@ -32618,9 +32618,9 @@ var SGC_T3=[
   ['78','내이 관혈수술',2],
   ['79','청신경 종양 적출술',3]]],
  ['악성신생물(암)의 수술',[
-  ['80','악성신생물 근치수술',3,'⚠ 이 항목은 받은 자료에 빠져 있어 통상 분류표 기준으로 넣었습니다 — 약관에서 확인하세요'],
-  ['81','악성신생물 온열요법',1,'시술 개시일부터 60일간에 1회 한도. ⚠ 받은 자료에 빠져 있어 통상 분류표 기준 — 약관 확인'],
-  ['82','기타의 악성신생물 수술',2,'⚠ 받은 자료에 빠져 있어 통상 분류표 기준 — 약관 확인']]],
+  ['80','악성신생물 근치수술',3],
+  ['81','악성신생물 온열요법',1,'시술 개시일부터 60일간에 1회의 급여를 한도로 함'],
+  ['82','기타의 악성신생물 수술',2]]],
  ['상기 이외의 수술',[
   ['83','상기 이외의 개두술',2],
   ['84','상기 이외의 개흉술',2],
@@ -32663,7 +32663,7 @@ var SGC_DX=[
  {n:'충수염(맹장염)',k:'충수염 맹장염 맹장 충수 충수돌기',c:'K35-K37',s5:['41'],s3:['34'],m5:'복강경으로 해도 41항(2종)입니다.'},
  {n:'담석증·담낭염',k:'담석 담낭염 담낭 쓸개 담도 담관',c:'K80-K83',s5:['36','88-2'],s3:['32','87'],m5:'복강경 담낭절제술은 36항(3종), 내시경(ERCP)으로 담석을 빼는 것은 88-2항(2종)입니다.'},
  {n:'탈장',k:'탈장 서혜부탈장 배꼽탈장 대퇴탈장',c:'K40-K46',s5:['39'],s3:['33']},
- {n:'치질(치핵·치루·탈항)',k:'치질 치핵 치루 탈항 항문',c:'K64 I84 K603 K605 K622 K623',s5:['44'],s3:['37'],m:'근치(완전히 낫게 하는) 목적의 수술만 해당합니다. 고무밴드 결찰 같은 처치는 제외될 수 있습니다.'},
+ {n:'치질(치핵·치루·탈항)',k:'치질 치핵 치루 탈항 항문',c:'K64 I84 K603 K605 K622 K623',s5:['44'],s3:['37'],m:'근치(완전히 낫게 하는) 목적의 수술만 해당합니다. 수술 방법별 해당 여부는 아래 세부 수술명을 보세요.'},
  {n:'대장 용종(폴립)',k:'대장용종 대장폴립 용종 폴립 선종 용종절제 결장용종 직장용종',c:'K635 K621 D12',s5:['88-2'],s3:['87'],m:'내시경 용종절제술입니다. 조직검사만 한 경우는 수술이 아닙니다.'},
  {n:'위 용종·위 선종',k:'위용종 위폴립 위선종 점막절제 ESD EMR',c:'K317 D131',s5:['88-2'],s3:['87']},
  {n:'복막염·장천공',k:'복막염 천공 장천공 위천공',c:'K65 K631 K255 K265',s5:['40','43','34'],s3:['31','36','30']},
@@ -32722,6 +32722,35 @@ function _sgcCodeHit(code, spec){
   return false;
 }
 function _sgcTable(t){ return t==='3'?SGC_T3:SGC_T5; }
+// 세부 수술명(박지순 제공 엑셀 — sgc/data.js, 약 195KB)은 이 탭을 처음 열 때 한 번만 불러옴. 행 = [수술코드, 중분류 번호, 수술명, 설명, 종(0=해당 없음), 중지?]
+function _sgcXlLoad(){
+  if(window.SGC_XL||window._sgcXlBusy) return;
+  window._sgcXlBusy=1; window._sgcXlErr=0;
+  var sc=document.createElement('script'); sc.src='sgc/data.js?v=2';
+  sc.onload=function(){ window._sgcXlBusy=0; try{ _sgcDraw(); }catch(e){} };
+  sc.onerror=function(){ window._sgcXlBusy=0; window._sgcXlErr=1; try{ sc.remove(); }catch(e){} try{ _sgcDraw(); }catch(e){} };
+  document.head.appendChild(sc);
+}
+function _sgcXl(t){ var x=window.SGC_XL; x=x&&(t==='3'?x.t3:x.t5); return (x&&Array.isArray(x.r)&&Array.isArray(x.m))?x:null; }
+// 세부 수술명 찾기 — 수술코드(영문 1 + 숫자 5, 'E37016') 또는 글자(2글자 이상: 수술명 → 설명 → 중분류 이름 순)
+function _sgcXlFind(t,q){
+  var x=_sgcXl(t); if(!x) return null;
+  var up=String(q||'').toUpperCase().replace(/\s/g,''), nq=_sgcNorm(q), a=[],b=[],c=[];
+  if(/^[A-Z]\d{5}$/.test(up)){ x.r.forEach(function(r){ if(r[0]===up) a.push(r); }); return a; }
+  if(nq.length<2) return [];
+  var mh=x.m.map(function(m){ return _sgcNorm(m[1]).indexOf(nq)>=0; });
+  x.r.forEach(function(r){ if(_sgcNorm(r[2]).indexOf(nq)>=0) a.push(r); else if(r[3]&&_sgcNorm(r[3]).indexOf(nq)>=0) b.push(r); else if(mh[r[1]]) c.push(r); });
+  return a.concat(b,c);
+}
+function _sgcXlRow(x,r){
+  var m=x.m[r[1]]||['',''], g=r[4];
+  return '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceef5;color:#6a7090;font-size:12px;white-space:nowrap;vertical-align:top">'+_esc(r[0])+'</td>'
+    +'<td style="padding:7px 8px;border-bottom:1px solid #eceef5;color:#1f2440;font-size:14px;line-height:1.5">'+_esc(r[2])+(r[5]?' <span style="color:#b26a12;font-size:12px">(중지된 코드)</span>':'')
+    +(r[3]?'<div style="color:#7a7f98;font-size:12.5px;margin-top:2px">'+_esc(r[3])+'</div>':'')
+    +'<div style="color:#9aa0b8;font-size:12px;margin-top:2px">'+_esc(m[1])+'</div></td>'
+    +'<td style="padding:7px 8px;border-bottom:1px solid #eceef5;text-align:right;vertical-align:top">'+(g>0?_sgcBadge(g):'<span style="display:inline-block;padding:3px 9px;border-radius:13px;background:#eceef3;color:#6a7090;font-size:12.5px;font-weight:700;white-space:nowrap">해당 없음</span>')+'</td></tr>';
+}
+var SGC_XL_MAX=80;
 function _sgcItem(t,no){ var r=null; _sgcTable(t).forEach(function(gp){ gp[1].forEach(function(it){ if(it[0]===no) r={g:gp[0],it:it}; }); }); return r; }
 function _sgcBadge(n){ var col={1:'#5b6b8c',2:'#2f7d5b',3:'#1f6fb2',4:'#b26a12',5:'#c62828'}[n]||'#555'; return '<span style="display:inline-block;min-width:44px;text-align:center;padding:3px 9px;border-radius:13px;background:'+col+';color:#fff;font-size:13px;font-weight:800;white-space:nowrap">'+n+'종</span>'; }
 function _sgcRow(it){
@@ -32732,15 +32761,17 @@ function _sgcRow(it){
 function _sgcTbl(rows){ return '<table style="width:100%;border-collapse:collapse"><tbody>'+rows+'</tbody></table>'; }
 function _sgcDraw(){
   var out=g('sgc_out'); if(!out) return;
+  _sgcXlLoad();
   var st=_sgcSt(), t=st.t==='3'?'3':'5', q=String(st.q||'').trim(), tb=_sgcTable(t), tn=(t==='3'?'1~3종':'1~5종');
   var h='';
   if(!q){
-    h='<div style="font-size:13px;color:#6a7090;margin:4px 0 10px">'+tn+' 수술분류표 전체입니다. 위 칸에 질병코드·질병명·수술명을 넣으면 해당 항목만 보여 줍니다.</div>'
+var _xn=_sgcXl(t); h='<div style="font-size:13px;color:#6a7090;margin:4px 0 10px">'+tn+' 수술분류표 전체입니다. 위 칸에 질병코드·질병명·수술명을 넣으면 해당 항목만 보여 줍니다.'+(_xn?' 수술명으로 찾으면 세부 수술 '+_xn.r.length+'건(수술코드표)에서도 찾습니다.':'')+'</div>'
       +tb.map(function(gp){ return '<div style="margin-top:12px;padding:6px 10px;background:#1f2a5c;color:#fff;font-size:13.5px;font-weight:700;border-radius:6px">'+_esc(gp[0])+'</div>'+_sgcTbl(gp[1].map(_sgcRow).join('')); }).join('');
     out.innerHTML=h; return;
   }
-  var code=_sgcCode(q), nq=_sgcNorm(q);
-  var dx=SGC_DX.filter(function(d){
+  var xlCode=/^[A-Za-z]\d{5}$/.test(q.replace(/\s/g,''));   // 수술코드(E37016) — 질병코드(영문 1 + 숫자 2~4)와 자릿수로 구분
+  var code=xlCode?'':_sgcCode(q), nq=_sgcNorm(q);
+  var dx=xlCode?[]:SGC_DX.filter(function(d){
     if(code) return _sgcCodeHit(code,d.c);
     if(nq.length<1) return false;
     if(nq.length===1) return String(d.k).split(/\s+/).indexOf(nq)>=0;   // 한 글자('암')는 찾는 말과 똑같을 때만 — '위'·'1' 같은 입력이 전부 걸리지 않게
@@ -32762,12 +32793,22 @@ function _sgcDraw(){
   }
   var hits=[];
   // 수술명(과 구분 이름)만 — 단서(제외 설명)까지 찾으면 '포경'이 음경 절단수술(3종)로 나오는 식의 오해가 생김
-  if(!code&&nq.length>=2) tb.forEach(function(gp){ var gh=_sgcNorm(gp[0].split('—')[0]).indexOf(nq)>=0; gp[1].forEach(function(it){ if(gh||_sgcNorm(it[1]).indexOf(nq)>=0) hits.push(it); }); });
+  if(!code&&!xlCode&&nq.length>=2) tb.forEach(function(gp){ var gh=_sgcNorm(gp[0].split('—')[0]).indexOf(nq)>=0; gp[1].forEach(function(it){ if(gh||_sgcNorm(it[1]).indexOf(nq)>=0) hits.push(it); }); });
   if(hits.length){
     h+='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:14px 0 6px">수술분류표에서 찾은 항목 '+hits.length+'건</div>'+_sgcTbl(hits.map(_sgcRow).join(''));
   }
-  if(!dx.length&&!hits.length){
-    h='<div style="padding:22px 0;text-align:center;color:#7a7f98;font-size:14px;line-height:1.7">\''+_esc(q)+'\'(으)로 찾은 항목이 없습니다.<br>'
+  // 세부 수술명(엑셀) — 질병코드로 찾을 때는 건너뜀(엑셀에는 질병코드가 없음)
+  var xl=code?[]:_sgcXlFind(t,q), xh='';
+  if(xl===null){ xh='<div style="margin-top:14px;font-size:13px;color:#7a7f98">'+(window._sgcXlErr?'세부 수술명 목록을 불러오지 못했습니다 — 새로고침 후 다시 시도해 주세요.':'세부 수술명 목록을 불러오는 중…')+'</div>'; xl=[]; }
+  else if(xl.length){
+    var x0=_sgcXl(t), on=xl.filter(function(r){ return r[4]>0; }).length;
+    xh='<div style="font-size:14px;font-weight:800;color:#1f2a5c;margin:16px 0 6px">세부 수술명 '+xl.length+'건 <span style="font-weight:400;color:#7a7f98;font-size:12.5px">— 수술코드표(엑셀) 기준 · 해당 '+on+'건 / 해당 없음 '+(xl.length-on)+'건</span></div>'
+      +_sgcTbl(xl.slice(0,SGC_XL_MAX).map(function(r){ return _sgcXlRow(x0,r); }).join(''))
+      +(xl.length>SGC_XL_MAX?'<div style="font-size:12.5px;color:#7a7f98;margin-top:6px">외 '+(xl.length-SGC_XL_MAX)+'건 — 수술명을 더 자세히 입력해 주세요.</div>':'');
+  }
+  h+=xh;
+  if(!dx.length&&!hits.length&&!xl.length){
+    h=xh+'<div style="padding:22px 0;text-align:center;color:#7a7f98;font-size:14px;line-height:1.7">\''+_esc(q)+'\'(으)로 찾은 항목이 없습니다.<br>'
       +(code?'이 질병코드는 연결된 수술이 정리돼 있지 않습니다. 질병명이나 진단서의 <b>수술명</b>(예: 절제, 관혈, 내시경)으로 찾아 보세요.':'다른 낱말(예: 디스크 → 추간판, 맹장 → 충수)이나 진단서의 수술명으로 찾아 보세요.')+'</div>';
   }
   out.innerHTML=h;
@@ -32778,17 +32819,18 @@ function sgcEx(v){ _sgcSt().q=String(v||''); var q=g('sgc_q'); if(q) q.value=_sg
 function _sgcPanelHtml(){
   var st=_sgcSt(), t=st.t==='3'?'3':'5';
   var seg=function(v,lb){ var on=(t===v); return '<button class="bp bnv" onclick="sgcSetT(\''+v+'\')" style="padding:9px 18px;font-size:14.5px;font-weight:800;border-radius:9px;cursor:pointer;'+(on?'':'background:#fff !important;color:#1f2a5c !important;border:1.5px solid #1f2a5c !important;')+'">'+(on?'✔ ':'')+lb+'</button>'; };
-  var ex=['K35','M51.1','백내장','디스크','용종','자궁근종','치핵','스텐트'].map(function(v){ return '<span onclick="sgcEx(this.textContent)" style="cursor:pointer;padding:3px 10px;border:1px solid #cfd4ea;border-radius:13px;font-size:12.5px;color:#3a4478;background:#f4f5fb">'+_esc(v)+'</span>'; }).join(' ');
+  var ex=['K35','M51.1','백내장','디스크','용종','폴립절제','치핵','스텐트'].map(function(v){ return '<span onclick="sgcEx(this.textContent)" style="cursor:pointer;padding:3px 10px;border:1px solid #cfd4ea;border-radius:13px;font-size:12.5px;color:#3a4478;background:#f4f5fb">'+_esc(v)+'</span>'; }).join(' ');
   return '<div id="sgc_panel" style="margin-top:12px">'
     +'<div style="font-size:13.5px;font-weight:700;color:#44485a;margin-bottom:6px">① 수술분류표 고르기</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+seg('5','1~5종 수술분류표')+seg('3','1~3종 수술분류표')+'</div>'
     +'<div style="font-size:13.5px;font-weight:700;color:#44485a;margin:14px 0 6px">② 질병코드 · 질병명 · 수술명 입력</div>'
-    +'<input id="sgc_q" type="text" maxlength="40" autocomplete="off" oninput="sgcInput(this)" value="'+_alertEsc(st.q||'')+'" placeholder="예: K35 · 백내장 · 디스크 · 충수절제" style="width:100%;max-width:520px;box-sizing:border-box;padding:11px 13px;border:1.5px solid #1f2a5c;border-radius:9px;font-size:15.5px;font-family:inherit;color:#111;background:#fff">'
+    +'<input id="sgc_q" type="text" maxlength="40" autocomplete="off" oninput="sgcInput(this)" value="'+_alertEsc(st.q||'')+'" placeholder="예: K35 · 백내장 · 디스크 · 충수절제 · 폴립절제술" style="width:100%;max-width:520px;box-sizing:border-box;padding:11px 13px;border:1.5px solid #1f2a5c;border-radius:9px;font-size:15.5px;font-family:inherit;color:#111;background:#fff">'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span style="font-size:12.5px;color:#7a7f98">예시</span> '+ex+'</div>'
     +'<div id="sgc_out" style="margin-top:14px"></div>'
     +'<div style="margin-top:16px;padding:10px 12px;background:#f4f5fb;border-radius:8px;font-size:12.5px;color:#5a6080;line-height:1.65">'
     +'· 참고용입니다. 몇 종인지는 질병이 아니라 <b>실제로 받은 수술 방법(진단서·수술확인서의 수술명)</b>으로 정해지고, 보험사·가입 시기에 따라 분류표가 다를 수 있으니 <b>가입한 약관의 수술분류표</b>를 꼭 확인하세요.<br>'
     +'· 1~5종: 삼성화재 약관 별표 「1~5종 수술 분류표」 기준(생명보험 공통 분류와 같은 내용) · 1~3종: 옛 생명보험 「1~3종 수술분류표」(88항) 기준.<br>'
+    +'· 세부 수술명: 지점 수술코드표(엑셀 「1~3 / 1~5 Surgical table」 Ver 1.0) 기준 — 위 분류표와 만든 시기가 달라 같은 수술의 종이 다르게 나올 수 있습니다. 다르면 가입 약관을 따르세요.<br>'
     +'· 흡인·천자(주사기로 뽑기)·신경차단술·약물 주입, 검사·진단 목적 수술(조직검사 등), 미용 목적 수술은 수술보험금 대상이 아닙니다.'
     +'</div></div>';
 }
