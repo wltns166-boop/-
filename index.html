@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-6</div>
   </div>
 </div>
 
@@ -5473,6 +5473,7 @@ function logout(){
   try{ _vpFix(0); }catch(e){}
   window._mfSelMap={};
   try{ var _rkc=document.getElementById('rkp_cfg_pop'); if(_rkc) _rkc.remove(); }catch(e){}
+  try{ var _trp=document.getElementById('tree_pop'); if(_trp) _trp.remove(); }catch(e){}
   try{ _mhxColStop(); }catch(e){}
   try{ _cbClear(); }catch(e){}   // 사용법 안내 채팅 봇 대화 지우기
   try{ _custInfoCloseAll(); }catch(e){}   // 고객정보 새 창 닫기(개인정보 잔존 방지)
@@ -11479,7 +11480,7 @@ function rTree(){
       <button onclick="printTree()" style="${btnS}"><i class="ti ti-printer"></i> 출력</button>
       <button onclick="saveTreePdf()" style="${btnS}"><i class="ti ti-file-type-pdf"></i> PDF 저장</button>
     </div>
-    <div style="font-size:12.5px;color:#8a93a8;margin:0 0 8px 4px">카드를 끌어 자리를 옮길 수 있고, 마우스를 올리면 그 사람의 윗선이 강조됩니다.</div>
+    <div style="font-size:12.5px;color:#8a93a8;margin:0 0 8px 4px">카드를 누르면 상세 정보가 열리고, 끌면 자리를 옮길 수 있습니다. 마우스를 올리면 그 사람의 윗선이 강조됩니다.</div>
     <div style="overflow:auto;border-radius:14px;border:1px solid #e3e7f0;background:#fbfcfe"><canvas id="tree_canvas" width="${Math.round(canvasW*Z)}" height="${Math.round(canvasH*Z)}" style="display:block;cursor:grab"></canvas></div>`;
 
   const canvas = document.getElementById('tree_canvas');
@@ -11569,7 +11570,62 @@ function rTree(){
   draw();
 
   // ── 드래그 ────────────────────────────────────────────────
-  let dragging=null, offX=0, offY=0;
+  let dragging=null, offX=0, offY=0, downAt=null;
+
+  // ── 카드 누르면 상세 정보(2026-11-16 v-6, 백동현 요청) — 지금 보이는 계보(NODES) 안의 사람만 ──
+  function _treeCardOpen(key){
+    const n=nodeMap[key]; if(!n) return;
+    const m=(mem||[]).find(x=>x&&x.name===key)||null;
+    const adm=(typeof _admList==='function'?_admList():ADMINS).find(a=>a&&a.name===key)||null;
+    const ov=adm?(_admOv(key)||{}):{};
+    const rank=m?(m.rank||''):(adm?_admRankOf(adm):(n.role||''));
+    const up=parentMap[key]&&nodeMap[parentMap[key]]?parentMap[key]:((m&&m.belong)||(adm&&ov.belong)||'');
+    const phone=m?(m.phone||''):(ov.phone||'');
+    const birth=m?(m.birth||''):(ov.birth||'');
+    const kids=childMap[key]||[];
+    const team=[]; (function walk(k){ (childMap[k]||[]).forEach(c=>{ team.push(c); walk(c); }); })(key);
+    const ym=_curYm(); const ag={};
+    (prf||[]).forEach(p=>{ if(!p||_perfMonth(p)!==ym) return; const o=ag[p.m]||(ag[p.m]={c:0,a:0,ay:0}); o.c+=(+p.c||0); o.a+=(+p.a||0); o.ay+=(+p.ay||0); });
+    const me=ag[key]||{c:0,a:0,ay:0}, tm={c:me.c,a:me.a,ay:me.ay};
+    team.forEach(t=>{ const o=ag[t]; if(o){ tm.c+=o.c; tm.a+=o.a; tm.ay+=o.ay; } });
+    // 최근 6개월 본인 인정실적
+    const months=[]; { const d=new Date(); d.setDate(1); for(let i=5;i>=0;i--){ const x=new Date(d.getFullYear(),d.getMonth()-i,1); months.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); } }
+    const mon={}; months.forEach(k=>mon[k]=0);
+    (prf||[]).forEach(p=>{ if(p&&p.m===key){ const k=_perfMonth(p); if(k in mon) mon[k]+=(+p.a||0); } });
+    const mx=Math.max(1,...months.map(k=>mon[k]));
+    const won=v=>(+v||0).toLocaleString()+'원';
+    const row=(lb,v,cp)=>'<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0f2f7;font-size:13.5px"><span style="width:84px;flex-shrink:0;color:#7a8499;font-weight:600">'+lb+'</span><span style="color:#111827;font-weight:600;word-break:break-all'+(cp&&v?';cursor:pointer':'')+'"'+(cp&&v?' data-trcp="1" data-copy="'+_alertEsc(v)+'" data-cplb="'+_alertEsc(lb)+'" title="눌러서 복사"':'')+'>'+(v?_esc(v):'<span style="color:#b8bfcc">-</span>')+'</span></div>';
+    const ymd=v=>_ymdOk(v)?String(v).replace(/-/g,'.'):String(v||'');
+    const chip=k=>'<span data-trgo="'+_alertEsc(k)+'" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:'+(nodeMap[k]?nodeMap[k].bg:'#f1f5f9')+';color:'+(nodeMap[k]?nodeMap[k].color:'#475569')+';font-size:12.5px;font-weight:700;cursor:pointer">'+_esc(k)+(desc[k]?' <span style="opacity:.7">+'+desc[k]+'</span>':'')+'</span>';
+    const kpi=(lb,v,sub)=>'<div style="flex:1;min-width:0;padding:10px 12px;border-radius:11px;background:#f6f8fc;border:1px solid #e8ecf3"><div style="font-size:11.5px;color:#7a8499;font-weight:700">'+lb+'</div><div style="font-size:16px;font-weight:800;color:#1f2a5c;margin-top:2px">'+v+'</div>'+(sub?'<div style="font-size:11.5px;color:#7a8499;margin-top:1px">'+sub+'</div>':'')+'</div>';
+    const bars=months.map(k=>{ const h=Math.round(mon[k]/mx*54); return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="font-size:10.5px;color:#475569;font-weight:700;white-space:nowrap">'+(mon[k]?Math.round(mon[k]/10000).toLocaleString()+'만':'')+'</div><div style="width:70%;height:'+Math.max(2,h)+'px;background:'+(k===ym?n.color:'#cbd3e3')+';border-radius:3px 3px 0 0"></div><div style="font-size:11px;color:#7a8499">'+(+k.slice(5))+'월</div></div>'; }).join('');
+    let pop=document.getElementById('tree_pop'); if(pop) pop.remove();
+    pop=document.createElement('div'); pop.id='tree_pop';
+    pop.style.cssText='position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:16px';
+    pop.innerHTML='<div style="width:min(440px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(15,23,42,.3);color:#111827">'
+      +'<div style="padding:18px 20px;border-radius:16px 16px 0 0;background:'+(n.isRoot?'linear-gradient(135deg,#7c3aed,#1f2a5c)':'linear-gradient(135deg,'+n.color+',#1f2a5c)')+';color:#fff;display:flex;align-items:center;gap:14px">'
+      +'<div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:800">'+_esc(String(n.name||'?').charAt(0))+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:800">'+_esc(n.name)+'</div><div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><span style="padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.22);font-size:12px;font-weight:700">'+_esc(rank||'-')+'</span>'+(m&&m.code?'<span style="padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.15);font-size:12px">코드 '+_esc(m.code)+'</span>':'')+(desc[key]?'<span style="padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.15);font-size:12px">하위 '+desc[key]+'명</span>':'')+'</div></div>'
+      +'<button data-trx="1" style="background:none;border:0;color:#fff;font-size:22px;cursor:pointer;padding:4px 6px">✕</button></div>'
+      +'<div style="padding:16px 20px 20px">'
+      +'<div style="font-size:12.5px;font-weight:800;color:#1f2a5c;margin-bottom:8px">이번 달 실적 ('+(+ym.slice(5))+'월)</div>'
+      +'<div style="display:flex;gap:8px">'+kpi('본인 인정',won(me.a),me.c+'건 · 영수 '+won(me.ay))+(team.length?kpi('팀 합계 인정',won(tm.a),tm.c+'건 · '+(team.length+1)+'명'):'')+'</div>'
+      +'<div style="font-size:12.5px;font-weight:800;color:#1f2a5c;margin:16px 0 6px">최근 6개월 본인 인정실적</div>'
+      +'<div style="display:flex;align-items:flex-end;gap:4px;height:92px;padding:0 2px;border-bottom:1px solid #e3e7f0">'+bars+'</div>'
+      +'<div style="font-size:12.5px;font-weight:800;color:#1f2a5c;margin:16px 0 2px">인적 사항</div>'
+      +row('상위자',up)+row('연락처',phone,1)+row('생년월일',ymd(birth))+(m?row('입사일',ymd(m.joinDate||''))+row('영업시작일',ymd(m.salesStart||''))+(m.workType?row('근무형태',m.workType):'')+row('주소',m.address||'',1):'')
+      +(kids.length?'<div style="font-size:12.5px;font-weight:800;color:#1f2a5c;margin:16px 0 8px">직속 하위 '+kids.length+'명</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+kids.map(chip).join('')+'</div>':'')
+      +(phone?'<div style="display:flex;gap:8px;margin-top:18px"><a href="tel:'+_alertEsc(String(phone).replace(/[^0-9+]/g,''))+'" class="bp bnv" style="flex:1;display:flex;justify-content:center;align-items:center;text-decoration:none;padding:9px 0;border-radius:10px">📞 전화하기</a></div>':'')
+      +'</div></div>';
+    pop.addEventListener('click',ev=>{
+      if(ev.target===pop||ev.target.closest('[data-trx]')){ pop.remove(); return; }
+      const go=ev.target.closest('[data-trgo]'); if(go){ _treeCardOpen(go.getAttribute('data-trgo')); return; }
+      const cp=ev.target.closest('[data-trcp]'); if(cp){ try{ _csrCopyVal(cp); }catch(e){} }
+    });
+    const esc=ev=>{ if(ev.key==='Escape'){ pop.remove(); document.removeEventListener('keydown',esc); } };
+    document.addEventListener('keydown',esc);
+    document.body.appendChild(pop);
+  }
 
   function getNodeAt(mx,my){
     return NODES.slice().reverse().find(n=>pos[n.key]&&mx>=pos[n.key].x&&mx<=pos[n.key].x+BW&&my>=pos[n.key].y&&my<=pos[n.key].y+BH);
@@ -11584,7 +11640,7 @@ function rTree(){
   canvas.addEventListener('mousedown',e=>{
     const {x,y}=evXY(e);
     const n=getNodeAt(x,y);
-    if(n){dragging=n;offX=x-pos[n.key].x;offY=y-pos[n.key].y;canvas.style.cursor='grabbing';e.preventDefault();}
+    if(n){dragging=n;offX=x-pos[n.key].x;offY=y-pos[n.key].y;canvas.style.cursor='grabbing';e.preventDefault(); downAt={k:n.key,x:e.clientX,y:e.clientY}; }
   });
   canvas.addEventListener('mousemove',e=>{
     const {x,y}=evXY(e);
@@ -11598,8 +11654,12 @@ function rTree(){
       if(hk!==hoverKey){ hoverKey=hk; draw(); }
     }
   });
-  canvas.addEventListener('mouseup',()=>{
-    if(dragging){ saveTreePos(); dragging=null; canvas.style.cursor='grab'; }
+  canvas.addEventListener('mouseup',e=>{
+    const d=downAt; downAt=null;
+    if(dragging){ dragging=null; canvas.style.cursor='grab';
+      // 거의 안 움직였으면 클릭 = 상세 카드 열기(자리 저장 안 함)
+      if(d&&Math.abs(e.clientX-d.x)<5&&Math.abs(e.clientY-d.y)<5){ _treeCardOpen(d.k); return; }
+      saveTreePos(); }
   });
   canvas.addEventListener('mouseleave',()=>{ if(dragging){saveTreePos();dragging=null;} if(hoverKey){ hoverKey=null; draw(); } });
 
@@ -11607,16 +11667,17 @@ function rTree(){
   canvas.addEventListener('touchstart',e=>{
     const {x,y}=evXY(e);
     const n=getNodeAt(x,y);
-    if(n){dragging=n;offX=x-pos[n.key].x;offY=y-pos[n.key].y;e.preventDefault();}
+    if(n){dragging=n;offX=x-pos[n.key].x;offY=y-pos[n.key].y;e.preventDefault(); downAt={k:n.key,x:e.touches[0].clientX,y:e.touches[0].clientY,mv:0}; }
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
     if(!dragging)return;
     const {x,y}=evXY(e);
     pos[dragging.key].x=Math.max(0,Math.min(canvasW-BW,x-offX));
     pos[dragging.key].y=Math.max(0,Math.min(canvasH-BH,y-offY));
+    if(downAt&&(Math.abs(e.touches[0].clientX-downAt.x)>=8||Math.abs(e.touches[0].clientY-downAt.y)>=8)) downAt.mv=1;
     draw(); e.preventDefault();
   },{passive:false});
-  canvas.addEventListener('touchend',()=>{ if(dragging){saveTreePos();dragging=null;} });
+  canvas.addEventListener('touchend',()=>{ const d=downAt; downAt=null; if(dragging){ dragging=null; if(d&&!d.mv){ _treeCardOpen(d.k); return; } saveTreePos(); } });
 
   function saveTreePos(){ _lsSet(POS_KEY,JSON.stringify(pos)); }
 
