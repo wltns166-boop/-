@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-4</div>
   </div>
 </div>
 
@@ -11366,7 +11366,7 @@ function rTree(){
   const POS_KEY='tops_tree_pos_v4'+(leaderSel?('__'+leaderSel):'');   // v3(2026-11-16 새 디자인 — 카드 크기 변경)
 
   // ── 위→아래 트리 레이아웃(2026-11-16 v-3, 백동현 요청 "최상위자부터 맨 위에서 아래로") ──
-  const BW=164, BH=62, GAP_X=22, GAP_Y=58, PAD=50;   // GAP_X: 형제(가로) 간격, GAP_Y: 단계(세로) 간격
+  const BW=164, BH=62, GAP_X=10, GAP_Y=36, PAD=30;   // GAP_X: 형제(가로) 간격, GAP_Y: 단계(세로) 간격
   const STEP_Y=BH+GAP_Y;
   const childMap = {};
   NODES.forEach(n=>childMap[n.key]=[]);
@@ -11416,7 +11416,7 @@ function rTree(){
 
   // ── Canvas 생성 (확대/축소 배율 적용, 총 픽셀 상한으로 메모리 보호) ─────────────────────
   // 처음 열 때는 화면 폭에 맞춰 한눈에(2026-11-16) — [－][＋]를 누른 뒤엔 그 배율 유지
-  const _fitW=Math.max(300,(wrap.clientWidth||1000)-4);
+  const _fitW=Math.max(300,(wrap.clientWidth||1000)-24);
   let Z=window._treeZoom?Math.min(2,Math.max(0.4,window._treeZoom)):Math.min(1,Math.max(0.4,Math.floor(_fitW/canvasW*100)/100));
   const _zCap=Math.sqrt(24e6/Math.max(1,canvasW*canvasH));   // 캔버스 최대 2,400만 픽셀(약 96MB)
   if(Z>_zCap) Z=_zCap; window._treeZoomCur=Z;
@@ -11484,9 +11484,10 @@ function rTree(){
       if(pN.y>=pP.y){ y1=pP.y+BH; y2=pN.y; } else { y1=pP.y; y2=pN.y+BH; }
       const my=(y1+y2)/2;
       const on=hp&&hp[n.key];
-      c.beginPath(); c.moveTo(x1,y1); c.bezierCurveTo(x1,my,x2,my,x2,y2);
-      c.strokeStyle=n.color; c.globalAlpha=hp?(on?0.95:0.15):0.55; c.lineWidth=on?3:2; c.stroke();
-      c.beginPath(); c.arc(x2,y2,3.2,0,Math.PI*2); c.fillStyle=n.color; c.fill();
+      // 꺾은선(2026-11-16 v-4 — "선이 너무 부드러워, 딱딱하게"): 아래 → 가로 → 아래
+      c.beginPath(); c.moveTo(x1,y1); c.lineTo(x1,my); c.lineTo(x2,my); c.lineTo(x2,y2);
+      c.lineJoin='miter'; c.lineCap='square';
+      c.strokeStyle=on?n.color:'#9aa4b8'; c.globalAlpha=hp?(on?1:0.2):1; c.lineWidth=on?2.5:1.5; c.stroke();
       c.globalAlpha=1;
     });
     // 카드
