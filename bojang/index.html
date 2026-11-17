@@ -390,6 +390,19 @@ function estPay(p){const e=String(p.expiry||''),r=String(p.renewal||'');let m;
   if(m=e.match(/(\d+)\s*세/)){const b=String(S.cur&&S.cur.birth||'').match(/(\d{4})/),j=String(p.joinDate||'').match(/(\d{4})/);
     const ja=b?((j?+j[1]:new Date().getFullYear())-+b[1]):null;if(ja!=null){const span=+m[1]-ja;if(span>0)return(/갱신/.test(r)&&!/비갱신/.test(r)&&+m[1]<80)?span:Math.min(20,span)}}
   return num(p.premium)?20:0}
+/* 납입기간·만기 한 칸 표시·입력 (예: 30년납 100세만기) */
+function payExpTxt(p){const y=num(p.payYears),e=String(p.expiry||'').trim();return[y&&!/세\s*납/.test(e)?y+'년납':'',e].filter(Boolean).join(' ')}
+function _joinAge(p){const b=String(S.cur&&S.cur.birth||'').match(/(\d{4})/),j=String(p&&p.joinDate||'').match(/(\d{4})/);return b?((j?+j[1]:new Date().getFullYear())-+b[1]):null}
+/* 입력 글자는 버리지 않는다: 'N년납'만 payYears로 빼고, 나머지(N세납·갱신·종신·전기납 등)는 만기 칸 글자로 그대로 보존 */
+function parsePayExp(s,p){s=String(s||'').trim();if(!s)return{py:0,exp:''};let py=0,rest=s,m;
+  if(m=rest.match(/(\d+)\s*년\s*납(입)?/)){py=+m[1];rest=rest.replace(m[0],' ')}
+  rest=rest.replace(/\s+/g,' ').trim();
+  if(/^\d+(\s+\d+)?$/.test(rest)){const d=rest.split(' ').map(Number);rest='';if(!py&&d.length&&d[0]<=60)py=d.shift();if(d.length){const n=d.shift();rest=n>=40?n+'세만기':n+'년만기'}}
+  if(!py&&(m=rest.match(/(\d+)\s*세\s*납/))){const a=_joinAge(p);if(a!=null&&+m[1]>a)py=+m[1]-a}
+  return{py:Math.min(py,100),exp:rest.slice(0,40)}}
+const fmtWonN=n=>n?Math.round(n).toLocaleString('ko-KR')+'원':'';
+/* 총 납입보험료 = 월보험료 × 납입기간 × 12 (납입기간이 비면 추정값) */
+function totPay(p){const m=num(p.premium);let y=num(p.payYears),est=false;if(!y){y=estPay(p);est=!!y}return{v:m&&y?m*y*12:0,est}}
 function payInfo(p){const m=num(p.premium);let y=num(p.payYears),est=false;if(!y){y=estPay(p);est=!!y}if(!y)return{known:false,m,left:0,paid:0,leftAmt:0,paidAmt:0,tot:0};const tot=Math.round(y*12);let paid=0;
   const jd=String(p.joinDate||'').match(/(\d{4})\D?(\d{1,2})?/);if(jd){const now=new Date();paid=(now.getFullYear()-+jd[1])*12+(now.getMonth()+1-(+jd[2]||1))}
   paid=Math.max(0,Math.min(tot,paid));return{known:true,est,y,m,tot,paid,left:tot-paid,paidAmt:paid*m,leftAmt:(tot-paid)*m}}
@@ -715,11 +728,16 @@ function polHead(p,kind,ed){
   return`<div class="ph-pol">${tag?`<div>${tag}</div>`:''}<div class="co">${esc(p.company||'보험사')}${p.summary?' <span class="pill">합산</span>':''}</div><div class="pr">${esc(p.product||'')}</div>
    ${ed?`<div class="acts"><button class="btn sm danger" data-act="delPolicy" data-id="${p.id}" data-confirm="1">삭제</button></div>`:''}</div>`;
 }
+function totRowHTML(cols){const t=cols.map(totPay),sum=t.reduce((s,x)=>s+x.v,0);
+  return`<tr class="meta" data-meta="tot"><td class="c-grp"></td><td class="c-lbl" title="월보험료 × 납입기간 × 12 (갱신 인상분 제외)">총 납입보험료</td><td class="c-sum" style="white-space:nowrap;font-size:12px;letter-spacing:-.2px">${fmtWonN(sum)}</td>${t.map(x=>`<td class="ro">${fmtWonN(x.v)}${x.v&&x.est?'<small class="muted"> (추정)</small>':''}</td>`).join('')}</tr>`}
 function gridHTML(cols,{editable,kind}){
   if(!cols.length)return`<div class="card empty"><b>${kind==='before'?'기존 보험이 아직 없습니다':'유지할 보험이나 제안 보험이 아직 없습니다'}</b>${kind==='before'?'PDF를 올리면 담보가 자동으로 아래 표에 채워집니다.':'위에서 유지할 보험을 체크하거나 제안서 PDF를 올려주세요.'}</div>`;
   const ed=cols.map(p=>editable(p));
   const mrow=(lbl,f,type='txt')=>`<tr class="meta"><td class="c-grp"></td><td class="c-lbl">${lbl}</td><td class="c-sum">${f==='premium'?fmtN(premium(cols)):''}</td>${cols.map((p,i)=>ed[i]?`<td class="cell"><input class="${type}" data-pid="${p.id}" data-pf="${f}" value="${esc(f==='premium'||f==='payYears'?(num(p[f])||''):p[f]||'')}" ${f==='payYears'&&!num(p.payYears)&&estPay(p)?`placeholder="${estPay(p)} (추정)"`:''} ${type==='num'?'inputmode="numeric"':''}></td>`:`<td class="ro ${type==='txt'?'l':''}">${esc(f==='premium'||f==='payYears'?fmtN(num(p[f])):p[f]||'')}</td>`).join('')}</tr>`;
-  let body=mrow('가입회사','company')+mrow('상품명','product')+mrow('가입일','joinDate')+mrow('월보험료(원)','premium','num')+mrow('납입기간(년)','payYears','num');
+  let body=mrow('가입회사','company')+mrow('상품명','product')+mrow('가입일','joinDate');
+  body+=`<tr class="meta"><td class="c-grp"></td><td class="c-lbl">납입기간 / 만기</td><td class="c-sum"></td>${cols.map((p,i)=>ed[i]?`<td class="cell"><input class="num" data-pid="${p.id}" data-pf="payexp" value="${esc(payExpTxt(p))}" ${!num(p.payYears)&&estPay(p)?`placeholder="${estPay(p)}년납 (추정)"`:''}></td>`:`<td class="ro">${esc(payExpTxt(p))}</td>`).join('')}</tr>`;
+  body+=`<tr class="meta" data-meta="premium"><td class="c-grp"></td><td class="c-lbl">월보험료</td><td class="c-sum">${fmtWonN(premium(cols))}</td>${cols.map((p,i)=>ed[i]?`<td class="cell"><input class="num" inputmode="numeric" data-pid="${p.id}" data-pf="premium" value="${esc(fmtWonN(num(p.premium)))}"></td>`:`<td class="ro">${fmtWonN(num(p.premium))}</td>`).join('')}</tr>`;
+  body+=totRowHTML(cols);
   body+=`<tr class="meta"><td class="c-grp">실비</td><td class="c-lbl">실손의료비</td><td class="c-sum" id="sum_silson">${cols.some(p=>p.silson)?'가입':'<span class="down">미가입</span>'}</td>${cols.map((p,i)=>`<td class="${ed[i]?'cell':'ro l'}" style="padding:0 8px">${ed[i]?`<label class="chk"><input type="checkbox" data-pid="${p.id}" data-pchk="silson" ${p.silson?'checked':''}> ${p.silson?silsonGen(p.joinDate):'없음'}</label>`:(p.silson?silsonGen(p.joinDate):'-')}</td>`).join('')}</tr>`;
   body+=`<tr class="meta"><td class="c-grp"></td><td class="c-lbl" title="암통합치료비·비급여암통합치료비·순환계 주요치료비 가입금액에 따라 세부 치료비를 자동 계산">통합치료비 자동전개</td><td class="c-sum"></td>${cols.map((p,i)=>`<td class="${ed[i]?'cell':'ro l'}" style="padding:0 8px">${ed[i]?`<label class="chk"><input type="checkbox" data-pid="${p.id}" data-pchk="expand" ${p.expand?'checked':''}> 사용</label>`:(p.expand?'사용':'-')}</td>`).join('')}</tr>`;
   for(const [g,gp,arr0] of GROUPS){const arr=arr0.filter(([k])=>isVis(k,sumK(cols,k)>0));
@@ -737,7 +755,8 @@ function updateSums(){
   document.querySelectorAll('[data-sum]').forEach(el=>{const k=el.dataset.sum;const s=sumK(cols,k);const key=ITEM[k].key;el.textContent=key&&!s?'미가입':fmtN(s);el.parentElement.classList.toggle('miss',key&&!s)});
   const ps=document.querySelector('tr.meta td.c-sum');
   document.querySelectorAll('[data-auto]').forEach(el=>{const[pid,k]=el.dataset.auto.split(':');const p=cols.find(x=>x.id===pid);const a=p?(expandAdd(p)[k]||0):0;el.textContent=a?'+'+fmtN(a):''});
-  const pr=[...document.querySelectorAll('tr.meta')].find(tr=>tr.querySelector('.c-lbl')?.textContent.startsWith('월보험료'));if(pr)pr.querySelector('.c-sum').textContent=fmtN(premium(cols));
+  const pr=document.querySelector('tr.meta[data-meta="premium"] .c-sum');if(pr)pr.textContent=fmtWonN(premium(cols));
+  const tr=document.querySelector('tr.meta[data-meta="tot"]');if(tr){const w=document.createElement('tbody');w.innerHTML=totRowHTML(cols);tr.replaceWith(w.firstElementChild)}
   try{paintGrid(cols)}catch(e){}
 }
 function covHTML(set){
@@ -769,8 +788,8 @@ function premCardHTML(){
    <div><div class="pk">앞으로 낼 총 보험료</div>${bar('지금 그대로',tb.left,mxL,'b',fmtBig(tb.left))}${bar('제안 후',ta.left,mxL,'a',fmtBig(ta.left))}<div class="pd">${fmtDiff(Math.round((ta.left-tb.left)/10000))}원${saved.left?` · 정리하는 보험에서 아끼는 금액 ${fmtBig(saved.left)}`:''}</div></div></div>
    <div class="tscroll"><table class="tbl"><thead><tr><th>구분</th><th>보험</th><th style="text-align:right">월보험료</th><th style="text-align:right">납입기간</th><th style="text-align:right">남은 기간</th><th style="text-align:right">앞으로 낼 금액</th></tr></thead><tbody>
    ${rowsP.map(({p,t})=>{const i=payInfo(p);return`<tr style="${t==='정리'?'opacity:.55':''}"><td><span class="pill ${t==='신규'?'gold':t==='정리'?'red':''}">${t}</span></td><td><b>${esc(p.company||'-')}</b> <span class="muted">${esc(p.product||'')}</span></td><td style="text-align:right">${fmtWon(i.m)}</td><td style="text-align:right">${i.known?(i.est?`${i.y}년 <span class="pill gold" title="만기·갱신 여부로 추정">추정</span>`:i.y+'년'):'<span class="down">미입력</span>'}</td><td style="text-align:right">${i.known?fmtTerm(i.left):'-'}</td><td style="text-align:right">${t==='정리'?'<s>'+fmtBig(i.leftAmt)+'</s>':fmtBig(i.leftAmt)}</td></tr>`}).join('')}</tbody></table></div>
-   ${(tb.est+ta.est)?`<p class="muted" style="margin:0;font-size:12.5px">'추정' 표시 보험은 PDF에 납입기간이 없어 만기·갱신 여부로 추정했습니다(80세 미만 만기 갱신형은 만기까지, 나머지는 20년납). 정확한 납입기간을 보장분석표의 '납입기간(년)' 칸에 넣으면 바로 바뀝니다.</p>`:''}
-   ${unk?`<p class="muted" style="margin:0;font-size:12.5px">납입기간이 비어 있는 보험 ${unk}건은 총액에서 빠졌습니다. 보장분석표의 '납입기간(년)' 칸에 넣으면 바로 반영됩니다.</p>`:''}</div>`;
+   ${(tb.est+ta.est)?`<p class="muted" style="margin:0;font-size:12.5px">'추정' 표시 보험은 PDF에 납입기간이 없어 만기·갱신 여부로 추정했습니다(80세 미만 만기 갱신형은 만기까지, 나머지는 20년납). 정확한 납입기간을 보장분석표의 '납입기간 / 만기' 칸에 넣으면 바로 바뀝니다.</p>`:''}
+   ${unk?`<p class="muted" style="margin:0;font-size:12.5px">납입기간이 비어 있는 보험 ${unk}건은 총액에서 빠졌습니다. 보장분석표의 '납입기간 / 만기' 칸에 넣으면 바로 반영됩니다.</p>`:''}</div>`;
 }
 function compareHTML(){
   const B=setBefore(),A=setAfter();
@@ -1056,12 +1075,14 @@ function covPages(cols,title,sub){
   const o=S.pr;const per=7;const out=[];
   for(let s=0;s<cols.length;s+=per){
     const pc=cols.slice(s,s+per);const items=ITEMS.filter(i=>isVis(i.k,sumK(cols,i.k)>0)&&(!o.hideEmpty||i.key||sumK(cols,i.k)));
-    const nRows=items.length+4;const avail=1123-70-62-28-50;const rh=Math.max(9.5,Math.min(24,Math.floor(avail/nRows*10)/10));const fs=Math.max(7,Math.min(11.5,rh*.62));
+    const nRows=items.length+6;const avail=1123-70-62-28-50;const rh=Math.max(9.5,Math.min(24,Math.floor(avail/nRows*10)/10));const fs=Math.max(7,Math.min(11.5,rh*.62));
     const pw=(706-36-122-70)/pc.length;
     let h=`<table class="cov" style="font-size:${fs}px"><colgroup><col style="width:36px"><col style="width:122px"><col style="width:70px">${pc.map(()=>`<col style="width:${pw}px">`).join('')}</colgroup>
      <thead><tr><th colspan="2" class="l">담보 <small>단위 만원</small></th><th>합계</th>${pc.map(p=>`<th>${esc(p.company||'-')}<small>${esc(p.product||'')}</small></th>`).join('')}</tr></thead>`;
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">가입일</td><td class="s"></td>${pc.map(p=>`<td>${esc(p.joinDate||'')}</td>`).join('')}</tr>`;
-    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료(원)</td><td class="s">${fmtN(premium(cols))}</td>${pc.map(p=>`<td>${fmtN(num(p.premium))}</td>`).join('')}</tr>`;
+    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">납입기간 / 만기</td><td class="s"></td>${pc.map(p=>`<td>${esc(payExpTxt(p))}</td>`).join('')}</tr>`;
+    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료</td><td class="s">${fmtWonN(premium(cols))}</td>${pc.map(p=>`<td>${fmtWonN(num(p.premium))}</td>`).join('')}</tr>`;
+    h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">총 납입보험료</td><td class="s" style="font-size:.86em;letter-spacing:-.3px">${fmtN(cols.reduce((a,p)=>a+totPay(p).v,0))}</td>${pc.map(p=>{const x=totPay(p);return`<td>${fmtWonN(x.v)}${x.v&&x.est?'(추정)':''}</td>`}).join('')}</tr>`;
     h+=`<tr class="gs" style="height:${rh}px"><td class="g">실비</td><td class="l">실손의료비</td><td class="s ${cols.some(p=>p.silson)?'':'miss'}">${cols.some(p=>p.silson)?'가입':'미가입'}</td>${pc.map(p=>`<td style="text-align:center">${p.silson?silsonGen(p.joinDate):''}</td>`).join('')}</tr>`;
     for(const [g,gp,arr] of GROUPS){const vis=arr.filter(([k])=>items.some(i=>i.k===k));vis.forEach(([k,l,key],idx)=>{const sm=sumK(cols,k);
       const cl=colOf(k),bgA=cl&&!sm?`background:${COL_EMPTY};`:'',bgV=v=>cl&&v?` style="background:${cl}"`:'';
@@ -1405,10 +1426,12 @@ document.addEventListener('input',e=>{
   if(t.dataset.f){S.cur[t.dataset.f]=t.value;if(t.dataset.f==='name'){const h=$('.ph h2');if(h)h.textContent=t.value+' 님'}return markDirty()}
   const p=t.dataset.pid&&[...S.cur.before,...S.cur.proposals].find(x=>x.id===t.dataset.pid);if(!p)return;
   if(t.dataset.k){const v=t.value.trim();if(v==='')delete p.values[t.dataset.k];else p.values[t.dataset.k]=num(v);updateSums();return markDirty()}
+  if(t.dataset.pf==='payexp'){const r=parsePayExp(t.value,p);p.payYears=r.py;p.expiry=r.exp;updateSums();return markDirty()}
   if(t.dataset.pf){p[t.dataset.pf]=(t.dataset.pf==='premium'||t.dataset.pf==='payYears')?num(t.value):t.value;if(t.dataset.pf==='premium')updateSums();return markDirty()}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.pid&&S.cur&&(t.dataset.pf==='premium'||t.dataset.pf==='payexp')){const p=[...S.cur.before,...S.cur.proposals].find(x=>x.id===t.dataset.pid);if(p)t.value=t.dataset.pf==='premium'?fmtWonN(num(p.premium)):payExpTxt(p)}
   if(t.id==='fcFilter'){S.fcFilter=t.value;return renderMain()}
   if(!S.cur)return;
   if(t.dataset.f==='gender'){S.cur.gender=t.value;return markDirty()}
