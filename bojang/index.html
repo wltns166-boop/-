@@ -499,7 +499,7 @@ function enter(emp){S.cm=false;$('#custModal')?.remove();
   const col=S.db.collection(P.cust);
   const q=S.me.role==='admin'?col:col.where('ownerSabun','==',S.me.sabun);
   S.unsubC=q.onSnapshot(s=>{S.custs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(S.view==='list')renderMain();if(S.cm)renderCustModal()},e=>toast('고객 목록을 불러오지 못했습니다: '+e.code));
-  S.hidden=new Set();S.shown=new Set();S.col={};S.colOn=true;S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[]);S.col=colClean(d.data().col);S.colOn=d.data().colOn!==false;if(S.cur)renderTab()}}).catch(()=>{});
+  S.hidden=new Set();S.shown=new Set();S.col={};S.colOn=true;S.paint=false;S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[]);S.col=colClean(d.data().col);S.colOn=d.data().colOn!==false;S.paint=d.data().paint===true;if(S.cur)renderTab()}}).catch(()=>{});
   S.unsubJ=S.db.doc(P.jong).onSnapshot(d=>{S.jongCfg=d.exists?d.data():null;if(S.view==='admin')renderMain()},()=>{});
   S.unsubL=S.db.doc(P.dict).onSnapshot(d=>{S.learn=d.exists?(d.data().map||{}):{}},()=>{});
   if(S.me.role==='admin')S.unsubE=S.db.collection(EMP).onSnapshot(s=>{S.emps=s.docs.map(d=>d.data()).sort((a,b)=>a.sabun.localeCompare(b.sabun));if(S.view==='admin')renderMain()},()=>{});
@@ -627,19 +627,19 @@ const isVis=(k,hv)=>{const it=ITEM[k];if(it&&it.extra)return!!(S.shown&&S.shown.
 /* 항목 색칠 (v2026.11.13-9 박지순 요청): 항목마다 색 지정 — 입력된 값은 그 칸만, 미입력(합계 0) 줄은 줄 전체 */
 const COL_DEF='#fff1a8';
 function colClean(o){const r={};if(o&&typeof o==='object')for(const k in o){if(ITEM[k]&&/^#[0-9a-fA-F]{6}$/.test(String(o[k])))r[k]=String(o[k]).toLowerCase()}return r}
-function colOf(k){return S.colOn!==false&&S.col&&S.col[k]?S.col[k]:''}
+/* v2026.11.17 박지순 요청: 항목마다 고르지 않고 자동 — [색상 표시]면 값이 입력된 칸만 노랑, 값이 하나도 없는 줄은 줄 전체 빨강 */
+const COL_EMPTY='#ff8a8a';
+function colOf(k){return S.paint===true?COL_DEF:''}
 function paintGrid(cols){
-  document.querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const c=colOf(k);const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
-    tds.forEach(td=>td.style.background='');if(!c)return;
-    if(!sumK(cols,k)){tds.forEach(td=>td.style.background=c);return}
-    const cells=tds.filter(td=>td.classList.contains('cell')||td.classList.contains('ro'));cells.forEach((td,i)=>{const p=cols[i];if(p&&eff(p,k))td.style.background=c})});
+  document.querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const on=S.paint===true;const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
+    tds.forEach(td=>td.style.background='');if(!on)return;
+    if(!sumK(cols,k)){tds.forEach(td=>td.style.background=COL_EMPTY);return}
+    const cells=tds.filter(td=>td.classList.contains('cell')||td.classList.contains('ro'));cells.forEach((td,i)=>{const p=cols[i];if(p&&eff(p,k))td.style.background=COL_DEF})});
 }
 function itemCfgHTML(){
-  const cc=k=>{const c=S.col&&S.col[k];return`<span class="cfgcol"><input type="checkbox" title="색칠" data-cchk="${k}" ${c?'checked':''}><input type="color" title="색상" data-ccol="${k}" value="${c||COL_DEF}"></span>`};
+  const cc=()=>'';
   return`<div style="display:grid;gap:12px"><div class="muted" style="font-size:12.5px">기본 항목은 체크를 풀면 화면·PDF 보장분석표·비교표에서 빠집니다. '추가' 항목은 체크하면 항상 보이고, 체크하지 않으면 가입금액이 있을 때만 보입니다.
-    오른쪽 색 칸을 체크하면 그 항목을 색칠합니다 — <b>값이 입력된 칸만</b> 색칠, <b>값이 없는 줄은 줄 전체</b> 색칠(화면·PDF 보장분석표). FC마다 따로 저장됩니다.</div>
-   <div class="row" style="gap:12px"><label class="chk"><input type="checkbox" data-colon="1" ${S.colOn!==false?'checked':''}> 색칠 사용</label>
-    <span class="muted" style="font-size:12.5px">한꺼번에 색:</span><input type="color" id="colAllPick" value="${COL_DEF}"><button class="btn sm bnv" data-act="colAll" type="button">체크한 항목에 적용</button><button class="btn sm" data-act="colClear" type="button">색칠 모두 빼기</button></div>
+    색칠은 보장분석표 위 [색상 표시]/[미표시] 버튼으로 켜고 끕니다 — 값이 입력된 칸은 노랑, 값이 없는 줄은 줄 전체 빨강(화면·PDF). FC마다 따로 저장됩니다.</div>
    <div class="cfgg">${GROUPS.map(([g,,arr])=>`<div class="cfgc"><label class="chk" style="font-weight:600;color:var(--gold)"><input type="checkbox" data-hgrp="${esc(g)}" ${arr.every(([k,,,ex])=>ex?(S.shown&&S.shown.has(k)):isVis(k))?'checked':''}> ${esc(g)}</label>${arr.map(([k,l,,ex])=>`<div class="cfgi">${ex?`<label class="chk"><input type="checkbox" data-show="${k}" ${S.shown&&S.shown.has(k)?'checked':''}> ${esc(l)} <span class="dim" style="font-size:11px">추가</span></label>`:`<label class="chk"><input type="checkbox" data-hide="${k}" ${isVis(k)?'checked':''}> ${esc(l)}</label>`}${cc(k)}</div>`).join('')}</div>`).join('')}</div>
    <div class="row"><button class="btn sm" data-act="cfgAll" type="button">모두 표시</button><span class="muted" style="font-size:12.5px" id="cfgMsg"></span></div></div>`;
 }
@@ -649,11 +649,11 @@ function renderCfgModal(){
   const box=m&&m.querySelector('.cmbody');const sy=box?box.scrollTop:0;
   if(!m){m=document.createElement('div');m.id='cfgModal';m.className='cm';document.body.appendChild(m)}
   m.innerHTML=`<div class="cmbg" data-act="itemCfg"></div><div class="cmbox" role="dialog" aria-label="항목 표시 설정" style="width:min(1100px,96vw)">
-   <div class="cmhd"><div><div class="eyebrow">내 설정 · ${esc(S.me.name)}</div><h2>항목 표시 · 색칠 설정</h2></div><button class="btn sm bnv" data-act="itemCfg" type="button">닫기</button></div>
+   <div class="cmhd"><div><div class="eyebrow">내 설정 · ${esc(S.me.name)}</div><h2>항목 표시 설정</h2></div><button class="btn sm bnv" data-act="itemCfg" type="button">닫기</button></div>
    <div class="cmbody" style="padding:14px 18px">${itemCfgHTML()}</div></div>`;
   const b2=m.querySelector('.cmbody');if(b2)b2.scrollTop=sy;
 }
-function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],col:colClean(S.col),colOn:S.colOn!==false,updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
+function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],col:colClean(S.col),colOn:S.colOn!==false,paint:S.paint===true,updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
 /* customer workspace */
 function setBefore(){return S.cur.before||[]}
 function setAfter(){return[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.proposals||[])]}
@@ -729,7 +729,7 @@ function gridHTML(cols,{editable,kind}){
       ${cols.map((p,i)=>{const a=expandAdd(p)[k]||0;return ed[i]?`<td class="cell">${a?`<span class="auto" data-auto="${p.id}:${k}">+${fmtN(a)}</span>`:`<span class="auto" data-auto="${p.id}:${k}"></span>`}<input class="num" inputmode="decimal" data-pid="${p.id}" data-k="${k}" value="${esc(p.values[k]??'')}"></td>`:`<td class="ro">${fmtN(eff(p,k))}</td>`}).join('')}</tr>`;
     });
   }
-  return`<div style="display:grid;gap:8px"><div class="row"><h3 style="font-size:16px">${kind==='before'?'기존 보장현황':'전문가 제안 보장현황'}</h3><button class="btn sm bnv" data-act="itemCfg" style="margin-left:auto">항목 표시 설정${S.hidden&&S.hidden.size?` <span class="pill gold">${S.hidden.size}개 숨김</span>`:''}${S.shown&&S.shown.size?` <span class="pill">추가 ${S.shown.size}</span>`:''}</button></div>
+  return`<div style="display:grid;gap:8px"><div class="row"><h3 style="font-size:16px">${kind==='before'?'기존 보장현황':'전문가 제안 보장현황'}</h3><span style="margin-left:auto;display:inline-flex;gap:4px"><button class="btn sm${S.paint===true?' bnv':''}" data-act="paintOn" type="button">색상 표시</button><button class="btn sm${S.paint===true?'':' bnv'}" data-act="paintOff" type="button">미표시</button></span><button class="btn sm bnv" data-act="itemCfg">항목 표시 설정${S.hidden&&S.hidden.size?` <span class="pill gold">${S.hidden.size}개 숨김</span>`:''}${S.shown&&S.shown.size?` <span class="pill">추가 ${S.shown.size}</span>`:''}</button></div>
    <div class="gridwrap"><table class="grid"><thead><tr><th class="c-grp">구분</th><th class="c-lbl">담보</th><th class="c-sum">합계</th>${cols.map((p,i)=>`<th>${polHead(p,kind,ed[i])}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function updateSums(){
@@ -1064,7 +1064,7 @@ function covPages(cols,title,sub){
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료(원)</td><td class="s">${fmtN(premium(cols))}</td>${pc.map(p=>`<td>${fmtN(num(p.premium))}</td>`).join('')}</tr>`;
     h+=`<tr class="gs" style="height:${rh}px"><td class="g">실비</td><td class="l">실손의료비</td><td class="s ${cols.some(p=>p.silson)?'':'miss'}">${cols.some(p=>p.silson)?'가입':'미가입'}</td>${pc.map(p=>`<td style="text-align:center">${p.silson?silsonGen(p.joinDate):''}</td>`).join('')}</tr>`;
     for(const [g,gp,arr] of GROUPS){const vis=arr.filter(([k])=>items.some(i=>i.k===k));vis.forEach(([k,l,key],idx)=>{const sm=sumK(cols,k);
-      const cl=colOf(k),bgA=cl&&!sm?`background:${cl};`:'',bgV=v=>cl&&v?` style="background:${cl}"`:'';
+      const cl=colOf(k),bgA=cl&&!sm?`background:${COL_EMPTY};`:'',bgV=v=>cl&&v?` style="background:${cl}"`:'';
       h+=`<tr class="${key?'key':''} ${idx===0?'gs':''}" style="height:${rh}px">${idx===0?`<td class="g" rowspan="${vis.length}">${GROUP_ICO[g]&&vis.length*rh>=30?`<div style="line-height:0;margin-bottom:2px">${ico(GROUP_ICO[g],Math.min(22,Math.max(14,Math.floor(rh*1.1))))}</div>`:''}${vis.length>2?gp:gp.replace(/<br>/g,'')}</td>`:''}<td class="l"${bgA?` style="${bgA}"`:''}>${esc(l)}</td><td class="s ${key&&!sm?'miss':''}"${bgA?` style="${bgA}"`:''}>${key&&!sm?'미가입':fmtN(sm)}</td>${pc.map(p=>{const v=eff(p,k);return`<td class="v"${bgA?` style="${bgA}"`:bgV(v)}>${fmtN(v)}</td>`}).join('')}</tr>`})}
     h+='</table>';
     out.push(pgShell(title,sub+(cols.length>per?` (${s/per+1}/${Math.ceil(cols.length/per)})`:''),h));
@@ -1387,6 +1387,7 @@ document.addEventListener('click',async e=>{
   if(act==='matView'){e.preventDefault();const v=$('#matViewer');v.innerHTML=`<div class="mv" data-act="matClose"><img src="${matSrc(id)}" alt=""><span>${esc(MAT[id].t)} · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
   if(act==='matClose'){$('#matViewer').hidden=true;return}
   if(act==='itemCfg'){S.showCfg=!S.showCfg;renderTab();return renderCfgModal()}
+  if(act==='paintOn'||act==='paintOff'){S.paint=act==='paintOn';saveHidden();return renderTab()}
   if(act==='colAll'){const v=($('#colAllPick')||{}).value||COL_DEF;S.col=S.col||{};Object.keys(S.col).forEach(k=>S.col[k]=v);saveHidden();return renderTab()}
   if(act==='colClear'){S.col={};saveHidden();return renderTab()}
   if(act==='cfgAll'){S.hidden=new Set();S.shown=new Set(ITEMS.filter(i=>i.extra).map(i=>i.k));saveHidden();return renderTab()}
