@@ -969,7 +969,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.16-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.17-1</div>
   </div>
 </div>
 
@@ -10284,6 +10284,16 @@ function _notPopHideSet(on,nids){
   }catch(e){}
 }
 // 팝업 본문 첨부 미리보기 — https 이미지(이미지 파일·PDF 변환 페이지)만, 최대 10장. 나머지는 [자세히 보기]로.
+// 공지 본문 링크(http/https)를 눌러 열 수 있게(2026-11-17 백동현 요청 — 모바일 초대장 링크). 나머지는 전부 이스케이프.
+function _notLinkify(t){
+  t=String(t==null?'':t); var out='', last=0, re=/https?:\/\/[^\s<>"']+/g, m;
+  while((m=re.exec(t))){
+    var u=m[0].replace(/[.,!?)\]]+$/,''); out+=_esc(t.slice(last,m.index));
+    out+='<a href="'+_alertEsc(u)+'" target="_blank" rel="noopener noreferrer" style="color:#1f4fd8;font-weight:700;text-decoration:underline;word-break:break-all">'+_esc(u)+'</a>';
+    last=m.index+u.length; re.lastIndex=last;
+  }
+  return out+_esc(t.slice(last));
+}
 function _notPopImgs(n){
   var out=[];
   (Array.isArray(n.files)?n.files:[]).forEach(function(f){
@@ -10490,7 +10500,7 @@ function _notPopup(){
       g('notpop_body').innerHTML=''
         +'<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:4px">'+_esc(n.title)+'</div>'
         +'<div style="font-size:12.5px;color:#8088aa;margin-bottom:12px">'+_esc(n.author||'')+(n.author?' · ':'')+_esc(n.datetime||n.date||'')+'</div>'
-        +(n.content?'<div style="font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word">'+_esc(n.content)+'</div>':'')
+        +(n.content?'<div style="font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word">'+_notLinkify(n.content)+'</div>':'')
         +imgs.map(function(u){ return '<img src="'+_esc(u)+'" alt="" style="display:block;max-width:100%;margin:12px auto 0;border:1px solid #e2e4ee;border-radius:6px">'; }).join('')
         +(fcnt?'<div style="margin-top:12px;font-size:13px;color:#5a6488"><i class="ti ti-paperclip"></i> 첨부파일 '+fcnt+'개 — [자세히 보기]에서 확인하세요.</div>':'');
       g('notpop_body').scrollTop=0;
@@ -20516,7 +20526,7 @@ function openNoticeDetail(i){
   var body='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(n.title)+'</title><style>'+css+'</style></head><body>'
     +'<h2>'+esc(n.title)+'</h2>'
     +'<div class="meta">작성자: '+esc(n.author||'-')+' &nbsp;|&nbsp; 등록일: '+esc(n.datetime||n.date||'-')+'</div>'
-    +'<div class="cont">'+esc(n.content||'')+'</div>'
+    +'<div class="cont">'+_notLinkify(n.content||'')+'</div>'
     +_noticeFilesPopupHtml(n.files, n.vm)
     +script
     +'</body></html>';
