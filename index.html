@@ -541,6 +541,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .jvrow{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13.5px;color:#333;margin-bottom:8px}.jvrow input[type=month]{padding:5px 8px;border:1px solid #ccd;border-radius:7px;font-family:inherit;color:#111;background:#fff}
 .jvupbox{border:2px dashed #c9cfe6;border-radius:10px;padding:18px;text-align:center;color:#556;font-size:13.5px;cursor:default;background:#fafbff;outline:none}.jvupbox:focus,.jvupbox.over{border:2px solid #2a9d4a;background:#eefaf1}.jvupbox u{cursor:pointer;color:#2f6fdb}
 .nsub{font-size:13px!important;padding-left:30px!important;opacity:.92}
+.nfh{display:flex!important;align-items:center;font-weight:600}html.th-h-h066 #sb .ns .ni.nfh{font-weight:600;color:#222}
+.nfold>.nfb{display:none}.nfold.open>.nfb{display:block}
+.nfh .ti-folder{font-size:14px;margin-right:4px;opacity:.8}.nfh .nfc{margin-left:auto;font-size:13px;transition:transform .2s}.nfold.open>.nfh .nfc{transform:rotate(180deg)}
 .rkp_paper{background:#fff;border:1px solid #c8d1db;padding:6px;max-width:1040px;margin:0 auto;color:#1c2631}
 .rkp_in{border:2px solid #1f4e79;padding:14px 20px 12px;position:relative;overflow:hidden}
 .rkp_in .rkp_wm{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-size:64px;font-weight:800;color:rgba(31,78,121,.06);transform:rotate(-20deg);white-space:nowrap}
@@ -972,7 +975,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-10</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-11</div>
   </div>
 </div>
 
@@ -1128,14 +1131,20 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_calc">실비계산기</div></div>
       <div class="ns"><div class="ni" id="n_report">보고서 작성</div></div>
       <div class="ns"><div class="ni" id="n_binder">증권바인더 제작</div></div>
-      <div class="ns"><div class="ni" id="n_delayreq">지급지연 요청서</div></div>
-      <div class="ns"><div class="ni" id="n_samdocs">3종서류</div></div>
+      <!-- 업무서식 폴더(2026-11-18 백동현 요청) — 머리 클릭=펼침/접힘, 하위는 각자 .ns(숨김 설정이 하위 하나만 가리게) -->
+      <div class="ns nfold"><div class="ni nfh" id="n_fd_form"><i class="ti ti-folder"></i>업무서식<i class="ti ti-chevron-down nfc"></i></div><div class="nfb">
+        <div class="ns"><div class="ni nsub" id="n_samdocs">└ 3종서류</div></div>
+        <div class="ns"><div class="ni nsub" id="n_delayreq">└ 지급지연 요청서</div></div>
+      </div></div>
       <div class="ns"><div class="ni" id="n_mcreq">모바일 계약 반영 요청</div></div>
       <div class="ns"><div class="ni" id="n_drive">내 자료함</div></div>
-      <div class="ns"><div class="ni" id="n_fp">재무상담 포토폴리오</div></div>
+      <!-- 재무상담 폴더(2026-11-18 백동현 요청) -->
+      <div class="ns nfold"><div class="ni nfh" id="n_fd_fin"><i class="ti ti-folder"></i>재무상담<i class="ti ti-chevron-down nfc"></i></div><div class="nfb">
+        <div class="ns"><div class="ni nsub" id="n_fp">└ 재무상담 포토폴리오</div></div>
+        <div class="ns"><div class="ni nsub" id="n_fincalc">└ 금융계산기모음</div></div>
+      </div></div>
       <div class="ns"><div class="ni" id="n_rsv">예약문자발송</div></div>
       <div class="ns"><div class="ni" id="n_airec">AI상품추천</div></div>
-      <div class="ns"><div class="ni" id="n_fincalc">금융계산기모음</div></div>
     </div>
 
     <div class="ni" id="n_req_menu"><i class="ti ti-clipboard-list"></i>요청관리<i class="ti ti-chevron-down nc" id="nc_req"></i></div>
@@ -6098,6 +6107,7 @@ function _navSrchMenuOk(navId){
   try{
     var el=g(navId); if(!el||!_navSrchEligible(el)) return false;
     var ns=el.parentElement;
+    var fd=_navFoldOf(ns); if(fd){ if(!_navSrchEligible(fd.head)) return false; ns=fd.ns; }   // 폴더 안 메뉴 — 폴더 머리까지 검사
     if(ns&&ns.classList&&ns.classList.contains('ns')){
       var ch=ns.parentElement;
       if(ch&&ch.classList&&ch.classList.contains('nch')){
@@ -6108,12 +6118,21 @@ function _navSrchMenuOk(navId){
     return true;
   }catch(e){ return false; }
 }
+// 업무관리 안 폴더(.nfold) — 메뉴의 .ns가 폴더 안이면 {ns:폴더 .ns, head:폴더 머리} (2026-11-18)
+function _navFoldOf(ns){
+  try{
+    var fb=ns&&ns.parentElement;
+    if(fb&&fb.classList&&fb.classList.contains('nfb')){ var f=fb.parentElement; if(f&&f.classList.contains('nfold')) return {ns:f, head:f.querySelector('.nfh')}; }
+  }catch(e){}
+  return null;
+}
 // 결과에 표시할 위치 — "자료실 › 상담자료"(하위 메뉴면 그룹 이름까지)
 function _navSrchPath(navId){
   try{
     var el=g(navId); if(!el) return '';
-    var own=_navSrchText(el);
+    var own=_navSrchText(el).replace(/^└\s*/,'');
     var ns=el.parentElement;
+    var fd=_navFoldOf(ns); if(fd){ own=_navSrchText(fd.head)+' › '+own; ns=fd.ns; }   // 업무관리 › 업무서식 › 3종서류
     if(ns&&ns.classList&&ns.classList.contains('ns')){
       var ch=ns.parentElement;
       if(ch&&ch.classList&&ch.classList.contains('nch')){
@@ -6263,12 +6282,14 @@ function navSearch(q){
           var arr=g('nc_'+String(ch.id||'').replace(/^nch_/,'')); if(arr) arr.style.transform=open?'rotate(180deg)':'';
         });
         window._navSrchSnap=null;
+        var fs=window._navFoldSnap||[]; sb.querySelectorAll('.nfold').forEach(function(f){ f.classList.toggle('open',fs.indexOf(f)>=0||!!f.querySelector('.ni-cur')); }); window._navFoldSnap=null;   // 폴더 펼침도 검사 전으로
       }
       try{ clearTimeout(window._navSrchT); }catch(e){}   // 대기 중인 자료 검색이 뒤늦게 결과를 되살리지 않게
       _navSrchRender([]);   // 자료 결과 목록도 닫음
       return;
     }
-    if(!window._navSrchSnap){ var s={}; chs.forEach(function(ch){ s[ch.id]=ch.classList.contains('open'); }); window._navSrchSnap=s; }
+    if(!window._navSrchSnap){ var s={}; chs.forEach(function(ch){ s[ch.id]=ch.classList.contains('open'); }); window._navSrchSnap=s;
+      window._navFoldSnap=Array.prototype.filter.call(sb.querySelectorAll('.nfold'),function(f){ return f.classList.contains('open'); }); }
     var anyMenu=false;
     var kids=Array.prototype.slice.call(sb.children);
     kids.forEach(function(el,i){
@@ -6284,8 +6305,12 @@ function navSearch(q){
       var any=false;
       ch.querySelectorAll('.ns').forEach(function(ns){
         var ni=ns.querySelector('.ni');
-        var ok=_navSrchEligible(ni)&&(selfMatch||_navSrchLabel(ni).indexOf(q)>=0);
+        var pf=ns.parentElement&&ns.parentElement.classList.contains('nfb')?ns.parentElement.parentElement:null;   // 폴더 머리가 맞으면 폴더 안 메뉴도 전부 표시
+        var ok=_navSrchEligible(ni)&&(selfMatch||_navSrchLabel(ni).indexOf(q)>=0||!!(pf&&pf._srchHead));
+        if(ns.classList.contains('nfold')) ns._srchHead=ok;
+        if(!ok&&ns.classList.contains('nfold')) ok=_navSrchEligible(ni)&&Array.prototype.some.call(ns.querySelectorAll('.nfb .ni'),function(x){ return _navSrchEligible(x)&&_navSrchLabel(x).indexOf(q)>=0; });   // 폴더: 안의 메뉴가 맞으면 폴더도 표시
         ns.classList.toggle('nav-sh',!ok);
+        if(ok&&ns.classList.contains('nfold')) ns.classList.add('open');
         if(ok) any=true;
       });
       var show=selfMatch||any;
@@ -6354,6 +6379,7 @@ g('n_report') && g('n_report').addEventListener('click',function(){showPage('rep
 g('n_binder') && g('n_binder').addEventListener('click',function(){showPage('binder');});
 g('n_wa2') && g('n_wa2').addEventListener('click',function(){showPage('wa2');});
 g('n_pz') && g('n_pz').addEventListener('click',function(){showPage('pz');});
+['n_fd_form','n_fd_fin'].forEach(function(id){ var h=g(id); if(h) h.addEventListener('click',function(){ var f=h.parentElement; if(f) f.classList.toggle('open'); }); });   // 업무관리 안 폴더 접기/펴기(2026-11-18)
 g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage('delayreq');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
 g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq');});
@@ -27086,10 +27112,11 @@ function _navApply(){
   function _navReorderCont(contId, list){
     var cont=g(contId); if(!cont||!list||!list.length) return;
     var map={};
-    Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni) map[ni.id]=ns; });
-    var seen={}, seq=[];
-    list.forEach(function(id){ if(map[id]&&!seen[id]){ seen[id]=1; seq.push(map[id]); } });
-    Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni&&!seen[ni.id]){ seen[ni.id]=1; seq.push(ns); } });
+    // 폴더(.nfold)는 안의 하위 메뉴 id로도 찾음 — 옛 저장 순서에 하위 id만 있어도 그 자리에 폴더가 옴(2026-11-18)
+    Array.prototype.forEach.call(cont.children,function(ns){ if(!ns.querySelectorAll) return; ns.querySelectorAll('.ni[id]').forEach(function(ni){ if(!map[ni.id]) map[ni.id]=ns; }); });
+    var seq=[];
+    list.forEach(function(id){ if(map[id]&&seq.indexOf(map[id])<0) seq.push(map[id]); });
+    Array.prototype.forEach.call(cont.children,function(ns){ var ni=ns.querySelector&&ns.querySelector('.ni[id]'); if(ni&&seq.indexOf(ns)<0) seq.push(ns); });
     seq.forEach(function(ns){ cont.appendChild(ns); });
   }
   Object.keys(_navDefOrder).forEach(function(contId){
@@ -30872,7 +30899,7 @@ function _wsOnPage(name){
   if(_wsTabs.indexOf(name)<0){ _wsTabs.push(name); if(_wsTabs.length>8) _wsTabs.splice(1,1); }   // 홈은 고정, 넘치면 오래된 탭부터 정리
   try{
     document.querySelectorAll('#sb .ni.ni-cur').forEach(function(n){ n.classList.remove('ni-cur'); });
-    var n=g('n_'+name); if(n) n.classList.add('ni-cur');
+    var n=g('n_'+name); if(n){ n.classList.add('ni-cur'); var fd=_navFoldOf(n.parentElement); if(fd) fd.ns.classList.add('open'); }   // 폴더 안 메뉴면 폴더 펼침
   }catch(e){}
   _wsDraw();
 }
