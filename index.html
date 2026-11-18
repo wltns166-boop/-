@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-16</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-17</div>
   </div>
 </div>
 
@@ -34749,6 +34749,7 @@ function bcPrint(){
 // 화면 입력은 메모리 window._ccState만(logout 리셋). 문서는 _ccDoc 단일 출처. 로고는 FINANCIAL TOPS(form/fin-tops.png)만.
 var CC_MAX=15;
 function _ccRowNew(){ return {id:'cc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ins:'',prod:'',prem:'',doc:'필요'}; }
+var CC_FAX_DEF={'백동현':'0504-148-7589','정하얀':'0504-040-0387','김희준':'0504-448-9941','김하은':'0504-395-7922','김경태':'0504-252-8940','황동운':'0508-935-6480','박희제':'0504-220-5464','박희수':'0504-272-6595','장윤화':'0504-322-8374','최재영':'0504-314-6326','구교범':'0504-318-3643','임예린':'0504-135-5652','우재균':'0504-466-1999','구지원':'0504-298-1324','박준영':'0504-469-1483','박지순':'0504-444-1743','윤성민':'0504-251-3836','방정식':'0504-480-0407','오용조':'0504-148-0856'};   // 백동현이 보낸 담당자별 팩스번호(2026-11-18) — [담당자 설정]에 넣은 번호가 있으면 그게 우선
 function _ccPeople(){ return window._ccPeopleM||{}; }
 function _ccPerson(nm){ var p=_ccPeople()[String(nm||'').trim()]; return p&&typeof p==='object'?p:{}; }
 function _ccSt(){
@@ -34762,7 +34763,7 @@ function _ccApplyPerson(st){   // 담당자 설정 값으로 빈 칸 채움(직�
   var p=_ccPerson(st.nm);
   if(!st._hT) st.ttl=p.ttl||st.ttl||'전문가';
   if(!st._hTeam) st.team=p.team||'';
-  if(!st._hFax) st.fax=p.fax||'';
+  if(!st._hFax) st.fax=p.fax||CC_FAX_DEF[String(st.nm||'').trim()]||'';
 }
 function _ccLoad(){
   var db=_carDb(); if(!db) return Promise.resolve();
@@ -34998,7 +34999,7 @@ function _ccCfgDraw(){
           +(p.ph?'<img src="'+_esc(p.ph)+'" alt="" style="max-height:66px;max-width:80px;object-fit:contain">':'<span style="font-size:11px;color:#9aa">사진 없음</span>')+'</div>'
         +'<input data-ccf="ttl" value="'+_esc(p.ttl||'')+'" maxlength="12" placeholder="전문가" style="'+_in+'">'
         +'<input data-ccf="team" value="'+_esc(p.team||'')+'" maxlength="20" placeholder="보장분석 1팀" style="'+_in+'">'
-        +'<input data-ccf="fax" value="'+_esc(p.fax||'')+'" maxlength="20" placeholder="0504-000-0000" style="'+_in+'">'
+        +'<input data-ccf="fax" value="'+_esc(p.fax||CC_FAX_DEF[n]||'')+'" maxlength="20" placeholder="0504-000-0000" style="'+_in+'">'
         +(p.ph?'<button class="bd bdr" data-ccphdel="1" style="padding:5px 7px;font-size:11px">사진 빼기</button>':'<span></span>')+'</div>'; }).join('');
   box.querySelectorAll('.cccf').forEach(function(rw){
     var n=rw.getAttribute('data-ccn'), c=rw.querySelector('.ccph');
