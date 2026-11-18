@@ -771,7 +771,7 @@ function polHead(p,kind,ed){
    ${ed?`<div class="acts"><button class="btn sm danger" data-act="delPolicy" data-id="${p.id}" data-confirm="1">삭제</button></div>`:''}</div>`;
 }
 function totRowHTML(cols){const t=cols.map(totPay),sum=t.reduce((s,x)=>s+x.v,0);
-  return`<tr class="meta" data-meta="tot"><td class="c-grp"></td><td class="c-lbl" title="월보험료 × 납입기간 × 12 (갱신 인상분 제외)">총 납입보험료</td><td class="c-sum" style="white-space:nowrap;font-size:12px;letter-spacing:-.2px">${fmtWonN(sum)}</td>${t.map(x=>`<td class="ro">${fmtWonN(x.v)}${x.v&&x.est?'<small class="muted"> (추정)</small>':''}</td>`).join('')}</tr>`}
+  return`<tr class="meta" data-meta="tot"><td class="c-grp"></td><td class="c-lbl" title="월보험료 × 납입기간 × 12 (갱신 인상분 제외)">총 납입보험료</td><td class="c-sum" style="white-space:nowrap;font-size:12px;letter-spacing:-.2px">${fmtWonN(sum)}</td>${t.map(x=>`<td class="ro" title="${fmtWonN(x.v)}${x.v&&x.est?' (추정)':''}">${fmtWonN(x.v)}${x.v&&x.est?'<small class="muted"> (추정)</small>':''}</td>`).join('')}</tr>`}
 const GRID_PW=170; // v2026.11.18 박지순 요청: 상품 열 폭 항상 같게
 function gridHTML(cols,{editable,kind,big}){
   if(!cols.length)return`<div class="card empty"><b>${kind==='before'?'기존 보험이 아직 없습니다':'유지할 보험이나 제안 보험이 아직 없습니다'}</b>${kind==='before'?'PDF를 올리면 담보가 자동으로 아래 표에 채워집니다.':'위에서 유지할 보험을 체크하거나 제안서 PDF를 올려주세요.'}</div>`;
