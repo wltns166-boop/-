@@ -123,6 +123,7 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;table-layo
 .grid td.ro.l{text-align:left}
 .grid td.ro{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .grid thead th.kp{box-shadow:inset 0 3px 0 rgba(0,0,0,.18)}
+.grid thead th.kp .co,.grid thead th.kp .pr,.grid thead th.kp .pill{color:inherit}.grid thead th.kp .pill{border-color:currentColor}
 .ordlist{display:flex;flex-wrap:wrap;gap:6px}.ordi{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:5px 6px 5px 10px;background:var(--panel2);font-size:12.5px}.ordi b.n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#1f2a5c;color:#fff;font-size:11px}.ordi .btn{padding:2px 7px}
 .grid .auto{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--gold);pointer-events:none}
 .ph-pol{display:grid;gap:4px}
@@ -710,7 +711,7 @@ function setAfter(){const a=[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.p
   const ix=p=>{const i=o.indexOf(p.id);return i<0?1e6+a.indexOf(p):i};return a.slice().sort((x,y)=>ix(x)-ix(y))} // v2026.11.18 박지순 요청: '후' 보장분석표 배치 순서(afterOrd — 보험 id 배열)
 function ordHTML(){const a=setAfter();if(a.length<2)return'';
   return`<div style="display:grid;gap:6px;margin-top:4px"><div class="row"><b style="font-size:13.5px">'후' 보장분석표 배치 순서</b><span class="muted" style="font-size:12px">◀ ▶로 옮기면 화면·PDF 보장분석표의 열 순서가 바뀝니다</span></div>
-   <div class="ordlist">${a.map((p,i)=>`<span class="ordi"><b class="n">${i+1}</b><span class="pill${S.cur.before.includes(p)?'':' gold'}">${S.cur.before.includes(p)?'유지':'제안'}</span><b>${esc(p.company||'보험사')}</b><span class="muted">${esc((p.product||'').slice(0,18))}</span><button class="btn sm" type="button" data-act="ordMv" data-id="${esc(p.id)}|-1" ${i?'':'disabled'} title="앞으로">◀</button><button class="btn sm" type="button" data-act="ordMv" data-id="${esc(p.id)}|1" ${i<a.length-1?'':'disabled'} title="뒤로">▶</button></span>`).join('')}</div></div>`}
+   <div class="ordlist">${a.map((p,i)=>`<span class="ordi"><b class="n">${i+1}</b><span class="pill${S.cur.before.includes(p)?'':' gold'}">${S.cur.before.includes(p)?'유지':'제안'}</span><b>${esc(p.company||'보험사')}</b><span class="muted">${esc((p.product||'').slice(0,18))}</span><button class="btn sm bnv" type="button" data-act="ordMv" data-id="${esc(p.id)}|-1" ${i?'':'disabled'} title="앞으로">◀</button><button class="btn sm bnv" type="button" data-act="ordMv" data-id="${esc(p.id)}|1" ${i<a.length-1?'':'disabled'} title="뒤로">▶</button></span>`).join('')}</div></div>`}
 function custHTML(){
   const c=S.cur;const tabs=[['before','보장분석 (전)',c.before.length],['after','보장분석 (후)',c.proposals.length],['compare','전후 비교'],['disease','질환별 수령액'],['checks','점검·상담자료'],['print','PDF 출력']];
   return`<div class="page"><div class="ph"><div><div class="eyebrow">고객 · 담당 ${esc(c.ownerName)}</div><h2>${esc(c.name)} 님</h2></div>
