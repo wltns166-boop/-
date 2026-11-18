@@ -181,7 +181,7 @@
     }).catch(function(e){ console.warn('보장분석 드라이브 백업 실패:',e); setDrvMsg('드라이브 저장 실패'); })
       .then(function(){ DRV_BUSY=false; if(DRV_PEND.size) return backupNow(); });
   }
-  var CUST_KEYS=['id','ownerSabun','ownerName','name','birth','gender','phone','memo','before','proposals','history','mats','createdAt','updatedAt'];
+  var CUST_KEYS=['id','ownerSabun','ownerName','name','birth','gender','phone','memo','before','proposals','history','mats','afterOrd','createdAt','updatedAt'];
   var driveApi={
     enabled:function(){ return !!(driveUrl()&&member()); },
     // Firestore 저장이 끝난 고객 — 20초 뒤 드라이브에 백업(그 사이 또 바뀌면 마지막 것만)
@@ -205,7 +205,7 @@
         var o={}; CUST_KEYS.forEach(function(k){ if(c[k]!==undefined) o[k]=c[k]; });
         ['name','birth','gender','phone','memo','ownerName','ownerSabun'].forEach(function(k){ if(o[k]!=null&&typeof o[k]!=='string') o[k]=String(o[k]); if(typeof o[k]==='string'&&o[k].length>2000) o[k]=o[k].slice(0,2000); });
         o.before=Array.isArray(o.before)?o.before:[]; o.proposals=Array.isArray(o.proposals)?o.proposals:[]; o.history=Array.isArray(o.history)?o.history:[];
-        o.updatedAt=+o.updatedAt||0; o.createdAt=+o.createdAt||o.updatedAt||Date.now();
+        o.afterOrd=Array.isArray(o.afterOrd)?o.afterOrd.filter(function(x){return typeof x==='string'&&x.length<100;}).slice(0,60):undefined; o.updatedAt=+o.updatedAt||0; o.createdAt=+o.createdAt||o.updatedAt||Date.now();
         if(ME.role!=='admin'||!o.ownerSabun){ o.ownerSabun=ME.sabun; o.ownerName=ME.name; }
         return FDB.doc('bojang_customers/'+o.id).get().then(function(sn){
           var ex=sn.exists?dec(sn.data()):null;

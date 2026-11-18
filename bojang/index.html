@@ -103,7 +103,7 @@ label.f{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
 
 /* coverage grid */
 .gridwrap{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;table-layout:fixed}
 .grid th,.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0;height:30px}
 .grid thead th{position:sticky;top:0;z-index:3;background:var(--panel2);padding:8px;vertical-align:top;text-align:left;min-width:150px;font-weight:500}
 .grid thead th.c-grp,.grid thead th.c-lbl,.grid thead th.c-sum{min-width:0}
@@ -121,6 +121,9 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .grid td.cell input.txt:focus{background:var(--bg);outline:1px solid var(--gold);outline-offset:-1px}
 .grid td.ro{text-align:right;padding:0 8px;color:var(--muted);background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.015) 6px 12px)}
 .grid td.ro.l{text-align:left}
+.grid td.ro{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.grid thead th.kp{box-shadow:inset 0 3px 0 rgba(0,0,0,.18)}
+.ordlist{display:flex;flex-wrap:wrap;gap:6px}.ordi{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:5px 6px 5px 10px;background:var(--panel2);font-size:12.5px}.ordi b.n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#1f2a5c;color:#fff;font-size:11px}.ordi .btn{padding:2px 7px}
 .grid .auto{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--gold);pointer-events:none}
 .ph-pol{display:grid;gap:4px}
 .ph-pol .co{font-weight:600;color:var(--fg)}
@@ -210,7 +213,7 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .pcsw.on{outline:3px solid #1f2a5c;outline-offset:1px}
 .pcmine{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-left:6px;cursor:pointer}
 .pcmine input{width:34px;height:28px;padding:0;border:1px solid var(--line);background:none;cursor:pointer}
-.pcprev{border-collapse:collapse;font-size:12.5px}.pcprev td{border:1px solid #ccc;padding:5px 14px;min-width:70px;text-align:right}.pcprev td:first-child{text-align:left}
+.pcprev th{border:1px solid #ccc;padding:5px 14px;font-weight:600;font-size:12px}.pcprev{border-collapse:collapse;font-size:12.5px}.pcprev td{border:1px solid #ccc;padding:5px 14px;min-width:70px;text-align:right}.pcprev td:first-child{text-align:left}
 .cfgg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px}
 .cfgc{display:grid;gap:4px;align-content:start}
 .cfgc .chk{font-size:13px}
@@ -276,7 +279,7 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .pg .cov .s{text-align:right;font-weight:700;background:var(--band)}
 .pg .cov .v{text-align:right}
 .pg .cov thead th{background:var(--ink);color:#fff;text-align:center;font-weight:600;white-space:normal;line-height:1.2;padding:5px 4px;border:0;border-left:1px solid #3b3832}
-.pg .cov thead th small{display:block;font-weight:400;color:#cfc6b4;font-size:.86em}
+.pg .cov thead th small{display:block;font-weight:400;color:inherit;opacity:.78;font-size:.86em}
 .pg .cov thead th.l{text-align:left}
 .pg .cov tr.mt td{text-align:center;color:var(--sub);background:#fbfaf6}
 .pg .cov tr.mt td.s{color:var(--ink)}
@@ -528,7 +531,7 @@ function enter(emp){S.cm=false;$('#custModal')?.remove();
   if(S.me.role==='admin')S.unsubE=S.db.collection(EMP).onSnapshot(s=>{S.emps=s.docs.map(d=>d.data()).sort((a,b)=>a.sabun.localeCompare(b.sabun));if(S.view==='admin')renderMain()},()=>{});
   S.view='list';render();
 }
-async function logout(){await flushSave();S.cm=false;$('#custModal')?.remove();S.showCfg=false;$('#cfgModal')?.remove();S.unsubC&&S.unsubC();S.unsubE&&S.unsubE();S.unsubL&&S.unsubL();S.unsubJ&&S.unsubJ();S.unsubC=S.unsubE=null;S.me=null;S.cur=null;S.custs=[];S.emps=[];ssSet('bs_sabun',null);S.view='login';render()}
+async function logout(){await flushSave();bigClose();S.cm=false;$('#custModal')?.remove();S.showCfg=false;$('#cfgModal')?.remove();S.unsubC&&S.unsubC();S.unsubE&&S.unsubE();S.unsubL&&S.unsubL();S.unsubJ&&S.unsubJ();S.unsubC=S.unsubE=null;S.me=null;S.cur=null;S.custs=[];S.emps=[];ssSet('bs_sabun',null);S.view='login';render()}
 
 /* ───────── render ───────── */
 function render(){
@@ -553,7 +556,7 @@ function render(){
     ${S.external?'':'<button class="btn ghost sm" data-act="logout">로그아웃</button>'}</nav></div></header><main class="wrap" id="main"></main>`;
   renderMain();
 }
-function renderMain(){
+function renderMain(){if(S.bigWin&&(!S.cur||S.cur.id!==S.bigCid))bigClose();
   const m=$('#main');if(!m)return;
   if(S.view==='list')m.innerHTML=listHTML();
   else if(S.view==='admin')m.innerHTML=adminHTML();
@@ -654,25 +657,33 @@ function colClean(o){const r={};if(o&&typeof o==='object')for(const k in o){if(I
 const COL_EMPTY='#ff8a8a';
 /* v2026.11.18 박지순 요청: 색상 표시 설정 페이지 — 입력된 칸(v)·값 없는 줄(e) 색을 따로 고르고 각각 켜고 끔. fcprefs `pc`={v,e,vOn,eOn} */
 const PC_PAL=['#fff1a8','#ffe066','#ffd8a8','#ffc078','#ffc9c9','#ff8a8a','#ff6b6b','#fcc2d7','#f783ac','#eebefa','#da77f2','#d0bfff','#b197fc','#bac8ff','#91a7ff','#a5d8ff','#74c0fc','#99e9f2','#66d9e8','#96f2d7','#63e6be','#b2f2bb','#8ce99a','#d8f5a2','#c0eb75','#e9ecef','#ced4da','#ffffff'];
-function pcClean(o){o=o&&typeof o==='object'?o:{};const h=x=>/^#[0-9a-fA-F]{6}$/.test(String(x||''));return{v:h(o.v)?String(o.v).toLowerCase():COL_DEF,e:h(o.e)?String(o.e).toLowerCase():COL_EMPTY,vOn:o.vOn!==false,eOn:o.eOn!==false}}
+/* v2026.11.18 박지순 요청: 유지 보험 머리 색(k, kOn — 화면·PDF의 '유지' 열 머리), PDF 보장분석표 머리 색(h) */
+const COL_KEEP='#dbe8ff',COL_HEAD='#1d1b18';
+const PC_DARK=['#1d1b18','#3d3d3d','#1f2a5c','#22324a','#2b4c7e','#0f766e','#1e5631','#6b4f1d','#5b2333','#7a1f1f'];
+function pcClean(o){o=o&&typeof o==='object'?o:{};const h=x=>/^#[0-9a-fA-F]{6}$/.test(String(x||''));return{v:h(o.v)?String(o.v).toLowerCase():COL_DEF,e:h(o.e)?String(o.e).toLowerCase():COL_EMPTY,vOn:o.vOn!==false,eOn:o.eOn!==false,k:h(o.k)?String(o.k).toLowerCase():COL_KEEP,kOn:o.kOn===true,h:h(o.h)?String(o.h).toLowerCase():COL_HEAD}}
+function txtOn(hex){const m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||'');if(!m)return'#1d1b18';const[r,g,b]=[1,2,3].map(i=>parseInt(m[i],16));return(r*299+g*587+b*114)/1000>150?'#1d1b18':'#ffffff'}
+function colKeep(){const c=S.pc||pcClean();return c.kOn?c.k:''}
+function colHead(){const c=S.pc||pcClean();return c.h||COL_HEAD}
 function colOf(k){const c=S.pc||pcClean();return S.paint===true&&c.vOn?c.v:''}
 function colEmpty(){const c=S.pc||pcClean();return S.paint===true&&c.eOn?c.e:''}
-function paintGrid(cols){
+function paintGrid(cols,d){
   const cv=colOf(),ce=colEmpty();
-  document.querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
+  (d||document).querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
     tds.forEach(td=>td.style.background='');if(S.paint!==true)return;
     if(!sumK(cols,k)){if(ce)tds.forEach(td=>td.style.background=ce);return}
     if(!cv)return;const cells=tds.filter(td=>td.classList.contains('cell')||td.classList.contains('ro'));cells.forEach((td,i)=>{const p=cols[i];if(p&&eff(p,k))td.style.background=cv})});
 }
-function pcRowHTML(w,ttl,desc){const c=S.pc||pcClean();const cur=c[w],on=w==='v'?c.vOn:c.eOn;
-  return`<div class="pcrow"><label class="chk" style="font-weight:600"><input type="checkbox" data-pcon="${w}" ${on?'checked':''}> ${ttl}</label><div class="muted" style="font-size:12px">${desc}</div>
-   <div class="pcpal">${PC_PAL.map(x=>`<button type="button" class="pcsw${x===cur?' on':''}" data-act="pcPick" data-id="${w}${x}" style="background:${x}" title="${x}"></button>`).join('')}
+function pcRowHTML(w,ttl,desc,pal){const c=S.pc||pcClean();const cur=c[w],on=c[w+'On'];
+  return`<div class="pcrow">${w==='h'?`<b style="font-weight:600">${ttl}</b>`:`<label class="chk" style="font-weight:600"><input type="checkbox" data-pcon="${w}" ${on?'checked':''}> ${ttl}</label>`}<div class="muted" style="font-size:12px">${desc}</div>
+   <div class="pcpal">${(pal||PC_PAL).map(x=>`<button type="button" class="pcsw${x===cur?' on':''}" data-act="pcPick" data-id="${w}${x}" style="background:${x}" title="${x}"></button>`).join('')}
     <label class="pcmine" title="직접 고르기"><input type="color" data-pcc="${w}" value="${cur}"> 직접</label></div></div>`}
 function colorCfgHTML(){const c=S.pc||pcClean();const cv=S.paint===true&&c.vOn?c.v:'#fff',ce=S.paint===true&&c.eOn?c.e:'#fff';
   return`<div style="display:grid;gap:16px"><label class="chk" style="font-weight:700;font-size:14px"><input type="checkbox" data-pcall="1" ${S.paint===true?'checked':''}> 색상 표시 적용 <span class="muted" style="font-weight:400;font-size:12px">(보장분석표 위 [색상 표시]/[미표시] 버튼과 같음)</span></label>
    ${pcRowHTML('v','입력된 칸 색상','가입금액이 들어 있는 칸만 칠합니다.')}
    ${pcRowHTML('e','값이 없는 줄 색상','어느 보험에도 금액이 없는 담보는 줄 전체를 칠합니다.')}
-   <div><div class="muted" style="font-size:12px;margin-bottom:4px">미리보기</div><table class="pcprev"><tr><td>암 진단비</td><td style="background:${cv}">3,000</td><td></td><td style="background:${cv}">2,000</td></tr><tr><td style="background:${ce}">뇌혈관 진단비</td><td style="background:${ce}"></td><td style="background:${ce}"></td><td style="background:${ce}"></td></tr></table></div>
+   ${pcRowHTML('k','유지 보험 머리 색상','보장분석 (후) 표에서 유지하는 기존 보험 열의 머리(보험사·상품명)를 칠합니다. 화면·PDF 모두 — [색상 표시]와 상관없이 적용.',[...PC_PAL.slice(0,-1),...PC_DARK])}
+   ${pcRowHTML('h','PDF 보장분석표 머리 색상','PDF 보장분석표 맨 위 줄(담보·합계·보험사·상품명)의 바탕색입니다. 글자색은 바탕에 맞춰 자동으로 바뀝니다.',[...PC_DARK,...PC_PAL])}
+   <div><div class="muted" style="font-size:12px;margin-bottom:4px">미리보기</div><table class="pcprev"><tr><th style="background:${colHead()};color:${txtOn(colHead())}">담보</th><th style="background:${colKeep()||colHead()};color:${txtOn(colKeep()||colHead())}">유지 · KB손보</th><th style="background:${colHead()};color:${txtOn(colHead())}">제안 · NH농협</th><th style="background:${colHead()};color:${txtOn(colHead())}">제안 · DB손보</th></tr><tr><td>암 진단비</td><td style="background:${cv}">3,000</td><td></td><td style="background:${cv}">2,000</td></tr><tr><td style="background:${ce}">뇌혈관 진단비</td><td style="background:${ce}"></td><td style="background:${ce}"></td><td style="background:${ce}"></td></tr></table></div>
    <div class="row"><button class="btn sm" data-act="pcReset" type="button">기본 색으로</button><span class="muted" style="font-size:12.5px" id="cfgMsg"></span></div></div>`}
 function itemCfgHTML(){
   const cc=()=>'';
@@ -695,7 +706,11 @@ function renderCfgModal(){
 function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],col:colClean(S.col),colOn:S.colOn!==false,paint:S.paint===true,pc:pcClean(S.pc),updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
 /* customer workspace */
 function setBefore(){return S.cur.before||[]}
-function setAfter(){return[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.proposals||[])]}
+function setAfter(){const a=[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.proposals||[])];const o=Array.isArray(S.cur.afterOrd)?S.cur.afterOrd:[];if(!o.length)return a;
+  const ix=p=>{const i=o.indexOf(p.id);return i<0?1e6+a.indexOf(p):i};return a.slice().sort((x,y)=>ix(x)-ix(y))} // v2026.11.18 박지순 요청: '후' 보장분석표 배치 순서(afterOrd — 보험 id 배열)
+function ordHTML(){const a=setAfter();if(a.length<2)return'';
+  return`<div style="display:grid;gap:6px;margin-top:4px"><div class="row"><b style="font-size:13.5px">'후' 보장분석표 배치 순서</b><span class="muted" style="font-size:12px">◀ ▶로 옮기면 화면·PDF 보장분석표의 열 순서가 바뀝니다</span></div>
+   <div class="ordlist">${a.map((p,i)=>`<span class="ordi"><b class="n">${i+1}</b><span class="pill${S.cur.before.includes(p)?'':' gold'}">${S.cur.before.includes(p)?'유지':'제안'}</span><b>${esc(p.company||'보험사')}</b><span class="muted">${esc((p.product||'').slice(0,18))}</span><button class="btn sm" type="button" data-act="ordMv" data-id="${esc(p.id)}|-1" ${i?'':'disabled'} title="앞으로">◀</button><button class="btn sm" type="button" data-act="ordMv" data-id="${esc(p.id)}|1" ${i<a.length-1?'':'disabled'} title="뒤로">▶</button></span>`).join('')}</div></div>`}
 function custHTML(){
   const c=S.cur;const tabs=[['before','보장분석 (전)',c.before.length],['after','보장분석 (후)',c.proposals.length],['compare','전후 비교'],['disease','질환별 수령액'],['checks','점검·상담자료'],['print','PDF 출력']];
   return`<div class="page"><div class="ph"><div><div class="eyebrow">고객 · 담당 ${esc(c.ownerName)}</div><h2>${esc(c.name)} 님</h2></div>
@@ -721,7 +736,7 @@ function tabHTML(){
 }
 function afterTab(){if(S.tab==='print')renderPreview()}
 function renderTab(){const b=$('#tabBody');if(!b)return;const gw=b.querySelector('.gridwrap');const sx=gw?gw.scrollLeft:0,sy=gw?gw.scrollTop:0;b.innerHTML=tabHTML();const g2=b.querySelector('.gridwrap');if(g2){g2.scrollLeft=sx;g2.scrollTop=sy}
-  document.querySelectorAll('.tabs .tab-n').forEach((el,i)=>{el.textContent=i===0?S.cur.before.length:S.cur.proposals.length});afterTab();try{if(S.tab==='before'||S.tab==='after')paintGrid(S.tab==='before'?S.cur.before:setAfter())}catch(e){}renderCfgModal()}
+  document.querySelectorAll('.tabs .tab-n').forEach((el,i)=>{el.textContent=i===0?S.cur.before.length:S.cur.proposals.length});afterTab();try{if(S.tab==='before'||S.tab==='after')paintGrid(S.tab==='before'?S.cur.before:setAfter())}catch(e){}renderCfgModal();try{bigRender(false)}catch(e){}}
 
 function uploadHTML(mode){
   const isB=mode==='before';
@@ -747,7 +762,7 @@ function updJobs(mode){const el=$('#jobs_'+mode);if(el)el.innerHTML=jobsHTML(mod
 function keepHTML(){
   const b=S.cur.before;
   return`<div class="card" style="display:grid;gap:10px"><div class="row"><div><div class="eyebrow">1단계</div><h3 style="font-size:16px;margin-top:2px">유지할 기존 보험 선택</h3></div><span class="muted" style="margin-left:auto;font-size:12.5px">체크한 보험은 '후' 보장분석표에 그대로 포함됩니다</span></div>
-  ${b.length?`<div class="keeplist">${b.map(p=>`<label class="${p.keep?'on':''}"><input type="checkbox" data-keep="${p.id}" ${p.keep?'checked':''} class="chk"><span><b>${esc(p.company||'보험사 미입력')}</b> <span class="muted">${esc(p.product||'')}</span>${p.silson?' <span class="pill gold">실손</span>':''}${p.summary?' <span class="pill red">합산 자료 · 계약별 선택 불가</span>':''}</span><span class="muted">${esc(p.joinDate||'')} · ${fmtWon(num(p.premium))}</span></label>`).join('')}</div>${b.some(p=>p.summary)?'<p class="muted" style="margin:0;font-size:12.5px">보험사 보장분석의 합계 자료는 계약별로 나뉘어 있지 않아 일부만 유지할 수 없습니다. 계약별로 고르려면 고객 동의(LMS) 후 출력한 상세 보장분석이나 증권 PDF를 올려주세요.</p>':''}`:'<p class="muted" style="margin:0">보장분석 (전) 탭에서 기존 보험을 먼저 올려주세요.</p>'}</div>`;
+  ${b.length?`<div class="keeplist">${b.map(p=>`<label class="${p.keep?'on':''}"><input type="checkbox" data-keep="${p.id}" ${p.keep?'checked':''} class="chk"><span><b>${esc(p.company||'보험사 미입력')}</b> <span class="muted">${esc(p.product||'')}</span>${p.silson?' <span class="pill gold">실손</span>':''}${p.summary?' <span class="pill red">합산 자료 · 계약별 선택 불가</span>':''}</span><span class="muted">${esc(p.joinDate||'')} · ${fmtWon(num(p.premium))}</span></label>`).join('')}</div>${ordHTML()}${b.some(p=>p.summary)?'<p class="muted" style="margin:0;font-size:12.5px">보험사 보장분석의 합계 자료는 계약별로 나뉘어 있지 않아 일부만 유지할 수 없습니다. 계약별로 고르려면 고객 동의(LMS) 후 출력한 상세 보장분석이나 증권 PDF를 올려주세요.</p>':''}`:'<p class="muted" style="margin:0">보장분석 (전) 탭에서 기존 보험을 먼저 올려주세요.</p>'}</div>`;
 }
 function polHead(p,kind,ed){
   const tag=kind==='after'?(ed?'<span class="pill gold">제안</span>':'<span class="pill">유지</span>'):'';
@@ -756,7 +771,8 @@ function polHead(p,kind,ed){
 }
 function totRowHTML(cols){const t=cols.map(totPay),sum=t.reduce((s,x)=>s+x.v,0);
   return`<tr class="meta" data-meta="tot"><td class="c-grp"></td><td class="c-lbl" title="월보험료 × 납입기간 × 12 (갱신 인상분 제외)">총 납입보험료</td><td class="c-sum" style="white-space:nowrap;font-size:12px;letter-spacing:-.2px">${fmtWonN(sum)}</td>${t.map(x=>`<td class="ro">${fmtWonN(x.v)}${x.v&&x.est?'<small class="muted"> (추정)</small>':''}</td>`).join('')}</tr>`}
-function gridHTML(cols,{editable,kind}){
+const GRID_PW=170; // v2026.11.18 박지순 요청: 상품 열 폭 항상 같게
+function gridHTML(cols,{editable,kind,big}){
   if(!cols.length)return`<div class="card empty"><b>${kind==='before'?'기존 보험이 아직 없습니다':'유지할 보험이나 제안 보험이 아직 없습니다'}</b>${kind==='before'?'PDF를 올리면 담보가 자동으로 아래 표에 채워집니다.':'위에서 유지할 보험을 체크하거나 제안서 PDF를 올려주세요.'}</div>`;
   const ed=cols.map(p=>editable(p));
   const mrow=(lbl,f,type='txt')=>`<tr class="meta"><td class="c-grp"></td><td class="c-lbl">${lbl}</td><td class="c-sum">${f==='premium'?fmtN(premium(cols)):''}</td>${cols.map((p,i)=>ed[i]?`<td class="cell"><input class="${type}" data-pid="${p.id}" data-pf="${f}" value="${esc(f==='premium'||f==='payYears'?(num(p[f])||''):p[f]||'')}" ${f==='payYears'&&!num(p.payYears)&&estPay(p)?`placeholder="${estPay(p)} (추정)"`:''} ${type==='num'?'inputmode="numeric"':''}></td>`:`<td class="ro ${type==='txt'?'l':''}">${esc(f==='premium'||f==='payYears'?fmtN(num(p[f])):p[f]||'')}</td>`).join('')}</tr>`;
@@ -773,18 +789,54 @@ function gridHTML(cols,{editable,kind}){
       ${cols.map((p,i)=>{const a=expandAdd(p)[k]||0;return ed[i]?`<td class="cell">${a?`<span class="auto" data-auto="${p.id}:${k}">+${fmtN(a)}</span>`:`<span class="auto" data-auto="${p.id}:${k}"></span>`}<input class="num" inputmode="decimal" data-pid="${p.id}" data-k="${k}" value="${esc(p.values[k]??'')}"></td>`:`<td class="ro">${fmtN(eff(p,k))}</td>`}).join('')}</tr>`;
     });
   }
-  return`<div style="display:grid;gap:8px"><div class="row"><h3 style="font-size:16px">${kind==='before'?'기존 보장현황':'전문가 제안 보장현황'}</h3><span style="margin-left:auto;display:inline-flex;gap:4px"><button class="btn sm${S.paint===true?' bnv':''}" data-act="paintOn" type="button">색상 표시</button><button class="btn sm${S.paint===true?'':' bnv'}" data-act="paintOff" type="button">미표시</button></span><button class="btn sm bnv" data-act="itemCfg">항목 표시 설정${S.hidden&&S.hidden.size?` <span class="pill gold">${S.hidden.size}개 숨김</span>`:''}${S.shown&&S.shown.size?` <span class="pill">추가 ${S.shown.size}</span>`:''}</button></div>
-   <div class="gridwrap"><table class="grid"><thead><tr><th class="c-grp">구분</th><th class="c-lbl">담보</th><th class="c-sum">합계</th>${cols.map((p,i)=>`<th>${polHead(p,kind,ed[i])}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  const kc=kind==='after'?colKeep():'';
+  const thOf=(p,i)=>kc&&!ed[i]?`<th class="kp" style="background:${kc};color:${txtOn(kc)}">`:'<th>';
+  return`<div style="display:grid;gap:8px"><div class="row"><h3 style="font-size:16px">${big?esc(S.cur.name||'')+' 님 · ':''}${kind==='before'?'기존 보장현황':'전문가 제안 보장현황'}</h3><span style="margin-left:auto;display:inline-flex;gap:4px">${big?'':`<button class="btn sm bnv" data-act="bigOpen" type="button" title="보장분석표만 새 창으로 크게 띄워 입력합니다">큰창으로 작업</button>`}<button class="btn sm${S.paint===true?' bnv':''}" data-act="paintOn" type="button">색상 표시</button><button class="btn sm${S.paint===true?'':' bnv'}" data-act="paintOff" type="button">미표시</button></span>${big?`<button class="btn sm bnv" data-act="bigClose" type="button">닫기</button>`:`<button class="btn sm bnv" data-act="itemCfg">항목 표시 설정${S.hidden&&S.hidden.size?` <span class="pill gold">${S.hidden.size}개 숨김</span>`:''}${S.shown&&S.shown.size?` <span class="pill">추가 ${S.shown.size}</span>`:''}</button>`}</div>
+   <div class="gridwrap"><table class="grid" style="width:${52+150+92+cols.length*GRID_PW}px"><colgroup><col style="width:52px"><col style="width:150px"><col style="width:92px">${cols.map(()=>`<col style="width:${GRID_PW}px">`).join('')}</colgroup><thead><tr><th class="c-grp">구분</th><th class="c-lbl">담보</th><th class="c-sum">합계</th>${cols.map((p,i)=>`${thOf(p,i)}${polHead(p,kind,ed[i])}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function updateSums(){
-  const t=S.tab;const cols=t==='before'?S.cur.before:setAfter();
+  _updSums(document,S.tab==='before'?S.cur.before:setAfter());
+  const w=S.bigWin;if(w&&!w.closed){try{_updSums(w.document,S.bigKind==='before'?S.cur.before:setAfter())}catch(e){}}
+}
+function _updSums(D,cols){const document=D;
   document.querySelectorAll('[data-sum]').forEach(el=>{const k=el.dataset.sum;const s=sumK(cols,k);const key=ITEM[k].key;el.textContent=key&&!s?'미가입':fmtN(s);el.parentElement.classList.toggle('miss',key&&!s)});
   const ps=document.querySelector('tr.meta td.c-sum');
   document.querySelectorAll('[data-auto]').forEach(el=>{const[pid,k]=el.dataset.auto.split(':');const p=cols.find(x=>x.id===pid);const a=p?(expandAdd(p)[k]||0):0;el.textContent=a?'+'+fmtN(a):''});
   const pr=document.querySelector('tr.meta[data-meta="premium"] .c-sum');if(pr)pr.textContent=fmtWonN(premium(cols));
   const tr=document.querySelector('tr.meta[data-meta="tot"]');if(tr){const w=document.createElement('tbody');w.innerHTML=totRowHTML(cols);tr.replaceWith(w.firstElementChild)}
-  try{paintGrid(cols)}catch(e){}
+  try{paintGrid(cols,D)}catch(e){}
 }
+/* v2026.11.18 박지순 요청: [큰창으로 작업] — 보장분석표만 새 브라우저 창에 크게. 같은 S.cur를 고치고 같은 처리기(_onClick/_onInput/_onChange)를 씀.
+   창 닫힘: [닫기]·로그아웃·다른 고객 열기·이 화면(iframe) 닫힘. 입력 중인 칸이 있으면 다시 그리지 않음(커서 보존) */
+function bigOpen(){if(!S.cur||(S.tab!=='before'&&S.tab!=='after'))return;
+  const same=S.bigWin&&!S.bigWin.closed&&S.bigCid===S.cur.id;
+  if(same){S.bigKind=S.tab;bigRender(true);try{S.bigWin.focus()}catch(e){}return}
+  bigClose();S.bigKind=S.tab;S.bigCid=S.cur.id;
+  const W=Math.min(1700,(screen.availWidth||1400)-40),H=Math.min(1000,(screen.availHeight||900)-60);
+  let w=null;try{w=window.open('','bjgrid_'+String(S.cur.id).replace(/[^A-Za-z0-9_]/g,''),`width=${W},height=${H},left=20,top=20,resizable=yes,scrollbars=yes`)}catch(e){}
+  if(!w){toast('팝업이 차단되었습니다 — 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요');return}
+  const css=[...document.querySelectorAll('style')].map(x=>'<style>'+x.textContent+'</style>').join('')+[...document.querySelectorAll('link[rel="stylesheet"]')].map(l=>'<link rel="stylesheet" href="'+esc(l.href)+'">').join('');
+  w.document.open();w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>보장분석표</title>'+css+'<style>body{margin:0;padding:12px 16px}.gridwrap{max-height:calc(100vh - 74px)}</style></head><body class="'+esc(document.body.className||'')+'"><div id="bigBody"></div></body></html>');w.document.close();
+  S.bigWin=w;
+  w.document.addEventListener('click',e=>{_onClick(e)});
+  w.document.addEventListener('input',e=>{_onInput(e);_bigMainSoon()});
+  w.document.addEventListener('change',e=>{_onChange(e);_bigMainSoon()});
+  w.addEventListener('pagehide',()=>{if(S.bigWin===w){S.bigWin=null;try{if(S.cur)renderTab()}catch(e){}}});
+  bigRender(true);try{w.focus()}catch(e){}
+}
+function bigRender(force){const w=S.bigWin;if(!w)return;if(w.closed){S.bigWin=null;return}
+  if(!S.cur||S.cur.id!==S.bigCid)return bigClose();
+  let d;try{d=w.document}catch(e){return}const box=d.getElementById('bigBody');if(!box)return;
+  const ae=d.activeElement;if(!force&&ae&&ae.matches&&ae.matches('input.num,input.txt')&&box.contains(ae)&&d.hasFocus())return;
+  const k=S.bigKind==='before'?'before':'after',cols=k==='before'?S.cur.before:setAfter();
+  const gw=box.querySelector('.gridwrap'),sx=gw?gw.scrollLeft:0,sy=gw?gw.scrollTop:0;
+  box.innerHTML=gridHTML(cols,{editable:k==='before'?()=>true:p=>!S.cur.before.includes(p),kind:k,big:true});
+  const g2=box.querySelector('.gridwrap');if(g2){g2.scrollLeft=sx;g2.scrollTop=sy}
+  try{paintGrid(cols,d)}catch(e){}try{d.title='보장분석표 · '+(S.cur.name||'')+' · '+(k==='before'?'기존':'제안')}catch(e){}}
+function bigClose(){const w=S.bigWin;S.bigWin=null;S.bigCid=null;try{if(w&&!w.closed)w.close()}catch(e){}}
+function _bigMainSoon(){clearTimeout(S.bigMT);S.bigMT=setTimeout(()=>{try{if(S.cur&&S.view==='cust'&&(S.tab==='before'||S.tab==='after'))renderTab()}catch(e){}},500)}
+function _bigSoon(){if(!S.bigWin)return;clearTimeout(S.bigST);S.bigST=setTimeout(()=>{try{bigRender(false)}catch(e){}},500)}
+window.addEventListener('pagehide',()=>{try{bigClose()}catch(e){}});
 function covHTML(set){
   const pols=set.filter(p=>(p.cov&&p.cov.length)||(p.unmapped&&p.unmapped.length));
   if(!pols.length)return'';
@@ -1096,15 +1148,15 @@ function picPage(hasAfter){
    <div class="note">빨간 테두리는 ${A?'제안 후에도':'지금'} 비어 있는 보장, 초록은 제안으로 늘어나는 보장입니다. 실제 지급은 각 보험사 약관의 지급 조건을 따릅니다.</div>`;
   return pgShell('그림으로 보는 내 보장','보장 그림판',h);
 }
-function covPages(cols,title,sub){
+function covPages(cols,title,sub,kind){
   if(!cols.length)return[];
   const o=S.pr;const per=7;const out=[];
   for(let s=0;s<cols.length;s+=per){
     const pc=cols.slice(s,s+per);const items=ITEMS.filter(i=>isVis(i.k,sumK(cols,i.k)>0)&&(!o.hideEmpty||i.key||sumK(cols,i.k)));
     const nRows=items.length+6;const avail=1123-70-62-28-50;const rh=Math.max(9.5,Math.min(24,Math.floor(avail/nRows*10)/10));const fs=Math.max(7,Math.min(11.5,rh*.62));
-    const pw=(706-36-122-70)/pc.length;
+    const pw=(706-36-122-70)/pc.length;const hc=colHead(),kc=colKeep(),hs=c=>` style="background:${c};color:${txtOn(c)}"`;
     let h=`<table class="cov" style="font-size:${fs}px"><colgroup><col style="width:36px"><col style="width:122px"><col style="width:70px">${pc.map(()=>`<col style="width:${pw}px">`).join('')}</colgroup>
-     <thead><tr><th colspan="2" class="l">담보 <small>단위 만원</small></th><th>합계</th>${pc.map(p=>`<th>${esc(p.company||'-')}<small>${esc(p.product||'')}</small></th>`).join('')}</tr></thead>`;
+     <thead><tr><th colspan="2" class="l"${hs(hc)}>담보 <small>단위 만원</small></th><th${hs(hc)}>합계</th>${pc.map(p=>`<th${hs(kind==='after'&&kc&&S.cur.before.includes(p)?kc:hc)}>${esc(p.company||'-')}<small>${esc(p.product||'')}</small></th>`).join('')}</tr></thead>`;
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">가입일</td><td class="s"></td>${pc.map(p=>`<td>${esc(p.joinDate||'')}</td>`).join('')}</tr>`;
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">납입기간 / 만기</td><td class="s"></td>${pc.map(p=>`<td>${esc(payExpTxt(p))}</td>`).join('')}</tr>`;
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">월보험료</td><td class="s">${fmtWonN(premium(cols))}</td>${pc.map(p=>`<td>${fmtWonN(num(p.premium))}</td>`).join('')}</tr>`;
@@ -1148,7 +1200,7 @@ function buildPages(){
   if(o.cover&&hasAfter)p.push(coverPage());
   if(o.pic)p.push(picPage(hasAfter));
   if(o.before)p.push(...covPages(setBefore(),'가입보험 보장분석표','기존 보장현황'));
-  if(o.after&&hasAfter)p.push(...covPages(setAfter(),'가입보험 보장분석표','전문가 제안'));
+  if(o.after&&hasAfter)p.push(...covPages(setAfter(),'가입보험 보장분석표','전문가 제안','after'));
   if(o.disease&&hasAfter)p.push(diseasePage());
   if(o.journey&&hasAfter)p.push(journeyPage());
   if(o.diff&&hasAfter)p.push(...diffPages());
@@ -1381,7 +1433,7 @@ document.addEventListener('submit',async e=>{
     S.cur=c;logHist('고객 등록');S.showNew=false;S.tab='before';S.view='cust';S.jobs={before:[],proposal:[]};renderMain();saveCur();
   }
 });
-document.addEventListener('click',async e=>{
+const _onClick=async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act,id=b.dataset.id;
   if(b.dataset.confirm&&!b.dataset.armed){b.dataset.armed='1';const t=b.textContent;b.textContent='한 번 더 누르면 실행';if(act==='cmDel')S.cmArm={id,ts:Date.now()};setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent=t}if(act==='cmDel'&&S.cmArm&&S.cmArm.id===id&&Date.now()-S.cmArm.ts>=2900)S.cmArm=null},3000);return}
   if(act==='logout')return logout();
@@ -1434,9 +1486,12 @@ document.addEventListener('click',async e=>{
   if(act==='matView'){e.preventDefault();const v=$('#matViewer');v.innerHTML=`<div class="mv" data-act="matClose"><img src="${matSrc(id)}" alt=""><span>${esc(MAT[id].t)} · 아무 곳이나 누르면 닫힙니다</span></div>`;v.hidden=false;return}
   if(act==='matClose'){$('#matViewer').hidden=true;return}
   if(act==='itemCfg'){S.showCfg=!S.showCfg;renderTab();return renderCfgModal()}
+  if(act==='bigOpen')return bigOpen();
+  if(act==='bigClose')return bigClose();
+  if(act==='ordMv'){const[pid,dd]=String(id||'').split('|');const a=setAfter().map(p=>p.id);const i=a.indexOf(pid),j=i+(+dd||0);if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];S.cur.afterOrd=a;markDirty();return renderTab()}
   if(act==='paintOn'||act==='paintOff'){S.paint=act==='paintOn';saveHidden();return renderTab()}
   if(act==='cfgTab'){S.cfgTab=id==='color'?'color':'item';return renderCfgModal()}
-  if(act==='pcPick'){const w=String(id||'')[0],c=String(id||'').slice(1);if((w==='v'||w==='e')&&/^#[0-9a-f]{6}$/i.test(c)){S.pc=pcClean(S.pc);S.pc[w]=c.toLowerCase();saveHidden();return renderTab()}return}
+  if(act==='pcPick'){const w=String(id||'')[0],c=String(id||'').slice(1);if('vekh'.includes(w)&&w&&/^#[0-9a-f]{6}$/i.test(c)){S.pc=pcClean(S.pc);S.pc[w]=c.toLowerCase();saveHidden();return renderTab()}return}
   if(act==='pcReset'){S.pc=pcClean();saveHidden();return renderTab()}
   if(act==='colAll'){const v=($('#colAllPick')||{}).value||COL_DEF;S.col=S.col||{};Object.keys(S.col).forEach(k=>S.col[k]=v);saveHidden();return renderTab()}
   if(act==='colClear'){S.col={};saveHidden();return renderTab()}
@@ -1446,8 +1501,9 @@ document.addEventListener('click',async e=>{
   if(act==='resetPw'){const v=$('#rp_'+id)?.value||'';if(v.length<4)return toast('새 비밀번호를 4자 이상 입력하세요');const salt=uid('s');try{await S.db.doc(EMP+'/'+id).update({salt,hash:await hashPw(salt,v)});toast('비밀번호를 바꿨습니다')}catch(x){toast('바꾸지 못했습니다: 권한을 확인하세요')}return}
   if(act==='toggleEmp'){const em=S.emps.find(x=>x.sabun===id);try{await S.db.doc(EMP+'/'+id).update({active:em.active===false})}catch(x){toast('바꾸지 못했습니다')}return}
   if(act==='delEmp'){try{await S.db.doc(EMP+'/'+id).delete();toast('사번을 삭제했습니다')}catch(x){toast('삭제하지 못했습니다')}return}
-});
-document.addEventListener('input',e=>{
+};
+document.addEventListener('click',_onClick);
+const _onInput=e=>{
   const t=e.target;
   if(t.id==='eduQ'){S.eduQ=t.value;clearTimeout(S.eduT);S.eduT=setTimeout(()=>{const pos=t.selectionStart;renderMain();const q=$('#eduQ');if(q){q.focus();q.setSelectionRange(pos,pos)}},250);return}
   if(t.id==='q'){S.q=t.value;const pos=t.selectionStart;renderMain();const q=$('#q');q.focus();q.setSelectionRange(pos,pos);return}
@@ -1457,8 +1513,9 @@ document.addEventListener('input',e=>{
   if(t.dataset.k){const v=t.value.trim();if(v==='')delete p.values[t.dataset.k];else p.values[t.dataset.k]=num(v);updateSums();return markDirty()}
   if(t.dataset.pf==='payexp'){const r=parsePayExp(t.value,p);p.payYears=r.py;p.expiry=r.exp;updateSums();return markDirty()}
   if(t.dataset.pf){p[t.dataset.pf]=(t.dataset.pf==='premium'||t.dataset.pf==='payYears')?num(t.value):t.value;if(t.dataset.pf==='premium')updateSums();return markDirty()}
-});
-document.addEventListener('change',e=>{
+};
+document.addEventListener('input',e=>{_onInput(e);if(e.target&&e.target.dataset&&e.target.dataset.pid)_bigSoon()});
+const _onChange=e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.pid&&S.cur&&(t.dataset.pf==='premium'||t.dataset.pf==='payexp')){const p=[...S.cur.before,...S.cur.proposals].find(x=>x.id===t.dataset.pid);if(p)t.value=t.dataset.pf==='premium'?fmtWonN(num(p.premium)):payExpTxt(p)}
   if(t.id==='fcFilter'){S.fcFilter=t.value;return renderMain()}
@@ -1477,15 +1534,16 @@ document.addEventListener('change',e=>{
   if(t.dataset.mat){const set=new Set(S.cur.mats||[]);t.checked?set.add(t.dataset.mat):set.delete(t.dataset.mat);S.cur.mats=[...set];t.closest('.mth')?.classList.toggle('on',t.checked);markDirty();return}
   if(t.dataset.colon){S.colOn=t.checked;saveHidden();return renderTab()}
   if(t.dataset.pcall){S.paint=t.checked;saveHidden();return renderTab()}
-  if(t.dataset.pcon){S.pc=pcClean(S.pc);S.pc[t.dataset.pcon==='e'?'eOn':'vOn']=t.checked;saveHidden();return renderTab()}
-  if(t.dataset.pcc){const w=t.dataset.pcc==='e'?'e':'v';if(/^#[0-9a-f]{6}$/i.test(t.value)){S.pc=pcClean(S.pc);S.pc[w]=t.value.toLowerCase();saveHidden();return renderTab()}return}
+  if(t.dataset.pcon){S.pc=pcClean(S.pc);const w=t.dataset.pcon;if('vek'.includes(w)&&w.length===1)S.pc[w+'On']=t.checked;saveHidden();return renderTab()}
+  if(t.dataset.pcc){const w='vekh'.includes(t.dataset.pcc)&&t.dataset.pcc.length===1?t.dataset.pcc:'v';if(/^#[0-9a-f]{6}$/i.test(t.value)){S.pc=pcClean(S.pc);S.pc[w]=t.value.toLowerCase();saveHidden();return renderTab()}return}
   if(t.dataset.cchk){const k=t.dataset.cchk;S.col=S.col||{};if(t.checked){const pk=document.querySelector('[data-ccol="'+k+'"]');S.col[k]=(pk&&/^#[0-9a-f]{6}$/i.test(pk.value)?pk.value:COL_DEF).toLowerCase()}else delete S.col[k];saveHidden();return renderTab()}
   if(t.dataset.ccol){const k=t.dataset.ccol;S.col=S.col||{};if(/^#[0-9a-f]{6}$/i.test(t.value))S.col[k]=t.value.toLowerCase();saveHidden();return renderTab()}
   if(t.dataset.hide){S.hidden=S.hidden||new Set();t.checked?S.hidden.delete(t.dataset.hide):S.hidden.add(t.dataset.hide);saveHidden();return renderTab()}
   if(t.dataset.show){S.shown=S.shown||new Set();t.checked?S.shown.add(t.dataset.show):S.shown.delete(t.dataset.show);saveHidden();return renderTab()}
   if(t.dataset.hgrp){const g=GROUPS.find(x=>x[0]===t.dataset.hgrp);S.hidden=S.hidden||new Set();S.shown=S.shown||new Set();g[2].forEach(([k,,,ex])=>{if(ex){t.checked?S.shown.add(k):S.shown.delete(k)}else{t.checked?S.hidden.delete(k):S.hidden.add(k)}});saveHidden();return renderTab()}
   if(t.dataset.pr){S.pr[t.dataset.pr]=t.checked;return renderPreview()}
-});
+};
+document.addEventListener('change',_onChange);
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{
   const d=e.target.closest&&e.target.closest('[data-drop]');if(!d)return;e.preventDefault();
   if(ev==='dragover')d.classList.add('over');else d.classList.remove('over');
