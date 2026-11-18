@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-14</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-15</div>
   </div>
 </div>
 
@@ -34440,7 +34440,7 @@ function cfPrint(name,catId){
 // 고객센터 = 콜센터 번호 설정(carinscfg — 손보 tel·생보 ltel, 홈 매니저 연락처 [수정])에서 자동, 줄에서 직접 고칠 수 있음.
 // 저장 없음 — 메모리 window._bcState만(logout 리셋 — 함수 _bcSt와 이름 겹치지 않게). 미리보기·출력은 같은 _bcDoc(단일 출처, _cfCss 계열 별도 CSS).
 var BC_MAX=30;
-function _bcNewRow(){ return {id:'bc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ins:'',ct:'',insd:'',prod:'',prem:'',tel:'',telHand:0}; }
+function _bcNewRow(){ return {id:'bc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ins:'',ct:'',insd:'',prod:'',sd:'',ed:'',pay:'',prem:'',tel:'',telHand:0}; }
 function _bcSt(){
   if(!window._bcState){
     var my=_bdrMyInfo(), t=''; try{ t=_rsvTitle(); }catch(e){}
@@ -34571,15 +34571,15 @@ function _bcCss(){
     +'.ti .en{font-size:9pt;letter-spacing:.42em;color:#c9a14a;font-weight:800;margin-bottom:5mm}'
     +'.ti h1{font-size:38pt;line-height:1.28;font-weight:900;color:#141b2d;letter-spacing:-.01em}'
     +'.ti h1 span{color:#13285e}'
-    +'.card{position:absolute;left:20mm;right:16mm;top:146mm;border-top:.7mm solid #13285e;border-bottom:.35mm solid #13285e}'
+    +'.card{position:absolute;left:20mm;right:16mm;top:142mm;border-top:.7mm solid #13285e;border-bottom:.35mm solid #13285e}'
     +'.card table{width:100%;border-collapse:collapse;table-layout:fixed}'
-    +'.card th{width:34mm;text-align:left;font-size:10.5pt;font-weight:700;color:#5a6380;letter-spacing:.18em;padding:0 0 0 3mm;height:12.4mm;background:#f5f6fa;border-bottom:.25mm solid #e1e4ec}'
+    +'.card th{width:34mm;text-align:left;font-size:10.5pt;font-weight:700;color:#5a6380;letter-spacing:.18em;padding:0 0 0 3mm;height:11.4mm;background:#f5f6fa;border-bottom:.25mm solid #e1e4ec}'
     +'.card td{font-size:14pt;font-weight:700;color:#141b2d;padding:0 4mm;border-bottom:.25mm solid #e1e4ec;word-break:keep-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
     +'.card tr:last-child th,.card tr:last-child td{border-bottom:none}'
     +'.card td small{font-size:11pt;font-weight:600;color:#5a6380;margin-left:1.4mm}'
     +'.card td.tel{color:#13285e;letter-spacing:.04em}'
     +'.card td.nil{color:#c2c7d6;font-weight:400}'
-    +'.nt{position:absolute;left:20mm;right:16mm;top:236mm;display:flex;gap:3.4mm;align-items:flex-start;padding:4.4mm 5mm;background:#f7f4ec;border-left:1.1mm solid #c9a14a}'
+    +'.nt{position:absolute;left:20mm;right:16mm;top:240mm;display:flex;gap:3.4mm;align-items:flex-start;padding:4.4mm 5mm;background:#f7f4ec;border-left:1.1mm solid #c9a14a}'
     +'.nt b{font-size:11pt;color:#8a6a1e;font-weight:800;white-space:nowrap}'
     +'.nt p{font-size:11pt;line-height:1.6;color:#3a4256;font-weight:600}'
     +'.ft{position:absolute;left:7mm;right:0;bottom:0;height:22mm;background:#0f2550;display:flex;align-items:center;justify-content:space-between;padding:0 16mm 0 13mm}'
@@ -34600,12 +34600,20 @@ function _bcPage(st,r){
       +'<tr><th>피 보 험 자</th>'+val(insd,insd?'님':'')+'</tr>'
       +'<tr><th>보 험 사</th>'+val(ins)+'</tr>'
       +'<tr><th>상 품 명</th>'+val(r.prod)+'</tr>'
+      +'<tr><th>보험기간<small style="display:block;font-size:8pt;letter-spacing:.06em;margin:0">(납입기간)</small></th>'+_bcTermTd(r)+'</tr>'
       +'<tr><th>보 험 료</th>'+val(_bcPrem(r.prem))+'</tr>'
       +'<tr><th>고객센터</th>'+(tel?'<td class="tel">'+_esc(tel)+'</td>':'<td class="nil">&nbsp;</td>')+'</tr>'
     +'</table></div>'
     +'<div class="nt"><b>안내</b><p>보험 증권을 분실하신 경우 꼭<br>'+(ins?_esc(ins)+' ':'')+'고객센터'+(tel?'('+_esc(tel)+')':'')+'에 재발행을 요청해 주세요.</p></div>'
     +'<div class="ft"><img src="'+_esc(_cfImg('incar-logo-w.png'))+'" alt=""><p>'+_esc(CF_BRANCH)+'<br>'+(who?'<b>'+_esc(who)+'</b>':'')+(hp?'<em>H.P</em>'+_esc(hp):'')+'</p></div>'
     +'</div>';
+}
+function _bcDateFmt(v){ var d=String(v||'').replace(/\D/g,'').slice(0,8); if(d.length<=4) return d; if(d.length<=6) return d.slice(0,4)+'.'+d.slice(4); return d.slice(0,4)+'.'+d.slice(4,6)+'.'+d.slice(6); }
+function _bcTermTd(r){   // 보험기간(납입기간) — 가입일 ~ 만기일 (납입기간), 비어 있는 칸은 빼고
+  var sd=String(r.sd||'').trim(), ed=String(r.ed||'').trim(), pay=String(r.pay||'').trim();
+  if(!sd&&!ed&&!pay) return '<td class="nil">&nbsp;</td>';
+  var per=(sd||ed)?(_esc(sd)+' ~ '+_esc(ed)):'';
+  return '<td style="font-size:12.5pt">'+per+(pay?'<small>('+_esc(pay)+')</small>':'')+'</td>';
 }
 function _bcFilled(r){ return !!(r&&(String(r.ins||'').trim()||String(r.ct||'').trim()||String(r.prod||'').trim())); }
 function _bcDoc(st,rows,forPrint){
@@ -34627,17 +34635,20 @@ function _bcRowHtml(r,i,L,cur){
       +(r.ins&&!known?'<option selected>'+_esc(r.ins)+'</option>':'')
       +'<optgroup label="손해보험사">'+opt(L.son)+'</optgroup><optgroup label="생명보험사">'+opt(L.life)+'</optgroup></select></div>'
     +'<div>'+inp('ct','계약자',20)+'</div>'
-    +'<div>'+inp('insd','피보험자 (같으면 비움)',20)+'</div>'
+    +'<div>'+inp('insd','같으면 비움',20)+'</div>'
     +'<div>'+inp('prod','상품명',60)+'</div>'
+    +'<div>'+inp('sd','가입일 20240315',10,' inputmode="numeric"')+'</div>'
+    +'<div>'+inp('ed','만기일 20840315',10,' inputmode="numeric"')+'</div>'
+    +'<div>'+inp('pay','예: 20년납',12)+'</div>'
     +'<div>'+inp('prem','보험료',20,' inputmode="numeric"')+'</div>'
     +'<div>'+inp('tel','고객센터',20,' inputmode="tel"')+'</div>'
     +'<div><button class="bd bdr" data-bcdel="1" title="이 줄 삭제" style="padding:6px 9px;font-size:12px">삭제</button></div>'
   +'</div>';
 }
 function _bcCssPanel(){
-  return '<style id="bc_pcss">#bc_rows .bcrow{display:grid;grid-template-columns:26px 1.3fr 1fr 1.1fr 1.7fr 1fr 1fr 52px;gap:6px;align-items:center;padding:6px;border-radius:8px;border:1px solid transparent}'
+  return '<style id="bc_pcss">#bc_rows .bcrow{display:grid;grid-template-columns:24px 1.2fr .9fr 1fr 1.5fr .95fr .95fr .75fr .9fr .9fr 48px;gap:6px;align-items:center;padding:6px;border-radius:8px;border:1px solid transparent}'
     +'#bc_rows .bcrow.cur{background:#eef2ff;border-color:#c5cff5}#bc_rows .bcno{font-weight:800;color:#3846b0;text-align:center;font-size:13px}'
-    +'#bc_rows .bchead{display:grid;grid-template-columns:26px 1.3fr 1fr 1.1fr 1.7fr 1fr 1fr 52px;gap:6px;padding:0 6px 4px;font-size:12px;color:#667;font-weight:700}'
+    +'#bc_rows .bchead{display:grid;grid-template-columns:24px 1.2fr .9fr 1fr 1.5fr .95fr .95fr .75fr .9fr .9fr 48px;gap:6px;padding:0 6px 4px;font-size:12px;color:#667;font-weight:700}'
     +'@media(max-width:900px){#bc_rows .bcrow,#bc_rows .bchead{grid-template-columns:1fr 1fr}#bc_rows .bchead{display:none}}</style>';
 }
 function rBcover(){
@@ -34657,7 +34668,7 @@ function rBcover(){
         +'<button class="bp bnv" data-bcact="add" style="padding:9px 14px;font-weight:700"><i class="ti ti-plus"></i> 행 추가</button>'
         +'<button class="bp bnv" data-bcact="print" style="padding:9px 16px;font-weight:700"><i class="ti ti-printer"></i> 전체 인쇄 / PDF 저장</button>'
       +'</div>'
-      +'<div id="bc_rows"><div class="bchead"><div>No</div><div>보험사</div><div>계약자</div><div>피보험자</div><div>상품명</div><div>보험료</div><div>고객센터</div><div></div></div>'
+      +'<div id="bc_rows"><div class="bchead"><div>No</div><div>보험사</div><div>계약자</div><div>피보험자</div><div>상품명</div><div>가입일</div><div>만기일</div><div>납입기간</div><div>보험료</div><div>고객센터</div><div></div></div>'
         +st.rows.map(function(r,i){ return _bcRowHtml(r,i,L,st.cur); }).join('')+'</div>'
       +'<div style="font-size:11.5px;color:#8a92ac;margin-top:8px;line-height:1.6">한 줄이 표지 한 장입니다(최대 '+BC_MAX+'줄). 보험사를 고르면 로고와 고객센터 번호가 자동으로 들어가고, 번호는 직접 고칠 수 있습니다. 입력은 저장되지 않습니다.<br>'
         +'로고는 관리자가 [로고 관리]에서 보험사마다 올린 표지 전용 로고를 쓰고, 없으면 보험사 이름 글자로 나옵니다. 고객센터 번호는 보험사 대표번호가 자동으로 들어가며, 홈 [매니저 연락처]에 콜센터 번호를 넣은 회사는 그 번호가 우선입니다.</div>'
@@ -34682,6 +34693,7 @@ function _bcBind(box){
     var m=t.getAttribute('data-bcm'); if(m){ if(m==='hp'){ var f=_bdrFmtPhoneStr(t.value); if(f!==t.value) t.value=f; st._f=1; } st[m]=t.value; _bcPrevSoon(); return; }
     var k=t.getAttribute('data-bck'); if(!k||k==='ins') return; var o=_bcRowOf(t); if(!o) return;
     if(k==='tel'){ var f2=_carTelFmt(t.value); if(f2!==t.value) t.value=f2; o.r.telHand=1; }
+    if(k==='sd'||k==='ed'){ var f4=_bcDateFmt(t.value); if(f4!==t.value) t.value=f4; }
     if(k==='prem'&&/^[\d,]*$/.test(t.value)){ var d=t.value.replace(/\D/g,''), f3=d.replace(/\B(?=(\d{3})+(?!\d))/g,','); if(f3!==t.value) t.value=f3; }
     o.r[k]=t.value; _bcSetCur(o.i); _bcPrevSoon(); };
   box.onchange=function(e){ var t=e.target; if(t.getAttribute('data-bck')!=='ins') return; var o=_bcRowOf(t); if(!o) return;
