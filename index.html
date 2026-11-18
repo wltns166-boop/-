@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-13</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-14</div>
   </div>
 </div>
 
@@ -5548,7 +5548,7 @@ function logout(){
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
   window._cfBuf=null;   // 상담용지 인쇄 담당자·연락처 입력 리셋(2026-11-18)
-  window._bcState=null; window._bcCfgTried=0; clearTimeout(window._bcPrevT); try{ var _bcb=g('bc_page_box'); if(_bcb) _bcb.innerHTML=''; }catch(e){}   // 바인더용 증권표지 입력(고객 이름·상품) 리셋(2026-11-18)
+  window._bcState=null; window._bcCfgTried=0; clearTimeout(window._bcPrevT); try{ bcLogoClose(); }catch(e){} try{ var _bcb=g('bc_page_box'); if(_bcb) _bcb.innerHTML=''; }catch(e){}   // 바인더용 증권표지 입력(고객 이름·상품) 리셋(2026-11-18)
   window._ckBuf=null;   // 상담고객체크리스트 담당자·핸드폰 입력도 리셋(2026-10-27)
   window._ckSel=null; window._ckPg=null; try{ if(typeof ckMgrClose==='function') ckMgrClose(); }catch(e){}   // 체크리스트 양식 선택·양식 관리 창(2026-10-30)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
@@ -34450,16 +34450,106 @@ function _bcSt(){
 }
 function _bcInsAll(){ var L=_reqInsLists(); return {son:(L.son||[]).filter(function(n){ return !/가설동/.test(n); }), life:(L.life||[]).slice()}; }
 function _bcSide(ins){ var L=_bcInsAll(); return L.life.indexOf(ins)>=0?'saeng':'son'; }
-function _bcLogo(ins){
-  ins=String(ins||'').trim(); if(!ins) return '';
-  var best=null, sc=0;
-  try{ (_sanData().items||[]).forEach(function(it){ if(!it||!_sanIcOk(it.ic)) return; var m=_mgrCoMatch(ins,it.nm); if(m>sc){ sc=m; best=it; } }); }catch(e){}
-  return best?best.ic:'';
+function _bcLogo(ins){   // 표지 전용 로고(bcovercfg) — 없으면 글자 로고
+  ins=String(ins||'').trim(); var M=window._bcLogos||{}; return (ins&&_sanIcOk(M[ins]))?M[ins]:'';
 }
+// 표지 전용 보험사 로고(v-14 백동현 "여기 들어가는 로고는 따로") — Firestore bcovercfg/logos = {m:{보험사이름:URL},ts,by}, 그림은 Storage home_bg/bclogo_*.png(_HERO_URL_RE 화이트리스트)
+function _bcLogoLoad(){
+  var db=_carDb(); if(!db) return Promise.resolve();
+  return db.collection('bcovercfg').doc('logos').get().then(function(d){
+    var m=(d.exists&&(d.data()||{}).m)||{}, out={};
+    Object.keys(m).forEach(function(k){ if(_sanIcOk(m[k])) out[k]=m[k]; });
+    window._bcLogos=out;
+  }).catch(function(e){ console.warn('bcovercfg',e); });
+}
+function bcLogoOpen(){
+  if(!_isAdmin()){ toast('관리자만 로고를 바꿀 수 있습니다.'); return; }
+  var old=g('bc_logo_pop'); if(old) old.remove();
+  var d=document.createElement('div'); d.id='bc_logo_pop';
+  d.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,16,40,.45);display:flex;align-items:center;justify-content:center';
+  d.innerHTML='<div style="background:#fff;color:#111;border-radius:14px;width:min(860px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+    +'<div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #e3e6ef"><b style="font-size:16px">증권표지 보험사 로고</b><span style="flex:1"></span><button class="bp bnv" data-bclx="1" style="padding:7px 14px">닫기</button></div>'
+    +'<div style="padding:10px 18px;font-size:12.5px;color:#556;line-height:1.6">칸을 누르면 초록색으로 선택됩니다. 그 상태에서 <b>Ctrl+V</b>로 붙여 넣거나, 사진을 끌어다 놓거나, 칸을 두 번 눌러 파일을 고르세요. 올리면 바로 전원에게 반영됩니다(표지 전용 — 전산 바로가기 로고와 따로).</div>'
+    +'<div id="bc_logo_list" style="padding:4px 18px 18px;overflow:auto"></div>'
+    +'<input type="file" id="bc_logo_file" accept="image/*" style="display:none"></div>';
+  document.body.appendChild(d);
+  d.addEventListener('click',function(e){ if(e.target===d||e.target.closest('[data-bclx]')) bcLogoClose(); });
+  g('bc_logo_file').addEventListener('change',function(){ var f=this.files&&this.files[0]; var k=window._bcLogoSel; this.value=''; if(f&&k) _bcLogoFile(k,f); });
+  _bcLogoLoad().then(_bcLogoDraw); _bcLogoDraw();
+}
+function bcLogoClose(){ var d=g('bc_logo_pop'); if(d) d.remove(); window._bcLogoSel=null; window._bcLogoHover=null; }
+function _bcLogoDraw(){
+  var box=g('bc_logo_list'); if(!box) return;
+  var L=_bcInsAll(), M=window._bcLogos||{}, sel=window._bcLogoSel;
+  var cell=function(n){ var u=M[n];
+    return '<div class="bclg'+(n===sel?' sel':'')+'" data-bcln="'+_esc(n)+'" style="border:2px solid '+(n===sel?'#2a9d5a':'#e1e4ec')+';background:'+(n===sel?'#eefaf2':'#fff')+';border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px">'
+      +'<div style="height:54px;display:flex;align-items:center;justify-content:center;background:#f7f8fb;border-radius:6px">'+(u?'<img src="'+_esc(u)+'" alt="" style="max-height:48px;max-width:100%;object-fit:contain">':'<span style="font-size:11.5px;color:#9aa">로고 없음</span>')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:4px"><span style="flex:1;font-size:12.5px;font-weight:700;color:#223">'+_esc(n)+'</span>'
+      +(u?'<button class="bd bdr" data-bcldel="1" style="padding:2px 7px;font-size:11px">빼기</button>':'')+'</div></div>'; };
+  var grid=function(t,arr){ return '<div style="font-weight:800;color:#13285e;margin:12px 0 8px">'+t+'</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+arr.map(cell).join('')+'</div>'; };
+  box.innerHTML=grid('손해보험사',L.son)+grid('생명보험사',L.life);
+  box.querySelectorAll('.bclg').forEach(function(c){
+    var n=c.getAttribute('data-bcln');
+    c.addEventListener('click',function(e){ if(e.target.closest('[data-bcldel]')){ e.stopPropagation(); _bcLogoDel(n); return; } window._bcLogoSel=n; _bcLogoDraw(); });
+    c.addEventListener('dblclick',function(){ window._bcLogoSel=n; var f=g('bc_logo_file'); if(f) f.click(); });
+    c.addEventListener('mouseenter',function(){ window._bcLogoHover=n; });
+    c.addEventListener('mouseleave',function(){ if(window._bcLogoHover===n) window._bcLogoHover=null; });
+    c.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); });
+    c.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) _bcLogoFile(n,f); });
+  });
+}
+document.addEventListener('paste',function(e){
+  try{
+    if(!g('bc_logo_pop')) return; var n=window._bcLogoHover||window._bcLogoSel; if(!n) return;
+    var it=e.clipboardData&&e.clipboardData.items, f=null;
+    if(it) for(var i=0;i<it.length;i++){ if(it[i].kind==='file'&&/^image\//.test(it[i].type)){ f=it[i].getAsFile(); break; } }
+    if(!f) return; e.preventDefault(); e.stopPropagation(); _bcLogoFile(n,f);
+  }catch(err){}
+},true);
+function _bcLogoSave(n,url){
+  var db=_carDb(); if(!db) return Promise.reject(new Error('클라우드 연결 없음'));
+  var m={}; m[n]=url||firebase.firestore.FieldValue.delete();
+  return db.collection('bcovercfg').doc('logos').set({m:m,ts:Date.now(),by:(cu&&cu.name)||''},{merge:true}).then(function(){
+    window._bcLogos=window._bcLogos||{}; if(url) window._bcLogos[n]=url; else delete window._bcLogos[n];
+  });
+}
+function _bcLogoFile(n,file){
+  if(!_isAdmin()){ toast('관리자만 바꿀 수 있습니다.'); return; }
+  if(!file||!/^image\//.test(file.type||'')){ toast('사진 파일(PNG·JPG 등)만 올릴 수 있습니다.'); return; }
+  if(file.size>10*1024*1024){ toast('10MB 이하 사진만 올릴 수 있습니다.'); return; }
+  if(window._bcLogoBusy){ toast('앞 로고를 올리는 중입니다. 잠시 뒤 다시 해 주세요.'); return; }
+  window._bcLogoBusy=1; toast(n+' 로고 올리는 중…');
+  new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){ var im=new Image(); im.onload=function(){ res(im); }; im.onerror=function(){ rej(new Error('이미지를 읽을 수 없습니다')); }; im.src=fr.result; }; fr.onerror=function(){ rej(new Error('파일 읽기 실패')); }; fr.readAsDataURL(file); })
+  .then(function(im){   // 인쇄용이라 긴 변 1000px까지(투명 유지 PNG)
+    var M=1000, w=im.width, h=im.height, r=Math.min(1,M/Math.max(w,h)); w=Math.max(1,Math.round(w*r)); h=Math.max(1,Math.round(h*r));
+    var cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(im,0,0,w,h);
+    return new Promise(function(res){ cv.toBlob(res,'image/png'); });
+  }).then(function(blob){
+    if(!blob) throw new Error('이미지 변환 실패');
+    var ref=firebase.storage().ref('home_bg/bclogo_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.png');
+    return ref.put(blob,{contentType:'image/png'}).then(function(){ return ref.getDownloadURL(); });
+  }).then(function(url){ return _bcLogoSave(n,url); })
+  .then(function(){ toast(n+' 로고를 저장했습니다.'); _bcLogoDraw(); _bcPrevDraw(); })
+  .catch(function(e){ toast('로고를 올리지 못했습니다: '+((e&&e.message)||e)); })
+  .then(function(){ window._bcLogoBusy=0; });
+}
+function _bcLogoDel(n){
+  if(!_isAdmin()) return;
+  if(!confirm(n+' 표지 로고를 뺄까요? (표지에는 보험사 이름 글자가 나옵니다)')) return;
+  _bcLogoSave(n,'').then(function(){ toast('로고를 뺐습니다.'); _bcLogoDraw(); _bcPrevDraw(); }).catch(function(e){ toast('빼지 못했습니다: '+((e&&e.message)||e)); });
+}
+// 보험사 고객센터 기본 번호(v-14 백동현 "보험사 고르면 자동으로") — 관리자가 홈 매니저 연락처에 콜센터 번호를 넣었으면 그 번호가 우선
+var BC_TEL_DEF={'삼성화재':'1588-5114','현대해상':'1588-5656','DB손해보험':'1588-0100','KB손해보험':'1544-0114','메리츠화재':'1566-7711','한화손해보험':'1566-8000',
+  '롯데손해보험':'1588-3344','흥국화재':'1688-1688','MG손해보험':'1588-5959','라이나손해보험':'1566-5800','하나손해보험':'1566-3000','AXA손해보험':'1566-1566',
+  '삼성생명':'1588-3114','한화생명':'1588-6363','교보생명':'1588-1001','신한라이프':'1588-5580','NH농협생명':'1544-4000','흥국생명':'1588-2288','동양생명':'1577-1004',
+  'AIA생명':'1588-9898','푸본현대생명':'1577-3311','DB생명':'1588-3131','KDB생명':'1588-4040','미래에셋생명':'1588-0220','라이나생명':'1588-0058','처브라이프':'1599-4600',
+  'ABL생명':'1588-6500','IM라이프':'1588-4770','메트라이프':'1588-9600','카디프생명':'1688-1118'};
 function _bcTel(ins){
   ins=String(ins||'').trim(); if(!ins) return '';
   var s=_bcSide(ins), t='';
   try{ t=_carTelOf(ins,s)||_carTelOf(ins,s==='saeng'?'son':'saeng'); }catch(e){}
+  if(!t){ var kf=(typeof _icNameKey==='function')?_icNameKey:function(x){ return x; }, k=kf(ins);
+    t=BC_TEL_DEF[ins]||''; if(!t) Object.keys(BC_TEL_DEF).forEach(function(n){ if(!t&&kf(n)===k) t=BC_TEL_DEF[n]; }); }
   return t||'';
 }
 function _bcPrem(v){ v=String(v||'').trim(); if(!v) return ''; if(/^[\d,\s]+원?$/.test(v)){ var d=v.replace(/\D/g,''); return d?d.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'원':''; } return v; }
@@ -34563,19 +34653,21 @@ function rBcover(){
         +'<div style="flex:1 1 110px;max-width:140px">'+lb('직함')+'<input data-bcm="ttl" value="'+_esc(st.ttl)+'" maxlength="10" placeholder="지점장·팀장" style="'+_in+'"></div>'
         +'<div style="flex:1 1 150px;max-width:190px">'+lb('핸드폰')+'<input data-bcm="hp" value="'+_esc(st.hp)+'" maxlength="13" inputmode="tel" style="'+_in+'"></div>'
         +'<div style="flex:1;min-width:10px"></div>'
+        +(_isAdmin()?'<button class="bp bnv" data-bcact="logo" style="padding:9px 14px;font-weight:700"><i class="ti ti-photo"></i> 로고 관리</button>':'')
         +'<button class="bp bnv" data-bcact="add" style="padding:9px 14px;font-weight:700"><i class="ti ti-plus"></i> 행 추가</button>'
         +'<button class="bp bnv" data-bcact="print" style="padding:9px 16px;font-weight:700"><i class="ti ti-printer"></i> 전체 인쇄 / PDF 저장</button>'
       +'</div>'
       +'<div id="bc_rows"><div class="bchead"><div>No</div><div>보험사</div><div>계약자</div><div>피보험자</div><div>상품명</div><div>보험료</div><div>고객센터</div><div></div></div>'
         +st.rows.map(function(r,i){ return _bcRowHtml(r,i,L,st.cur); }).join('')+'</div>'
       +'<div style="font-size:11.5px;color:#8a92ac;margin-top:8px;line-height:1.6">한 줄이 표지 한 장입니다(최대 '+BC_MAX+'줄). 보험사를 고르면 로고와 고객센터 번호가 자동으로 들어가고, 번호는 직접 고칠 수 있습니다. 입력은 저장되지 않습니다.<br>'
-        +'로고는 환경설정 › 전산 사이트 관리에 올린 로고 사진을 쓰고, 없으면 보험사 이름 글자로 나옵니다. 고객센터 번호는 홈 [매니저 연락처]의 콜센터 번호를 씁니다.</div>'
+        +'로고는 관리자가 [로고 관리]에서 보험사마다 올린 표지 전용 로고를 쓰고, 없으면 보험사 이름 글자로 나옵니다. 고객센터 번호는 보험사 대표번호가 자동으로 들어가며, 홈 [매니저 연락처]에 콜센터 번호를 넣은 회사는 그 번호가 우선입니다.</div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="font-size:14px;color:#2a2a4a">미리보기</b><span id="bc_pvlbl" style="font-size:12.5px;color:#667"></span></div>'
     +'<div id="bc_prevwrap" style="max-width:560px"></div>';
   _bcBind(box);
   _bcPrevDraw();
   if(!window._bcCfgTried){ window._bcCfgTried=1; try{ _carCfgLoad().then(function(){ _bcTelFill(); }); }catch(e){} }
+  _bcLogoLoad().then(function(){ _bcPrevDraw(); });
 }
 function _bcTelFill(){   // 콜센터 설정을 늦게 받았을 때 비어 있는 고객센터 칸만 채움
   var st=window._bcState; if(!st) return; var ch=0;
@@ -34604,6 +34696,7 @@ function _bcBind(box){
     if(a==='add'){ if(st.rows.length>=BC_MAX){ toast('한 번에 최대 '+BC_MAX+'줄까지 만들 수 있습니다.'); return; }
       var nr=_bcNewRow(), last=st.rows[st.rows.length-1]; if(last){ nr.ct=last.ct; nr.insd=last.insd; }   // 같은 고객의 여러 계약을 이어 쓰기 쉽게 계약자·피보험자는 앞 줄을 따라감
       st.rows.push(nr); st.cur=st.rows.length-1; rBcover(); var rs=g('bc_rows'); if(rs){ var q=rs.querySelectorAll('.bcrow'); var x=q[q.length-1]&&q[q.length-1].querySelector('select'); if(x) x.focus(); } return; }
+    if(a==='logo') bcLogoOpen();
     if(a==='print') bcPrint(); };
 }
 function _bcSetCur(i){ var st=_bcSt(); if(st.cur===i) return; st.cur=i; var rs=g('bc_rows'); if(!rs) return;
