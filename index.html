@@ -972,7 +972,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-8</div>
   </div>
 </div>
 
@@ -5526,6 +5526,7 @@ function logout(){
   // 이전 사용자가 입력한 위임자 주민번호 등 개인정보·자동입력 계정 정보가 남아 보이던 경로 차단
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
+  window._cfBuf=null;   // 상담용지 인쇄 담당자·연락처 입력 리셋(2026-11-18)
   window._ckBuf=null;   // 상담고객체크리스트 담당자·핸드폰 입력도 리셋(2026-10-27)
   window._ckSel=null; window._ckPg=null; try{ if(typeof ckMgrClose==='function') ckMgrClose(); }catch(e){}   // 체크리스트 양식 선택·양식 관리 창(2026-10-30)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
@@ -6500,6 +6501,7 @@ function _cbMenuCat(){
         var nm=String(c.nm).slice(0,60);
         var a=_bdIsDaeri(c)?'['+path+'] 의 \''+nm+'\' 탭에서 서류를 작성합니다. 위임자·위임받는자 정보를 넣고 [미리보기]·[출력]을 누르세요.'
           :_bdIsCk(c)?'['+path+'] 의 \''+nm+'\' 탭에서 담당자·핸드폰을 넣고 [바로 출력] 또는 [PDF 저장]을 누르세요.'
+          :_bdIsCf(c)?'['+path+'] 의 \''+nm+'\' 탭에서 상담용지를 인쇄합니다. 이름·연락처가 아래 띠에 자동으로 들어갑니다. [인쇄 / PDF 저장]을 누르세요.'
           :_bdIsSang(c)?'['+path+'] 의 \''+nm+'\' 탭에서 상속세·증여세를 계산합니다.'
           :'['+path+'] 의 \''+nm+'\' 탭에서 자료를 볼 수 있습니다.';
         var hl=/^[A-Za-z0-9_-]+$/.test(String(c.id))?['[data-bdcat="'+c.id+'"]','여기가 \''+nm+'\' 탭입니다']:null;
@@ -31393,6 +31395,13 @@ function rCustomPage(name){
     if(_kc&&_bdIsCk(_kc)) ckCat=_kc;
   }
   var ckPanel=ckCat?_ckPanelHtml(name,ckCat):'';
+  // '상담용지' 분류 탭 — 담당자 이름·직함·핸드폰 자동으로 넣어 상담용지 인쇄 (2026-11-18 백동현 요청)
+  var cfCat=null;
+  if(csel&&csel!=='_none'&&!daeriCat&&!sangCat&&!yearCat&&!ckCat){
+    var _fc=cats.filter(function(cc){ return cc.id===csel; })[0];
+    if(_fc&&_bdIsCf(_fc)) cfCat=_fc;
+  }
+  var cfPanel=cfCat?_cfPanelHtml(name,cfCat):'';
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
@@ -31417,13 +31426,14 @@ function rCustomPage(name){
       +'<button onclick="bdCatMgrOpen('+q+')" style="padding:8px 14px;background:#eef1ff;border:1px solid #c8cce8;border-radius:8px;color:#3a40aa;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-category"></i> 분류 설정</button>'
       +'<button onclick="bdWrite('+q+')" style="padding:8px 16px;background:#4858cc;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> 게시물 작성</button>'
       +'</div>':'')
-    +'</div>'+catbar+(surgOn?_sgcPanelHtml():daeriPanel+sangPanel+yearPanel+ckPanel+grid+pager)+'</div>';
+    +'</div>'+catbar+(surgOn?_sgcPanelHtml():daeriPanel+sangPanel+yearPanel+ckPanel+cfPanel+grid+pager)+'</div>';
   _bdBind(body,name);
   if(surgOn){ try{ if(window._sgcXlErr&&!window._sgcXlBusy) window._sgcXlErr=0; _sgcDraw(); var _sq2=g('sgc_q'); if(_sgFocus&&_sq2){ _sq2.focus(); _sq2.setSelectionRange(_sgFocus[0],_sgFocus[1]); } }catch(e){} }   // 결과 최초 표시 + 실시간 재렌더 때 입력 포커스 유지
   if(daeriCat){ try{ _bdrPrevDraw(name,daeriCat.id); }catch(e){} }   // 올린 양식 미리보기 비동기 로드
   if(sangCat){ try{ _ssCalc(); }catch(e){} }                          // 계산 결과 최초 표시(정적 HTML이라 렌더 직후 1회)
   if(yearCat){ try{ _yrCalc(); }catch(e){} }                          // 연말정산도 같은 이유로 최초 1회(빠뜨리면 결과 칸이 빈 채로 보임)
   if(ckCat){ try{ _ckPrevLoad(name,ckCat.id); }catch(e){} try{ _ckMgrRefresh(); }catch(e){} }           // 체크리스트 칸 위치·미리보기 로드
+  if(cfCat){ try{ _cfPrevDraw(cfCat.id); }catch(e){} }   // 상담용지 미리보기(같은 문서를 iframe으로 축소)
 }
 // ----- 내용 페이지 게시판 (2026-08-05) -----
 // 데이터: boards = {cm_id:[{id('po_..'),title,body,files:[{u,t('img'|'pdf'),n,rep?}],vm('swipe'|'scroll'),cat?,by,dt,ts}]}
@@ -34202,6 +34212,162 @@ function _bdrParts(cat){   // 등록된 구성 서류(bdrtpls[슬롯].parts) —
   try{ var ps=bdrtpls&&bdrtpls[_bdDaeriSlot(cat)]&&bdrtpls[_bdDaeriSlot(cat)].parts; return Array.isArray(ps)?ps.filter(function(x){ return x&&x.nm; }):[]; }catch(e){ return []; }
 }
 function _bdrCatById(name,catId){ var out=null; _bdCats(name).forEach(function(c){ if(c&&c.id===catId) out=c; }); return out; }
+// ===== 상담용지 인쇄 (cf, 2026-11-18 — 백동현 요청) =====
+// 게시판 분류 이름에 '상담용지'가 든 탭 → 담당자 이름·직함·핸드폰(내 계정 자동) 넣고 A4 상담용지 출력.
+// 원본: 백동현 제공 PDF(인카 로고·네이비 하단 띠) — 로고만 form/*.png로 옮기고 표·글자는 HTML로 다시 그림. 워터마크는 FINANCIAL TOPS 로고(form/fin-tops.png).
+// 저장 없음 — 입력은 메모리 window._cfBuf만(logout 리셋). 미리보기·출력은 같은 _cfDoc(단일 출처).
+function _bdIsCf(cat){ return !!(cat&&/상담용지/.test(String(cat.nm||''))); }
+var CF_BRANCH='인카금융서비스(주) VIP총괄 탑스지점';
+function _cfGetVals(catId){
+  window._cfBuf=window._cfBuf||{};
+  if(!window._cfBuf[catId]){
+    var my=_bdrMyInfo(), t=''; try{ t=_rsvTitle(); }catch(e){}
+    window._cfBuf[catId]={nm:my.name||'',ttl:t||'',hp:_bdrFmtPhoneStr(my.phone||''),memo:1,_f:my.phone?1:0};
+  } else if(!window._cfBuf[catId]._f){   // 클라우드 수신 전에 열렸으면 받은 뒤 한 번만 빈 칸 채움(_ckGetVals와 같은 규칙)
+    var v=window._cfBuf[catId], m2=_bdrMyInfo();
+    if(m2.phone){ if(!v.hp) v.hp=_bdrFmtPhoneStr(m2.phone); v._f=1; }
+  }
+  return window._cfBuf[catId];
+}
+function _cfImg(f){ try{ return new URL('form/'+f, location.href).href; }catch(e){ return 'form/'+f; } }
+function _cfCss(){
+  return '*{box-sizing:border-box;margin:0;padding:0}'
+    +'html,body{background:#e9ebf1;font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#1b2233;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'@page{size:A4;margin:0}'
+    +'.pg{position:relative;width:210mm;height:297mm;margin:0 auto 8mm;background:#fff;overflow:hidden;box-shadow:0 2px 14px rgba(20,30,70,.12)}'
+    +'.wm{position:absolute;left:50%;top:62%;width:110mm;transform:translate(-50%,-50%);opacity:.07;pointer-events:none}'
+    +'.hd{position:absolute;left:14mm;right:14mm;top:11mm;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:4.2mm;border-bottom:.6mm solid #13285e}'
+    +'.hd .tt{font-size:9pt;letter-spacing:.32em;color:#8a93b0;font-weight:700}'
+    +'.hd h1{font-size:21pt;letter-spacing:.14em;color:#13285e;font-weight:800;margin-top:1.4mm}'
+    +'.hd .dt{font-size:9.5pt;color:#4a5370;margin-top:2.2mm;letter-spacing:.04em}'
+    +'.hd .dt b{display:inline-block;width:13mm;border-bottom:.25mm solid #9aa3bd;margin:0 1mm}'
+    +'.hd .dt b.s{width:8mm}'
+    +'.hd img{height:21mm}'
+    +'.sec{position:absolute;left:14mm;right:14mm}'
+    +'.st{display:flex;align-items:center;gap:2.4mm;font-size:11pt;font-weight:800;color:#13285e;margin-bottom:2.4mm;letter-spacing:.06em}'
+    +'.st i{display:inline-block;width:1.2mm;height:4.4mm;background:#c9a14a;border-radius:.4mm}'
+    +'.st span{font-size:8pt;color:#9aa3bd;font-weight:600;letter-spacing:.12em}'
+    +'table{width:100%;border-collapse:collapse;table-layout:fixed}'
+    +'.bt{border-top:.5mm solid #13285e;border-bottom:.35mm solid #13285e}'
+    +'.bt th{background:#f3f4f8;font-size:9pt;font-weight:700;color:#3d4766;height:7.4mm;border-bottom:.25mm solid #c9cedd;letter-spacing:.1em}'
+    +'.bt td{height:9.6mm;border-bottom:.2mm solid #dde1ea;font-size:10pt;text-align:center;color:#c2c7d6}'
+    +'.bt tr:last-child td{border-bottom:none}'
+    +'.bt td.no{background:#f8f9fb;color:#8a93b0;font-weight:700;font-size:9pt}'
+    +'.bt td+td,.bt th+th{border-left:.2mm solid #e3e6ee}'
+    +'.dl{border-top:.5mm solid #13285e;border-bottom:.35mm solid #13285e}'
+    +'.dl tr+tr td{border-top:.25mm solid #c9cedd}'
+    +'.dl td.lb{width:27mm;background:#f3f4f8;text-align:center;vertical-align:middle;font-size:10.5pt;font-weight:800;color:#13285e;letter-spacing:.3em;line-height:1.55}'
+    +'.dl td.lb small{display:block;font-size:7pt;font-weight:600;color:#9aa3bd;letter-spacing:.14em;margin-top:1.2mm}'
+    +'.dl td.wr{background-image:linear-gradient(to bottom,transparent 7.6mm,#e4e7ef 7.6mm);background-size:100% 7.9mm;background-position:0 1mm;background-repeat:repeat}'
+    +'.ft{position:absolute;left:0;right:0;bottom:0;height:24mm;background:#0f2550;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.6mm}'
+    +'.ft:before{content:"";position:absolute;left:0;right:0;top:0;height:.9mm;background:#c9a14a}'
+    +'.ft img{height:9.4mm}'
+    +'.ft p{font-size:8.6pt;color:#dfe4f1;letter-spacing:.06em}'
+    +'.ft p b{color:#fff;font-weight:700}'
+    +'.ft p em{font-style:normal;color:#c9a14a;font-weight:700;margin:0 .6mm 0 2.4mm}'
+    +'.mlogo{position:absolute;right:14mm;top:11mm;height:13mm}'
+    +'.memo{position:absolute;left:14mm;right:14mm;top:30mm;bottom:31mm;border-top:.5mm solid #13285e;border-bottom:.35mm solid #13285e;'
+      +'background-image:radial-gradient(circle,#c9cedd .32mm,transparent .4mm);background-size:5mm 5mm;background-position:2.5mm 2.5mm}'
+    +'.memo .mt{position:absolute;left:0;top:-7.6mm;font-size:11pt;font-weight:800;color:#13285e;letter-spacing:.16em;display:flex;align-items:center;gap:2.4mm}'
+    +'.memo .mt i{display:inline-block;width:1.2mm;height:4.4mm;background:#c9a14a;border-radius:.4mm}'
+    +'@media print{html,body{background:#fff}.pg{margin:0;box-shadow:none;page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}.tb{display:none!important}}';
+}
+function _cfFoot(v){
+  var who=[String(v.nm||'').trim(),String(v.ttl||'').trim()].filter(Boolean).join(' ');
+  var hp=String(v.hp||'').trim();
+  return '<div class="ft"><img src="'+_esc(_cfImg('incar-logo-w.png'))+'" alt="">'
+    +'<p>'+_esc(CF_BRANCH)+(who?' <b>'+_esc(who)+'</b>':'')+(hp?'<em>H.P</em>'+_esc(hp):'')+'</p></div>';
+}
+function _cfPages(v){
+  var wm='<img class="wm" src="'+_esc(_cfImg('fin-tops.png'))+'" alt="" onerror="this.style.display=\'none\'">';   // FINANCIAL TOPS 로고(백동현 제공) — 파일이 없으면 숨김
+  var rows='';
+  for(var i=1;i<=6;i++) rows+='<tr><td class="no">'+i+'</td><td></td><td></td><td>–</td><td></td></tr>';
+  var p1='<div class="pg">'+wm
+    +'<div class="hd"><div><div class="tt">CONSULTATION RECORD</div><h1>보험 상담 기록지</h1>'
+      +'<div class="dt">상담일<b></b>년<b class="s"></b>월<b class="s"></b>일</div></div>'
+      +'<img src="'+_esc(_cfImg('incar-logo.png'))+'" alt=""></div>'
+    +'<div class="sec" style="top:47mm"><div class="st"><i></i>기본사항<span>BASIC INFORMATION</span></div>'
+      +'<table class="bt"><colgroup><col style="width:9mm"><col style="width:36mm"><col style="width:22mm"><col><col style="width:30mm"></colgroup>'
+      +'<tr><th>No</th><th>성 함</th><th>관 계</th><th>주민등록번호</th><th>연락처 · 비고</th></tr>'+rows+'</table></div>'
+    +'<div class="sec" style="top:127mm"><div class="st"><i></i>상세내용<span>CONSULTATION DETAILS</span></div>'
+      +'<table class="dl">'
+      +'<tr><td class="lb" style="height:33mm">상 담<br>신 청<small>REQUEST</small></td><td class="wr"></td></tr>'
+      +'<tr><td class="lb" style="height:50mm">진 행<br>방 향<small>PLAN</small></td><td class="wr"></td></tr>'
+      +'<tr><td class="lb" style="height:46mm">비 고<small>NOTE</small></td><td class="wr"></td></tr>'
+      +'</table></div>'
+    +_cfFoot(v)+'</div>';
+  var p2=v.memo?('<div class="pg">'+wm+'<img class="mlogo" src="'+_esc(_cfImg('incar-logo.png'))+'" alt="">'
+    +'<div class="memo"><div class="mt"><i></i>MEMO</div></div>'+_cfFoot(v)+'</div>'):'';
+  return p1+p2;
+}
+function _cfDoc(v,forPrint){
+  var title='상담용지'+(v.nm?' - '+String(v.nm).replace(/[\\/:*?"<>|]/g,'').slice(0,20):'');
+  return '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'+_esc(title)+'</title><style>'+_cfCss()
+    +(forPrint?'.tb{position:sticky;top:0;z-index:5;display:flex;justify-content:flex-end;padding:10px 14px;background:#e9ebf1}.tb button{padding:9px 18px;border:none;border-radius:8px;background:#1f2a5c;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}':'')
+    +(forPrint?'':'html,body{background:transparent}.pg{margin:0 0 8mm}')
+    +'</style></head><body>'
+    +(forPrint?'<div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div>':'')
+    +_cfPages(v)+'</body></html>';
+}
+function _cfArgs(name,catId){ return {an:_esc(JSON.stringify(String(name))),ac:_esc(JSON.stringify(String(catId)))}; }
+function _cfPanelHtml(name,cat){
+  var v=_cfGetVals(cat.id), A=_cfArgs(name,cat.id);
+  var _in='width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:14px;color:#111;background:#fff';
+  var lb=function(t){ return '<div style="font-size:12.5px;color:#555;margin-bottom:3px">'+t+'</div>'; };
+  var inp=function(k,ph,ml,extra){ return '<input data-cfk="'+k+'" data-cfcat="'+_esc(cat.id)+'" oninput="_cfInput(this)" value="'+_esc(v[k]||'')+'" maxlength="'+ml+'" placeholder="'+ph+'" style="'+_in+';margin-bottom:10px"'+(extra||'')+'>'; };
+  return '<div id="cf_panel" style="margin:12px 0 16px;padding:16px;border:1px solid #d8dcef;border-radius:12px;background:#f8f9fe;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div style="flex:0 0 260px;max-width:100%">'
+      +'<div style="font-weight:700;font-size:15px;color:#2a2a4a;margin-bottom:10px"><i class="ti ti-file-text"></i> '+_esc(cat.nm)+' 인쇄</div>'
+      +lb('이름')+inp('nm','담당자 이름',20)
+      +lb('직함 <span style="color:#8a92ac">(지점장·팀장 등, 비워도 됨)</span>')+inp('ttl','예: 지점장',10)
+      +lb('핸드폰')+inp('hp','010-0000-0000',13,' inputmode="tel"')
+      +'<label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#222;margin:2px 0 8px;cursor:pointer"><input type="checkbox" data-cfk="memo" data-cfcat="'+_esc(cat.id)+'" onchange="_cfInput(this)"'+(v.memo?' checked':'')+' style="width:16px;height:16px;margin:0">뒷면 메모 쪽도 함께 인쇄</label>'
+      +'<div style="font-size:11.5px;color:#8a92ac;margin-bottom:12px;line-height:1.5">내 계정 정보로 자동 입력됩니다. 고쳐서 인쇄해도 저장되지는 않습니다. 아래 띠에 이름·연락처가 들어갑니다.</div>'
+      +'<button class="bp bnv" onclick="cfPrint('+A.an+','+A.ac+')" style="width:100%;padding:10px 14px;font-size:14px;font-weight:700"><i class="ti ti-printer"></i> 인쇄 / PDF 저장</button>'
+    +'</div>'
+    +'<div id="cf_prevwrap" style="flex:1 1 420px;min-width:0;max-width:640px"></div>'
+  +'</div>';
+}
+var CF_PX=794;   // A4 폭 210mm = 약 794px(96dpi)
+function _cfPrevDraw(catId){
+  var w=g('cf_prevwrap'); if(!w) return;
+  var v=_cfGetVals(catId), W=Math.max(200,w.clientWidth||520), sc=W/CF_PX, pages=v.memo?2:1;
+  var H=Math.round((1123+30)*pages*sc);
+  var fr=w.querySelector('iframe');
+  if(!fr){
+    w.innerHTML='<div style="position:relative;overflow:hidden;width:100%;height:'+H+'px"><iframe title="상담용지 미리보기" scrolling="no" style="position:absolute;left:0;top:0;border:0;width:'+CF_PX+'px;height:'+Math.ceil(H/sc)+'px;transform:scale('+sc+');transform-origin:0 0;pointer-events:none"></iframe></div>';
+    fr=w.querySelector('iframe');
+  } else {
+    fr.parentNode.style.height=H+'px'; fr.style.height=Math.ceil(H/sc)+'px'; fr.style.transform='scale('+sc+')';
+  }
+  fr.srcdoc=_cfDoc(v,false);
+}
+function _cfInput(el){
+  var cid=el.getAttribute('data-cfcat'), k=el.getAttribute('data-cfk'), v=_cfGetVals(cid);
+  if(k==='memo') v.memo=el.checked?1:0;
+  else {
+    if(k==='hp'){ var f=_bdrFmtPhoneStr(el.value); if(f!==el.value) el.value=f; }
+    v[k]=el.value; v._f=1;   // 직접 고친 뒤엔 자동 채움이 덮지 않게
+  }
+  clearTimeout(window._cfPrevT); window._cfPrevT=setTimeout(function(){ _cfPrevDraw(cid); },180);
+}
+function cfPrint(name,catId){
+  var v=_cfGetVals(catId);
+  var w=window.open('','_blank');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  try{
+    w.document.write(_cfDoc(v,true)); w.document.close();
+    var done=false, go=function(){ if(done) return; done=true; try{ w.focus(); w.print(); }catch(e){} };
+    var imgs=Array.prototype.slice.call(w.document.images), left=imgs.length;
+    if(!left) setTimeout(go,300);
+    imgs.forEach(function(im){ if(im.complete){ if(--left<=0) setTimeout(go,200); } else { var f1=function(){ if(--left<=0) setTimeout(go,200); }; im.addEventListener('load',f1); im.addEventListener('error',f1); } });   // 인라인 onerror(워터마크 숨김)를 덮지 않게
+    setTimeout(go,4000);   // 그림이 늦어도 4초 뒤엔 인쇄 창
+  }catch(e){
+    console.warn('상담용지 출력 오류:', e);
+    try{ w.close(); }catch(e2){}
+    toast('상담용지 창을 여는 중 문제가 발생했습니다.');
+  }
+}
 function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 구성원 정보(이름·전화·주소·생년월일. 주민번호는 데이터에 없어 직접 입력)
   var out={name:(typeof cu!=='undefined'&&cu&&cu.name)||'', phone:'', addr:'', birth:''};
   try{
