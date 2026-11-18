@@ -201,6 +201,16 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:
 .bth:hover{border-color:var(--gold-dim)}
 .bth img{width:100%;aspect-ratio:794/1123;object-fit:cover;border-radius:4px;background:#fff}
 .bth span{font-size:12px;color:var(--muted);line-height:1.35}
+.cftabs{display:flex;gap:4px;padding:10px 18px 0;border-bottom:1px solid var(--line)}
+.cftab{border:1px solid var(--line2);border-bottom:none;background:var(--panel2);padding:7px 16px;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px}
+.cftab.on{background:#1f2a5c;border-color:#1f2a5c;color:#fff;font-weight:600}
+.pcrow{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:8px}
+.pcpal{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pcsw{width:28px;height:28px;border:1px solid #bbb;border-radius:6px;cursor:pointer;padding:0}
+.pcsw.on{outline:3px solid #1f2a5c;outline-offset:1px}
+.pcmine{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-left:6px;cursor:pointer}
+.pcmine input{width:34px;height:28px;padding:0;border:1px solid var(--line);background:none;cursor:pointer}
+.pcprev{border-collapse:collapse;font-size:12.5px}.pcprev td{border:1px solid #ccc;padding:5px 14px;min-width:70px;text-align:right}.pcprev td:first-child{text-align:left}
 .cfgg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px}
 .cfgc{display:grid;gap:4px;align-content:start}
 .cfgc .chk{font-size:13px}
@@ -512,7 +522,7 @@ function enter(emp){S.cm=false;$('#custModal')?.remove();
   const col=S.db.collection(P.cust);
   const q=S.me.role==='admin'?col:col.where('ownerSabun','==',S.me.sabun);
   S.unsubC=q.onSnapshot(s=>{S.custs=s.docs.map(d=>d.data()).filter(Boolean).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(S.view==='list')renderMain();if(S.cm)renderCustModal()},e=>toast('고객 목록을 불러오지 못했습니다: '+e.code));
-  S.hidden=new Set();S.shown=new Set();S.col={};S.colOn=true;S.paint=false;S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[]);S.col=colClean(d.data().col);S.colOn=d.data().colOn!==false;S.paint=d.data().paint===true;if(S.cur)renderTab()}}).catch(()=>{});
+  S.hidden=new Set();S.shown=new Set();S.col={};S.colOn=true;S.paint=false;S.pc=pcClean();S.db.doc(P.pref+'/'+emp.sabun).get().then(d=>{if(d.exists){S.hidden=new Set(d.data().hidden||[]);S.shown=new Set(d.data().shown||[]);S.col=colClean(d.data().col);S.colOn=d.data().colOn!==false;S.paint=d.data().paint===true;S.pc=pcClean(d.data().pc);if(S.cur)renderTab()}}).catch(()=>{});
   S.unsubJ=S.db.doc(P.jong).onSnapshot(d=>{S.jongCfg=d.exists?d.data():null;if(S.view==='admin')renderMain()},()=>{});
   S.unsubL=S.db.doc(P.dict).onSnapshot(d=>{S.learn=d.exists?(d.data().map||{}):{}},()=>{});
   if(S.me.role==='admin')S.unsubE=S.db.collection(EMP).onSnapshot(s=>{S.emps=s.docs.map(d=>d.data()).sort((a,b)=>a.sabun.localeCompare(b.sabun));if(S.view==='admin')renderMain()},()=>{});
@@ -642,17 +652,32 @@ const COL_DEF='#fff1a8';
 function colClean(o){const r={};if(o&&typeof o==='object')for(const k in o){if(ITEM[k]&&/^#[0-9a-fA-F]{6}$/.test(String(o[k])))r[k]=String(o[k]).toLowerCase()}return r}
 /* v2026.11.17 박지순 요청: 항목마다 고르지 않고 자동 — [색상 표시]면 값이 입력된 칸만 노랑, 값이 하나도 없는 줄은 줄 전체 빨강 */
 const COL_EMPTY='#ff8a8a';
-function colOf(k){return S.paint===true?COL_DEF:''}
+/* v2026.11.18 박지순 요청: 색상 표시 설정 페이지 — 입력된 칸(v)·값 없는 줄(e) 색을 따로 고르고 각각 켜고 끔. fcprefs `pc`={v,e,vOn,eOn} */
+const PC_PAL=['#fff1a8','#ffe066','#ffd8a8','#ffc078','#ffc9c9','#ff8a8a','#ff6b6b','#fcc2d7','#f783ac','#eebefa','#da77f2','#d0bfff','#b197fc','#bac8ff','#91a7ff','#a5d8ff','#74c0fc','#99e9f2','#66d9e8','#96f2d7','#63e6be','#b2f2bb','#8ce99a','#d8f5a2','#c0eb75','#e9ecef','#ced4da','#ffffff'];
+function pcClean(o){o=o&&typeof o==='object'?o:{};const h=x=>/^#[0-9a-fA-F]{6}$/.test(String(x||''));return{v:h(o.v)?String(o.v).toLowerCase():COL_DEF,e:h(o.e)?String(o.e).toLowerCase():COL_EMPTY,vOn:o.vOn!==false,eOn:o.eOn!==false}}
+function colOf(k){const c=S.pc||pcClean();return S.paint===true&&c.vOn?c.v:''}
+function colEmpty(){const c=S.pc||pcClean();return S.paint===true&&c.eOn?c.e:''}
 function paintGrid(cols){
-  document.querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const on=S.paint===true;const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
-    tds.forEach(td=>td.style.background='');if(!on)return;
-    if(!sumK(cols,k)){tds.forEach(td=>td.style.background=COL_EMPTY);return}
-    const cells=tds.filter(td=>td.classList.contains('cell')||td.classList.contains('ro'));cells.forEach((td,i)=>{const p=cols[i];if(p&&eff(p,k))td.style.background=COL_DEF})});
+  const cv=colOf(),ce=colEmpty();
+  document.querySelectorAll('.grid tr[data-row]').forEach(tr=>{const k=tr.dataset.row;const tds=[...tr.children].filter(td=>!td.classList.contains('c-grp'));
+    tds.forEach(td=>td.style.background='');if(S.paint!==true)return;
+    if(!sumK(cols,k)){if(ce)tds.forEach(td=>td.style.background=ce);return}
+    if(!cv)return;const cells=tds.filter(td=>td.classList.contains('cell')||td.classList.contains('ro'));cells.forEach((td,i)=>{const p=cols[i];if(p&&eff(p,k))td.style.background=cv})});
 }
+function pcRowHTML(w,ttl,desc){const c=S.pc||pcClean();const cur=c[w],on=w==='v'?c.vOn:c.eOn;
+  return`<div class="pcrow"><label class="chk" style="font-weight:600"><input type="checkbox" data-pcon="${w}" ${on?'checked':''}> ${ttl}</label><div class="muted" style="font-size:12px">${desc}</div>
+   <div class="pcpal">${PC_PAL.map(x=>`<button type="button" class="pcsw${x===cur?' on':''}" data-act="pcPick" data-id="${w}${x}" style="background:${x}" title="${x}"></button>`).join('')}
+    <label class="pcmine" title="직접 고르기"><input type="color" data-pcc="${w}" value="${cur}"> 직접</label></div></div>`}
+function colorCfgHTML(){const c=S.pc||pcClean();const cv=S.paint===true&&c.vOn?c.v:'#fff',ce=S.paint===true&&c.eOn?c.e:'#fff';
+  return`<div style="display:grid;gap:16px"><label class="chk" style="font-weight:700;font-size:14px"><input type="checkbox" data-pcall="1" ${S.paint===true?'checked':''}> 색상 표시 적용 <span class="muted" style="font-weight:400;font-size:12px">(보장분석표 위 [색상 표시]/[미표시] 버튼과 같음)</span></label>
+   ${pcRowHTML('v','입력된 칸 색상','가입금액이 들어 있는 칸만 칠합니다.')}
+   ${pcRowHTML('e','값이 없는 줄 색상','어느 보험에도 금액이 없는 담보는 줄 전체를 칠합니다.')}
+   <div><div class="muted" style="font-size:12px;margin-bottom:4px">미리보기</div><table class="pcprev"><tr><td>암 진단비</td><td style="background:${cv}">3,000</td><td></td><td style="background:${cv}">2,000</td></tr><tr><td style="background:${ce}">뇌혈관 진단비</td><td style="background:${ce}"></td><td style="background:${ce}"></td><td style="background:${ce}"></td></tr></table></div>
+   <div class="row"><button class="btn sm" data-act="pcReset" type="button">기본 색으로</button><span class="muted" style="font-size:12.5px" id="cfgMsg"></span></div></div>`}
 function itemCfgHTML(){
   const cc=()=>'';
   return`<div style="display:grid;gap:12px"><div class="muted" style="font-size:12.5px">기본 항목은 체크를 풀면 화면·PDF 보장분석표·비교표에서 빠집니다. '추가' 항목은 체크하면 항상 보이고, 체크하지 않으면 가입금액이 있을 때만 보입니다.
-    색칠은 보장분석표 위 [색상 표시]/[미표시] 버튼으로 켜고 끕니다 — 값이 입력된 칸은 노랑, 값이 없는 줄은 줄 전체 빨강(화면·PDF). FC마다 따로 저장됩니다.</div>
+    색칠 색상은 [색상 표시 설정] 페이지에서 고릅니다. FC마다 따로 저장됩니다.</div>
    <div class="cfgg">${GROUPS.map(([g,,arr])=>`<div class="cfgc"><label class="chk" style="font-weight:600;color:var(--gold)"><input type="checkbox" data-hgrp="${esc(g)}" ${arr.every(([k,,,ex])=>ex?(S.shown&&S.shown.has(k)):isVis(k))?'checked':''}> ${esc(g)}</label>${arr.map(([k,l,,ex])=>`<div class="cfgi">${ex?`<label class="chk"><input type="checkbox" data-show="${k}" ${S.shown&&S.shown.has(k)?'checked':''}> ${esc(l)} <span class="dim" style="font-size:11px">추가</span></label>`:`<label class="chk"><input type="checkbox" data-hide="${k}" ${isVis(k)?'checked':''}> ${esc(l)}</label>`}${cc(k)}</div>`).join('')}</div>`).join('')}</div>
    <div class="row"><button class="btn sm" data-act="cfgAll" type="button">모두 표시</button><span class="muted" style="font-size:12.5px" id="cfgMsg"></span></div></div>`;
 }
@@ -663,10 +688,11 @@ function renderCfgModal(){
   if(!m){m=document.createElement('div');m.id='cfgModal';m.className='cm';document.body.appendChild(m)}
   m.innerHTML=`<div class="cmbg" data-act="itemCfg"></div><div class="cmbox" role="dialog" aria-label="항목 표시 설정" style="width:min(1100px,96vw)">
    <div class="cmhd"><div><div class="eyebrow">내 설정 · ${esc(S.me.name)}</div><h2>항목 표시 설정</h2></div><button class="btn sm bnv" data-act="itemCfg" type="button">닫기</button></div>
-   <div class="cmbody" style="padding:14px 18px">${itemCfgHTML()}</div></div>`;
+   <div class="cftabs"><button type="button" class="cftab${S.cfgTab==='color'?'':' on'}" data-act="cfgTab" data-id="item">특약 설정</button><button type="button" class="cftab${S.cfgTab==='color'?' on':''}" data-act="cfgTab" data-id="color">색상 표시 설정</button></div>
+   <div class="cmbody" style="padding:14px 18px">${S.cfgTab==='color'?colorCfgHTML():itemCfgHTML()}</div></div>`;
   const b2=m.querySelector('.cmbody');if(b2)b2.scrollTop=sy;
 }
-function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],col:colClean(S.col),colOn:S.colOn!==false,paint:S.paint===true,updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
+function saveHidden(){clearTimeout(S.hidT);S.hidT=setTimeout(async()=>{try{await S.db.doc(P.pref+'/'+S.me.sabun).set({hidden:[...S.hidden],shown:[...(S.shown||[])],col:colClean(S.col),colOn:S.colOn!==false,paint:S.paint===true,pc:pcClean(S.pc),updatedAt:Date.now()});const m=$('#cfgMsg');if(m)m.textContent='저장됨'}catch(e){toast('설정을 저장하지 못했습니다')}},600)}
 /* customer workspace */
 function setBefore(){return S.cur.before||[]}
 function setAfter(){return[...(S.cur.before||[]).filter(p=>p.keep),...(S.cur.proposals||[])]}
@@ -1085,7 +1111,7 @@ function covPages(cols,title,sub){
     h+=`<tr class="mt" style="height:${rh}px"><td colspan="2" class="l">총 납입보험료</td><td class="s" style="font-size:.86em;letter-spacing:-.3px">${fmtN(cols.reduce((a,p)=>a+totPay(p).v,0))}</td>${pc.map(p=>{const x=totPay(p);return`<td>${fmtWonN(x.v)}${x.v&&x.est?'(추정)':''}</td>`}).join('')}</tr>`;
     h+=`<tr class="gs" style="height:${rh}px"><td class="g">실비</td><td class="l">실손의료비</td><td class="s ${cols.some(p=>p.silson)?'':'miss'}">${cols.some(p=>p.silson)?'가입':'미가입'}</td>${pc.map(p=>`<td style="text-align:center">${p.silson?silsonGen(p.joinDate):''}</td>`).join('')}</tr>`;
     for(const [g,gp,arr] of GROUPS){const vis=arr.filter(([k])=>items.some(i=>i.k===k));vis.forEach(([k,l,key],idx)=>{const sm=sumK(cols,k);
-      const cl=colOf(k),bgA=cl&&!sm?`background:${COL_EMPTY};`:'',bgV=v=>cl&&v?` style="background:${cl}"`:'';
+      const cl=colOf(k),ce=colEmpty(),bgA=ce&&!sm?`background:${ce};`:'',bgV=v=>cl&&v?` style="background:${cl}"`:'';
       h+=`<tr class="${key?'key':''} ${idx===0?'gs':''}" style="height:${rh}px">${idx===0?`<td class="g" rowspan="${vis.length}">${GROUP_ICO[g]&&vis.length*rh>=30?`<div style="line-height:0;margin-bottom:2px">${ico(GROUP_ICO[g],Math.min(22,Math.max(14,Math.floor(rh*1.1))))}</div>`:''}${vis.length>2?gp:gp.replace(/<br>/g,'')}</td>`:''}<td class="l"${bgA?` style="${bgA}"`:''}>${esc(l)}</td><td class="s ${key&&!sm?'miss':''}"${bgA?` style="${bgA}"`:''}>${key&&!sm?'미가입':fmtN(sm)}</td>${pc.map(p=>{const v=eff(p,k);return`<td class="v"${bgA?` style="${bgA}"`:bgV(v)}>${fmtN(v)}</td>`}).join('')}</tr>`})}
     h+='</table>';
     out.push(pgShell(title,sub+(cols.length>per?` (${s/per+1}/${Math.ceil(cols.length/per)})`:''),h));
@@ -1409,6 +1435,9 @@ document.addEventListener('click',async e=>{
   if(act==='matClose'){$('#matViewer').hidden=true;return}
   if(act==='itemCfg'){S.showCfg=!S.showCfg;renderTab();return renderCfgModal()}
   if(act==='paintOn'||act==='paintOff'){S.paint=act==='paintOn';saveHidden();return renderTab()}
+  if(act==='cfgTab'){S.cfgTab=id==='color'?'color':'item';return renderCfgModal()}
+  if(act==='pcPick'){const w=String(id||'')[0],c=String(id||'').slice(1);if((w==='v'||w==='e')&&/^#[0-9a-f]{6}$/i.test(c)){S.pc=pcClean(S.pc);S.pc[w]=c.toLowerCase();saveHidden();return renderTab()}return}
+  if(act==='pcReset'){S.pc=pcClean();saveHidden();return renderTab()}
   if(act==='colAll'){const v=($('#colAllPick')||{}).value||COL_DEF;S.col=S.col||{};Object.keys(S.col).forEach(k=>S.col[k]=v);saveHidden();return renderTab()}
   if(act==='colClear'){S.col={};saveHidden();return renderTab()}
   if(act==='cfgAll'){S.hidden=new Set();S.shown=new Set(ITEMS.filter(i=>i.extra).map(i=>i.k));saveHidden();return renderTab()}
@@ -1447,6 +1476,9 @@ document.addEventListener('change',e=>{
   if(t.dataset.act2==='onlyChanged'){S.cmpOnlyChanged=t.checked;return renderTab()}
   if(t.dataset.mat){const set=new Set(S.cur.mats||[]);t.checked?set.add(t.dataset.mat):set.delete(t.dataset.mat);S.cur.mats=[...set];t.closest('.mth')?.classList.toggle('on',t.checked);markDirty();return}
   if(t.dataset.colon){S.colOn=t.checked;saveHidden();return renderTab()}
+  if(t.dataset.pcall){S.paint=t.checked;saveHidden();return renderTab()}
+  if(t.dataset.pcon){S.pc=pcClean(S.pc);S.pc[t.dataset.pcon==='e'?'eOn':'vOn']=t.checked;saveHidden();return renderTab()}
+  if(t.dataset.pcc){const w=t.dataset.pcc==='e'?'e':'v';if(/^#[0-9a-f]{6}$/i.test(t.value)){S.pc=pcClean(S.pc);S.pc[w]=t.value.toLowerCase();saveHidden();return renderTab()}return}
   if(t.dataset.cchk){const k=t.dataset.cchk;S.col=S.col||{};if(t.checked){const pk=document.querySelector('[data-ccol="'+k+'"]');S.col[k]=(pk&&/^#[0-9a-f]{6}$/i.test(pk.value)?pk.value:COL_DEF).toLowerCase()}else delete S.col[k];saveHidden();return renderTab()}
   if(t.dataset.ccol){const k=t.dataset.ccol;S.col=S.col||{};if(/^#[0-9a-f]{6}$/i.test(t.value))S.col[k]=t.value.toLowerCase();saveHidden();return renderTab()}
   if(t.dataset.hide){S.hidden=S.hidden||new Set();t.checked?S.hidden.delete(t.dataset.hide):S.hidden.add(t.dataset.hide);saveHidden();return renderTab()}
