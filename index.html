@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-13</div>
   </div>
 </div>
 
@@ -3420,6 +3420,11 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="sh"><div class="st"><i class="ti ti-file-text"></i>상담용지 인쇄</div></div>
       <div id="cf_page_box"></div>
     </div>
+    <!-- 바인더용 증권표지 (자료실 › 각종양식 아래 메뉴 — 2026-11-18 백동현) -->
+    <div class="pg" id="pg_bcover">
+      <div class="sh"><div class="st"><i class="ti ti-book"></i>바인더용 증권표지</div></div>
+      <div id="bc_page_box"></div>
+    </div>
     <!-- 신입증권분석 (교육준비 하위 — 연습용 가상 증권) -->
     <div class="pg" id="pg_rkpol">
       <div class="sh"><div class="st"><i class="ti ti-file-certificate"></i>신입증권분석</div>
@@ -5543,6 +5548,7 @@ function logout(){
   window._bdrVals=null;
   window._ssVals=null;   // 상속세 계산기 입력(고객 재무정보)도 같은 이유로 리셋(2026-09-15)
   window._cfBuf=null;   // 상담용지 인쇄 담당자·연락처 입력 리셋(2026-11-18)
+  window._bcState=null; window._bcCfgTried=0; clearTimeout(window._bcPrevT); try{ var _bcb=g('bc_page_box'); if(_bcb) _bcb.innerHTML=''; }catch(e){}   // 바인더용 증권표지 입력(고객 이름·상품) 리셋(2026-11-18)
   window._ckBuf=null;   // 상담고객체크리스트 담당자·핸드폰 입력도 리셋(2026-10-27)
   window._ckSel=null; window._ckPg=null; try{ if(typeof ckMgrClose==='function') ckMgrClose(); }catch(e){}   // 체크리스트 양식 선택·양식 관리 창(2026-10-30)
   window._yrVals=null;   // 연말정산 계산기 입력(급여·가족 등 개인정보)도 리셋(2026-09-15)
@@ -6415,7 +6421,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
-  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄'};
+  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄',bcover:'바인더용 증권표지'};
 // ===== 사용법 안내 채팅 봇 (cb, 2026-11-04 — 박지순 요청) =====
 // 모든 화면 오른쪽 아래 💬 버튼 → 작은 채팅 창. 질문하면 미리 적어 둔 안내문(CB_GUIDE) 중 맞는 것을 골라 보여 주고 [바로 가기] 버튼으로 그 화면을 연다.
 // 답 고르기: ① 낱말 점수(무료·즉시)가 확실하면 그대로 ② 애매하면 AI(/api/analyze Gemini)가 **목록 안의 id만** 고른다 — 안내 글은 항상 아래 고정 문구(AI가 지어내지 않음).
@@ -6483,6 +6489,7 @@ var CB_GUIDE=[
   {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
   {k:'join_prep',kw:'입사준비 입사 신입 서류',a:'신입 입사 준비 사항을 관리합니다.'},
   {k:'edu_prep',kw:'교육준비 신입교육 테스트',a:'신입 교육·테스트 준비 상황을 관리합니다.'},
+  {k:'bcover',kw:'증권표지 바인더 바인더표지 증권 표지 증권커버 바인더용 증권표지',a:'1. [행 추가]로 줄을 늘리고 줄마다 보험사·계약자·피보험자·상품명·보험료를 넣으세요.\n2. 보험사를 고르면 로고와 고객센터 번호가 자동으로 들어갑니다.\n3. [전체 인쇄 / PDF 저장]을 누르면 줄마다 표지 한 장씩 한 번에 나옵니다.'},
   {k:'cfprint',kw:'상담용지 상담기록지 상담 기록지 상담지 상담용지인쇄 기록지',a:'이름·직함·핸드폰이 내 정보로 자동으로 들어갑니다.\n[인쇄 / PDF 저장]을 누르면 보험 상담 기록지(뒷면 메모 포함)가 나옵니다.'},
   {k:'rkpol',kw:'신입증권분석 증권 연습 증권읽기 가상증권 교육용',a:'[새 증권 생성]을 누르면 교육용 가상 증권이 무작위로 만들어집니다.\n계약사항·보장내용을 읽는 연습을 하고, 총 납입보험료는 직접 계산한 뒤 눌러서 답을 확인하세요.'},
   {k:'new_check',kw:'신입체크리스트 체크리스트 신입',a:'신입 체크리스트를 확인합니다.'},
@@ -10052,7 +10059,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,airec:rAirec,fincalc:rFincalc,pz:rPz};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,bcover:rBcover,airec:rAirec,fincalc:rFincalc,pz:rPz};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -34392,14 +34399,17 @@ function _cfInput(el){
 function _cfNavPlace(){
   var tgt=null;
   _navCustoms().forEach(function(c){ if(!tgt&&c&&String(c.label||'').trim()==='각종양식') tgt=g('n_'+c.id); });
-  var el=g('n_cfprint');
-  if(!tgt||!tgt.parentElement){ if(el) el.remove(); return; }
-  if(!el){
-    el=document.createElement('div'); el.className='ni nsub'; el.id='n_cfprint'; el.textContent='└ 상담용지 인쇄';
-    el.addEventListener('click',function(){ showPage('cfprint'); });
-  }
-  if(tgt.nextElementSibling!==el) tgt.parentElement.insertBefore(el,tgt.nextSibling);
-  el.classList.toggle('cfg-hide',tgt.parentElement.classList.contains('cfg-hide'));
+  var subs=[['n_cfprint','└ 상담용지 인쇄','cfprint'],['n_bcover','└ 바인더용 증권표지','bcover']];   // 바인더용 증권표지(2026-11-18 백동현) 추가
+  var prev=tgt;
+  subs.forEach(function(s){
+    var el=g(s[0]);
+    if(!tgt||!tgt.parentElement){ if(el) el.remove(); return; }
+    if(!el){ el=document.createElement('div'); el.className='ni nsub'; el.id=s[0]; el.textContent=s[1];
+      (function(pk){ el.addEventListener('click',function(){ showPage(pk); }); })(s[2]); }
+    if(prev.nextElementSibling!==el) tgt.parentElement.insertBefore(el,prev.nextSibling);
+    el.classList.toggle('cfg-hide',tgt.parentElement.classList.contains('cfg-hide'));
+    prev=el;
+  });
 }
 function rCfPrint(){
   var box=g('cf_page_box'); if(!box) return;
@@ -34423,6 +34433,204 @@ function cfPrint(name,catId){
     try{ w.close(); }catch(e2){}
     toast('상담용지 창을 여는 중 문제가 발생했습니다.');
   }
+}
+// ===== 바인더용 증권표지 (bc, 2026-11-18 — 백동현 요청) =====
+// 자료실 › 각종양식 아래 '└ 바인더용 증권표지'. 줄마다 보험사·계약자·피보험자·상품명·보험료 → 줄 1개 = A4 표지 1장, 한 번에 인쇄.
+// 보험사 로고 = 환경설정 › 전산 사이트 관리에 올린 로고 사진(sansites ic, _mgrCoMatch 이름 맞춤), 없으면 글자 로고.
+// 고객센터 = 콜센터 번호 설정(carinscfg — 손보 tel·생보 ltel, 홈 매니저 연락처 [수정])에서 자동, 줄에서 직접 고칠 수 있음.
+// 저장 없음 — 메모리 window._bcState만(logout 리셋 — 함수 _bcSt와 이름 겹치지 않게). 미리보기·출력은 같은 _bcDoc(단일 출처, _cfCss 계열 별도 CSS).
+var BC_MAX=30;
+function _bcNewRow(){ return {id:'bc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ins:'',ct:'',insd:'',prod:'',prem:'',tel:'',telHand:0}; }
+function _bcSt(){
+  if(!window._bcState){
+    var my=_bdrMyInfo(), t=''; try{ t=_rsvTitle(); }catch(e){}
+    window._bcState={nm:my.name||'',ttl:t||'',hp:_bdrFmtPhoneStr(my.phone||''),_f:my.phone?1:0,rows:[_bcNewRow()],cur:0};
+  } else if(!window._bcState._f){ var m2=_bdrMyInfo(); if(m2.phone){ if(!window._bcState.hp) window._bcState.hp=_bdrFmtPhoneStr(m2.phone); window._bcState._f=1; } }
+  return window._bcState;
+}
+function _bcInsAll(){ var L=_reqInsLists(); return {son:(L.son||[]).filter(function(n){ return !/가설동/.test(n); }), life:(L.life||[]).slice()}; }
+function _bcSide(ins){ var L=_bcInsAll(); return L.life.indexOf(ins)>=0?'saeng':'son'; }
+function _bcLogo(ins){
+  ins=String(ins||'').trim(); if(!ins) return '';
+  var best=null, sc=0;
+  try{ (_sanData().items||[]).forEach(function(it){ if(!it||!_sanIcOk(it.ic)) return; var m=_mgrCoMatch(ins,it.nm); if(m>sc){ sc=m; best=it; } }); }catch(e){}
+  return best?best.ic:'';
+}
+function _bcTel(ins){
+  ins=String(ins||'').trim(); if(!ins) return '';
+  var s=_bcSide(ins), t='';
+  try{ t=_carTelOf(ins,s)||_carTelOf(ins,s==='saeng'?'son':'saeng'); }catch(e){}
+  return t||'';
+}
+function _bcPrem(v){ v=String(v||'').trim(); if(!v) return ''; if(/^[\d,\s]+원?$/.test(v)){ var d=v.replace(/\D/g,''); return d?d.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'원':''; } return v; }
+function _bcCss(){
+  return '*{box-sizing:border-box;margin:0;padding:0}'
+    +'html,body{background:#e9ebf1;font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#141b2d;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'@page{size:A4;margin:0}'
+    +'.pg{position:relative;width:210mm;height:297mm;margin:0 auto 8mm;background:#fff;overflow:hidden;box-shadow:0 2px 14px rgba(20,30,70,.12)}'
+    +'.side{position:absolute;left:0;top:0;bottom:0;width:7mm;background:linear-gradient(#13285e,#0f2550)}'
+    +'.side:after{content:"";position:absolute;right:0;top:0;bottom:0;width:.9mm;background:#c9a14a}'
+    +'.hd{position:absolute;left:20mm;right:16mm;top:13mm;display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:3.4mm;border-bottom:.35mm solid #d9dce6}'
+    +'.hd .k{font-size:10.5pt;font-weight:800;color:#13285e;letter-spacing:.06em}'
+    +'.hd .k:before{content:"";display:inline-block;width:8mm;height:.9mm;background:#c9a14a;vertical-align:middle;margin-right:2.4mm;position:relative;top:-.4mm}'
+    +'.hd .who{font-size:8.6pt;color:#5a6380;letter-spacing:.02em}.hd .who b{color:#13285e;font-weight:700}'
+    +'.lg{position:absolute;right:16mm;top:30mm;height:22mm;width:90mm;display:flex;align-items:center;justify-content:flex-end}'
+    +'.lg img{max-height:22mm;max-width:90mm;object-fit:contain}'
+    +'.lg .wm{font-size:26pt;font-weight:900;color:#13285e;letter-spacing:.02em;border-bottom:1mm solid #c9a14a;padding-bottom:1mm;white-space:nowrap}'
+    +'.ti{position:absolute;left:20mm;top:66mm}'
+    +'.ti .en{font-size:9pt;letter-spacing:.42em;color:#c9a14a;font-weight:800;margin-bottom:5mm}'
+    +'.ti h1{font-size:38pt;line-height:1.28;font-weight:900;color:#141b2d;letter-spacing:-.01em}'
+    +'.ti h1 span{color:#13285e}'
+    +'.card{position:absolute;left:20mm;right:16mm;top:146mm;border-top:.7mm solid #13285e;border-bottom:.35mm solid #13285e}'
+    +'.card table{width:100%;border-collapse:collapse;table-layout:fixed}'
+    +'.card th{width:34mm;text-align:left;font-size:10.5pt;font-weight:700;color:#5a6380;letter-spacing:.18em;padding:0 0 0 3mm;height:12.4mm;background:#f5f6fa;border-bottom:.25mm solid #e1e4ec}'
+    +'.card td{font-size:14pt;font-weight:700;color:#141b2d;padding:0 4mm;border-bottom:.25mm solid #e1e4ec;word-break:keep-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    +'.card tr:last-child th,.card tr:last-child td{border-bottom:none}'
+    +'.card td small{font-size:11pt;font-weight:600;color:#5a6380;margin-left:1.4mm}'
+    +'.card td.tel{color:#13285e;letter-spacing:.04em}'
+    +'.card td.nil{color:#c2c7d6;font-weight:400}'
+    +'.nt{position:absolute;left:20mm;right:16mm;top:236mm;display:flex;gap:3.4mm;align-items:flex-start;padding:4.4mm 5mm;background:#f7f4ec;border-left:1.1mm solid #c9a14a}'
+    +'.nt b{font-size:11pt;color:#8a6a1e;font-weight:800;white-space:nowrap}'
+    +'.nt p{font-size:11pt;line-height:1.6;color:#3a4256;font-weight:600}'
+    +'.ft{position:absolute;left:7mm;right:0;bottom:0;height:22mm;background:#0f2550;display:flex;align-items:center;justify-content:space-between;padding:0 16mm 0 13mm}'
+    +'.ft:before{content:"";position:absolute;left:0;right:0;top:0;height:.9mm;background:#c9a14a}'
+    +'.ft img{height:8.6mm}.ft p{font-size:8.6pt;color:#dfe4f1;letter-spacing:.04em;text-align:right;line-height:1.5}.ft p b{color:#fff}.ft p em{font-style:normal;color:#c9a14a;font-weight:700;margin:0 .6mm 0 2mm}'
+    +'@media print{html,body{background:#fff}.pg{margin:0;box-shadow:none;page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}.tb{display:none!important}}';
+}
+function _bcPage(st,r){
+  var who=[String(st.nm||'').trim(),String(st.ttl||'').trim()].filter(Boolean).join(' '), hp=String(st.hp||'').trim();
+  var ins=String(r.ins||'').trim(), logo=_bcLogo(ins), tel=String(r.tel||'').trim(), insd=String(r.insd||'').trim()||String(r.ct||'').trim();
+  var val=function(x,suf){ x=String(x||'').trim(); return x?'<td>'+_esc(x)+(suf?'<small>'+suf+'</small>':'')+'</td>':'<td class="nil">&nbsp;</td>'; };
+  return '<div class="pg"><div class="side"></div>'
+    +'<div class="hd"><div class="k">고객님의 소중한 자산입니다</div><div class="who">'+(who?'담당 <b>'+_esc(who)+'</b>':'')+(hp?' &nbsp;'+_esc(hp):'')+'</div></div>'
+    +'<div class="lg">'+(logo?'<img src="'+_esc(logo)+'" alt="">':(ins?'<span class="wm">'+_esc(ins)+'</span>':''))+'</div>'
+    +'<div class="ti"><div class="en">INSURANCE POLICY</div><h1>소중한<br>고객님의<br><span>보험 증권</span></h1></div>'
+    +'<div class="card"><table>'
+      +'<tr><th>계 약 자</th>'+val(r.ct,String(r.ct||'').trim()?'님':'')+'</tr>'
+      +'<tr><th>피 보 험 자</th>'+val(insd,insd?'님':'')+'</tr>'
+      +'<tr><th>보 험 사</th>'+val(ins)+'</tr>'
+      +'<tr><th>상 품 명</th>'+val(r.prod)+'</tr>'
+      +'<tr><th>보 험 료</th>'+val(_bcPrem(r.prem))+'</tr>'
+      +'<tr><th>고객센터</th>'+(tel?'<td class="tel">'+_esc(tel)+'</td>':'<td class="nil">&nbsp;</td>')+'</tr>'
+    +'</table></div>'
+    +'<div class="nt"><b>안내</b><p>보험 증권을 분실하신 경우 꼭<br>'+(ins?_esc(ins)+' ':'')+'고객센터'+(tel?'('+_esc(tel)+')':'')+'에 재발행을 요청해 주세요.</p></div>'
+    +'<div class="ft"><img src="'+_esc(_cfImg('incar-logo-w.png'))+'" alt=""><p>'+_esc(CF_BRANCH)+'<br>'+(who?'<b>'+_esc(who)+'</b>':'')+(hp?'<em>H.P</em>'+_esc(hp):'')+'</p></div>'
+    +'</div>';
+}
+function _bcFilled(r){ return !!(r&&(String(r.ins||'').trim()||String(r.ct||'').trim()||String(r.prod||'').trim())); }
+function _bcDoc(st,rows,forPrint){
+  var first=rows[0]||{}, title='증권표지'+(rows.length===1&&first.ct?' - '+String(first.ct).replace(/[\\/:*?"<>|]/g,'').slice(0,20):'');
+  return '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'+_esc(title)+'</title><style>'+_bcCss()
+    +(forPrint?'.tb{position:sticky;top:0;z-index:5;display:flex;justify-content:flex-end;padding:10px 14px;background:#e9ebf1}.tb button{padding:9px 18px;border:none;border-radius:8px;background:#1f2a5c;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}':'html,body{background:transparent}.pg{margin:0}')
+    +'</style></head><body>'
+    +(forPrint?'<div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div>':'')
+    +rows.map(function(r){ return _bcPage(st,r); }).join('')+'</body></html>';
+}
+function _bcRowHtml(r,i,L,cur){
+  var _in='box-sizing:border-box;width:100%;padding:7px 8px;border:1px solid #ccd;border-radius:6px;font-family:inherit;font-size:13px;color:#111;background:#fff';
+  var opt=function(arr){ return arr.map(function(n){ return '<option'+(n===r.ins?' selected':'')+'>'+_esc(n)+'</option>'; }).join(''); };
+  var known=L.son.indexOf(r.ins)>=0||L.life.indexOf(r.ins)>=0;
+  var inp=function(k,ph,ml,ex){ return '<input data-bck="'+k+'" value="'+_esc(r[k]||'')+'" maxlength="'+ml+'" placeholder="'+ph+'" style="'+_in+'"'+(ex||'')+'>'; };
+  return '<div class="bcrow'+(i===cur?' cur':'')+'" data-bcid="'+_esc(r.id)+'">'
+    +'<div class="bcno">'+(i+1)+'</div>'
+    +'<div><select data-bck="ins" style="'+_in+'"><option value="">보험사 선택</option>'
+      +(r.ins&&!known?'<option selected>'+_esc(r.ins)+'</option>':'')
+      +'<optgroup label="손해보험사">'+opt(L.son)+'</optgroup><optgroup label="생명보험사">'+opt(L.life)+'</optgroup></select></div>'
+    +'<div>'+inp('ct','계약자',20)+'</div>'
+    +'<div>'+inp('insd','피보험자 (같으면 비움)',20)+'</div>'
+    +'<div>'+inp('prod','상품명',60)+'</div>'
+    +'<div>'+inp('prem','보험료',20,' inputmode="numeric"')+'</div>'
+    +'<div>'+inp('tel','고객센터',20,' inputmode="tel"')+'</div>'
+    +'<div><button class="bd bdr" data-bcdel="1" title="이 줄 삭제" style="padding:6px 9px;font-size:12px">삭제</button></div>'
+  +'</div>';
+}
+function _bcCssPanel(){
+  return '<style id="bc_pcss">#bc_rows .bcrow{display:grid;grid-template-columns:26px 1.3fr 1fr 1.1fr 1.7fr 1fr 1fr 52px;gap:6px;align-items:center;padding:6px;border-radius:8px;border:1px solid transparent}'
+    +'#bc_rows .bcrow.cur{background:#eef2ff;border-color:#c5cff5}#bc_rows .bcno{font-weight:800;color:#3846b0;text-align:center;font-size:13px}'
+    +'#bc_rows .bchead{display:grid;grid-template-columns:26px 1.3fr 1fr 1.1fr 1.7fr 1fr 1fr 52px;gap:6px;padding:0 6px 4px;font-size:12px;color:#667;font-weight:700}'
+    +'@media(max-width:900px){#bc_rows .bcrow,#bc_rows .bchead{grid-template-columns:1fr 1fr}#bc_rows .bchead{display:none}}</style>';
+}
+function rBcover(){
+  var box=g('bc_page_box'); if(!box) return;
+  var st=_bcSt(), L=_bcInsAll();
+  if(st.cur>=st.rows.length) st.cur=st.rows.length-1;
+  var _in='width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccd;border-radius:7px;font-family:inherit;font-size:13.5px;color:#111;background:#fff';
+  var lb=function(t){ return '<div style="font-size:12px;color:#555;margin-bottom:3px">'+t+'</div>'; };
+  box.innerHTML=_bcCssPanel()
+    +'<div style="background:#fff;border:1px solid #d8dcef;border-radius:12px;padding:16px;margin-bottom:14px">'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'
+        +'<div style="flex:1 1 150px;max-width:200px">'+lb('담당자 이름')+'<input data-bcm="nm" value="'+_esc(st.nm)+'" maxlength="20" style="'+_in+'"></div>'
+        +'<div style="flex:1 1 110px;max-width:140px">'+lb('직함')+'<input data-bcm="ttl" value="'+_esc(st.ttl)+'" maxlength="10" placeholder="지점장·팀장" style="'+_in+'"></div>'
+        +'<div style="flex:1 1 150px;max-width:190px">'+lb('핸드폰')+'<input data-bcm="hp" value="'+_esc(st.hp)+'" maxlength="13" inputmode="tel" style="'+_in+'"></div>'
+        +'<div style="flex:1;min-width:10px"></div>'
+        +'<button class="bp bnv" data-bcact="add" style="padding:9px 14px;font-weight:700"><i class="ti ti-plus"></i> 행 추가</button>'
+        +'<button class="bp bnv" data-bcact="print" style="padding:9px 16px;font-weight:700"><i class="ti ti-printer"></i> 전체 인쇄 / PDF 저장</button>'
+      +'</div>'
+      +'<div id="bc_rows"><div class="bchead"><div>No</div><div>보험사</div><div>계약자</div><div>피보험자</div><div>상품명</div><div>보험료</div><div>고객센터</div><div></div></div>'
+        +st.rows.map(function(r,i){ return _bcRowHtml(r,i,L,st.cur); }).join('')+'</div>'
+      +'<div style="font-size:11.5px;color:#8a92ac;margin-top:8px;line-height:1.6">한 줄이 표지 한 장입니다(최대 '+BC_MAX+'줄). 보험사를 고르면 로고와 고객센터 번호가 자동으로 들어가고, 번호는 직접 고칠 수 있습니다. 입력은 저장되지 않습니다.<br>'
+        +'로고는 환경설정 › 전산 사이트 관리에 올린 로고 사진을 쓰고, 없으면 보험사 이름 글자로 나옵니다. 고객센터 번호는 홈 [매니저 연락처]의 콜센터 번호를 씁니다.</div>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="font-size:14px;color:#2a2a4a">미리보기</b><span id="bc_pvlbl" style="font-size:12.5px;color:#667"></span></div>'
+    +'<div id="bc_prevwrap" style="max-width:560px"></div>';
+  _bcBind(box);
+  _bcPrevDraw();
+  if(!window._bcCfgTried){ window._bcCfgTried=1; try{ _carCfgLoad().then(function(){ _bcTelFill(); }); }catch(e){} }
+}
+function _bcTelFill(){   // 콜센터 설정을 늦게 받았을 때 비어 있는 고객센터 칸만 채움
+  var st=window._bcState; if(!st) return; var ch=0;
+  st.rows.forEach(function(r){ if(r.ins&&!r.tel&&!r.telHand){ var t=_bcTel(r.ins); if(t){ r.tel=t; ch=1;
+    var rw=document.querySelector('#bc_rows .bcrow[data-bcid="'+r.id+'"] [data-bck="tel"]'); if(rw&&!rw.value) rw.value=t; } } });   // 칸 값만 채움(입력 중 포커스 보존)
+  if(ch) _bcPrevDraw();
+}
+function _bcRowOf(el){ var st=_bcSt(), rw=el.closest('.bcrow'); if(!rw) return null; var id=rw.getAttribute('data-bcid'), i=-1;
+  st.rows.forEach(function(r,j){ if(r.id===id) i=j; }); return i<0?null:{i:i,r:st.rows[i],el:rw}; }
+function _bcBind(box){
+  box.oninput=function(e){ var t=e.target, st=_bcSt();
+    var m=t.getAttribute('data-bcm'); if(m){ if(m==='hp'){ var f=_bdrFmtPhoneStr(t.value); if(f!==t.value) t.value=f; st._f=1; } st[m]=t.value; _bcPrevSoon(); return; }
+    var k=t.getAttribute('data-bck'); if(!k||k==='ins') return; var o=_bcRowOf(t); if(!o) return;
+    if(k==='tel'){ var f2=_carTelFmt(t.value); if(f2!==t.value) t.value=f2; o.r.telHand=1; }
+    if(k==='prem'&&/^[\d,]*$/.test(t.value)){ var d=t.value.replace(/\D/g,''), f3=d.replace(/\B(?=(\d{3})+(?!\d))/g,','); if(f3!==t.value) t.value=f3; }
+    o.r[k]=t.value; _bcSetCur(o.i); _bcPrevSoon(); };
+  box.onchange=function(e){ var t=e.target; if(t.getAttribute('data-bck')!=='ins') return; var o=_bcRowOf(t); if(!o) return;
+    o.r.ins=t.value; if(!o.r.telHand||!o.r.tel){ o.r.tel=_bcTel(t.value); o.r.telHand=0; var ti=o.el.querySelector('[data-bck="tel"]'); if(ti) ti.value=o.r.tel; }
+    _bcSetCur(o.i); _bcPrevDraw(); };
+  box.onfocusin=function(e){ var o=e.target.closest&&e.target.closest('.bcrow')?_bcRowOf(e.target):null; if(o&&o.i!==_bcSt().cur){ _bcSetCur(o.i); _bcPrevDraw(); } };
+  box.onclick=function(e){ var b=e.target.closest('button'); if(!b) return; var st=_bcSt();
+    if(b.getAttribute('data-bcdel')){ var o=_bcRowOf(b); if(!o) return;
+      if(_bcFilled(o.r)&&!confirm((o.i+1)+'번 줄을 삭제할까요?')) return;
+      st.rows.splice(o.i,1); if(!st.rows.length) st.rows.push(_bcNewRow()); if(st.cur>=st.rows.length) st.cur=st.rows.length-1; rBcover(); return; }
+    var a=b.getAttribute('data-bcact');
+    if(a==='add'){ if(st.rows.length>=BC_MAX){ toast('한 번에 최대 '+BC_MAX+'줄까지 만들 수 있습니다.'); return; }
+      var nr=_bcNewRow(), last=st.rows[st.rows.length-1]; if(last){ nr.ct=last.ct; nr.insd=last.insd; }   // 같은 고객의 여러 계약을 이어 쓰기 쉽게 계약자·피보험자는 앞 줄을 따라감
+      st.rows.push(nr); st.cur=st.rows.length-1; rBcover(); var rs=g('bc_rows'); if(rs){ var q=rs.querySelectorAll('.bcrow'); var x=q[q.length-1]&&q[q.length-1].querySelector('select'); if(x) x.focus(); } return; }
+    if(a==='print') bcPrint(); };
+}
+function _bcSetCur(i){ var st=_bcSt(); if(st.cur===i) return; st.cur=i; var rs=g('bc_rows'); if(!rs) return;
+  rs.querySelectorAll('.bcrow').forEach(function(el,j){ el.classList.toggle('cur',j===i); }); }
+function _bcPrevSoon(){ clearTimeout(window._bcPrevT); window._bcPrevT=setTimeout(_bcPrevDraw,180); }
+function _bcPrevDraw(){
+  var w=g('bc_prevwrap'); if(!w||!window._bcState) return;
+  var st=_bcSt(), r=st.rows[st.cur]||st.rows[0], W=Math.max(200,w.clientWidth||480), sc=W/CF_PX, H=Math.round(1123*sc);
+  var lbl=g('bc_pvlbl'); if(lbl) lbl.textContent=(st.cur+1)+'번 줄 표지 (줄을 누르면 그 표지가 보입니다)';
+  var fr=w.querySelector('iframe');
+  if(!fr){ w.innerHTML='<div style="position:relative;overflow:hidden;width:100%;height:'+H+'px;border-radius:6px;box-shadow:0 2px 12px rgba(20,30,70,.15)"><iframe title="증권표지 미리보기" scrolling="no" style="position:absolute;left:0;top:0;border:0;width:'+CF_PX+'px;height:1123px;transform:scale('+sc+');transform-origin:0 0;pointer-events:none"></iframe></div>'; fr=w.querySelector('iframe'); }
+  else { fr.parentNode.style.height=H+'px'; fr.style.transform='scale('+sc+')'; }
+  fr.srcdoc=_bcDoc(st,[r],false);
+}
+function bcPrint(){
+  var st=_bcSt(), rows=st.rows.filter(_bcFilled);
+  if(!rows.length){ toast('보험사·계약자·상품명 중 하나라도 입력한 줄이 없습니다.'); return; }
+  var w=window.open('','_blank');
+  if(!w){ toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 눌러주세요.'); return; }
+  try{
+    w.document.write(_bcDoc(st,rows,true)); w.document.close();
+    var done=false, go=function(){ if(done) return; done=true; try{ w.focus(); w.print(); }catch(e){} };
+    var imgs=Array.prototype.slice.call(w.document.images), left=imgs.length;
+    if(!left) setTimeout(go,300);
+    imgs.forEach(function(im){ var f1=function(){ if(--left<=0) setTimeout(go,200); }; if(im.complete) f1(); else { im.addEventListener('load',f1); im.addEventListener('error',f1); } });
+    setTimeout(go,4000);
+  }catch(e){ console.warn('증권표지 출력 오류:',e); try{ w.close(); }catch(e2){} toast('증권표지 창을 여는 중 문제가 발생했습니다.'); }
 }
 function _bdrMyInfo(){ // 위임받는자 자동 입력 — 로그인 계정의 구성원 정보(이름·전화·주소·생년월일. 주민번호는 데이터에 없어 직접 입력)
   var out={name:(typeof cu!=='undefined'&&cu&&cu.name)||'', phone:'', addr:'', birth:''};
