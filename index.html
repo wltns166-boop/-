@@ -972,7 +972,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-10</div>
   </div>
 </div>
 
@@ -3404,6 +3404,11 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     </div>
 
     <!-- 교육준비 -->
+    <!-- 상담용지 인쇄 (자료실 › 각종양식 아래 메뉴 — 2026-11-18 백동현) -->
+    <div class="pg" id="pg_cfprint">
+      <div class="sh"><div class="st"><i class="ti ti-file-text"></i>상담용지 인쇄</div></div>
+      <div id="cf_page_box"></div>
+    </div>
     <!-- 신입증권분석 (교육준비 하위 — 연습용 가상 증권) -->
     <div class="pg" id="pg_rkpol">
       <div class="sh"><div class="st"><i class="ti ti-file-certificate"></i>신입증권분석</div>
@@ -6382,7 +6387,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
-  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석'};
+  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄'};
 // ===== 사용법 안내 채팅 봇 (cb, 2026-11-04 — 박지순 요청) =====
 // 모든 화면 오른쪽 아래 💬 버튼 → 작은 채팅 창. 질문하면 미리 적어 둔 안내문(CB_GUIDE) 중 맞는 것을 골라 보여 주고 [바로 가기] 버튼으로 그 화면을 연다.
 // 답 고르기: ① 낱말 점수(무료·즉시)가 확실하면 그대로 ② 애매하면 AI(/api/analyze Gemini)가 **목록 안의 id만** 고른다 — 안내 글은 항상 아래 고정 문구(AI가 지어내지 않음).
@@ -6450,6 +6455,7 @@ var CB_GUIDE=[
   {k:'req_unified',kw:'요청관리 요청 명함 명함신청 물품 물품신청 교육신청 건의 건의사항 증권바인더 대봉투 쇼핑백',a:'[신청]을 눌러 종류(교육·물품·명함·건의 등)를 고르고 내용을 적어 신청합니다.\n명함신청은 이름·영문이름·연락처·팩스·이메일과 프로필사진을, 물품신청은 필요한 품목을 체크합니다.'},
   {k:'join_prep',kw:'입사준비 입사 신입 서류',a:'신입 입사 준비 사항을 관리합니다.'},
   {k:'edu_prep',kw:'교육준비 신입교육 테스트',a:'신입 교육·테스트 준비 상황을 관리합니다.'},
+  {k:'cfprint',kw:'상담용지 상담기록지 상담 기록지 상담지 상담용지인쇄 기록지',a:'이름·직함·핸드폰이 내 정보로 자동으로 들어갑니다.\n[인쇄 / PDF 저장]을 누르면 보험 상담 기록지(뒷면 메모 포함)가 나옵니다.'},
   {k:'rkpol',kw:'신입증권분석 증권 연습 증권읽기 가상증권 교육용',a:'[새 증권 생성]을 누르면 교육용 가상 증권이 무작위로 만들어집니다.\n계약사항·보장내용을 읽는 연습을 하고, 총 납입보험료는 직접 계산한 뒤 눌러서 답을 확인하세요.'},
   {k:'new_check',kw:'신입체크리스트 체크리스트 신입',a:'신입 체크리스트를 확인합니다.'},
   {k:'dreport',kw:'일일보고서 일일보고 카톡보고',a:'그날의 일일보고서를 보고, 카톡 자동 발송을 설정합니다(관리자).'},
@@ -10018,7 +10024,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,airec:rAirec,fincalc:rFincalc,pz:rPz};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,airec:rAirec,fincalc:rFincalc,pz:rPz};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -27104,6 +27110,7 @@ function _navApply(){
     var anchor=g('n_navset')||null;
     seq.forEach(function(b){ sb.insertBefore(b.ni,anchor); if(b.nch) sb.insertBefore(b.nch,anchor); });
   })();
+  try{ _cfNavPlace(); }catch(e){}   // 상담용지 인쇄 메뉴를 자료실 › 각종양식 바로 아래에(2026-11-18)
   _navGrpColors(sb);
 }
 // 그룹 메뉴 색(2026-11-06 백동현 요청 C안 — 그룹마다 색 점·펼친 하위 메뉴 세로줄·현재 메뉴 버튼 색). 보이는 순서대로 색을 돌림.
@@ -31402,6 +31409,7 @@ function rCustomPage(name){
     if(_fc&&_bdIsCf(_fc)) cfCat=_fc;
   }
   var cfPanel=cfCat?_cfPanelHtml(name,cfCat):'';
+  if(cfCat){ var _cpb=g('cf_page_box'); if(_cpb) _cpb.innerHTML=''; }   // 상담용지 메뉴 화면과 id 겹치지 않게
   // 목록: 대표이미지+제목 카드 그리드, 4개씩 3줄(12개) 단위 페이지
   var PER=12;
   window._bdPage=window._bdPage||{};
@@ -34350,6 +34358,25 @@ function _cfInput(el){
     v[k]=el.value; v._f=1;   // 직접 고친 뒤엔 자동 채움이 덮지 않게
   }
   clearTimeout(window._cfPrevT); window._cfPrevT=setTimeout(function(){ _cfPrevDraw(cid); },180);
+}
+// 상담용지 인쇄 전용 메뉴(2026-11-18 백동현 "자료실-각종양식 하부에 탭을 따로") — 추가 메뉴 '각종양식' 바로 아래에 붙임(없으면 메뉴 숨김)
+function _cfNavPlace(){
+  var tgt=null;
+  _navCustoms().forEach(function(c){ if(!tgt&&c&&String(c.label||'').trim()==='각종양식') tgt=g('n_'+c.id); });
+  var el=g('n_cfprint');
+  if(!tgt||!tgt.parentElement){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement('div'); el.className='ni nsub'; el.id='n_cfprint'; el.textContent='└ 상담용지 인쇄';
+    el.addEventListener('click',function(){ showPage('cfprint'); });
+  }
+  if(tgt.nextElementSibling!==el) tgt.parentElement.insertBefore(el,tgt.nextSibling);
+  el.classList.toggle('cfg-hide',tgt.parentElement.classList.contains('cfg-hide'));
+}
+function rCfPrint(){
+  var box=g('cf_page_box'); if(!box) return;
+  var old=g('cf_panel'); if(old&&!box.contains(old)) old.remove();   // 게시판 탭 패널이 남아 있으면 id 겹침 방지
+  box.innerHTML=_cfPanelHtml('page',{id:'page',nm:'상담용지'});
+  _cfPrevDraw('page');
 }
 function cfPrint(name,catId){
   var v=_cfGetVals(catId);
