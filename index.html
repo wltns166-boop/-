@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-18</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.18-19</div>
   </div>
 </div>
 
@@ -22903,7 +22903,8 @@ async function _ciFillCodes(win, agent){
 // 신청 보험사 이름 → 담당자 inscode 행. 정확히 같은 이름 우선, 없으면 포함 관계 — 단 후보가 정확히 1곳일 때만(예: "삼성"이 삼성화재·삼성생명 둘에 걸리면 엉뚱한 회사 값 방지)
 // 고객등록 신청 이름 → 코드 관리 이름 별칭(2026-10-14 v-12, 사용자 요청): '메리츠 가설동'은 메리츠화재 전산 코드·비밀번호를 쓴다
 function _icCodeName(ins){ ins=String(ins||''); if(/^\s*예별/.test(ins)) return 'MG손해보험'; return /^\s*메리츠\s*가설동/.test(ins)?'메리츠화재':ins; }
-function _ciPick(all, ins){ ins=_icCodeName(ins); var n=_icNameKey(ins); if(!n) return null;
+function _ciPick(all, ins){ var r=_ciPick0(all, ins); if(r) return r; var o=_insOldName(ins); return o!==String(ins||'')?_ciPick0(all, o):r; }
+function _ciPick0(all, ins){ ins=_icCodeName(ins); var n=_icNameKey(ins); if(!n) return null;
   var ex=all.find(function(r){ return _icNameKey(r.ins)===n; }); if(ex) return ex;
   var part=all.filter(function(r){ var q=_icNameKey(r.ins); return q&&(q.indexOf(n)>=0||n.indexOf(q)>=0); });
   return part.length===1?part[0]:(part.length>1?'many':null); }
@@ -34549,7 +34550,7 @@ var BC_TEL_DEF={'삼성화재':'1588-5114','현대해상':'1588-5656','DB손해�
   '롯데손해보험':'1588-3344','흥국화재':'1688-1688','MG손해보험':'1588-5959','예별손해보험(구 MG손해)':'1588-5959','라이나손해보험':'1566-5800','하나손해보험':'1566-3000','AXA손해보험':'1566-1566',
   '삼성생명':'1588-3114','한화생명':'1588-6363','교보생명':'1588-1001','신한라이프':'1588-5580','NH농협생명':'1544-4000','흥국생명':'1588-2288','동양생명':'1577-1004',
   'AIA생명':'1588-9898','푸본현대생명':'1577-3311','DB생명':'1588-3131','KDB생명':'1588-4040','미래에셋생명':'1588-0220','라이나생명':'1588-0058','처브라이프':'1599-4600',
-  'ABL생명':'1588-6500','IM라이프':'1588-4770','메트라이프':'1588-9600','카디프생명':'1688-1118'};
+  'ABL생명':'1588-6500','IM라이프':'1588-4770','메트라이프':'1588-9600','카디프생명':'1688-1118','KB라이프':'1588-3374'};
 function _bcTel(ins){
   ins=String(ins||'').trim(); if(!ins) return '';
   var s=_bcSide(ins), t='';
@@ -40386,7 +40387,7 @@ async function drawClaimFields(srcDoc, coords, c, dtx){
 
 // 보험사별 템플릿(IndexedDB). DB손해보험은 내장 PDF로 폴백
 // 예별손해보험(구 MG손해) — 2026-11-18 이름 변경. 청구서 양식·좌표·코드는 옛 이름 'MG손해보험'으로 저장돼 있어 그 이름으로 찾는다
-function _insOldName(n){ n=String(n==null?'':n); return /^\s*예별\s*손해?보험?/.test(n)||/^\s*예별손보/.test(n)?'MG손해보험':n; }
+function _insOldName(n){ n=String(n==null?'':n); if(/^\s*KB\s*라이프/i.test(n)) return 'KB생명'; return /^\s*예별\s*손해?보험?/.test(n)||/^\s*예별손보/.test(n)?'MG손해보험':n; }
 async function claimTemplateFor(insurer){
   insurer=_insOldName(insurer);
   // 1. 로컬 IndexedDB 캐시 — 단, 다른 기기에서 양식을 바꾸거나 지웠으면(도장 _tplVer가 이 기기 캐시의 ver_보다 새로움) 공유본을 다시 받는다(2026-10-06).
