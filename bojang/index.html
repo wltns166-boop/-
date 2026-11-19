@@ -212,6 +212,9 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;table-layo
 .pcpal{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pcsw{width:28px;height:28px;border:1px solid #bbb;border-radius:6px;cursor:pointer;padding:0}
 .pcsw.on{outline:3px solid #1f2a5c;outline-offset:1px}
+.rspick{display:grid;gap:6px;border-top:1px solid #e4ded2;padding-top:10px}.rspick .rsbtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rsb{display:inline-flex;align-items:center;gap:7px;padding:6px 12px 6px 6px;border:1.5px solid #d8d2c6;border-radius:99px;background:#fff;font-size:12.5px;cursor:pointer;color:#1d1b18}
+.rsb i{display:block;width:30px;height:20px;border-radius:99px}.rsb.on{border-color:#1f2a5c;background:#eef1fb;font-weight:700;box-shadow:0 0 0 2px #1f2a5c33}
 .pcmine{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-left:6px;cursor:pointer}
 .pcmine input{width:34px;height:28px;padding:0;border:1px solid var(--line);background:none;cursor:pointer}
 .pcprev th{border:1px solid #ccc;padding:5px 14px;font-weight:600;font-size:12px}.pcprev{border-collapse:collapse;font-size:12.5px}.pcprev td{border:1px solid #ccc;padding:5px 14px;min-width:70px;text-align:right}.pcprev td:first-child{text-align:left}
@@ -319,6 +322,35 @@ table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;table-layo
 .pg .sm th{font-weight:600;color:var(--sub);font-size:9.5px;text-align:left;border-bottom:1.2px solid var(--ink)}
 .pg .sm .n{text-align:right}
 .pg .sm .lab{color:var(--gold);font-weight:700}
+/* v2026.11.19 보고서 스타일(.pg.rs — 변수는 rsAttr가 인라인으로) */
+.pg.rs .hd{margin:-40px -44px 18px;padding:26px 44px 18px;border:0;flex-shrink:0;background:linear-gradient(120deg,var(--t1),var(--t2) 60%,var(--t3));color:#fff;position:relative;overflow:hidden}
+.pg.rs .hd::after{content:"";position:absolute;right:-40px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.09)}
+.pg.rs .hd .ttl small{color:rgba(255,255,255,.82)}.pg.rs .hd h1 span{color:rgba(255,255,255,.86)}.pg.rs .hd .dt{color:rgba(255,255,255,.86);position:relative;z-index:1}.pg.rs .hd .dt b{color:#fff}
+.pg.rs h2.st{padding-left:10px;border-left:4px solid var(--t2)}
+.pg.rs .prem2 .pc{background:var(--band);border:0;border-top:3px solid var(--t2);border-radius:8px}
+.pg.rs .prem2 .ln.a i,.pg.rs .bar .ln.a i{background:var(--tbar)!important;border-radius:6px}
+.pg.rs .prem2 .ln.b i,.pg.rs .bar .ln.b i{border-radius:6px}
+.pg.rs .bar .ln i{height:13px}
+.pg.rs .legend span:first-child i{background:var(--graybar)!important}.pg.rs .legend span:last-child i{background:var(--t2)!important}
+.pg.rs .sm th{background:var(--t1);color:#fff;border:0}
+.pg.rs .sm tr:nth-child(odd) td{background:var(--band)}
+.pg.rs .sm .lab{color:var(--t2)}
+.pg.rs .dc{border:0;border-radius:10px;box-shadow:0 2px 8px rgba(30,40,80,.12)}
+.pg.rs .dc .dh{background:linear-gradient(90deg,var(--t1),var(--t2));color:#fff;border:0}
+.pg.rs .dc .dh .ico{background:#fff;border-radius:50%}
+.pg.rs .dc .dh .tt,.pg.rs .dc .dh .tt strong,.pg.rs .dc .dh b{color:#fff}
+.pg.rs .dc table tr:nth-child(even) td{background:var(--band)}
+.pg.rs .jr .dz .ico{background:#fff;border-radius:50%}
+.pg.rs .jr .dz{background:linear-gradient(160deg,var(--t1),var(--t2));color:#fff;border:0}
+.pg.rs .jr .sb .t{background:var(--band)}
+.pg.rs .jr .sb:not(:last-child)::after{border-color:var(--t2)}
+.pg.rs .pt{border-radius:10px;box-shadow:0 1px 5px rgba(30,40,80,.08)}
+.pg.rs .pt.up{background:linear-gradient(160deg,#fff,var(--tposb));border-color:var(--tposh);border-left:4px solid var(--pos)}
+.pg.rs .pt.up .pv2.a b{color:var(--pos)}
+.pg.rs .pt.no{border-left:4px solid #e11d48}
+.pg.rs .pt .ptip{color:var(--t2)}
+.pg.rs .chips.ok span{background:var(--tposb);border-color:var(--tposh);color:var(--pos)}
+.pg.rs .ft{border-top:2px solid var(--t2)}
 
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--gold-dim);padding:10px 18px;border-radius:8px;z-index:50;max-width:min(560px,calc(100% - 32px));font-size:13.5px}
 </style>
@@ -660,11 +692,29 @@ const COL_EMPTY='#ff8a8a';
 const PC_PAL=['#fff1a8','#ffe066','#ffd8a8','#ffc078','#ffc9c9','#ff8a8a','#ff6b6b','#fcc2d7','#f783ac','#eebefa','#da77f2','#d0bfff','#b197fc','#bac8ff','#91a7ff','#a5d8ff','#74c0fc','#99e9f2','#66d9e8','#96f2d7','#63e6be','#b2f2bb','#8ce99a','#d8f5a2','#c0eb75','#e9ecef','#ced4da','#ffffff'];
 /* v2026.11.18 박지순 요청: 유지 보험 머리 색(k, kOn — 화면·PDF의 '유지' 열 머리), PDF 보장분석표 머리 색(h) */
 const COL_KEEP='#dbe8ff',COL_HEAD='#1d1b18';
+/* v2026.11.19 백동현 요청: PDF 보고서 스타일 — FC마다 고름(fcprefs pc.rs, 직접 고르기 색 pc.rc). [키,이름,진한,주,밝은,막대 시작,막대 끝,붉은 계열] */
+const RS_LIST=[['','기본 (골드)'],['ocean','오션 블루','#1e3a8a','#2563eb','#38bdf8','#3b82f6','#06b6d4'],['mint','민트 & 네이비','#134e4a','#0f766e','#2dd4bf','#14b8a6','#22c55e'],['sunset','퍼플 & 코랄','#4c1d95','#7c3aed','#f97316','#8b5cf6','#f97316'],['red','레드 & 오렌지','#7f1d1d','#dc2626','#fb7185','#ef4444','#fb923c',1],['wine','와인 & 로즈','#881337','#be185d','#f9a8d4','#db2777','#f472b6',1],['my','직접 고르기']];
+const RS_KEYS=RS_LIST.map(x=>x[0]);
+function rsMix(hex,to,t){const a=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)),b=[1,3,5].map(i=>parseInt(to.slice(i,i+2),16));return'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('')}
+function rsRed(hex){const[r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);const mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<.08)return false;let h=mx===r?((g-b)/(mx-mn))%6:mx===g?(b-r)/(mx-mn)+2:(r-g)/(mx-mn)+4;h=(h*60+360)%360;return h<22||h>325}
+/* 스타일 값 {t1,t2,t3,b1,b2,red} — 기본이면 null */
+function rsTheme(key,rc){const k=key===undefined?((S.pc||{}).rs||''):key;if(!k)return null;
+  if(k==='my'){const c=/^#[0-9a-f]{6}$/i.test(rc||(S.pc||{}).rc||'')?(rc||S.pc.rc).toLowerCase():'#2563eb';return{t1:rsMix(c,'#000000',.45),t2:c,t3:rsMix(c,'#ffffff',.45),b1:c,b2:rsMix(c,'#ffffff',.3),red:rsRed(c)}}
+  const r=RS_LIST.find(x=>x[0]===k);if(!r||!r[2])return null;return{t1:r[2],t2:r[3],t3:r[4],b1:r[5],b2:r[6],red:!!r[7]}}
+/* .pg 에 붙일 class·style — 변수만 넘기고 칠하기는 CSS(.pg.rs) */
+function rsAttr(){const t=rsTheme();if(!t)return{c:'',s:''};const band=rsMix(t.t2,'#ffffff',.93),hair=rsMix(t.t2,'#ffffff',.82),gray=rsMix(rsMix(t.t2,'#9ca3af',.7),'#ffffff',.45);
+  const pos=t.red?'#1f7a45':t.t2,posb=t.red?'#eef7f1':band,posh=t.red?'#b7d8c2':hair;
+  return{c:' rs',s:` style="--band:${band};--hair:${hair};--gold:${t.t2};--goldbar:${t.t2};--graybar:${gray};--pos:${pos};--t1:${t.t1};--t2:${t.t2};--t3:${t.t3};--tbar:linear-gradient(90deg,${t.b1},${t.b2});--tposb:${posb};--tposh:${posh}"`}}
+function rsPickHTML(){const c=S.pc||pcClean();const cur=c.rs||'';
+  return`<div class="rspick"><b style="font-size:13px">보고서 스타일</b><span class="muted" style="font-size:12px">아래 미리보기에 바로 반영 · 내 설정으로 저장</span><div class="rsbtns">${RS_LIST.map(r=>{const t=r[0]?rsTheme(r[0],c.rc):null;
+    const sw=t?`linear-gradient(120deg,${t.t1},${t.t2} 60%,${t.t3})`:'linear-gradient(120deg,#1d1b18,#9a7631)';
+    return`<button type="button" class="rsb${r[0]===cur?' on':''}" data-act="rsPick" data-id="${r[0]||'base'}"><i style="background:${sw}"></i>${r[1]}</button>`}).join('')}
+   ${cur==='my'?`<label class="pcmine" title="주 색 고르기"><input type="color" data-rsc="1" value="${c.rc}"> 색 고르기</label>`:''}</div></div>`}
 const PC_DARK=['#1d1b18','#3d3d3d','#1f2a5c','#22324a','#2b4c7e','#0f766e','#1e5631','#6b4f1d','#5b2333','#7a1f1f'];
-function pcClean(o){o=o&&typeof o==='object'?o:{};const h=x=>/^#[0-9a-fA-F]{6}$/.test(String(x||''));return{v:h(o.v)?String(o.v).toLowerCase():COL_DEF,e:h(o.e)?String(o.e).toLowerCase():COL_EMPTY,vOn:o.vOn!==false,eOn:o.eOn!==false,k:h(o.k)?String(o.k).toLowerCase():COL_KEEP,kOn:o.kOn===true,h:h(o.h)?String(o.h).toLowerCase():COL_HEAD}}
+function pcClean(o){o=o&&typeof o==='object'?o:{};const h=x=>/^#[0-9a-fA-F]{6}$/.test(String(x||''));return{v:h(o.v)?String(o.v).toLowerCase():COL_DEF,e:h(o.e)?String(o.e).toLowerCase():COL_EMPTY,vOn:o.vOn!==false,eOn:o.eOn!==false,k:h(o.k)?String(o.k).toLowerCase():COL_KEEP,kOn:o.kOn===true,h:h(o.h)?String(o.h).toLowerCase():COL_HEAD,rs:RS_KEYS.includes(o.rs)?o.rs:'',rc:h(o.rc)?String(o.rc).toLowerCase():'#2563eb'}}
 function txtOn(hex){const m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||'');if(!m)return'#1d1b18';const[r,g,b]=[1,2,3].map(i=>parseInt(m[i],16));return(r*299+g*587+b*114)/1000>150?'#1d1b18':'#ffffff'}
 function colKeep(){const c=S.pc||pcClean();return c.kOn?c.k:''}
-function colHead(){const c=S.pc||pcClean();return c.h||COL_HEAD}
+function colHead(){const c=S.pc||pcClean();const t=rsTheme();if(t&&(!c.h||c.h===COL_HEAD))return t.t1;return c.h||COL_HEAD}
 function colOf(k){const c=S.pc||pcClean();return S.paint===true&&c.vOn?c.v:''}
 function colEmpty(){const c=S.pc||pcClean();return S.paint===true&&c.eOn?c.e:''}
 function paintGrid(cols,d){
@@ -1092,12 +1142,14 @@ function printHTML(){
   return`<div class="card" style="display:grid;gap:12px"><div class="row"><div><div class="eyebrow">출력</div><h3 style="font-size:16px;margin-top:2px">보장분석 보고서 PDF</h3></div>
    <button class="btn pri" style="margin-left:auto" data-act="pdf" id="pdfBtn" ${S.dl?'':'disabled'}>PDF 다운로드</button></div>
    <div class="row" style="gap:16px">${ck('cover','한눈에 보는 요약')}${ck('pic','그림으로 보는 내 보장')}${ck('before','보장분석표 (전)')}${ck('after','보장분석표 (후)')}${ck('disease','질환별 보장')}${ck('journey','치료 단계별 수령액')}${ck('diff','항목별 증감표')}${ck('checks','보험 점검 결과')}${ck('mats','선택한 상담자료 '+((S.cur.mats||[]).length)+'장')}<span class="dim">|</span>${ck('hideEmpty','가입금액 없는 항목 빼기')}</div>
+   ${rsPickHTML()}
    ${S.dl?'':'<p class="muted" style="margin:0;font-size:12.5px">이 화면에서는 파일 다운로드를 쓸 수 없습니다.</p>'}<div id="pdfMsg" class="muted" style="font-size:12.5px"></div></div>
    <div class="pv" id="pv"></div>`;
 }
 function pgShell(title,sub,inner){
   const c=S.cur;
-  return`<div class="pg"><div class="hd"><div class="ttl"><small>${sub}</small><h1>${manAge()!=null?manAge()+'세 ':''}${esc(c.name)} 님<span>${title}</span></h1></div><div class="dt"><b>TOPS</b>${today()} · 담당 ${esc(c.ownerName)}</div></div>${inner}
+  const ra=rsAttr();
+  return`<div class="pg${ra.c}"${ra.s}><div class="hd"><div class="ttl"><small>${sub}</small><h1>${manAge()!=null?manAge()+'세 ':''}${esc(c.name)} 님<span>${title}</span></h1></div><div class="dt"><b>TOPS</b>${today()} · 담당 ${esc(c.ownerName)}</div></div>${inner}
   <div class="ft"><span>상담용 참고자료입니다. 실제 보험금은 각 보험사 약관과 지급 조건에 따라 지급됩니다.</span><span></span></div></div>`;
 }
 const dfP=(d,won)=>d?`<span class="${d>0?'pos':'neg'}">${d>0?'+':''}${won?Math.round(d).toLocaleString('ko-KR')+'원':fmtMan(d)}</span>`:'<span style="color:#b5ad9f">변동 없음</span>';
@@ -1495,7 +1547,8 @@ const _onClick=async e=>{
   if(act==='paintOn'||act==='paintOff'){S.paint=act==='paintOn';saveHidden();return renderTab()}
   if(act==='cfgTab'){S.cfgTab=id==='color'?'color':'item';return renderCfgModal()}
   if(act==='pcPick'){const w=String(id||'')[0],c=String(id||'').slice(1);if('vekh'.includes(w)&&w&&/^#[0-9a-f]{6}$/i.test(c)){S.pc=pcClean(S.pc);S.pc[w]=c.toLowerCase();saveHidden();return renderTab()}return}
-  if(act==='pcReset'){S.pc=pcClean();saveHidden();return renderTab()}
+  if(act==='pcReset'){const o=S.pc||{};S.pc=pcClean({rs:o.rs,rc:o.rc});saveHidden();return renderTab()}
+  if(act==='rsPick'){const k=id==='base'?'':String(id||'');if(RS_KEYS.includes(k)){S.pc=pcClean(S.pc);S.pc.rs=k;saveHidden();return renderTab()}return}
   if(act==='colAll'){const v=($('#colAllPick')||{}).value||COL_DEF;S.col=S.col||{};Object.keys(S.col).forEach(k=>S.col[k]=v);saveHidden();return renderTab()}
   if(act==='colClear'){S.col={};saveHidden();return renderTab()}
   if(act==='cfgAll'){S.hidden=new Set();S.shown=new Set(ITEMS.filter(i=>i.extra).map(i=>i.k));saveHidden();return renderTab()}
@@ -1545,6 +1598,7 @@ const _onChange=e=>{
   if(t.dataset.show){S.shown=S.shown||new Set();t.checked?S.shown.add(t.dataset.show):S.shown.delete(t.dataset.show);saveHidden();return renderTab()}
   if(t.dataset.hgrp){const g=GROUPS.find(x=>x[0]===t.dataset.hgrp);S.hidden=S.hidden||new Set();S.shown=S.shown||new Set();g[2].forEach(([k,,,ex])=>{if(ex){t.checked?S.shown.add(k):S.shown.delete(k)}else{t.checked?S.hidden.delete(k):S.hidden.add(k)}});saveHidden();return renderTab()}
   if(t.dataset.pr){S.pr[t.dataset.pr]=t.checked;return renderPreview()}
+  if(t.dataset.rsc){if(/^#[0-9a-f]{6}$/i.test(t.value)){S.pc=pcClean(S.pc);S.pc.rs='my';S.pc.rc=t.value.toLowerCase();saveHidden();return renderTab()}return}
 };
 document.addEventListener('change',_onChange);
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{
