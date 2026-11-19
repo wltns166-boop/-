@@ -1001,7 +1001,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-7</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-8</div>
   </div>
 </div>
 
@@ -22320,6 +22320,13 @@ function insCodeOpen(){
     var a=b.getAttribute('data-ica'), side=b.getAttribute('data-ics'), id=b.getAttribute('data-icid'), st=window._icSt; if(!st) return;
     if(a==='x'){ _icClose(); return; }
     if(st.loading) return;
+    // 배치수정(2026-11-19 박지순 요청) — 그 칸 보험사 순서를 끌어서/▲▼로 바꾼 뒤 [배치 저장]
+    if(a==='ord'){ _icOrdStart(side); return; }
+    if(a==='ordsave'){ _icOrdSave(); return; }
+    if(a==='ordcancel'){ st.ord=null; _icDraw(); return; }
+    if(a==='ordup'||a==='orddn'){ if(!st.ord) return; var oi=st.ord.ids.indexOf(id), oj=oi+(a==='ordup'?-1:1); if(oi<0||oj<0||oj>=st.ord.ids.length) return;
+      st.ord.ids.splice(oi,1); st.ord.ids.splice(oj,0,id); _icDraw(); return; }
+    if(st.ord){ toast('배치 수정 중입니다. [배치 저장] 또는 [취소]를 먼저 눌러 주세요.'); return; }
     if(a==='add'){ if(st.edit&&!_icLeaveEdit()) return; var nid='ic_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); st.data[side].push({id:nid, ins:'', code:'', pw:'', ts:0, isNew:1}); st.edit={side:side,id:nid}; _icDraw(); var f=_icDoc().querySelector('#ic_body [data-icf="ins"]'); if(f) f.focus(); }
     else if(a==='edit'){ if(st.edit&&!_icLeaveEdit()) return; st.edit={side:side,id:id}; _icDraw(); }
     else if(a==='cancel'){ _icLeaveEdit(true); }
@@ -22333,7 +22340,62 @@ function insCodeOpen(){
     var o=ev.target.options[ev.target.selectedIndex]; _icLoad(ev.target.value, o?o.getAttribute('data-nm'):''); } });
   ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.getAttribute&&/^(code|pw)$/.test(ev.target.getAttribute('data-icf')||'')){ var st=window._icSt; if(st&&st.edit){ ev.preventDefault(); _icSave(st.edit.side, st.edit.id); } } });
   _icUpBind(ov);
+  _icOrdBind(ov);
   _icLoad(me, cu.name);
+}
+// ===== 보험사 코드 — 배치수정(순서 바꾸기) (2026-11-19 박지순 요청) =====
+//   [＋ 추가] 오른쪽 [배치수정] → 그 칸(손보/생보) 줄을 마우스로 끌거나 ▲▼로 옮긴 뒤 [배치 저장]. 순서 초안 st.ord={side,ids:[행 id…]}(메모리).
+//   저장은 최신본을 다시 읽어 그 칸 배열만 id 순서대로 다시 놓음(초안에 없는 행 = 그 사이 다른 기기가 추가 → 뒤에 유지). 조작은 행 id(함정 A).
+function _icOrdStart(side){
+  var st=window._icSt; if(!st||st.busy||(side!=='son'&&side!=='life')) return;
+  if(!_isAdmin()&&st.key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
+  if(st.edit&&!_icLeaveEdit()) return;
+  if(st.ord&&st.ord.side!==side){ toast('다른 칸 배치를 수정 중입니다. [배치 저장] 또는 [취소]를 먼저 눌러 주세요.'); return; }
+  if((st.data[side]||[]).length<2){ toast('순서를 바꿀 보험사가 2곳 이상 있어야 합니다.'); return; }
+  st.ord={side:side, ids:st.data[side].map(function(r){ return r.id; })}; _icDraw();
+}
+function _icOrdSorted(rows, ids){
+  var pos={}; ids.forEach(function(id,i){ pos[id]=i; });
+  return rows.map(function(r,i){ return {r:r,i:i}; }).sort(function(a,b){
+    var pa=(a.r.id in pos)?pos[a.r.id]:1e6+a.i, pb=(b.r.id in pos)?pos[b.r.id]:1e6+b.i; return pa-pb; }).map(function(x){ return x.r; });
+}
+async function _icOrdSave(){
+  var st=window._icSt; if(!st||!st.ord||st.busy) return;
+  if(!_isAdmin()&&st.key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
+  var ref=_icDocRef(st.key); if(!ref){ toast('클라우드에 연결된 뒤 다시 시도해 주세요.'); return; }
+  var key=st.key, seq=st.seq, nm=st.nm||'', side=st.ord.side, ids=st.ord.ids.slice(); st.busy=true;
+  try{
+    var snap=await ref.get(), d=_icClean(snap.exists?snap.data():null);
+    d[side]=_icOrdSorted(d[side], ids);
+    await ref.set({nm:nm, son:d.son, life:d.life, ts:Date.now(), by:(cu&&cu.name)||''});
+    if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
+    st.data=d; st.ord=null; _icDraw(); toast('배치를 저장했습니다.');
+  }catch(e){ toast('저장 실패: '+((e&&e.message)||e)); }
+  finally{ if(window._icSt) window._icSt.busy=false; }
+}
+// 줄 끌기 — pointer 이벤트(새 창·모달 공용, 요소에 직접 연결). 끄는 동안은 DOM 줄만 옮기고, 놓을 때 화면 순서를 초안에 반영.
+function _icOrdBind(ov){
+  var drag=null;
+  var end=function(){ if(!drag) return; var d=drag; drag=null; try{ d.tr.style.opacity=''; d.tr.style.outline=''; }catch(e){}
+    var st=window._icSt; if(!st||!st.ord) return;
+    var ids=[]; ov.querySelectorAll('tr[data-icord]').forEach(function(tr){ if(tr.getAttribute('data-ics')===st.ord.side) ids.push(tr.getAttribute('data-icord')); });
+    if(ids.length===st.ord.ids.length) st.ord.ids=ids;
+    _icDraw(); };
+  ov.addEventListener('pointerdown',function(ev){
+    var st=window._icSt; if(!st||!st.ord||st.busy||ev.button>0) return;
+    var t=ev.target; if(!t||!t.closest||t.closest('button')) return;
+    var tr=t.closest('tr[data-icord]'); if(!tr||tr.getAttribute('data-ics')!==st.ord.side) return;
+    drag={tr:tr, side:st.ord.side}; tr.style.opacity='.55'; tr.style.outline='2px solid #4858cc'; ev.preventDefault();
+  });
+  ov.addEventListener('pointermove',function(ev){
+    if(!drag) return; ev.preventDefault();
+    var doc=ov.ownerDocument, el=doc.elementFromPoint(ev.clientX, ev.clientY), tr=el&&el.closest&&el.closest('tr[data-icord]');
+    var b=doc.getElementById('ic_body'); if(b){ var br=b.getBoundingClientRect(); if(ev.clientY<br.top+36) b.scrollTop-=16; else if(ev.clientY>br.bottom-36) b.scrollTop+=16; }
+    if(!tr||tr===drag.tr||tr.getAttribute('data-ics')!==drag.side) return;
+    var r=tr.getBoundingClientRect();
+    if(ev.clientY<r.top+r.height/2) tr.parentNode.insertBefore(drag.tr, tr); else tr.parentNode.insertBefore(drag.tr, tr.nextSibling);
+  });
+  ov.addEventListener('pointerup',end); ov.addEventListener('pointercancel',end);
 }
 // 편집 중인 행에서 나가기 — 입력이 남아 있으면 확인(force면 묻지 않음). 새 행은 버림.
 function _icLeaveEdit(force){
@@ -22346,7 +22408,7 @@ function _icLeaveEdit(force){
 async function _icLoad(key, nm){
   var st=window._icSt; if(!st) return;
   if(!_isAdmin()&&key!==_rsvKey()){ toast('본인 정보만 볼 수 있습니다.'); return; }
-  var seq=++st.seq; st.key=key; st.nm=nm||''; st.loading=true; window._icUpMsg={}; st.edit=null; st.show={}; st.data={son:[],life:[]}; _icDraw();
+  var seq=++st.seq; st.key=key; st.nm=nm||''; st.loading=true; window._icUpMsg={}; st.edit=null; st.ord=null; st.show={}; st.data={son:[],life:[]}; _icDraw();
   try{
     var ref=_icDocRef(key); if(!ref) throw new Error('클라우드에 연결된 뒤 다시 시도해 주세요.');
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
@@ -22365,14 +22427,21 @@ function _icDraw(){
   var th='background:#f3f5fc;color:#5060aa;font-weight:600;padding:7px 8px;border:1px solid #e3e6f3;font-size:12.5px;text-align:left';
   var td='padding:6px 8px;border:1px solid #e3e6f3;font-size:13.5px;vertical-align:middle';
   var col=function(side, title, list){
-    var rows=st.data[side];
+    var rows=st.data[side], om=!!(st.ord&&st.ord.side===side);
+    if(om) rows=_icOrdSorted(rows, st.ord.ids);
     return '<div style="flex:1;min-width:320px">'
       +'<div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:14.5px;color:'+(side==='son'?'#1f5fae':'#2f8a57')+'">'+title+'</b><span style="font-size:12px;color:#99a;margin-left:6px">'+rows.filter(function(r){return !r.isNew;}).length+'곳</span><span style="flex:1"></span>'
-      +btn('add',side,'','＋ 추가','background:'+(side==='son'?'#eef4ff;color:#1f5fae;border-color:rgba(40,110,200,.35)':'#eefaf2;color:#2f8a57;border-color:rgba(47,138,87,.35)')+';font-weight:600')+'</div>'
+      +btn('add',side,'','＋ 추가','background:'+(side==='son'?'#eef4ff;color:#1f5fae;border-color:rgba(40,110,200,.35)':'#eefaf2;color:#2f8a57;border-color:rgba(47,138,87,.35)')+';font-weight:600')
+      +(om?' '+btn('ordsave',side,'','배치 저장','margin-left:5px;background:#1f2a5c;color:#fff;border-color:#1f2a5c;font-weight:600')+' '+btn('ordcancel',side,'','취소','margin-left:3px')
+          :' '+btn('ord',side,'','배치수정','margin-left:5px;background:#1f2a5c;color:#fff;border-color:#1f2a5c;font-weight:600'))+'</div>'
+      +(om?'<div style="margin-bottom:8px;font-size:12.5px;color:#7a5a00;background:#fff8dc;border:1px solid #ecd98a;border-radius:8px;padding:7px 10px">줄을 마우스로 끌어 위아래로 옮기거나 ▲▼를 누른 뒤 <b>[배치 저장]</b>을 눌러 주세요.</div>':'')
       +_icUpBoxHtml(side, title)
       +'<datalist id="ic_dl_'+side+'">'+list.map(function(n){ return '<option value="'+_alertEsc(n)+'">'; }).join('')+'</datalist>'
       +'<table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:30%">보험사</th><th style="'+th+';width:27%">코드</th><th style="'+th+';width:27%">비밀번호</th><th style="'+th+'"></th></tr>'
-      +(rows.length?rows.map(function(r){
+      +(rows.length?rows.map(function(r,ri){
+        if(om) return '<tr data-icord="'+_alertEsc(r.id)+'" data-ics="'+side+'" style="cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;background:#fffdf2"><td style="'+td+';font-weight:600"><span style="color:#99a;margin-right:6px;letter-spacing:-2px">⋮⋮</span>'+_esc(r.ins||'-')+'</td>'
+          +'<td style="'+td+'">'+_esc(r.code||'-')+'</td><td style="'+td+'">'+(r.pw?_esc(r.pw):'-')+'</td>'
+          +'<td style="'+td+';white-space:nowrap">'+btn('ordup',side,r.id,'▲',ri===0?'opacity:.35':'')+' '+btn('orddn',side,r.id,'▼',ri===rows.length-1?'opacity:.35':'')+'</td></tr>';
         var ed=st.edit&&st.edit.side===side&&st.edit.id===r.id;
         if(ed) return '<tr style="background:#f8f9ff"><td style="'+td+'"><input data-icf="ins" list="ic_dl_'+side+'" value="'+_alertEsc(r.ins)+'" data-orig="'+_alertEsc(r.ins)+'" placeholder="보험사" maxlength="40" style="'+inp+'"></td>'
           +'<td style="'+td+'"><input data-icf="code" value="'+_alertEsc(r.code)+'" data-orig="'+_alertEsc(r.code)+'" placeholder="코드" maxlength="60" autocomplete="off" style="'+inp+'"></td>'
@@ -22538,6 +22607,7 @@ function _icMatchIns(nm){
 async function _icUpRun(src, locked){
   var st=window._icSt; if(!st) return;
   if(st.loading){ toast('불러오는 중입니다. 잠시 후 다시 해 주세요.'); return; }
+  if(st.ord){ toast('배치 수정 중입니다. [배치 저장] 또는 [취소]를 먼저 눌러 주세요.'); return; }
   if(!locked){ if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; } window._icUpBusy=true; }
   var key=st.key, seq=st.seq, fside=(src.side==='son'||src.side==='life')?src.side:'';
   window._icUpSide=fside;
