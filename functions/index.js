@@ -1736,12 +1736,18 @@ exports.api = onRequest(
       try {
         const gKey = process.env.GEMINI_API_KEY || "";
         if (!gKey) { res.status(400).json({ error: { message: "Gemini API 키가 설정되지 않았습니다. (GitHub 저장소 Secrets에 GEMINI_API_KEY 등록 후 functions 재배포 필요)" } }); return; }
-        const gUrl = "https://generativelanguage.googleapis.com/v1beta/models/"
-          + encodeURIComponent(model) + ":generateContent?key=" + gKey;
         // 2.5 Flash 계열은 기본으로 '생각(thinking)'을 켜서 출력 토큰을 잡아먹으므로 끈다
         //   (2.5 Pro는 thinkingBudget 0을 허용하지 않아 flash 계열에만 적용)
-        const genCfg = { maxOutputTokens: maxTokens, temperature: 0 };
-        if (/2\.5-flash/i.test(model)) genCfg.thinkingConfig = { thinkingBudget: 0 };
+        const gCall = function (mdl, parts) {
+          const genCfg = { maxOutputTokens: maxTokens, temperature: 0 };
+          if (/2\.5-flash/i.test(mdl)) genCfg.thinkingConfig = { thinkingBudget: 0 };
+          return fetch("https://generativelanguage.googleapis.com/v1beta/models/"
+            + encodeURIComponent(mdl) + ":generateContent?key=" + gKey, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: parts }], generationConfig: genCfg })
+          });
+        };
         // 이미지 인식 지원(2026-08-28) — body.images: dataURL(JPEG/PNG 등) 배열, 최대 4장.
         //   카톡 DB 표 사진 자동입력용. 텍스트 전용 호출(보장분석 등)은 기존 그대로.
         const gParts = [{ text: prompt }];
@@ -1753,18 +1759,33 @@ exports.api = onRequest(
             gParts.push({ inline_data: { mime_type: m[1].toLowerCase(), data: m[2] } });
           }
         }
-        const r = await fetch(gUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: gParts }],
-            generationConfig: genCfg
-          })
-        });
-        const data = await r.json();
+        // 혼잡(503 "high demand"·overloaded)·순간 한도(429)·500은 잠깐 뒤 다시 시도(2026-11-19 실사고 —
+        //   보험사코드 사진 입력이 "This model is currently experiencing high demand"로 실패).
+        //   같은 모델 3회(1.5초·3초 간격) → 그래도 혼잡이면 가벼운 모델로 1회. 전체 약 40초 안(호스팅 /api 60초 제한).
+        const gT0 = Date.now();
+        const gBusy = function (st, d) {
+          const m = String((d && d.error && d.error.message) || "");
+          return st === 503 || st === 500 || st === 429 || /high demand|overloaded|try again later|unavailable/i.test(m);
+        };
+        let r = null, data = null;
+        const gTry = [model, model, model];
+        if (!/flash-lite/i.test(model)) gTry.push("gemini-2.5-flash-lite");
+        for (let gi = 0; gi < gTry.length; gi++) {
+          if (gi > 0) {
+            if (Date.now() - gT0 > 25000) break;
+            await new Promise(function (ok) { setTimeout(ok, gi === 1 ? 1500 : 3000); });
+          }
+          let r2 = null, d2 = null;
+          try { r2 = await gCall(gTry[gi], gParts); d2 = await r2.json(); } catch (e) { r2 = null; d2 = { error: { message: String((e && e.message) || e) } }; }
+          // 대체 모델이 실패하면 원래 모델의 오류를 그대로 돌려준다
+          if (r2 && r2.ok) { r = r2; data = d2; break; }
+          if (gi < 3 || !r) { r = r2 || { ok: false, status: 503 }; data = d2; }
+          if (!gBusy(r.status, data)) break;
+        }
         if (!r.ok) {
-          const msg = (data && data.error && data.error.message) || ("Gemini 오류 " + r.status);
-          res.status(r.status).json({ error: { message: msg } });
+          let msg = (data && data.error && data.error.message) || ("Gemini 오류 " + r.status);
+          if (gBusy(r.status, data)) msg = "AI 서버가 지금 혼잡합니다. 1~2분 뒤 다시 시도해 주세요. (자동으로 여러 번 다시 시도했지만 응답을 받지 못했습니다)";
+          res.status(r.status || 503).json({ error: { message: msg } });
           return;
         }
         let text = "";
