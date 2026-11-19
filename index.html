@@ -91,6 +91,34 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .heroimg{position:absolute;inset:0;background-position:center;background-repeat:no-repeat;pointer-events:none;}
 .hero .ht,.hero .hsub{position:relative;}
 .hg{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;}
+/* 명예의 전당 카드 (v2026.11.19-6) */.hofc{position:relative;background:#fff;border-radius:16px;padding:0 0 10px;overflow:hidden;box-shadow:0 6px 22px rgba(20,30,80,.10);border:1px solid rgba(20,30,80,.07)}
+.hofh{display:flex;align-items:center;gap:12px;padding:16px 18px 14px;color:#fff;position:relative;overflow:hidden}
+.hofh::after{content:"";position:absolute;right:-30px;top:-46px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.14)}
+.hof-a .hofh{background:linear-gradient(120deg,#b7791f,#e0a526 55%,#f6d365)}
+.hof-b .hofh{background:linear-gradient(120deg,#3730a3,#4f6ef7 55%,#7cc4ff)}
+.hof-c .hofh{background:linear-gradient(120deg,#0f766e,#14b8a6 55%,#7ee8c8)}
+.hofi{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex:none}
+.hoft{font-size:16px;font-weight:800;letter-spacing:.3px}
+.hofs{font-size:11.5px;opacity:.9;margin-top:2px}
+.hofr{display:flex;align-items:center;gap:11px;margin:8px 12px 0;padding:10px 12px;border-radius:12px}
+.hofr.r1{background:linear-gradient(90deg,var(--hb1),#fff 85%)}
+.hofr.r2{background:#f7f8fb}
+.hof-a{--hb1:#fdf3dc;--hk:#b7791f}.hof-b{--hb1:#e9edff;--hk:#3b4fd8}.hof-c{--hb1:#dcf7f0;--hk:#0f766e}
+.hofm{position:relative;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.hofm.m1{background:linear-gradient(135deg,#f9d976,#d4a017)}
+.hofm.m2{background:linear-gradient(135deg,#e3e6ec,#9aa3b2)}
+.hofm.m3{background:linear-gradient(135deg,#f0c19a,#b8763e)}
+.hofm.mr{background:linear-gradient(135deg,#7ee8c8,#14b8a6)}
+.hofm .hcr{position:absolute;top:-11px;left:50%;transform:translateX(-50%);color:#e0a526;line-height:0}
+.hofav{width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid var(--hk);color:var(--hk);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none}
+.hofn{flex:1;min-width:0;font-size:15px;font-weight:700;color:#1d2433;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hofr.r1 .hofn{font-size:16.5px}
+.hofv{text-align:right;line-height:1.25}
+.hofv b{display:block;font-size:15px;color:var(--hk);font-weight:800}
+.hofr.r1 .hofv b{font-size:17px}
+.hofv span{font-size:11.5px;color:#7a8396}
+.hofe{margin:14px 14px 4px;padding:18px 10px;border:1.5px dashed #d9dde6;border-radius:12px;text-align:center;color:#8a93a6;font-size:13.5px}
+@media(max-width:768px){.hof{grid-template-columns:1fr!important}}
 .hc{background:#ffffff;border:1px solid rgba(25,45,150,.14);border-radius:12px;padding:18px;min-height:230px;box-shadow:0 2px 12px rgba(0,0,80,.06);}
 .hct{font-size:15px;color:#5a5a9a;letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:6px;justify-content:space-between;font-weight:700;}
 .ni2{padding:8px 0;border-bottom:1px solid rgba(25,45,130,.08);cursor:pointer;}
@@ -973,7 +1001,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-6</div>
   </div>
 </div>
 
@@ -1188,20 +1216,11 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
     <div class="pg active" id="pg_home" style="position:relative">
       <button id="hb_btn" onclick="openHomeBgModal()" title="홈 배경 사진 설정 (관리자 전용)" style="display:none;position:absolute;top:10px;right:10px;z-index:5;padding:6px 12px;background:rgba(255,255,255,.85);border:1px solid #d0d4e8;border-radius:8px;color:#4a5090;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> 배경 설정</button>
       <div class="hero" id="hero_box"><div class="heroimg" id="hero_img" style="display:none"></div><img class="brlogo" id="hero_logo" src="brand/tops-logo.png" alt="TOPS INSURANCE MANAGEMENT SYSTEM"><div class="ht" id="hero_t" style="font-size:70px">TIMS</div><div class="hsub" id="hero_s">INSURANCE BUSINESS MANAGEMENT SYSTEM</div></div>
-      <!-- 명예의 전당 3칸 -->
-      <div class="hrank" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
-        <div class="hc" style="min-height:0;padding:14px 16px">
-          <div class="hct" style="margin-bottom:10px;justify-content:center;font-size:15px"><span class="hemo">🏆</span> 인정실적 명예의 전당</div>
-          <div id="rank_amount"></div>
-        </div>
-        <div class="hc" style="min-height:0;padding:14px 16px">
-          <div class="hct" style="margin-bottom:10px;justify-content:center;font-size:15px"><span class="hemo">🏅</span> 건수 명예의 전당</div>
-          <div id="rank_count"></div>
-        </div>
-        <div class="hc" style="min-height:0;padding:14px 16px">
-          <div class="hct" style="margin-bottom:10px;justify-content:center;font-size:15px"><span class="hemo">⭐</span> 루키 달성자</div>
-          <div id="rank_rookie"></div>
-        </div>
+      <!-- 명예의 전당 3칸 (v2026.11.19-6 백동현 요청 — 컬러 카드 A안, CSS .hof*) -->
+      <div class="hof" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px">
+        <div class="hofc hof-a"><div class="hofh"><span class="hofi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M9 20h6M10 17h4"/></svg></span><div><div class="hoft">인정실적 명예의 전당</div><div class="hofs" data-hofym="1"></div></div></div><div id="rank_amount"></div></div>
+        <div class="hofc hof-b"><div class="hofh"><span class="hofi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l2.5 6M16 3l-2.5 6"/><circle cx="12" cy="15" r="5.5"/><path d="M12 12.5l.9 1.8 2 .3-1.45 1.4.35 2-1.8-1-1.8 1 .35-2-1.45-1.4 2-.3z" fill="currentColor" stroke-width="1"/></svg></span><div><div class="hoft">건수 명예의 전당</div><div class="hofs" data-hofym="1"></div></div></div><div id="rank_count"></div></div>
+        <div class="hofc hof-c"><div class="hofh"><span class="hofi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.9l-5.25 2.8 1-5.85L3.5 9.7l5.9-.9z"/></svg></span><div><div class="hoft">루키 달성자</div><div class="hofs">영업 6개월 이내 · 인정 100만원 이상</div></div></div><div id="rank_rookie"></div></div>
       </div>
       <!-- 공지사항 + 일정표 -->
       <div class="hg">
@@ -10949,23 +10968,28 @@ function rkItem(name,main,sub,i){
     <div style="font-size:${sizes[i]};font-weight:${fw[i]};color:var(--color-text-primary);text-align:right">${main}</div>
   </div>`;
 }
+var HOF_CROWN='<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 8l4.5 3.5L12 5l4.5 6.5L21 8l-2 10H5z"/></svg>';
+// 명예의 전당 한 줄 (v2026.11.19-6) — i 순위(0부터), main 굵은 값, sub 아래 작은 글(이미 글자만), rk=루키(★)
+function _hofRow(i,name,main,sub,rk){
+  var cls=rk?'mr':('m'+Math.min(i+1,3));
+  return '<div class="hofr '+(i===0?'r1':'r2')+'"><div class="hofm '+cls+'">'+(i===0&&!rk?'<span class="hcr">'+HOF_CROWN+'</span>':'')+(rk?'★':(i+1))+'</div>'
+    +'<div class="hofav">'+_esc(String(name||'').charAt(0))+'</div><div class="hofn">'+_esc(name)+'</div><div class="hofv"><b>'+_esc(main)+'</b>'+(sub?'<span>'+_esc(sub)+'</span>':'')+'</div></div>';
+}
+function _hofYm(){ var q=_curYm().split('-'); document.querySelectorAll('[data-hofym]').forEach(function(e){ e.textContent=(+q[1])+'월 TOP 2'; }); }
+function _hofEmpty(t){ return '<div class="hofe">'+t+'</div>'; }
 function rRankAmt(){
   const el=g('rank_amount');
   if(!el) return;
-  const a=getAgg();
-  const s=Object.entries(a).sort(function(x,y){return y[1].a-x[1].a;});
-  const top=s.slice(0,2);
-  if(!top.length){el.innerHTML='<div style="font-size:14px;color:var(--color-text-secondary);text-align:center;padding:16px">실적 데이터 없음</div>';return;}
-  el.innerHTML=top.map(function(item,i){return rkItem(item[0],'인정 '+item[1].a.toLocaleString()+'원<div style="font-size:12px;color:var(--color-text-secondary);font-weight:400">영수 '+(item[1].ay||0).toLocaleString()+'원</div>','',i);}).join('');
+  _hofYm();
+  const s=Object.entries(getAgg()).sort(function(x,y){return y[1].a-x[1].a;}).slice(0,2);
+  el.innerHTML=s.length?s.map(function(it,i){return _hofRow(i,it[0],(it[1].a||0).toLocaleString()+'원','영수 '+(it[1].ay||0).toLocaleString()+'원');}).join(''):_hofEmpty('이번 달 첫 주인공을 기다립니다');
 }
 function rRankCnt(){
   const el=g('rank_count');
   if(!el) return;
-  const a=getAgg();
-  const s=Object.entries(a).sort(function(x,y){return y[1].c-x[1].c;});
-  const top=s.slice(0,2);
-  if(!top.length){el.innerHTML='<div style="font-size:14px;color:var(--color-text-secondary);text-align:center;padding:16px">실적 데이터 없음</div>';return;}
-  el.innerHTML=top.map(function(item,i){return rkItem(item[0],item[1].c+'건','',i);}).join('');
+  _hofYm();
+  const s=Object.entries(getAgg()).sort(function(x,y){return y[1].c-x[1].c;}).slice(0,2);
+  el.innerHTML=s.length?s.map(function(it,i){return _hofRow(i,it[0],it[1].c+'건','');}).join(''):_hofEmpty('이번 달 첫 주인공을 기다립니다');
 }
 
 // MEMBERS
@@ -20246,16 +20270,8 @@ function rRankRookie(){
     const amtOk = agg[m.name] && agg[m.name].a>=1000000;   // 인정실적 100만원 이상
     return within6 && amtOk;
   }).sort((x,y)=>((agg[y.name]&&agg[y.name].a)||0)-((agg[x.name]&&agg[x.name].a)||0));
-  if(!rookies.length){
-    el.innerHTML='<div style="font-size:14px;color:var(--color-text-secondary);padding:10px 0;text-align:center">해당자 없음</div>';
-    return;
-  }
-  el.innerHTML=rookies.slice(0,5).map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:0.5px solid var(--color-border-tertiary)">
-      <div style="width:24px;height:24px;border-radius:50%;background:rgba(96,184,255,.15);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#1a70cc;flex-shrink:0">★</div>
-      <div style="flex:1;font-size:15px;color:var(--color-text-primary)">${m.name}</div>
-      <div style="text-align:right"><div style="font-size:14px;color:#1a70cc;font-weight:500">인정 ${agg[m.name].a.toLocaleString()}원</div><div style="font-size:12px;color:#1a7040">영수 ${(agg[m.name].ay||0).toLocaleString()}원</div></div>
-    </div>`).join('');
+  if(!rookies.length){ el.innerHTML=_hofEmpty('해당자 없음'); return; }
+  el.innerHTML=rookies.slice(0,5).map(function(m,i){ return _hofRow(i,m.name,agg[m.name].a.toLocaleString()+'원','영수 '+(agg[m.name].ay||0).toLocaleString()+'원',1); }).join('');
 }
 
 // ===== 명예의전당 애니메이션 =====
