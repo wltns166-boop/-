@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-4</div>
   </div>
 </div>
 
@@ -22294,10 +22294,6 @@ function insCodeOpen(){
   ov.innerHTML='<div style="background:#fff;color:#1c2140;border-radius:12px;max-width:1100px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)">'
     +'<div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px">🔑 보험사 코드 · 비밀번호</b>'
     +(who?'<span style="font-size:12.5px;color:#667">팀원 선택</span>'+who:'<span style="font-size:12.5px;color:#667">'+_esc(cu.name)+' 님 본인 정보 (관리자도 볼 수 있어요)</span>')
-    +'<div id="ic_up" title="클릭하면 초록색으로 선택 — 그 상태에서 Ctrl+V로 붙여넣기, 또는 파일을 끌어다 놓기" style="display:flex;align-items:center;gap:8px;padding:5px 10px;border:2px dashed #b9c0e6;border-radius:9px;background:#f7f8fd;cursor:pointer;font-size:12.5px;color:#4858cc;user-select:none">'
-    +'<span>📎 <b>사진·PDF·엑셀로 입력</b> <span id="ic_up_st" style="color:#778">클릭 후 붙여넣기 · 끌어다 놓기</span></span>'
-    +'<button type="button" data-icup="pick" style="padding:3px 9px;border:1px solid #4858cc;border-radius:6px;background:#4858cc;color:#fff;cursor:pointer;font-size:12px;font-family:inherit">파일 선택</button>'
-    +'<input type="file" id="ic_up_file" multiple accept="image/*,.pdf,application/pdf,.xlsx,.xls,.csv" style="display:none"></div>'
     +'<span style="flex:1"></span><span data-ica="x" style="cursor:pointer;font-size:20px;color:#889">×</span></div>'
     +'<div id="ic_body" style="padding:14px 18px;overflow:auto"></div>'
     +'<div style="padding:8px 18px 12px;font-size:11.5px;color:#99a">코드·비밀번호를 누르면 복사됩니다. 공용 PC에서는 사용 후 창을 닫아 주세요.</div></div>';
@@ -22320,7 +22316,7 @@ function insCodeOpen(){
     if(st.edit&&!_icLeaveEdit()){ ev.target.value=st.key; return; }
     var o=ev.target.options[ev.target.selectedIndex]; _icLoad(ev.target.value, o?o.getAttribute('data-nm'):''); } });
   ov.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target&&ev.target.getAttribute&&/^(code|pw)$/.test(ev.target.getAttribute('data-icf')||'')){ var st=window._icSt; if(st&&st.edit){ ev.preventDefault(); _icSave(st.edit.side, st.edit.id); } } });
-  _icUpBind();
+  _icUpBind(ov);
   _icLoad(me, cu.name);
 }
 // 편집 중인 행에서 나가기 — 입력이 남아 있으면 확인(force면 묻지 않음). 새 행은 버림.
@@ -22334,7 +22330,7 @@ function _icLeaveEdit(force){
 async function _icLoad(key, nm){
   var st=window._icSt; if(!st) return;
   if(!_isAdmin()&&key!==_rsvKey()){ toast('본인 정보만 볼 수 있습니다.'); return; }
-  var seq=++st.seq; st.key=key; st.nm=nm||''; st.loading=true; st.edit=null; st.show={}; st.data={son:[],life:[]}; _icDraw();
+  var seq=++st.seq; st.key=key; st.nm=nm||''; st.loading=true; window._icUpMsg={}; st.edit=null; st.show={}; st.data={son:[],life:[]}; _icDraw();
   try{
     var ref=_icDocRef(key); if(!ref) throw new Error('클라우드에 연결된 뒤 다시 시도해 주세요.');
     try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
@@ -22357,6 +22353,7 @@ function _icDraw(){
     return '<div style="flex:1;min-width:320px">'
       +'<div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:14.5px;color:'+(side==='son'?'#1f5fae':'#2f8a57')+'">'+title+'</b><span style="font-size:12px;color:#99a;margin-left:6px">'+rows.filter(function(r){return !r.isNew;}).length+'곳</span><span style="flex:1"></span>'
       +btn('add',side,'','＋ 추가','background:'+(side==='son'?'#eef4ff;color:#1f5fae;border-color:rgba(40,110,200,.35)':'#eefaf2;color:#2f8a57;border-color:rgba(47,138,87,.35)')+';font-weight:600')+'</div>'
+      +_icUpBoxHtml(side, title)
       +'<datalist id="ic_dl_'+side+'">'+list.map(function(n){ return '<option value="'+_alertEsc(n)+'">'; }).join('')+'</datalist>'
       +'<table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:30%">보험사</th><th style="'+th+';width:27%">코드</th><th style="'+th+';width:27%">비밀번호</th><th style="'+th+'"></th></tr>'
       +(rows.length?rows.map(function(r){
@@ -22411,29 +22408,44 @@ async function _icDel(side, id){
   finally{ if(window._icSt) window._icSt.busy=false; }
 }
 // ===== 보험사 코드 — 사진·PDF·엑셀로 자동 입력 (2026-10-12 — 사용자 요청) =====
-//   업로드 칸(#ic_up)을 누르면 초록색 선택 → Ctrl+V 붙여넣기 / 끌어다 놓기 / [파일 선택].
+//   손보·생보 칸마다 업로드 칸([data-icupbox]) — 누르면 초록색 선택 → Ctrl+V 붙여넣기 / 끌어다 놓기 / [파일 선택].
 //   사진·글자 없는 PDF는 쪽 그림을, 글자 있는 PDF·엑셀은 글자를 /api/analyze(Gemini)에 보내 [{보험사,코드,비밀번호}]만 받는다(옮겨 적기만).
 //   손보/생보 구분은 코드가 보험사 목록(_reqInsLists)으로 먼저 판정, 목록에 없으면 AI 판정. 저장은 _icSave와 같이 최신본을 다시 읽어 병합.
 //   같은 보험사가 이미 있으면 인식된 칸만 갱신(빈 값으로 덮지 않음). 확인창에서 추가·변경 내역을 보여 준 뒤 저장.
 //   ⚠️ 원본 파일은 저장하지 않음(메모리에서만 처리). 코드·비밀번호가 AI 서버로 전송됨 — 3.85.5·mcreq OCR과 같은 계열의 수용 사항.
 var IC_UP_MAX=20*1024*1024;
-function _icUpSel(on){ var b=g('ic_up'); if(!b) return; window._icUpOn=!!on;
-  b.style.borderColor=on?'#2f9e44':'#b9c0e6'; b.style.background=on?'#e9f9ee':'#f7f8fd'; b.style.color=on?'#1f7a3a':'#4858cc'; }
-function _icUpStat(t){ var e=g('ic_up_st'); if(e) e.textContent=t; }
-function _icUpBind(){
-  var b=g('ic_up'), fi=g('ic_up_file'); if(!b||!fi) return;
-  window._icUpOn=false;
-  b.addEventListener('click',function(ev){ ev.stopPropagation(); _icUpSel(true);
-    if(ev.target&&ev.target.getAttribute&&ev.target.getAttribute('data-icup')==='pick') fi.click(); });
-  fi.addEventListener('click',function(ev){ ev.stopPropagation(); });
-  fi.addEventListener('change',function(){ var fs=Array.prototype.slice.call(fi.files||[]); fi.value=''; if(fs.length) _icUpFiles(fs); });
-  b.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); _icUpSel(true); });
-  b.addEventListener('dragleave',function(e){ e.stopPropagation(); });
-  b.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); _icUpSel(true);
-    var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]); if(fs.length) _icUpFiles(fs); });
-  var pop=g('ic_pop');
-  if(pop){ pop.addEventListener('mousedown',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); });
-    pop.addEventListener('focusin',function(e){ if(window._icUpOn&&b&&!b.contains(e.target)) _icUpSel(false); }); }   // Tab으로 입력칸에 가면 선택 해제
+// 2026-11-19 박지순 요청: 손해보험사·생명보험사 칸마다 따로 올리기 — 올린 칸 쪽(손보/생보)으로 넣는다.
+//   선택 상태 window._icUpOn = 'son'|'life'|false, 칸마다 안내 글 window._icUpMsg[side], 지금 읽는 칸 window._icUpSide.
+function _icUpBoxHtml(side, title){
+  var on=window._icUpOn===side, msg=(window._icUpMsg&&window._icUpMsg[side])||'클릭 후 붙여넣기 · 끌어다 놓기';
+  return '<div data-icupbox="'+side+'" title="클릭하면 초록색으로 선택 — 그 상태에서 Ctrl+V로 붙여넣기, 또는 파일을 끌어다 놓기. 여기 올린 내용은 '+title+' 쪽에 들어갑니다." style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;border:2px dashed '+(on?'#2f9e44':'#b9c0e6')+';border-radius:9px;background:'+(on?'#e9f9ee':'#f7f8fd')+';cursor:pointer;font-size:12.5px;color:'+(on?'#1f7a3a':'#4858cc')+';user-select:none">'
+    +'<span style="flex:1;min-width:0">📎 <b>'+title+' 사진·PDF·엑셀로 입력</b> <span data-icupst="'+side+'" style="color:#778">'+_esc(msg)+'</span></span>'
+    +'<button type="button" data-icup="pick" style="padding:3px 9px;border:1px solid #1f2a5c;border-radius:6px;background:#1f2a5c;color:#fff;cursor:pointer;font-size:12px;font-family:inherit;white-space:nowrap">파일 선택</button>'
+    +'<input type="file" data-icupf="'+side+'" multiple accept="image/*,.pdf,application/pdf,.xlsx,.xls,.csv" style="display:none"></div>';
+}
+function _icUpSel(side){ window._icUpOn=(side==='son'||side==='life')?side:false;
+  _icDoc().querySelectorAll('#ic_body [data-icupbox]').forEach(function(b){ var on=b.getAttribute('data-icupbox')===window._icUpOn;
+    b.style.borderColor=on?'#2f9e44':'#b9c0e6'; b.style.background=on?'#e9f9ee':'#f7f8fd'; b.style.color=on?'#1f7a3a':'#4858cc'; }); }
+function _icUpStat(t){ var side=window._icUpSide||window._icUpOn; if(side!=='son'&&side!=='life') return;
+  window._icUpMsg=window._icUpMsg||{}; window._icUpMsg[side]=t;
+  var e=_icDoc().querySelector('#ic_body [data-icupst="'+side+'"]'); if(e) e.textContent=t; }
+function _icUpBind(ov){
+  if(!ov) return;
+  window._icUpOn=false; window._icUpMsg={}; window._icUpSide='';
+  var boxOf=function(t){ return t&&t.closest?t.closest('[data-icupbox]'):null; };
+  ov.addEventListener('click',function(ev){ var b=boxOf(ev.target); if(!b) return; ev.stopPropagation();
+    var side=b.getAttribute('data-icupbox'); _icUpSel(side);
+    if(ev.target.getAttribute&&ev.target.getAttribute('data-icup')==='pick'){ var fi=b.querySelector('[data-icupf]'); if(fi) fi.click(); } }, true);
+  ov.addEventListener('change',function(ev){ var fi=ev.target; if(!fi||!fi.getAttribute||!fi.getAttribute('data-icupf')) return;
+    var side=fi.getAttribute('data-icupf'), fs=Array.prototype.slice.call(fi.files||[]); fi.value=''; if(fs.length) _icUpFiles(fs, side); });
+  ov.addEventListener('dragover',function(e){ var b=boxOf(e.target); if(!b) return; e.preventDefault(); e.stopPropagation(); b.style.borderColor='#2f9e44'; });   // 표시만 — 선택(붙여넣기 대상)은 놓거나 누를 때만
+  ov.addEventListener('dragleave',function(e){ var b=boxOf(e.target); if(b&&!b.contains(e.relatedTarget)) _icUpSel(window._icUpOn); });
+  ov.addEventListener('drop',function(e){ var b=boxOf(e.target); if(!b) return; e.preventDefault(); e.stopPropagation();
+    var side=b.getAttribute('data-icupbox'); _icUpSel(side);
+    var fs=Array.prototype.slice.call((e.dataTransfer&&e.dataTransfer.files)||[]); if(fs.length) _icUpFiles(fs, side); });
+  // 칸 밖을 누르거나 Tab으로 입력칸에 가면 선택 해제
+  var off=function(e){ if(window._icUpOn&&!boxOf(e.target)) _icUpSel(false); };
+  ov.addEventListener('mousedown',off); ov.addEventListener('focusin',off);
 }
 // 붙여넣기 — 창이 떠 있고 업로드 칸이 선택(초록)일 때만. 캡처 단계에서 받아 공용 uni 처리보다 먼저(4.8 규칙).
 function _icPasteH(ev){
@@ -22443,8 +22455,9 @@ function _icPasteH(ev){
   if(tg&&(/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName||'')||tg.isContentEditable)) return;
   var items=(ev.clipboardData&&ev.clipboardData.items)||[], fs=[];
   for(var i=0;i<items.length;i++){ var it=items[i]; if(it.kind==='file'){ var f=it.getAsFile(); if(f) fs.push(f); } }
-  if(!fs.length){ var tx=ev.clipboardData&&ev.clipboardData.getData('text/plain'); if(tx&&tx.trim()){ ev.preventDefault(); ev.stopPropagation(); _icUpRun({text:tx.slice(0,60000), label:'붙여넣은 글'}); } return; }
-  ev.preventDefault(); ev.stopPropagation(); _icUpFiles(fs);
+  var side=window._icUpOn;
+  if(!fs.length){ var tx=ev.clipboardData&&ev.clipboardData.getData('text/plain'); if(tx&&tx.trim()){ ev.preventDefault(); ev.stopPropagation(); _icUpRun({text:tx.slice(0,60000), label:'붙여넣은 글', side:side}); } return; }
+  ev.preventDefault(); ev.stopPropagation(); _icUpFiles(fs, side);
 }
 document.addEventListener('paste',_icPasteH,true);   // 새 창 문서에는 _icPopupOpen이 같은 처리기를 연결
 function _icUpKind(f){
@@ -22454,14 +22467,15 @@ function _icUpKind(f){
   if(/\.(xlsx|xls|csv)$/.test(n)||/spreadsheet|ms-excel|text\/csv/.test(t)) return 'xls';
   return '';
 }
-async function _icUpFiles(files){
+async function _icUpFiles(files, side){
   var st=window._icSt; if(!st){ return; }
+  side=(side==='son'||side==='life')?side:'';
   if(st.loading){ toast('불러오는 중입니다. 잠시 후 다시 해 주세요.'); return; }
   if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; }
   var ok=[], bad=[];
   files.slice(0,6).forEach(function(f){ var k=_icUpKind(f); if(!k) bad.push(f.name||'파일'); else if(f.size>IC_UP_MAX) bad.push((f.name||'파일')+'(20MB 초과)'); else ok.push({f:f,k:k}); });
   if(!ok.length){ toast('사진·PDF·엑셀 파일만 올릴 수 있습니다.'+(bad.length?' ('+bad.join(', ')+')':'')); return; }
-  window._icUpBusy=true; var key=st.key, seq=st.seq;
+  window._icUpBusy=true; window._icUpSide=side; var key=st.key, seq=st.seq;
   try{
     var imgs=[], texts=[];
     for(var i=0;i<ok.length;i++){ var o=ok[i];
@@ -22487,7 +22501,7 @@ async function _icUpFiles(files){
     if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
     var text=texts.join('\n\n').slice(0,60000);
     if(!imgs.length&&!text.trim()) throw new Error('파일에서 내용을 읽지 못했습니다.');
-    await _icUpRun({imgs:imgs, text:text, label:ok.map(function(o){ return o.f.name||'파일'; }).join(', ')+(bad.length?' (제외: '+bad.join(', ')+')':'')}, true);
+    await _icUpRun({imgs:imgs, text:text, label:ok.map(function(o){ return o.f.name||'파일'; }).join(', ')+(bad.length?' (제외: '+bad.join(', ')+')':''), side:side}, true);
   }catch(e){ var em=(e&&e.message)||String(e); _icUpStat('실패: '+em); toast('인식 실패: '+em); }
   finally{ window._icUpBusy=false; }
 }
@@ -22509,10 +22523,11 @@ async function _icUpRun(src, locked){
   var st=window._icSt; if(!st) return;
   if(st.loading){ toast('불러오는 중입니다. 잠시 후 다시 해 주세요.'); return; }
   if(!locked){ if(window._icUpBusy){ toast('파일을 읽는 중입니다. 잠시만 기다려 주세요.'); return; } window._icUpBusy=true; }
-  var key=st.key, seq=st.seq;
+  var key=st.key, seq=st.seq, fside=(src.side==='son'||src.side==='life')?src.side:'';
+  window._icUpSide=fside;
   try{
     _icUpStat('AI가 읽는 중… (수 초~수십 초)');
-    var prompt='아래 '+(src.imgs&&src.imgs.length?'사진':'자료')+'은 보험설계사의 보험사별 전산 아이디(코드)·비밀번호 목록이야. 적힌 내용을 그대로 옮겨 적어 JSON 배열만 출력해. 설명·코드펜스 없이.\n'
+    var prompt='아래 '+(src.imgs&&src.imgs.length?'사진':'자료')+'은 보험설계사의 '+(fside==='son'?'손해보험사':fside==='life'?'생명보험사':'')+' 보험사별 전산 아이디(코드)·비밀번호 목록이야. 적힌 내용을 그대로 옮겨 적어 JSON 배열만 출력해. 설명·코드펜스 없이.\n'
       +'각 항목: {"insurer":"보험사 이름","code":"코드 또는 아이디·사번·설계사번호","pw":"비밀번호(없으면 빈문자)","type":"손보 또는 생보 또는 모름"}\n'
       +'규칙: 원문에 없는 값은 만들지 말 것. 글자·숫자·특수문자는 대소문자까지 그대로. 보험사 이름이 없는 줄은 빼. 표 제목·머리글은 넣지 마.\n'
       // 2026-10-16 사용자 요청: 대리점코드·보험설계사코드 두 열이 함께 있는 표는 설계사코드를 코드 칸에
@@ -22527,21 +22542,22 @@ async function _icUpRun(src, locked){
     var text=(data&&data.content&&data.content[0]&&data.content[0].text)||'', m=/\[[\s\S]*\]/.exec(text);
     if(!m) throw new Error('AI 응답에서 보험사 목록을 찾지 못했습니다.');
     var arr=JSON.parse(m[0]); if(!Array.isArray(arr)) throw new Error('AI 응답 형식 오류');
-    var rows=[], unk=[];
+    var rows=[], unk=[], mis=[];
     arr.slice(0,100).forEach(function(o){ o=o||{};
       var nm=String(o.insurer||'').replace(/[\r\n|]/g,' ').trim().slice(0,40); if(!nm) return;
       var code=String(o.code||'').replace(/[\r\n]/g,'').trim().slice(0,60), pw=String(o.pw||'').replace(/[\r\n]/g,'').trim().slice(0,80);
       if(!code&&!pw) return;
       var mt=_icMatchIns(nm), side=mt?mt.s:(/생보|생명/.test(String(o.type||'')+nm)?'life':(/손보|화재|손해|해상/.test(String(o.type||'')+nm)?'son':''));
-      if(!side){ side='son'; unk.push(nm); }
+      if(fside){ if(side&&side!==fside) mis.push(nm); side=fside; }   // 올린 칸 쪽으로 — 반대쪽 보험사로 보이면 확인창에 알림
+      else if(!side){ side='son'; unk.push(nm); }
       rows.push({side:side, ins:mt?mt.n:nm, code:code, pw:pw});
     });
     if(!rows.length){ _icUpStat('찾지 못함'); toast('파일에서 보험사·코드를 찾지 못했습니다. 내용이 선명한지 확인해 주세요.'); return; }
-    await _icUpApply(rows, unk, src.label||'', key, seq);
+    await _icUpApply(rows, unk, src.label||'', key, seq, fside, mis);
   }catch(e){ var em=(e&&e.message)||String(e); _icUpStat('실패: '+em); toast('인식 실패: '+em); }
   finally{ if(!locked) window._icUpBusy=false; }
 }
-async function _icUpApply(rows, unk, label, key, seq){
+async function _icUpApply(rows, unk, label, key, seq, fside, mis){
   var st=window._icSt; if(!st||st.key!==key||st.seq!==seq) return;
   if(!_isAdmin()&&key!==_rsvKey()){ toast('본인 정보만 수정할 수 있습니다.'); return; }
   if(st.edit&&!_icLeaveEdit()) { _icUpStat('취소됨'); return; }
@@ -22564,11 +22580,12 @@ async function _icUpApply(rows, unk, label, key, seq){
       chg.push({ins:hit.ins, oc:hit.code, nc:nc, pwc:np!==hit.pw}); hit.code=nc; hit.pw=np; hit.ts=now;
     });
     if(!add.length&&!chg.length){ _icUpStat('변경 없음'); toast('인식한 '+rows.length+'건이 이미 모두 같게 등록돼 있습니다.'); return; }
-    var msg='['+(st.nm||'')+'] 님 보험사 코드 — 파일 인식 결과\n'+(label?'('+label+')\n':'')+'\n';
+    var msg='['+(st.nm||'')+'] 님 보험사 코드 — '+(fside==='son'?'손해보험사 칸 ':fside==='life'?'생명보험사 칸 ':'')+'파일 인식 결과\n'+(label?'('+label+')\n':'')+'\n';
     if(add.length) msg+='＋ 새로 추가 '+add.length+'곳\n'+add.map(function(x){ return '   '+x.ins+'  코드 '+(x.code||'-')+(x.pw?'  비밀번호 있음':''); }).join('\n')+'\n';
     if(chg.length) msg+='✎ 바뀜 '+chg.length+'곳\n'+chg.map(function(x){ return '   '+x.ins+'  코드 '+(x.oc||'-')+' → '+(x.nc||'-')+(x.pwc?'  · 비밀번호 바뀜':''); }).join('\n')+'\n';
     if(same) msg+='(이미 같은 값 '+same+'곳은 그대로)\n';
     if(unk.length) msg+='\n⚠ 손보/생보를 알 수 없어 손해보험사 쪽에 넣음: '+unk.join(', ')+'\n';
+    if(mis&&mis.length) msg+='\n⚠ '+(fside==='son'?'생명보험사':'손해보험사')+'로 보이지만 올린 칸('+(fside==='son'?'손해보험사':'생명보험사')+') 쪽에 넣음: '+mis.join(', ')+'\n';
     msg+='\nAI가 읽은 값이라 틀릴 수 있습니다. 저장 후 표에서 한 번 확인해 주세요.\n저장할까요?';
     if(!_icConfirm(msg)){ _icUpStat('취소됨'); return; }
     if(!window._icSt||window._icSt.key!==key||window._icSt.seq!==seq) return;
