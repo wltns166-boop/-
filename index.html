@@ -973,7 +973,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-3</div>
   </div>
 </div>
 
@@ -4308,6 +4308,9 @@ function _myRank(){ try{ if(cu&&cu.admin) return 'ADMIN'; var m=(mem||[]).find(f
 function _isLeader(){ return !!(cu&&cu.admin)||['FA(예비팀장)','TL','BM','SBM','RM','SRM'].indexOf(_myRank())>=0; } // 예비팀장·TL 이상(관리자 포함)
 function _isAdmin(){ return !!(cu&&cu.admin); }
 function _isChongmu(){ return !!(cu&&cu.role==='총무'); }   // 총무 전용 권한
+// 열람 전용 전체 보기(2026-11-19 백동현 요청 — 누가 안 쓰는지 확인용): 총무 + SEE_ALL_NAMES(관리자 계정). 수정·완료 처리 권한은 그대로 총무만.
+var SEE_ALL_NAMES=['백동현'];
+function _seeAll(){ return _isChongmu() || !!(cu&&cu.admin&&SEE_ALL_NAMES.indexOf(String(cu.name))>=0); }
 // 계보도 열람 권한(2026-11-16 v-5, 백동현 요청 "각 상위자만 자기 하부 계보만"): 백동현=전체, 그 외=하부 인원이 있는 사람만(자기 계보만 — rTree가 자른다)
 function _treeHasSub(nm){ nm=String(nm||'').trim(); if(!nm) return false;
   if(nm==='백동현') return true;
@@ -4742,7 +4745,7 @@ function _custTableRow(c){
 function downloadCustList(){
   try{
     var src=Array.isArray(window._custs)?window._custs:(Array.isArray(custs)?custs:[]);
-    var chongmu=(typeof _isChongmu==='function')&&_isChongmu();
+    var chongmu=(typeof _seeAll==='function')&&_seeAll();
     var list=src.filter(function(c){
       if(!c) return false;
       if(!chongmu && (!cu || c.m!==cu.name)) return false; // rCustList와 동일한 가시성 규칙
@@ -20768,7 +20771,7 @@ function rCustList(){
   if(Array.isArray(window._custs)){ custs=window._custs; }
   else { try{ custs=JSON.parse(localStorage.getItem('tops_custs')||'[]'); }catch(e){ custs=Array.isArray(custs)?custs:[]; } }
   var tb=g('cust_tb'); if(!tb) return;
-  var chongmu=_isChongmu();
+  var chongmu=_seeAll();   // 목록·담당자 열은 전체 보기(총무+SEE_ALL), 버튼은 아래에서 본인·총무만
   // 관리자 전용: 발송 보험사 목록 수정 버튼
   var rib=g('btn_reqins_edit'); if(rib) rib.style.display=(typeof _isAdmin==='function'&&_isAdmin())?'':'none';
   // 총무 전용 담당자 필터(선택/입력 겸용) 표시 + 옵션 채우기
@@ -20826,6 +20829,7 @@ function rCustList(){
          +' <button onclick="custDupClean('+realIdx+')" title="같은 내용 중 먼저 등록된 1건만 남기고 정리합니다" style="font-size:11px;padding:1px 6px;background:rgba(200,40,40,.06);border:1px solid rgba(200,40,40,.2);border-radius:8px;color:#c0392b;cursor:pointer;font-family:inherit">정리</button>')
       : '';
     var editBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.1);border:1px solid rgba(72,88,204,.25);border-radius:5px;color:#3a48cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
+    if(!_isChongmu()&&!(cu&&c.m===cu.name)){ reqBtn=meritzBtn=delBtn=claimBtn=editBtn=''; dupBadge=(dupN>1)?(' <span style="font-size:11px;color:#c0392b">중복 '+dupN+'건</span>'):''; }   // 남의 고객은 보기만(SEE_ALL)
     rows.push('<tr style="background:rgba(72,88,204,.04);border-top:2px solid rgba(72,88,204,.1)">'
       +'<td style="text-align:center;font-size:13px;color:#aaa">'+seq+'</td>'
       +'<td style="font-weight:700;font-size:15px;color:#1a1a3a"><span onclick="openCustInfoByIdx('+realIdx+')" title="클릭하면 고객정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.45)">'+_esc(c.name)+'</span>'+dupBadge+'</td>'
@@ -20865,6 +20869,7 @@ function rCustList(){
         var fDelBtn='<button onclick="deleteFamRow('+realIdx+','+fi+')" style="font-size:13px;padding:3px 7px;background:rgba(200,40,40,.08);border:1px solid rgba(200,40,40,.15);border-radius:5px;color:#cc5555;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i></button>';
         var fClaimBtn='<button onclick="claimFromCust('+realIdx+','+fi+')" title="이 가족구성원으로 청구신청을 시작합니다" style="font-size:13px;padding:3px 7px;background:rgba(30,150,90,.09);border:1px solid rgba(30,150,90,.22);border-radius:5px;color:#3a8a60;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-receipt"></i> 청구</button>';
         var fEditBtn='<button onclick="editCust('+realIdx+')" title="고객정보 수정(가족 포함)" style="font-size:13px;padding:3px 7px;background:rgba(72,88,204,.08);border:1px solid rgba(72,88,204,.18);border-radius:5px;color:#5560cc;cursor:pointer;font-family:inherit;margin-right:4px"><i class="ti ti-pencil"></i></button>';
+        if(!_isChongmu()&&!(cu&&c.m===cu.name)){ fReqBtn=fMeritzBtn=fDelBtn=fClaimBtn=fEditBtn=''; }
         rows.push('<tr style="border-top:1px solid rgba(0,0,0,.04)">'
           +'<td style="text-align:center;font-size:13px;color:#bbb">'+seq+'</td>'
           +'<td style="font-size:14px;color:#3a4a7a;padding-left:16px"><span style="color:#ccc;margin-right:4px">└</span><span onclick="openCustInfoByIdx('+realIdx+','+fi+')" title="클릭하면 가족 정보가 열립니다" style="cursor:pointer;border-bottom:1px dashed rgba(72,88,204,.35)">'+_esc(f.name)+'</span>'+fDupBadge+'</td>'
@@ -21909,12 +21914,13 @@ function rCustStatus(){
   // 메모리 우선 — localStorage 쓰기 실패(quota)에도 방금 요청 건이 사라지지 않게
   if(!Array.isArray(window.custReqs)){ try{ window.custReqs=JSON.parse(localStorage.getItem('tops_cust_reqs')||'[]'); }catch(e){ window.custReqs=[]; } }
   var tb=g('cust_status_tb'); if(!tb) return;
-  var isAdmin=!!(cu&&cu.role==='총무');   // 현황 전체보기·관리 권한은 총무만 (본인은 본인 요청만)
+  var isAdmin=!!(cu&&cu.role==='총무');   // 관리 권한(완료·일일 정리)은 총무만
+  var seeAll=_seeAll();   // 전체 보기는 총무+SEE_ALL(백동현 — 보기만)
 
   // 필터: 총무는 전체, 그 외는 본인 요청만
   var allReqs=window.custReqs||[];
   // 본인 판정: 저장된 agent가 '(코드)'거나 세션 이름이 '(코드)'여도 실명으로 풀어 비교
-  var reqs=isAdmin ? allReqs : allReqs.filter(function(r){
+  var reqs=seeAll ? allReqs : allReqs.filter(function(r){
     if(!cu||!r) return false;
     var a=String(r.agent||'');
     return a===cu.name || _agentReal(a)===_agentReal(cu.name);
@@ -22683,7 +22689,7 @@ function openCustInfo(reqName, agent){
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
   if(!body||!mb) return;
   // 권한: 총무 또는 해당 고객 담당자 본인만
-  if(found && !_isChongmu() && !(cu && found.cust && found.cust.m===cu.name)){
+  if(found && !_seeAll() && !(cu && found.cust && found.cust.m===cu.name)){
     toast('본인 고객만 볼 수 있습니다.'); return;
   }
   if(!found){
@@ -22698,7 +22704,7 @@ function openCustInfoByIdx(custIdx, famIdx){
   if(Array.isArray(window._custs)) custs=window._custs;
   var c=Array.isArray(custs)?custs[custIdx]:null;
   if(!c){ toast('고객 정보를 찾을 수 없습니다.'); return; }
-  if(!_isChongmu() && !(cu && c.m===cu.name)){ toast('본인 고객만 볼 수 있습니다.'); return; }
+  if(!_seeAll() && !(cu && c.m===cu.name)){ toast('본인 고객만 볼 수 있습니다.'); return; }
   var fm=(famIdx!=null && c.family && c.family[famIdx] && c.family[famIdx].name)?c.family[famIdx]:null;
   _renderCustInfoModal(c, fm);
 }
@@ -23146,7 +23152,7 @@ function deleteAllCustReq(name, agent){
   if(!name) return;
   if(!Array.isArray(window.custReqs)) return;
   agent=(agent==null?'':String(agent));
-  var chongmu=_isChongmu();
+  var chongmu=_seeAll();
   // 권한 가드: 총무가 아니면 본인 담당 건만 (화면 밖 콘솔 직접 호출 방어)
   if(!chongmu && (!cu || !cu.name || _agentReal(agent)!==_agentReal(cu.name))) return;
   var match=function(r){ return r&&r.name===name&&_agentReal(r.agent||'')===agent; };
@@ -28905,7 +28911,7 @@ function _cpCfgSave(d){
 }
 function _cpSub(){
   var db=_cpDb(); if(!db||!cu) return;
-  var key=_rsvKey(), all=_isChongmu(), sk=(all?'*':key);
+  var key=_rsvKey(), all=_seeAll(), sk=(all?'*':key);
   if(!key) return;
   if(window._cpUnsub&&window._cpSubKey===sk) return;
   _cpUnsubscribe();
@@ -28949,7 +28955,7 @@ function cpMonth(d){
 }
 function _cpDraw(){
   var box=g('cp_list'); if(!box) return;
-  var ym=_cpYm(), all=_isChongmu();
+  var ym=_cpYm(), all=_seeAll();
   var ymEl=g('cp_ym'); if(ymEl) ymEl.textContent=ym.slice(0,4)+'년 '+(+ym.slice(5,7))+'월'+(ym===_cpYmNow()?' (이번 달)':'');
   if(!window._cpLoaded){ box.innerHTML='<div class="em" style="padding:20px;color:#8888aa">불러오는 중…</div>'; return; }
   // 그 달 말일 이후에 등록한 건은 그 달에 보이지 않음
@@ -29199,7 +29205,7 @@ function _carClean(id,o){
 }
 function _carSub(){
   var db=_carDb(); if(!db||!cu) return;
-  var key=_rsvKey(), all=_isChongmu(), sk=(all?'*':key);
+  var key=_rsvKey(), all=_seeAll(), sk=(all?'*':key);
   if(!key) return;
   if(window._carUnsub&&window._carSubKey===sk) return;
   _carUnsubscribe();
@@ -29239,7 +29245,7 @@ function rCarIns(){
 function _carDraw(){
   var box=g('car_list'); if(!box) return;
   if(!window._carLoaded){ box.innerHTML='<div class="em" style="padding:20px;color:#8888aa">불러오는 중…</div>'; return; }
-  var all=_isChongmu(), esc=_esc, at=_alertEsc;
+  var all=_seeAll(), esc=_esc, at=_alertEsc;
   var q=String((g('car_q')||{}).value||'').trim().toLowerCase().replace(/\s/g,'');
   var items=(window._carItems||[]).slice().sort(function(a,b){ return (b.dt||'').localeCompare(a.dt||'')||(b.ts-a.ts); });
   var total=items.length;
@@ -36883,7 +36889,7 @@ var claims = JSON.parse(localStorage.getItem('tops_claims')||'[]');
 
 // 청구 접수내역 보기 범위(2026-11-10 박지순 확정): 총무=전체, 그 외(팀원·박지순·백동현 BM 포함)=본인이 접수한 건만.
 //   청구신청·청구현황 목록과 팩스번호 보기 가드가 함께 사용 — 범위를 바꿀 땐 이 함수만 고칠 것.
-function _claimMine(c){ return !!(c&&(_isChongmu()||(cu&&c.agent&&c.agent===cu.name))); }
+function _claimMine(c){ return !!(c&&(_seeAll()||(cu&&c.agent&&c.agent===cu.name))); }   // 보기 범위(총무+SEE_ALL 전체)
 function rClaimApply(){
   _reloadClaims();
   _claimsPkgSweep(); // 목록에 없는 id의 고아 PDF 캐시 청소(클라우드 수신 후 세션 1회)
@@ -42354,7 +42360,7 @@ function rMcReq(){
   var tb=g('mcr_tb'); if(!tb) return;
   _mcrReload();
   // 열람: 총무만 전체 — 팀원·지점장(BM)은 본인 신청만(2026-09-14 요청. 고객등록 현황 rCustStatus와 동일 규칙)
-  var chong=(typeof _isChongmu==='function'&&_isChongmu());
+  var chong=(typeof _seeAll==='function'&&_seeAll());   // 보기: 총무+SEE_ALL 전체
   var list=chong ? mcReqs.slice() : mcReqs.filter(function(r){
     if(!r||!cu) return false;
     var a=String(r.agent||'');
