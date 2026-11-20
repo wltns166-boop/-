@@ -1105,7 +1105,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-9</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-10</div>
   </div>
 </div>
 
@@ -23271,6 +23271,49 @@ function _agentBirthOf(agent){
     return _ymdOk(b)?b.replace(/-/g,'.'):'';
   }catch(e){ return ''; }
 }
+// 담당자 연락처 — 팀원 mem[].phone(동명이인이면 없음), 관리자 admov[이름].phone (2026-11-20 청구서 도장용)
+function _agentPhoneOf(agent){
+  try{
+    var nm=String(_agentReal(agent||'')||agent||'').trim(); if(!nm) return '';
+    var ms=(Array.isArray(mem)?mem:[]).filter(function(m){ return m&&m.name===nm; });
+    var ph='';
+    if(ms.length===1) ph=ms[0].phone||'';
+    else if(!ms.length && ADMINS.some(function(a){return a.name===nm;})) ph=((_admOv(nm)||{}).phone)||'';
+    ph=String(ph||'').trim();
+    var d=ph.replace(/\D/g,'');
+    if(/^01\d{8,9}$/.test(d)) ph=d.length===11?d.replace(/(\d{3})(\d{4})(\d{4})/,'$1-$2-$3'):d.replace(/(\d{3})(\d{3})(\d{4})/,'$1-$2-$3');
+    return ph;
+  }catch(e){ return ''; }
+}
+// 청구서 1쪽 위 담당 설계사 도장(빨간 테두리·빨간 글씨 3줄) PNG — 3배 해상도, {png,w,h}(pt)
+function _claimStampPng(name, phone){
+  var lines=['서류보완 및 기타문의시','반드시 먼저 연락주세요',(String(name||'').trim()+(phone?' '+phone:'')).trim()];
+  if(!lines[2]) return null;
+  var sc=3, fs=9.5, lh=fs*1.42, padX=9, padY=6;
+  var font=function(b){ return (b?'bold ':'')+(fs*sc)+'px "Malgun Gothic","나눔고딕","Apple SD Gothic Neo","맑은 고딕",Arial,sans-serif'; };
+  var cv=document.createElement('canvas'), ctx=cv.getContext('2d');
+  var tw=0; lines.forEach(function(t,i){ ctx.font=font(i===2); tw=Math.max(tw, ctx.measureText(t).width/sc); });
+  var w=Math.ceil(tw+padX*2), h=Math.ceil(lh*3+padY*2);
+  cv.width=w*sc; cv.height=h*sc; ctx=cv.getContext('2d');
+  var col='#d0121b', bw=1.6*sc, r=4*sc, x0=bw, y0=bw, x1=cv.width-bw, y1=cv.height-bw;
+  ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=bw;
+  ctx.beginPath(); ctx.moveTo(x0+r,y0); ctx.lineTo(x1-r,y0); ctx.quadraticCurveTo(x1,y0,x1,y0+r); ctx.lineTo(x1,y1-r); ctx.quadraticCurveTo(x1,y1,x1-r,y1); ctx.lineTo(x0+r,y1); ctx.quadraticCurveTo(x0,y1,x0,y1-r); ctx.lineTo(x0,y0+r); ctx.quadraticCurveTo(x0,y0,x0+r,y0); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle';
+  lines.forEach(function(t,i){ ctx.font=font(i===2); ctx.fillText(t, cv.width/2, (padY+lh*(i+0.5))*sc); });
+  return {png:cv.toDataURL('image/png'), w:w, h:h};
+}
+async function _claimStampDraw(doc, c){
+  try{
+    var pg=doc.getPage(0); if(!pg) return;
+    try{ if(((pg.getRotation().angle||0)%360)!==0) return; }catch(e){} // 회전된 양식 쪽은 위치가 어긋나므로 생략
+    var st=_claimStampPng(_agentReal(c.agent||'')||c.agent||'', _agentPhoneOf(c.agent));
+    if(!st) return;
+    var img=await doc.embedPng(Uint8Array.from(atob(st.png.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
+    var bx=pg.getCropBox?pg.getCropBox():{x:0,y:0,width:pg.getWidth(),height:pg.getHeight()};
+    pg.drawImage(img,{x:bx.x+bx.width-st.w-12, y:bx.y+bx.height-st.h-10, width:st.w, height:st.h});
+  }catch(e){ console.warn('청구서 도장 실패(생성은 계속):', e); }
+}
 function _renderCustInfoModal(c, fm){
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
   if(!body||!mb) return;
@@ -39823,6 +39866,7 @@ async function generateClaimPackage(idx) {
 
       var coords = claimCoordsFor(insurer);
       await drawClaimFields(srcDoc, coords, c, dtx);
+      await _claimStampDraw(srcDoc, c); // 1쪽 오른쪽 위 담당 설계사 도장(2026-11-20 박지순 요청)
 
       var mergedDoc = await PDFDocument.create();
       var copied = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
