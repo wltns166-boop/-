@@ -535,9 +535,9 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 /* ── 일상배상책임 경위서 (pg_ilbae, v2026.11.20-7) — 흰 카드·흰 종이(함정 D 역방향), ib 접두 ── */
 #ib_wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
 @media(max-width:1100px){#ib_wrap{grid-template-columns:minmax(0,1fr)}}
-#ib_in{background:#fff;border:1px solid #e3e6ee;border-radius:14px;padding:16px 18px;color:#1d2433}
-#ib_in .ibs{font-weight:800;font-size:15px;color:#1f2a5c;margin:16px 0 8px;padding-top:12px;border-top:1px solid #eef0f5}
-#ib_in .ibs:first-child{margin-top:0;padding-top:0;border-top:0}
+#ib_in{background:#fff;border:1px solid #e3e6ee;border-radius:16px;padding:18px 20px;color:#1d2433;box-shadow:0 4px 16px rgba(20,30,80,.06)}
+#ib_in .ibs{font-weight:800;font-size:15px;color:#111a3f;margin:18px 0 9px;padding:9px 12px;border-radius:10px;background:linear-gradient(90deg,#eef1fb,#fff);border-left:4px solid #1f2a5c}
+#ib_in .ibs:first-child{margin-top:0}
 #ib_in .ibg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
 #ib_in .ibg .w2{grid-column:1/-1}
 #ib_in label{display:block;font-size:12px;font-weight:700;color:#4a5266;margin-bottom:3px}
@@ -551,13 +551,7 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 @media(max-width:760px){#ib_in .ibg{grid-template-columns:minmax(0,1fr)}#ib_in .ibrow,#ib_in .ibfrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#ib_in .ibx{width:100%;height:100%;min-height:36px}}
 #ib_pv{position:sticky;top:64px;background:#e9ebf0;border-radius:14px;padding:14px;max-height:calc(100vh - 90px);overflow:auto}
 @media(max-width:1100px){#ib_pv{position:static;max-height:none}}
-.ibsheet{background:#fff;color:#111;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;font-size:13px;line-height:1.75;padding:34px 38px;box-shadow:0 2px 10px rgba(0,0,0,.08);word-break:keep-all;overflow-wrap:anywhere}
-.ibsheet h2{text-align:center;font-size:19px;margin:0 0 26px;letter-spacing:.5px}
-.ibsheet .ibh{font-weight:800;margin:16px 0 2px}
-.ibsheet .ibsub{font-weight:700;margin:10px 0 0}
-.ibsheet p{margin:0}
-.ibsheet .ibv.empty{color:#b5bccb}
-.ibsheet .ibsign{margin-top:40px;text-align:right;line-height:2}
+.ibpaper{background:#fff;padding:30px 30px 26px;box-shadow:0 2px 10px rgba(0,0,0,.10);border-radius:2px}
 /* ── 지급지연 요청서 (pg_delayreq) — 문서 미리보기: 흰 종이·검정 글씨(함정 D 역방향), dq 접두 스코프 ── */
 .dqsheet{background:#fff;border:1px solid #c9cdd6;border-radius:4px;padding:34px 30px;box-shadow:0 2px 10px rgba(20,30,50,.08);font-family:'Noto Serif KR','Batang',serif;font-size:14.5px;line-height:1.8;color:#1c1e26;}
 .dqsheet h2{text-align:center;font-size:20px;letter-spacing:1px;margin:0 0 26px;font-family:inherit;color:#1c1e26;}
@@ -1111,7 +1105,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-9</div>
   </div>
 </div>
 
@@ -10225,7 +10219,7 @@ function _ibFormHtml(){
    +'<div class="ibs">7. 확인 · 작성일</div>'
    +'<div class="ibg">'+f('ib_wd','작성일','숫자 8자리','',' inputmode="numeric"')+'</div>'
    +'<div class="ibbtns"><button type="button" class="bp bnv" data-iba="print">인쇄 / PDF 저장</button><button type="button" class="bp bnv" data-iba="copy">글자 복사</button><button type="button" class="bd bdr" data-iba="reset">초기화</button></div>'
-   +'</div><div id="ib_pv"><div class="ibsheet" id="ib_doc"></div></div></div>';
+   +'</div><div id="ib_pv"><div class="ibpaper"><div id="ib_doc"></div></div></div></div>';
 }
 function _ibD8(v){ var d=String(v||'').replace(/\D/g,''); if(d.length!==8) return String(v||'').trim(); return d.slice(0,4)+'년 '+(+d.slice(4,6))+'월 '+(+d.slice(6,8))+'일'; }
 function _ibBirth(v){ var d=String(v||'').replace(/\D/g,''); if(d.length!==8) return String(v||'').trim(); return d.slice(0,4)+'.'+d.slice(4,6)+'.'+d.slice(6,8); }
@@ -10253,6 +10247,7 @@ function rIlbae(){
   var box=g('ib_box'); if(!box) return;
   if(!g('ib_in')){
     box.innerHTML=_ibFormHtml();
+    if(!g('ib_css')){ var st=document.createElement('style'); st.id='ib_css'; st.textContent=_ibCss('#ib_doc '); document.head.appendChild(st); }
     g('ib_vic').innerHTML=_ibVicRow();
     var wd=g('ib_wd'); if(wd) wd.value=td().replace(/-/g,'');
     var wrap=g('ib_wrap');
@@ -10292,9 +10287,9 @@ function _ibVal(id){ var e=g(id); return e?String(e.value||'').trim():''; }
 function _ibData(){
   var d={nm:_ibVal('ib_nm'),birth:_ibBirth(_ibVal('ib_birth')),ph:_ibVal('ib_ph'),ins:_ibVal('ib_ins'),addr:_ibVal('ib_addr'),pol:_ibVal('ib_pol'),
     when:[_ibD8(_ibVal('ib_dt')),_ibVal('ib_tm')].filter(Boolean).join(' '),place:_ibVal('ib_place'),how:_ibVal('ib_how'),prop:_ibVal('ib_prop'),amt:_ibVal('ib_amt'),
-    after:_ibVal('ib_after'),etc:_ibVal('ib_etc'),wd:_ibD8(_ibVal('ib_wd')),vic:[],fam:[]};
+    after:_ibVal('ib_after'),etc:_ibVal('ib_etc'),wd:_ibD8(_ibVal('ib_wd')),vic:[],vicRows:[],fam:[]};
   document.querySelectorAll('#ib_vic [data-ibvic]').forEach(function(r){ var q=function(k){ var e=r.querySelector('[data-ibk="'+k+'"]'); return e?String(e.value||'').trim():''; };
-    if(q('n')||q('p')) d.vic.push([q('n'),q('p'),q('t')].filter(Boolean).join(' / ')); });
+    if(q('n')||q('p')){ d.vic.push([q('n'),q('p'),q('t')].filter(Boolean).join(' / ')); d.vicRows.push({n:q('n'),p:q('p'),t:q('t')}); } });
   document.querySelectorAll('#ib_fam [data-ibfam]').forEach(function(r){ var q=function(k){ var e=r.querySelector('[data-ibk="'+k+'"]'); return e?String(e.value||'').trim():''; };
     if(q('n')||q('c')||q('o')) d.fam.push({r:q('r'),n:q('n'),j:q('j'),c:q('c'),o:q('o')}); });
   return d;
@@ -10324,17 +10319,55 @@ function _ibLines(d,blank){
   L.push(['m','본인은 상기 내용이 사실과 다름없음을 확인하며, 허위 사실 기재 시 법적 책임을 질 것을 동의합니다.']);
   return L;
 }
-function _ibSpaced(n){ n=String(n||''); return n?n.split('').join('  '):''; }
+function _ibSpaced(n){ n=String(n||''); return n?n.split('').join(' '):''; }
+/* 문서 디자인(v2026.11.20-9 백동현 "이쁘게") — 미리보기·인쇄 공용 CSS 한 곳. scope=''이면 인쇄 창, '#ib_doc '이면 화면 미리보기 */
+function _ibCss(sc){
+  var S=function(r){ return r.split('}').filter(function(x){return x.trim();}).map(function(x){ var k=x.split('{'); return k[0].split(',').map(function(q){return sc+q.trim();}).join(',')+'{'+k[1]+'}'; }).join(''); };
+  return S('.ibd{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;color:#1d2433;font-size:12.6px;line-height:1.65;word-break:keep-all;overflow-wrap:anywhere}'
+  +'.ibd-top{position:relative;text-align:center;padding:4px 0 16px;margin-bottom:18px;border-bottom:2.5px solid #1f2a5c}'
+  +'.ibd-top:after{content:"";position:absolute;left:0;right:0;bottom:-6px;border-bottom:1px solid #1f2a5c}'
+  +'.ibd-k{display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;color:#fff;background:#1f2a5c;border-radius:99px;padding:3px 14px;margin-bottom:10px}'
+  +'.ibd-top h2{font-size:27px;font-weight:900;letter-spacing:14px;margin:0;padding-left:14px;color:#111a3f}'
+  +'.ibd-meta{display:flex;justify-content:space-between;font-size:11px;color:#6b7387;margin-top:8px}'
+  +'.ibd-s{margin:0 0 14px;break-inside:avoid}'
+  +'.ibd-h{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:#111a3f;margin:0 0 6px}'
+  +'.ibd-h b{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#1f2a5c;color:#fff;font-size:12px}'
+  +'.ibd-h small{font-size:11px;font-weight:500;color:#7a8396}'
+  +'.ibd-t{width:100%;border-collapse:collapse;table-layout:fixed;border-top:1.5px solid #1f2a5c}'
+  +'.ibd-t th,.ibd-t td{border-bottom:1px solid #d9dde8;padding:6px 9px;text-align:left;vertical-align:top}'
+  +'.ibd-t th{background:#f1f3f9;color:#3a4466;font-weight:700;font-size:12px;width:16%}'
+  +'.ibd-t.c th{width:auto;text-align:center}.ibd-t.c td{text-align:center}'
+  +'.ibd-box{border:1px solid #d9dde8;border-left:4px solid #1f2a5c;border-radius:4px;background:#fbfbfd;padding:9px 12px;min-height:46px;white-space:pre-wrap}'
+  +'.ibd-note{font-size:11px;color:#7a8396;margin:-2px 0 5px}'
+  +'.ibd-sub{font-size:12px;font-weight:700;color:#3a4466;margin:8px 0 4px}'
+  +'.ibd-e{color:#b8bfcf}'
+  +'.ibd-ok{border:1.5px solid #1f2a5c;border-radius:6px;padding:12px 14px;background:#f6f7fc;font-weight:600;text-align:center}'
+  +'.ibd-sign{margin-top:26px;display:flex;justify-content:flex-end}'
+  +'.ibd-sign table{border-collapse:collapse;font-size:13.5px}'
+  +'.ibd-sign td{padding:6px 4px}.ibd-sign td:first-child{color:#3a4466;font-weight:700;padding-right:14px}'
+  +'.ibd-sign .nm{min-width:170px;border-bottom:1px solid #1d2433;text-align:center;letter-spacing:6px;font-weight:700}'
+  +'.ibd-sign .sg{color:#7a8396;padding-left:8px}');
+}
 function _ibDocHtml(d){
-  var html=_ibLines(d,'\u0001').map(function(x){
-    var v=_esc(x[1]).replace(/\u0001/g,'<span class="ibv empty">(미입력)</span>').replace(/\n/g,'<br>');
-    if(x[0]==='t') return '<h2>'+v+'</h2>';
-    if(x[0]==='h') return '<div class="ibh">'+v+'</div>';
-    if(x[0]==='b') return '<div class="ibsub">'+v+'</div>';
-    if(x[0]==='s') return '<p style="font-weight:700">'+v+'</p>';
-    return '<p>'+v+'</p>';
-  }).join('');
-  return html+'<div class="ibsign">작성일 : '+(_esc(d.wd)||'<span class="ibv empty">(미입력)</span>')+'<br>작성자 : '+(_esc(_ibSpaced(d.nm))||'<span class="ibv empty">(미입력)</span>')+' (서명)</div>';
+  var E=function(v){ return v?_esc(v).replace(/\n/g,'<br>'):'<span class="ibd-e">(미입력)</span>'; };
+  var BX=function(v){ return '<div class="ibd-box">'+(v?_esc(v):'<span class="ibd-e">(미입력)</span>')+'</div>'; };
+  var h=function(n,t,sm){ return '<div class="ibd-h"><b>'+n+'</b>'+t+(sm?' <small>'+sm+'</small>':'')+'</div>'; };
+  var o='<div class="ibd"><div class="ibd-top"><div class="ibd-k">일상생활배상책임보험 청구</div><h2>사고 경위서</h2>'
+   +'<div class="ibd-meta"><span>가입 보험사 : '+(d.ins?_esc(d.ins):'-')+'</span><span>작성일 : '+(d.wd?_esc(d.wd):'-')+'</span></div></div>';
+  o+='<div class="ibd-s">'+h(1,'기본 정보','사건 당사자')+'<table class="ibd-t"><tr><th>작성자</th><td>'+E(d.nm)+'</td><th>생년월일</th><td>'+E(d.birth)+'</td></tr>'
+   +'<tr><th>연락처</th><td>'+E(d.ph)+'</td><th>증권번호</th><td>'+E(d.pol)+'</td></tr><tr><th>주소</th><td colspan="3">'+E(d.addr)+'</td></tr></table></div>';
+  o+='<div class="ibd-s">'+h(2,'사고 발생 정보')+'<table class="ibd-t"><tr><th>사고 일시</th><td>'+E(d.when)+'</td></tr><tr><th>사고 장소</th><td>'+E(d.place)+'</td></tr></table>'
+   +'<div class="ibd-sub">피해 대상</div><table class="ibd-t c"><tr><th style="width:9%">No</th><th>피해자 · 피해 물건</th><th>연락처</th><th style="width:20%">피해 유형</th></tr>'
+   +(d.vicRows.length?d.vicRows.map(function(v,i){ return '<tr><td>'+(i+1)+'</td><td>'+E(v.n)+'</td><td>'+E(v.p)+'</td><td>'+E(v.t)+'</td></tr>'; }).join(''):'<tr><td>1</td><td><span class="ibd-e">(미입력)</span></td><td></td><td></td></tr>')+'</table></div>';
+  o+='<div class="ibd-s">'+h(3,'사고 경위')+'<div class="ibd-note">※ 시간 순서대로 구체적으로 작성</div>'+BX(d.how)+'</div>';
+  o+='<div class="ibd-s">'+h(4,'피해 내용')+'<table class="ibd-t"><tr><th>물적 피해</th><td>'+E(d.prop)+'</td></tr><tr><th>예상 손해 금액</th><td>'+E(d.amt)+'</td></tr></table></div>';
+  o+='<div class="ibd-s">'+h(5,'사고 후 조치')+BX(d.after)+'</div>';
+  o+='<div class="ibd-s">'+h(6,'기타 참고사항')+(d.etc||!d.fam.length?BX(d.etc):'')
+   +(d.fam.length?'<div class="ibd-sub">함께 사는 가족의 일상배상책임 가입 정보</div><table class="ibd-t c"><tr><th style="width:13%">관계</th><th>성명</th><th>주민등록번호</th><th>가입회사</th><th>증권번호</th></tr>'
+     +d.fam.map(function(f){ return '<tr><td>'+E(f.r)+'</td><td>'+E(f.n)+'</td><td>'+(f.j?_esc(f.j):'-')+'</td><td>'+E(f.c)+'</td><td>'+E(f.o)+'</td></tr>'; }).join('')+'</table>':'')+'</div>';
+  o+='<div class="ibd-s">'+h(7,'확인')+'<div class="ibd-ok">본인은 상기 내용이 사실과 다름없음을 확인하며,<br>허위 사실 기재 시 법적 책임을 질 것을 동의합니다.</div>'
+   +'<div class="ibd-sign"><table><tr><td>작 성 일</td><td colspan="2">'+(d.wd?_esc(d.wd):'<span class="ibd-e">(미입력)</span>')+'</td></tr><tr><td>작 성 자</td><td class="nm">'+(d.nm?_esc(_ibSpaced(d.nm)):'&nbsp;')+'</td><td class="sg">(서명)</td></tr></table></div></div>';
+  return o+'</div>';
 }
 function _ibRender(){ try{ var doc=g('ib_doc'); if(doc) doc.innerHTML=_ibDocHtml(_ibData()); }catch(e){} }
 function ibPrint(){
@@ -10343,16 +10376,15 @@ function ibPrint(){
   var w=window.open('','_blank','width=900,height=900,scrollbars=yes,resizable=yes');
   if(!w){ toast('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 눌러 주세요.'); return; }
   window._ibWin=w;
-  var css='body{margin:0;background:#fff}'
-    +'.ibsheet{background:#fff;color:#111;font-family:"Malgun Gothic","Noto Sans KR",sans-serif;font-size:14px;line-height:1.8;padding:22mm 20mm;max-width:800px;margin:0 auto;word-break:keep-all;overflow-wrap:anywhere}'
-    +'.ibsheet h2{text-align:center;font-size:20px;margin:0 0 30px}.ibsheet .ibh{font-weight:800;margin:18px 0 2px}.ibsheet .ibsub{font-weight:700;margin:12px 0 0}'
-    +'.ibsheet p{margin:0}.ibsheet .ibv.empty{color:#aaa}.ibsheet .ibsign{margin-top:48px;text-align:right;line-height:2.1}'
-    +'.tb{position:sticky;top:0;background:#1f2a5c;padding:10px;text-align:center}.tb button{font-size:15px;font-weight:700;padding:8px 18px;border:0;border-radius:8px;background:#fff;color:#1f2a5c;cursor:pointer}'
-    +'@page{size:A4;margin:0}@media print{.tb{display:none}}';
-  var ttl=('일상배상책임_경위서_'+d.nm).replace(/[\\/:*?"<>|]/g,'').slice(0,40);
-  w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+_esc(ttl)+'</title><style>'+css+'</style></head><body>'
-    +'<div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div><div class="ibsheet">'+_ibDocHtml(d)+'</div>'
-    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},250);};<\/scr'+'ipt></body></html>');
+  var css='body{margin:0;background:#e9ebf0}.pp{background:#fff;width:210mm;min-height:297mm;box-sizing:border-box;padding:16mm 16mm 14mm;margin:14px auto;box-shadow:0 2px 12px rgba(0,0,0,.12)}'
+    +'.tb{position:sticky;top:0;z-index:2;background:#1f2a5c;padding:10px;text-align:center}.tb button{font-family:inherit;font-size:15px;font-weight:700;padding:8px 18px;border:0;border-radius:8px;background:#fff;color:#1f2a5c;cursor:pointer}'
+    +'@page{size:A4;margin:0}@media print{body{background:#fff}.tb{display:none}.pp{margin:0;box-shadow:none;width:auto;min-height:0}}'+_ibCss('')
+    +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+  var ttl=('사고경위서_일상배상_'+d.nm).replace(/[\\/:*?"<>|]/g,'').slice(0,40);
+  w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>'+_esc(ttl)+'</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"><style>'+css+'</style></head><body>'
+    +'<div class="tb"><button onclick="window.print()">인쇄 / PDF 저장</button></div><div class="pp">'+_ibDocHtml(d)+'</div>'
+    +'<scr'+'ipt>window.onload=function(){var go=function(){setTimeout(function(){window.print();},200);};try{(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(go,go);}catch(e){go();}};<\/scr'+'ipt></body></html>');
   w.document.close();
 }
 function ibCopy(){
