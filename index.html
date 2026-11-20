@@ -1006,7 +1006,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-3</div>
   </div>
 </div>
 
@@ -10404,8 +10404,8 @@ function _bdayToday(){
 // 클라우드 수신(_fsLoaded) 전엔 판단하지 않음(옛 캐시로 잘못 띄우지 않게) — 수신 뒤 홈 재렌더에서 다시 시도. 접속당 1회(_remShown, logout 리셋).
 function _remTarget(list){
   if(!cu||!cu.name) return false;
+  if(_isAdmin()) return false;   // 관리자(지점장·총무)는 작성대상자 명단에 있어도 알림 없음(2026-11-20 박지순 요청)
   if(Array.isArray(list)&&list.length) return list.indexOf(cu.name)>=0;
-  if(_isAdmin()) return false;
   var m=(Array.isArray(mem)?mem:[]).find(function(x){ return x&&x.name===cu.name; });
   return !!(m&&!m.suspended);
 }
