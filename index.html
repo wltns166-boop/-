@@ -1105,7 +1105,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-11</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-12</div>
   </div>
 </div>
 
@@ -23303,16 +23303,103 @@ function _claimStampPng(name, phone){
   lines.forEach(function(t,i){ ctx.font=font(i===2); ctx.fillText(t, cv.width/2, (padY+lh*(i+0.5))*sc); });
   return {png:cv.toDataURL('image/png'), w:w, h:h};
 }
-async function _claimStampDraw(doc, c){
+// 도장 크기(pt) — 좌표 편집기 글씨크기(size)가 있으면 그 비율로(기본 11.5)
+function _claimStampSize(size){
+  var st=_claimStampPng('홍길동','010-0000-0000'); var k=(typeof size==='number'&&size>0)?size/11.5:1;
+  return {w:(st?st.w:150)*k, h:(st?st.h:52)*k, k:k};
+}
+// 자동 배치: 그려진 1쪽(canvas, px/pt=sc)에서 오른쪽 위 후보 자리 중 잉크(어두운 점)가 가장 적은 곳 — QR·바코드·로고를 피함.
+// 반환 (x,y)=도장 왼쪽 아래(pt, PDF 아래 원점)
+function _stampAutoPos(cv, sc, W, H, sw, sh){
+  var mx=12, my=10;
+  var def={x:Math.max(0,W-sw-mx), y:Math.max(0,H-sh-my)};
   try{
-    var pg=doc.getPage(0); if(!pg) return;
+    var gw=Math.ceil(W/2), gh=Math.ceil(Math.min(H,200)/2);   // 2pt 격자, 위쪽 200pt만
+    var ctx=cv.getContext('2d'); var img=ctx.getImageData(0,0,cv.width,Math.min(cv.height,Math.ceil(200*sc)+2)).data;
+    var I=new Float64Array((gw+1)*(gh+1));
+    for(var yy=0;yy<gh;yy++){ var row=0;
+      for(var xx=0;xx<gw;xx++){
+        var px=Math.min(cv.width-1,Math.floor((xx*2+1)*sc)), py=Math.min(Math.floor(img.length/4/cv.width)-1,Math.floor((yy*2+1)*sc));
+        var o=(py*cv.width+px)*4; var lum=0.299*img[o]+0.587*img[o+1]+0.114*img[o+2];
+        row+=(img[o+3]>0&&lum<170)?1:0;
+        I[(yy+1)*(gw+1)+xx+1]=I[yy*(gw+1)+xx+1]+row;
+      }
+    }
+    var cw=Math.ceil(sw/2), ch=Math.ceil(sh/2), G=gw+1;
+    var box=function(T,x0,y0,x1,y1){ return T[y1*G+x1]-T[y0*G+x1]-T[y1*G+x0]+T[y0*G+x0]; };
+    // 빽빽한 칸(QR·바코드): 그 칸을 중심으로 14pt 네모 안 잉크가 40% 넘음 → 그런 칸이 하나라도 든 자리는 제외
+    var D=new Float64Array(G*(gh+1));
+    for(var yy2=0;yy2<gh;yy2++){ var row2=0;
+      for(var xx2=0;xx2<gw;xx2++){
+        var x0=Math.max(0,xx2-3), y0=Math.max(0,yy2-3), x1=Math.min(gw,xx2+4), y1=Math.min(gh,yy2+4);
+        var dn=box(I,x0,y0,x1,y1)/((x1-x0)*(y1-y0))>0.4?1:0;
+        row2+=dn; D[(yy2+1)*G+xx2+1]=D[yy2*G+xx2+1]+row2;
+      }
+    }
+    var best=null, area=cw*ch;
+    for(var top=my; top+sh<=Math.min(H,200); top+=2){
+      for(var xl=W-sw-mx; xl>=mx; xl-=2){   // 오른쪽 위 우선, 자리가 없으면 왼쪽까지
+        var gx=Math.floor(xl/2), gy=Math.floor(top/2); if(gx+cw>gw||gy+ch>gh) continue;
+        if(box(D,gx,gy,gx+cw,gy+ch)>0) continue;   // QR·바코드 겹침
+        var ink=box(I,gx,gy,gx+cw,gy+ch)/area*100;
+        var sc2=(top-my)*1 + (W-sw-mx-xl)*0.15 + ink*1.5;   // 위쪽·오른쪽 우선, 글자 적은 곳
+        if(!best||sc2<best.s) best={s:sc2,x:xl,top:top};
+      }
+    }
+    if(best) return {x:best.x, y:H-best.top-sh};
+  }catch(e){ console.warn('stamp auto pos', e); }
+  return def;
+}
+// 생성용 자동 위치 — 양식 1쪽을 pdf.js로 그려 계산(보험사·양식 크기별 캐시)
+window._stampPosCache=window._stampPosCache||{};
+async function _stampAutoPosFor(bytes, key, sw, sh){
+  var ck=key+'|'+(bytes&&bytes.length)+'|'+Math.round(sw)+'x'+Math.round(sh);
+  if(window._stampPosCache[ck]) return window._stampPosCache[ck];
+  var pdf=await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;
+  try{
+    var pg=await pdf.getPage(1); var vp=pg.getViewport({scale:1.5}); var b=pg.getViewport({scale:1});
+    var cv=document.createElement('canvas'); cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
+    var x=cv.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,cv.width,cv.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;
+    var r=_stampAutoPos(cv, 1.5, b.width, b.height, sw, sh);
+    window._stampPosCache[ck]=r; return r;
+  }finally{ try{ pdf.destroy(); }catch(e){} }
+}
+// co = 좌표(claimCoordsFor의 agStamp), bytes = 양식 원본(자동 배치 계산용)
+async function _claimStampDraw(doc, c, co, bytes, key){
+  try{
+    if(co&&co.on===false) return;
+    var pi=(co&&typeof co.page==='number')?co.page:0;
+    var pg=doc.getPages()[pi]; if(!pg) return;
     try{ if(((pg.getRotation().angle||0)%360)!==0) return; }catch(e){} // 회전된 양식 쪽은 위치가 어긋나므로 생략
     var st=_claimStampPng(_agentReal(c.agent||'')||c.agent||'', _agentPhoneOf(c.agent));
     if(!st) return;
-    var img=await doc.embedPng(Uint8Array.from(atob(st.png.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
+    var k=(co&&typeof co.size==='number'&&co.size>0)?co.size/11.5:1;
+    var w=st.w*k, h=st.h*k;
     var bx=pg.getCropBox?pg.getCropBox():{x:0,y:0,width:pg.getWidth(),height:pg.getHeight()};
-    pg.drawImage(img,{x:bx.x+bx.width-st.w-12, y:bx.y+bx.height-st.h-10, width:st.w, height:st.h});
+    var x, y;
+    if(co&&!co.auto&&typeof co.x==='number'&&typeof co.y==='number'){ x=co.x; y=co.y; }
+    else{
+      var ap=null; try{ if(bytes&&pi===0&&typeof pdfjsLib!=='undefined') ap=await _stampAutoPosFor(bytes, key||'', w, h); }catch(e){ console.warn('도장 자동 위치 계산 실패(오른쪽 위로):', e); }
+      if(ap){ x=bx.x+ap.x; y=bx.y+ap.y; } else { x=bx.x+bx.width-w-12; y=bx.y+bx.height-h-10; }
+    }
+    var img=await doc.embedPng(Uint8Array.from(atob(st.png.split(',')[1]),function(ch){return ch.charCodeAt(0);}));
+    pg.drawImage(img,{x:x, y:y, width:w, height:h});
   }catch(e){ console.warn('청구서 도장 실패(생성은 계속):', e); }
+}
+// 좌표 편집기 미리보기 — 도장 칩 자리에 실제 도장 그림(로그인한 사람 이름·번호)
+function _ccStampPreview(){
+  var ov=g('cc_overlay'); if(!ov) return;
+  Array.prototype.forEach.call(ov.querySelectorAll('.cc_stamppv'),function(el){ el.remove(); });
+  var co=window._ccWork&&window._ccWork.agStamp;
+  if(!co||co.on===false||co.auto) return;
+  if(((typeof co.page==='number')?co.page:0)!==(window._ccPage||1)-1) return;
+  var nm=(typeof cu!=='undefined'&&cu&&cu.name)||'홍길동';
+  var st=_claimStampPng(nm, _agentPhoneOf(nm)||'010-0000-0000'); if(!st) return;
+  var k=(typeof co.size==='number'&&co.size>0)?co.size/11.5:1, sc=window._ccScale||1, H=window._ccPageH||842;
+  var im=document.createElement('img'); im.className='cc_stamppv'; im.src=st.png;
+  im.style.cssText='position:absolute;left:'+(co.x*sc)+'px;top:'+((H-co.y-st.h*k)*sc)+'px;width:'+(st.w*k*sc)+'px;height:'+(st.h*k*sc)+'px;opacity:.85;pointer-events:none;z-index:2;';
+  ov.appendChild(im);
 }
 function _renderCustInfoModal(c, fm){
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
@@ -39866,7 +39953,7 @@ async function generateClaimPackage(idx) {
 
       var coords = claimCoordsFor(insurer);
       await drawClaimFields(srcDoc, coords, c, dtx);
-      await _claimStampDraw(srcDoc, c); // 1쪽 오른쪽 위 담당 설계사 도장(2026-11-20 박지순 요청)
+      await _claimStampDraw(srcDoc, c, coords.agStamp, srcBytes, insurer); // 담당 설계사 도장 — 좌표 편집기 위치, 없으면 자동(QR 피함)(2026-11-20 박지순 요청)
 
       var mergedDoc = await PDFDocument.create();
       var copied = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
@@ -40711,6 +40798,7 @@ var CLAIM_FIELDS_DEFAULT = [
   {key:'designNum',  label:'설계번호',         page:0, x:430,   y:755, defOn:false},
   {key:'agentName',  label:'모집자(설계사) 성명', page:0, x:120,  y:130, defOn:false},
   {key:'vchk',       label:'체크(V)',          page:0, x:300,   y:500, defOn:false},
+  {key:'agStamp',    label:'담당 설계사 도장',   page:0, x:420,   y:770},   // 좌표 미지정이면 자동 배치(QR·바코드 피함 — _stampAutoPos), (x,y)=도장 왼쪽 아래
   // ── 대리발급 전용 항목 (2026-09-11, daeri:1 — 대리발급 좌표 편집 모드에서만 노출·배치) ──
   {key:'purpose',    label:'발급사유',          page:0, x:150,   y:520, defOn:false, daeri:1},
   {key:'insBirth',   label:'위임자 생년월일',    page:0, x:150,   y:600, defOn:false, daeri:1},
@@ -41110,6 +41198,8 @@ function claimCoordsFor(insurer){
       pitch:(typeof o.pitch==='number')?o.pitch:(typeof b.pitch==='number'?b.pitch:null)
     };
   });
+  // 담당 설계사 도장 — 저장된 위치가 없으면 자동 배치(양식 1쪽을 그려 QR·바코드·글자 적은 오른쪽 위 자리)
+  if(map.agStamp && !(ov.agStamp && typeof ov.agStamp.x==='number')) map.agStamp.auto=1;
   // 사용자가 추가한 인스턴스 키(_2, _3 …)도 포함
   Object.keys(ov).forEach(function(k){
     if(map[k]) return;
@@ -41616,6 +41706,7 @@ function ccBuildAddField(){
   CLAIM_FIELDS_DEFAULT.forEach(function(f){
     if(allow&&!allow[f.key]) return;
     if(f.daeri&&!_daeriAF) return;   // 대리발급 전용 항목(용도·기간·이해하였음)은 청구서·3종 모드에 노출 안 함(2026-09-11)
+    if(f.key==='agStamp') return;   // 도장은 도구박스 체크·끌기로만(1쪽 자동 배치)
     var lb=(_daeriAF&&_DAERI_LABELS[f.key])||f.label;   // 대리발급 모드는 위임자/위임받는자 라벨로 표시
     var co=window._ccWork[f.key]; var fp=(co&&typeof co.page==='number')?co.page:f.page;
     if(fp!==cur){ opts+='<option value="'+f.key+'">'+lb+'</option>'; }
@@ -41660,8 +41751,22 @@ async function ccRenderPage(pn){
     await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
     if(_ck){ if(window._ccMode!=='ck'||window._ccCk!==_ckObj) return; window._ccCkDrawn=_ckObj; }   // 이 양식이 그려졌음 — _ckCcSave 가드
     var ov=g('cc_overlay'); ov.style.width=vp.width+'px'; ov.style.height=vp.height+'px';
+    if(!_ck&&tpl) _ccStampAutoKick(tpl);
     ccBuildTabs(); ccBuildAddField(); ccPlaceChips();
   }catch(e){ console.warn('cc render',e); toast('양식 렌더 오류: '+e.message); }
+}
+// 좌표 편집기: 도장이 자동 배치 상태면 생성과 같은 계산(1.5배로 그려 QR·바코드 피함)으로 위치를 채움
+async function _ccStampAutoKick(tpl){
+  try{
+    if(window._ccMode&&window._ccMode!=='claim') return;
+    var _wk0=window._ccWork, _insA=window._ccInsurer;
+    if(!tpl){ tpl=await claimTemplateFor(_insA); }
+    var _as=window._ccWork&&window._ccWork.agStamp; if(!_as||!_as.auto||!tpl) return;
+    var _wk=window._ccWork, _sz=_claimStampSize(_as.size);
+    var ap=await _stampAutoPosFor(Uint8Array.from(atob(tpl),function(ch){return ch.charCodeAt(0);}), _insA, _sz.w, _sz.h);
+    if(window._ccWork!==_wk||window._ccInsurer!==_insA||!_as.auto) return;
+    _as.x=Math.round(ap.x*10)/10; _as.y=Math.round(ap.y*10)/10; _as.page=0; delete _as.auto; ccPlaceChips();
+  }catch(e){ console.warn('도장 자동 위치(편집기)', e); }
 }
 function ccBaseKey(k){ return String(k).replace(/_\d+$/,''); }
 function ccLabelFor(key){
@@ -41705,6 +41810,7 @@ function ccPlaceChips(){
     ccDrag(chip);
   });
   ccPlacePreviews();
+  _ccStampPreview();
   if(typeof ccLassoSetup==='function') ccLassoSetup();
   if(typeof ccUpdatePropsPanel==='function') ccUpdatePropsPanel();
   if(typeof ccRefreshToolbox==='function') ccRefreshToolbox();
@@ -41849,6 +41955,7 @@ function ccPlacePreviews(){
   });
 }
 function ccUpdatePreviewFor(key){
+  if(ccBaseKey(key)==='agStamp'){ try{ delete window._ccWork[key].auto; }catch(e){} _ccStampPreview(); return; }   // 직접 옮기면 자동 배치 끝
   var ov=g('cc_overlay'); if(!ov || !window._ccShowPreview) return;
   if(window._ccMode==='ck'){ ccPlacePreviews(); return; }   // 체크리스트: 글자+폭 안내선 둘이라 통째로 다시 그림(항목 2~3개뿐)
   var span=ov.querySelector('.cc_preview[data-key="'+key+'"]');
@@ -41944,6 +42051,9 @@ var CC_DAERI_GROUPS=[   // 대리발급 모드 도구박스 — 기존 키를 �
   ]}
 ];
 var CC_TOOLBOX_GROUPS = [   // sam:1 = 3종서류 좌표 편집 모드에서도 표시되는 그룹
+  { title:'담당 설계사 도장', items:[
+    {key:'agStamp',      label:'도장 (끌어서 위치 이동)'}
+  ]},
   { title:'계약자', sam:1, items:[
     {key:'ctName',       label:'성명'},
     {key:'ctSign',       label:'계약자 서명'},
@@ -42119,6 +42229,7 @@ function ccTbRemove(baseKey){
   ccPlaceChips();
 }
 function ccTbAdd(baseKey){
+  if(baseKey==='agStamp' && window._ccWork && window._ccWork.agStamp){ window._ccWork.agStamp.on=true; ccPlaceChips(); return; }   // 도장은 하나만
   if(!window._ccWork) window._ccWork={};
   var W=window._ccPageW||595, H=window._ccPageH||841.9;
   var existing=Object.keys(window._ccWork).filter(function(k){return ccBaseKey(k)===baseKey;});
@@ -42438,6 +42549,8 @@ async function saveClaimCal(){
   var out={};
   Object.keys(window._ccWork||{}).forEach(function(k){
     var w=window._ccWork[k];
+    if(ccBaseKey(k)==='agStamp' && k!=='agStamp') return;   // 도장은 하나만
+    if(k==='agStamp' && w.auto){ if(w.on===false) out[k]={on:false}; return; }   // 자동 배치 그대로(양식을 못 그려 위치 계산 전)
     out[k]={x:(+w.x||0), y:(+w.y||0), page:(typeof w.page==='number')?w.page:0, on:(w.on===false)?false:true};   // undefined면 Firestore가 거부
     if(w.fmt!=null) out[k].fmt=w.fmt;
     if(typeof w.size==='number'&&w.size>0)   out[k].size=w.size;
@@ -42516,6 +42629,7 @@ function resetClaimCal(){
     var on=(typeof f.defOn==='boolean')?f.defOn:true;
     def[f.key]={x:f.x,y:f.y,page:f.page,on:on,label:f.label};
   });
+  if(def.agStamp){ def.agStamp.auto=1; _ccStampAutoKick(); }   // 도장은 기본값 = 자동 배치(QR 피함)
   window._ccWork=def;
   window._ccSelKey=null;
   window._ccSelKeys=[]; // 다중선택 배열도 함께 초기화(2026-08-26 리뷰)
