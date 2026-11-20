@@ -117,6 +117,25 @@ canvas#gc{position:fixed;inset:0;z-index:0;pointer-events:none;}
 .hofv b{display:block;font-size:15px;color:var(--hk);font-weight:800}
 .hofr.r1 .hofv b{font-size:17px}
 .hofv span{font-size:11.5px;color:#7a8396}
+.hmy{display:grid;grid-template-columns:1fr 1fr;margin-top:14px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 22px rgba(20,30,80,.10);border:1px solid rgba(20,30,80,.07)}
+.hmy:empty{display:none}
+.hmys{padding:16px 22px 18px;position:relative}
+.hmys+.hmys{border-left:1px solid #eceef4}
+.hmys::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--hk)}
+.hmy-a{--hk:#1f2a5c}.hmy-b{--hk:#0f766e}
+.hmyh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.hmyt{font-size:16px;font-weight:800;color:#1d2433}
+.hmyst{font-size:12px;color:#7a8396}
+.hmyk{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.hmyk div{background:#f6f7fb;border-radius:10px;padding:9px 12px}
+.hmyk span{display:block;font-size:12px;color:#6b7387}
+.hmyk b{display:block;font-size:19px;font-weight:800;color:var(--hk);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmyg{margin-top:11px;font-size:12.5px;color:#4a5266}
+.hmyg .bar{height:8px;border-radius:99px;background:#e8eaf2;overflow:hidden;margin-top:5px}
+.hmyg .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--hk),#4f6ef7)}
+.hmy-b .hmyg .bar i{background:linear-gradient(90deg,#0f766e,#2dd4bf)}
+.hmyg em{font-style:normal;font-weight:800;color:var(--hk)}
+@media(max-width:768px){.hmy{grid-template-columns:1fr}.hmys+.hmys{border-left:0;border-top:1px solid #eceef4}}
 .hofe{margin:14px 14px 4px;padding:18px 10px;border:1.5px dashed #d9dde6;border-radius:12px;text-align:center;color:#8a93a6;font-size:13.5px}
 @media(max-width:768px){.hof{grid-template-columns:1fr!important}}
 .hc{background:#ffffff;border:1px solid rgba(25,45,150,.14);border-radius:12px;padding:18px;min-height:230px;box-shadow:0 2px 12px rgba(0,0,80,.06);}
@@ -1010,7 +1029,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-5</div>
   </div>
 </div>
 
@@ -1231,6 +1250,8 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div class="hofc hof-b"><div class="hofh"><span class="hofi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l2.5 6M16 3l-2.5 6"/><circle cx="12" cy="15" r="5.5"/><path d="M12 12.5l.9 1.8 2 .3-1.45 1.4.35 2-1.8-1-1.8 1 .35-2-1.45-1.4 2-.3z" fill="currentColor" stroke-width="1"/></svg></span><div><div class="hoft">건수 명예의 전당</div><div class="hofs" data-hofym="1"></div></div></div><div id="rank_count"></div></div>
         <div class="hofc hof-c"><div class="hofh"><span class="hofi"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.9l-5.25 2.8 1-5.85L3.5 9.7l5.9-.9z"/></svg></span><div><div class="hoft">루키 달성자</div><div class="hofs">영업 6개월 이내 · 인정 100만원 이상</div></div></div><div id="rank_rookie"></div></div>
       </div>
+      <!-- 내 실적 · 우리 팀 실적 (v2026.11.20-5 백동현 요청) -->
+      <div class="hmy" id="home_my"></div>
       <!-- 공지사항 + 일정표 -->
       <div class="hg">
         <div class="hc">
@@ -5539,7 +5560,7 @@ function login(){
     try{ if(_susEnforce()) return; }catch(e){}
     // Firebase 로드 완료 후 명예의전당 확실히 렌더링
     setTimeout(function(){
-      [rRankAmt,rRankCnt,rRankRookie,rNotices,rAlerts,rMgrs,rSanRail].forEach(function(f){
+      [rRankAmt,rRankCnt,rRankRookie,rHomeMy,rNotices,rAlerts,rMgrs,rSanRail].forEach(function(f){
         try{ f(); }catch(e){ console.warn('홈 렌더 오류:', (f&&f.name)||'', e); }
       });
     }, 300);
@@ -10257,7 +10278,7 @@ function rCal(){
 // HOME
 function rHome(){
   // 각 렌더를 독립 보호 — 하나가 실패해도 나머지(공지·명예의전당 등)는 정상 표시
-  [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie,rMgrs].forEach(function(f){
+  [rCal,rNotices,rRankAmt,rRankCnt,rRankRookie,rHomeMy,rMgrs].forEach(function(f){
     try{ f(); }catch(e){ console.warn('rHome 렌더 오류:', (f&&f.name)||'', e); }
   });
   // 홈 배경(시즌 사진) — 설정 버튼은 관리자만, 배경은 전 사용자 적용
@@ -10989,6 +11010,47 @@ function _hofRow(i,name,main,sub,rk){
     +'<div class="hofav">'+_esc(String(name||'').charAt(0))+'</div><div class="hofn">'+_esc(name)+'</div><div class="hofv"><b>'+_esc(main)+'</b>'+(sub?'<span>'+_esc(sub)+'</span>':'')+'</div></div>';
 }
 function _hofYm(){ var q=_curYm().split('-'); document.querySelectorAll('[data-hofym]').forEach(function(e){ e.textContent=(+q[1])+'월 TOP 2'; }); }
+// 홈 '내 실적 · 우리 팀 실적' 칸 (v2026.11.20-5 백동현 요청) — 이번 달 기준, 팀 = 하부 전원(_wkmtTeam).
+// 하부가 없는 사람은 상위자(mem.belong / 관리자 소속)의 팀을 보여 줌. 목표(gls monthly)가 있으면 달성률 막대.
+function _hmyWon(n){ n=+n||0; if(n>=100000000) return (Math.round(n/10000000)/10)+'억원'; if(n>=10000) return Math.round(n/10000).toLocaleString()+'만원'; return n.toLocaleString()+'원'; }
+function _hmyLeaderOf(n){
+  var m=(Array.isArray(mem)?mem:[]).find(function(x){ return x&&x.name===n; });
+  if(m&&m.belong) return m.belong;
+  var a=ADMINS.find(function(x){ return x&&x.name===n; });
+  return a?(_admBelongOf(a)||''):'';
+}
+function _hmyGoal(names){
+  var A=0,C=0,hit=0,agg=getAgg();
+  (gls||[]).forEach(function(x){ if(x&&x.type==='monthly'&&names.indexOf(x.m)>=0&&(+x.a||0)>0){ A+=(+x.a||0); C+=(+x.c||0); hit+=((agg[x.m]||{}).a||0); } });
+  return A>0?{a:A,c:C,hit:hit,p:Math.round(hit/A*100)}:null;
+}
+function _hmyGoalHtml(gl,lbl){
+  if(!gl) return '<div class="hmyg">'+lbl+' 월간 목표가 아직 없습니다</div>';
+  var w=Math.max(0,Math.min(100,gl.p));
+  return '<div class="hmyg">'+lbl+' 목표 '+_esc(_hmyWon(gl.a))+' 중 <em>'+gl.p+'%</em> 달성<div class="bar"><i style="width:'+w+'%"></i></div></div>';
+}
+function rHomeMy(){
+  var el=g('home_my'); if(!el) return;
+  if(!cu||!cu.name){ el.innerHTML=''; return; }
+  var me=cu.name, agg=getAgg(), mm=agg[me]||{c:0,a:0,ay:0};
+  var ym=_curYm().split('-'), mon=(+ym[1])+'월';
+  var team=_wkmtTeam(me), lead=me;
+  if(team.length<2){ var up=_hmyLeaderOf(me); if(up){ var t2=_wkmtTeam(up); if(t2.length>1){ team=t2; lead=up; } } }
+  var T={c:0,a:0,ay:0}, rk=[];
+  team.forEach(function(n){ var v=agg[n]; if(v){ T.c+=v.c; T.a+=v.a; T.ay+=v.ay; rk.push([n,v.a]); } });
+  rk.sort(function(x,y){ return y[1]-x[1]; });
+  var myRank=0; rk.forEach(function(r,i){ if(r[0]===me) myRank=i+1; });
+  var kv=function(l,v){ return '<div><span>'+l+'</span><b title="'+_alertEsc(v)+'">'+_esc(v)+'</b></div>'; };
+  var h='<div class="hmys hmy-a"><div class="hmyh"><span class="hmyt">내 실적</span><span class="hmyst">'+_esc(me)+' · '+mon+(myRank&&team.length>1?' · 팀 내 '+myRank+'위':'')+'</span></div>'
+    +'<div class="hmyk">'+kv('인정실적',_hmyWon(mm.a))+kv('건수',(mm.c||0)+'건')+kv('영수실적',_hmyWon(mm.ay))+'</div>'+_hmyGoalHtml(_hmyGoal([me]),'내')+'</div>';
+  if(team.length>1){
+    h+='<div class="hmys hmy-b"><div class="hmyh"><span class="hmyt">'+(lead===me?'우리 팀 실적':_esc(lead)+' 팀 실적')+'</span><span class="hmyst">'+team.length+'명 · '+mon+(rk.length?' · 1위 '+_esc(rk[0][0]):'')+'</span></div>'
+      +'<div class="hmyk">'+kv('인정실적',_hmyWon(T.a))+kv('건수',(T.c||0)+'건')+kv('영수실적',_hmyWon(T.ay))+'</div>'+_hmyGoalHtml(_hmyGoal(team),'팀')+'</div>';
+  } else {
+    h+='<div class="hmys hmy-b"><div class="hmyh"><span class="hmyt">우리 팀 실적</span></div><div class="hmyg">소속 팀 정보가 없습니다 (구성원 관리의 소속을 확인해 주세요)</div></div>';
+  }
+  el.innerHTML=h;
+}
 function _hofEmpty(t){ return '<div class="hofe">'+t+'</div>'; }
 function rRankAmt(){
   const el=g('rank_amount');
