@@ -238,6 +238,11 @@ table.dt tr:last-child td{border-bottom:none;}
 /* MODALS */
 .mb{position:fixed;inset:0;background:rgba(0,0,16,.76);z-index:100;display:none;align-items:center;justify-content:center;}
 .mb.open{display:flex;}
+#claim_form_ov{position:fixed;inset:0;z-index:95;pointer-events:none;overflow-y:auto;padding:28px 16px 40px;}
+#claim_form_ov:has(>#claim_form_wrap:not([style*="none"])){pointer-events:auto;background:rgba(0,0,16,.6);}
+#claim_form_ov>#claim_form_wrap{max-width:980px;margin:0 auto!important;}
+#claim_form_ov>#claim_form_wrap>.card{box-shadow:0 18px 60px rgba(0,0,0,.35);}
+body:has(#claim_form_ov>#claim_form_wrap:not([style*="none"])) #cb_btn{display:none!important}
 .mo{background:rgba(1,6,26,.99);border:1px solid rgba(45,65,190,.3);border-radius:14px;padding:24px;width:480px;max-width:95vw;max-height:88vh;overflow-y:auto;}
 .mth{font-size:18px;font-weight:700;color:#a8b0d8;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
 .mc{cursor:pointer;color:#383870;font-size:22px;}
@@ -1001,7 +1006,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.19-8</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-1</div>
   </div>
 </div>
 
@@ -2531,11 +2536,14 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <button class="bp bpd" id="btn_claim_toggle" onclick="toggleClaimForm()"><i class="ti ti-plus"></i> 신청</button>
       </div>
 
-      <!-- 인라인 신청 폼 -->
+      <!-- 신청 폼 — 모달 창(2026-11-20 박지순 요청). 바깥 #claim_form_ov는 늘 있는 투명 층이고 폼이 보일 때만 어두운 배경·클릭을 받음(CSS :has).
+           폼(claim_form_wrap)은 그 안에 그대로 두어 display 전환·offsetParent 보이기 판정 코드가 그대로 동작 -->
+      <div id="claim_form_ov">
       <div id="claim_form_wrap" style="display:none;margin-bottom:20px">
         <div class="card" style="border:1px solid rgba(72,88,204,.25)">
-          <div style="font-size:16px;font-weight:700;color:#4858cc;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(72,88,204,.1)">
+          <div style="font-size:16px;font-weight:700;color:#4858cc;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(72,88,204,.1);display:flex;align-items:center;justify-content:space-between">
             <span id="claim_form_title">청구신청</span>
+            <button type="button" onclick="cancelClaimForm()" title="닫기" style="border:0;background:transparent;color:#555;font-size:22px;line-height:1;cursor:pointer;padding:0 4px;font-family:inherit">✕</button>
           </div>
 
           <!-- 계약자 -->
@@ -2720,6 +2728,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
             <button class="bco" onclick="saveClaim()">저장</button>
           </div>
         </div>
+      </div>
       </div>
 
       <!-- 리스트 -->
@@ -37134,7 +37143,7 @@ function toggleClaimForm(){
     initClaimDays();
     wrap.style.display='block';
     var btn=g('btn_claim_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
-    wrap.scrollIntoView({behavior:'smooth',block:'start'});
+    var ov=g('claim_form_ov'); if(ov) ov.scrollTop=0;   // 모달 창 맨 위부터
     initClaimSign();
   } else {
     cancelClaimForm();
@@ -37776,7 +37785,7 @@ function editClaim(i){
   try{ wrap._docsWhoTwo=_claimSignTwo().two; _claimDocsWhoDraw(); }catch(e){}   // 미리 맞춰 두어 아래 한 번만 조회
   if(!c.idImg||!c.bankImg){ try{ var _dp=_claimDocsPerson(); _claimDocsPrefill(_dp.name, _dp.rrn, _dp.who); }catch(e){} }
   var btn=g('btn_claim_toggle');if(btn)btn.innerHTML='<i class="ti ti-x"></i> 닫기';
-  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+  var ov=g('claim_form_ov'); if(ov) ov.scrollTop=0;   // 모달 창 맨 위부터
   initClaimSign();
   // 손서명했던 건은 그 서명을 되살림(리뷰 반영 — 수정·저장하면 자동 글씨로 바뀌던 경로). 이 기기 메모리에 원본이 있을 때만
   try{
