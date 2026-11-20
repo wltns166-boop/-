@@ -1006,7 +1006,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-2</div>
   </div>
 </div>
 
@@ -23422,11 +23422,11 @@ function renderHiraGuide(){
       +del+'</div>'
     +'<div style="font-size:12px;color:#8890bb;text-align:center;margin-top:6px">좌우 버튼(키보드 ← →)으로 다음 사진 · 사진을 누르면 원본 크기로 크게 보기</div>';
 }
-// 묶음 사진 — 탭 사진들을 STEP 번호와 함께 격자로 합친 JPEG 한 장(Storage hira_guide/sheets/<탭>_<해시>.jpg).
+// 묶음 사진 — 탭 사진들을 STEP 번호와 함께 한 줄로 나란히 합친 JPEG 한 장(6장까지 한 줄, 7장 이상 두 줄)(Storage hira_guide/sheets/<탭>_<해시>.jpg).
 //   이름은 사진 목록의 해시라 같은 구성이면 이미 만든 파일을 다시 씀(보낼 때마다 새 파일이 쌓이지 않게). 반환 {u,w,h,n}
 async function _hiraSheet(k, list){
   if(typeof firebase==='undefined'||!firebase.storage) throw new Error('Storage 미연결');
-  var key='q2\n'+list.map(function(it){ return (+it.ts||0)+'|'+String(it.url); }).join('\n'), h=5381;   // q2=고화질 판
+  var key='q3\n'+list.map(function(it){ return (+it.ts||0)+'|'+String(it.url); }).join('\n'), h=5381;   // q2=고화질 판
   for(var i=0;i<key.length;i++){ h=((h*33)^key.charCodeAt(i))>>>0; }
   var name=(h.toString(36)+list.length.toString(36)).slice(0,16);
   var ref=firebase.storage().ref('hira_guide/sheets/'+k+'_'+name+'.jpg');
@@ -23439,10 +23439,10 @@ async function _hiraSheet(k, list){
     var res=await fetch(String(list[j].url)); if(!res.ok) throw new Error('사진 '+(j+1)+' 불러오기 실패('+res.status+')');
     imgs.push(await createImageBitmap(await res.blob()));
   }
-  var n=imgs.length, cols=n===1?1:(n<=4?2:3), gap=18, pad=28, top=86, lab=46;
+  var n=imgs.length, cols=n<=6?n:Math.ceil(n/2), gap=18, pad=28, top=86, lab=46;   // 한 줄로 나란히(2026-11-20 박지순 요청 — 7장 이상이면 두 줄)
   // 칸 폭 = 사진 원본 폭(가장 넓은 것, 최대 1080) — 줄여 넣으면 화면 글씨가 뭉개짐. 전체 폭은 카카오 카드 한도(4000) 안으로
   var W=Math.min(1080, Math.max.apply(null, imgs.map(function(im){ return im.width; })));
-  W=Math.max(360, Math.min(W, Math.floor((3900-pad*2-(cols-1)*gap)/cols))); var rows=[];
+  W=Math.max(240, Math.min(W, Math.floor((3900-pad*2-(cols-1)*gap)/cols))); var rows=[];
   for(var r0=0;r0<n;r0+=cols) rows.push(imgs.slice(r0,r0+cols));
   var calc=function(cw){ var tot=top+pad; rows.forEach(function(row){ var mh=0; row.forEach(function(im){ mh=Math.max(mh, im.height*cw/im.width); }); tot+=lab+mh+gap; }); return tot; };
   while(W>360&&calc(W)>11500) W-=40;   // 카카오 카드 이미지 세로 한도 안으로
