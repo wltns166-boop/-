@@ -1149,7 +1149,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-4</div>
   </div>
 </div>
 
@@ -6267,7 +6267,8 @@ function setAdmin(){
   });
   // TL 이상 전용 nav 항목 (계보도·시험신청·팀실적·요청관리·신입관리)
   var isLeader=_isLeader();
-  var leaderNavIds=['n_req_menu','n_new_menu','n_wkmt'];   // n_team_perf는 전원 표시(2026-11-05 — 팀원은 본인 실적만)
+  var leaderNavIds=['n_new_menu','n_wkmt'];   // n_req_menu는 전원 표시(v2026.11.23-4 박지순 — 팀원은 본인 신청만 보임)
+  var _nrq=g('n_req_menu'); if(_nrq) _nrq.style.display='';   // n_team_perf는 전원 표시(2026-11-05 — 팀원은 본인 실적만)
   var _ntp=g('n_team_perf'); if(_ntp) _ntp.style.display='';   // n_exam은 전원 표시(2026-09-22 — 팀원 본인 신청 열람)
   var _ne=g('n_exam'); if(_ne) _ne.style.display='';
   leaderNavIds.forEach(function(id){
@@ -10549,7 +10550,7 @@ function showPage(name){
   if(name==='hierarchy' && !_isTreeAdmin()){
     toast('계보도는 하부 인원이 있는 사람만 자기 계보를 볼 수 있습니다.'); return;
   }
-  if(['req_unified','join_prep','edu_prep','rkpol','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
+  if(['join_prep','edu_prep','rkpol','new_check','meeting','wkmt'].indexOf(name)>=0 && !_isLeader()){
     toast('예비팀장 이상만 접근할 수 있습니다.'); return;
   }
   if(name==='dreport' && !_isAdmin()){
@@ -19044,7 +19045,7 @@ function _rsPageAllowed(role,pg){
   // DB 관리 4종 — showPage가 아닌 사이드바 클릭 핸들러에서만 관리자 가드(고객 PII 페이지).
   // 팝업 바로가기는 showPage를 직접 호출해 그 가드를 우회하므로 여기서 반드시 차단(2026-09-10 intranet-guard 치명 지적)
   if((role==='mem'||role==='lead') && ['db_apply','db_assign','db_info'].indexOf(pg)>=0) return false;
-  if(role==='mem' && ['exam','req_unified','join_prep','edu_prep','rkpol','new_check','meeting','wkmt'].indexOf(pg)>=0) return false; // 팀장 이상
+  if(role==='mem' && ['exam','join_prep','edu_prep','rkpol','new_check','meeting','wkmt'].indexOf(pg)>=0) return false; // 팀장 이상 (요청관리는 v2026.11.23-4부터 전원)
   return true;
 }
 // 항목 해석 — 고정 카탈로그(REQSTAT_ITEMS) 또는 동적 바로가기 키 'pg:<페이지키>'
