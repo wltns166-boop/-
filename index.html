@@ -1149,7 +1149,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-5</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-6</div>
   </div>
 </div>
 
@@ -29158,6 +29158,8 @@ function _dbuWon(r){ return !!(r&&r.res!=='absent'&&(r.contract||r.res==='won'))
 function _dbuResLbl(v){ for(var i=0;i<DBU_RES.length;i++) if(DBU_RES[i][0]===v) return DBU_RES[i][1]; return ''; }
 function _dbuResBtns(attr,cur){ return DBU_RES.map(function(x){ return '<button type="button" class="dburb '+x[0]+(cur===x[0]?' on':'')+'" '+attr+'="'+x[0]+'">'+x[1]+'</button>'; }).join(' '); }
 function _dbuResCan(key){ return !!cu&&(key===_dbuKey()||DBU_RES_EDITORS.indexOf(cu.name)>=0); }
+// 다른 사람이 쓴 기록 전체 수정·삭제(2026-11-23 백동현 요청 — 백동현만). 본인 기록은 '내가 입력한 고객' 카드에서 각자 고침.
+function _dbuRowCan(key){ return !!cu&&DBU_RES_EDITORS.indexOf(cu.name)>=0&&!!key; }
 var DBU_MAX_ROWS=1500;   // 문서 1MiB 한도 안쪽(행당 수백 바이트)
 function _dbuKey(){ return _rsvKey(); }
 function _dbuMyName(){ return (cu&&cu.name)?String(cu.name):''; }
@@ -29204,6 +29206,7 @@ function _dbuInitForm(){
   var dt=g('dbu_date'); if(dt&&!dt.value) dt.value=td();
   var dl=g('dbu_list');
   if(dl) dl.addEventListener('click',function(e){
+    var eb=e.target.closest&&e.target.closest('[data-leid]'); if(eb){ dbuEditOpen(eb.getAttribute('data-lekey'),eb.getAttribute('data-leid')); return; }
     var b=e.target.closest&&e.target.closest('[data-lres]'); if(!b) return;
     var w=b.closest('[data-lkey]'); if(!w) return;
     var key=w.getAttribute('data-lkey'), id=w.getAttribute('data-lid'), v=b.getAttribute('data-lres');
@@ -29247,6 +29250,70 @@ function _dbuInitForm(){
     });
     m.addEventListener('focusout',function(){ setTimeout(_dbuRenderMine,0); });
   }
+}
+// ── 다른 사람 기록 수정 창 (2026-11-23 백동현 요청 — DBU_RES_EDITORS만) ──
+// 문서 주인·row id로 최신본을 다시 찾아 고침(_dbuMutate(fn, 주인 키) — 남의 문서는 이름·updated 유지, resBy 기록). 삭제도 같은 경로.
+function dbuEditOpen(key,id){
+  if(!_dbuRowCan(key)){ toast(DBU_RES_EDITORS.join('·')+'만 고칠 수 있습니다.'); return; }
+  var r=(window._dbuAllRows||[]).find(function(x){ return x.key===key&&x.id===id; });
+  if(!r){ toast('그 사이 삭제된 기록입니다.'); return; }
+  var old=g('dbu_edit_pop'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='dbu_edit_pop'; ov._key=key; ov._id=id;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,30,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var types=DBU_TYPES.slice(); if(types.indexOf(r.dbType)<0) types.push(r.dbType);
+  ov.innerHTML='<div style="background:#fff;color:#17202a;border-radius:12px;padding:18px 20px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:16px">기록 수정 · 담당 '+_esc(r.owner)+'</b><button type="button" class="bp bnv" data-dbe="close">닫기</button></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+    +'<label class="dbuf"><span class="dbulb">DB 종류</span><select class="dbui" data-dbef="dbType">'+types.map(function(t){ return '<option'+(t===r.dbType?' selected':'')+'>'+_esc(t)+'</option>'; }).join('')+'</select></label>'
+    +'<label class="dbuf"><span class="dbulb">고객명</span><input class="dbui" data-dbef="customer" maxlength="40" value="'+_alertEsc(r.customer)+'"></label>'
+    +'<label class="dbuf"><span class="dbulb">권역</span><select class="dbui" data-dbef="region">'+(DBU_REGIONS.indexOf(r.region)<0?DBU_REGIONS.concat([r.region]):DBU_REGIONS).map(function(t){ return '<option'+(t===r.region?' selected':'')+'>'+_esc(t)+'</option>'; }).join('')+'</select></label>'
+    +'<label class="dbuf"><span class="dbulb">배정일</span><input type="date" class="dbui" data-dbef="assigned" value="'+_alertEsc(r.assigned)+'"></label></div>'
+    +'<div class="dbuh" style="margin:14px 0 6px">진행 단계</div>'
+    +DBU_STAGES.map(function(s2){ return '<div class="dbustage" style="margin-bottom:6px"><label><input type="checkbox" data-dbes="'+s2[0]+'"'+(r[s2[0]]?' checked':'')+'> '+s2[1]+'</label><input class="dbui" data-dben="'+s2[0]+'" maxlength="120" placeholder="'+s2[1]+' 특이사항" value="'+_alertEsc(r.notes[s2[0]]||'')+'"></div>'; }).join('')
+    +'<div class="dbuh" style="margin:14px 0 6px">결과</div><div class="dbures" data-dberes="'+_alertEsc(r.res)+'">'+_dbuResBtns('data-dber',r.res)+'</div>'
+    +'<label class="dbuf" style="margin-top:12px"><span class="dbulb">비고</span><input class="dbui" data-dbef="remark" maxlength="120" value="'+_alertEsc(r.remark)+'"></label>'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px"><button type="button" class="bd bdr" data-dbe="del">삭제</button>'
+    +'<span style="display:flex;gap:8px"><button type="button" class="bp bnv" data-dbe="close">취소</button><button type="button" class="bp bnv" data-dbe="save">저장</button></span></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){
+    if(e.target===ov){ ov.remove(); return; }
+    var rb=e.target.closest&&e.target.closest('[data-dber]');
+    if(rb){ var box=rb.parentNode, v=rb.getAttribute('data-dber'), on=!rb.classList.contains('on');
+      box.querySelectorAll('[data-dber]').forEach(function(x){ x.classList.toggle('on',x===rb&&on); }); box.setAttribute('data-dberes',on?v:''); return; }
+    var b=e.target.closest&&e.target.closest('[data-dbe]'); if(!b) return;
+    var a=b.getAttribute('data-dbe');
+    if(a==='close'){ ov.remove(); return; }
+    if(a==='save') return _dbuEditSave(ov);
+    if(a==='del') return _dbuEditDel(ov,r.customer);
+  });
+}
+function _dbuEditSave(ov){
+  if(ov._busy) return; var key=ov._key, id=ov._id;
+  if(!_dbuRowCan(key)) return;
+  var f=function(k){ var el=ov.querySelector('[data-dbef="'+k+'"]'); return el?String(el.value||'').trim():''; };
+  var cust=_dbuStr(f('customer'),40), asg=f('assigned');
+  if(!cust){ toast('고객명을 입력하세요.'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(asg)){ toast('배정일을 입력하세요.'); return; }
+  var st={}, nt={}; DBU_STAGES.forEach(function(s2){ var c=ov.querySelector('[data-dbes="'+s2[0]+'"]'), n=ov.querySelector('[data-dben="'+s2[0]+'"]'); st[s2[0]]=!!(c&&c.checked); nt[s2[0]]=st[s2[0]]?_dbuStr(n&&n.value,120):''; });
+  var res=(ov.querySelector('[data-dberes]')||{getAttribute:function(){return '';}}).getAttribute('data-dberes')||'';
+  if(res==='won'&&!st.contract) res='';   // 계약 체크를 풀면 계약완료도 해제(리뷰 반영 — _dbuResApply가 계약을 되살리지 않게)
+  if(res==='absent'&&DBU_STAGES.some(function(s2){ return st[s2[0]]; })){ toast('부재와 진행 단계는 함께 고를 수 없습니다. 하나만 고르세요.'); return; }
+  ov._busy=1;
+  _dbuMutate(function(rows){ var hit=false; rows=rows.map(function(r){ if(r.id!==id) return r; hit=true; r=JSON.parse(JSON.stringify(r));
+      r.dbType=_dbuStr(f('dbType'),30)||r.dbType; r.customer=cust; r.region=f('region'); r.assigned=asg; r.remark=_dbuStr(f('remark'),120);
+      DBU_STAGES.forEach(function(s2){ r[s2[0]]=st[s2[0]]; }); r.notes=nt; return _dbuResApply(r,res); });
+    if(!hit){ var e=new Error('gone'); e.code='gone'; throw e; } return rows; }, key===_dbuKey()?null:key)
+    .then(function(){ toast('수정했습니다.'); ov.remove(); })
+    .catch(function(e){ ov._busy=0; _dbuErr(e); toast(e&&e.code==='gone'?'그 사이 삭제된 기록입니다.':'저장하지 못했습니다. 다시 시도하세요.'); });
+}
+function _dbuEditDel(ov,nm){
+  if(ov._busy) return; var key=ov._key, id=ov._id;
+  if(!_dbuRowCan(key)) return;
+  if(!confirm((nm?'"'+nm+'" ':'')+'기록을 삭제할까요? (담당자 화면에서도 사라집니다)')) return;
+  ov._busy=1;
+  _dbuMutate(function(rows){ return rows.filter(function(r){ return r&&r.id!==id; }); }, key===_dbuKey()?null:key)
+    .then(function(){ toast('삭제했습니다.'); ov.remove(); })
+    .catch(function(e){ ov._busy=0; _dbuErr(e); toast(e&&e.code==='gone'?'그 사이 삭제된 기록입니다.':'삭제하지 못했습니다.'); });
 }
 function _dbuFormResDraw(){ var f=g('dbu_resf'); if(!f) return; f.querySelectorAll('[data-fres]').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-fres')===window._dbuFormRes); }); }
 function _dbuFormStage(k){
@@ -29389,9 +29456,9 @@ function _dbuMatrixHtml(rows){
 function _dbuListHtml(rows){
   if(!rows.length) return '<div class="dbuempty">아직 입력된 고객이 없습니다.</div>';
   function cell(r,k){ return r[k]?'<span class="dbuchk">✓</span>'+(r.notes[k]?'<span class="dbusn">'+_esc(r.notes[k])+'</span>':''):'<span class="dbudash">–</span>'; }
-  return '<table class="dbutb"><thead><tr><th>배정일</th><th>담당자</th><th>고객명</th><th>DB</th><th>권역</th>'+DBU_STAGES.map(function(s){ return '<th class="c">'+s[1]+'</th>'; }).join('')+'<th class="c">결과</th><th>비고</th></tr></thead><tbody>'
+  return '<table class="dbutb"><thead><tr><th>배정일</th><th>담당자</th><th>고객명</th><th>DB</th><th>권역</th>'+DBU_STAGES.map(function(s){ return '<th class="c">'+s[1]+'</th>'; }).join('')+'<th class="c">결과</th><th>비고</th>'+(_dbuRowCan('x')?'<th class="c">관리</th>':'')+'</tr></thead><tbody>'
     +rows.map(function(r){ return '<tr><td style="white-space:nowrap">'+_esc(r.assigned)+'</td><td>'+_esc(r.owner)+'</td><td>'+_esc(r.customer)+'</td><td>'+_esc(r.dbType)+'</td><td>'+_esc(r.region)+'</td>'
-      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td class="c" style="white-space:nowrap">'+(_dbuResCan(r.key)?'<span data-lkey="'+_esc(r.key)+'" data-lid="'+_esc(r.id)+'">'+_dbuResBtns('data-lres',r.res)+'</span>':(r.res?'<span class="dburtag '+r.res+'">'+_dbuResLbl(r.res)+'</span>':'<span class="dbudash">–</span>'))+'</td><td>'+_esc(r.remark)+'</td></tr>'; }).join('')+'</tbody></table>';
+      +DBU_STAGES.map(function(s){ return '<td class="c">'+cell(r,s[0])+'</td>'; }).join('')+'<td class="c" style="white-space:nowrap">'+(_dbuResCan(r.key)?'<span data-lkey="'+_esc(r.key)+'" data-lid="'+_esc(r.id)+'">'+_dbuResBtns('data-lres',r.res)+'</span>':(r.res?'<span class="dburtag '+r.res+'">'+_dbuResLbl(r.res)+'</span>':'<span class="dbudash">–</span>'))+'</td><td>'+_esc(r.remark)+'</td>'+(_dbuRowCan(r.key)?'<td class="c"><button type="button" class="bp bnv" style="padding:3px 10px;font-size:12px" data-lekey="'+_esc(r.key)+'" data-leid="'+_esc(r.id)+'">수정</button></td>':'')+'</tr>'; }).join('')+'</tbody></table>';
 }
 function _dbuKeepSel(sel,first,opts){
   if(!sel) return; var cur=sel.value;
@@ -31806,7 +31873,7 @@ function dbqXlsx(){ if(!_dbqAdmin()) return; var st=window._dbqSt, cfg=st.cfg; i
   Object.keys(ws2).forEach(function(k){ if(/^[A-Z]+1$/.test(k)) ws2[k].s=H; });
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'VISION본부'); XLSX.utils.book_append_sheet(wb,ws2,'신청자별');
   XLSX.writeFile(wb,Y+'년 '+M+'월 DB신청수량.xlsx'); }
-function _dbuClear(){
+function _dbuClear(){ var _dep=g("dbu_edit_pop"); if(_dep) _dep.remove();
   _dbuUnsubscribe();
   window._dbuDocs=null; window._dbuLoaded=false; window._dbuRows=null; window._dbuAllRows=null;
   if(window._dbuChart){ try{ window._dbuChart.destroy(); }catch(e){} window._dbuChart=null; }
