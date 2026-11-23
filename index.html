@@ -10462,6 +10462,7 @@ function dqPrint(){
 function showPage(name){
   window._mfSelMap={};   // 목록 월별 보기 — 화면을 열 때마다 이번 달부터(v2026.11.04-10)
   try{ if(typeof _wkmtPrevClose==='function') _wkmtPrevClose(); }catch(_){}
+  try{ if(name!=='dbq'&&window._dbqSt&&window._dbqSt.unsub){ _dbqUnsub(); window._dbqSt.seq++; var _dqa=g('dbq_all'); if(_dqa) _dqa.innerHTML=''; } }catch(_){}   // DB신청 — 화면을 떠나면 구독 해제·전원 신청표 비움(다시 열면 rDbq가 다시 구독)
   // 팀 미팅 페이지를 떠나거나 다시 그리기 전, 미저장 특이사항·주차 피드백 보호(드롭다운 이동과 동일한 확인창)
   try{
     var _mpg=g('pg_meeting');
@@ -31628,7 +31629,7 @@ function dbqCancel(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg
   if(!_dbqOpen(cfg)){ toast('마감되어 취소할 수 없습니다'); return; }
   if(!confirm(_dbqYmLbl(cfg.ym)+' DB 신청을 취소할까요?')) return;
   _dbqBusy=true; db.collection('dbreq').doc(_dbqMyId(cfg.ym)).delete().then(function(){ _dbqBusy=false; toast('신청을 취소했습니다'); }).catch(function(e){ _dbqBusy=false; toast('취소하지 못했습니다: '+(e&&e.message||e)); }); }
-function dbqPay(id){ var db=_abDb(), st=window._dbqSt; if(!db||!/^[\w\-가-힣]+$/.test(String(id||''))) return;
+function dbqPay(id){ var db=_abDb(), st=window._dbqSt; if(!db||!id) return;
   var r=null; st.reqs.forEach(function(x){ if(x.id===id) r=x; }); if(!r) return;
   if(!(_dbqAdmin()||id===_dbqMyId(st.ym))){ toast('본인 신청만 바꿀 수 있습니다'); return; }
   if(r.paid&&!confirm((id===_dbqMyId(st.ym)?'':r.nm+'님의 ')+'입금완료 표시를 취소할까요?')) return;
