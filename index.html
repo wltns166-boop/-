@@ -1124,7 +1124,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-2</div>
   </div>
 </div>
 
@@ -31571,29 +31571,31 @@ function _dbqCfgOf(ym){ var m=window._dbqSt.months; for(var i=0;i<m.length;i++) 
 function _dbqSubReqs(){ var st=window._dbqSt, db=_abDb(); _dbqUnsub(); st.cfg=_dbqCfgOf(st.ym); st.reqs=[]; st.loaded=false;
   if(!st.ym||!db){ st.loaded=true; _dbqDraw(); return; }
   var ym=st.ym, seq=st.seq;
-  st.unsub=db.collection('dbreq').where('ym','==',ym).onSnapshot(function(qs){ if(seq!==window._dbqSt.seq||window._dbqSt.ym!==ym) return;
-    var a=[]; qs.forEach(function(d){ a.push(_dbqReqClean(d.data(),d.id)); }); a.sort(function(x,y){ return (x.ts||0)-(y.ts||0); });
+  // 전원 신청은 관리자만 받음(2026-11-23 백동현 요청 "전체 신청수량은 나만") — 지점원은 내 문서 하나만 구독
+  var src=_dbqAdmin()?db.collection('dbreq').where('ym','==',ym):db.collection('dbreq').doc(_dbqMyId(ym));
+  st.unsub=src.onSnapshot(function(qs){ if(seq!==window._dbqSt.seq||window._dbqSt.ym!==ym) return;
+    var a=[]; if(qs&&typeof qs.forEach==='function') qs.forEach(function(d){ a.push(_dbqReqClean(d.data(),d.id)); }); else if(qs&&qs.exists) a.push(_dbqReqClean(qs.data(),qs.id)); a.sort(function(x,y){ return (x.ts||0)-(y.ts||0); });
     st.reqs=a; st.loaded=true; _dbqDraw(); },
   function(e){ st.loaded=true; var b=g('dbq_mine'); if(b) b.innerHTML='<div class="dbuempty">신청 내역을 불러오지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; });
   _dbqDraw(); }
 // 남은 수량 = 한도 − 다른 사람 신청 합(내 신청 제외)
-function _dbqUsed(itemId,exceptId){ var t=0; window._dbqSt.reqs.forEach(function(r){ if(r.id!==exceptId) t+=(r.lines[itemId]||0); }); return t; }
+function _dbqUsed(itemId,exceptId,list){ var t=0; (list||window._dbqSt.reqs).forEach(function(r){ if(r.id!==exceptId) t+=(r.lines[itemId]||0); }); return t; }
 function _dbqDraw(){ var st=window._dbqSt, box=g('dbq_mine'); if(!box) return;
   var cfg=st.cfg;
   if(!cfg){ box.innerHTML='<div class="dbuempty">아직 신청을 받는 달이 없습니다.'+(_dbqAdmin()?' 오른쪽 위 [설정]에서 달·업체·마감일을 정해 주세요.':'')+'</div>'; _dbqAllDraw(); return; }
   if(!st.loaded){ box.innerHTML='<div class="dbuempty">불러오는 중…</div>'; return; }
-  var open=_dbqOpen(cfg), myId=_dbqMyId(cfg.ym), mine=null; st.reqs.forEach(function(r){ if(r.id===myId) mine=r; });
+  var open=_dbqOpen(cfg), adm=_dbqAdmin(), myId=_dbqMyId(cfg.ym), mine=null; st.reqs.forEach(function(r){ if(r.id===myId) mine=r; });
   var lines=mine?mine.lines:{};
   var stt=!cfg.until?'<span class="dbqst no">마감일 미정</span>':open?'<span class="dbqst op">접수 중 · '+_dbqDateLbl(cfg.until)+'까지</span>':'<span class="dbqst cl">마감 ('+_dbqDateLbl(cfg.until)+' 마감)</span>';
   var h='<div class="dburow" style="margin-bottom:10px"><div class="dbuh">'+_dbqYmLbl(cfg.ym)+' DB 신청</div><div>'+stt+'</div></div>';
-  h+='<table class="dbqtb" data-mkeep><thead><tr><th>업체</th><th>단가</th><th>남은 수량</th><th>신청 수량</th><th>금액</th></tr></thead><tbody>';
+  h+='<table class="dbqtb" data-mkeep><thead><tr><th>업체</th><th>단가</th>'+(adm?'<th>남은 수량</th>':'')+'<th>신청 수량</th><th>금액</th></tr></thead><tbody>';
   DBQ_RG.forEach(function(rg){ var its=cfg.items.filter(function(it){ return it.rg===rg; }); if(!its.length) return;
-    h+='<tr class="rg"><td colspan="5">'+rg+'</td></tr>';
+    h+='<tr class="rg"><td colspan="'+(adm?5:4)+'">'+rg+'</td></tr>';
     its.forEach(function(it){ var q=lines[it.id]||0, left=it.qty?Math.max(0,it.qty-_dbqUsed(it.id,myId)):null;
-      h+='<tr><td class="l" style="padding-left:18px"><b>'+_esc(it.nm)+'</b></td><td>'+_dbqPriceLbl(it.price)+'</td><td>'+(left===null?'<span style="color:#8a95a1">제한 없음</span>':left+'건')+'</td>'
+      h+='<tr><td class="l" style="padding-left:18px"><b>'+_esc(it.nm)+'</b></td><td>'+_dbqPriceLbl(it.price)+'</td>'+(adm?'<td>'+(left===null?'<span style="color:#8a95a1">제한 없음</span>':left+'건')+'</td>':'')
         +'<td>'+(open?'<input type="number" min="0" step="1" data-dbqit="'+it.id+'" value="'+(q||'')+'" placeholder="0" oninput="_dbqCalc()">':(q?q+'건':'-'))+'</td><td data-dbqamt="'+it.id+'">'+(q?_dbqWon(q*it.price):'-')+'</td></tr>'; });
   });
-  h+='</tbody><tfoot><tr><td colspan="3" class="l">합계</td><td id="dbq_tcnt">'+_dbqCnt(lines,cfg)+'건</td><td id="dbq_tamt">'+_dbqWon(_dbqAmt(lines,cfg))+'</td></tr></tfoot></table>';
+  h+='</tbody><tfoot><tr><td colspan="'+(adm?3:2)+'" class="l">합계</td><td id="dbq_tcnt">'+_dbqCnt(lines,cfg)+'건</td><td id="dbq_tamt">'+_dbqWon(_dbqAmt(lines,cfg))+'</td></tr></tfoot></table>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">';
   if(open) h+='<button class="bp bnv" onclick="dbqSave()">'+(mine?'수정 저장':'신청하기')+'</button>'+(mine?'<button class="bd bdr" onclick="dbqCancel()">신청 취소</button>':'');
   if(mine){ h+='<span style="font-size:13.5px;color:#4a5266">신청 '+_dbqTime(mine.ut||mine.ts)+'</span>';
@@ -31614,15 +31616,17 @@ function dbqSave(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg||
   _dbqBusy=true;
   db.collection('dbreqm').doc(cfg.ym).get().then(function(md){ var fresh=_dbqCfgClean(md.exists?md.data():{}); fresh.ym=cfg.ym;
     if(!_dbqOpen(fresh)) throw new Error('신청이 마감되었습니다');
-    var bad=[]; fresh.items.forEach(function(it){ if(it.qty&&lines[it.id]&&lines[it.id]>Math.max(0,it.qty-_dbqUsed(it.id,id))) bad.push(it.rg+' '+it.nm); });
+    var need=fresh.items.some(function(it){ return it.qty&&lines[it.id]; });
+    return (need?db.collection('dbreq').where('ym','==',cfg.ym).get():Promise.resolve(null)).then(function(qs){ var all=[]; if(qs) qs.forEach(function(d){ all.push(_dbqReqClean(d.data(),d.id)); });
+    var bad=[]; fresh.items.forEach(function(it){ if(it.qty&&lines[it.id]&&lines[it.id]>Math.max(0,it.qty-_dbqUsed(it.id,id,all))) bad.push(it.rg+' '+it.nm); });
     Object.keys(lines).forEach(function(k){ if(!fresh.items.some(function(it){ return it.id===k; })) delete lines[k]; });
-    if(bad.length) throw new Error('남은 수량보다 많이 신청했습니다: '+bad.join(', '));
+    if(bad.length) throw new Error('신청 가능 수량을 넘었습니다(마감됐거나 남은 수량 부족): '+bad.join(', ')+' — 수량을 줄여 다시 신청해 주세요');
     if(!Object.keys(lines).length) throw new Error('신청 수량을 입력해 주세요');
     var ref=db.collection('dbreq').doc(id);
     return db.runTransaction(function(tx){ return tx.get(ref).then(function(d){ var old=d.exists?d.data():null, now=Date.now();
       var same=!!old&&JSON.stringify(_dbqReqClean(old,id).lines)===JSON.stringify(_dbqReqClean({lines:lines},id).lines);
       var o={ym:cfg.ym,k:_rsvKey(),nm:cu.name,lines:lines,ts:(old&&old.ts)||now,ut:now,paid:(same&&old.paid)||null};   // 수량이 바뀌면 금액이 달라지므로 입금완료 표시를 풀고 다시 누르게(리뷰 반영)
-      tx.set(ref,o); window._dbqPaidReset=!!(old&&old.paid&&!same); return !old; }); });
+      tx.set(ref,o); window._dbqPaidReset=!!(old&&old.paid&&!same); return !old; }); }); });
   }).then(function(isNew){ _dbqBusy=false; toast(isNew?'신청되었습니다':(window._dbqPaidReset?'수정 저장되었습니다 — 금액이 바뀌어 입금완료 표시를 풀었습니다. 차액 입금 뒤 다시 눌러 주세요':'수정 저장되었습니다'));
     if(isNew){ try{ if(!_dbqAdmin()) DBQ_ADMINS.forEach(function(n){ pushAlert(null,'DB신청',cu.name+'님이 '+_dbqYmLbl(cfg.ym)+' DB를 신청했습니다',{toName:n}); }); }catch(e){} }
   }).catch(function(e){ _dbqBusy=false; toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
