@@ -1124,7 +1124,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.20-12</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-1</div>
   </div>
 </div>
 
@@ -31620,15 +31620,17 @@ function dbqSave(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg||
     if(!Object.keys(lines).length) throw new Error('신청 수량을 입력해 주세요');
     var ref=db.collection('dbreq').doc(id);
     return db.runTransaction(function(tx){ return tx.get(ref).then(function(d){ var old=d.exists?d.data():null, now=Date.now();
-      var o={ym:cfg.ym,k:_rsvKey(),nm:cu.name,lines:lines,ts:(old&&old.ts)||now,ut:now,paid:(old&&old.paid)||null};
-      tx.set(ref,o); return !old; }); });
-  }).then(function(isNew){ _dbqBusy=false; toast(isNew?'신청되었습니다':'수정 저장되었습니다');
+      var same=!!old&&JSON.stringify(_dbqReqClean(old,id).lines)===JSON.stringify(_dbqReqClean({lines:lines},id).lines);
+      var o={ym:cfg.ym,k:_rsvKey(),nm:cu.name,lines:lines,ts:(old&&old.ts)||now,ut:now,paid:(same&&old.paid)||null};   // 수량이 바뀌면 금액이 달라지므로 입금완료 표시를 풀고 다시 누르게(리뷰 반영)
+      tx.set(ref,o); window._dbqPaidReset=!!(old&&old.paid&&!same); return !old; }); });
+  }).then(function(isNew){ _dbqBusy=false; toast(isNew?'신청되었습니다':(window._dbqPaidReset?'수정 저장되었습니다 — 금액이 바뀌어 입금완료 표시를 풀었습니다. 차액 입금 뒤 다시 눌러 주세요':'수정 저장되었습니다'));
     if(isNew){ try{ if(!_dbqAdmin()) DBQ_ADMINS.forEach(function(n){ pushAlert(null,'DB신청',cu.name+'님이 '+_dbqYmLbl(cfg.ym)+' DB를 신청했습니다',{toName:n}); }); }catch(e){} }
   }).catch(function(e){ _dbqBusy=false; toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
 function dbqCancel(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg||_dbqBusy) return;
   if(!_dbqOpen(cfg)){ toast('마감되어 취소할 수 없습니다'); return; }
-  if(!confirm(_dbqYmLbl(cfg.ym)+' DB 신청을 취소할까요?')) return;
-  _dbqBusy=true; db.collection('dbreq').doc(_dbqMyId(cfg.ym)).delete().then(function(){ _dbqBusy=false; toast('신청을 취소했습니다'); }).catch(function(e){ _dbqBusy=false; toast('취소하지 못했습니다: '+(e&&e.message||e)); }); }
+  var me=null, myId=_dbqMyId(cfg.ym); st.reqs.forEach(function(r){ if(r.id===myId) me=r; });
+  if(!confirm(_dbqYmLbl(cfg.ym)+' DB 신청을 취소할까요?'+(me&&me.paid?'\n(입금완료로 표시된 신청입니다 — 환불은 지점장님께 따로 말씀해 주세요)':''))) return;
+  _dbqBusy=true; db.collection('dbreqm').doc(cfg.ym).get().then(function(md){ var f=_dbqCfgClean(md.exists?md.data():{}); if(!_dbqOpen(f)) throw new Error('신청이 마감되었습니다'); return db.collection('dbreq').doc(myId).delete(); }).then(function(){ _dbqBusy=false; toast('신청을 취소했습니다'); }).catch(function(e){ _dbqBusy=false; toast('취소하지 못했습니다: '+(e&&e.message||e)); }); }
 function dbqPay(id){ var db=_abDb(), st=window._dbqSt; if(!db||!id) return;
   var r=null; st.reqs.forEach(function(x){ if(x.id===id) r=x; }); if(!r) return;
   if(!(_dbqAdmin()||id===_dbqMyId(st.ym))){ toast('본인 신청만 바꿀 수 있습니다'); return; }
@@ -31668,6 +31670,8 @@ function dbqCfgOpen(){ if(!_dbqAdmin()){ toast('설정은 담당 관리자만 �
     +'<div class="dbunote" style="margin-top:8px">업체를 지우거나 이름을 바꾸면 이미 들어온 신청의 그 줄도 함께 사라지거나 바뀝니다. 금액은 1건당 만원 단위(예: 6.5).</div>'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="bp bnv" data-dbqc="save">저장</button></div></div>';
   document.body.appendChild(ov); ov._items=items; _dbqCfgRows(ov);
+  ov.querySelector('#dbq_c_ym').addEventListener('change',function(){ var m=_dbqCfgOf(this.value);   // 이미 있는 달이면 그 달 설정을 불러옴(업체 id 유지 — 들어온 신청이 끊기지 않게, 리뷰 반영)
+    if(m){ ov._items=m.items.map(function(x){ return Object.assign({},x); }); g('dbq_c_until').value=m.until||''; _dbqCfgRows(ov); toast(_dbqYmLbl(m.ym)+' 설정을 불러왔습니다'); } });
   ov.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-dbqc]'); if(!b){ if(e.target===ov&&confirm('저장하지 않고 닫을까요?')) ov.remove(); return; }
     var act=b.getAttribute('data-dbqc'), rid=b.getAttribute('data-rid'); _dbqCfgCollect(ov);
     var arr=ov._items, i=arr.findIndex(function(x){ return x.id===rid; });
@@ -31696,6 +31700,8 @@ function _dbqCfgSave(ov){ var db=_abDb(); if(!db||!_dbqAdmin()) return; _dbqCfgC
   if(!c.items.length){ toast('업체를 하나 이상 넣어 주세요'); return; }
   var dup={}, bad=''; c.items.forEach(function(it){ var k=it.rg+'|'+it.nm; if(dup[k]) bad=it.rg+' '+it.nm; dup[k]=1; if(!(it.price>0)&&!bad) bad=it.rg+' '+it.nm+' 금액'; });
   if(bad){ toast('확인해 주세요: '+bad+(bad.indexOf('금액')>=0?'이 비어 있습니다':' — 같은 권역에 같은 업체가 두 번 있습니다')); return; }
+  var ex=_dbqCfgOf(ym); if(ex){ var gone=ex.items.filter(function(o){ return !c.items.some(function(n){ return n.id===o.id; }); }); var used=gone.filter(function(o){ return window._dbqSt.ym===ym&&_dbqUsed(o.id,'')>0; });
+    if(used.length&&!confirm('이미 신청이 들어온 업체를 지웠습니다: '+used.map(function(o){ return o.rg+' '+o.nm; }).join(', ')+'\n그 신청 수량은 표와 양식에서 빠집니다. 저장할까요?')) return; }
   db.collection('dbreqm').doc(ym).set({ym:ym,until:until,items:c.items,ts:Date.now(),by:cu.name}).then(function(){ toast(_dbqYmLbl(ym)+' 설정을 저장했습니다'); ov.remove(); window._dbqSt.ym=ym; rDbq(); })
     .catch(function(e){ toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
 // 신청 양식(VISION본부 시트) 자동 기입 — 탑스지점 줄에 권역·업체별 합계, 직할·white지점 줄은 빈칸(기존 양식 그대로), 둘째 시트는 신청자별 내역
