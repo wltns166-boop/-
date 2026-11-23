@@ -1149,7 +1149,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-4</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-5</div>
   </div>
 </div>
 
@@ -5473,7 +5473,7 @@ function _mktLabel(root){
       if(t.tHead&&t.tHead.rows.length) hr=t.tHead.rows[t.tHead.rows.length-1];
       else if(t.rows.length>1){ var r0=t.rows[0]; if(r0.cells.length>1&&[].every.call(r0.cells,function(c){return c.tagName==='TH';})){ hr=r0; r0.classList.add('mkh'); } }   // 머리글 줄은 옮기지 않고 숨김만(기존 tbody 기준 코드 보호)
       if(!hr||hr.cells.length<2) return;
-      var names=[]; [].forEach.call(hr.cells,function(c){ var n=(c.textContent||'').replace(/\s+/g,' ').trim().slice(0,16); var span=c.colSpan||1; for(var k=0;k<span;k++) names.push(n); });
+      var names=[]; [].forEach.call(hr.cells,function(c){ if(c.style.display==='none'||c.hidden) return;   /* 숨긴 머리글(예: 고객 목록 담당자 열 — 총무 외엔 줄에도 칸이 없음)은 건너뜀 — 세면 칸 이름이 한 칸씩 밀림 */ var n=(c.textContent||'').replace(/\s+/g,' ').trim().slice(0,16); var span=c.colSpan||1; for(var k=0;k<span;k++) names.push(n); });
       t.classList.add('mkt');
       [].forEach.call(t.tBodies,function(tb){ [].forEach.call(tb.rows,function(tr){
         if(tr===hr) return;
