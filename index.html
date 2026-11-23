@@ -861,6 +861,25 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .dbuchk{color:#1a7f4b;font-weight:800}.dbudash{color:#9aa5b1}
 .dbusn{display:block;font-size:12px;color:#5d6b78;max-width:180px;white-space:normal}
 .dbuempty{color:#8a95a1;padding:20px 0;text-align:center}
+.dbqwarn{background:#fdecee;border:1.5px solid #e9a3ad;color:#b3122d;font-weight:800;font-size:15px;border-radius:10px;padding:10px 14px;margin-bottom:10px}
+.dbqbank{background:#fff8e1;border:1.5px solid #f0d27a;color:#4a3b00;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14.5px}
+.dbqcp{cursor:pointer;color:#1f2a5c;font-size:16px;margin-left:6px;text-decoration:underline dotted}
+.dbqst{display:inline-block;border-radius:99px;padding:4px 12px;font-weight:800;font-size:13px}
+.dbqst.op{background:#e6f5ec;color:#1d7a43}.dbqst.cl{background:#fdecee;color:#b3122d}.dbqst.no{background:#eef0f5;color:#5a6378}
+.dbqtb{width:100%;border-collapse:collapse;font-size:14px;color:#1a1a3a}
+.dbqtb th{background:#1f2a5c;color:#fff;padding:7px 8px;font-weight:700;white-space:nowrap}
+.dbqtb td{border-bottom:1px solid #e6e9f2;padding:6px 8px;text-align:center}
+.dbqtb td.l{text-align:left;white-space:nowrap}.dbqtb tr.rg td{background:#eef2fb;font-weight:800;color:#1f2a5c;text-align:left}
+.dbqtb tfoot td{background:#f5f7fd;font-weight:800;border-top:2px solid #c9d1e6}
+.dbqtb input[type=number]{width:76px;padding:5px 6px;border:1px solid #ccd2e6;border-radius:6px;text-align:center;font-size:14px;color:#1a1a3a;background:#fff}
+.dbqpay{border:none;border-radius:99px;padding:5px 12px;font-weight:800;font-size:13px;cursor:pointer}
+.dbqpay.y{background:#1d7a43;color:#fff}.dbqpay.n{background:#fdecee;color:#b3122d}
+.dbqsum{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+.dbqsum div{background:#f5f7fd;border:1px solid #e1e6f5;border-radius:10px;padding:8px 14px;font-size:13px;color:#5a6378}
+.dbqsum b{display:block;font-size:18px;color:#1f2a5c}
+#dbq_cfg_pop{position:fixed;inset:0;background:rgba(10,15,40,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 10px}
+#dbq_cfg_pop .dbqbox{background:#fff;color:#1a1a3a;border-radius:14px;max-width:780px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+#dbq_cfg_pop input,#dbq_cfg_pop select{padding:6px 8px;border:1px solid #ccd2e6;border-radius:6px;font-size:14px;color:#1a1a3a;background:#fff;font-family:inherit}
 .dbudel{border:none;background:none;color:#8a95a1;padding:2px 6px;cursor:pointer;font-family:inherit;font-size:13px}.dbudel:hover{color:#c2410c}
 #dbu_report{position:fixed;left:-10000px;top:0;width:1123px;padding:32px;background:#fff;color:#17202a;box-sizing:border-box}
 #dbu_report h1{font-size:24px;margin:0 0 4px}#dbu_report .dbuh{margin-top:22px}
@@ -1233,6 +1252,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       <div class="ns"><div class="ni" id="n_db_exchange">교환신청</div></div>
       <div class="ns"><div class="ni" id="n_dbuse">DB사용량</div></div>
       <div class="ns"><div class="ni" id="n_dbrec">DB추천시스템</div></div>
+      <div class="ns"><div class="ni" id="n_dbq">DB신청</div></div>
     </div>
 
     <div class="ni" id="n_ab_menu"><i class="ti ti-arrows-exchange"></i>부재디비교환<i class="ti ti-chevron-down nc" id="nc_ab"></i></div>
@@ -1612,6 +1632,17 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <button class="bp" onclick="_jvLoad(true).then(_jvDraw)"><i class="ti ti-refresh"></i> 새로고침</button></div></div>
       <div class="abnote">매달 올린 비교 자료를 월별로 보관합니다. <b>종신</b>은 환급률 순위(전월 대비 순위 변화), <b>변액</b>은 펀드 수익률 순위와 달마다 쌓이는 추세, <b>저축성</b>은 공시이율 순위를 보여 줍니다. <b style="color:#c03030">사내 교육·설계사 참고용 자료입니다 — 고객에게 보여 주거나 SNS·외부에 올리지 마세요.</b></div>
       <div id="jv_body"></div>
+    </div>
+    <div class="pg" id="pg_dbq">
+      <div class="sh"><div class="st"><i class="ti ti-shopping-cart"></i>DB신청</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><select id="dbq_ym" class="dbusel" onchange="dbqYm(this.value)"></select>
+        <button class="bp bnv" id="dbq_cfgbtn" onclick="dbqCfgOpen()" style="display:none"><i class="ti ti-settings"></i> 설정</button>
+        <button class="bp bnv" id="dbq_xlsbtn" onclick="dbqXlsx()" style="display:none"><i class="ti ti-file-spreadsheet"></i> 신청 양식 받기</button>
+        <button class="bp bnv" onclick="rDbq()"><i class="ti ti-refresh"></i> 새로고침</button></div></div>
+      <div class="dbqwarn">인카DB는 각자 전산에서 신청바랍니다.</div>
+      <div class="dbqbank">DB사용료 납입 계좌 <b class="dbqcp" data-copy="3333-28-9238661" data-cplb="계좌번호" onclick="_csrCopyVal(this)" title="누르면 계좌번호 복사">카카오뱅크 3333-28-9238661 백동현</b> <span style="font-size:12.5px;color:#6a7286">(누르면 계좌번호 복사)</span></div>
+      <div class="card"><div id="dbq_mine"></div></div>
+      <div class="card" id="dbq_admcard" style="display:none"><div id="dbq_all"></div></div>
     </div>
     <div class="pg" id="pg_dbrec">
       <div class="sh"><div class="st"><i class="ti ti-target-arrow"></i>DB추천시스템</div>
@@ -5775,6 +5806,7 @@ function logout(){
   try{ if(typeof _fcClear==='function') _fcClear(); }catch(e){}   // 금융계산기모음 — 고객 자산·대출 입력 비움
   try{ if(typeof _cpClear==='function') _cpClear(); }catch(e){}   // 카드납관리 — 구독 해제·카드번호 화면 잔존 차단
   try{ if(typeof _carClear==='function') _carClear(); }catch(e){}   // 자동차보험관리 — 구독 해제·화면 비움
+  try{ if(typeof _dbqClear==='function') _dbqClear(); }catch(e){}   // DB신청 — 구독 해제·신청 내역 화면 잔존 차단
   try{ if(typeof _dbuClear==='function') _dbuClear(); }catch(e){}   // DB사용량 — 구독 해제·고객명 화면 잔존 차단    // 부재디비 — 같은 이유
   try{ if(typeof _bndClear==='function') _bndClear(); }catch(e){}   // 증권바인더 — 입력값·미리보기 비움(고객 가입금액 잔존 차단)
   try{ if(typeof _fpClear==='function') _fpClear(); }catch(e){}   // 재무상담 포토폴리오 — 버퍼뿐 아니라 입력칸·미리보기 DOM까지 초기화(고객 소득·자산 잔존 차단, v-2 리뷰)
@@ -6587,6 +6619,7 @@ g('n_ab_rereg').addEventListener('click',function(){showPage('ab_rereg');});   /
 g('n_ab_stat').addEventListener('click',function(){showPage('ab_stat');});
 g('n_dbuse').addEventListener('click',function(){showPage('dbuse');});
 g('n_dbrec').addEventListener('click',function(){showPage('dbrec');});
+g('n_dbq').addEventListener('click',function(){showPage('dbq');});
 g('n_jv').addEventListener('click',function(){showPage('jv');});
 g('n_claim_menu').addEventListener('click',function(){tnav('claim');});
 g('n_claim_apply').addEventListener('click',function(){showPage('claim_apply');});
@@ -6636,7 +6669,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',ilbae:'일상배상 경위서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
-  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄',bcover:'바인더용 증권표지',ccover:'컨설팅 제안서 표지'};
+  ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',dbq:'DB신청',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄',bcover:'바인더용 증권표지',ccover:'컨설팅 제안서 표지'};
 // ===== 사용법 안내 채팅 봇 (cb, 2026-11-04 — 박지순 요청) =====
 // 모든 화면 오른쪽 아래 💬 버튼 → 작은 채팅 창. 질문하면 미리 적어 둔 안내문(CB_GUIDE) 중 맞는 것을 골라 보여 주고 [바로 가기] 버튼으로 그 화면을 연다.
 // 답 고르기: ① 낱말 점수(무료·즉시)가 확실하면 그대로 ② 애매하면 AI(/api/analyze Gemini)가 **목록 안의 id만** 고른다 — 안내 글은 항상 아래 고정 문구(AI가 지어내지 않음).
@@ -6679,6 +6712,7 @@ var CB_GUIDE=[
   {k:'db_exchange',kw:'DB교환 디비교환 교환신청',a:'받은 DB의 교환을 신청합니다.'},
   {k:'dbuse',kw:'DB사용량 디비사용량 TA 상담 제안 계약 전환율 부재 거절',a:'받은 DB 고객을 추가하고 TA·상담·제안·계약 단계를 체크합니다. 연결이 안 되면 [부재], 바로 거절하면 [거절]을 누릅니다. 전체 현황·차트·전환율을 함께 봅니다.'},
   {k:'jv',kw:'종신 변액 환급률 수익률 순위 추세 비교 종신보험 변액보험 공시이율 저축보험 연금보험 펀드',a:'종신보험 환급률 순위, 변액보험 펀드 수익률 추세, 저축성 공시이율을 월별로 봅니다.\n월·기준 열을 고르면 순위·전월 대비 변화가 바뀝니다. 자료는 관리자가 매달 올립니다.'},
+  {k:'dbq',kw:'DB신청 디비신청 DB 신청 수량 업체 권역 입금 입금완료 DB사용료 계좌 마감',a:'달마다 업체·권역별 DB 수량을 신청합니다(마감일까지 수정·취소 가능). 신청 뒤 DB사용료를 카카오뱅크 3333-28-9238661(백동현)로 입금하고 [입금완료 누르기]를 누릅니다.\n인카DB는 각자 전산에서 신청합니다.'},
   {k:'dbrec',kw:'DB추천시스템 디비추천 DB효율 부재율 거절율 상담율 계약율 업체 권역 추천',a:'DB사용량 기록으로 DB 업체·권역별 부재율·거절율·상담율·계약율을 전월·3개월·6개월·1년 단위로 보여 주고, 효율 좋은 조합을 추천합니다.\n지점원별 기록 현황(결과 미기록 건)도 함께 봅니다.'},
   {k:'ab_write',kw:'부재디비 부재 리스트 작성 올리기 등록 포인트',a:'부재 고객 DB를 작성해 마켓에 올립니다. 1건 올리면 +1P.\n판매 전 내가 지우면 −1P, 포인트가 −3P 이하가 되면 새로 올릴 수 없습니다.'},
   {k:'ab_market',kw:'부재디비 마켓 구매 사기 포인트',a:'다른 사람이 올린 부재 DB를 체크해 구매합니다. 1건에 −1P(포인트가 모자라면 살 수 없어요). 산 DB는 [구매 리스트]에서 전체 정보를 봅니다.'},
@@ -10487,7 +10521,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,ilbae:rIlbae,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,bcover:rBcover,ccover:rCcover,airec:rAirec,fincalc:rFincalc,pz:rPz};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,ilbae:rIlbae,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,dbq:rDbq,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,bcover:rBcover,ccover:rCcover,airec:rAirec,fincalc:rFincalc,pz:rPz};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -31478,6 +31512,226 @@ function _dbrRender(){
     +'<div class="dbunote" style="margin-top:8px">결과 미기록 = 배정 7일이 지났는데 진행 단계·결과 버튼이 하나도 없는 건(전체 기간). 마지막 기록이 7일 넘으면 빨간색.</div>'
     :'<div class="dbuempty">아직 DB사용량 기록이 없습니다.</div>';
 }
+// ===== DB신청 (dbq, 2026-11-23 — 백동현 요청) =====
+// 업체·권역·금액·수량(한도)·신청 마감일은 백동현이 [설정]에서 달마다 정함(Firestore dbreqm/{YYYY-MM}), 신청은 각자(dbreq/{YYYY-MM}_{사용자키} — 사람·달마다 문서 1개).
+// 마감일(그날까지 포함, KST) 이후엔 신청·수정·취소 불가(입금완료 표시는 가능). 백동현 화면은 전원 신청을 한 표로 + [신청 양식 받기](VISION본부 양식 자동 기입 xlsx).
+// tops/data·localStorage 미사용(3.12·함정 B). 조작은 항목 id·문서 id(함정 A). ⚠️ 권한은 화면 가드뿐(firestore.rules 구조적 한계 — absdb 계열).
+var DBQ_ADMINS=['백동현'];
+var DBQ_RG=['수도권','충청권'];
+var DBQ_DEF=[['KS',7],['동방',10],['소상공인',12],['굿데이터',8],['블로그',15],['신규',7],['신규(디웨스)',6.5]];
+function _dbqAdmin(){ return !!(cu&&DBQ_ADMINS.indexOf(cu.name)>=0); }
+function _dbqId(){ return 'dq_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function _dbqStr(v,n){ return String(v==null?'':v).replace(/[\r\n<>]+/g,' ').trim().slice(0,n); }
+function _dbqYmOk(v){ return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(v||'')); }
+function _dbqDateOk(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v||'')); }
+function _dbqNum(v,max){ var n=Number(String(v==null?'':v).replace(/[^\d.]/g,'')); if(!isFinite(n)||n<0) n=0; return Math.min(n,max||1e6); }
+function _dbqYmLbl(ym){ return _dbqYmOk(ym)?(ym.slice(0,4)+'년 '+Number(ym.slice(5))+'월'):ym; }
+function _dbqDateLbl(d){ if(!_dbqDateOk(d)) return d||''; var w='일월화수목금토'.charAt(new Date(d+'T12:00:00').getDay()); return Number(d.slice(5,7))+'월 '+Number(d.slice(8))+'일('+w+')'; }
+function _dbqWon(v){ return Math.round((Number(v)||0)*10000).toLocaleString('ko-KR')+'원'; }
+function _dbqPriceLbl(p){ return (Number(p)||0)+'만원'; }
+// 받은 설정 정리(인증 세션이면 누구나 쓸 수 있으므로 형식 강제)
+function _dbqCfgClean(d){ d=(d&&typeof d==='object')?d:{}; var seen={};
+  var items=(Array.isArray(d.items)?d.items:[]).slice(0,60).map(function(it){ it=it||{}; var id=_dbqStr(it.id,40).replace(/[^\w-]/g,''); if(!id||seen[id]) id=_dbqId(); seen[id]=1;
+    return {id:id, nm:_dbqStr(it.nm,30), rg:DBQ_RG.indexOf(it.rg)>=0?it.rg:'수도권', price:Math.round(_dbqNum(it.price,1000)*100)/100, qty:Math.floor(_dbqNum(it.qty,100000))}; }).filter(function(it){ return it.nm; });
+  return {ym:_dbqYmOk(d.ym)?d.ym:'', until:_dbqDateOk(d.until)?d.until:'', items:items, ts:Number(d.ts)||0, by:_dbqStr(d.by,20)}; }
+function _dbqReqClean(d,id){ d=(d&&typeof d==='object')?d:{}; var lines={};
+  if(d.lines&&typeof d.lines==='object') Object.keys(d.lines).slice(0,80).forEach(function(k){ var n=Math.floor(_dbqNum(d.lines[k],10000)); if(n>0&&/^[\w-]{1,40}$/.test(k)) lines[k]=n; });
+  return {id:id, ym:_dbqYmOk(d.ym)?d.ym:'', k:_dbqStr(d.k,60), nm:_dbqStr(d.nm,20)||'-', lines:lines, ts:Number(d.ts)||0, ut:Number(d.ut)||0,
+    paid:(d.paid&&typeof d.paid==='object')?{ts:Number(d.paid.ts)||0,by:_dbqStr(d.paid.by,20)}:null}; }
+function _dbqOpen(cfg){ return !!(cfg&&cfg.until&&cfg.items.length&&td()<=cfg.until); }
+function _dbqMyId(ym){ var k=_rsvKey(); return (ym&&k)?(ym+'_'+k).replace(/[\/.#$\[\]]/g,'_'):''; }
+function _dbqAmt(lines,cfg){ var t=0; (cfg?cfg.items:[]).forEach(function(it){ t+=(lines[it.id]||0)*it.price; }); return Math.round(t*100)/100; }
+function _dbqCnt(lines,cfg){ var t=0; (cfg?cfg.items:[]).forEach(function(it){ t+=(lines[it.id]||0); }); return t; }
+// 상태(메모리만)
+window._dbqSt=window._dbqSt||{ym:'',months:[],cfg:null,reqs:[],unsub:null,seq:0,loaded:false};
+function _dbqUnsub(){ var st=window._dbqSt; if(st.unsub){ try{ st.unsub(); }catch(e){} st.unsub=null; } }
+function _dbqClear(){ _dbqUnsub(); window._dbqSt={ym:'',months:[],cfg:null,reqs:[],unsub:null,seq:(window._dbqSt.seq||0)+1,loaded:false};
+  ['dbq_mine','dbq_all'].forEach(function(id){ var b=g(id); if(b) b.innerHTML=''; }); var p=g('dbq_cfg_pop'); if(p) p.remove(); }
+function rDbq(){
+  var db=_abDb(), st=window._dbqSt; var mine=g('dbq_mine'); if(!mine) return;
+  ['dbq_cfgbtn','dbq_xlsbtn'].forEach(function(id){ var b=g(id); if(b) b.style.display=_dbqAdmin()?'':'none'; });
+  var ac=g('dbq_admcard'); if(ac) ac.style.display=_dbqAdmin()?'':'none';
+  if(!db){ mine.innerHTML='<div class="dbuempty">저장소에 연결되지 않았습니다. 새로고침 후 다시 시도하세요.</div>'; return; }
+  if(!_rsvKey()){ mine.innerHTML='<div class="dbuempty">로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.</div>'; return; }
+  mine.innerHTML='<div class="dbuempty">불러오는 중…</div>';
+  var seq=++st.seq;
+  db.collection('dbreqm').get().then(function(qs){ if(seq!==window._dbqSt.seq) return;
+    var ms=[]; qs.forEach(function(d){ var c=_dbqCfgClean(d.data()); c.ym=_dbqYmOk(d.id)?d.id:c.ym; if(c.ym) ms.push(c); });
+    ms.sort(function(a,b){ return a.ym<b.ym?1:-1; });
+    st.months=ms;
+    if(!st.ym||!ms.some(function(m){ return m.ym===st.ym; })){ var op=ms.filter(_dbqOpen); st.ym=op.length?op[op.length-1].ym:(ms[0]?ms[0].ym:''); }
+    _dbqYmSel(); _dbqSubReqs();
+  }).catch(function(e){ if(seq!==window._dbqSt.seq) return; mine.innerHTML='<div class="dbuempty">불러오지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; });
+}
+function _dbqYmSel(){ var st=window._dbqSt, s=g('dbq_ym'); if(!s) return;
+  s.innerHTML=st.months.length?st.months.map(function(m){ return '<option value="'+m.ym+'"'+(m.ym===st.ym?' selected':'')+'>'+_dbqYmLbl(m.ym)+' 신청'+(_dbqOpen(m)?' (접수 중)':'')+'</option>'; }).join(''):'<option value="">신청 받는 달 없음</option>'; }
+function dbqYm(v){ var st=window._dbqSt; if(!_dbqYmOk(v)) return; st.ym=v; _dbqSubReqs(); }
+function _dbqCfgOf(ym){ var m=window._dbqSt.months; for(var i=0;i<m.length;i++) if(m[i].ym===ym) return m[i]; return null; }
+function _dbqSubReqs(){ var st=window._dbqSt, db=_abDb(); _dbqUnsub(); st.cfg=_dbqCfgOf(st.ym); st.reqs=[]; st.loaded=false;
+  if(!st.ym||!db){ st.loaded=true; _dbqDraw(); return; }
+  var ym=st.ym, seq=st.seq;
+  st.unsub=db.collection('dbreq').where('ym','==',ym).onSnapshot(function(qs){ if(seq!==window._dbqSt.seq||window._dbqSt.ym!==ym) return;
+    var a=[]; qs.forEach(function(d){ a.push(_dbqReqClean(d.data(),d.id)); }); a.sort(function(x,y){ return (x.ts||0)-(y.ts||0); });
+    st.reqs=a; st.loaded=true; _dbqDraw(); },
+  function(e){ st.loaded=true; var b=g('dbq_mine'); if(b) b.innerHTML='<div class="dbuempty">신청 내역을 불러오지 못했습니다: '+_esc(e&&e.message||e)+'</div>'; });
+  _dbqDraw(); }
+// 남은 수량 = 한도 − 다른 사람 신청 합(내 신청 제외)
+function _dbqUsed(itemId,exceptId){ var t=0; window._dbqSt.reqs.forEach(function(r){ if(r.id!==exceptId) t+=(r.lines[itemId]||0); }); return t; }
+function _dbqDraw(){ var st=window._dbqSt, box=g('dbq_mine'); if(!box) return;
+  var cfg=st.cfg;
+  if(!cfg){ box.innerHTML='<div class="dbuempty">아직 신청을 받는 달이 없습니다.'+(_dbqAdmin()?' 오른쪽 위 [설정]에서 달·업체·마감일을 정해 주세요.':'')+'</div>'; _dbqAllDraw(); return; }
+  if(!st.loaded){ box.innerHTML='<div class="dbuempty">불러오는 중…</div>'; return; }
+  var open=_dbqOpen(cfg), myId=_dbqMyId(cfg.ym), mine=null; st.reqs.forEach(function(r){ if(r.id===myId) mine=r; });
+  var lines=mine?mine.lines:{};
+  var stt=!cfg.until?'<span class="dbqst no">마감일 미정</span>':open?'<span class="dbqst op">접수 중 · '+_dbqDateLbl(cfg.until)+'까지</span>':'<span class="dbqst cl">마감 ('+_dbqDateLbl(cfg.until)+' 마감)</span>';
+  var h='<div class="dburow" style="margin-bottom:10px"><div class="dbuh">'+_dbqYmLbl(cfg.ym)+' DB 신청</div><div>'+stt+'</div></div>';
+  h+='<table class="dbqtb" data-mkeep><thead><tr><th>업체</th><th>단가</th><th>남은 수량</th><th>신청 수량</th><th>금액</th></tr></thead><tbody>';
+  DBQ_RG.forEach(function(rg){ var its=cfg.items.filter(function(it){ return it.rg===rg; }); if(!its.length) return;
+    h+='<tr class="rg"><td colspan="5">'+rg+'</td></tr>';
+    its.forEach(function(it){ var q=lines[it.id]||0, left=it.qty?Math.max(0,it.qty-_dbqUsed(it.id,myId)):null;
+      h+='<tr><td class="l" style="padding-left:18px"><b>'+_esc(it.nm)+'</b></td><td>'+_dbqPriceLbl(it.price)+'</td><td>'+(left===null?'<span style="color:#8a95a1">제한 없음</span>':left+'건')+'</td>'
+        +'<td>'+(open?'<input type="number" min="0" step="1" data-dbqit="'+it.id+'" value="'+(q||'')+'" placeholder="0" oninput="_dbqCalc()">':(q?q+'건':'-'))+'</td><td data-dbqamt="'+it.id+'">'+(q?_dbqWon(q*it.price):'-')+'</td></tr>'; });
+  });
+  h+='</tbody><tfoot><tr><td colspan="3" class="l">합계</td><td id="dbq_tcnt">'+_dbqCnt(lines,cfg)+'건</td><td id="dbq_tamt">'+_dbqWon(_dbqAmt(lines,cfg))+'</td></tr></tfoot></table>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">';
+  if(open) h+='<button class="bp bnv" onclick="dbqSave()">'+(mine?'수정 저장':'신청하기')+'</button>'+(mine?'<button class="bd bdr" onclick="dbqCancel()">신청 취소</button>':'');
+  if(mine){ h+='<span style="font-size:13.5px;color:#4a5266">신청 '+_dbqTime(mine.ut||mine.ts)+'</span>';
+    h+='<span style="margin-left:auto;display:flex;align-items:center;gap:8px"><b style="font-size:14px">DB사용료 '+_dbqWon(_dbqAmt(lines,cfg))+'</b><button class="dbqpay '+(mine.paid?'y':'n')+'" onclick="dbqPay(this.getAttribute(\'data-id\'))" data-id="'+_alertEsc(mine.id)+'">'+(mine.paid?'✔ 입금완료':'입금완료 누르기')+'</button></span>'; }
+  else if(!open) h+='<span style="font-size:13.5px;color:#8a95a1">이 달에는 신청하지 않았습니다.</span>';
+  h+='</div>';
+  if(open) h+='<div class="dbunote" style="margin-top:8px">마감일('+_dbqDateLbl(cfg.until)+')까지는 수량을 고치거나 취소할 수 있습니다. 입금하신 뒤에는 [입금완료 누르기]를 눌러 주세요.</div>';
+  box.innerHTML=h; _dbqAllDraw(); }
+function _dbqTime(ts){ if(!ts) return ''; var d=new Date(ts+9*3600000); return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); }
+function _dbqForm(){ var o={}; document.querySelectorAll('#dbq_mine [data-dbqit]').forEach(function(el){ var n=Math.floor(_dbqNum(el.value,10000)); if(n>0) o[el.getAttribute('data-dbqit')]=n; }); return o; }
+function _dbqCalc(){ var cfg=window._dbqSt.cfg; if(!cfg) return; var l=_dbqForm();
+  cfg.items.forEach(function(it){ var c=document.querySelector('#dbq_mine [data-dbqamt="'+it.id+'"]'); if(c) c.textContent=l[it.id]?_dbqWon(l[it.id]*it.price):'-'; });
+  var a=g('dbq_tcnt'), b=g('dbq_tamt'); if(a) a.textContent=_dbqCnt(l,cfg)+'건'; if(b) b.textContent=_dbqWon(_dbqAmt(l,cfg)); }
+var _dbqBusy=false;
+function dbqSave(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg||_dbqBusy) return;
+  var lines=_dbqForm(), id=_dbqMyId(cfg.ym); if(!id){ toast('로그인 정보를 확인하지 못했습니다'); return; }
+  if(!Object.keys(lines).length){ toast('신청 수량을 입력해 주세요'); return; }
+  _dbqBusy=true;
+  db.collection('dbreqm').doc(cfg.ym).get().then(function(md){ var fresh=_dbqCfgClean(md.exists?md.data():{}); fresh.ym=cfg.ym;
+    if(!_dbqOpen(fresh)) throw new Error('신청이 마감되었습니다');
+    var bad=[]; fresh.items.forEach(function(it){ if(it.qty&&lines[it.id]&&lines[it.id]>Math.max(0,it.qty-_dbqUsed(it.id,id))) bad.push(it.rg+' '+it.nm); });
+    Object.keys(lines).forEach(function(k){ if(!fresh.items.some(function(it){ return it.id===k; })) delete lines[k]; });
+    if(bad.length) throw new Error('남은 수량보다 많이 신청했습니다: '+bad.join(', '));
+    if(!Object.keys(lines).length) throw new Error('신청 수량을 입력해 주세요');
+    var ref=db.collection('dbreq').doc(id);
+    return db.runTransaction(function(tx){ return tx.get(ref).then(function(d){ var old=d.exists?d.data():null, now=Date.now();
+      var o={ym:cfg.ym,k:_rsvKey(),nm:cu.name,lines:lines,ts:(old&&old.ts)||now,ut:now,paid:(old&&old.paid)||null};
+      tx.set(ref,o); return !old; }); });
+  }).then(function(isNew){ _dbqBusy=false; toast(isNew?'신청되었습니다':'수정 저장되었습니다');
+    if(isNew){ try{ if(!_dbqAdmin()) DBQ_ADMINS.forEach(function(n){ pushAlert(null,'DB신청',cu.name+'님이 '+_dbqYmLbl(cfg.ym)+' DB를 신청했습니다',{toName:n}); }); }catch(e){} }
+  }).catch(function(e){ _dbqBusy=false; toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
+function dbqCancel(){ var st=window._dbqSt, db=_abDb(), cfg=st.cfg; if(!db||!cfg||_dbqBusy) return;
+  if(!_dbqOpen(cfg)){ toast('마감되어 취소할 수 없습니다'); return; }
+  if(!confirm(_dbqYmLbl(cfg.ym)+' DB 신청을 취소할까요?')) return;
+  _dbqBusy=true; db.collection('dbreq').doc(_dbqMyId(cfg.ym)).delete().then(function(){ _dbqBusy=false; toast('신청을 취소했습니다'); }).catch(function(e){ _dbqBusy=false; toast('취소하지 못했습니다: '+(e&&e.message||e)); }); }
+function dbqPay(id){ var db=_abDb(), st=window._dbqSt; if(!db||!/^[\w\-가-힣]+$/.test(String(id||''))) return;
+  var r=null; st.reqs.forEach(function(x){ if(x.id===id) r=x; }); if(!r) return;
+  if(!(_dbqAdmin()||id===_dbqMyId(st.ym))){ toast('본인 신청만 바꿀 수 있습니다'); return; }
+  if(r.paid&&!confirm((id===_dbqMyId(st.ym)?'':r.nm+'님의 ')+'입금완료 표시를 취소할까요?')) return;
+  db.collection('dbreq').doc(id).update({paid:r.paid?null:{ts:Date.now(),by:cu.name}}).then(function(){ toast(r.paid?'입금완료 표시를 취소했습니다':'입금완료로 표시했습니다'); }).catch(function(e){ toast('바꾸지 못했습니다: '+(e&&e.message||e)); }); }
+// 관리자: 전원 신청을 한 표로
+function _dbqAllDraw(){ var box=g('dbq_all'); if(!box) return; if(!_dbqAdmin()){ box.innerHTML=''; return; }
+  var st=window._dbqSt, cfg=st.cfg; if(!cfg){ box.innerHTML=''; return; }
+  var its=[]; DBQ_RG.forEach(function(rg){ cfg.items.forEach(function(it){ if(it.rg===rg) its.push(it); }); });
+  var reqs=st.reqs.filter(function(r){ return _dbqCnt(r.lines,cfg)>0; });
+  var totAmt=0, paidN=0, paidAmt=0; reqs.forEach(function(r){ var a=_dbqAmt(r.lines,cfg); totAmt+=a; if(r.paid){ paidN++; paidAmt+=a; } });
+  var h='<div class="dburow" style="margin-bottom:6px"><div class="dbuh">'+_dbqYmLbl(cfg.ym)+' 신청 현황 (전원)</div></div>';
+  h+='<div class="dbqsum"><div>신청 인원<b>'+reqs.length+'명</b></div><div>입금 완료<b>'+paidN+' / '+reqs.length+'명</b></div><div>총 금액<b>'+_dbqWon(totAmt)+'</b></div><div>입금된 금액<b>'+_dbqWon(paidAmt)+'</b></div><div>미입금<b style="color:#b3122d">'+_dbqWon(Math.round((totAmt-paidAmt)*100)/100)+'</b></div></div>';
+  if(!reqs.length){ box.innerHTML=h+'<div class="dbuempty">아직 신청한 사람이 없습니다.</div>'; return; }
+  h+='<div class="dbuscroll"><table class="dbqtb" data-mkeep><thead><tr><th rowspan="2">이름</th>';
+  DBQ_RG.forEach(function(rg){ var n=its.filter(function(it){ return it.rg===rg; }).length; if(n) h+='<th colspan="'+n+'">'+rg+'</th>'; });
+  h+='<th rowspan="2">합계</th><th rowspan="2">금액</th><th rowspan="2">신청</th><th rowspan="2">입금</th></tr><tr>';
+  its.forEach(function(it){ h+='<th style="font-weight:600;font-size:12.5px">'+_esc(it.nm)+'<br>('+_dbqPriceLbl(it.price)+')</th>'; }); h+='</tr></thead><tbody>';
+  reqs.forEach(function(r){ h+='<tr><td class="l"><b>'+_esc(r.nm)+'</b></td>'; its.forEach(function(it){ var q=r.lines[it.id]||0; h+='<td>'+(q||'<span style="color:#c5cad6">-</span>')+'</td>'; });
+    h+='<td><b>'+_dbqCnt(r.lines,cfg)+'</b></td><td>'+_dbqWon(_dbqAmt(r.lines,cfg))+'</td><td style="font-size:12.5px">'+_dbqTime(r.ut||r.ts)+'</td><td><button class="dbqpay '+(r.paid?'y':'n')+'" data-id="'+_alertEsc(r.id)+'" onclick="dbqPay(this.getAttribute(\'data-id\'))">'+(r.paid?'✔ 완료':'미입금')+'</button></td></tr>'; });
+  h+='</tbody><tfoot><tr><td class="l">합계</td>'; var tc=0;
+  its.forEach(function(it){ var t=0; reqs.forEach(function(r){ t+=(r.lines[it.id]||0); }); tc+=t; h+='<td>'+(t||'-')+(it.qty?'<div style="font-size:11.5px;color:#8a95a1;font-weight:600">/'+it.qty+'</div>':'')+'</td>'; });
+  h+='<td>'+tc+'</td><td>'+_dbqWon(totAmt)+'</td><td></td><td></td></tr></tfoot></table></div>';
+  box.innerHTML=h; }
+// 설정 창(백동현)
+function dbqCfgOpen(){ if(!_dbqAdmin()){ toast('설정은 담당 관리자만 할 수 있습니다'); return; }
+  var st=window._dbqSt, base=st.cfg, ym=base?base.ym:'';
+  if(!ym){ var d=new Date(Date.now()+9*3600000); ym=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0'); }
+  var items=base?base.items.map(function(x){ return Object.assign({},x); }):_dbqDefItems();
+  var old=g('dbq_cfg_pop'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='dbq_cfg_pop';
+  ov.innerHTML='<div class="dbqbox"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b style="font-size:17px">DB신청 설정</b><button class="bd bdr" data-dbqc="close">닫기</button></div>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><label>신청 받는 달 <input type="month" id="dbq_c_ym" value="'+ym+'"></label>'
+    +'<label>신청 마감일 <input type="date" id="dbq_c_until" value="'+(base&&base.until||'')+'"></label><span style="font-size:12.5px;color:#6a7286">마감일 당일까지 신청 가능, 다음 날부터 신청 불가</span></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="bp bnv" data-dbqc="add">＋ 업체 추가</button><button class="bp bnv" data-dbqc="prev">지난달 설정 가져오기</button><button class="bp bnv" data-dbqc="def">기본 업체 목록으로</button></div>'
+    +'<div class="dbuscroll"><table class="dbqtb" data-mkeep><thead><tr><th>업체명</th><th>권역</th><th>금액(만원)</th><th>수량(비우면 제한 없음)</th><th></th></tr></thead><tbody id="dbq_c_tb"></tbody></table></div>'
+    +'<div class="dbunote" style="margin-top:8px">업체를 지우거나 이름을 바꾸면 이미 들어온 신청의 그 줄도 함께 사라지거나 바뀝니다. 금액은 1건당 만원 단위(예: 6.5).</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="bp bnv" data-dbqc="save">저장</button></div></div>';
+  document.body.appendChild(ov); ov._items=items; _dbqCfgRows(ov);
+  ov.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-dbqc]'); if(!b){ if(e.target===ov&&confirm('저장하지 않고 닫을까요?')) ov.remove(); return; }
+    var act=b.getAttribute('data-dbqc'), rid=b.getAttribute('data-rid'); _dbqCfgCollect(ov);
+    var arr=ov._items, i=arr.findIndex(function(x){ return x.id===rid; });
+    if(act==='close'){ ov.remove(); return; }
+    if(act==='add'){ arr.push({id:_dbqId(),nm:'',rg:'수도권',price:0,qty:0}); }
+    else if(act==='def'){ if(!confirm('기본 업체 목록(양식의 7개 × 수도권·충청권)으로 바꿀까요?')) return; ov._items=_dbqDefItems(); }
+    else if(act==='prev'){ var cy=(g('dbq_c_ym')||{}).value, pv=window._dbqSt.months.filter(function(m){ return m.ym<cy; })[0]; if(!pv){ toast('가져올 지난달 설정이 없습니다'); return; } ov._items=pv.items.map(function(x){ return Object.assign({},x); }); toast(_dbqYmLbl(pv.ym)+' 설정을 가져왔습니다'); }
+    else if(act==='del'&&i>=0) arr.splice(i,1);
+    else if(act==='up'&&i>0){ var t=arr[i-1]; arr[i-1]=arr[i]; arr[i]=t; }
+    else if(act==='dn'&&i>=0&&i<arr.length-1){ var t2=arr[i+1]; arr[i+1]=arr[i]; arr[i]=t2; }
+    else if(act==='save'){ _dbqCfgSave(ov); return; }
+    _dbqCfgRows(ov); }); }
+function _dbqDefItems(){ var a=[]; DBQ_RG.forEach(function(rg){ DBQ_DEF.forEach(function(x){ a.push({id:_dbqId(),nm:x[0],rg:rg,price:x[1],qty:0}); }); }); return a; }
+function _dbqCfgRows(ov){ var tb=ov.querySelector('#dbq_c_tb'); if(!tb) return;
+  tb.innerHTML=ov._items.map(function(it){ var id=_alertEsc(it.id);
+    return '<tr data-rid="'+id+'"><td><input data-f="nm" value="'+_alertEsc(it.nm)+'" maxlength="30" style="width:130px"></td><td><select data-f="rg">'+DBQ_RG.map(function(r){ return '<option'+(r===it.rg?' selected':'')+'>'+r+'</option>'; }).join('')+'</select></td>'
+      +'<td><input data-f="price" value="'+(it.price||'')+'" inputmode="decimal" style="width:70px"></td><td><input data-f="qty" value="'+(it.qty||'')+'" inputmode="numeric" style="width:80px"></td>'
+      +'<td style="white-space:nowrap"><button class="bp bnv" data-dbqc="up" data-rid="'+id+'">▲</button> <button class="bp bnv" data-dbqc="dn" data-rid="'+id+'">▼</button> <button class="bd bdr" data-dbqc="del" data-rid="'+id+'">삭제</button></td></tr>'; }).join('')||'<tr><td colspan="5" style="color:#8a95a1">업체가 없습니다. [＋ 업체 추가]를 눌러 주세요.</td></tr>'; }
+function _dbqCfgCollect(ov){ ov.querySelectorAll('#dbq_c_tb tr[data-rid]').forEach(function(tr){ var it=ov._items.find(function(x){ return x.id===tr.getAttribute('data-rid'); }); if(!it) return;
+  it.nm=tr.querySelector('[data-f=nm]').value; it.rg=tr.querySelector('[data-f=rg]').value; it.price=tr.querySelector('[data-f=price]').value; it.qty=tr.querySelector('[data-f=qty]').value; }); }
+function _dbqCfgSave(ov){ var db=_abDb(); if(!db||!_dbqAdmin()) return; _dbqCfgCollect(ov);
+  var ym=(g('dbq_c_ym')||{}).value, until=(g('dbq_c_until')||{}).value;
+  if(!_dbqYmOk(ym)){ toast('신청 받는 달을 골라 주세요'); return; }
+  if(!_dbqDateOk(until)){ toast('신청 마감일을 정해 주세요'); return; }
+  var c=_dbqCfgClean({ym:ym,until:until,items:ov._items});
+  if(!c.items.length){ toast('업체를 하나 이상 넣어 주세요'); return; }
+  var dup={}, bad=''; c.items.forEach(function(it){ var k=it.rg+'|'+it.nm; if(dup[k]) bad=it.rg+' '+it.nm; dup[k]=1; if(!(it.price>0)&&!bad) bad=it.rg+' '+it.nm+' 금액'; });
+  if(bad){ toast('확인해 주세요: '+bad+(bad.indexOf('금액')>=0?'이 비어 있습니다':' — 같은 권역에 같은 업체가 두 번 있습니다')); return; }
+  db.collection('dbreqm').doc(ym).set({ym:ym,until:until,items:c.items,ts:Date.now(),by:cu.name}).then(function(){ toast(_dbqYmLbl(ym)+' 설정을 저장했습니다'); ov.remove(); window._dbqSt.ym=ym; rDbq(); })
+    .catch(function(e){ toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
+// 신청 양식(VISION본부 시트) 자동 기입 — 탑스지점 줄에 권역·업체별 합계, 직할·white지점 줄은 빈칸(기존 양식 그대로), 둘째 시트는 신청자별 내역
+function dbqXlsx(){ if(!_dbqAdmin()) return; var st=window._dbqSt, cfg=st.cfg; if(!cfg){ toast('신청 받는 달이 없습니다'); return; }
+  if(typeof XLSX==='undefined'){ toast('엑셀 도구를 불러오지 못했습니다. 새로고침 후 다시 시도하세요'); return; }
+  var reqs=st.reqs.filter(function(r){ return _dbqCnt(r.lines,cfg)>0; });
+  var by={수도권:cfg.items.filter(function(i){ return i.rg==='수도권'; }),충청권:cfg.items.filter(function(i){ return i.rg==='충청권'; })};
+  var n=Math.max(by['수도권'].length,by['충청권'].length,1);
+  var C=function(c){ return XLSX.utils.encode_col(c); }, tot=function(it){ var t=0; reqs.forEach(function(r){ t+=(r.lines[it.id]||0); }); return t; };
+  var ws={}, put=function(ref,v,st2){ var o; if(v&&typeof v==='object'&&v.f) o={t:'n',f:v.f}; else if(typeof v==='number') o={t:'n',v:v}; else o={t:'s',v:String(v)}; if(st2) o.s=st2; ws[ref]=o; };
+  var bd={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
+  var H={font:{bold:true},alignment:{horizontal:'center',vertical:'center'},border:bd,fill:{fgColor:{rgb:'DDE4F5'}}}, B={alignment:{horizontal:'center'},border:bd}, BB={font:{bold:true},alignment:{horizontal:'center'},border:bd};
+  var Y=Number(cfg.ym.slice(0,4)), M=Number(cfg.ym.slice(5));
+  put('B1',Y+'년 '+M+'월 DB신청수량',{font:{bold:true,sz:14}});
+  var tc=2+n;   // 합계 금액 열(J)
+  function block(rg,r0,rows){ var its=by[rg];
+    put(C(1)+(r0),'['+rg+']',H); its.forEach(function(it,i){ put(C(2+i)+r0,it.nm,H); put(C(2+i)+(r0+1),'('+it.price+'만원)',B); });
+    put(C(1)+(r0+1),'(금액)',B); put(C(tc)+r0,'합계(만원)',H);
+    rows.forEach(function(rw){ var rr=rw[0]; put(C(1)+rr,rw[1],BB);
+      if(rw[2]) its.forEach(function(it,i){ put(C(2+i)+rr,tot(it),B); });   // 직할·white지점 줄은 빈칸(빈 글자 칸을 만들면 합계 수식이 #VALUE!)
+      if(its.length) put(C(tc)+rr,{f:its.map(function(it,i){ return '('+C(2+i)+rr+'*'+it.price+')'; }).join('+')},BB); });
+  }
+  block('수도권',2,[[4,'탑스지점',1],[10,'직할',0],[12,'white지점',0]]);
+  block('충청권',15,[[17,'탑스지점',1]]);
+  var sc=tc+2;   // 권역별 합산 칸(L)
+  by['수도권'].forEach(function(it,i){ put(C(sc+i)+2,it.nm+(i===0?'(수도권)':''),H); put(C(sc+i)+3,{f:C(2+i)+'4+'+C(2+i)+'10+'+C(2+i)+'12'},B); });
+  by['충청권'].forEach(function(it,i){ put(C(sc+i)+6,it.nm+(i===0?'(충청권)':''),H); put(C(sc+i)+7,{f:C(2+i)+'17'},B); });
+  ws['!ref']='A1:'+C(sc+Math.max(n,1))+'26';
+  ws['!cols']=[{wch:2},{wch:12}].concat(Array.apply(null,Array(n)).map(function(){ return {wch:11}; })).concat([{wch:11},{wch:2}]).concat(Array.apply(null,Array(n)).map(function(){ return {wch:12}; }));
+  // 둘째 시트: 신청자별
+  var its=by['수도권'].concat(by['충청권']);
+  var aoa=[['이름'].concat(its.map(function(it){ return it.rg+' '+it.nm+' ('+it.price+'만원)'; })).concat(['합계 건수','금액(원)','입금','신청 시각'])];
+  reqs.forEach(function(r){ aoa.push([r.nm].concat(its.map(function(it){ return r.lines[it.id]||''; })).concat([_dbqCnt(r.lines,cfg),Math.round(_dbqAmt(r.lines,cfg)*10000),r.paid?'입금완료':'미입금',_dbqTime(r.ut||r.ts)])); });
+  var ws2=XLSX.utils.aoa_to_sheet(aoa); ws2['!cols']=aoa[0].map(function(h,i){ return {wch:i===0?10:Math.min(22,String(h).length+4)}; });
+  Object.keys(ws2).forEach(function(k){ if(/^[A-Z]+1$/.test(k)) ws2[k].s=H; });
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'VISION본부'); XLSX.utils.book_append_sheet(wb,ws2,'신청자별');
+  XLSX.writeFile(wb,Y+'년 '+M+'월 DB신청수량.xlsx'); }
 function _dbuClear(){
   _dbuUnsubscribe();
   window._dbuDocs=null; window._dbuLoaded=false; window._dbuRows=null; window._dbuAllRows=null;
