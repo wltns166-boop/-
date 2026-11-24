@@ -722,6 +722,21 @@ body.san-on #mn{margin-right:46px} /* 접힌 레일(44px)이 카드 오른쪽 �
 .cpgrid.cpg5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .cpgrid.carg6{grid-template-columns:repeat(6,minmax(0,1fr))}
 .carmon{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px}
+.msrfg{margin-bottom:10px}.msrfg label{display:block;font-size:13px;font-weight:700;color:#3d4766;margin-bottom:4px}
+.msrin{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #c9cedd;border-radius:8px;font-size:15px;background:#fff;color:#1b2233;font-family:inherit}
+.msrdrop{border:2px dashed #b9c1d8;border-radius:10px;padding:12px;background:#f7f8fc}.msrdrop.over{border-color:#16a34a;background:#eafbef}
+.msrpick{display:flex;gap:8px;flex-wrap:wrap}.msrbtn{flex:1 1 160px;text-align:center;padding:12px 10px!important;font-size:15px!important;cursor:pointer}
+.msrhint{font-size:12px;color:#8a93b0;margin:8px 0}
+.msrths{display:flex;flex-wrap:wrap;gap:8px}
+.msrth{position:relative;width:84px;height:84px;border:1px solid #d5dae6;border-radius:8px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#5a6380;text-align:center}
+.msrth img{width:100%;height:100%;object-fit:cover}.msrth button{position:absolute;top:2px;right:2px;width:24px;height:24px;border:none;border-radius:12px;background:rgba(198,40,40,.92);color:#fff;font-size:13px;cursor:pointer;line-height:24px;padding:0}
+.msrpdf{font-weight:800;color:#c62828}.msrbusy{background:#eef1fc}
+.msrcard{border:1px solid #dde1ea;border-left:5px solid #e08a00;border-radius:10px;padding:11px 12px;margin-bottom:10px;background:#fff}
+.msrcard.done{border-left-color:#16a34a;background:#fbfdfb}
+.msrtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}.msrcu{font-size:15px;color:#13285e}.msrmeta{font-size:12px;color:#8a93b0}
+.msrst{font-size:12px;font-weight:800;padding:3px 9px;border-radius:12px}.msrst.n{background:#fff3e0;color:#b45309}.msrst.y{background:#e6f7ec;color:#16803c}
+.msrmemo{font-size:13.5px;color:#3d4766;white-space:pre-wrap;margin-bottom:7px}
+.msrbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:9px}
 .carmh{margin:16px 0 6px;padding:8px 12px;background:#eef1fc;border-left:4px solid #1f2a5c;border-radius:6px;font-weight:700;color:#1a2060;display:flex;gap:10px;align-items:center}
 .carmh small{font-weight:500;color:#5a6080;font-size:13px}
 .cpcsw{position:relative;display:inline-block}
@@ -1149,7 +1164,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.23-6</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.24-1</div>
   </div>
 </div>
 
@@ -1317,6 +1332,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
         <div class="ns"><div class="ni nsub" id="n_ilbae">└ 일상배상 경위서</div></div>
       </div></div>
       <div class="ns"><div class="ni" id="n_mcreq">모바일 계약 반영 요청</div></div>
+      <div class="ns"><div class="ni" id="n_msr">메리츠 스캔등록 요청</div></div>
       <div class="ns"><div class="ni" id="n_drive">내 자료함</div></div>
       <!-- 재무상담 폴더(2026-11-18 백동현 요청) -->
       <div class="ns nfold"><div class="ni nfh" id="n_fd_fin"><i class="ti ti-folder"></i>재무상담</div><div class="nfb">
@@ -3180,6 +3196,38 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
           <tbody id="mcr_tb"></tbody>
         </table>
         </div>
+      </div>
+    </div>
+
+    <!-- 메리츠 스캔등록 요청 (msr, 2026-11-24 — 백동현 요청) — 상담용지 QR(?go=msr)로 휴대폰에서 바로 열림. Firestore msreq/{id} -->
+    <div class="pg" id="pg_msr">
+      <div class="sh"><div class="st"><i class="ti ti-scan"></i>메리츠 스캔등록 요청</div></div>
+      <div class="card" style="background:#fff;color:#1b2233">
+        <div style="font-size:13px;color:#5a6380;margin-bottom:10px">스캔등록할 서류를 사진으로 찍어 올리면 총무님께 바로 알림이 갑니다. 상담용지 아래 QR을 휴대폰 카메라로 찍어도 이 화면이 열립니다.</div>
+        <div class="msrfg"><label>고객명 <b style="color:#c62828">(필수)</b></label><input id="msr_cust" class="msrin" maxlength="40" placeholder="예: 홍길동"></div>
+        <div class="msrfg"><label>메모 (선택)</label><textarea id="msr_memo" class="msrin" rows="2" maxlength="500" placeholder="예: 청약서 3장, 신분증 포함"></textarea></div>
+        <div class="msrfg"><label>서류 사진 <span id="msr_cnt" style="color:#1f2a5c;font-weight:700"></span></label>
+          <div id="msr_drop" class="msrdrop">
+            <div class="msrpick">
+              <label class="bp bnv msrbtn"><input type="file" accept="image/*" capture="environment" style="display:none" onchange="msrPick(this)">📷 카메라로 찍기</label>
+              <label class="bp bnv msrbtn"><input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="msrPick(this)">🖼 사진첩·파일에서 고르기</label>
+            </div>
+            <div class="msrhint">PC에서는 이 칸에 사진을 끌어다 놓거나 Ctrl+V로 붙여 넣어도 됩니다. 한 번에 최대 20장.</div>
+            <div id="msr_ph" class="msrths"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button type="button" class="bd bdr" onclick="msrReset()">지우기</button>
+          <button type="button" id="msr_save" class="bp bnv" style="padding:10px 22px;font-size:15px" onclick="msrSave()">요청 보내기</button>
+        </div>
+      </div>
+      <div class="card" style="background:#fff;color:#1b2233">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+          <b style="font-size:15px;color:#13285e">요청 내역</b><span id="msr_sum" style="font-size:12.5px;color:#5a6380"></span>
+          <label style="margin-left:auto;font-size:13px;color:#3d4766;display:flex;align-items:center;gap:5px"><input type="checkbox" id="msr_wait" onchange="msrFilt(this.checked)"> 대기만 보기</label>
+        </div>
+        <div style="font-size:12px;color:#8a93b0;margin-bottom:8px">본인 요청만 보입니다(총무님은 전체). 총무님이 [완료 처리]하면 요청한 분께 알림이 갑니다. 사진을 누르면 크게 열립니다.</div>
+        <div id="msr_list"></div>
       </div>
     </div>
 
@@ -5791,6 +5839,7 @@ function login(){
   // Firestore 데이터 로드
   window._usageSkipNext=true;   // 로그인·새로고침 자동 진입 홈은 사용량 집계 제외 (메뉴 클릭만 집계)
   showPage('home');
+  try{ _goDeepLink(); }catch(e){}   // 상담용지 QR(?go=msr) — 로그인 직후 그 화면으로
   loadFromFirestore().then(function(){
     // 사용정지 확인 — 세션 복원 기기의 로컬 캐시가 낡아 정지 사실을 모르고 들어왔으면 즉시 로그아웃
     try{ if(_susEnforce()) return; }catch(e){}
@@ -5859,6 +5908,7 @@ function logout(){
   try{ if(typeof _fcClear==='function') _fcClear(); }catch(e){}   // 금융계산기모음 — 고객 자산·대출 입력 비움
   try{ if(typeof _cpClear==='function') _cpClear(); }catch(e){}   // 카드납관리 — 구독 해제·카드번호 화면 잔존 차단
   try{ if(typeof _carClear==='function') _carClear(); }catch(e){}   // 자동차보험관리 — 구독 해제·화면 비움
+  try{ if(typeof _msrClear==='function') _msrClear(); }catch(e){}   // 메리츠 스캔등록 요청 — 구독 해제·올린 사진 정리
   try{ if(typeof _dbqClear==='function') _dbqClear(); }catch(e){}
   try{ if(typeof _dbxClear==='function') _dbxClear(); }catch(e){}   // DB교환신청 — 구독 해제·고객 정보·자료 화면 잔존 차단   // DB신청 — 구독 해제·신청 내역 화면 잔존 차단
   try{ if(typeof _dbuClear==='function') _dbuClear(); }catch(e){}   // DB사용량 — 구독 해제·고객명 화면 잔존 차단    // 부재디비 — 같은 이유
@@ -6694,6 +6744,7 @@ g('n_delayreq') && g('n_delayreq').addEventListener('click',function(){showPage(
 g('n_ilbae') && g('n_ilbae').addEventListener('click',function(){showPage('ilbae');});
 g('n_samdocs') && g('n_samdocs').addEventListener('click',function(){showPage('samdocs');});
 g('n_mcreq') && g('n_mcreq').addEventListener('click',function(){showPage('mcreq');});
+g('n_msr') && g('n_msr').addEventListener('click',function(){showPage('msr');});
 g('n_drive') && g('n_drive').addEventListener('click',function(){showPage('drive');});
 g('n_fp') && g('n_fp').addEventListener('click',function(){showPage('fp');});
 g('n_rsv') && g('n_rsv').addEventListener('click',function(){showPage('rsv');});
@@ -6721,7 +6772,7 @@ const PTITLES={home:'홈',notice:'공지사항',schedule:'지점일정',
   pc:'현재실적',team_perf:'팀실적',pm:'월간 목표 실적',pw:'주간 목표 실적',ps:'주간 업무 현황',
   db_apply:'DB 신청현황',db_assign:'DB 배정현황',db_info:'DB 정보',db_exchange:'DB교환신청',
   claim_apply:'청구신청',claim_status:'청구현황',claim_docs:'청구 필요서류',calc:'실비계산기',
-  wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',ilbae:'일상배상 경위서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
+  wa:'보장분석 작성',wa2:'신보장분석작성',pz:'가입제안서 담보정리',wm:'병력정리',wc:'보험금 청구',report:'보고서 작성',binder:'증권바인더 제작',delayreq:'지급지연 요청서',ilbae:'일상배상 경위서',samdocs:'3종서류',mcreq:'모바일 계약 반영 요청',msr:'메리츠 스캔등록 요청',drive:'내 자료함',fp:'재무상담 포토폴리오',rsv:'예약문자발송',airec:'AI상품추천',fincalc:'금융계산기모음',
   req_unified:'요청관리',edu_apply:'교육신청',goods_apply:'물품신청',suggestion:'건의사항',
   join_prep:'입사준비',edu_prep:'교육준비',new_check:'신입체크리스트',dreport:'일일보고서',usage:'인트라넷 사용량',navset:'환경설정',
   ab_write:'부재디비 리스트 작성',ab_market:'부재디비 마켓',ab_buy:'부재디비 구매 리스트',ab_rereg:'재등록 리스트',ab_stat:'부재디비 교환 현황',dbuse:'DB사용량',dbrec:'DB추천시스템',dbq:'DB신청',jv:'종신/변액',cardpay:'카드납관리',carins:'자동차보험관리',rkpol:'신입증권분석',cfprint:'상담용지 인쇄',bcover:'바인더용 증권표지',ccover:'컨설팅 제안서 표지'};
@@ -6784,6 +6835,7 @@ var CB_GUIDE=[
   {k:'ilbae',kw:'일상배상 일상생활배상 배상책임 경위서 사고경위 개물림 누수 이웃 피해 대물 대인',a:'일상생활배상책임 보험금 청구용 경위서입니다.\n1. 기본 정보(고객 불러오기로 자동 채움)·사고 일시·장소·피해 대상을 입력합니다.\n2. 사고 경위는 시간 순서대로 구체적으로 적습니다. 함께 사는 가족의 일상배상 가입 정보도 넣을 수 있어요.\n3. 오른쪽 미리보기를 확인하고 [인쇄 / PDF 저장] 또는 [글자 복사]를 누르세요. 입력 내용은 저장되지 않습니다.'},
   {k:'delayreq',kw:'지급지연 지연 요청서 손해사정 지급촉구',a:'보험사·손해사정사·계약 정보를 입력하면 지급지연 사유 확인 요청서가 완성됩니다. [인쇄] 또는 [텍스트 복사]를 누르세요.'},
   {k:'samdocs',kw:'3종서류 삼종 개인정보처리동의서 고지의무확인서 완전판매 종신',a:'1. 계약자와 계약 건수를 적습니다.\n2. 계약 줄마다 피보험자·보험회사·상품명·증권번호를 입력하고, 종신보험이면 [종신]을 체크합니다(완전판매동의서 추가).\n3. [미리보기]·[다운로드]·[출력]을 누릅니다.'},
+  {k:'msr',kw:'메리츠 스캔 스캔등록 메리츠스캔 서류사진 QR 큐알 총무',a:'메리츠 스캔등록할 서류를 사진으로 찍어 총무님께 요청합니다.\n1. 고객명을 적습니다.\n2. [카메라로 찍기] 또는 [사진첩·파일에서 고르기]로 서류 사진을 올립니다.\n3. [요청 보내기]를 누르면 총무님께 알림이 갑니다. 상담용지 아래 QR을 휴대폰으로 찍어도 이 화면이 열립니다.'},
   {k:'mcreq',kw:'모바일계약 모바일 휴대폰 폰 계약반영 전산반영 반영요청 총무',a:'모바일로 체결한 계약의 전산 반영을 총무님께 요청합니다.\n1. [신청]에서 계약자·피보험자와 계약 건수를 입력합니다.\n2. 카톡으로 받은 계약 내용을 인식 칸에 붙여 넣고 [글자 자동 인식]을 누르면 칸이 채워집니다(사진도 가능).\n3. 서면 확인서면 파일을 올리고 [신청]합니다.'},
   {k:'drive',kw:'자료함 내자료함 구글드라이브 드라이브 파일 저장 업로드',a:'인트라넷이 구글드라이브에 저장해 둔 내 폴더(청구·병력정리·보장분석·사업계획서 등)를 보고, 파일을 올리거나 엽니다.'},
   {k:'fp',kw:'재무상담 포토폴리오 포트폴리오 재무설계 연금 ISA',a:'왼쪽에 고객 소득·지출·자산을 입력하면 오른쪽에 재무설계 리포트가 바로 만들어집니다. [인쇄 / PDF 저장]을 누르세요.'},
@@ -10578,7 +10630,7 @@ function showPage(name){
   // 환경설정을 저장하지 않고 떠나면 디자인 미리보기를 저장본으로 되돌림
   try{ if(name!=='navset'&&window._thDraft) _themeApply(); }catch(e){}
   setAdmin();
-  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,ilbae:rIlbae,samdocs:rSamdocs,mcreq:rMcReq,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,dbq:rDbq,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,bcover:rBcover,ccover:rCcover,airec:rAirec,fincalc:rFincalc,pz:rPz};
+  const r={home:rHome,notice:rNoticePage,schedule:rSchedulePage,members:function(){ if(!_isAdmin()){ switchMemTab('team'); } else { rMem(); } },cust_apply:rCustList,cust_status:rCustStatus,exam:rExam,meeting:rMeeting,wkmt:rWkmt,wclose:rWClose,bizplan:rBizPlan,recruit:rRecruit,expect:rExpect,trip:rTrip,team_perf:rTeamPerf,db_exchange:rDbExchange,claim_apply:rClaimApply,claim_status:rClaimStatus,hierarchy:rTree,db_apply:rDba,db_assign:rDbs,db_info:rDbInfo,pc:rPerf,pm:()=>rGoal('monthly'),pw:()=>rGoal('weekly'),ps:rWs,prom:rProm,wa:()=>{try{rWa();}catch(e){} if(typeof renderWaBeforeView==='function') renderWaBeforeView(); if(typeof _restoreWaExcelButtons==='function') _restoreWaExcelButtons(); if(typeof loadWaTemplatesOnEnter==='function') loadWaTemplatesOnEnter();},wm:()=>{rWm();setTimeout(initMedInputs,200);},wc:rWc,join_prep:rJoinPrep,edu_prep:rEduPrep,req_unified:rReqUnified,calc:rCalc,claim_docs:rClaimDocs,binder:rBinder,wa2:rWa2,delayreq:rDelayReq,ilbae:rIlbae,samdocs:rSamdocs,mcreq:rMcReq,msr:rMsr,drive:rDrive,fp:rFp,rsv:rRsv,dreport:rDreport,usage:rUsage,navset:rNavSet,ab_write:rAbWrite,ab_market:rAbMarket,ab_buy:rAbBuy,ab_rereg:rAbRereg,ab_stat:rAbStat,dbuse:rDbUse,dbrec:rDbRec,dbq:rDbq,jv:rJv,cardpay:rCardPay,carins:rCarIns,rkpol:rRkPol,cfprint:rCfPrint,bcover:rBcover,ccover:rCcover,airec:rAirec,fincalc:rFincalc,pz:rPz};
   if(r[name]) setTimeout(function(){r[name]();},0);
   // 환경설정 추가 메뉴(게시판) — 메뉴 클릭 시 목록부터. 단 통합 검색 결과로 들어오면 그 게시물 상세로
   // (_bdOpenWant를 여기서 이어받는다 — 검색 쪽에서 _bdOpenPost에 바로 넣으면 이 줄의 초기화에 지워짐, 2026-09-15)
@@ -35361,6 +35413,222 @@ function _cfGetVals(catId){
   }
   return window._cfBuf[catId];
 }
+// ===== 메리츠 스캔등록 요청 (msr, 2026-11-24 — 백동현 요청) =====
+// 상담용지 아래 QR(?go=msr)을 휴대폰으로 찍으면 이 화면이 열림 → 고객명·메모 + 사진(카메라·사진첩) → 총무에게 알림.
+// 저장: Firestore msreq/{id} — tops/data·localStorage 미사용(3.12·함정 B). 사진은 Storage claim_packages/msreq/ URL만.
+// 보기: 요청자 본인 건만, 총무·_seeAll(보기만)은 전체. 완료 처리는 총무만, 삭제는 본인(대기 중)·총무.
+var MSR_COL='msreq', MSR_MAXF=20;
+var _MSR_URL_RE=/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Fmsreq%2F/;
+function _msrDb(){ return (window.db&&window.firebase&&firebase.firestore)?window.db:null; }
+function _msrClean(id,d){
+  d=d||{};
+  var files=Array.isArray(d.files)?d.files.filter(function(f){ return f&&_MSR_URL_RE.test(String(f.u||'')); }).slice(0,MSR_MAXF).map(function(f){ return {u:String(f.u), n:String(f.n||'').slice(0,80), k:f.k==='pdf'?'pdf':'img'}; }):[];
+  return {id:id, k:String(d.k||''), nm:String(d.nm||'').slice(0,30), ts:+d.ts||0, cust:String(d.cust||'').slice(0,40), memo:String(d.memo||'').slice(0,500),
+    files:files, st:d.st==='done'?'done':'wait', doneBy:String(d.doneBy||'').slice(0,30), doneTs:+d.doneTs||0};
+}
+function _msrAll(){ return _isChongmu()||_seeAll(); }
+function _msrSub(){
+  var db=_msrDb(); if(!db||!cu) return;
+  var key=_rsvKey(); if(!key) return;
+  var sk=_msrAll()?'*':key;
+  if(window._msrUnsub&&window._msrSubKey===sk) return;
+  _msrUnsubscribe();
+  window._msrSubKey=sk;
+  var seq=window._msrSeq=(window._msrSeq||0)+1;
+  var q=sk==='*'?db.collection(MSR_COL):db.collection(MSR_COL).where('k','==',key);
+  window._msrUnsub=q.onSnapshot(function(snap){
+    if(seq!==window._msrSeq||!cu) return;
+    var a=[]; snap.forEach(function(d){ if(/^[A-Za-z0-9_-]{1,60}$/.test(d.id)) a.push(_msrClean(d.id,d.data())); });
+    a.sort(function(x,y){ return y.ts-x.ts; });
+    window._msrItems=a; window._msrLoaded=true; _msrDraw();
+  }, function(e){
+    if(seq!==window._msrSeq) return;
+    console.warn('메리츠 스캔 요청 불러오기 실패:',e); _msrUnsubscribe();
+    var b=g('msr_list'); if(b) b.innerHTML='<div class="em" style="padding:20px;color:#c62828">불러오지 못했습니다. 잠시 뒤 메뉴를 다시 열어 주세요.</div>';
+  });
+}
+function _msrUnsubscribe(){ window._msrSeq=(window._msrSeq||0)+1; try{ if(window._msrUnsub) window._msrUnsub(); }catch(e){} window._msrUnsub=null; window._msrSubKey=null; }
+function rMsr(){
+  var dz=g('msr_drop');
+  if(dz&&!dz._msrBound){
+    dz._msrBound=1;
+    dz.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave',function(){ dz.classList.remove('over'); });
+    dz.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); _msrFiles(e.dataTransfer&&e.dataTransfer.files); });
+  }
+  _msrPhDraw(); _msrSub(); _msrDraw();
+}
+// 붙여넣기(PC) — 이 화면이 열려 있고 입력칸이 아닐 때만 사진으로
+document.addEventListener('paste',function(e){
+  try{
+    var pg=g('pg_msr'); if(!pg||!pg.classList.contains('active')) return;
+    var t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+    var fs=[]; var it=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<it.length;i++){ if(it[i].kind==='file'){ var f=it[i].getAsFile(); if(f) fs.push(f); } }
+    if(!fs.length) return;
+    e.preventDefault(); e.stopPropagation(); _msrFiles(fs);
+  }catch(_){}
+},true);
+function msrPick(inp){ var fs=inp&&inp.files?Array.prototype.slice.call(inp.files):[]; try{ inp.value=''; }catch(e){} _msrFiles(fs); }
+function _msrFiles(list){
+  var fs=Array.prototype.slice.call(list||[]); if(!fs.length) return;
+  if(typeof firebase==='undefined'||!firebase.storage){ toast('클라우드 연결 후 올릴 수 있습니다.'); return; }
+  var cur=(window._msrPh||[]).length+(window._msrUpBusy||0);
+  var bad=0, skip=0;
+  fs.forEach(function(f){
+    var isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
+    var isImg=/^image\//.test(f.type)&&!/svg/i.test(f.type)||(!f.type&&/\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(f.name||''));
+    if(!isPdf&&!isImg){ bad++; return; }
+    if(isPdf&&f.size>25*1024*1024){ bad++; return; }
+    if(cur>=MSR_MAXF){ skip++; return; }
+    cur++; _msrUpload(f,isPdf);
+  });
+  if(bad) toast('사진·PDF(25MB 이하)만 올릴 수 있습니다 — '+bad+'개 제외');
+  else if(skip) toast('사진은 한 번에 '+MSR_MAXF+'장까지 — '+skip+'장 제외');
+}
+async function _msrUpload(f,isPdf){
+  var gen=window._msrGen||0;
+  window._msrUpBusy=(window._msrUpBusy||0)+1; _msrPhDraw();
+  var ref=null;
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var data, ct;
+    if(isPdf){ data=new Uint8Array(await f.arrayBuffer()); ct='application/pdf'; }
+    else { var du=await _carEnhance(f); var bin=atob(du.split(',')[1]); data=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) data[i]=bin.charCodeAt(i); ct='image/jpeg'; }
+    ref=firebase.storage().ref('claim_packages/msreq/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+(isPdf?'.pdf':'.jpg'));
+    await ref.put(data,{contentType:ct});
+    var url=await ref.getDownloadURL();
+    if(gen!==(window._msrGen||0)){ try{ ref.delete().catch(function(){}); }catch(e){} return; }   // 그 사이 폼을 비웠거나 로그아웃
+    (window._msrPh=window._msrPh||[]).push({u:url, n:(f.name||'')||(isPdf?'스캔.pdf':'사진.jpg'), k:isPdf?'pdf':'img'});
+  }catch(e){ console.warn('msr upload',e); if(gen===(window._msrGen||0)) toast('사진 올리기 실패: '+((e&&e.message)||e)); }
+  finally{ if(gen===(window._msrGen||0)){ window._msrUpBusy=Math.max(0,(window._msrUpBusy||1)-1); _msrPhDraw(); } }
+}
+function _msrDelFiles(arr){ (arr||[]).forEach(function(p){ try{ if(p&&_MSR_URL_RE.test(String(p.u||''))) firebase.storage().refFromURL(p.u).delete().catch(function(){}); }catch(e){} }); }
+function _msrPhDraw(){
+  var b=g('msr_ph'); if(!b) return;
+  var ph=window._msrPh||[], busy=window._msrUpBusy||0;
+  var h=ph.map(function(p,i){
+    return '<div class="msrth">'+(p.k==='pdf'?'<div class="msrpdf">PDF</div>':'<img src="'+_alertEsc(p.u)+'" alt="">')
+      +'<button type="button" title="빼기" onclick="msrPhDel('+i+')">✕</button></div>';
+  }).join('');
+  if(busy) h+='<div class="msrth msrbusy">올리는 중…<br>'+busy+'장</div>';
+  b.innerHTML=h||'<div style="font-size:12.5px;color:#8a93b0;padding:6px 2px">아직 올린 사진이 없습니다.</div>';
+  var c=g('msr_cnt'); if(c) c.textContent=ph.length?('사진 '+ph.length+'장'):'';
+}
+function msrPhDel(i){
+  var ph=window._msrPh||[]; if(i<0||i>=ph.length) return;
+  var p=ph.splice(i,1)[0]; _msrDelFiles([p]); _msrPhDraw();
+}
+function msrReset(silent){
+  var ph=window._msrPh||[];
+  if(!silent&&(ph.length||(g('msr_cust')&&g('msr_cust').value.trim()))&&!confirm('입력한 내용과 올린 사진을 지울까요?')) return;
+  _msrDelFiles(ph); window._msrPh=[]; window._msrGen=(window._msrGen||0)+1; window._msrUpBusy=0;
+  ['msr_cust','msr_memo'].forEach(function(id){ var el=g(id); if(el) el.value=''; });
+  _msrPhDraw();
+}
+async function msrSave(){
+  if(!cu) return;
+  if(window._msrBusy) return;
+  var db=_msrDb(); if(!db){ toast('클라우드 연결 후 요청할 수 있습니다.'); return; }
+  var cust=(g('msr_cust')&&g('msr_cust').value||'').trim(), memo=(g('msr_memo')&&g('msr_memo').value||'').trim();
+  if(!cust){ toast('고객명을 입력해 주세요.'); try{ g('msr_cust').focus(); }catch(e){} return; }
+  if(window._msrUpBusy){ toast('사진을 올리는 중입니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+  var ph=(window._msrPh||[]).slice();
+  if(!ph.length){ toast('스캔할 서류 사진을 1장 이상 올려 주세요.'); return; }
+  var key=_rsvKey(); if(!key) return;
+  window._msrBusy=1; var btn=g('msr_save'); if(btn) btn.disabled=true;
+  try{
+    try{ if(window._fbAuthReady) await window._fbAuthReady; }catch(e){}
+    var ref=db.collection(MSR_COL).doc();
+    var nm=_agentReal(cu.name||'');
+    await ref.set({id:ref.id, k:key, nm:nm, ts:Date.now(), cust:cust.slice(0,40), memo:memo.slice(0,500), files:ph, st:'wait'});
+    window._msrPh=[]; window._msrGen=(window._msrGen||0)+1;
+    ['msr_cust','msr_memo'].forEach(function(id){ var el=g(id); if(el) el.value=''; });
+    _msrPhDraw();
+    var msg=nm+'님이 '+cust+' 고객 메리츠 스캔등록을 요청했습니다(사진 '+ph.length+'장).';
+    try{ pushAlert('총무','메리츠스캔', msg, {deliverAt:_nextDeliverTime(new Date())}); }catch(e){}
+    try{ if(_isBizTime(new Date())){ var ch=((typeof _admList==='function'?_admList():ADMINS)||[]).filter(function(a){ return a&&a.role==='총무'&&a.name; }).map(function(a){ return a.name; });
+      if(ch.length) pushNotify(ch,'메리츠 스캔등록 요청',msg,'/?go=msr'); } }catch(e){}
+    toast('요청했습니다. 총무님에게 알림이 갔습니다.');
+  }catch(e){ console.warn('msr save',e); toast('요청 저장 실패: '+((e&&e.message)||e)); }
+  finally{ window._msrBusy=0; if(btn) btn.disabled=false; }
+}
+function _msrFind(id){ return (window._msrItems||[]).filter(function(x){ return x.id===id; })[0]||null; }
+async function msrDone(el){
+  var id=el&&el.getAttribute('data-msrid'); var it=_msrFind(id);
+  if(!it||!_isChongmu()) return;
+  var db=_msrDb(); if(!db) return;
+  var toDone=it.st!=='done';
+  if(!toDone&&!confirm('완료를 취소하고 대기로 되돌릴까요?')) return;
+  try{
+    await db.collection(MSR_COL).doc(id).update(toDone?{st:'done',doneBy:cu.name,doneTs:Date.now()}:{st:'wait',doneBy:'',doneTs:0});
+    if(toDone&&it.nm){
+      var msg=it.cust+' 고객 메리츠 스캔등록이 완료되었습니다.';
+      try{ pushAlert(null,'메리츠스캔',msg,{toName:it.nm}); }catch(e){}
+      try{ pushNotify([it.nm],'메리츠 스캔등록 완료',msg,'/?go=msr'); }catch(e){}
+    }
+  }catch(e){ toast('처리 실패: '+((e&&e.message)||e)); }
+}
+async function msrDel(el){
+  var id=el&&el.getAttribute('data-msrid'); var it=_msrFind(id); if(!it) return;
+  var mine=it.k===_rsvKey();
+  if(!_isChongmu()&&!(mine&&it.st==='wait')){ toast('완료된 요청은 총무님만 지울 수 있습니다.'); return; }
+  if(!confirm(it.cust+' 고객 요청을 삭제할까요? 올린 사진도 함께 지워집니다.')) return;
+  var db=_msrDb(); if(!db) return;
+  try{
+    var ref=db.collection(MSR_COL).doc(id), files=[];
+    await db.runTransaction(async function(tx){
+      var s=await tx.get(ref); if(!s.exists) throw new Error('이미 삭제된 요청입니다.');
+      var d=_msrClean(id,s.data());
+      if(!_isChongmu()&&!(d.k===_rsvKey()&&d.st==='wait')) throw new Error('그 사이 처리되어 삭제할 수 없습니다.');
+      files=d.files; tx.delete(ref);
+    });
+    _msrDelFiles(files); toast('삭제했습니다.');
+  }catch(e){ toast('삭제 실패: '+((e&&e.message)||e)); }
+}
+function msrFilt(v){ window._msrOnlyWait=!!v; _msrDraw(); }
+function _msrDraw(){
+  var b=g('msr_list'); if(!b) return;
+  var pg=g('pg_msr'); if(pg&&!pg.classList.contains('active')&&b.innerHTML) return;
+  if(!window._msrLoaded){ b.innerHTML='<div class="em" style="padding:20px">불러오는 중…</div>'; return; }
+  var all=window._msrItems||[], only=!!window._msrOnlyWait, cm=_isChongmu(), me=_rsvKey();
+  var items=only?all.filter(function(x){ return x.st!=='done'; }):all;
+  var nw=all.filter(function(x){ return x.st!=='done'; }).length;
+  var hd=g('msr_sum'); if(hd) hd.textContent='전체 '+all.length+'건 · 대기 '+nw+'건';
+  if(!items.length){ b.innerHTML='<div class="em" style="padding:20px">'+(only?'대기 중인 요청이 없습니다.':'요청 내역이 없습니다.')+'</div>'; return; }
+  b.innerHTML=items.map(function(x){
+    var d=new Date(x.ts), dt=(d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    var done=x.st==='done';
+    var th=x.files.map(function(f){
+      return '<a href="'+_alertEsc(f.u)+'" target="_blank" rel="noopener" class="msrth">'+(f.k==='pdf'?'<div class="msrpdf">PDF</div>':'<img src="'+_alertEsc(f.u)+'" alt="" loading="lazy">')+'</a>';
+    }).join('');
+    var btns='';
+    if(cm) btns+='<button type="button" class="bp bnv" data-msrid="'+_alertEsc(x.id)+'" onclick="msrDone(this)">'+(done?'대기로 되돌리기':'완료 처리')+'</button>';
+    if(cm||(x.k===me&&!done)) btns+='<button type="button" class="bd bdr" data-msrid="'+_alertEsc(x.id)+'" onclick="msrDel(this)">삭제</button>';
+    var dd=done&&x.doneTs?(function(){ var e=new Date(x.doneTs); return (e.getMonth()+1)+'/'+e.getDate()+' '+('0'+e.getHours()).slice(-2)+':'+('0'+e.getMinutes()).slice(-2); })():'';
+    return '<div class="msrcard'+(done?' done':'')+'">'
+      +'<div class="msrtop"><span class="msrst '+(done?'y':'n')+'">'+(done?'완료':'대기')+'</span>'
+      +'<b class="msrcu">'+_esc(x.cust)+'</b><span class="msrmeta">'+_esc(x.nm)+' · '+dt+(done?' · 완료 '+_esc(x.doneBy)+' '+dd:'')+'</span></div>'
+      +(x.memo?'<div class="msrmemo">'+_esc(x.memo)+'</div>':'')
+      +'<div class="msrths">'+th+'</div>'
+      +(btns?'<div class="msrbtns">'+btns+'</div>':'')
+      +'</div>';
+  }).join('');
+}
+function _msrClear(){
+  _msrUnsubscribe();
+  try{ _msrDelFiles(window._msrPh||[]); }catch(e){}
+  window._msrPh=[]; window._msrGen=(window._msrGen||0)+1; window._msrUpBusy=0; window._msrItems=null; window._msrLoaded=false; window._msrOnlyWait=false;
+  ['msr_cust','msr_memo'].forEach(function(id){ var el=g(id); if(el) el.value=''; });
+  var l=g('msr_list'); if(l) l.innerHTML=''; var p=g('msr_ph'); if(p) p.innerHTML=''; var w=g('msr_wait'); if(w) w.checked=false;
+}
+// QR(?go=msr) 딥링크 — 부팅 때 한 번 읽고 주소창에서 지움, 로그인(세션 복원 포함) 뒤 그 화면으로
+// 로그인 화면에서 새로고침·기기인증으로 다시 불러와도 이어지게 sessionStorage에도 보관(로그인 뒤 소비)
+window._goPage=(function(){ try{ var m=/[?&]go=([a-z_]+)/.exec(location.search); if(m&&m[1]==='msr'){ try{ sessionStorage.setItem('tops_go','msr'); }catch(e){} return 'msr'; } return sessionStorage.getItem('tops_go')==='msr'?'msr':''; }catch(e){ return ''; } })();
+if(/[?&]go=/.test(location.search)){ try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){} }
+function _goDeepLink(){ var p=window._goPage; window._goPage=''; try{ sessionStorage.removeItem('tops_go'); }catch(e){} if(p==='msr'){ try{ showPage('msr'); }catch(e){} } }
+// 사진만 올리고 요청하지 않은 채 탭을 닫으면 올린 파일 정리(최선 노력)
+window.addEventListener('pagehide',function(){ try{ if((window._msrPh||[]).length) _msrDelFiles(window._msrPh); }catch(e){} });
 function _cfImg(f){ try{ return new URL('form/'+f, location.href).href; }catch(e){ return 'form/'+f; } }
 function _cfCss(){
   return '*{box-sizing:border-box;margin:0;padding:0}'
@@ -35397,6 +35665,9 @@ function _cfCss(){
     +'.ft p{font-size:8.6pt;color:#dfe4f1;letter-spacing:.06em}'
     +'.ft p b{color:#fff;font-weight:700}'
     +'.ft p em{font-style:normal;color:#c9a14a;font-weight:700;margin:0 .6mm 0 2.4mm}'
+    +'.ft .qr{position:absolute;right:8mm;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:1.8mm}'
+    +'.ft .qr img{height:17mm;width:17mm;background:#fff;padding:.8mm;border-radius:1mm}'
+    +'.ft .qr span{font-size:6.8pt;line-height:1.3;color:#dfe4f1;font-weight:700;letter-spacing:.02em;order:-1;text-align:right}'
     +'.mlogo{position:absolute;right:14mm;top:11mm;height:13mm}'
     +'.memo{position:absolute;left:14mm;right:14mm;top:30mm;bottom:31mm;border-top:.5mm solid #13285e;border-bottom:.35mm solid #13285e;'
       +'background-image:radial-gradient(circle,#c9cedd .32mm,transparent .4mm);background-size:5mm 5mm;background-position:2.5mm 2.5mm}'
@@ -35404,11 +35675,12 @@ function _cfCss(){
     +'.memo .mt i{display:inline-block;width:1.2mm;height:4.4mm;background:#c9a14a;border-radius:.4mm}'
     +'@media print{html,body{background:#fff}.pg{margin:0;box-shadow:none;page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}.tb{display:none!important}}';
 }
-function _cfFoot(v){
+function _cfFoot(v,qr){
   var who=[String(v.nm||'').trim(),String(v.ttl||'').trim()].filter(Boolean).join(' ');
   var hp=String(v.hp||'').trim();
   return '<div class="ft"><img src="'+_esc(_cfImg('incar-logo-w.png'))+'" alt="">'
-    +'<p>'+_esc(CF_BRANCH)+(who?' <b>'+_esc(who)+'</b>':'')+(hp?'<em>H.P</em>'+_esc(hp):'')+'</p></div>';
+    +'<p>'+_esc(CF_BRANCH)+(who?' <b>'+_esc(who)+'</b>':'')+(hp?'<em>H.P</em>'+_esc(hp):'')+'</p>'
+    +(qr?'<div class="qr"><img src="'+_esc(_cfImg('msr-qr.png'))+'" alt="" onerror="this.parentNode.style.display=\'none\'"><span>메리츠<br>스캔등록<br>요청</span></div>':'')+'</div>';
 }
 function _cfPages(v){
   var wm='<img class="wm" src="'+_esc(_cfImg('fin-tops.png'))+'" alt="" onerror="this.style.display=\'none\'">';   // FINANCIAL TOPS 로고(백동현 제공) — 파일이 없으면 숨김
@@ -35427,7 +35699,7 @@ function _cfPages(v){
       +'<tr><td class="lb" style="height:50mm">진 행<br>방 향<small>PLAN</small></td><td class="wr"></td></tr>'
       +'<tr><td class="lb" style="height:46mm">비 고<small>NOTE</small></td><td class="wr"></td></tr>'
       +'</table></div>'
-    +_cfFoot(v)+'</div>';
+    +_cfFoot(v,1)+'</div>';
   var p2=v.memo?('<div class="pg">'+wm+'<img class="mlogo" src="'+_esc(_cfImg('incar-logo.png'))+'" alt="">'
     +'<div class="memo"><div class="mt"><i></i>MEMO</div></div>'+_cfFoot(v)+'</div>'):'';
   return p1+p2;
