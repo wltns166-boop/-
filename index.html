@@ -1164,7 +1164,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-1</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-2</div>
   </div>
 </div>
 
@@ -38669,7 +38669,7 @@ function toggleClaimForm(){
     g('claim_file_preview').innerHTML='';
     g('claim_edit_idx').value='';
     g('claim_del_btn').style.display='none';
-    wrap._files=[]; wrap._idImg=''; wrap._bankImg=''; wrap._insFiles=[]; wrap._filesEdited=false; // 이전 편집분 잔존 방지
+    wrap._files=[]; wrap._idImg=''; wrap._bankImg=''; wrap._insFiles=[]; wrap._filesEdited=false; wrap._attFailF=false; wrap._attFailI=false; // 이전 편집분 잔존 방지
     _claimDocsFormReset(wrap); // 이전 고객 서류 자동등록이 늦게 도착해도 무시되도록(토큰·자동등록 상태 초기화)
     var insp=g('claim_ins_preview');if(insp)insp.innerHTML='';
     setClaimPasteTarget('file');
@@ -39202,7 +39202,9 @@ function saveClaim(){
   if(!_mins&&oldC&&oldC.attachMeta) _mins=+oldC.attachMeta.ins||0;
   obj.attachMeta={f:_mf, id:obj.idImg?1:0, bank:obj.bankImg?1:0, ins:_mins};
   // 병원서류·보험사청구파일 원본을 클라우드에 보관(백그라운드) — 다른 기기서도 재생성 가능해짐
-  try{ if((obj.files&&obj.files.length)||(obj.insFiles&&obj.insFiles.length)) _claimAttachStore(obj); }catch(e){}
+  // ✕로 병원서류를 전부 뺐으면 보관본 목록도 비움(재생성 때 뺀 서류가 되살아나지 않게 — 리뷰 반영)
+  if(wrap&&wrap._filesEdited&&!wrap._attFailF&&!(obj.files||[]).length&&obj.attachUrls&&(obj.attachUrls.files||[]).length) obj.attachUrls=Object.assign({},obj.attachUrls,{files:[]});
+  try{ if((obj.files&&obj.files.length)||(obj.insFiles&&obj.insFiles.length)) _claimAttachStore(obj, {mf:!!(wrap&&wrap._attFailF), mi:!!(wrap&&wrap._attFailI)}); }catch(e){}
   try{ _claimsCarryCloudMeta(claims); }catch(e){} // 공유 메타 회수(수정 저장이 pkgUrls 등을 지우는 것 방지)
   // 로컬에는 전체 저장(본인 편집용). Firestore 1MB 제한 때문에 대용량 바이너리는 동기화에서 제외.
   var _clSaved=false;
@@ -39279,7 +39281,7 @@ function editClaim(i){
   window._silsonApplied='';
   try{ _silsonDraw(); }catch(e){}
   document.querySelectorAll('input[name="claim_accident"]').forEach(function(cb){cb.checked=c.accident&&c.accident.includes(cb.value);});
-  var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false;
+  var wrap=g('claim_form_wrap'); wrap._files=[]; wrap._filesEdited=false; wrap._attFailF=false; wrap._attFailI=false;
   _claimDocsFormReset(wrap); // 직전에 다른 고객으로 진행 중이던 서류 자동등록 응답이 이 수정 폼에 들어오지 않도록
   wrap._insFiles=c.insFiles?[].concat(c.insFiles):[]; // 기존 첨부 유지(미복원 시 저장 때 날아가거나 이전 건 파일이 딸려감)
   var insp=g('claim_ins_preview');
@@ -39309,6 +39311,7 @@ function editClaim(i){
   _claimImgSet('bank', c.bankImg||'');
   var prev=g('claim_file_preview'); prev.innerHTML='';
   (c.files||[]).forEach(function(f){ if(f&&f.data) _claimDocAdd(f.name||'파일', f.data); });
+  _claimEditAttachLoad(c, wrap);   // 이 기기 메모리에 원본이 없으면 클라우드 보관본(attachUrls)으로 목록 복원(2026-11-25 박지순 제보)
   setClaimPasteTarget('file');
   g('claim_edit_idx').value=i;
   g('claim_del_btn').style.display='inline-flex';
@@ -39326,6 +39329,54 @@ function editClaim(i){
     var _two=!!(c.insName&&c.insName!==c.custName);
     _claimSignRestore(g('claim_sign_canvas'), _two?(c.ctSignHand&&c.ctSign):(c.signHand&&c.sign));
     if(_two) _claimSignRestore(g('claim_sign_canvas2'), c.signHand&&c.sign);
+  }catch(e){}
+}
+// 수정 열기 — 병원서류·보험사청구파일 원본(base64)은 동기화에서 빠지므로 새로고침·다른 기기에서는 목록이 비어 보였음
+//   ("수정 누르면 다른 건 다 있는데 서류 올린 건 사라짐"). 클라우드 보관본(claim_packages/attach/)을 받아 다시 채운다.
+//   받는 동안 [저장]은 막고(_imgBusy), 폼이 바뀌면(_imgGen — _claimDocsFormReset이 올림) 늦은 결과는 버린다.
+//   복원분은 '수정함'으로 치지 않음(_filesEdited 유지) — 손댄 게 없으면 저장 때 기존 첨부 그대로.
+function _claimEditAttachLoad(c, wrap){
+  try{
+    var au=c&&c.attachUrls; if(!au||!wrap) return;
+    var ok=function(u){ return typeof u==='string'&&/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/team-tops-intranet\.firebasestorage\.app\/o\/claim_packages%2Fattach%2F/.test(u); };
+    var haveF=(c.files||[]).some(function(f){ return f&&f.data; });
+    var haveI=(c.insFiles||[]).some(function(s){ return typeof s==='string'&&s.indexOf('data:')===0; });
+    var fl=haveF?[]:(au.files||[]).filter(function(o){ return o&&ok(o.u); });
+    var il=haveI?[]:(au.ins||[]).filter(function(o){ return o&&ok(o.u); });
+    if(!fl.length&&!il.length) return;
+    var gen=wrap._imgGen||0;
+    wrap._attFailF=!!fl.length; wrap._attFailI=!!il.length;   // 다 받기 전·실패 상태 — 저장 때 옛 보관본에 합침(_claimAttachStore)
+    wrap._imgBusy=(wrap._imgBusy||0)+1;
+    var prev=g('claim_file_preview'), note=null;
+    if(prev&&fl.length){ note=document.createElement('div'); note.style.cssText='font-size:12.5px;color:#4858cc;padding:4px 2px'; note.textContent='저장된 서류 '+fl.length+'개 불러오는 중…'; prev.appendChild(note); }
+    var get=function(u){
+      return fetch(u).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.blob(); })
+        .then(function(b){ return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(e){ res(e.target.result); }; rd.onerror=rej; rd.readAsDataURL(b); }); });
+    };
+    Promise.all([
+      Promise.all(fl.map(function(o){ return get(o.u).then(function(d){ return {n:o.n||'파일',d:d}; },function(){ return null; }); })),
+      Promise.all(il.map(function(o){ return get(o.u).catch(function(){ return null; }); }))
+    ]).then(function(r){
+      if((wrap._imgGen||0)!==gen||wrap.style.display==='none') return;   // 다른 폼으로 바뀜 — 버림
+      if(note) note.remove();
+      var keep=!!wrap._filesEdited, bad=0;
+      // 하나라도 못 받으면 그 종류는 통째로 넣지 않음 — 일부만 넣고 저장하면 보관본이 그 일부로 바뀌어 나머지가 사라짐
+      var fOk=r[0].every(function(x){ return x&&x.d; });
+      if(fOk){ r[0].forEach(function(x){ _claimDocAdd(x.n, x.d); }); wrap._attFailF=false; } else bad+=r[0].length;
+      wrap._filesEdited=keep;
+      var ins=r[1].filter(Boolean);
+      if(ins.length!==r[1].length){ bad+=r[1].length; ins=[]; }
+      if(ins.length&&!(wrap._insFiles||[]).length){
+        wrap._insFiles=ins; wrap._attFailI=false;
+        var insp=g('claim_ins_preview');
+        if(insp){ insp.innerHTML=''; ins.forEach(function(src){
+          if(src.indexOf('data:image')===0){ var img=document.createElement('img'); img.src=src; img.style.cssText='max-width:120px;max-height:100px;border-radius:6px;border:1px solid #ddd;object-fit:cover;margin:2px'; insp.appendChild(img); }
+          else { var d=document.createElement('div'); d.style.cssText='font-size:13px;color:#4858cc;padding:6px 10px;background:#f0f2ff;border-radius:5px;border:1px solid rgba(72,88,204,.2);margin:2px;display:inline-block'; d.innerHTML='<i class="ti ti-file"></i> 첨부파일'; insp.appendChild(d); }
+        }); }
+      }
+      if(bad) toast('저장된 서류 '+bad+'개를 불러오지 못했습니다. 그대로 저장해도 기존 서류는 유지되고, 새로 올린 서류는 기존 서류 뒤에 더해집니다.');
+    }).catch(function(){ if(note) note.remove(); })
+      .then(function(){ if((wrap._imgGen||0)===gen) wrap._imgBusy=Math.max(0,(wrap._imgBusy||1)-1); });
   }catch(e){}
 }
 function _claimSignRestore(canvas, src){
@@ -40747,7 +40798,8 @@ function _persistClaims(){
 // 병원서류·보험사청구파일 원본을 Storage에 보관(claim_packages/attach/<청구id>/) — 2026-08-07
 // 원본 base64는 기기 로컬에만 있고 클라우드 스냅샷이 로컬 저장본을 덮으면 사라지므로,
 // 저장 시 백그라운드로 올려 두면 어느 기기서든 내려받아 완전한 청구파일을 재생성할 수 있다.
-async function _claimAttachStore(c){
+async function _claimAttachStore(c, opt){
+  opt=opt||{};
   try{
     if(!c||!c.id) return;
     if(typeof firebase==='undefined'||!firebase.storage) return;
@@ -40782,12 +40834,21 @@ async function _claimAttachStore(c){
     // 잡고 있던 옛 객체(고아)에 기록하면 유실되므로, id로 현재 배열의 실제 객체를 찾아 기록
     var cur=c;
     try{ (claims||[]).forEach(function(x){ if(x&&x.id===c.id) cur=x; }); }catch(e){}
-    // 옛 보관본 정리(교체 저장 시 고아 파일 축소 — 실패 무방)
+    // 이번에 다시 올린 종류만 교체 — 원본이 없어 못 올린 종류(다른 기기에서 수정·보관본 받기 실패)는 옛 보관본 유지.
+    //   단 첨부 개수 메타가 0이면(✕로 전부 뺀 경우) 유지하지 않음. 옛 파일은 교체한 종류만 정리(실패 무방).
+    //   보관본을 못 받은 채 새 파일만 더했거나(opt.mf/mi) 일부 업로드가 실패했으면 교체하지 않고 옛 목록 뒤에 더함(삭제 없음 — 리뷰 반영).
+    var old=cur.attachUrls||{}, am=c.attachMeta||{};
+    var nF=fl.filter(function(f){ return f&&typeof f.data==='string'&&f.data.indexOf('data:')===0; }).length;
+    var nI=il.filter(function(x){ return typeof x==='string'&&x.indexOf('data:')===0; }).length;
+    var addF=opt.mf||urls.files.length<nF, addI=opt.mi||urls.ins.length<nI;
+    var pick=function(nw,ol,keepOld,add){ return add?(ol||[]).concat(nw):(nw.length?nw:(keepOld?(ol||[]):[])); };
+    var fin={files:pick(urls.files,old.files,+am.f,addF), ins:pick(urls.ins,old.ins,+am.ins,addI)};
     try{
-      var old=cur.attachUrls;
-      if(old){ (old.files||[]).concat(old.ins||[]).forEach(function(o){ try{ if(o&&o.u) firebase.storage().refFromURL(o.u).delete().catch(function(){}); }catch(e){} }); }
+      var drop=[].concat((!addF&&(urls.files.length||!(+am.f)))?(old.files||[]):[], (!addI&&(urls.ins.length||!(+am.ins)))?(old.ins||[]):[]);
+      drop.forEach(function(o){ try{ if(o&&o.u) firebase.storage().refFromURL(o.u).delete().catch(function(){}); }catch(e){} });
     }catch(e){}
-    cur.attachUrls=urls;
+    cur.attachUrls=fin;
+    try{ cur.attachMeta=Object.assign({},cur.attachMeta||{},{f:fin.files.length||(+(cur.attachMeta||{}).f||0), ins:fin.ins.length||(+(cur.attachMeta||{}).ins||0)}); }catch(e){}
     _persistClaims();
   }catch(e){ console.warn('claim attach store err:', e); }
 }
