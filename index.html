@@ -1164,7 +1164,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-3</div>
   </div>
 </div>
 
@@ -30182,6 +30182,7 @@ function _carDb(){ return (window.db&&window.firebase&&firebase.firestore)?windo
 function _carClean(id,o){
   o=o||{}; var r={id:String(id), ok:String(o.ok||''), m:String(o.m||'').slice(0,30), ts:+o.ts||0, ph:[]};
   CAR_F.forEach(function(k){ r[k]=String(o[k]==null?'':o[k]).slice(0,60); });
+  r.noal=o.noal?1:0;   // 알림 꺼짐(2026-11-25 박지순) — 이 건은 만기·진행예정 알림 없음
   r.rn=(o.rn&&typeof o.rn==='object'&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.rn.ex||'')))?{ex:String(o.rn.ex),st:o.rn.st==='plan'?'plan':'done',pd:/^\d{4}-\d{2}-\d{2}$/.test(String(o.rn.pd||''))?String(o.rn.pd):'',ts:+o.rn.ts||0,by:String(o.rn.by||'').slice(0,30)}:null;
   if(Array.isArray(o.ph)) o.ph.slice(0,20).forEach(function(p){ if(p&&_CAR_URL_RE.test(String(p.u||''))) r.ph.push({u:String(p.u), n:String(p.n||'').slice(0,80), k:p.k==='pdf'?'pdf':'img'}); });
   return r;
@@ -30264,7 +30265,7 @@ function _carDraw(){
       +'<td>'+esc(o.way||'-')+'</td>'
       +'<td>'+(ph||'-')+'</td>'
       +(all?'<td>'+esc(o.m||'-')+'</td>':'')
-      +'<td style="white-space:nowrap">'+(_carCanEdit(o)?_carRnBadge(o)+'<button class="bp bnv" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carEdit(this.getAttribute(\'data-carid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carDel(this.getAttribute(\'data-carid\'))">삭제</button>':'')+'</td>'
+      +'<td style="white-space:nowrap">'+(_carCanEdit(o)?_carRnBadge(o)+'<button class="bp bnv" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carEdit(this.getAttribute(\'data-carid\'))">수정</button> <button class="bd bdr" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carDel(this.getAttribute(\'data-carid\'))">삭제</button> <button class="'+(o.noal?'bd bdr':'bp bnv')+'" style="padding:3px 9px;font-size:13px" data-carid="'+at(o.id)+'" onclick="carAlToggle(this.getAttribute(\'data-carid\'))" title="'+(o.noal?'알림이 꺼져 있습니다 — 누르면 다시 켭니다':'만기·진행예정일 알림이 켜져 있습니다 — 누르면 끕니다')+'">'+(o.noal?'🔕 알림꺼짐':'🔔 알림켬')+'</button>':'')+'</td>'
       +'</tr>';
   };
   box.innerHTML=mons.map(function(k){
@@ -30279,7 +30280,7 @@ function _carAlerts(ds){
   if(!cu||!window._carLoaded) return [];
   var key=_rsvKey(), today=td(), out=[];
   (window._carItems||[]).forEach(function(o){
-    if(o.ok!==key||!/^\d{4}-\d{2}-\d{2}$/.test(o.ex)||_carRnDone(o)) return;   // 갱신완료로 표시한 건은 알림 없음
+    if(o.ok!==key||o.noal||!/^\d{4}-\d{2}-\d{2}$/.test(o.ex)||_carRnDone(o)) return;   // 관리 칸 [알림꺼짐]이면 알림 없음   // 갱신완료로 표시한 건은 알림 없음
     if(_carRnPlan(o)){   // 진행예정 — 만기 알림 대신 진행예정일(그날부터)에 알림 1장. 날짜가 없으면 알림 없음
       var pd=o.rn.pd; if(!pd||_carDayDiff(pd,today)>0||(o.ex<today&&pd<today)) return;   // 진행예정일부터 만기일(진행예정일이 더 늦으면 그날)까지
       var pid='car_'+o.id+'_'+o.ex+'_p'+pd; if(ds&&ds.indexOf(pid)>=0) return;
@@ -30450,6 +30451,7 @@ function carPdSave(el){
   var pd=_carPdParse(el.value,o.ex); if(pd===null){ toast('진행예정일은 월/일로 넣어 주세요 (예: 12/05).'); el.focus(); return; }
   if(pd===(o.rn.pd||'')) return;
   db.collection(CAR_COL).doc(id).update({'rn.pd':pd, 'rn.ts':Date.now(), 'rn.by':(cu&&cu.name)||''}).then(function(){
+    try{ o.rn.pd=pd; }catch(e){}
     toast(pd?'진행예정일 '+pd.slice(5).replace('-','/')+' — 그날 알림이 뜹니다.':'진행예정일을 지웠습니다.'); try{ rAlerts(); }catch(e){}
     try{ var ae=document.activeElement; if(!(ae&&ae.classList&&ae.classList.contains('carpd'))) _carDraw(); }catch(e){}
   }).catch(function(e){ console.warn('car pd',e); toast('저장 실패 — 다시 시도해 주세요.'); });
@@ -30464,9 +30466,21 @@ function carRnToggle(id){
   var me=(cu&&cu.name)||'', val=done?FV.delete():(plan?{ex:o.ex,st:'done',ts:Date.now(),by:me}:{ex:o.ex,st:'plan',pd:'',ts:Date.now(),by:me});
   window._carRnBusy[id]=1;
   db.collection(CAR_COL).doc(id).update({rn:val}).then(function(){
-    delete window._carRnBusy[id]; toast(done?'갱신미완료로 바꿨습니다.':(plan?'갱신완료로 표시했습니다.':'진행예정으로 바꿨습니다 — 오른쪽 칸에 진행예정일(월/일)을 넣어 주세요.')); try{ rAlerts(); }catch(e){}
+    delete window._carRnBusy[id]; try{ o.rn=done?null:{ex:o.ex,st:plan?'done':'plan',pd:'',ts:Date.now(),by:me}; }catch(e){}
+    toast(done?'갱신미완료로 바꿨습니다.':(plan?'갱신완료로 표시했습니다.':'진행예정으로 바꿨습니다 — 오른쪽 칸에 진행예정일(월/일)을 넣어 주세요.')); try{ rAlerts(); }catch(e){}
     if(!done&&!plan) setTimeout(function(){ try{ var el=document.querySelector('.carpd[data-carid="'+id+'"]'); if(el) el.focus(); }catch(e){} },400);
   }).catch(function(e){ delete window._carRnBusy[id]; console.warn('car rn',e); toast('저장 실패 — 다시 시도해 주세요.'); });
+}
+// 관리 칸 [알림켬]/[알림꺼짐] (2026-11-25 박지순) — 문서 필드 noal(1=꺼짐). 끄면 그 건의 만기·진행예정 알림이 모두 안 뜸
+function carAlToggle(id){
+  var o=_carFind(id), db=_carDb(); if(!o||!db) return;
+  if(!_carCanEdit(o)){ toast('본인이 등록한 건만 바꿀 수 있습니다.'); return; }
+  window._carAlBusy=window._carAlBusy||{}; if(window._carAlBusy[id]) return;
+  var off=!o.noal; window._carAlBusy[id]=1;
+  db.collection(CAR_COL).doc(id).update({noal:off?1:firebase.firestore.FieldValue.delete()}).then(function(){
+    delete window._carAlBusy[id]; o.noal=off?1:0;   // 화면·알림 바로 반영(실시간 수신도 곧 같은 값)
+    toast(off?'알림을 껐습니다 — 이 건은 만기·진행예정일 알림이 뜨지 않습니다.':'알림을 켰습니다.'); try{ rAlerts(); }catch(e){} try{ _carDraw(); }catch(e){}
+  }).catch(function(e){ delete window._carAlBusy[id]; console.warn('car noal',e); toast('저장 실패 — 다시 시도해 주세요.'); });
 }
 function carDel(id){
   var o=_carFind(id), db=_carDb(); if(!o||!db) return;
