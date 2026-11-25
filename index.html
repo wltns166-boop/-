@@ -1164,7 +1164,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.24-2</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-1</div>
   </div>
 </div>
 
@@ -4246,7 +4246,7 @@ function rSchedulePage(){
   </div>
 </div></div>
 
-<div class="mb" id="m_custinfo"><div class="mo" style="width:min(1000px,96vw);max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
+<div class="mb" id="m_custinfo"><div class="mo" style="width:min(1260px,96vw);max-height:86vh;overflow:auto;background:#fff;border:1px solid rgba(45,65,170,.18)">
   <div class="mth" style="color:#1a1a2e"><span id="m_custinfo_t">고객정보</span><span class="mc" onclick="closeCustInfo()" style="color:#555">×</span></div>
   <div id="m_custinfo_body" style="color:#1a1a2e"></div>
   <div class="mf"><button onclick="closeCustInfo()" style="padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">닫기</button></div>
@@ -23551,7 +23551,7 @@ function _ccStampPreview(){
   im.style.cssText='position:absolute;left:'+(co.x*sc)+'px;top:'+((H-co.y-st.h*k)*sc)+'px;width:'+(st.w*k*sc)+'px;height:'+(st.h*k*sc)+'px;opacity:.85;pointer-events:none;z-index:2;';
   ov.appendChild(im);
 }
-function _renderCustInfoModal(c, fm){
+function _renderCustInfoModal(c, fm, into){
   var t=g('m_custinfo_t'), body=g('m_custinfo_body'), mb=g('m_custinfo');
   if(!body||!mb) return;
   var who=fm||c;
@@ -23697,11 +23697,97 @@ function _renderCustInfoModal(c, fm){
   // 새 창(팝업)으로 띄움(2026-10-07, 사용자 요청) — 마우스로 원하는 곳에 옮기고 크기 조절, 고객마다 창 하나씩.
   //   팝업이 차단되면 기존 모달로 표시. 내용은 위에서 전부 이스케이프됨(about:blank 같은 출처 창이라 XSS 규칙 동일).
   var _ck=(Array.isArray(custs)?custs.indexOf(c):-1)+'_'+(fm&&Array.isArray(c.family)?c.family.indexOf(fm):'m');   // 고객 위치 기준 — 동명이인도 창이 따로
-  if(_custInfoPopup(ttl, inner, _ck, c.m)) return;   // 새 창은 자기 화면이 다 그려진 뒤 스스로 _ciFillCodes를 부름
+  // 이미 떠 있는 고객정보 창(또는 모달) 안에서 오른쪽 [내 고객 검색]으로 다른 고객을 고른 경우 — 그 창의 왼쪽 내용만 바꿈(2026-11-25 박지순 요청)
+  if(into){
+    try{
+      var d=into.document, mEl=d.getElementById('ci_main'); if(!mEl) return;
+      mEl.innerHTML=inner;
+      var h=d.getElementById('ci_h1'); if(h) h.textContent=ttl;
+      if(into!==window) d.title=ttl; else if(t) t.textContent=ttl;
+      var sp=d.getElementById('ci_srch'); if(sp) sp.setAttribute('data-cur',_ck);
+      _ciSrchDraw(into);
+      try{ (d.scrollingElement||d.documentElement).scrollTop=0; }catch(e){}
+      _ciFillCodes(into, c.m);
+    }catch(e){}
+    return;
+  }
+  var full='<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap"><div id="ci_main" style="flex:1 1 auto;min-width:0">'+inner+'</div>'+_ciSrchPanel(_ck)+'</div>';
+  if(_custInfoPopup(ttl, full, _ck, c.m)) return;   // 새 창은 자기 화면이 다 그려진 뒤 스스로 _ciFillCodes·_ciSrchDraw를 부름
   if(t) t.textContent=ttl;
-  body.innerHTML=inner;
+  body.innerHTML=full;
   mb.classList.add('open');
+  _ciSrchDraw(window);
   _ciFillCodes(window, c.m);
+}
+// 고객정보 창 오른쪽 [내 고객 검색] (2026-11-25 — 박지순 요청) — 내가 담당한 고객(총무는 전체)·가족을 이름·연락처·생년월일로 찾아
+//   누르면 같은 창 왼쪽에 그 고객 정보를 다시 그림. 목록·검색은 메인 창 함수가 그 창 문서에 그림(_ciCall 경유 — 새 창·모달 공용).
+//   항목 식별은 원본 인덱스 + 이름(data-ci·data-nm) — 누를 때 다시 확인(함정 A). 저장 없음.
+function _ciSrchPanel(ck){
+  return '<div id="ci_srch" data-cur="'+_alertEsc(ck)+'" style="flex:0 0 236px;width:236px;box-sizing:border-box;position:sticky;top:0;align-self:flex-start;border:1px solid #e3e6f3;border-radius:10px;background:#f8f9fd;padding:10px">'
+    +'<div style="font-weight:700;color:#2a2a4a;font-size:14px;margin-bottom:6px"><i class="ti ti-search"></i> 내 고객 검색</div>'
+    +'<input id="ci_srch_q" type="text" placeholder="이름·연락처·생년월일" autocomplete="off" oninput="_ciCall(\'_ciSrchDraw\',this)" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #c8cdea;border-radius:7px;font-size:13px;font-family:inherit;color:#1a1a2e;background:#fff">'
+    +'<div id="ci_srch_n" style="font-size:11.5px;color:#8890aa;margin:6px 0 4px"></div>'
+    +'<div id="ci_srch_list" style="max-height:calc(100vh - 210px);overflow:auto"></div></div>';
+}
+function _ciMyCusts(){
+  if(Array.isArray(window._custs)) custs=window._custs;
+  var arr=Array.isArray(custs)?custs:[], out=[], seen={}, all=_isChongmu();
+  for(var i=arr.length-1;i>=0;i--){   // 최근 등록부터 — 같은 사람이 두 번 등록돼 있으면 최근 것만
+    var c=arr[i]; if(!c||!c.name) continue;
+    if(!all && !(cu && c.m===cu.name)) continue;
+    var k='m|'+c.name+'|'+(c.rrn||'')+'|'+(c.m||'');
+    if(!seen[k]){ seen[k]=1; out.push({i:i,f:'m',nm:c.name,rel:'',rrn:c.rrn||'',ph:c.phone||''}); }
+    (Array.isArray(c.family)?c.family:[]).forEach(function(f,fi){
+      if(!f||!f.name) return;
+      var k2='f|'+f.name+'|'+(f.rrn||'')+'|'+c.name+'|'+(c.m||''); if(seen[k2]) return; seen[k2]=1;
+      out.push({i:i,f:fi,nm:f.name,rel:c.name+'님 '+(f.rel||'가족'),own:c.name,rrn:f.rrn||'',ph:f.phone||''});
+    });
+  }
+  out.sort(function(a,b){ return a.nm<b.nm?-1:(a.nm>b.nm?1:0); });
+  return out;
+}
+function _ciSrchDraw(win){
+  try{
+    var d=win.document, box=d.getElementById('ci_srch_list'), sp=d.getElementById('ci_srch'); if(!box||!sp) return;
+    var qi=d.getElementById('ci_srch_q'), q=String(qi?qi.value:'').trim().toLowerCase().replace(/\s+/g,''), qd=q.replace(/[^0-9]/g,'');
+    var cur=sp.getAttribute('data-cur')||'', esc=_alertEsc, all=_ciMyCusts();
+    var hit=all.filter(function(x){
+      if(!q) return true;
+      if(String(x.nm).toLowerCase().replace(/\s+/g,'').indexOf(q)>=0) return true;
+      if(x.own && String(x.own).replace(/\s+/g,'').indexOf(q)>=0) return true;
+      if(qd.length>=3){
+        if(String(x.ph).replace(/[^0-9]/g,'').indexOf(qd)>=0) return true;
+        var b=_custBirthGender(x.rrn).birth||'';
+        if(b.replace(/[^0-9]/g,'').indexOf(qd)>=0 || String(x.rrn).replace(/[^0-9]/g,'').slice(0,6).indexOf(qd)>=0) return true;
+      }
+      return false;
+    });
+    var MAX=80, n=d.getElementById('ci_srch_n');
+    if(n) n.textContent=all.length?(q?'찾은 고객 '+hit.length+'명':'내 고객 '+all.length+'명')+(hit.length>MAX?' (앞 '+MAX+'명만 표시)':''):'';
+    if(!all.length){ box.innerHTML='<div style="color:#8890aa;font-size:12.5px;text-align:center;padding:14px 4px">등록된 내 고객이 없습니다.</div>'; return; }
+    if(!hit.length){ box.innerHTML='<div style="color:#8890aa;font-size:12.5px;text-align:center;padding:14px 4px">찾는 고객이 없습니다.</div>'; return; }
+    box.innerHTML=hit.slice(0,MAX).map(function(x){
+      var id=x.i+'_'+x.f, on=id===cur, b=_custBirthGender(x.rrn).birth||'';
+      var sub=[x.rel, b].filter(Boolean).join(' · ');
+      return '<div onclick="_ciCall(\'_ciGo\',this)" data-ci="'+esc(id)+'" data-nm="'+esc(x.nm)+'" style="cursor:pointer;padding:7px 9px;margin-bottom:4px;border-radius:7px;border:1px solid '+(on?'#4858cc':'#e3e6f3')+';background:'+(on?'#eef0ff':'#fff')+'">'
+        +'<div style="font-size:13.5px;font-weight:700;color:#1a1a2e">'+esc(x.nm)+(x.own?' <span style="font-size:11px;font-weight:600;color:#7a6ad0">가족</span>':'')+'</div>'
+        +(sub?'<div style="font-size:11.5px;color:#7a8096;margin-top:1px">'+esc(sub)+'</div>':'')
+        +(x.ph?'<div style="font-size:11.5px;color:#7a8096">'+esc(x.ph)+'</div>':'')+'</div>';
+    }).join('');
+  }catch(e){}
+}
+function _ciGo(win, el){
+  try{
+    var id=String(el.getAttribute('data-ci')||''), nm=el.getAttribute('data-nm')||'';
+    var m=/^(\d+)_(m|\d+)$/.exec(id); if(!m) return;
+    if(Array.isArray(window._custs)) custs=window._custs;
+    var c=Array.isArray(custs)?custs[+m[1]]:null;
+    var fm=(c&&m[2]!=='m'&&Array.isArray(c.family))?c.family[+m[2]]:null;
+    var who=m[2]==='m'?c:fm;
+    if(!c||!who||who.name!==nm){ _ciMsg(win,'고객 목록이 바뀌었습니다 — 다시 검색해 주세요.'); _ciSrchDraw(win); return; }
+    if(!_seeAll() && !(cu && c.m===cu.name)){ _ciMsg(win,'본인 고객만 볼 수 있습니다.'); return; }
+    _renderCustInfoModal(c, fm, win);
+  }catch(e){ _ciMsg(win,'고객정보를 열지 못했습니다: '+((e&&e.message)||e)); }
 }
 // 신청 보험사 표의 코드·비밀번호 채우기 — 담당자 이름 → 계정 키(_icKeyOf, 관리자는 'n_이름') → inscode 문서.
 //   보험사 이름은 공백 무시 일치 우선, 없으면 한쪽이 다른 쪽을 포함하면 같은 보험사로 봄. 권한은 고객정보 창과 동일(총무·담당자 본인만 여는 창).
@@ -23798,8 +23884,8 @@ function _custInfoPopup(ttl, inner, ck, agent){
   var key='custinfo_'+String(ck||'x').replace(/[^0-9A-Za-z_-]/g,'').slice(0,30);
   var w=null;
   try{
-    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1200)-1080), T=(window.screenY||0)+90;
-    w=window.open('', key, 'width=1000,height=720,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
+    var L=(window.screenX||0)+Math.max(40,(window.outerWidth||1300)-1340), T=(window.screenY||0)+90;
+    w=window.open('', key, 'width=1260,height=760,left='+L+',top='+T+',resizable=yes,scrollbars=yes');
   }catch(e){ w=null; }
   if(!w) return false;
   var sc='<scr'+'ipt>'
@@ -23820,10 +23906,10 @@ function _custInfoPopup(ttl, inner, ck, agent){
     +'#ci_bar{position:fixed;left:0;right:0;bottom:0;padding:10px 18px;background:#fff;border-top:1px solid #e3e6f3;text-align:right}'
     +'#ci_bar button{padding:8px 18px;background:#f0f1f8;border:1px solid #ccd0e8;border-radius:7px;color:#2a2a4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}'
     +'#ci_toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);background:#1c2140;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}</style>'
-    +sc+'</head><body><h1>'+_alertEsc(ttl)+'</h1>'+inner
+    +sc+'</head><body><h1 id="ci_h1">'+_alertEsc(ttl)+'</h1>'+inner
     +'<div id="ci_toast"></div><div id="ci_bar"><button onclick="window.close()">닫기</button></div>'
     // 코드·비밀번호 채우기는 창 자신이 요청 — 부모가 미리 잡은 document는 창이 열리며 바뀔 수 있어 빈 문서에 채워지던 문제(v-8 실측)
-    +'<scr'+'ipt>try{var o=window.opener;if(o&&typeof o._ciFillCodes==="function")o._ciFillCodes(window,'+JSON.stringify(String(agent||'')).replace(/</g,'\\u003c')+');}catch(e){}</scr'+'ipt>'
+    +'<scr'+'ipt>try{var o=window.opener;if(o&&typeof o._ciFillCodes==="function")o._ciFillCodes(window,'+JSON.stringify(String(agent||'')).replace(/</g,'\\u003c')+');if(o&&typeof o._ciSrchDraw==="function")o._ciSrchDraw(window);}catch(e){}</scr'+'ipt>'
     +'</body></html>';
   try{
     w.document.open(); w.document.write(html); w.document.close();
