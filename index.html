@@ -1164,7 +1164,7 @@ html.th-h-h066 #cal_wrap .cd.td{background:rgba(0,0,0,.05)!important;color:#0d0d
       </div>
     </div>
     <!-- 앱 버전 표시 — 어떤 기기가 옛 캐시 버전인지 즉시 판별용. 배포용 커밋마다 갱신 -->
-    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-3</div>
+    <div id="lver" style="margin-top:12px;text-align:center;font-size:11px;color:#3a4478;letter-spacing:.5px">v2026.11.25-4</div>
   </div>
 </div>
 
@@ -31991,40 +31991,92 @@ function _dbqCfgSave(ov){ var db=_abDb(); if(!db||!_dbqAdmin()) return; _dbqCfgC
   db.collection('dbreqm').doc(ym).set({ym:ym,until:until,items:c.items,ts:Date.now(),by:cu.name}).then(function(){ toast(_dbqYmLbl(ym)+' 설정을 저장했습니다'); ov.remove(); window._dbqSt.ym=ym; rDbq(); })
     .catch(function(e){ toast('저장하지 못했습니다: '+(e&&e.message||e)); }); }
 // 신청 양식(VISION본부 시트) 자동 기입 — 탑스지점 줄에 권역·업체별 합계, 직할·white지점 줄은 빈칸(기존 양식 그대로), 둘째 시트는 신청자별 내역
-function dbqXlsx(){ if(!_dbqAdmin()) return; var st=window._dbqSt, cfg=st.cfg; if(!cfg){ toast('신청 받는 달이 없습니다'); return; }
-  if(typeof XLSX==='undefined'){ toast('엑셀 도구를 불러오지 못했습니다. 새로고침 후 다시 시도하세요'); return; }
-  var reqs=st.reqs.filter(function(r){ return _dbqCnt(r.lines,cfg)>0; });
-  var by={수도권:cfg.items.filter(function(i){ return i.rg==='수도권'; }),충청권:cfg.items.filter(function(i){ return i.rg==='충청권'; })};
-  var n=Math.max(by['수도권'].length,by['충청권'].length,1);
-  var C=function(c){ return XLSX.utils.encode_col(c); }, tot=function(it){ var t=0; reqs.forEach(function(r){ t+=(r.lines[it.id]||0); }); return t; };
-  var ws={}, put=function(ref,v,st2){ var o; if(v&&typeof v==='object'&&v.f) o={t:'n',f:v.f}; else if(typeof v==='number') o={t:'n',v:v}; else o={t:'s',v:String(v)}; if(st2) o.s=st2; ws[ref]=o; };
-  var bd={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
-  var H={font:{bold:true},alignment:{horizontal:'center',vertical:'center'},border:bd,fill:{fgColor:{rgb:'DDE4F5'}}}, B={alignment:{horizontal:'center'},border:bd}, BB={font:{bold:true},alignment:{horizontal:'center'},border:bd};
-  var Y=Number(cfg.ym.slice(0,4)), M=Number(cfg.ym.slice(5));
-  put('B1',Y+'년 '+M+'월 DB신청수량',{font:{bold:true,sz:14}});
-  var tc=2+n;   // 합계 금액 열(J)
-  function block(rg,r0,rows){ var its=by[rg];
-    put(C(1)+(r0),'['+rg+']',H); its.forEach(function(it,i){ put(C(2+i)+r0,it.nm,H); put(C(2+i)+(r0+1),'('+it.price+'만원)',B); });
-    put(C(1)+(r0+1),'(금액)',B); put(C(tc)+r0,'합계(만원)',H);
-    rows.forEach(function(rw){ var rr=rw[0]; put(C(1)+rr,rw[1],BB);
-      if(rw[2]) its.forEach(function(it,i){ put(C(2+i)+rr,tot(it),B); });   // 직할·white지점 줄은 빈칸(빈 글자 칸을 만들면 합계 수식이 #VALUE!)
-      if(its.length) put(C(tc)+rr,{f:its.map(function(it,i){ return '('+C(2+i)+rr+'*'+it.price+')'; }).join('+')},BB); });
+// [신청 양식 받기] (2026-11-25 백동현 요청 "기존에 준 양식을 최대한 살려서 — 다른 사람들도 기입해야 함"):
+// 백동현이 준 원본 엑셀(form/dbq-form.xlsx)을 그대로 열어(XLSX.CFB — zip) 칸 값만 바꿔 넣는다 — 글꼴·색·테두리·열 너비·수식·'본부직할' 시트 등은 원본 그대로.
+// 바꾸는 칸: 제목 B1(두 시트), VISION본부 4행(수도권 탑스지점)·17행(충청권 탑스지점) 수량, 단가가 다르면 3·16행 단가 글자와 J열 합계 수식. 직할·white지점 줄은 비워 둠(다른 지점이 기입).
+// 업체 칸은 원본 머리글(2행 수도권·15행 충청권) 이름으로 맞춤 — 원본에 없는 업체는 넣지 못하고 알림. ⚠️ 양식이 바뀌면 form/dbq-form.xlsx만 교체(칸 위치 규칙은 같아야 함).
+var DBQ_FORM_URL='form/dbq-form.xlsx';
+function _dbqXmlEsc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _dbqColN(c){ var n=0; for(var i=0;i<c.length;i++) n=n*26+(c.charCodeAt(i)-64); return n; }
+// ref 칸을 val(숫자·글자·{f:수식}·null=비움)로 — 원본 스타일(s)은 유지, 칸이 없으면 그 줄에 열 순서대로 끼움
+function _dbqSetCell(xml, ref, val){
+  var m=/^([A-Z]+)(\d+)$/.exec(ref), col=m[1], row=m[2];
+  var re=new RegExp('<c r="'+ref+'"([^>]*?)(?:/>|>[\\s\\S]*?</c>)'), hit=re.exec(xml), sAttr='';
+  if(hit){ var sm=/\ss="(\d+)"/.exec(hit[1]); if(sm) sAttr=' s="'+sm[1]+'"'; }
+  var body;
+  if(val===null||val===undefined||val==='') body='<c r="'+ref+'"'+sAttr+'/>';
+  else if(typeof val==='object'&&val.f) body='<c r="'+ref+'"'+sAttr+'><f>'+_dbqXmlEsc(val.f)+'</f></c>';
+  else if(typeof val==='number') body='<c r="'+ref+'"'+sAttr+'><v>'+val+'</v></c>';
+  else body='<c r="'+ref+'"'+sAttr+' t="inlineStr"><is><t>'+_dbqXmlEsc(val)+'</t></is></c>';
+  if(hit) return xml.slice(0,hit.index)+body+xml.slice(hit.index+hit[0].length);
+  var rre=new RegExp('<row r="'+row+'"[^>]*?(?:/>|>([\\s\\S]*?)</row>)'), rh=rre.exec(xml);
+  if(!rh){ // 줄이 없으면 sheetData 안 알맞은 자리에 새 줄
+    var rows=[], rr=/<row r="(\d+)"/g, x, at=-1; while((x=rr.exec(xml))){ if(Number(x[1])>Number(row)){ at=x.index; break; } }
+    var nr='<row r="'+row+'">'+body+'</row>';
+    if(at<0) at=xml.indexOf('</sheetData>');
+    return xml.slice(0,at)+nr+xml.slice(at);
   }
-  block('수도권',2,[[4,'탑스지점',1],[10,'직할',0],[12,'white지점',0]]);
-  block('충청권',15,[[17,'탑스지점',1]]);
-  var sc=tc+2;   // 권역별 합산 칸(L)
-  by['수도권'].forEach(function(it,i){ put(C(sc+i)+2,it.nm+(i===0?'(수도권)':''),H); put(C(sc+i)+3,{f:C(2+i)+'4+'+C(2+i)+'10+'+C(2+i)+'12'},B); });
-  by['충청권'].forEach(function(it,i){ put(C(sc+i)+6,it.nm+(i===0?'(충청권)':''),H); put(C(sc+i)+7,{f:C(2+i)+'17'},B); });
-  ws['!ref']='A1:'+C(sc+Math.max(n,1))+'26';
-  ws['!cols']=[{wch:2},{wch:12}].concat(Array.apply(null,Array(n)).map(function(){ return {wch:11}; })).concat([{wch:11},{wch:2}]).concat(Array.apply(null,Array(n)).map(function(){ return {wch:12}; }));
-  // 둘째 시트: 신청자별
-  var its=by['수도권'].concat(by['충청권']);
-  var aoa=[['이름'].concat(its.map(function(it){ return it.rg+' '+it.nm+' ('+it.price+'만원)'; })).concat(['합계 건수','금액(원)','입금','신청 시각'])];
-  reqs.forEach(function(r){ aoa.push([r.nm].concat(its.map(function(it){ return r.lines[it.id]||''; })).concat([_dbqCnt(r.lines,cfg),Math.round(_dbqAmt(r.lines,cfg)*10000),r.paid?'입금완료':'미입금',_dbqTime(r.ut||r.ts)])); });
-  var ws2=XLSX.utils.aoa_to_sheet(aoa); ws2['!cols']=aoa[0].map(function(h,i){ return {wch:i===0?10:Math.min(22,String(h).length+4)}; });
-  Object.keys(ws2).forEach(function(k){ if(/^[A-Z]+1$/.test(k)) ws2[k].s=H; });
-  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'VISION본부'); XLSX.utils.book_append_sheet(wb,ws2,'신청자별');
-  XLSX.writeFile(wb,Y+'년 '+M+'월 DB신청수량.xlsx'); }
+  if(/\/>$/.test(rh[0])){ var open=rh[0].replace(/\/>$/,'>'); return xml.slice(0,rh.index)+open+body+'</row>'+xml.slice(rh.index+rh[0].length); }
+  var inner=rh[1]||'', cr=/<c r="([A-Z]+)\d+"/g, y, pos=inner.length;
+  while((y=cr.exec(inner))){ if(_dbqColN(y[1])>_dbqColN(col)){ pos=y.index; break; } }
+  var start=rh.index+rh[0].indexOf('>')+1;
+  return xml.slice(0,start+pos)+body+xml.slice(start+pos);
+}
+async function dbqXlsx(){ if(!_dbqAdmin()) return; var st=window._dbqSt, cfg=st.cfg; if(!cfg){ toast('신청 받는 달이 없습니다'); return; }
+  if(typeof XLSX==='undefined'||!XLSX.CFB){ toast('엑셀 도구를 불러오지 못했습니다. 새로고침 후 다시 시도하세요'); return; }
+  if(window._dbqXlsBusy) return; window._dbqXlsBusy=true;
+  try{
+    var res=await fetch(DBQ_FORM_URL,{cache:'no-cache'}); if(!res.ok) throw new Error('양식 파일을 받지 못했습니다('+res.status+')');
+    var z=XLSX.CFB.read(new Uint8Array(await res.arrayBuffer()),{type:'array'});
+    var dec=new TextDecoder('utf-8'), enc=new TextEncoder();
+    var getF=function(p){ var e=XLSX.CFB.find(z,'/'+p); if(!e) return null; return dec.decode(e.content instanceof Uint8Array?e.content:new Uint8Array(e.content)); };
+    var putF=function(p,t){ var e=XLSX.CFB.find(z,'/'+p); var u=enc.encode(t); if(e){ e.content=u; e.size=u.length; } else XLSX.CFB.utils.cfb_add(z,'/'+p,u); };   // ⚠️ CFB.find는 앞에 '/'가 있어야 찾음
+    // 시트 이름 → 파일 경로
+    var wbx=getF('xl/workbook.xml'), rels=getF('xl/_rels/workbook.xml.rels')||''; if(!wbx) throw new Error('양식 파일이 엑셀 형식이 아닙니다');
+    var sheets=[], sr=/<sheet [^>]*?name="([^"]*)"[^>]*?r:id="([^"]*)"/g, q; while((q=sr.exec(wbx))){ var tm=new RegExp('Id="'+q[2]+'"[^>]*?Target="([^"]+)"').exec(rels)||new RegExp('Target="([^"]+)"[^>]*?Id="'+q[2]+'"').exec(rels); if(tm) sheets.push({nm:q[1],p:'xl/'+tm[1].replace(/^\/?xl\//,'').replace(/^\//,'')}); }
+    if(!sheets.length) throw new Error('양식 시트를 찾지 못했습니다');
+    var main=sheets.filter(function(x){ return /VISION/.test(x.nm); })[0]||sheets[0];
+    // 공유 글자(머리글 읽기용)
+    var sst=[], sx=getF('xl/sharedStrings.xml')||''; (sx.match(/<si>[\s\S]*?<\/si>/g)||[]).forEach(function(si){ var t=''; si.replace(/<rPh[\s\S]*?<\/rPh>/g,'').replace(/<t[^>]*>([\s\S]*?)<\/t>/g,function(_,v){ t+=v; return ''; }); sst.push(t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); });
+    var xml=getF(main.p); if(!xml) throw new Error('양식 시트를 읽지 못했습니다');
+    var cellText=function(ref){ var m=new RegExp('<c r="'+ref+'"([^>]*?)(?:/>|>([\\s\\S]*?)</c>)').exec(xml); if(!m||!m[2]) return ''; var v=/<v>([\s\S]*?)<\/v>/.exec(m[2]); if(/t="s"/.test(m[1])) return v?(sst[Number(v[1])]||''):''; var it=/<t[^>]*>([\s\S]*?)<\/t>/.exec(m[2]); return it?it[1]:(v?v[1]:''); };
+    var norm=function(t){ return String(t||'').replace(/\s/g,'').toLowerCase(); };
+    var COLS=['C','D','E','F','G','H','I'];
+    var reqs=st.reqs.filter(function(r){ return _dbqCnt(r.lines,cfg)>0; });
+    var tot=function(it){ var t=0; reqs.forEach(function(r){ t+=(r.lines[it.id]||0); }); return t; };
+    var used={}, miss=[];
+    function block(rg, hRow, pRow, qRow, sumRows){
+      var its=cfg.items.filter(function(i){ return i.rg===rg; }), prices=[];
+      COLS.forEach(function(c){
+        var h=norm(cellText(c+hRow)), it=null;
+        if(h) its.forEach(function(x){ if(!it&&!used[x.id]&&norm(x.nm)===h) it=x; });
+        if(!it&&h&&h.indexOf('ks')===0) its.forEach(function(x){ if(!it&&!used[x.id]&&norm(x.nm)==='ks') it=x; });
+        var pm=/([\d.,]+)\s*만/.exec(cellText(c+pRow)), price=pm?Number(pm[1].replace(/,/g,''))||0:0;
+        if(it){ used[it.id]=1; if(Number(it.price)!==price){ price=Number(it.price)||0; xml=_dbqSetCell(xml,c+pRow,'('+price+'만원)'); }
+          var n=tot(it); xml=_dbqSetCell(xml,c+qRow,n>0?n:null); }
+        else if(h) xml=_dbqSetCell(xml,c+qRow,null);   // 원본 예시 숫자 지움
+        prices.push(h?price:0);
+      });
+      sumRows.forEach(function(r){ var f=COLS.map(function(c,i){ return prices[i]?'('+c+r+'*'+prices[i]+')':''; }).filter(Boolean).join('+'); if(f) xml=_dbqSetCell(xml,'J'+r,{f:f}); });
+      its.forEach(function(x){ if(!used[x.id]&&tot(x)>0) miss.push(rg+' '+x.nm+' '+tot(x)+'건'); });
+    }
+    var Y=Number(cfg.ym.slice(0,4)), M=Number(cfg.ym.slice(5)), title=Y+'년 '+M+'월 DB신청수량';
+    xml=_dbqSetCell(xml,'B1',title);
+    block('수도권',2,3,4,[4,10,12]);
+    block('충청권',15,16,17,[17]);
+    xml=xml.replace(/(<f\b[^>]*\/>|<f\b[^>]*[^\/]>[\s\S]*?<\/f>)<v>[\s\S]*?<\/v>/g,'$1');   // 옛 계산값 지움 — 열 때 다시 계산
+    putF(main.p,xml);
+    sheets.forEach(function(x){ if(x===main) return; var sx2=getF(x.p); if(!sx2) return; var t=/<c r="B1"[^>]*t="s"[^>]*><v>(\d+)<\/v>/.exec(sx2); if(t&&/DB신청수량/.test(sst[Number(t[1])]||'')) putF(x.p,_dbqSetCell(sx2,'B1',title)); });   // 본부직할 등 다른 시트 제목도 같은 달로
+    var wbx2=/<calcPr[^>]*\/>/.test(wbx)?wbx.replace(/<calcPr([^>]*?)\/>/,function(m0,a){ return '<calcPr'+a.replace(/\sfullCalcOnLoad="[^"]*"/,'')+' fullCalcOnLoad="1"/>'; }):wbx.replace('</workbook>','<calcPr fullCalcOnLoad="1"/></workbook>');
+    putF('xl/workbook.xml',wbx2);
+    var out=XLSX.CFB.write(z,{fileType:'zip',type:'array'});
+    var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=title+'.xlsx'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },4000);
+    if(miss.length) toast('⚠ 원본 양식에 칸이 없는 업체는 넣지 못했습니다: '+miss.join(', ')+' — 엑셀에서 직접 적어 주세요');
+    else toast('신청 양식을 받았습니다 (원본 양식 그대로)');
+  }catch(e){ console.warn('[dbqXlsx]',e); toast('양식 만들기 실패: '+((e&&e.message)||e)); }
+  finally{ window._dbqXlsBusy=false; }
+}
 function _dbuClear(){ var _dep=g("dbu_edit_pop"); if(_dep) _dep.remove();
   _dbuUnsubscribe();
   window._dbuDocs=null; window._dbuLoaded=false; window._dbuRows=null; window._dbuAllRows=null;
